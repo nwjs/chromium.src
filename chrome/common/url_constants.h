@@ -340,7 +340,10 @@ extern const char kChromeAccessibilityHelpURL[];
 extern const char kChromeOSAssetHost[];
 extern const char kChromeOSAssetPath[];
 
+// Source for chrome://os-credits. On some devices, this will be compressed.
+// Check both.
 extern const char kChromeOSCreditsPath[];
+extern const char kChromeOSCreditsCompressedPath[];
 
 // Chrome OS tablet gestures education help link for Chrome.
 extern const char kChromeOSGestureEducationHelpURL[];
@@ -442,6 +445,14 @@ extern const char kSmartPrivacySettingsLearnMoreURL[];
 // The URL for the "Learn more" page for the network file shares settings page.
 extern const char kSmbSharesLearnMoreURL[];
 
+// The URL for the "Learn more" page for Speak-on-mute Detection in the privacy
+// hub page.
+extern const char kSpeakOnMuteDetectionLearnMoreURL[];
+
+// The URL for the "Learn more" page for the geolocation toggle in the privacy
+// hub page.
+extern const char kGeolocationToggleLearnMoreURL[];
+
 // The URL for the "Learn more" page for Suggested Content in the privacy page.
 extern const char kSuggestedContentLearnMoreURL[];
 
@@ -481,9 +492,6 @@ extern const char kMacOsObsoleteURL[];
 #endif
 
 #if BUILDFLAG(IS_WIN)
-// The URL for the Learn More link in the Chrome Cleanup settings card.
-extern const char kChromeCleanerLearnMoreURL[];
-
 // The URL for the Windows XP/Vista deprecation help center article.
 extern const char kWindowsXPVistaDeprecationURL[];
 

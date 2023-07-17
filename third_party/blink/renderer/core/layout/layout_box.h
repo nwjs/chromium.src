@@ -27,6 +27,7 @@
 
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
+#include "base/gtest_prod_util.h"
 #include "base/notreached.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -541,16 +542,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     return PhysicalVisualOverflowRect();
   }
 #endif
-  LayoutUnit LogicalLeftVisualOverflow() const {
-    NOT_DESTROYED();
-    return StyleRef().IsHorizontalWritingMode() ? VisualOverflowRect().X()
-                                                : VisualOverflowRect().Y();
-  }
-  LayoutUnit LogicalRightVisualOverflow() const {
-    NOT_DESTROYED();
-    return StyleRef().IsHorizontalWritingMode() ? VisualOverflowRect().MaxX()
-                                                : VisualOverflowRect().MaxY();
-  }
 
   LayoutRect SelfVisualOverflowRect() const {
     NOT_DESTROYED();
@@ -1130,6 +1121,11 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     return layout_results_.size();
   }
 
+  bool IsFragmentLessBox() const final {
+    NOT_DESTROYED();
+    return !PhysicalFragmentCount();
+  }
+
   void SetSpannerPlaceholder(LayoutMultiColumnSpannerPlaceholder&);
   void ClearSpannerPlaceholder();
   LayoutMultiColumnSpannerPlaceholder* SpannerPlaceholder() const final {
@@ -1380,8 +1376,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     return Parent() &&
            Parent()->IsHorizontalWritingMode() != IsHorizontalWritingMode();
   }
-  void MarkOrthogonalWritingModeRoot();
-  void UnmarkOrthogonalWritingModeRoot();
 
   bool IsCustomItem() const;
   bool IsCustomItemShrinkToFit() const;
@@ -1473,18 +1467,6 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
     NOT_DESTROYED();
     return LayoutOverflowIsSet();
   }
-
-  // Return true if re-laying out the containing block of this object means that
-  // we need to recalculate the preferred min/max logical widths of this object.
-  //
-  // Calculating min/max widths for an object should ideally only take itself
-  // and its children as input. However, some objects don't adhere strictly to
-  // this rule, and also take input from their containing block to figure out
-  // their min/max widths. This is the case for e.g. shrink-to-fit containers
-  // with percentage inline-axis padding. This isn't good practise, but that's
-  // how it is and how it's going to stay, unless we want to undertake a
-  // substantial maintenance task of the min/max preferred widths machinery.
-  virtual bool NeedsPreferredWidthsRecalculation() const;
 
   // See README.md for an explanation of scroll origin.
   gfx::Vector2d OriginAdjustmentForScrollbars() const;
@@ -1695,12 +1677,14 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
       LayoutUnit intrinsic_logical_widths_initial_block_size,
       bool depends_on_block_constraints,
       bool child_depends_on_block_constraints,
+      bool flex_intrinsic_sizing,
       const MinMaxSizes* sizes) {
     NOT_DESTROYED();
     intrinsic_logical_widths_initial_block_size_ =
         intrinsic_logical_widths_initial_block_size;
     SetIntrinsicLogicalWidthsDependsOnBlockConstraints(
         depends_on_block_constraints);
+    SetIntrinsicLogicalWidthsInFlexIntrinsicSizing(flex_intrinsic_sizing);
     SetIntrinsicLogicalWidthsChildDependsOnBlockConstraints(
         child_depends_on_block_constraints);
     if (sizes)
@@ -1757,6 +1741,15 @@ class CORE_EXPORT LayoutBox : public LayoutBoxModelObject {
 
   // This should be called when the border-box size of this box is changed.
   void SizeChanged();
+
+  // Finds the target anchor element for the given name in the containing block.
+  // https://drafts.csswg.org/css-anchor-position-1/#target-anchor-element
+  const LayoutObject* FindTargetAnchor(const ScopedCSSName&) const;
+
+  // Returns this element's implicit anchor element if there is one and it is an
+  // acceptable anchor element.
+  // https://drafts.csswg.org/css-anchor-position-1/#ref-for-valdef-anchor-implicit
+  const LayoutObject* AcceptableImplicitAnchor() const;
 
  protected:
   ~LayoutBox() override;

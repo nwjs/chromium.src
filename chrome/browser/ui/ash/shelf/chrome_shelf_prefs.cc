@@ -58,9 +58,9 @@
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/app_update.h"
 #include "components/sync/base/user_selectable_type.h"
-#include "components/sync/driver/sync_service.h"
-#include "components/sync/driver/sync_user_settings.h"
 #include "components/sync/model/string_ordinal.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "extensions/common/constants.h"
 #include "url/gurl.h"
@@ -263,14 +263,14 @@ std::vector<std::string> ChromeShelfPrefs::GetAppsPinnedByPolicy(
 
   std::vector<std::string> results;
   for (const auto& policy_entry : policy_entries) {
-    absl::optional<std::string> app_id =
-        apps_util::GetAppIdFromPolicyId(helper->profile(), policy_entry);
-    if (app_id) {
-      results.push_back(std::move(*app_id));
-    } else {
-      LOG(ERROR) << "No matching app found for |policy_entry| = "
-                 << policy_entry;
+    std::vector<std::string> app_ids =
+        apps_util::GetAppIdsFromPolicyId(helper->profile(), policy_entry);
+    if (app_ids.empty()) {
+      LOG(WARNING) << "No matching app(s) found for |policy_entry| = "
+                   << policy_entry;
+      continue;
     }
+    base::Extend(results, std::move(app_ids));
   }
 
   return results;

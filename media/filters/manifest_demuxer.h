@@ -36,6 +36,22 @@ class MEDIA_EXPORT ManifestDemuxerEngineHost {
  public:
   virtual ~ManifestDemuxerEngineHost() {}
 
+  // Adds a new role to the chunk demuxer, and returns true if it succeeded.
+  virtual bool AddRole(std::string role,
+                       std::string container,
+                       std::string codec);
+
+  // Removes a role (on the media thread) to ensure that there are no
+  // media-thread-bound weak references.
+  virtual void RemoveRole(std::string role);
+
+  // Sets the sequence mode flag for a |role| which has been created with
+  // `AddRole`
+  virtual void SetSequenceMode(std::string role, bool sequence_mode);
+
+  // Sets the chunk demuxer duration.
+  virtual void SetDuration(double duration);
+
   // Handle errors.
   virtual void OnError(PipelineStatus error);
 };
@@ -125,11 +141,18 @@ class MEDIA_EXPORT ManifestDemuxer : public Demuxer, ManifestDemuxerEngineHost {
                                    TrackChangeCB change_completed_cb) override;
 
   // `ManifestDemuxerEngineHost` implementation
+  bool AddRole(std::string role,
+               std::string container,
+               std::string codec) override;
+  void RemoveRole(std::string role) override;
+  void SetSequenceMode(std::string role, bool sequence_mode) override;
+  void SetDuration(double duration) override;
   void OnError(PipelineStatus status) override;
 
   // Allow unit tests to grab the chunk demuxer.
   ChunkDemuxer* GetChunkDemuxerForTesting();
   bool has_pending_seek_for_testing() const { return !pending_seek_.is_null(); }
+  base::TimeDelta get_media_time_for_testing() const { return media_time_; }
   bool has_pending_event_for_testing() const { return has_pending_event_; }
   bool has_next_task_for_testing() const {
     return !cancelable_next_event_.IsCancelled();
@@ -157,7 +180,7 @@ class MEDIA_EXPORT ManifestDemuxer : public Demuxer, ManifestDemuxerEngineHost {
 
    private:
     WrapperReadCb read_cb_;
-    base::raw_ptr<DemuxerStream> stream_;
+    raw_ptr<DemuxerStream> stream_;
   };
 
   void OnChunkDemuxerInitialized(PipelineStatus init_status);
@@ -165,6 +188,11 @@ class MEDIA_EXPORT ManifestDemuxer : public Demuxer, ManifestDemuxerEngineHost {
   void OnProgress();
   void OnEncryptedMediaData(EmeInitDataType type,
                             const std::vector<uint8_t>& data);
+  void OnChunkDemuxerParseWarning(std::string role,
+                                  SourceBufferParseWarning warning);
+  void OnChunkDemuxerTracksChanged(std::string role,
+                                   std::unique_ptr<MediaTracks> tracks);
+
   void OnDemuxerStreamRead(DemuxerStream::ReadCB wrapped_read_cb,
                            DemuxerStream::Status status,
                            DemuxerStream::DecoderBufferVector buffers);
@@ -174,7 +202,7 @@ class MEDIA_EXPORT ManifestDemuxer : public Demuxer, ManifestDemuxerEngineHost {
   void SeekInternal();
   void OnChunkDemuxerSeeked(PipelineStatus seek_status);
   void OnEngineSeekComplete(base::TimeDelta delay_time);
-  void CompletePendingSeek();
+  void TryCompletePendingSeek();
 
   // Allows for both the chunk demuxer and the engine to be required for
   // initialization.
@@ -200,7 +228,7 @@ class MEDIA_EXPORT ManifestDemuxer : public Demuxer, ManifestDemuxerEngineHost {
   // Wrapped chunk demuxer that actually does the parsing and demuxing of the
   // raw data we feed it.
   std::unique_ptr<ChunkDemuxer> chunk_demuxer_;
-  base::raw_ptr<DemuxerHost> host_;
+  raw_ptr<DemuxerHost> host_;
 
   // Updated by seek, and by updates from outgoing frames.
   base::TimeDelta media_time_ = base::Seconds(0);
@@ -221,6 +249,7 @@ class MEDIA_EXPORT ManifestDemuxer : public Demuxer, ManifestDemuxerEngineHost {
 
   // Flag for the two-cb wait for finishing a seek.
   bool seek_waiting_on_engine_ = false;
+  bool seek_waiting_on_demuxer_ = false;
 
   // Pending an event. Don't trigger a new event chain while one is in
   // progress.

@@ -488,7 +488,7 @@ class CoreImpl {
     // object.
     Clear();
 
-    // Perform the actual move/destory operation on the target function.
+    // Perform the actual move/destroy operation on the target function.
     other.manager_(FunctionToCall::relocate_from_to, &other.state_, &state_);
     manager_ = other.manager_;
     invoker_ = other.invoker_;
@@ -824,7 +824,7 @@ using CanAssignReferenceWrapper = TrueAlias<
       auto* invoker = this->invoker_;                                          \
       if (!std::is_const<QualifiedTestType>::value &&                          \
           std::is_rvalue_reference<QualifiedTestType>::value) {                \
-        ABSL_HARDENING_ASSERT([this]() {                                       \
+        ABSL_ASSERT([this]() {                                                 \
           /* We checked that this isn't const above, so const_cast is safe */  \
           const_cast<Impl*>(this)->invoker_ = InvokedAfterMove;                \
           return this->HasValue();                                             \

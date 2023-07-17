@@ -212,6 +212,10 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::DeleteUpdaterDirectory(updater_scope_);
   }
 
+  void DeleteFile(const base::FilePath& path) const override {
+    updater::test::DeleteFile(updater_scope_, path);
+  }
+
   void InstallApp(const std::string& app_id) const override {
     updater::test::InstallApp(updater_scope_, app_id);
   }
@@ -329,6 +333,12 @@ class IntegrationTestCommandsUser : public IntegrationTestCommands {
     updater::test::RunOfflineInstall(updater_scope_, is_legacy_install,
                                      is_silent_install);
   }
+
+  void DMDeregisterDevice() override {
+    updater::test::DMDeregisterDevice(updater_scope_);
+  }
+
+  void DMCleanup() override { updater::test::DMCleanup(updater_scope_); }
 
  private:
   ~IntegrationTestCommandsUser() override = default;

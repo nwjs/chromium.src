@@ -90,18 +90,20 @@ SampleColorScheme GenerateSampleColorScheme(bool dark,
 
   std::unique_ptr<ui::Palette> palette =
       ui::GeneratePalette(seed_color, ToVariant(scheme));
-  // TODO(b/277820985): Update these tones when we decide on better ones.
-  // These match the tone values for cros.sys.primary,
-  // cros.sys.primary-container, and cros.sys.tertiary-container. Since we don't
-  // need all the colors in the mixer (which would be slower), it's
-  // reimplemented here.
   SampleColorScheme sample;
   sample.scheme = scheme;
-  sample.primary = palette->primary().get(dark ? 80.f : 40.f);  // primary
-  sample.secondary =
-      palette->primary().get(dark ? 30.f : 90.f);  // primary-container
-  sample.tertiary =
-      palette->tertiary().get(dark ? 30.f : 90.f);  // tertiary-container
+  // Tertiary is cros.ref.teratiary-70 for all color schemes.
+  sample.tertiary = palette->tertiary().get(70.f);  // tertiary 70
+
+  if (scheme == ColorScheme::kVibrant) {
+    // Vibrant uses cros.ref.primary-70 and cros.ref.primary-50.
+    sample.primary = palette->primary().get(70.f);    // primary 70
+    sample.secondary = palette->primary().get(50.f);  // primary 50
+  } else {
+    // All other schemes use cros.ref.primary-80 and cros.ref.primary-60.
+    sample.primary = palette->primary().get(80.f);    // primary 80
+    sample.secondary = palette->primary().get(60.f);  // primary 60
+  }
 
   return sample;
 }
@@ -366,10 +368,9 @@ class ColorPaletteControllerImpl : public ColorPaletteController,
   base::ScopedObservation<WallpaperController, WallpaperControllerObserver>
       wallpaper_observation_{this};
 
-  base::raw_ptr<WallpaperControllerImpl> wallpaper_controller_;  // unowned
+  raw_ptr<WallpaperControllerImpl> wallpaper_controller_;  // unowned
 
-  base::raw_ptr<DarkLightModeController>
-      dark_light_mode_controller_;  // unowned
+  raw_ptr<DarkLightModeController> dark_light_mode_controller_;  // unowned
 
   base::ObserverList<ColorPaletteController::Observer> observers_;
 };

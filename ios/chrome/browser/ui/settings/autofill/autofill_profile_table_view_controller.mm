@@ -17,12 +17,12 @@
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/prefs/pref_service.h"
 #import "components/strings/grit/components_strings.h"
-#import "ios/chrome/browser/application_context/application_context.h"
 #import "ios/chrome/browser/autofill/personal_data_manager_factory.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/net/crurl.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_text_item.h"
@@ -101,6 +101,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 // Default NO. YES, when the autofill syncing is enabled.
 @property(nonatomic, assign, getter=isSyncEnabled) BOOL syncEnabled;
+
+// Default NO. YES, if the user is signed in.
+@property(nonatomic, assign) BOOL signedIn;
 
 // Coordinator that managers a UIAlertController to delete addresses.
 @property(nonatomic, strong) ActionSheetCoordinator* deletionSheetCoordinator;
@@ -263,7 +266,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   } else {
     item.autofillProfileSource = AutofillLocalProfile;
     if (base::FeatureList::IsEnabled(
-            autofill::features::kAutofillAccountProfileStorage)) {
+            autofill::features::kAutofillAccountProfileStorage) &&
+        self.signedIn) {
       item.image = CustomSymbolTemplateWithPointSize(
           kCloudSlashSymbol, kCloudSlashSymbolPointSize);
     }
@@ -544,6 +548,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (void)setSyncingUserEmail {
   self.syncEnabled = NO;
+  self.signedIn = NO;
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForBrowserState(
           _browser->GetBrowserState());
@@ -554,6 +559,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
     SyncSetupService* syncSetupService =
         SyncSetupServiceFactory::GetForBrowserState(
             _browser->GetBrowserState());
+    self.signedIn = YES;
     if (syncSetupService->IsDataTypeActive(syncer::AUTOFILL)) {
       self.syncingUserEmail = identity.userEmail;
       self.syncEnabled = YES;

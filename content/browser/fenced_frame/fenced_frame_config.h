@@ -75,6 +75,7 @@
 #include "base/memory/ref_counted.h"
 #include "content/browser/fenced_frame/fenced_frame_reporter.h"
 #include "content/common/content_export.h"
+#include "services/network/public/cpp/attribution_reporting_runtime_features.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/fenced_frame/redacted_fenced_frame_config.h"
 #include "third_party/blink/public/mojom/fenced_frame/fenced_frame.mojom.h"
@@ -97,8 +98,9 @@ using SharedStorageBudgetMetadata =
 struct CONTENT_EXPORT AutomaticBeaconInfo {
   AutomaticBeaconInfo(
       const std::string& data,
-      const std::vector<blink::FencedFrame::ReportingDestination>&
-          destinations);
+      const std::vector<blink::FencedFrame::ReportingDestination>& destinations,
+      network::AttributionReportingRuntimeFeatures
+          attribution_reporting_runtime_features);
 
   AutomaticBeaconInfo(const AutomaticBeaconInfo&);
   AutomaticBeaconInfo(AutomaticBeaconInfo&&);
@@ -110,6 +112,10 @@ struct CONTENT_EXPORT AutomaticBeaconInfo {
 
   std::string data;
   std::vector<blink::FencedFrame::ReportingDestination> destinations;
+  // Indicates whether Attribution Reporting API related runtime features are
+  // enabled and is needed for integration with Attribution Reporting API.
+  network::AttributionReportingRuntimeFeatures
+      attribution_reporting_runtime_features;
 };
 
 // Different kinds of entities (renderers) that should receive different
@@ -300,6 +306,17 @@ struct CONTENT_EXPORT FencedFrameConfig {
   // is only used during the construction of `FencedFrameProperties`, where it
   // is copied directly to the field of same name in `FencedFrameProperties`.
   bool is_ad_component_ = false;
+
+  // Contains the list of permissions policy features that need to be enabled
+  // for a fenced frame with this configuration to load. APIs that load fenced
+  // frames, such as FLEDGE and Shared Storage, require certain features to be
+  // enabled in the frame's permissions policy, but they cannot be set directly
+  // by the embedder since that opens a communication channel. The API that
+  // constructs the config will set this directly.
+  // See entry in spec:
+  // https://wicg.github.io/fenced-frame/#fenced-frame-config-effective-enabled-permissions
+  std::vector<blink::mojom::PermissionsPolicyFeature>
+      required_permissions_to_load;
 };
 
 // Contains a set of fenced frame properties. These are generated at
@@ -349,8 +366,9 @@ struct CONTENT_EXPORT FencedFrameProperties {
   // `reserved.top_navigation` automatic beacon.
   void UpdateAutomaticBeaconData(
       const std::string& event_data,
-      const std::vector<blink::FencedFrame::ReportingDestination>&
-          destinations);
+      const std::vector<blink::FencedFrame::ReportingDestination>& destinations,
+      network::AttributionReportingRuntimeFeatures
+          attribution_reporting_runtime_features);
 
   const absl::optional<AutomaticBeaconInfo>& automatic_beacon_info() const {
     return automatic_beacon_info_;
@@ -417,6 +435,17 @@ struct CONTENT_EXPORT FencedFrameProperties {
   // This flag is needed to enable automatic reportEvent beacon support for
   // ad component.
   bool is_ad_component_ = false;
+
+  // Contains the list of permissions policy features that need to be enabled
+  // for a fenced frame with this configuration to load. APIs that load fenced
+  // frames, such as FLEDGE and Shared Storage, require certain features to be
+  // enabled in the frame's permissions policy, but they cannot be set directly
+  // by the embedder since that opens a communication channel. The API that
+  // constructs the config will set this directly.
+  // See entry in spec:
+  // https://wicg.github.io/fenced-frame/#fenced-frame-config-effective-enabled-permissions
+  std::vector<blink::mojom::PermissionsPolicyFeature>
+      required_permissions_to_load;
 };
 
 }  // namespace content

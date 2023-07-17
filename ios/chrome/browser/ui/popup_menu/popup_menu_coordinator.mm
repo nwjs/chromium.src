@@ -13,13 +13,11 @@
 #import "base/metrics/user_metrics_action.h"
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
-#import "ios/chrome/browser/application_context/application_context.h"
+#import "ios/chrome/browser/bookmarks/account_bookmark_model_factory.h"
 #import "ios/chrome/browser/bookmarks/local_or_syncable_bookmark_model_factory.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/feature_engagement/tracker_factory.h"
 #import "ios/chrome/browser/follow/follow_action_state.h"
 #import "ios/chrome/browser/follow/follow_browser_agent.h"
-#import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter.h"
 #import "ios/chrome/browser/promos_manager/promos_manager_factory.h"
@@ -27,6 +25,10 @@
 #import "ios/chrome/browser/reading_list/reading_list_model_factory.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
@@ -60,7 +62,6 @@
 #import "ios/chrome/browser/ui/presenters/contained_presenter_delegate.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/web/web_navigation_browser_agent.h"
-#import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
@@ -225,13 +226,14 @@ enum class IOSOverflowMenuActionType {
       UIContentSizeCategory contentSizeCategory =
           self.baseViewController.traitCollection.preferredContentSizeCategory;
 
+      self.overflowMenuMediator.isIncognito =
+          self.browser->GetBrowserState()->IsOffTheRecord();
       self.overflowMenuMediator.visibleDestinationsCount =
           [OverflowMenuUIConfiguration
               numDestinationsVisibleWithoutHorizontalScrollingForScreenWidth:
                   screenWidth
                                                       forContentSizeCategory:
                                                           contentSizeCategory];
-
       self.overflowMenuMediator.dispatcher =
           static_cast<id<ActivityServiceCommands, ApplicationCommands,
                          BrowserCoordinatorCommands, FindInPageCommands,
@@ -247,10 +249,11 @@ enum class IOSOverflowMenuActionType {
       self.overflowMenuMediator.navigationAgent =
           WebNavigationBrowserAgent::FromBrowser(self.browser);
       self.overflowMenuMediator.baseViewController = self.baseViewController;
-      self.overflowMenuMediator.isIncognito =
-          self.browser->GetBrowserState()->IsOffTheRecord();
-      self.overflowMenuMediator.bookmarkModel =
+      self.overflowMenuMediator.localOrSyncableBookmarkModel =
           ios::LocalOrSyncableBookmarkModelFactory::GetForBrowserState(
+              self.browser->GetBrowserState());
+      self.overflowMenuMediator.accountBookmarkModel =
+          ios::AccountBookmarkModelFactory::GetForBrowserState(
               self.browser->GetBrowserState());
       self.overflowMenuMediator.browserStatePrefs =
           self.browser->GetBrowserState()->GetPrefs();
@@ -278,13 +281,20 @@ enum class IOSOverflowMenuActionType {
 
       self.contentBlockerMediator.consumer = self.overflowMenuMediator;
 
+      NSInteger highlightDestination =
+          [self.popupMenuHelpCoordinator highlightDestination] == nil
+              ? -1
+              : [[self.popupMenuHelpCoordinator highlightDestination]
+                    integerValue];
       OverflowMenuUIConfiguration* uiConfiguration =
           [[OverflowMenuUIConfiguration alloc]
               initWithPresentingViewControllerHorizontalSizeClass:
                   self.baseViewController.traitCollection.horizontalSizeClass
                         presentingViewControllerVerticalSizeClass:
                             self.baseViewController.traitCollection
-                                .verticalSizeClass];
+                                .verticalSizeClass
+                                             highlightDestination:
+                                                 highlightDestination];
 
       self.popupMenuHelpCoordinator.uiConfiguration = uiConfiguration;
 
@@ -344,7 +354,7 @@ enum class IOSOverflowMenuActionType {
                        animated:YES
                      completion:^{
                        [weakSelf.popupMenuHelpCoordinator
-                           showOverflowMenuIPHInViewController:menu];
+                           showHistoryOnOverflowMenuIPHInViewController:menu];
                      }];
       return;
     }

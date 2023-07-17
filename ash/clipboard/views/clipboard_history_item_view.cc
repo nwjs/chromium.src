@@ -25,7 +25,6 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/border.h"
-#include "ui/views/controls/menu/menu_config.h"
 #include "ui/views/controls/menu/menu_item_view.h"
 #include "ui/views/layout/fill_layout.h"
 
@@ -87,7 +86,6 @@ std::unique_ptr<ClipboardHistoryItemView>
 ClipboardHistoryItemView::CreateFromClipboardHistoryItem(
     const base::UnguessableToken& item_id,
     const ClipboardHistory* clipboard_history,
-    const ClipboardHistoryResourceManager* resource_manager,
     views::MenuItemView* container) {
   const auto* item = GetClipboardHistoryItemImpl(item_id, clipboard_history);
   const auto display_format = item->display_format();
@@ -102,7 +100,7 @@ ClipboardHistoryItemView::CreateFromClipboardHistoryItem(
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kPng:
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kHtml:
       return std::make_unique<ClipboardHistoryBitmapItemView>(
-          item_id, clipboard_history, resource_manager, container);
+          item_id, clipboard_history, container);
     case crosapi::mojom::ClipboardHistoryDisplayFormat::kFile:
       return std::make_unique<ClipboardHistoryFileItemView>(
           item_id, clipboard_history, container);
@@ -271,7 +269,7 @@ const ClipboardHistoryItem* ClipboardHistoryItemView::GetClipboardHistoryItem()
 
 gfx::Size ClipboardHistoryItemView::CalculatePreferredSize() const {
   const int preferred_width =
-      views::MenuConfig::instance().touchable_menu_min_width;
+      clipboard_history_util::GetPreferredItemViewWidth();
   return gfx::Size(preferred_width, GetHeightForWidth(preferred_width));
 }
 

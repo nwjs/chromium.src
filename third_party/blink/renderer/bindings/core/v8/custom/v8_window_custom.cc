@@ -68,7 +68,7 @@ namespace blink {
 template <typename CallbackInfo>
 static void LocationAttributeGet(const CallbackInfo& info) {
   v8::Local<v8::Object> holder = info.Holder();
-  DOMWindow* window = V8Window::ToImpl(holder);
+  DOMWindow* window = V8Window::ToWrappableUnsafe(holder);
   window->ReportCoopAccess("location");
   Location* location = window->location();
   DCHECK(location);
@@ -123,7 +123,7 @@ static void ParentAttributeGet(const CallbackInfo& info)
   blink_win->ReportCoopAccess(property_name);
   DOMWindow* return_value = blink_win->parent();
   if (blink_win->IsLocalDOMWindow()) {
-    LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+    LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToWrappableUnsafe(info.Holder()));
     LocalFrame* frame = imp->GetFrame();
     if (frame && frame->isNwFakeTop()) {
       V8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
@@ -145,7 +145,7 @@ static void TopAttributeGet(const CallbackInfo& info)
   blink_win->ReportCoopAccess(property_name);
   DOMWindow* return_value = blink_win->top();
   if (blink_win->IsLocalDOMWindow()) {
-    LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+    LocalDOMWindow* imp = To<LocalDOMWindow>(V8Window::ToWrappableUnsafe(info.Holder()));
     LocalFrame* frame = imp->GetFrame();
     if (frame) {
       for (LocalFrame* f = frame; f; ) {
@@ -189,7 +189,8 @@ void V8Window::TopAttributeGetterCustom(
 
 void V8Window::FrameElementAttributeGetterCustom(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
-  LocalDOMWindow* impl = To<LocalDOMWindow>(V8Window::ToImpl(info.Holder()));
+  LocalDOMWindow* impl =
+      To<LocalDOMWindow>(V8Window::ToWrappableUnsafe(info.Holder()));
   Element* frameElement = impl->frameElement();
 
   LocalFrame* frame = impl->GetFrame();
@@ -197,9 +198,8 @@ void V8Window::FrameElementAttributeGetterCustom(
     V8SetReturnValueNull(info);
     return;
   }
-  if (!BindingSecurity::ShouldAllowAccessTo(
-          CurrentDOMWindow(info.GetIsolate()), frameElement,
-          BindingSecurity::ErrorReportOption::kDoNotReport)) {
+  if (!BindingSecurity::ShouldAllowAccessTo(CurrentDOMWindow(info.GetIsolate()),
+                                            frameElement)) {
     V8SetReturnValueNull(info);
     return;
   }
@@ -268,7 +268,7 @@ void V8Window::OpenerAttributeSetterCustom(
 void V8Window::NamedPropertyGetterCustom(
     const AtomicString& name,
     const v8::PropertyCallbackInfo<v8::Value>& info) {
-  DOMWindow* window = V8Window::ToImpl(info.Holder());
+  DOMWindow* window = V8Window::ToWrappableUnsafe(info.Holder());
   if (!window)
     return;
 
@@ -297,7 +297,8 @@ void V8Window::NamedPropertyGetterCustom(
     // active document's origin is not same origin with activeDocument's origin
     // and whose browsing context name does not match the name of its browsing
     // context container's name content attribute value.
-    if (BindingSecurity::ShouldAllowNamedAccessTo(window, child->DomWindow()) ||
+    if (frame->GetSecurityContext()->GetSecurityOrigin()->CanAccess(
+            child->GetSecurityContext()->GetSecurityOrigin()) ||
         name == child->Owner()->BrowsingContextContainerName()) {
       bindings::V8SetReturnValue(
           info, child->DomWindow(), window,
@@ -313,9 +314,8 @@ void V8Window::NamedPropertyGetterCustom(
 
   // This is a cross-origin interceptor. Check that the caller has access to the
   // named results.
-  if (!BindingSecurity::ShouldAllowAccessTo(
-          CurrentDOMWindow(info.GetIsolate()), window,
-          BindingSecurity::ErrorReportOption::kDoNotReport)) {
+  if (!BindingSecurity::ShouldAllowAccessTo(CurrentDOMWindow(info.GetIsolate()),
+                                            window)) {
     // HTML 7.2.3.3 CrossOriginGetOwnPropertyHelper ( O, P )
     // https://html.spec.whatwg.org/C/#crossorigingetownpropertyhelper-(-o,-p-)
     // step 3. If P is "then", @@toStringTag, @@hasInstance, or

@@ -9,7 +9,7 @@
 import 'chrome://resources/cr_elements/md_select.css.js';
 import 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
-import '../../settings_shared.css.js';
+import '../settings_shared.css.js';
 import './os_japanese_clear_ime_data_dialog.js';
 import './os_japanese_manage_user_dictionary_page.js';
 
@@ -90,7 +90,7 @@ type AutocorrectOptionMapKey = keyof typeof AUTOCORRECT_OPTION_MAP_OVERRIDE;
 const SettingsInputMethodOptionsPageElementBase =
     RouteObserverMixin(PrefsMixin(I18nMixin(DeepLinkingMixin(PolymerElement))));
 
-class SettingsInputMethodOptionsPageElement extends
+export class SettingsInputMethodOptionsPageElement extends
     SettingsInputMethodOptionsPageElementBase {
   static get is() {
     return 'settings-input-method-options-page' as const;

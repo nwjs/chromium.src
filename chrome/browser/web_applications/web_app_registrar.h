@@ -140,6 +140,10 @@ class WebAppRegistrar : public ProfileManagerObserver {
   // Returns true if the app was installed by the SubApp API.
   bool WasInstalledBySubApp(const AppId& app_id) const;
 
+  // Returns true if the app exists and is allowed to be uninstalled by the user
+  // e.g. it is not policy installed.
+  bool CanUserUninstallWebApp(const AppId& app_id) const;
+
   // Returns the AppIds and URLs of apps externally installed from
   // |install_source|.
   base::flat_map<AppId, base::flat_set<GURL>> GetExternallyInstalledApps(
@@ -186,6 +190,10 @@ class WebAppRegistrar : public ProfileManagerObserver {
   // Requires app registry to be in a ready state.
   int CountUserInstalledApps() const;
 
+  // Count a number of all apps which are installed by the user but not locally
+  // installed (aka installed via sync).
+  int CountUserInstalledNotLocallyInstalledApps() const;
+
   // All names are UTF8 encoded.
   std::string GetAppShortName(const AppId& app_id) const;
   std::string GetAppDescription(const AppId& app_id) const;
@@ -195,7 +203,7 @@ class WebAppRegistrar : public ProfileManagerObserver {
   absl::optional<SkColor> GetAppDarkModeBackgroundColor(
       const AppId& app_id) const;
   const GURL& GetAppStartUrl(const AppId& app_id) const;
-  absl::optional<std::string> GetAppManifestId(const AppId& app_id) const;
+  ManifestId GetAppManifestId(const AppId& app_id) const;
   const std::string* GetAppLaunchQueryParams(const AppId& app_id) const;
   const apps::ShareTarget* GetAppShareTarget(const AppId& app_id) const;
   const apps::FileHandlers* GetAppFileHandlers(const AppId& app_id) const;
@@ -281,6 +289,10 @@ class WebAppRegistrar : public ProfileManagerObserver {
   // Returns whether |url| is in the scope of |app_id|.
   bool IsUrlInAppScope(const GURL& url, const AppId& app_id) const;
 
+  // Returns the strength of matching |url| to the extended & regular scope of
+  // |app_id|. Returns 0 if not in extended scope.
+  size_t GetAppExtendedScopeScore(const GURL& url, const AppId& app_id) const;
+
   // Returns the strength of matching |url_spec| to the scope of |app_id|,
   // returns 0 if not in scope.
   size_t GetUrlInAppScopeScore(const std::string& url_spec,
@@ -336,7 +348,7 @@ class WebAppRegistrar : public ProfileManagerObserver {
 
   // Computes and returns the unhashed app id from entries in the web app
   // manifest.
-  std::string GetComputedUnhashedAppId(const AppId& app_id) const;
+  GURL GetComputedManifestId(const AppId& app_id) const;
 
   // Returns whether the app should be opened in tabbed window mode.
   bool IsTabbedWindowModeEnabled(const AppId& app_id) const;

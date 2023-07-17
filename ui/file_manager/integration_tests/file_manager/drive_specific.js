@@ -737,6 +737,12 @@ testcase.driveLinkToDirectory = async () => {
   await remoteCall.waitUntilSelected(appId, 'G');
   await remoteCall.waitForElement(appId, '.table-row[selected]');
 
+  if ((await sendTestMessage({name: 'isDriveShortcutsEnabled'})) === 'true') {
+    // Ensure the "G" directory has the shortcut class applied.
+    await remoteCall.waitForElement(
+        appId, '#file-list [file-name="G"].shortcut');
+  }
+
   // Open the link
   chrome.test.assertTrue(
       await remoteCall.callRemoteTestUtil('openFile', appId, ['G']));
@@ -1283,4 +1289,228 @@ testcase.driveGoogleOneOfferBannerDismiss = async () => {
       ['google-one-offer-banner', 'educational-banner', '#dismiss-button']);
   chrome.test.assertEq(1, await getUserActionCount(userActionDismiss));
   await remoteCall.waitForElement(appId, 'google-one-offer-banner[hidden]');
+};
+
+/**
+ * Tests that when bulk pinning is enabled, the "Available offline" toggle
+ * should not be visible. When the preference is updated, the toggle should
+ * reappear.
+ */
+testcase.drivePinToggleIsDisabledAndHiddenWhenBulkPinningEnabled = async () => {
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DRIVE, [], [ENTRIES.hello]);
+
+  // Bring up the context menu for test.txt.
+  await remoteCall.waitAndRightClick(
+      appId, '#file-list [file-name="hello.txt"]');
+
+  // The pinned toggle should be visible along with the command.
+  await remoteCall.waitForElement(
+      appId,
+      '#pinned-toggle-wrapper:not([hidden]) #pinned-toggle:not([disabled])');
+  await remoteCall.waitForElement(
+      appId, '[command="#toggle-pinned"]:not([hidden][disabled])');
+
+  // Mock the free space returned by spaced to be 1 GB and enable the bulk
+  // pinning preference
+  await sendTestMessage({name: 'setSpacedFreeSpace', freeSpace: 1 << 30});
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: true});
+
+  // Wait for both the pinned toggle and the pinned command to become hidden and
+  // disabled.
+  await remoteCall.waitForElement(
+      appId, '#pinned-toggle-wrapper[hidden] #pinned-toggle[disabled]');
+  await remoteCall.waitForElement(
+      appId, '[command="#toggle-pinned"][hidden][disabled]');
+
+  // Disable the bulk pinning preference and wait for the pinned toggle and
+  // command to become visible and available.
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: false});
+  await remoteCall.waitForElement(
+      appId,
+      '#pinned-toggle-wrapper:not([hidden]) #pinned-toggle:not([disabled])');
+  await remoteCall.waitForElement(
+      appId, '[command="#toggle-pinned"]:not([hidden][disabled])');
+};
+
+/**
+ * Tests that when bulk pinning is enabled, the "Available offline" toggle
+ * should not be visible. When the preference is updated, the toggle should
+ * reappear.
+ */
+testcase.driveFolderShouldShowOfflineTickWhenBulkPinningEnabled = async () => {
+  const appId = await setupAndWaitUntilReady(
+      RootPath.DRIVE, [],
+      [ENTRIES.directoryA, ENTRIES.directoryB, ENTRIES.linkGtoB]);
+
+  // Wait for the directory "A" to not have the pinned class attached.
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="A"]:not(.pinned)');
+
+  // Mock the free space returned by spaced to be 1 GB and enable the bulk
+  // pinning preference
+  await sendTestMessage({name: 'setSpacedFreeSpace', freeSpace: 1 << 30});
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: true});
+
+  // Wait for the folder to show up as pinned (the underlying folder will not
+  // actually get pinned but the class should still be added).
+  await remoteCall.waitForElement(appId, '#file-list [file-name="A"].pinned');
+
+  // Shortcuts should get excluded from the above logic and should remain the
+  // same as they were initially (in this case unpinned).
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="G"]:not(.pinned)');
+
+  // Disable the bulk pinning preference and wait for the folder to lose the
+  // pinned class.
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: false});
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="A"]:not(.pinned)');
+
+  // Show the context menu for the "A" directory and click the pinning command.
+  await remoteCall.showContextMenuFor(appId, 'A');
+  await remoteCall.waitAndClickElement(
+      appId,
+      '#file-context-menu:not([hidden]) ' +
+          '[command="#toggle-pinned"]:not([checked])');
+
+  // Wait for the element to receive the pinned class from the explicit pinning
+  // action then enable the bulk pinning feature.
+  await remoteCall.waitForElement(appId, '#file-list [file-name="A"].pinned');
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: true});
+
+  // The folder should not lose it's pinning status when the pinning manager
+  // enters the Syncing state.
+  await remoteCall.waitForBulkPinningStage('Syncing');
+  await remoteCall.waitForElement(appId, '#file-list [file-name="A"].pinned');
+
+  // Disable the bulk pinning preference and ensure the folder retains its
+  // pinned state.
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: false});
+  await remoteCall.waitForElement(appId, '#file-list [file-name="A"].pinned');
+};
+
+/**
+ * Tests that "Shared with me" which is outside "My drive" retains the pinned
+ * property and it is not updated when bulk pinning is enabled.
+ */
+testcase.driveFoldersRetainPinnedPropertyWhenBulkPinningEnabled = async () => {
+  // Open Files app on Drive containing "Shared with me" file entries.
+  const appId = await setupAndWaitUntilReady(
+      RootPath.DRIVE, [], [ENTRIES.hello, ENTRIES.sharedWithMeDirectory]);
+
+  // Enable the bulk pinning preference first.
+  await sendTestMessage({name: 'setSpacedFreeSpace', freeSpace: 1 << 30});
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: true});
+  await remoteCall.waitForBulkPinningStage('Syncing');
+
+  // Navigate to the shared with me directory and assert that the pinned
+  // property is not set on the directory.
+  await navigateWithDirectoryTree(appId, '/Shared with me');
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="Shared Directory"]:not(.pinned)');
+
+  // Disable the bulk pinning preference.
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: false});
+  await remoteCall.waitForBulkPinningStage('Stopped');
+
+  // Pin the "Shared Directory" folder in Shared with me and wait for the pinned
+  // class to be updated.
+  await remoteCall.showContextMenuFor(appId, 'Shared Directory');
+  await remoteCall.waitAndClickElement(
+      appId,
+      '#file-context-menu:not([hidden]) ' +
+          '[command="#toggle-pinned"]:not([checked])');
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="Shared Directory"].pinned');
+
+  // Enable and disable bulk pinning and ensure the pinned attribute is not
+  // removed.
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: true});
+  await remoteCall.waitForBulkPinningStage('Syncing');
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="Shared Directory"].pinned');
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: false});
+  await remoteCall.waitForBulkPinningStage('Stopped');
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="Shared Directory"].pinned');
+};
+
+/**
+ * Tests that when bulk pinning is enabled, the "Available offline" toggle
+ * should still be visible in the Shared with me section.
+ */
+testcase.drivePinToggleIsEnabledInSharedWithMeWhenBulkPinningEnabled =
+    async () => {
+  const appId = await setupAndWaitUntilReady(RootPath.DRIVE, [], [
+    ENTRIES.hello,
+    ENTRIES.sharedWithMeDirectory,
+    ENTRIES.sharedWithMeDirectoryFile,
+  ]);
+
+  // Click the Shared with me volume, it has no children so navigating using the
+  // directory tree doesn't work.
+  chrome.test.assertFalse(!await remoteCall.callRemoteTestUtil(
+      'selectVolume', appId, ['drive_shared_with_me']));
+
+  // Wait until the breadcrumb path is updated.
+  await remoteCall.waitUntilCurrentDirectoryIsChanged(appId, '/Shared with me');
+
+  // Bring up the context menu for Shared Directory.
+  await remoteCall.waitAndRightClick(
+      appId, '#file-list [file-name="Shared Directory"]');
+
+  // The pinned toggle should be visible along with the command.
+  await remoteCall.waitForElement(
+      appId,
+      '#pinned-toggle-wrapper:not([hidden]) #pinned-toggle:not([disabled])');
+  await remoteCall.waitForElement(
+      appId, '[command="#toggle-pinned"]:not([hidden][disabled])');
+
+  // Mock the free space returned by spaced to be 1 GB and enable the bulk
+  // pinning preference.
+  await sendTestMessage({name: 'setSpacedFreeSpace', freeSpace: 1 << 30});
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: true});
+  await remoteCall.waitForBulkPinningStage('Syncing');
+
+  // After bulk pinning is enabled and in the syncing stage, the toggle should
+  // still be visible and enabled.
+  await remoteCall.waitForElement(
+      appId,
+      '#pinned-toggle-wrapper:not([hidden]) #pinned-toggle:not([disabled])');
+  await remoteCall.waitForElement(
+      appId, '[command="#toggle-pinned"]:not([hidden][disabled])');
+
+  // Disable the bulk pinning preference wait for it to reflect in the pin state
+  // and ensure the pinned toggle has not changed.
+  await sendTestMessage({name: 'setBulkPinningEnabledPref', enabled: false});
+  await remoteCall.waitForBulkPinningStage('Stopped');
+  await remoteCall.waitForElement(
+      appId,
+      '#pinned-toggle-wrapper:not([hidden]) #pinned-toggle:not([disabled])');
+  await remoteCall.waitForElement(
+      appId, '[command="#toggle-pinned"]:not([hidden][disabled])');
+};
+
+/**
+ * Tests that files that can't be pinned should have the correct CSS class
+ * applied to them. When they go back to being able to be pinned (e.g. from Docs
+ * offline coming back online) then ensure the inline icon is updated.
+ */
+testcase.driveCantPinItemsShouldHaveClassNameAndGetUpdatedWhenCanPin =
+    async () => {
+  const appId =
+      await setupAndWaitUntilReady(RootPath.DRIVE, [], [ENTRIES.cantPinFile]);
+
+  // Ensure the `cant_pin.txt` file has the cant-pin class.
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="text.txt"].cant-pin');
+
+  // Update the file metadata to ensure the file can now be pinned.
+  await sendTestMessage(
+      {name: 'setCanPin', path: '/root/text.txt', canPin: true});
+
+  // Wait for the `.cant-pin` class to be removed.
+  await remoteCall.waitForElement(
+      appId, '#file-list [file-name="text.txt"]:not(.cant-pin)');
 };

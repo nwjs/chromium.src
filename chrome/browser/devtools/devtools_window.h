@@ -335,7 +335,8 @@ class DevToolsWindow : public DevToolsUIBindings::Delegate,
                              bool can_dock,
                              const std::string& panel,
                              bool has_other_clients,
-                             bool browser_connection);
+                             bool browser_connection,
+			     bool headless = false);
 
   static void ToggleDevToolsWindow(
       content::WebContents* web_contents,

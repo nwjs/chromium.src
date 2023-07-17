@@ -194,6 +194,13 @@ public class EditorDialog
         mHasRequiredIndicator = requiredIndicator;
     }
 
+    /**
+     * @return The browser profile that is associated with the content being edited.
+     */
+    public Profile getProfile() {
+        return mProfile;
+    }
+
     /** Prevents screenshots of this editor. */
     public void disableScreenshots() {
         WindowManager.LayoutParams attributes = getWindow().getAttributes();
@@ -751,6 +758,12 @@ public class EditorDialog
             }
         }
         return invalidViews;
+    }
+
+    /** @return The View with all fields of this editor. */
+    @VisibleForTesting
+    public View getDataViewForTest() {
+        return mDataView;
     }
 
     /** @return All editable text fields in the editor. Used only for tests. */

@@ -440,6 +440,10 @@ void ShellContentBrowserClient::AppendExtraCommandLineSwitches(
 device::GeolocationManager* ShellContentBrowserClient::GetGeolocationManager() {
 #if BUILDFLAG(IS_MAC)
   return GetSharedState().location_manager.get();
+#elif BUILDFLAG(IS_IOS)
+  // TODO(crbug.com/1431447, 1411704): Unify this to FakeGeolocationManager once
+  // exploring browser features in ContentShell on iOS is done.
+  return GetSharedState().shell_browser_main_parts->GetGeolocationManager();
 #else
   return nullptr;
 #endif

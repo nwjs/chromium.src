@@ -31,6 +31,7 @@ build_webui("build") {
     "bookmarks_api_proxy.ts",
     "bookmarks_drag_manager.ts",
     "commerce/shopping_list_api_proxy.ts",
+    "power_bookmarks_drag_manager.ts",
     "power_bookmarks_service.ts",
   ]
 
@@ -69,6 +70,4 @@ build_webui("build") {
         rebase_path(
             "$root_gen_dir/chrome/browser/resources/side_panel/shared/tsc/*",
             target_gen_dir) ]
-
-  enable_source_maps = enable_webui_inline_sourcemaps
 }

@@ -14,11 +14,11 @@
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/guid.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/uuid.h"
 #include "base/values.h"
 #include "chromeos/ash/components/dbus/shill/shill_manager_client.h"
 #include "chromeos/ash/components/dbus/shill/shill_profile_client.h"
@@ -333,6 +333,15 @@ void ManagedNetworkConfigurationHandlerImpl::SetProperties(
                      std::move(callback), std::move(error_callback));
 }
 
+void ManagedNetworkConfigurationHandlerImpl::ClearShillProperties(
+    const std::string& service_path,
+    const std::vector<std::string>& names,
+    base::OnceClosure callback,
+    network_handler::ErrorCallback error_callback) {
+  network_configuration_handler_->ClearShillProperties(
+      service_path, names, std::move(callback), std::move(error_callback));
+}
+
 void ManagedNetworkConfigurationHandlerImpl::SetManagedActiveProxyValues(
     const std::string& guid,
     base::Value::Dict* dictionary) {
@@ -464,7 +473,7 @@ void ManagedNetworkConfigurationHandlerImpl::CreateConfiguration(
       }
     }
   } else {
-    guid = base::GenerateGUID();
+    guid = base::Uuid::GenerateRandomV4().AsLowercaseString();
   }
 
   base::Value::Dict shill_dictionary =

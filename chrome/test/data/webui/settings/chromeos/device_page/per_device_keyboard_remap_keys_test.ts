@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {FakeInputDeviceSettingsProvider, fakeKeyboards, Keyboard, KeyboardRemapModifierKeyRowElement, MetaKey, ModifierKey, Router, routes, setInputDeviceSettingsProviderForTesting, SettingsPerDeviceKeyboardRemapKeysElement} from 'chrome://os-settings/chromeos/os_settings.js';
+import {FakeInputDeviceSettingsProvider, fakeKeyboards, Keyboard, KeyboardRemapModifierKeyRowElement, MetaKey, ModifierKey, Router, routes, setInputDeviceSettingsProviderForTesting, SettingsPerDeviceKeyboardRemapKeysElement} from 'chrome://os-settings/os_settings.js';
 import {assert} from 'chrome://resources/js/assert_ts.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
@@ -34,6 +34,18 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
   teardown(() => {
     page.remove();
   });
+
+  function changeKeyboardExternalState(isExternal: boolean): Promise<void> {
+    page.keyboard = {...page.keyboard, isExternal};
+    return flushTasks();
+  }
+
+  function getPageDescription(): string {
+    const description =
+        page.shadowRoot!.querySelector('#description')!.textContent;
+    assert(description);
+    return description;
+  }
 
   /**
    * Check that all the prefs are set to default keyboard value.
@@ -156,13 +168,14 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     // Verify that the remapped key icon is highlighted.
     assertEquals('modifier-remapped', altKeyRow.keyState);
 
-    // Verify that the label for meta key is empty and the key icon is
+    // Verify that the label for meta key is search and the key icon is
     // displayed as launcher.
     const metaKeyRow =
         page.shadowRoot!.querySelector<KeyboardRemapModifierKeyRowElement>(
             '#metaKey');
     assert(metaKeyRow);
-    assertEquals('', metaKeyRow.get('keyLabel'));
+    assertEquals(
+        page.i18n('perDeviceKeyboardKeySearch'), metaKeyRow.get('keyLabel'));
     assertEquals('os-settings:launcher', metaKeyRow.get('keyIcon'));
 
     const launcherKeyIcon = metaKeyRow.shadowRoot!.querySelector('iron-icon');
@@ -281,10 +294,22 @@ suite('<settings-per-device-keyboard-remap-keys>', () => {
     assert(keyboards);
     const updatedRemapping = keyboards[0]!.settings.modifierRemappings;
     assert(updatedRemapping);
-    assertEquals(3, Object.keys(updatedRemapping).length);
+    assertEquals(5, Object.keys(updatedRemapping).length);
     assertEquals(ModifierKey.kAssistant, updatedRemapping[ModifierKey.kAlt]);
     assertEquals(
         ModifierKey.kControl, updatedRemapping[ModifierKey.kBackspace]);
     assertEquals(ModifierKey.kVoid, updatedRemapping[ModifierKey.kEscape]);
+    assertEquals(ModifierKey.kControl, updatedRemapping[ModifierKey.kMeta]);
+    assertEquals(ModifierKey.kMeta, updatedRemapping[ModifierKey.kControl]);
+  });
+
+  test('Keyboard description populated correctly', async () => {
+    assertTrue(page.get('isInitialized'));
+    assertEquals(
+        'For ERGO K860, choose an action for each key', getPageDescription());
+    await changeKeyboardExternalState(/* isExternal= */ false);
+    assertEquals(
+        'For Built-in Keyboard, choose an action for each key',
+        getPageDescription());
   });
 });

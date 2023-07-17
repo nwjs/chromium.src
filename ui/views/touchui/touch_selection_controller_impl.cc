@@ -26,6 +26,7 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/image/image.h"
 #include "ui/resources/grit/ui_resources.h"
+#include "ui/touch_selection/touch_selection_magnifier_runner.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -282,8 +283,9 @@ class TouchSelectionControllerImpl::EditingHandleView : public View {
   gfx::Size CalculatePreferredSize() const override {
     // This function will be called during widget initialization, i.e. before
     // SetBoundInScreen has been called. No-op in that case.
-    if (selection_bound_.type() == gfx::SelectionBound::EMPTY)
+    if (!selection_bound_.HasHandle()) {
       return gfx::Size();
+    }
     return GetSelectionWidgetBounds(selection_bound_).size();
   }
 
@@ -401,6 +403,7 @@ TouchSelectionControllerImpl::~TouchSelectionControllerImpl() {
   UMA_HISTOGRAM_BOOLEAN("Event.TouchSelection.EndedWithAction",
                         command_executed_);
   HideQuickMenu();
+  HideMagnifier();
   aura::Env::GetInstance()->RemoveEventObserver(this);
   if (client_widget_)
     client_widget_->RemoveObserver(this);
@@ -432,16 +435,26 @@ void TouchSelectionControllerImpl::SelectionChanged() {
       ConvertToScreen(client_view_, anchor);
   gfx::SelectionBound screen_bound_focus_clipped =
       ConvertToScreen(client_view_, focus);
-  if (screen_bound_anchor_clipped == selection_bound_1_clipped_ &&
-      screen_bound_focus_clipped == selection_bound_2_clipped_)
+  const bool is_client_selection_dragging = client_view_->IsSelectionDragging();
+  if (is_client_selection_dragging == is_client_selection_dragging_ &&
+      screen_bound_anchor_clipped == selection_bound_1_clipped_ &&
+      screen_bound_focus_clipped == selection_bound_2_clipped_) {
     return;
+  }
 
+  is_client_selection_dragging_ = is_client_selection_dragging;
   selection_bound_1_ = screen_bound_anchor;
   selection_bound_2_ = screen_bound_focus;
   selection_bound_1_clipped_ = screen_bound_anchor_clipped;
   selection_bound_2_clipped_ = screen_bound_focus_clipped;
 
-  if (dragging_handle_) {
+  if (is_client_selection_dragging) {
+    selection_handle_1_->SetWidgetVisible(false);
+    selection_handle_2_->SetWidgetVisible(false);
+    cursor_handle_->SetWidgetVisible(false);
+    UpdateQuickMenu();
+    ShowMagnifier(screen_bound_focus);
+  } else if (dragging_handle_) {
     // We need to reposition only the selection handle that is being dragged.
     // The other handle stays the same. Also, the selection handle being dragged
     // will always be at the end of selection, while the other handle will be at
@@ -450,6 +463,7 @@ void TouchSelectionControllerImpl::SelectionChanged() {
     // should not get hidden, since it should still receive touch events.
     // Hence, we are not using |SetHandleBound()| method here.
     dragging_handle_->SetBoundInScreen(screen_bound_focus_clipped, true);
+    ShowMagnifier(screen_bound_focus);
 
     if (dragging_handle_ != cursor_handle_) {
       // The non-dragging-handle might have recently become visible.
@@ -481,6 +495,7 @@ void TouchSelectionControllerImpl::SelectionChanged() {
       quick_menu_requested_ = true;
     }
     UpdateQuickMenu();
+    HideMagnifier();
   }
 }
 
@@ -501,6 +516,8 @@ void TouchSelectionControllerImpl::ShowQuickMenuImmediatelyForTesting() {
 void TouchSelectionControllerImpl::OnDragBegin(EditingHandleView* handle) {
   dragging_handle_ = handle;
   UpdateQuickMenu();
+  ShowMagnifier(dragging_handle_ == selection_handle_1_ ? selection_bound_1_
+                                                        : selection_bound_2_);
   if (dragging_handle_ == cursor_handle_) {
     return;
   }
@@ -544,6 +561,7 @@ void TouchSelectionControllerImpl::OnDragUpdate(const gfx::Point& drag_pos) {
 void TouchSelectionControllerImpl::OnDragEnd() {
   dragging_handle_ = nullptr;
   UpdateQuickMenu();
+  HideMagnifier();
 }
 
 void TouchSelectionControllerImpl::ConvertPointToClientView(
@@ -693,6 +711,30 @@ gfx::Rect TouchSelectionControllerImpl::GetQuickMenuAnchorRect() const {
   menu_anchor.Inset(gfx::Insets::VH(-kSelectionHandleVerticalVisualOffset, 0));
 
   return menu_anchor;
+}
+
+void TouchSelectionControllerImpl::ShowMagnifier(
+    const gfx::SelectionBound& focus_bound_in_screen) {
+  if (auto* magnifier_runner =
+          ui::TouchSelectionMagnifierRunner::GetInstance()) {
+    // Convert focus bound to client native view coordinates.
+    const aura::Window* window = client_view_->GetNativeView();
+    gfx::Point edge_start = focus_bound_in_screen.edge_start_rounded();
+    gfx::Point edge_end = focus_bound_in_screen.edge_end_rounded();
+    wm::ConvertPointFromScreen(window, &edge_start);
+    wm::ConvertPointFromScreen(window, &edge_end);
+    gfx::SelectionBound focus_bound(focus_bound_in_screen);
+    focus_bound.SetEdge(gfx::PointF(edge_start), gfx::PointF(edge_end));
+
+    magnifier_runner->ShowMagnifier(client_view_->GetNativeView(), focus_bound);
+  }
+}
+
+void TouchSelectionControllerImpl::HideMagnifier() {
+  if (auto* magnifier_runner =
+          ui::TouchSelectionMagnifierRunner::GetInstance()) {
+    magnifier_runner->CloseMagnifier();
+  }
 }
 
 gfx::NativeView TouchSelectionControllerImpl::GetCursorHandleNativeView() {

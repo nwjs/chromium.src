@@ -20,11 +20,11 @@ import android.os.Looper;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
@@ -905,7 +905,8 @@ public class ContextMenuTest implements DownloadTestRule.CustomMainActivityStart
                 ContextMenuHelper.createForTesting(0, tab.getWebContents());
         ContextMenuParams params = new ContextMenuParams(0, 0, new GURL("http://example.com/"),
                 GURL.emptyGURL(), "", GURL.emptyGURL(), GURL.emptyGURL(), "", null, false, 0, 0,
-                MenuSourceType.MENU_SOURCE_TOUCH, /*getOpenedFromHighlight*/ true);
+                MenuSourceType.MENU_SOURCE_TOUCH, /*getOpenedFromHighlight=*/true,
+                /*impression=*/null);
         ContextMenuPopulatorFactory populatorFactory = new ChromeContextMenuPopulatorFactory(
                 mItemDelegate,
                 ()

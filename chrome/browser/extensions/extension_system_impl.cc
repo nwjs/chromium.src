@@ -103,8 +103,7 @@ UninstallPingSender::FilterResult ShouldSendUninstallPing(
 
 ExtensionSystemImpl::Shared::Shared(Profile* profile) : profile_(profile) {}
 
-ExtensionSystemImpl::Shared::~Shared() {
-}
+ExtensionSystemImpl::Shared::~Shared() = default;
 
 void ExtensionSystemImpl::Shared::InitPrefs() {
   store_factory_ = base::MakeRefCounted<value_store::ValueStoreFactoryImpl>(
@@ -359,8 +358,7 @@ ExtensionSystemImpl::ExtensionSystemImpl(Profile* profile)
   }
 }
 
-ExtensionSystemImpl::~ExtensionSystemImpl() {
-}
+ExtensionSystemImpl::~ExtensionSystemImpl() = default;
 
 void ExtensionSystemImpl::Shutdown() {
 }
@@ -454,7 +452,7 @@ void ExtensionSystemImpl::InstallUpdate(
 
 void ExtensionSystemImpl::PerformActionBasedOnOmahaAttributes(
     const std::string& extension_id,
-    const base::Value& attributes) {
+    const base::Value::Dict& attributes) {
   extension_service()->PerformActionBasedOnOmahaAttributes(extension_id,
                                                            attributes);
 }

@@ -9,14 +9,19 @@
 #include "base/run_loop.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/task_environment.h"
+#include "components/segmentation_platform/internal/metadata/metadata_writer.h"
 #include "components/segmentation_platform/internal/post_processor/post_processing_test_utils.h"
 #include "components/segmentation_platform/internal/selection/segment_result_provider.h"
 #include "components/segmentation_platform/public/config.h"
 #include "components/segmentation_platform/public/prediction_options.h"
+#include "components/segmentation_platform/public/proto/prediction_result.pb.h"
+#include "components/segmentation_platform/public/result.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 using testing::_;
+using testing::ElementsAre;
+using testing::FloatNear;
 using testing::Invoke;
 
 namespace segmentation_platform {
@@ -33,18 +38,15 @@ class MockResultProvider : public SegmentResultProvider {
 };
 
 proto::PredictionResult CreatePredictionResultWithBinaryClassifier() {
-  proto::PredictionResult prediction_result;
-  proto::Predictor_BinaryClassifier* binary_classifier =
-      prediction_result.mutable_output_config()
-          ->mutable_predictor()
-          ->mutable_binary_classifier();
+  proto::SegmentationModelMetadata model_metadata;
+  MetadataWriter writer(&model_metadata);
+  writer.AddOutputConfigForBinaryClassifier(0.5f, "positive_label",
+                                            "negative_label");
 
-  binary_classifier->set_threshold(0.5f);
-  binary_classifier->set_positive_label("positive_label");
-  binary_classifier->set_negative_label("negative_label");
-
-  prediction_result.add_result(0.8f);
-  return prediction_result;
+  proto::PredictionResult result;
+  result.add_result(0.8f);
+  result.mutable_output_config()->Swap(model_metadata.mutable_output_config());
+  return result;
 }
 
 class RequestHandlerTest : public testing::Test {
@@ -58,15 +60,14 @@ class RequestHandlerTest : public testing::Test {
     config_ = test_utils::CreateTestConfig("test_client", kSegmentId);
     auto provider = std::make_unique<MockResultProvider>();
     result_provider_ = provider.get();
-    request_handler_ =
-        RequestHandler::Create(*config_, std::move(provider), nullptr);
+    request_handler_ = RequestHandler::Create(*config_, std::move(provider),
+                                              &execution_service_);
   }
 
-  void OnGetClassificationResult(base::RepeatingClosure closure,
-                                 const ClassificationResult& expected,
-                                 const ClassificationResult& actual) {
-    EXPECT_EQ(expected.ordered_labels, actual.ordered_labels);
-    EXPECT_EQ(expected.status, actual.status);
+  void OnGetPredictionResult(base::RepeatingClosure closure,
+                             const RawResult& result) {
+    EXPECT_EQ(result.status, PredictionStatus::kSucceeded);
+    EXPECT_NEAR(0.8, result.result.result(0), 0.001);
     std::move(closure).Run();
   }
 
@@ -75,32 +76,32 @@ class RequestHandlerTest : public testing::Test {
   std::unique_ptr<Config> config_;
   raw_ptr<MockResultProvider> result_provider_ = nullptr;
   std::unique_ptr<RequestHandler> request_handler_;
+  ExecutionService execution_service_;
 };
 
-TEST_F(RequestHandlerTest, TestGetClassificationResult) {
+TEST_F(RequestHandlerTest, GetPredictionResult) {
   PredictionOptions options;
   options.on_demand_execution = true;
 
   EXPECT_CALL(*result_provider_, GetSegmentResult(_))
-      .Times(1)
-      .WillRepeatedly(Invoke(
+      .WillOnce(Invoke(
           [](std::unique_ptr<SegmentResultProvider::GetResultOptions> options) {
             EXPECT_TRUE(options->ignore_db_scores);
             EXPECT_EQ(options->segment_id, kSegmentId);
             auto result =
                 std::make_unique<SegmentResultProvider::SegmentResult>(
                     SegmentResultProvider::ResultState::kTfliteModelScoreUsed,
-                    CreatePredictionResultWithBinaryClassifier(), /*rank=*/2);
+                    CreatePredictionResultWithBinaryClassifier(),
+                    /*rank=*/2);
             std::move(options->callback).Run(std::move(result));
           }));
 
   base::RunLoop loop;
-  ClassificationResult expected(PredictionStatus::kSucceeded);
-  expected.ordered_labels.emplace_back("positive_label");
-  request_handler_->GetClassificationResult(
+  RawResult result(PredictionStatus::kFailed);
+  request_handler_->GetPredictionResult(
       options, scoped_refptr<InputContext>(),
-      base::BindOnce(&RequestHandlerTest::OnGetClassificationResult,
-                     base::Unretained(this), loop.QuitClosure(), expected));
+      base::BindOnce(&RequestHandlerTest::OnGetPredictionResult,
+                     base::Unretained(this), loop.QuitClosure()));
   loop.Run();
 }
 

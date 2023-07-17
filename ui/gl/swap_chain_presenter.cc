@@ -539,7 +539,7 @@ Microsoft::WRL::ComPtr<ID3D11Texture2D> SwapChainPresenter::UploadVideoImage(
   return copy_texture_;
 }
 
-gfx::Size SwapChainPresenter::GetMonitorSize() {
+gfx::Size SwapChainPresenter::GetMonitorSize() const {
   if (GetDirectCompositionNumMonitors() == 1) {
     // Only one monitor. Return the size of this monitor.
     return GetDirectCompositionPrimaryMonitorSize();
@@ -562,7 +562,9 @@ void SwapChainPresenter::AdjustTargetToOptimalSizeIfNeeded(
     const gfx::Rect& overlay_onscreen_rect,
     gfx::Size* swap_chain_size,
     gfx::Transform* visual_transform,
-    gfx::Rect* visual_clip_rect) {
+    gfx::Rect* visual_clip_rect,
+    absl::optional<gfx::Size>* dest_size,
+    absl::optional<gfx::Rect>* target_rect) const {
   // First try to adjust the full screen overlay that can fit the whole
   // screen. If it cannot fit the whole screen and we know it's in
   // letterboxing mode, try to center the overlay and adjust only x or only y.
@@ -570,10 +572,12 @@ void SwapChainPresenter::AdjustTargetToOptimalSizeIfNeeded(
   bool size_adjusted = AdjustTargetToFullScreenSizeIfNeeded(
       monitor_size, params, overlay_onscreen_rect, swap_chain_size,
       visual_transform, visual_clip_rect);
-  if (!size_adjusted && params.maybe_video_fullscreen_letterboxing) {
+
+  // Adjustment for the full screen letterboxing scenario.
+  if (!size_adjusted && params.possible_video_fullscreen_letterboxing) {
     AdjustTargetForFullScreenLetterboxing(
         monitor_size, params, overlay_onscreen_rect, swap_chain_size,
-        visual_transform, visual_clip_rect);
+        visual_transform, visual_clip_rect, dest_size, target_rect);
   }
 }
 
@@ -583,7 +587,7 @@ bool SwapChainPresenter::AdjustTargetToFullScreenSizeIfNeeded(
     const gfx::Rect& overlay_onscreen_rect,
     gfx::Size* swap_chain_size,
     gfx::Transform* visual_transform,
-    gfx::Rect* visual_clip_rect) {
+    gfx::Rect* visual_clip_rect) const {
   if (monitor_size.IsEmpty())
     return false;
 
@@ -709,7 +713,9 @@ void SwapChainPresenter::AdjustTargetForFullScreenLetterboxing(
     const gfx::Rect& overlay_onscreen_rect,
     gfx::Size* swap_chain_size,
     gfx::Transform* visual_transform,
-    gfx::Rect* visual_clip_rect) {
+    gfx::Rect* visual_clip_rect,
+    absl::optional<gfx::Size>* dest_size,
+    absl::optional<gfx::Rect>* target_rect) const {
   if (!base::FeatureList::IsEnabled(
           features::kDirectCompositionLetterboxVideoOptimization)) {
     return;
@@ -753,6 +759,20 @@ void SwapChainPresenter::AdjustTargetForFullScreenLetterboxing(
           monitor_size.width())) {
     // Not fullscreen letterboxing mode.
     return;
+  }
+
+  if (params.clip_rect.has_value()) {
+    if (is_onscreen_rect_x_near_0 &&
+        !IsWithinMargin(overlay_onscreen_rect.width(), monitor_size.width())) {
+      // Not fullscreen letterboxing mode.
+      return;
+    }
+    if (is_onscreen_rect_y_near_0 &&
+        !IsWithinMargin(overlay_onscreen_rect.height(),
+                        monitor_size.height())) {
+      // Not fullscreen letterboxing mode.
+      return;
+    }
   }
 
   //
@@ -812,52 +832,65 @@ void SwapChainPresenter::AdjustTargetForFullScreenLetterboxing(
   }
 
   // Skip adjustment if the current swap chain size is already correct.
-  if (new_onscreen_rect == clipped_onscreen_rect) {
-    return;
-  }
+  if (new_onscreen_rect != clipped_onscreen_rect) {
+    //
+    // Adjust the clip rect.
+    //
+    if (params.clip_rect.has_value()) {
+      *visual_clip_rect = new_onscreen_rect;
+    }
 
-  //
-  // Adjust the clip rect.
-  //
-  if (params.clip_rect.has_value())
-    *visual_clip_rect = new_onscreen_rect;
+    //
+    // Adjust the swap chain size if needed.
+    //
+    // The swap chain is either the size of overlay_onscreen_rect or
+    // min(overlay_onscreen_rect, content_rect). The swap chain might not need
+    // to be updated if it's the content size. After UpdateSwapChainTransform()
+    // in CalculateSwapChainSize(), |visual_transform| transforms the swap chain
+    // to the on-screen rect. Now update |visual_transform| so it still produces
+    // the same on-screen rect after changing the swapchain.
+    float scale_x;
+    float scale_y;
+    if (*swap_chain_size == overlay_onscreen_rect.size()) {
+      scale_x = swap_chain_size->width() * 1.0f / new_onscreen_rect.width();
+      scale_y = swap_chain_size->height() * 1.0f / new_onscreen_rect.height();
+      visual_transform->Scale(scale_x, scale_y);
 
-  //
-  // Adjust the swap chain size if needed.
-  //
-  // The swap chain is either the size of overlay_onscreen_rect or
-  // min(overlay_onscreen_rect, content_rect). The swap chain might not need to
-  // be updated if it's the content size.
-  // After UpdateSwapChainTransform() in CalculateSwapChainSize(),
-  // |visual_transform| transforms the swap chain to the on-screen rect. Now
-  // update |visual_transform| so it still produces the same on-screen rect
-  // after changing the swapchain.
-  float scale_x;
-  float scale_y;
-  if (*swap_chain_size == overlay_onscreen_rect.size()) {
-    scale_x = swap_chain_size->width() * 1.0f / new_onscreen_rect.width();
-    scale_y = swap_chain_size->height() * 1.0f / new_onscreen_rect.height();
+      *swap_chain_size = new_onscreen_rect.size();
+    }
+
+    //
+    // Adjust the transform matrix.
+    //
+    // Add the new scale that scales |overlay_onscreen_rect| to
+    // |new_onscreen_rect|. The new |visual_transform| will produce a new width
+    // or a new height of the monitor size.
+    scale_x = new_onscreen_rect.width() * 1.0f / overlay_onscreen_rect.width();
+    scale_y =
+        new_onscreen_rect.height() * 1.0f / overlay_onscreen_rect.height();
     visual_transform->Scale(scale_x, scale_y);
 
-    *swap_chain_size = new_onscreen_rect.size();
+    // Update the origin.
+    gfx::Rect mapped_rect = visual_transform->MapRect(
+        gfx::Rect(params.quad_rect.origin(), *swap_chain_size));
+    auto offset =
+        new_onscreen_rect.OffsetFromOrigin() - mapped_rect.OffsetFromOrigin();
+    visual_transform->PostTranslate(offset);
   }
 
-  //
-  // Adjust the transform matrix.
-  //
-  // Add the new scale that scales |overlay_onscreen_rect| to
-  // |new_onscreen_rect|. The new |visual_transform| will produce a new width or
-  // a new height of the monitor size.
-  scale_x = new_onscreen_rect.width() * 1.0f / overlay_onscreen_rect.width();
-  scale_y = new_onscreen_rect.height() * 1.0f / overlay_onscreen_rect.height();
-  visual_transform->Scale(scale_x, scale_y);
-
-  // Update the origin.
-  gfx::Rect mapped_rect = visual_transform->MapRect(
-      gfx::Rect(params.quad_rect.origin(), *swap_chain_size));
-  auto offset =
-      new_onscreen_rect.OffsetFromOrigin() - mapped_rect.OffsetFromOrigin();
-  visual_transform->PostTranslate(offset);
+  // Full screen letterboxing overlay scenario can be optimized by DWM, like to
+  // turn off the topmost desktop plane to save power.
+  // Here the destination surface size is set to the whole monitor, while the
+  // target region is set to the visual clip rectangle on the screen.
+  if (params.z_order > 0) {
+    *dest_size = monitor_size;
+    *target_rect = *visual_clip_rect;
+  } else {
+    // For underlay scenario, keep the destination surface size and target
+    // region according to swap chain size.
+    *dest_size = *swap_chain_size;
+    *target_rect = gfx::Rect(*swap_chain_size);
+  }
 
 #if DCHECK_IS_ON()
   {
@@ -906,7 +939,9 @@ void SwapChainPresenter::AdjustTargetForFullScreenLetterboxing(
 gfx::Size SwapChainPresenter::CalculateSwapChainSize(
     const DCLayerOverlayParams& params,
     gfx::Transform* visual_transform,
-    gfx::Rect* visual_clip_rect) {
+    gfx::Rect* visual_clip_rect,
+    absl::optional<gfx::Size>* dest_size,
+    absl::optional<gfx::Rect>* target_rect) const {
   // Swap chain size is the minimum of the on-screen size and the source size so
   // the video processor can do the minimal amount of work and the overlay has
   // to read the minimal amount of data. DWM is also less likely to promote a
@@ -953,7 +988,7 @@ gfx::Size SwapChainPresenter::CalculateSwapChainSize(
   if (visual_transform->IsScaleOrTranslation()) {
     AdjustTargetToOptimalSizeIfNeeded(params, overlay_onscreen_rect,
                                       &swap_chain_size, visual_transform,
-                                      visual_clip_rect);
+                                      visual_clip_rect, dest_size, target_rect);
   }
 
   return swap_chain_size;
@@ -1150,10 +1185,67 @@ bool SwapChainPresenter::PresentToDecodeSwapChain(
   return true;
 }
 
+bool SwapChainPresenter::TryDisableDesktopPlane(const gfx::Size& dest_size,
+                                                const gfx::Rect& target_rect) {
+  // Note that QI IDXGIDecodeSwapChain from an RGB swap chain will always fail.
+  Microsoft::WRL::ComPtr<IDXGIDecodeSwapChain> decode_swap_chain;
+  HRESULT hr = swap_chain_->QueryInterface(IID_PPV_ARGS(&decode_swap_chain));
+  if (FAILED(hr)) {
+    DLOG(ERROR)
+        << "QueryInterface for IDXGIDecodeSwapChain failed with error 0x"
+        << std::hex << hr;
+    return false;
+  }
+
+  // Get the original dest size in case of restoring.
+  uint32_t original_dest_width, original_dest_height;
+  hr = decode_swap_chain->GetDestSize(&original_dest_width,
+                                      &original_dest_height);
+  if (FAILED(hr)) {
+    DLOG(ERROR) << "GetDestSize failed with error 0x" << std::hex << hr;
+    return false;
+  }
+
+  // Set the destination surface size if necessary.
+  if (dest_size.width() != (int)original_dest_width ||
+      dest_size.height() != (int)original_dest_height) {
+    hr = decode_swap_chain->SetDestSize(dest_size.width(), dest_size.height());
+    if (FAILED(hr)) {
+      DLOG(ERROR) << "SetDestSize failed with error 0x" << std::hex << hr;
+      return false;
+    }
+  }
+
+  // Get the original target rect in case of restoring.
+  RECT original_target_rect;
+  hr = decode_swap_chain->GetTargetRect(&original_target_rect);
+  if (FAILED(hr)) {
+    DLOG(ERROR) << "GetTargetRect failed with error 0x" << std::hex << hr;
+    decode_swap_chain->SetDestSize(original_dest_width, original_dest_height);
+    return false;
+  }
+
+  // Set the target region to the specified rectangle if necessary.
+  RECT target_region = target_rect.ToRECT();
+  if (target_region != original_target_rect) {
+    hr = decode_swap_chain->SetTargetRect(&target_region);
+    if (FAILED(hr)) {
+      DLOG(ERROR) << "SetTargetRect failed with error 0x" << std::hex << hr;
+      decode_swap_chain->SetDestSize(original_dest_width, original_dest_height);
+      decode_swap_chain->SetTargetRect(&original_target_rect);
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool SwapChainPresenter::PresentToSwapChain(DCLayerOverlayParams& params,
                                             gfx::Transform* visual_transform,
                                             gfx::Rect* visual_clip_rect) {
   DCHECK(params.overlay_image);
+  DCHECK_NE(params.overlay_image->type(),
+            gl::DCLayerOverlayType::kDCompVisualContent);
 
   gl::DCLayerOverlayType overlay_type = params.overlay_image->type();
 
@@ -1171,35 +1263,10 @@ bool SwapChainPresenter::PresentToSwapChain(DCLayerOverlayParams& params,
   // content is shown again.
   ReleaseDCOMPSurfaceResourcesIfNeeded();
 
-  gfx::Size content_size;
-  gfx::Size swap_chain_size;
-  if (overlay_type == gl::DCLayerOverlayType::kDCompVisualContent) {
-    content_size = params.overlay_image->size();
-    // |visual_transform| now scales from |content_size| to on screen bounds.
-    UpdateSwapChainTransform(params.quad_rect.size(), content_size,
-                             visual_transform);
-  } else {
-    swap_chain_size =
-        CalculateSwapChainSize(params, visual_transform, visual_clip_rect);
-    content_size = swap_chain_size;
-  }
-
-  TRACE_EVENT2("gpu", "SwapChainPresenter::PresentToSwapChain", "image_type",
-               DCLayerOverlayTypeToString(overlay_type), "size",
-               content_size.ToString());
-
-  // Swap chain image already has a swap chain that's presented by the client
-  // e.g. for webgl/canvas low-latency/desynchronized mode.
-  if (overlay_type == gl::DCLayerOverlayType::kDCompVisualContent) {
-    DCHECK(params.overlay_image->dcomp_visual_content());
-    if (last_overlay_image_ != params.overlay_image) {
-      ReleaseSwapChainResources();
-      content_ = params.overlay_image->dcomp_visual_content();
-      content_size_ = content_size;
-      last_overlay_image_ = std::move(params.overlay_image);
-    }
-    return true;
-  }
+  absl::optional<gfx::Size> dest_size;
+  absl::optional<gfx::Rect> target_rect;
+  gfx::Size swap_chain_size = CalculateSwapChainSize(
+      params, visual_transform, visual_clip_rect, &dest_size, &target_rect);
 
   if (overlay_type == gl::DCLayerOverlayType::kNV12Texture &&
       !params.overlay_image->nv12_texture()) {
@@ -1352,6 +1419,26 @@ bool SwapChainPresenter::PresentToSwapChain(DCLayerOverlayParams& params,
                  features::kDXGISwapChainPresentInterval0)) {
     interval = 0;
   }
+
+  // DWM can turn off the desktop plane if this is a YUV swap chain and the
+  // overlay candidate covers the whole screen with letterboxing.
+  // TODO(chunbo): IDXGIDecodeSwapChain path with D3D11VideoDecoder+ZeroCopy
+  // will be supported as well.
+  bool is_letterboxing_overlay_ready = false;
+  if (base::FeatureList::IsEnabled(
+          features::kDirectCompositionLetterboxVideoOptimization) &&
+      IsYUVSwapChainFormat(swap_chain_format_)) {
+    // Try to QI IDXGIDecodeSwapChain and set the DXGI properties properly, in
+    // order to turn off the desktop plane in case of overlay.
+    if (dest_size.has_value() && target_rect.has_value()) {
+      bool succeeded = TryDisableDesktopPlane(*dest_size, *target_rect);
+
+      if (succeeded && params.z_order > 0) {
+        is_letterboxing_overlay_ready = true;
+      }
+    }
+  }
+
   // Ignore DXGI_STATUS_OCCLUDED since that's not an error but only indicates
   // that the window is occluded and we can stop rendering.
   hr = swap_chain_->Present(interval, flags);
@@ -1359,6 +1446,27 @@ bool SwapChainPresenter::PresentToSwapChain(DCLayerOverlayParams& params,
     DLOG(ERROR) << "Present failed with error 0x" << std::hex << hr;
     return false;
   }
+
+  // Update the visual_clip_rect and visual_transform accordingly after
+  // succeeded presentation with letterboxing for overaly scenario. This will
+  // make sure the video full screen letterboxing take the whole monitor area,
+  // and DWM will take care of the letterboxing info setup automatically.
+  if (is_letterboxing_overlay_ready) {
+    // Reset the horizontal/vertical shift according to the visual clip and
+    // original transform, since DWM will do the positioning.
+    visual_transform->set_rc(
+        0, 3,
+        visual_clip_rect->x() -
+            visual_transform->rc(0, 3) * visual_transform->rc(0, 0));
+    visual_transform->set_rc(
+        1, 3,
+        visual_clip_rect->y() -
+            visual_transform->rc(1, 3) * visual_transform->rc(1, 1));
+
+    // Expand the clip rect for swap chain to the whole screen.
+    *visual_clip_rect = gfx::Rect(GetMonitorSize());
+  }
+
   last_overlay_image_ = std::move(params.overlay_image);
   RecordPresentationStatistics();
   return true;
@@ -1434,9 +1542,11 @@ bool SwapChainPresenter::PresentDCOMPSurface(DCLayerOverlayParams& params,
   // Apply fullscreen rounding and transform to video and notify DCOMPTexture.
   gfx::Rect overlay_onscreen_rect = params.quad_rect;
   gfx::Size on_screen_size = overlay_onscreen_rect.size();
+  absl::optional<gfx::Size> dest_size;
+  absl::optional<gfx::Rect> target_rect;
   AdjustTargetToOptimalSizeIfNeeded(params, overlay_onscreen_rect,
                                     &on_screen_size, visual_transform,
-                                    visual_clip_rect);
+                                    visual_clip_rect, &dest_size, &target_rect);
   dcomp_surface_proxy->SetRect(visual_transform->MapRect(
       gfx::Rect(params.quad_rect.origin(), on_screen_size)));
 

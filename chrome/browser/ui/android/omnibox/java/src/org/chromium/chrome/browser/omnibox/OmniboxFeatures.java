@@ -43,18 +43,15 @@ public class OmniboxFeatures {
                     ChromeFeatureList.OMNIBOX_MODERNIZE_VISUAL_UPDATE,
                     "modernize_visual_update_merge_clipboard_on_ntp", false);
 
-    public static final String TAB_STRIP_REDESIGN_DISABLE_TOOLBAR_REORDERING_PARAM =
-            "disable_toolbar_reordering";
-    public static final BooleanCachedFieldTrialParameter
-            TAB_STRIP_REDESIGN_DISABLE_TOOLBAR_REORDERING =
-                    new BooleanCachedFieldTrialParameter(ChromeFeatureList.TAB_STRIP_REDESIGN,
-                            TAB_STRIP_REDESIGN_DISABLE_TOOLBAR_REORDERING_PARAM, false);
-
     private static final MutableFlagWithSafeDefault sOmniboxConsumesImeInsets =
             new MutableFlagWithSafeDefault(ChromeFeatureList.OMNIBOX_CONSUMERS_IME_INSETS, false);
     private static final MutableFlagWithSafeDefault sShouldAdaptToNarrowTabletWindows =
             new MutableFlagWithSafeDefault(
                     ChromeFeatureList.OMNIBOX_ADAPT_NARROW_TABLET_WINDOWS, false);
+
+    private static final MutableFlagWithSafeDefault sJourneysActionChipFlag =
+            new MutableFlagWithSafeDefault(
+                    ChromeFeatureList.OMNIBOX_HISTORY_CLUSTER_ACTION_CHIP, false);
     private static final MutableFlagWithSafeDefault sJourneysRowUiFlag =
             new MutableFlagWithSafeDefault(
                     ChromeFeatureList.OMNIBOX_HISTORY_CLUSTER_PROVIDER, false);
@@ -72,13 +69,6 @@ public class OmniboxFeatures {
     private static final MutableFlagWithSafeDefault sWarmRecycledViewPoolFlag =
             new MutableFlagWithSafeDefault(
                     ChromeFeatureList.OMNIBOX_WARM_RECYCLED_VIEW_POOL, false);
-
-    /**
-     * @return Whether Toolbar reordering for tab strip redesign is disabled.
-     */
-    public static boolean isTabStripToolbarReorderingDisabled() {
-        return TAB_STRIP_REDESIGN_DISABLE_TOOLBAR_REORDERING.getValue();
-    }
 
     /**
      * @param context The activity context.
@@ -115,24 +105,18 @@ public class OmniboxFeatures {
     /**
      * Returns whether smaller vertical and horizontal margins should be used in the visual update.
      */
-    public static boolean shouldShowSmallerMargins() {
-        return MODERNIZE_VISUAL_UPDATE_SMALLER_MARGINS.getValue();
+    public static boolean shouldShowSmallerMargins(Context context) {
+        return shouldShowModernizeVisualUpdate(context)
+                && MODERNIZE_VISUAL_UPDATE_SMALLER_MARGINS.getValue();
     }
 
     /**
      * Returns whether even smaller vertical and horizontal margins should be used in the visual
      * update.
      */
-    public static boolean shouldShowSmallestMargins() {
-        return MODERNIZE_VISUAL_UPDATE_SMALLEST_MARGINS.getValue();
-    }
-
-    /**
-     * Returns whether the clipboard suggestion should be grouped with other zero suggest items on
-     * the NTP or start surface in the visual update.
-     * */
-    public static boolean shouldMergeClipboardOnNtp() {
-        return MODERNIZE_VISUAL_UPDATE_MERGE_CLIPBOARD_ON_NTP.getValue();
+    public static boolean shouldShowSmallestMargins(Context context) {
+        return shouldShowModernizeVisualUpdate(context)
+                && MODERNIZE_VISUAL_UPDATE_SMALLEST_MARGINS.getValue();
     }
 
     /** Returns whether the omnibox should directly consume IME (keyboard) insets. */
@@ -167,6 +151,11 @@ public class OmniboxFeatures {
      */
     public static boolean shouldAddMostVisitedTilesRecycledViewPool() {
         return ChromeFeatureList.sOmniboxMostVisitedTilesAddRecycledViewPool.isEnabled();
+    }
+
+    /** Whether Journeys suggestions should be shown as an action chip. */
+    public static boolean isJourneysActionChipEnabled() {
+        return sJourneysActionChipFlag.isEnabled();
     }
 
     /** Whether Journeys suggestions should be shown in a dedicated row. */

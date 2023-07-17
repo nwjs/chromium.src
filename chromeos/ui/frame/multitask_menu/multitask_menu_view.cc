@@ -26,8 +26,10 @@
 #include "ui/base/default_style.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/compositor/layer.h"
 #include "ui/display/screen.h"
 #include "ui/events/types/event_type.h"
+#include "ui/views/animation/animation_builder.h"
 #include "ui/views/background.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/widget/widget.h"
@@ -43,8 +45,11 @@ constexpr int kLabelFontSize = 13;
 
 // If the menu was opened as a result of hovering over the frame size button,
 // moving the mouse outside the menu or size button will result in closing it
-// after 3 seconds have elapsed.
+// after 250 ms have elapsed.
 constexpr base::TimeDelta kMouseExitMenuTimeout = base::Milliseconds(250);
+
+// The multitask menu fade out duration after the exit timer finishes.
+constexpr base::TimeDelta kFadeDuration = base::Milliseconds(100);
 
 // Creates multitask button with label.
 std::unique_ptr<views::View> CreateButtonContainer(
@@ -67,7 +72,7 @@ std::unique_ptr<views::View> CreateButtonContainer(
 
 // -----------------------------------------------------------------------------
 // MultitaskMenuView::MenuPreTargetHandler:
-
+// Auto-closes the multitask menu on click outside or after timeout.
 class MultitaskMenuView::MenuPreTargetHandler : public ui::EventHandler {
  public:
   MenuPreTargetHandler(views::Widget* menu_widget,
@@ -86,8 +91,13 @@ class MultitaskMenuView::MenuPreTargetHandler : public ui::EventHandler {
   }
 
   void OnMouseEvent(ui::MouseEvent* event) override {
+    if (!menu_widget_ || menu_widget_->IsClosed()) {
+      return;
+    }
+
     if (event->type() == ui::ET_MOUSE_PRESSED) {
       ProcessPressedEvent(*event);
+      return;
     }
 
     if (event->type() == ui::ET_MOUSE_MOVED && anchor_view_) {
@@ -108,6 +118,10 @@ class MultitaskMenuView::MenuPreTargetHandler : public ui::EventHandler {
   }
 
   void OnTouchEvent(ui::TouchEvent* event) override {
+    if (!menu_widget_ || menu_widget_->IsClosed()) {
+      return;
+    }
+
     if (event->type() == ui::ET_TOUCH_PRESSED) {
       ProcessPressedEvent(*event);
     }
@@ -122,7 +136,20 @@ class MultitaskMenuView::MenuPreTargetHandler : public ui::EventHandler {
   }
 
  private:
-  void OnExitTimerFinished() { close_callback_.Run(); }
+  void OnExitTimerFinished() {
+    if (!menu_widget_->GetLayer()->GetAnimator()->is_animating()) {
+      views::AnimationBuilder()
+          .SetPreemptionStrategy(
+              ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET)
+          .OnEnded(base::BindOnce(&MenuPreTargetHandler::OnFadeOutFinished,
+                                  weak_factory_.GetWeakPtr()))
+          .Once()
+          .SetDuration(kFadeDuration)
+          .SetOpacity(menu_widget_->GetLayer(), 0.0f, gfx::Tween::LINEAR);
+    }
+  }
+
+  void OnFadeOutFinished() { close_callback_.Run(); }
 
   // The widget of the multitask menu that is currently shown. Guaranteed to
   // outlive `this`, which will get destroyed when the menu is destructed in
@@ -136,6 +163,10 @@ class MultitaskMenuView::MenuPreTargetHandler : public ui::EventHandler {
   base::OneShotTimer exit_timer_;
 
   base::RepeatingClosure close_callback_;
+
+  // Chrome's compiler toolchain enforces that any `WeakPtrFactory`
+  // fields are declared last, to avoid destruction ordering issues.
+  base::WeakPtrFactory<MenuPreTargetHandler> weak_factory_{this};
 };
 
 // -----------------------------------------------------------------------------
@@ -257,16 +288,19 @@ void MultitaskMenuView::SetSkipMouseOutDelayForTesting(bool val) {
 }
 
 void MultitaskMenuView::SplitButtonPressed(SnapDirection direction) {
-  SnapController::Get()->CommitSnap(window_, direction, kDefaultSnapRatio);
+  SnapController::Get()->CommitSnap(
+      window_, direction, kDefaultSnapRatio,
+      SnapController::SnapRequestSource::kWindowLayoutMenu);
   close_callback_.Run();
   RecordMultitaskMenuActionType(MultitaskMenuActionType::kHalfSplitButton);
 }
 
 void MultitaskMenuView::PartialButtonPressed(SnapDirection direction) {
-  SnapController::Get()->CommitSnap(window_, direction,
-                                    direction == SnapDirection::kPrimary
-                                        ? kTwoThirdSnapRatio
-                                        : kOneThirdSnapRatio);
+  SnapController::Get()->CommitSnap(
+      window_, direction,
+      direction == SnapDirection::kPrimary ? kTwoThirdSnapRatio
+                                           : kOneThirdSnapRatio,
+      SnapController::SnapRequestSource::kWindowLayoutMenu);
   close_callback_.Run();
 
   base::RecordAction(base::UserMetricsAction(

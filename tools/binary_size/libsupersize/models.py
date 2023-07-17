@@ -21,8 +21,12 @@ BUILD_CONFIG_TITLE = 'title'
 BUILD_CONFIG_URL = 'url'
 BUILD_CONFIG_OUT_DIRECTORY = 'out_directory'
 
+METRICS_COUNT = 'COUNT'
+METRICS_COUNT_RELOCATIONS = 'Relocations'
+METRICS_SIZE = 'SIZE'
+METRICS_SIZE_APK_FILE = 'APK File'
+
 METADATA_APK_FILENAME = 'apk_file_name'  # Path relative to output_directory.
-METADATA_APK_SIZE = 'apk_size'  # File size of apk in bytes.
 METADATA_APK_SPLIT_NAME = 'apk_split_name'  # Name of the split if applicable.
 METADATA_ZIPALIGN_OVERHEAD = 'zipalign_padding'  # Overhead from zipalign.
 METADATA_SIGNING_BLOCK_SIZE = 'apk_signature_block_size'  # Size in bytes.
@@ -33,10 +37,10 @@ METADATA_ELF_ARCHITECTURE = 'elf_arch'  # "arm", "arm64", "x86", or "x64".
 METADATA_ELF_FILENAME = 'elf_file_name'  # Path relative to output_directory.
 METADATA_ELF_MTIME = 'elf_mtime'  # int timestamp in utc.
 METADATA_ELF_BUILD_ID = 'elf_build_id'
-METADATA_ELF_RELOCATIONS_COUNT = 'elf_relocations_count'
 METADATA_PROGUARD_MAPPING_FILENAME = 'proguard_mapping_file_name'
 
 # New sections should also be added to the SuperSize UI.
+SECTION_ARSC = '.arsc'
 SECTION_BSS = '.bss'
 SECTION_BSS_REL_RO = '.bss.rel.ro'
 SECTION_DATA = '.data'
@@ -84,6 +88,7 @@ PAK_SECTIONS = (
 CONTAINER_MULTIPLE = '*'
 
 SECTION_NAME_TO_SECTION = {
+    SECTION_ARSC: 'a',
     SECTION_BSS: 'b',
     SECTION_BSS_REL_RO: 'b',
     SECTION_DATA: 'd',
@@ -101,6 +106,7 @@ SECTION_NAME_TO_SECTION = {
 }
 
 SECTION_TO_SECTION_NAME = collections.OrderedDict((
+    ('a', SECTION_ARSC),
     ('t', SECTION_TEXT),
     ('r', SECTION_RODATA),
     ('R', SECTION_DATA_REL_RO),
@@ -368,6 +374,7 @@ class SizeInfo(BaseSizeInfo):
   """
   __slots__ = (
       'size_path',
+      'is_sparse',
   )
 
   def __init__(self,
@@ -375,9 +382,11 @@ class SizeInfo(BaseSizeInfo):
                containers,
                raw_symbols,
                symbols=None,
-               size_path=None):
+               size_path=None,
+               is_sparse=False):
     super().__init__(build_config, containers, raw_symbols, symbols=symbols)
     self.size_path = size_path
+    self.is_sparse = is_sparse
 
   @property
   def metadata_legacy(self):
@@ -409,6 +418,10 @@ class DeltaSizeInfo(BaseSizeInfo):
     super().__init__(None, containers, raw_symbols)
     self.before = before
     self.after = after
+
+  @property
+  def is_sparse(self):
+    return self.before.is_sparse and self.after.is_sparse
 
 
 class BaseSymbol:
@@ -518,6 +531,9 @@ class BaseSymbol:
     if flags & FLAG_UNCOMPRESSED:
       parts.append('uncompressed')
     return '{%s}' % ','.join(parts)
+
+  def IsArsc(self):
+    return self.section_name == SECTION_ARSC
 
   def IsBss(self):
     return self.section_name in BSS_SECTIONS

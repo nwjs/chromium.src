@@ -40,22 +40,6 @@
     --ntp-module-width: 360px;
   }
 
-  :host([modules-redesigned-layout-enabled_]) {
-    --ntp-module-layout-width: 360px;
-  }
-
-  @media (min-width: 960px) {
-    :host([modules-redesigned-layout-enabled_]) {
-      --ntp-module-layout-width: 780px;
-    }
-  }
-
-  @media (min-width: 1440px) {
-    :host([modules-redesigned-layout-enabled_]) {
-      --ntp-module-layout-width: 1170px;
-    }
-  }
-
   :host([show-background-image_]) {
     --ntp-theme-text-shadow: 0 0 16px rgba(0, 0, 0, .3);
   }
@@ -65,6 +49,19 @@
         0px 0px 2px rgba(0, 0, 0, 0.2), 0px 0px 10px rgba(0, 0, 0, 0.1);
     --ntp-protected-icon-background-color: rgba(0, 0, 0, .6);
     --ntp-protected-icon-background-color-hovered: rgba(0, 0, 0, .7);
+  }
+
+  #oneGoogleBarScrim {
+    background: linear-gradient(rgba(0, 0, 0, 0.25), transparent);
+    height: 64px;
+    position: absolute;
+    top: 0;
+    width: 100%;
+  }
+
+  #oneGoogleBarScrim[fixed] {
+    /* Prevent scrim from bouncing when overscrolling. */
+    position: fixed;
   }
 
   #oneGoogleBar {
@@ -152,6 +149,7 @@
   #customizeButtonContainer:has(help-bubble) {
     /* help-bubble parent needs z-index to overlay ntp-iframe */
     z-index: 1001;
+    background-color: var(--color-new-tab-page-button-background) !important;
   }
 
   :host-context([dir='ltr']) #customizeButtonContainer {
@@ -170,7 +168,10 @@
     background-color: var(--ntp-protected-icon-background-color-hovered);
   }
 
-  #customizeButton {
+  /* TODO(crbug.com/1454193): Show collapsed Customize Chrome button
+  for first step of Panorama tutorial after M115 is released to Stable. */
+  #customizeButton,
+  #customizeButtonContainer:has(help-bubble) #customizeButton {
     --hover-bg-color: var(--color-new-tab-page-button-background-hovered);
     --text-color: var(--color-new-tab-page-button-foreground);
     border: none;
@@ -178,6 +179,7 @@
     box-shadow: 0 3px 6px rgba(0, 0, 0, .16), 0 1px 2px rgba(0, 0, 0, .23);
     font-weight: 400;
     min-width: 32px;
+    padding: 8px 16px;
   }
 
   :host([show-background-image_]) #customizeButton {
@@ -189,7 +191,7 @@
     box-shadow: var(--ntp-focus-shadow);
   }
 
-  #customizeIcon {
+  #customizeIcon, #customizeButtonContainer:has(help-bubble) #customizeIcon {
     -webkit-mask-image: url(icons/icon_pencil.svg);
     -webkit-mask-repeat: no-repeat;
     -webkit-mask-size: 100%;
@@ -201,7 +203,15 @@
 
   :host([show-background-image_]) #customizeIcon {
     background-color: white;
-    margin: 0;
+    margin-inline-end: 0;
+  }
+
+  :host([show-background-image_]) #customizeText {
+      display: none;
+  }
+
+  #customizeButtonContainer:has(help-bubble) #customizeText {
+      display: inherit;
   }
 
   @media (max-width: 550px) {
@@ -342,6 +352,8 @@
         --ntp-logo-color: [[rgbaOrInherit_(logoColor_)]];">
   <template is="dom-if" if="[[lazyRender_]]">
     <template is="dom-if" if="[[oneGoogleBarEnabled_]]">
+      <div id="oneGoogleBarScrim" hidden$="[[!showOneGoogleBarScrim_]]"
+          fixed$="[[scrolledToTop_]]"></div>
       <ntp-iframe id="oneGoogleBar" src="[[oneGoogleBarIframePath_]]"
           hidden$="[[!oneGoogleBarLoaded_]]"
           allow="camera [[oneGoogleBarIframeOrigin_]]; display-capture [[oneGoogleBarIframeOrigin_]]"> <!-- presubmit: ignore-long-line -->
@@ -372,7 +384,8 @@
     <template>
       <template is="dom-if" if="[[shortcutsEnabled_]]">
         <cr-most-visited id="mostVisited" theme="[[theme_.mostVisited]]"
-            single-row="[[singleRowShortcutsEnabled_]]">
+            single-row="[[singleRowShortcutsEnabled_]]"
+            reflow-on-overflow="[[mostVisitedReflowOnOverflowEnabled_]]">
         </cr-most-visited>
       </template>
       <template is="dom-if" if="[[middleSlotPromoEnabled_]]">
@@ -411,7 +424,7 @@
         <cr-button id="customizeButton" on-click="onCustomizeClick_"
             title="$i18n{customizeThisPage}" aria-pressed="[[showCustomize_]]">
           <div id="customizeIcon"></div>
-          <div id="customizeText" hidden$="[[showBackgroundImage_]]">
+          <div id="customizeText">
             $i18n{customizeButton}
           </div>
         </cr-button>

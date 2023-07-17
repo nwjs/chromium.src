@@ -4,11 +4,10 @@
 
 package org.chromium.net;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertTrue;
 
-import static org.chromium.net.CronetTestRule.SERVER_CERT_PEM;
-import static org.chromium.net.CronetTestRule.SERVER_KEY_PKCS8_PEM;
 import static org.chromium.net.CronetTestRule.getContext;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -34,9 +33,7 @@ public class NetworkErrorLoggingTest {
 
     @Before
     public void setUp() throws Exception {
-        TestFilesInstaller.installIfNeeded(getContext());
-        assertTrue(Http2TestServer.startHttp2TestServer(
-                getContext(), SERVER_CERT_PEM, SERVER_KEY_PKCS8_PEM));
+        assertTrue(Http2TestServer.startHttp2TestServer(getContext()));
     }
 
     @After
@@ -68,7 +65,7 @@ public class NetworkErrorLoggingTest {
         requestBuilder.build().start();
         callback.blockForDone();
         dataProvider.assertClosed();
-        assertEquals(200, callback.mResponseInfo.getHttpStatusCode());
+        assertThat(callback.mResponseInfo.getHttpStatusCode()).isEqualTo(200);
         assertTrue(Http2TestServer.getReportingCollector().containsReport(
                 "{\"type\": \"test_report\"}"));
     }
@@ -89,7 +86,7 @@ public class NetworkErrorLoggingTest {
                 mCronetEngine.newUrlRequestBuilder(url, callback, callback.getExecutor());
         requestBuilder.build().start();
         callback.blockForDone();
-        assertEquals(200, callback.mResponseInfo.getHttpStatusCode());
+        assertThat(callback.mResponseInfo.getHttpStatusCode()).isEqualTo(200);
         Http2TestServer.getReportingCollector().waitForReports(1);
         assertTrue(Http2TestServer.getReportingCollector().containsReport(""
                 + "{"
@@ -151,7 +148,7 @@ public class NetworkErrorLoggingTest {
                 mCronetEngine.newUrlRequestBuilder(url, callback, callback.getExecutor());
         requestBuilder.build().start();
         callback.blockForDone();
-        assertEquals(200, callback.mResponseInfo.getHttpStatusCode());
+        assertThat(callback.mResponseInfo.getHttpStatusCode()).isEqualTo(200);
         Http2TestServer.getReportingCollector().waitForReports(1);
         // Note that because we don't know in advance what the server IP address is for preloaded
         // origins, we'll always get a "downgraded" dns.address_changed NEL report if we don't

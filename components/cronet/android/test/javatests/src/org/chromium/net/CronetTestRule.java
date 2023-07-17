@@ -4,6 +4,8 @@
 
 package org.chromium.net;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
@@ -39,21 +41,9 @@ import java.net.URLStreamHandlerFactory;
  */
 public class CronetTestRule implements TestRule {
     private static final String PRIVATE_DATA_DIRECTORY_SUFFIX = "cronet_test";
-
-    /**
-     * Name of the file that contains the test server certificate in PEM format.
-     */
-    public static final String SERVER_CERT_PEM = "quic-chain.pem";
-
-    /**
-     * Name of the file that contains the test server private key in PKCS8 PEM format.
-     */
-    public static final String SERVER_KEY_PKCS8_PEM = "quic-leaf-cert.key.pkcs8.pem";
-
     private static final String TAG = "CronetTestRule";
 
     private CronetTestFramework mCronetTestFramework;
-
     private boolean mTestingSystemHttpURLConnection;
     private boolean mTestingJavaImpl;
     private StrictMode.VmPolicy mOldVmPolicy;
@@ -314,18 +304,18 @@ public class CronetTestRule implements TestRule {
     }
 
     public void assertResponseEquals(UrlResponseInfo expected, UrlResponseInfo actual) {
-        Assert.assertEquals(expected.getAllHeaders(), actual.getAllHeaders());
-        Assert.assertEquals(expected.getAllHeadersAsList(), actual.getAllHeadersAsList());
-        Assert.assertEquals(expected.getHttpStatusCode(), actual.getHttpStatusCode());
-        Assert.assertEquals(expected.getHttpStatusText(), actual.getHttpStatusText());
-        Assert.assertEquals(expected.getUrlChain(), actual.getUrlChain());
-        Assert.assertEquals(expected.getUrl(), actual.getUrl());
+        assertThat(actual.getAllHeaders()).isEqualTo(expected.getAllHeaders());
+        assertThat(actual.getAllHeadersAsList()).isEqualTo(expected.getAllHeadersAsList());
+        assertThat(actual.getHttpStatusCode()).isEqualTo(expected.getHttpStatusCode());
+        assertThat(actual.getHttpStatusText()).isEqualTo(expected.getHttpStatusText());
+        assertThat(actual.getUrlChain()).isEqualTo(expected.getUrlChain());
+        assertThat(actual.getUrl()).isEqualTo(expected.getUrl());
         // Transferred bytes and proxy server are not supported in pure java
         if (!testingJavaImpl()) {
-            Assert.assertEquals(expected.getReceivedByteCount(), actual.getReceivedByteCount());
-            Assert.assertEquals(expected.getProxyServer(), actual.getProxyServer());
+            assertThat(actual.getReceivedByteCount()).isEqualTo(expected.getReceivedByteCount());
+            assertThat(actual.getProxyServer()).isEqualTo(expected.getProxyServer());
             // This is a place where behavior intentionally differs between native and java
-            Assert.assertEquals(expected.getNegotiatedProtocol(), actual.getNegotiatedProtocol());
+            assertThat(actual.getNegotiatedProtocol()).isEqualTo(expected.getNegotiatedProtocol());
         }
     }
 

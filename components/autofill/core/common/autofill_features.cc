@@ -34,7 +34,7 @@ BASE_FEATURE(kAutofillGivePrecedenceToNumericQuantities,
 // TODO(crbug.com/1348294): Remove once launched.
 BASE_FEATURE(kAutofillAccountProfilesUnionView,
              "AutofillAccountProfilesUnionView",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // Account profiles are not considered for regular updates on import, but if
 // this parameter is enabled, they are considered for silent updates.
 const base::FeatureParam<bool> kAutofillEnableSilentUpdatesForAccountProfiles{
@@ -94,13 +94,6 @@ BASE_FEATURE(kAutofillInferCountryCallingCode,
 BASE_FEATURE(kAutofillConsiderPhoneNumberSeparatorsValidLabels,
              "AutofillConsiderPhoneNumberSeparatorsValidLabels",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, the last blur votes per form signature are sent not the first
-// ones.
-// TODO(crbug.com/1383502): Cleanup when this has proven on stable.
-BASE_FEATURE(kAutofillDelayBlurVotes,
-             "AutofillDelayBlurVotes",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // FormStructure::RetrieveFromCache used to preserve an AutofillField's
 // is_autofilled from the cache of previously parsed forms. This makes little
@@ -191,6 +184,18 @@ BASE_FEATURE(kAutofillEnableSelectMenu,
              "AutofillEnableSelectMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls if Chrome support filling and importing between streets.
+// TODO(crbug.com/1441904) Remove once launched.
+BASE_FEATURE(kAutofillEnableSupportForBetweenStreets,
+             "AutofillEnableSupportForBetweenStreets",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls if Chrome support filling and importing landmarks.
+// TODO(crbug.com/1441904) Remove once launched.
+BASE_FEATURE(kAutofillEnableSupportForLandmark,
+             "AutofillEnableSupportForLandmark",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls if the heuristic field parsing utilizes shared labels.
 // TODO(crbug.com/1165780): Remove once shared labels are launched.
 BASE_FEATURE(kAutofillEnableSupportForParsingWithSharedLabels,
@@ -221,6 +226,20 @@ BASE_FEATURE(kAutofillEnableDevtoolsIssues,
              "AutofillEnableDevtoolsIssues",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether the autofill popup is hidden when the context menu is open.
+BASE_FEATURE(kAutofillPopupDoesNotOverlapWithContextMenu,
+             "AutofillPopupDoesNotOverlapWithContextMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables a couple of improvements to credit card expiration date handling:
+// - The autocomplete attribute values are rationalized with format strings
+//   like MM/YY from placeholders and labels in mind.
+// - more fill follow.
+// TODO(crbug.com/1441057): Remove once launched.
+BASE_FEATURE(kAutofillEnableExpirationDateImprovements,
+             "AutofillEnableExpirationDateImprovements",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether to save the first number in a form with multiple phone
 // numbers instead of aborting the import.
 // TODO(crbug.com/1167484) Remove once launched.
@@ -241,12 +260,6 @@ BASE_FEATURE(kAutofillEnableParsingEmptyPhoneNumberLabels,
 BASE_FEATURE(kAutofillEnableLabelPrecedenceForTurkishAddresses,
              "AutofillEnableLabelPrecedenceForTurkishAddresses",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, the address profile deduplication logic runs after the browser
-// startup, once per chrome version.
-BASE_FEATURE(kAutofillEnableProfileDeduplication,
-             "AutofillEnableProfileDeduplication",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls if Autofill supports merging subset names.
 // TODO(crbug.com/1098943): Remove once launched.
@@ -424,13 +437,6 @@ BASE_FEATURE(kAutofillProbableFormSubmissionInBrowser,
              "AutofillProbableFormSubmissionInBrowser",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If we observe a sequence of fields of (street address, house number), these
-// get rationalized to (street name, house number).
-// TODO(crbug.com/1326425): Remove once feature is launched.
-BASE_FEATURE(kAutofillRationalizeStreetAddressAndHouseNumber,
-             "AutofillRationalizeStreetAddressAndHouseNumber",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Removes setting-inaccessible field types from existing profiles on startup.
 // TODO(crbug.com/1300548): Cleanup when launched.
 BASE_FEATURE(kAutofillRemoveInaccessibleProfileValuesOnStartup,
@@ -464,10 +470,6 @@ const base::FeatureParam<int> kAutofillServerBehaviorsParam{
 BASE_FEATURE(kAutofillSharedAutofill,
              "AutofillSharedAutofill",
              base::FEATURE_DISABLED_BY_DEFAULT);
-// Relaxes the conditions under which a field is safe to fill.
-// See FormForest::GetRendererFormsOfBrowserForm() for details.
-const base::FeatureParam<bool> kAutofillSharedAutofillRelaxedParam{
-    &kAutofillSharedAutofill, "relax_shared_autofill", false};
 
 // Controls whether to offer a delete button for Autocomplete entries in the
 // Autofill popup.
@@ -611,13 +613,13 @@ BASE_FEATURE(kAutofillVirtualCardsOnTouchToFillAndroid,
 // instead of the regular popup.
 BASE_FEATURE(kAutofillKeyboardAccessory,
              "AutofillKeyboardAccessory",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the Autofill manual fallback for Addresses and Payments is
 // present on Android.
 BASE_FEATURE(kAutofillManualFallbackAndroid,
              "AutofillManualFallbackAndroid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the touch to fill surface is shown for credit cards on
 // Android.

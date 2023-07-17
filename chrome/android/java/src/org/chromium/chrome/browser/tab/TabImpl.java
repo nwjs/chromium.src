@@ -1145,6 +1145,9 @@ public class TabImpl implements Tab {
         if (!maybeShowNativePage(url.getSpec(), isReload)) {
             showRenderedPage();
         }
+
+        CriticalPersistedTabData.from(this).setLastNavigationCommittedTimestampMillis(
+                System.currentTimeMillis());
     }
 
     /**
@@ -1380,6 +1383,11 @@ public class TabImpl implements Tab {
         assert nativePtr != 0;
         assert mNativeTabAndroid == 0;
         mNativeTabAndroid = nativePtr;
+    }
+
+    @CalledByNative
+    private long getLastShownTimestamp() {
+        return CriticalPersistedTabData.from(this).getTimestampMillis();
     }
 
     @CalledByNative

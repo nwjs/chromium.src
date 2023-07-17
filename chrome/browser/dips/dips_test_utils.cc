@@ -17,7 +17,7 @@ using content::WebContents;
 
 URLCookieAccessObserver::URLCookieAccessObserver(WebContents* web_contents,
                                                  const GURL& url,
-                                                 Type access_type)
+                                                 CookieOperation access_type)
     : WebContentsObserver(web_contents), url_(url), access_type_(access_type) {}
 
 void URLCookieAccessObserver::Wait() {
@@ -27,6 +27,8 @@ void URLCookieAccessObserver::Wait() {
 void URLCookieAccessObserver::OnCookiesAccessed(
     RenderFrameHost* render_frame_host,
     const CookieAccessDetails& details) {
+  cookie_accessed_in_primary_page_ = IsInPrimaryPage(render_frame_host);
+
   if (details.type == access_type_ && details.url == url_) {
     run_loop_.Quit();
   }
@@ -35,7 +37,33 @@ void URLCookieAccessObserver::OnCookiesAccessed(
 void URLCookieAccessObserver::OnCookiesAccessed(
     NavigationHandle* navigation_handle,
     const CookieAccessDetails& details) {
+  cookie_accessed_in_primary_page_ = IsInPrimaryPage(navigation_handle);
+
   if (details.type == access_type_ && details.url == url_) {
+    run_loop_.Quit();
+  }
+}
+
+bool URLCookieAccessObserver::CookieAccessedInPrimaryPage() const {
+  return cookie_accessed_in_primary_page_;
+}
+
+FrameCookieAccessObserver::FrameCookieAccessObserver(
+    WebContents* web_contents,
+    RenderFrameHost* render_frame_host,
+    CookieOperation access_type)
+    : WebContentsObserver(web_contents),
+      render_frame_host_(render_frame_host),
+      access_type_(access_type) {}
+
+void FrameCookieAccessObserver::Wait() {
+  run_loop_.Run();
+}
+
+void FrameCookieAccessObserver::OnCookiesAccessed(
+    content::RenderFrameHost* render_frame_host,
+    const content::CookieAccessDetails& details) {
+  if (details.type == access_type_ && render_frame_host_ == render_frame_host) {
     run_loop_.Quit();
   }
 }
@@ -50,6 +78,7 @@ RedirectChainObserver::~RedirectChainObserver() = default;
 
 void RedirectChainObserver::OnChainHandled(
     const DIPSRedirectChainInfoPtr& chain) {
+  handle_call_count++;
   if (chain->final_url == final_url_) {
     run_loop_.Quit();
   }

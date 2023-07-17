@@ -11,18 +11,20 @@
 #import "base/time/time.h"
 #import "components/favicon/ios/web_favicon_driver.h"
 #import "components/previous_session_info/previous_session_info.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/main/browser.h"
 #import "ios/chrome/browser/sessions/session_ios.h"
 #import "ios/chrome/browser/sessions/session_ios_factory.h"
 #import "ios/chrome/browser/sessions/session_restoration_observer.h"
 #import "ios/chrome/browser/sessions/session_service_ios.h"
 #import "ios/chrome/browser/sessions/session_window_ios.h"
-#import "ios/chrome/browser/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "ios/chrome/browser/shared/model/web_state_list/all_web_state_observation_forwarder.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
+#import "ios/chrome/browser/tabs/inactive_tabs/features.h"
+#import "ios/chrome/browser/web/features.h"
 #import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
 #import "ios/chrome/browser/web/session_state/web_session_state_tab_helper.h"
-#import "ios/chrome/browser/web_state_list/all_web_state_observation_forwarder.h"
-#import "ios/chrome/browser/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_serialization.h"
 #import "ios/chrome/browser/web_state_list/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/web/public/navigation/navigation_item.h"
@@ -255,15 +257,23 @@ void SessionRestorationBrowserAgent::SaveSession(bool immediately) {
   if (!CanSaveSession())
     return;
 
+  if (IsInactiveTabsAvailable() && batch_in_progress_) {
+    save_after_batch_ = true;
+    save_immediately_ = save_immediately_ || immediately;
+    return;
+  }
+
   [session_service_ saveSession:session_ios_factory_
                       sessionID:session_identifier_
                       directory:browser_state_->GetStatePath()
                     immediately:immediately];
 
-  for (int i = 0; i < web_state_list_->count(); ++i) {
-    web::WebState* web_state = web_state_list_->GetWebStateAt(i);
-    WebSessionStateTabHelper::FromWebState(web_state)
-        ->SaveSessionStateIfStale();
+  if (web::UseNativeSessionRestorationCache()) {
+    for (int i = 0; i < web_state_list_->count(); ++i) {
+      web::WebState* web_state = web_state_list_->GetWebStateAt(i);
+      WebSessionStateTabHelper::FromWebState(web_state)
+          ->SaveSessionStateIfStale();
+    }
   }
 }
 
@@ -390,6 +400,31 @@ void SessionRestorationBrowserAgent::WebStateMoved(WebStateList* web_state_list,
 
   // Persist the session state if the new web state is not loading.
   SaveSession(/*immediately=*/false);
+}
+
+void SessionRestorationBrowserAgent::WillBeginBatchOperation(
+    WebStateList* web_state_list) {
+  // Ignore this if Inactive Tabs is not available via Finch.
+  if (!IsInactiveTabsAvailable()) {
+    return;
+  }
+  batch_in_progress_ = true;
+  save_after_batch_ = false;
+  save_immediately_ = false;
+}
+
+void SessionRestorationBrowserAgent::BatchOperationEnded(
+    WebStateList* web_state_list) {
+  // Ignore this if Inactive Tabs is not available via Finch.
+  if (!IsInactiveTabsAvailable()) {
+    return;
+  }
+  batch_in_progress_ = false;
+  if (save_after_batch_) {
+    SaveSession(save_immediately_);
+    save_after_batch_ = false;
+    save_immediately_ = false;
+  }
 }
 
 // WebStateObserver methods

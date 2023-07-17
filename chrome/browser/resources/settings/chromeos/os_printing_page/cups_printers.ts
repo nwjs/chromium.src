@@ -19,7 +19,7 @@ import 'chrome://resources/cr_elements/action_link.css.js';
 import 'chrome://resources/polymer/v3_0/iron-flex-layout/iron-flex-layout-classes.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import 'chrome://resources/cr_components/localized_link/localized_link.js';
-import '../../icons.html.js';
+import '../icons.html.js';
 import './cups_edit_printer_dialog.js';
 import './cups_enterprise_printers.js';
 import './cups_printer_shared.css.js';
@@ -39,7 +39,7 @@ import {assert, assertNotReached} from 'chrome://resources/js/assert_ts.js';
 import {addWebUiListener, removeWebUiListener, WebUiListener} from 'chrome://resources/js/cr.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
-import {CrosNetworkConfigRemote, FilterType, NetworkStateProperties, NO_LIMIT} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/cros_network_config.mojom-webui.js';
+import {CrosNetworkConfigInterface, FilterType, NetworkStateProperties, NO_LIMIT} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/cros_network_config.mojom-webui.js';
 import {ConnectionStateType, NetworkType} from 'chrome://resources/mojo/chromeos/services/network_config/public/mojom/network_types.mojom-webui.js';
 import {afterNextRender, mixinBehaviors, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -181,6 +181,15 @@ class SettingsCupsPrintersElement extends SettingsCupsPrintersElementBase {
       },
 
       /**
+       * Indicates whether the nearby printers section is expanded.
+       * @private {boolean}
+       */
+      nearbyPrintersExpanded_: {
+        type: Boolean,
+        value: true,
+      },
+
+      /**
        * True when the "printer-settings-revamp" feature flag is enabled.
        */
       isPrinterSettingsRevampEnabled_: {
@@ -208,13 +217,15 @@ class SettingsCupsPrintersElement extends SettingsCupsPrintersElementBase {
   private entryManager_: CupsPrintersEntryManager;
   private nearbyPrinterCount_: number;
   private nearbyPrintersAriaLabel_: string;
-  private networkConfig_: CrosNetworkConfigRemote;
+  private networkConfig_: CrosNetworkConfigInterface;
   private onEnterprisePrintersChangedListener_: WebUiListener;
   private onPrintersChangedListener_: WebUiListener|null;
   private savedPrinterCount_: number;
   private savedPrintersAriaLabel_: string;
   private savedPrinters_: PrinterListEntry[];
   private showCupsEditPrinterDialog_: boolean;
+  private nearbyPrintersExpanded_: boolean;
+  private isPrinterSettingsRevampEnabled_: boolean;
 
   constructor() {
     super();
@@ -226,6 +237,20 @@ class SettingsCupsPrintersElement extends SettingsCupsPrintersElementBase {
     this.entryManager_ = CupsPrintersEntryManager.getInstance();
 
     this.addPrintServerResultText_ = '';
+
+    if (this.isPrinterSettingsRevampEnabled_) {
+      // This request is made in the constructor to fetch the # of saved
+      // printers for determining whether the nearby printers section should
+      // start open or closed.
+      CupsPrintersBrowserProxyImpl.getInstance()
+          .getCupsSavedPrintersList()
+          .then(
+              savedPrinters => this.nearbyPrintersExpanded_ =
+                  savedPrinters.printerList.length === 0);
+    } else {
+      // Nearby printers should always show when the revamp flag is disabled.
+      this.nearbyPrintersExpanded_ = true;
+    }
   }
 
   override connectedCallback(): void {
@@ -482,6 +507,23 @@ class SettingsCupsPrintersElement extends SettingsCupsPrintersElementBase {
       printerLabel = 'enterprisePrintersCountMany';
     }
     return loadTimeData.getStringF(printerLabel, this.enterprisePrinterCount_);
+  }
+
+  private toggleClicked_() {
+    assert(this.isPrinterSettingsRevampEnabled_);
+    this.nearbyPrintersExpanded_ = !this.nearbyPrintersExpanded_;
+
+    // The iron list containing nearby printers does not get rendered while
+    // hidden so the list needs to be refreshed when the Nearby printer
+    // section is expanded.
+    if (this.nearbyPrintersExpanded_) {
+      this.shadowRoot!.querySelector('settings-cups-nearby-printers')!
+          .resizePrintersList();
+    }
+  }
+
+  private getIconDirection_(): string {
+    return this.nearbyPrintersExpanded_ ? 'cr:expand-less' : 'cr:expand-more';
   }
 }
 

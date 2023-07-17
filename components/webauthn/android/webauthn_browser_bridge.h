@@ -25,7 +25,7 @@ class WebAuthnBrowserBridge {
       jboolean is_conditional_request,
       const base::android::JavaParamRef<jobject>& jcallback) const;
 
-  void CancelRequest(
+  void CleanupRequest(
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& jframe_host) const;
 
@@ -34,6 +34,11 @@ class WebAuthnBrowserBridge {
       const base::android::JavaParamRef<jobject>& jframe_host,
       jboolean jhas_results,
       const base::android::JavaParamRef<jobject>& jfull_request_runnable);
+
+  void OnCredManUiClosed(
+      JNIEnv* env,
+      const base::android::JavaParamRef<jobject>& jframe_host,
+      jboolean jsuccess);
 
  private:
   // Java object that owns this WebAuthnBrowserBridge.

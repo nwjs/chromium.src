@@ -7,28 +7,34 @@
  * 'os-settings-page' is the settings page containing the actual OS settings.
  */
 
+/**
+ * All top-level basic pages should be imported below. Top-level advanced pages
+ * should be imported in lazy_load.ts instead.
+ */
+// clang-format off
+import '../device_page/device_page.js';
+import '../internet_page/internet_page.js';
+import '../kerberos_page/kerberos_page.js';
+import '../multidevice_page/multidevice_page.js';
+import '../os_a11y_page/os_a11y_page.js';
+import '../os_apps_page/os_apps_page.js';
+import '../os_bluetooth_page/os_bluetooth_page.js';
+import '../os_people_page/os_people_page.js';
+import '../os_privacy_page/os_privacy_page.js';
+import '../os_search_page/os_search_page.js';
+import '../personalization_page/personalization_page.js';
+// clang-format on
+
 import 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import 'chrome://resources/cr_elements/cr_hidden_style.css.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import './settings_idle_load.js';
-import '../os_a11y_page/os_a11y_page.js';
 import '../os_about_page/eol_offer_section.js';
-import '../os_apps_page/os_apps_page.js';
-import '../os_people_page/os_people_page.js';
-import '../os_privacy_page/os_privacy_page.js';
-import '../os_printing_page/os_printing_page.js';
-import '../os_search_page/os_search_page.js';
-import '../personalization_page/personalization_page.js';
+import '../os_settings_icons.html.js';
 import '../os_settings_page/os_settings_section.js';
 import '../os_settings_page_styles.css.js';
-import '../device_page/device_page.js';
-import '../internet_page/internet_page.js';
-import '../kerberos_page/kerberos_page.js';
-import '../multidevice_page/multidevice_page.js';
-import '../os_bluetooth_page/os_bluetooth_page.js';
-import '../os_settings_icons.html.js';
 
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert_ts.js';
@@ -39,7 +45,7 @@ import {castExists} from '../assert_extras.js';
 import {MainPageMixin} from '../main_page_mixin.js';
 import {AboutPageBrowserProxyImpl} from '../os_about_page/about_page_browser_proxy.js';
 import {AndroidAppsBrowserProxyImpl, AndroidAppsInfo} from '../os_apps_page/android_apps_browser_proxy.js';
-import {OsPageVisibility} from '../os_page_visibility.js';
+import {OsPageAvailability} from '../os_page_availability.js';
 import {routes} from '../os_settings_routes.js';
 import {Route, Router} from '../router.js';
 
@@ -65,44 +71,13 @@ export class OsSettingsPageElement extends OsSettingsPageElementBase {
         notify: true,
       },
 
-      showAndroidApps: Boolean,
-
-      showArcvmManageUsb: Boolean,
-
-      showCrostini: Boolean,
-
-      showPluginVm: Boolean,
-
-      showReset: Boolean,
-
-      showStartup: Boolean,
-
-      showKerberosSection: Boolean,
-
-      allowCrostini_: Boolean,
-
-      havePlayStoreApp: Boolean,
-
       androidAppsInfo: Object,
 
       /**
-       * Whether the user is in guest mode.
+       * Dictionary defining page availability.
        */
-      isGuestMode_: {
-        type: Boolean,
-        value: () => {
-          return loadTimeData.getBoolean('isGuest');
-        },
-      },
-
-      /**
-       * Dictionary defining page visibility.
-       */
-      pageVisibility: {
+      pageAvailability: {
         type: Object,
-        value() {
-          return {};
-        },
       },
 
       advancedToggleExpanded: {
@@ -155,10 +130,8 @@ export class OsSettingsPageElement extends OsSettingsPageElementBase {
   }
 
   androidAppsInfo?: AndroidAppsInfo;
-  pageVisibility: OsPageVisibility;
+  pageAvailability: OsPageAvailability;
   advancedToggleExpanded: boolean;
-  showKerberosSection: boolean;
-  private allowCrostini_: boolean;
   private hasExpandedSection_: boolean;
   private showSecondaryUserBanner_: boolean;
   private showUpdateRequiredEolBanner_: boolean;
@@ -186,9 +159,6 @@ export class OsSettingsPageElement extends OsSettingsPageElementBase {
     super.connectedCallback();
 
     this.currentRoute_ = Router.getInstance().currentRoute;
-
-    this.allowCrostini_ = loadTimeData.valueExists('allowCrostini') &&
-        loadTimeData.getBoolean('allowCrostini');
 
     this.addWebUiListener(
         'android-apps-info-update', this.androidAppsInfoUpdate_.bind(this));
@@ -227,8 +197,9 @@ export class OsSettingsPageElement extends OsSettingsPageElementBase {
         routes.ADVANCED.contains(route);
   }
 
-  private showPage_(visibility?: boolean): boolean {
-    return visibility !== false;
+  /** Stamp page in the DOM depending on page availability */
+  private shouldStampPage_(available?: boolean): boolean {
+    return !!available;
   }
 
   private computeShowSecondaryUserBanner_(): boolean {

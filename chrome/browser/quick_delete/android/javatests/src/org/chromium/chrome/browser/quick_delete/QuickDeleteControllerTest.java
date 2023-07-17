@@ -15,6 +15,8 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
+import android.os.Build;
+
 import androidx.test.espresso.matcher.ViewMatchers;
 import androidx.test.filters.MediumTest;
 
@@ -27,11 +29,12 @@ import org.junit.runner.RunWith;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
+import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataBridge;
 import org.chromium.chrome.browser.browsing_data.BrowsingDataType;
-import org.chromium.chrome.browser.browsing_data.ClearBrowsingDataAction;
 import org.chromium.chrome.browser.browsing_data.TimePeriod;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
@@ -42,6 +45,7 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
+import org.chromium.components.browsing_data.DeleteBrowsingDataAction;
 import org.chromium.content_public.browser.test.util.JavaScriptUtils;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
@@ -55,6 +59,7 @@ import java.util.concurrent.TimeoutException;
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 @EnableFeatures({ChromeFeatureList.QUICK_DELETE_FOR_ANDROID})
 @Batch(Batch.PER_CLASS)
+@DisableIf.Build(sdk_is_less_than = Build.VERSION_CODES.O, message = "crbug.com/1446002")
 public class QuickDeleteControllerTest {
     private static final String TEST_FILE = "/content/test/data/browsing_data/site_data.html";
 
@@ -123,7 +128,7 @@ public class QuickDeleteControllerTest {
         openQuickDeleteDialog();
         onViewWaiting(withId(R.id.positive_button)).perform(click());
 
-        onView(withId(R.id.snackbar)).check(matches(isDisplayed()));
+        onViewWaiting(withId(R.id.snackbar)).check(matches(isDisplayed()));
         onView(withText(R.string.quick_delete_snackbar_message)).check(matches(isDisplayed()));
 
         mRenderTestRule.render(mActivityTestRule.getActivity().findViewById(R.id.snackbar),
@@ -150,8 +155,8 @@ public class QuickDeleteControllerTest {
         openQuickDeleteDialog();
 
         HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher("Privacy.ClearBrowsingData.Action",
-                                ClearBrowsingDataAction.QUICK_DELETE_LAST15_MINUTES);
+                HistogramWatcher.newSingleRecordWatcher("Privacy.DeleteBrowsingData.Action",
+                        DeleteBrowsingDataAction.QUICK_DELETE_LAST15_MINUTES);
 
         onViewWaiting(withId(R.id.positive_button)).perform(click());
 
@@ -190,6 +195,7 @@ public class QuickDeleteControllerTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/1448217")
     public void testBrowsingDataDeletion_onClickedDelete() throws Exception {
         resetCookies();
         loadSiteDataUrl();

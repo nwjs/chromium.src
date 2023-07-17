@@ -9,21 +9,50 @@
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/functional/callback_helpers.h"
+#include "base/notreached.h"
 #include "base/strings/string_util.h"
 #include "base/time/time.h"
+#include "chrome/browser/apps/almanac_api_client/device_info_manager.h"
 #include "chrome/browser/apps/app_deduplication_service/app_deduplication_service.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/package_id.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/types_util.h"
+#include "third_party/crashpad/crashpad/util/string/split_string.h"
 
 namespace {
 // Folder path to where the deduplication data will be stored on disk.
 constexpr char kAppDeduplicationFolderPath[] =
     "app_deduplication_service/deduplication_data/";
+
+// Converts PackageId strings to EntryIds when the source is Website.
+absl::optional<apps::deduplication::EntryId> GetEntryIdForWebsite(
+    const std::string& id) {
+  size_t separator = id.find_first_of(':');
+  apps::deduplication::EntryId entry_id;
+
+  if (separator == std::string::npos || separator == id.size() - 1) {
+    LOG(ERROR) << "Source is an unsupported type.";
+    return absl::nullopt;
+  }
+
+  std::string app_type = id.substr(0, separator);
+  std::string app_id = id.substr(separator + 1);
+  GURL entry_url = GURL(app_id);
+
+  if (entry_url.is_valid() && app_type == "website") {
+    entry_id = apps::deduplication::EntryId(entry_url);
+  } else {
+    LOG(ERROR) << "Source is an unsupported type.";
+    return absl::nullopt;
+  }
+  return entry_id;
+}
 }  // namespace
 
 namespace apps::deduplication {
@@ -35,7 +64,8 @@ constexpr char kLastGetDataFromServerTimestamp[] =
 
 AppDeduplicationService::AppDeduplicationService(Profile* profile)
     : profile_(profile),
-      server_connector_(std::make_unique<AppDeduplicationServerConnector>()) {
+      server_connector_(std::make_unique<AppDeduplicationServerConnector>()),
+      device_info_manager_(std::make_unique<DeviceInfoManager>(profile)) {
   app_provisioning_data_observeration_.Observe(
       AppProvisioningDataManager::Get());
   app_registry_cache_observation_.Observe(
@@ -52,12 +82,18 @@ AppDeduplicationService::AppDeduplicationService(Profile* profile)
 
 AppDeduplicationService::~AppDeduplicationService() = default;
 
+bool AppDeduplicationService::IsServiceOn() {
+  return !duplication_map_.empty();
+}
+
 void AppDeduplicationService::StartLoginFlow() {
   const int hours_diff =
       std::abs((GetServerPref() - base::Time::Now()).InHours());
 
   if (hours_diff >= 24) {
-    GetDeduplicateDataFromServer();
+    device_info_manager_->GetDeviceInfo(
+        base::BindOnce(&AppDeduplicationService::GetDeduplicateDataFromServer,
+                       weak_ptr_factory_.GetWeakPtr()));
   } else {
     // Read most recent data from cache.
     cache_->ReadDeduplicationCache(base::BindOnce(
@@ -136,8 +172,6 @@ void AppDeduplicationService::OnDuplicatedGroupListUpdated(
         entry_id = EntryId(app_id, AppType::kArc);
       } else if (source == "web") {
         entry_id = EntryId(app_id, AppType::kWeb);
-      } else if (source == "phonehub") {
-        entry_id = EntryId(app_id);
       } else if (source == "website") {
         GURL entry_url = GURL(app_id);
         if (entry_url.is_valid()) {
@@ -234,7 +268,8 @@ absl::optional<uint32_t> AppDeduplicationService::FindDuplicationIndex(
   return absl::nullopt;
 }
 
-void AppDeduplicationService::GetDeduplicateDataFromServer() {
+void AppDeduplicationService::GetDeduplicateDataFromServer(
+    DeviceInfo device_info) {
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory =
       profile_->GetURLLoaderFactory();
   if (!url_loader_factory.get()) {
@@ -246,7 +281,7 @@ void AppDeduplicationService::GetDeduplicateDataFromServer() {
     return;
   }
   server_connector_->GetDeduplicateAppsFromServer(
-      url_loader_factory,
+      device_info, url_loader_factory,
       base::BindOnce(
           &AppDeduplicationService::OnGetDeduplicateDataFromServerCompleted,
           weak_ptr_factory_.GetWeakPtr()));
@@ -308,26 +343,24 @@ void AppDeduplicationService::DeduplicateDataToEntries(
   uint32_t index = 1;
   for (auto const& group : data.app_group()) {
     DuplicateGroup duplicate_group;
-    for (auto const& app : group.app()) {
-      const std::string& app_id = app.app_id();
-      const std::string& platform = app.platform();
+    for (auto const& id : group.package_id()) {
+      absl::optional<PackageId> package_id = PackageId::FromString(id);
+      std::string app_id;
       EntryId entry_id;
-
-      if (platform == "arc") {
-        entry_id = EntryId(app_id, AppType::kArc);
-      } else if (platform == "web") {
-        entry_id = EntryId(app_id, AppType::kWeb);
-      } else if (platform == "phonehub") {
-        entry_id = EntryId(app_id);
-      } else if (platform == "website") {
-        GURL entry_url = GURL(app_id);
-        if (entry_url.is_valid()) {
-          entry_id = EntryId(GURL(app_id));
-        } else {
+      if (!package_id.has_value()) {
+        absl::optional<EntryId> web_id = GetEntryIdForWebsite(id);
+        if (!web_id.has_value()) {
           continue;
         }
+        entry_id = web_id.value();
       } else {
-        continue;
+        AppType source = package_id.value().app_type();
+        app_id = package_id.value().identifier();
+        if (source != AppType::kArc && source != AppType::kWeb) {
+          LOG(ERROR) << "Source is an unsupported type.";
+          NOTREACHED();
+        }
+        entry_id = EntryId(app_id, source);
       }
 
       entry_to_group_map_[entry_id] = index;
@@ -338,8 +371,10 @@ void AppDeduplicationService::DeduplicateDataToEntries(
       Entry entry(std::move(entry_id));
       duplicate_group.entries.push_back(std::move(entry));
     }
-    duplication_map_[index] = std::move(duplicate_group);
-    index++;
+    if (!duplicate_group.entries.empty()) {
+      duplication_map_[index] = std::move(duplicate_group);
+      index++;
+    }
   }
 
   apps::AppServiceProxy* proxy =

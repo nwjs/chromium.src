@@ -197,6 +197,9 @@ const char kDisableExtensions[] = "disable-extensions";
 // Disable extensions except those specified in a comma-separated list.
 const char kDisableExtensionsExcept[] = "disable-extensions-except";
 
+// Disables lazy loading of images and frames.
+const char kDisableLazyLoading[] = "disable-lazy-loading";
+
 // Disables print preview (For testing, and for users who don't like us. :[ )
 const char kDisablePrintPreview[] = "disable-print-preview";
 
@@ -647,6 +650,9 @@ const char kWebRtcRemoteEventLogUploadNoSuppression[] =
 // handling policy is specified in Preferences.
 const char kWebRtcIPHandlingPolicy[] = "webrtc-ip-handling-policy";
 
+// Specify the initial window user title: --window-name="My custom title"
+const char kWindowName[] = "window-name";
+
 // Specify the initial window position: --window-position=x,y
 const char kWindowPosition[] = "window-position";
 
@@ -778,10 +784,6 @@ const char kMakeChromeDefault[] = "make-chrome-default";
 #endif  // BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_WIN)
-// Disables custom-drawing the window titlebar on Windows 10.
-const char kDisableWindows10CustomTitlebar[] =
-    "disable-windows10-custom-titlebar";
-
 // Force-enables the profile shortcut manager. This is needed for tests since
 // they use a custom-user-data-dir which disables this.
 const char kEnableProfileShortcutManager[] = "enable-profile-shortcut-manager";

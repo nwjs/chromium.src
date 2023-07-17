@@ -324,7 +324,6 @@ void LocalFrameView::Trace(Visitor* visitor) const {
   visitor->Trace(frame_);
   visitor->Trace(update_plugins_timer_);
   visitor->Trace(layout_subtree_root_list_);
-  visitor->Trace(orthogonal_writing_mode_root_list_);
   visitor->Trace(fragment_anchor_);
   visitor->Trace(scroll_anchoring_scrollable_areas_);
   visitor->Trace(animating_scrollable_areas_);
@@ -489,7 +488,6 @@ void LocalFrameView::Dispose() {
   // tracking groups when they update style or are destroyed, but sometimes they
   // are missed. It would be good to understand how/why that happens, but in the
   // mean time, it's not safe to keep pointers around to defunct LayoutObjects.
-  orthogonal_writing_mode_root_list_.Clear();
   fixed_position_objects_.Clear();
   background_attachment_fixed_objects_.clear();
 
@@ -764,16 +762,6 @@ void LocalFrameView::PerformLayout() {
       PERFORM_LAYOUT_TRACE_CATEGORIES, "LocalFrameView::performLayout",
       "contentsHeightBeforeLayout", contents_height_before_layout);
 
-  if (in_subtree_layout && HasOrthogonalWritingModeRoots()) {
-    // If we're going to lay out from each subtree root, rather than once from
-    // LayoutView, we need to merge the depth-ordered orthogonal writing mode
-    // root list into the depth-ordered list of subtrees scheduled for
-    // layout. Otherwise, during layout of one such subtree, we'd risk skipping
-    // over a subtree of objects needing layout.
-    DCHECK(!layout_subtree_root_list_.IsEmpty());
-    ScheduleOrthogonalWritingModeRootsForLayout();
-  }
-
   DCHECK(!IsInPerformLayout());
   Lifecycle().AdvanceTo(DocumentLifecycle::kInPerformLayout);
 
@@ -831,9 +819,6 @@ void LocalFrameView::PerformLayout() {
 #endif
       fragment_tree_spines.clear();
     } else {
-      if (HasOrthogonalWritingModeRoots())
-        LayoutOrthogonalWritingModeRoots();
-
       GetLayoutView()->UpdateLayout();
     }
   }
@@ -1256,7 +1241,6 @@ void LocalFrameView::ViewportSizeChanged(bool width_changed,
     // TODO(bokan): IsOutermostMainFrame may need to be reevaluated for
     // portals.
     if (GetFrame().IsOutermostMainFrame()) {
-      layout_view->Layer()->UpdateSize();
       if (auto* scrollable_area = layout_view->GetScrollableArea())
         scrollable_area->ClampScrollOffsetAfterOverflowChange();
     }
@@ -1398,73 +1382,6 @@ void LocalFrameView::ClearLayoutSubtreeRoot(const LayoutObject& root) {
 
 void LocalFrameView::ClearLayoutSubtreeRootsAndMarkContainingBlocks() {
   layout_subtree_root_list_.ClearAndMarkContainingBlocksForLayout();
-}
-
-void LocalFrameView::AddOrthogonalWritingModeRoot(LayoutBox& root) {
-  DCHECK(!root.IsLayoutCustomScrollbarPart());
-  orthogonal_writing_mode_root_list_.Add(root);
-}
-
-void LocalFrameView::RemoveOrthogonalWritingModeRoot(LayoutBox& root) {
-  orthogonal_writing_mode_root_list_.Remove(root);
-}
-
-bool LocalFrameView::HasOrthogonalWritingModeRoots() const {
-  return !orthogonal_writing_mode_root_list_.IsEmpty();
-}
-
-static bool PrepareOrthogonalWritingModeRootForLayout(LayoutObject& root) {
-  DCHECK(To<LayoutBox>(root).IsOrthogonalWritingModeRoot());
-  if (!root.NeedsLayout() || root.IsOutOfFlowPositioned() ||
-      root.IsColumnSpanAll() || root.StyleRef().LogicalHeight().IsSpecified() ||
-      root.IsTablePart() || root.IsLayoutFlowThread()) {
-    return false;
-  }
-
-  // Do not pre-layout objects that are fully managed by LayoutNG; it is not
-  // necessary and may lead to double layouts. We do need to pre-layout objects
-  // whose containing block is a legacy object so that it can properly compute
-  // its intrinsic size.
-  if (IsManagedByLayoutNG(root)) {
-    return false;
-  }
-
-  // If the root is legacy but has |CachedLayoutResult|, its parent is NG, which
-  // called |RunLegacyLayout()|. This parent not only needs to run pre-layout,
-  // but also clearing |NeedsLayout()| without updating |CachedLayoutResult| is
-  // harmful.
-  if (const auto* box = DynamicTo<LayoutBox>(root)) {
-    if (box->GetSingleCachedLayoutResult()) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-void LocalFrameView::LayoutOrthogonalWritingModeRoots() {
-  for (auto& root : orthogonal_writing_mode_root_list_.Ordered()) {
-    if (PrepareOrthogonalWritingModeRootForLayout(*root))
-      LayoutFromRootObject(*root);
-  }
-}
-
-void LocalFrameView::ScheduleOrthogonalWritingModeRootsForLayout() {
-  for (auto& root : orthogonal_writing_mode_root_list_.Ordered()) {
-    if (PrepareOrthogonalWritingModeRootForLayout(*root))
-      layout_subtree_root_list_.Add(*root);
-  }
-}
-
-void LocalFrameView::MarkOrthogonalWritingModeRootsForLayout() {
-  for (auto& root : orthogonal_writing_mode_root_list_.Ordered()) {
-    // OOF-positioned objects don't depend on the ICB size.
-    if (root->NeedsLayout() || root->IsOutOfFlowPositioned())
-      continue;
-
-    root->SetNeedsLayoutAndIntrinsicWidthsRecalc(
-        layout_invalidation_reason::kSizeChanged);
-  }
 }
 
 bool LocalFrameView::CheckLayoutInvalidationIsAllowed() const {
@@ -2136,7 +2053,7 @@ bool LocalFrameView::NotifyResizeObservers() {
         !resize_controller->IsLoopLimitErrorDispatched()) {
       resize_controller->ClearObservations();
       ErrorEvent* error = ErrorEvent::Create(
-          "ResizeObserver loop limit exceeded",
+          "ResizeObserver loop completed with undelivered notifications.",
           CaptureSourceLocation(frame_->DomWindow()), nullptr);
       // We're using |SanitizeScriptErrors::kDoNotSanitize| as the error is made
       // by blink itself.
@@ -2735,8 +2652,7 @@ void LocalFrameView::RunPaintLifecyclePhase(PaintBenchmarkMode benchmark_mode) {
     if (paint_artifact_compositor_ &&
         benchmark_mode ==
             PaintBenchmarkMode::kForcePaintArtifactCompositorUpdate) {
-      paint_artifact_compositor_->SetNeedsUpdate(
-          PaintArtifactCompositorUpdateReason::kLocalFrameViewBenchmarking);
+      paint_artifact_compositor_->SetNeedsUpdate();
     }
     needed_update = !paint_artifact_compositor_ ||
                     paint_artifact_compositor_->NeedsUpdate();
@@ -3304,10 +3220,9 @@ void LocalFrameView::DisableAutoSizeMode() {
   auto_size_info_.Clear();
 }
 
-void LocalFrameView::ForceLayoutForPagination(
-    const gfx::SizeF& page_size,
-    const gfx::SizeF& original_page_size,
-    float maximum_shrink_factor) {
+void LocalFrameView::ForceLayoutForPagination(const gfx::SizeF& page_size,
+                                              const gfx::SizeF& aspect_ratio,
+                                              float maximum_shrink_factor) {
   // Dumping externalRepresentation(m_frame->layoutObject()).ascii() is a good
   // trick to see the state of things before and after the layout
   if (LayoutView* layout_view = GetLayoutView()) {
@@ -3339,8 +3254,8 @@ void LocalFrameView::ForceLayoutForPagination(
                           page_size.width() * maximum_shrink_factor),
           std::min<float>(document_rect.Height().Round(),
                           page_size.height() * maximum_shrink_factor));
-      gfx::SizeF max_page_size = frame_->ResizePageRectsKeepingRatio(
-          original_page_size, expected_page_size);
+      gfx::SizeF max_page_size =
+          frame_->ResizePageRectsKeepingRatio(aspect_ratio, expected_page_size);
       page_logical_width = horizontal_writing_mode ? max_page_size.width()
                                                    : max_page_size.height();
       layout_view->SetPageSize({LayoutUnit(max_page_size.width()),
@@ -4426,11 +4341,10 @@ bool LocalFrameView::VisualViewportOrOverlayNeedsRepaintForTesting() const {
   return visual_viewport_or_overlay_needs_repaint_;
 }
 
-void LocalFrameView::SetPaintArtifactCompositorNeedsUpdate(
-    PaintArtifactCompositorUpdateReason reason) {
+void LocalFrameView::SetPaintArtifactCompositorNeedsUpdate() {
   LocalFrameView* root = GetFrame().LocalFrameRoot().View();
   if (root && root->paint_artifact_compositor_)
-    root->paint_artifact_compositor_->SetNeedsUpdate(reason);
+    root->paint_artifact_compositor_->SetNeedsUpdate();
 }
 
 PaintArtifactCompositor* LocalFrameView::GetPaintArtifactCompositor() const {
@@ -4751,9 +4665,7 @@ bool LocalFrameView::UpdateLayerDebugInfoEnabled() {
       CoreProbeSink::HasAgentsGlobal(CoreProbeSink::kInspectorLayerTreeAgent);
   if (should_enable != layer_debug_info_enabled_) {
     layer_debug_info_enabled_ = should_enable;
-    SetPaintArtifactCompositorNeedsUpdate(
-        PaintArtifactCompositorUpdateReason::
-            kLocalFrameViewUpdateLayerDebugInfo);
+    SetPaintArtifactCompositorNeedsUpdate();
     return true;
   }
 #endif

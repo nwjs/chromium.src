@@ -712,6 +712,12 @@ class CONTENT_EXPORT ServiceWorkerVersion
   // Timeout for a request to be handled.
   static constexpr base::TimeDelta kRequestTimeout = base::Minutes(5);
 
+  base::WeakPtr<ServiceWorkerVersion> GetWeakPtr();
+
+  EmbeddedWorkerInstance* GetEmbeddedWorkerForTesting() {
+    return embedded_worker_.get();
+  }
+
  private:
   friend class base::RefCounted<ServiceWorkerVersion>;
   friend class EmbeddedWorkerTestHelper;
@@ -845,8 +851,6 @@ class CONTENT_EXPORT ServiceWorkerVersion
   static constexpr base::TimeDelta kStartNewWorkerTimeout = base::Minutes(5);
   // Timeout for the worker to stop.
   static constexpr base::TimeDelta kStopWorkerTimeout = base::Seconds(5);
-  // Duration to keep worker warmed-up.
-  static constexpr base::TimeDelta kWarmUpDuration = base::Minutes(10);
 
   ~ServiceWorkerVersion() override;
 

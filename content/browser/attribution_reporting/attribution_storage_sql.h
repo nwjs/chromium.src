@@ -44,11 +44,11 @@ enum class RateLimitResult : int;
 class CONTENT_EXPORT AttributionStorageSql : public AttributionStorage {
  public:
   // Version number of the database.
-  static constexpr int kCurrentVersionNumber = 52;
+  static constexpr int kCurrentVersionNumber = 54;
 
   // Earliest version which can use a `kCurrentVersionNumber` database
   // without failing.
-  static constexpr int kCompatibleVersionNumber = 52;
+  static constexpr int kCompatibleVersionNumber = 54;
 
   // Latest version of the database that cannot be upgraded to
   // `kCurrentVersionNumber` without razing the database.
@@ -56,9 +56,6 @@ class CONTENT_EXPORT AttributionStorageSql : public AttributionStorage {
 
   static_assert(kCompatibleVersionNumber <= kCurrentVersionNumber);
   static_assert(kDeprecatedVersionNumber < kCompatibleVersionNumber);
-
-  [[nodiscard]] static bool DeleteStorageForTesting(
-      const base::FilePath& user_data_directory);
 
   // If `user_data_directory` is empty, the DB is created in memory and no data
   // is persisted to disk.
@@ -116,7 +113,7 @@ class CONTENT_EXPORT AttributionStorageSql : public AttributionStorage {
   std::vector<AttributionReport> GetReports(
       const std::vector<AttributionReport::Id>& ids) override;
   std::vector<StoredSource> GetActiveSources(int limit = -1) override;
-  std::vector<AttributionDataModel::DataKey> GetAllDataKeys() override;
+  std::set<AttributionDataModel::DataKey> GetAllDataKeys() override;
   void DeleteByDataKey(const AttributionDataModel::DataKey& datakey) override;
   bool DeleteReport(AttributionReport::Id report_id) override;
   bool UpdateReportForSendFailure(AttributionReport::Id report_id,
@@ -319,15 +316,17 @@ class CONTENT_EXPORT AttributionStorageSql : public AttributionStorage {
   MaybeStoreAggregatableAttributionReportData(
       AttributionReport& report,
       int64_t aggregatable_budget_consumed,
+      int num_aggregatable_reports,
       absl::optional<uint64_t> dedup_key,
-      absl::optional<int64_t>& aggregatable_budget_per_source)
+      absl::optional<int64_t>& aggregatable_budget_per_source,
+      absl::optional<int>& max_aggregatable_reports_per_source)
       VALID_CONTEXT_REQUIRED(sequence_checker_);
 
   [[nodiscard]] bool StoreAttributionReport(AttributionReport& report)
       VALID_CONTEXT_REQUIRED(sequence_checker_);
 
   // Generates null aggregatable reports for the given trigger, assigns
-  // attestation data to null aggregatable reports and the real aggregatable
+  // verification data to null aggregatable reports and the real aggregatable
   // report if created, and stores all those reports.
   [[nodiscard]] bool GenerateNullAggregatableReportsAndStoreReports(
       const AttributionTrigger&,
@@ -336,9 +335,9 @@ class CONTENT_EXPORT AttributionStorageSql : public AttributionStorage {
       absl::optional<base::Time>& min_null_aggregatable_report_time)
       VALID_CONTEXT_REQUIRED(sequence_checker_);
 
-  // Randomly assigns trigger attestation data to the given reports.
-  void AssignTriggerAttestationData(std::vector<AttributionReport>&,
-                                    const AttributionTrigger&)
+  // Randomly assigns trigger verification data to the given reports.
+  void AssignTriggerVerificationData(std::vector<AttributionReport>&,
+                                     const AttributionTrigger&)
       VALID_CONTEXT_REQUIRED(sequence_checker_);
 
   // If set, database errors will not crash the client when run in debug mode.

@@ -1,4 +1,20 @@
 <style include="cr-shared-style print-management-shared print-management-fonts">
+  :host-context(body.jelly-enabled) .column-headers {
+    font: var(--cros-button-2-font);
+  }
+
+  :host-context(body.jelly-enabled) .column-headers {
+    font: var(--cros-button-2-font);
+  }
+
+  :host-context(body.jelly-enabled) #clearAllButton {
+    font: var(--cros-button-2-font);
+  }
+
+  :host-context(body.jelly-enabled) #printJobTitle {
+    font: var(--cros-display-6-font);
+  }
+
   .column-headers {
     color: var(--print-management-header-text-color);
     font-family: var(--print-management-header-font-family);
@@ -87,6 +103,12 @@
     margin-bottom: 0;
     margin-top: 0;
   }
+
+  printer-setup-info {
+    align-items: center;
+    flex: 1 1 auto;
+    height: 100%;
+  }
 </style>
 
 <div class="main-container margin-border">
@@ -148,6 +170,8 @@
     <div id="ongoingEmptyState" hidden="[[ongoingPrintJobs.length]]">
       [[i18n('noPrintJobInProgress')]]
     </div>
+
+    <printer-setup-info hidden$="[[!showSetupAssistance]]"></printer-setup-info>
 
     <template is="dom-if" if="[[printJobs.length]]" restamp>
       <div id="historyHeaderContainer" class="column-headers flex-center">

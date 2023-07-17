@@ -15,7 +15,6 @@
 #include "testing/gmock/include/gmock/gmock.h"
 
 namespace policy {
-class ActiveDirectoryJoinDelegate;
 class EnrollmentStatus;
 }
 
@@ -37,8 +36,13 @@ class EnrollmentHelperMixin : public InProcessBrowserTestMixin {
 
   ~EnrollmentHelperMixin() override;
 
-  // Resets mock (to be used in tests that retry enrollment.
+  // Re-creates mock. Useful in tests that retry enrollment with different auth
+  // mechanism, which causes original mock to be destroyed by EnrollmentScreen.
   void ResetMock();
+
+  // Verifies mock expectations and clears them. Useful in tests that retry
+  // enrollment with the same auth mechanism.
+  void VerifyAndClear();
 
   // Sets up expectation of no enrollment attempt.
   void ExpectNoEnrollment();
@@ -73,12 +77,6 @@ class EnrollmentHelperMixin : public InProcessBrowserTestMixin {
   // `asset_id` / `location` should be sent back to server.
   void ExpectAttributePromptUpdate(const std::string& asset_id,
                                    const std::string& location);
-
-  // Forces the Active Directory domain join flow during enterprise enrollment.
-  void SetupActiveDirectoryJoin(policy::ActiveDirectoryJoinDelegate* delegate,
-                                const std::string& expected_domain,
-                                const std::string& domain_join_config,
-                                const std::string& dm_token);
 
   // InProcessBrowserTestMixin:
   void SetUpInProcessBrowserTestFixture() override;

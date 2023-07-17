@@ -27,6 +27,7 @@ class GURL;
 @protocol CRWFindSession;
 @protocol UITraitEnvironment;
 @class NSString;
+@class NSData;
 
 namespace net {
 class SSLInfo;
@@ -167,9 +168,7 @@ class WebClient {
   virtual bool EnableLongPressUIContextMenu() const;
 
   // Allows WKWebViews to be inspected using Safari's Web Inspector.
-  // TODO(crbug.com/1418431): Remove this method when Web Inspector is enabled
-  // unconditionally.
-  virtual bool EnableWebInspector() const;
+  virtual bool EnableWebInspector(web::BrowserState* browser_state) const;
 
   // Returns the UserAgentType that should be used by default for the web
   // content, based on the `web_state`.
@@ -181,8 +180,9 @@ class WebClient {
   virtual void LogDefaultUserAgent(web::WebState* web_state,
                                    const GURL& url) const;
 
-  // Returns true if URL was restored via session restoration cache.
-  virtual bool RestoreSessionFromCache(web::WebState* web_state) const;
+  // Fetches the session data blob from cache for `web_state`. Returns nil if
+  // the blob could not be loaded (missing, feature disabled, ...).
+  virtual NSData* FetchSessionFromCache(web::WebState* web_state) const;
 
   // Correct missing NTP and reading list virtualURLs and titles. Native session
   // restoration may not properly restore these items.

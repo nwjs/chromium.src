@@ -18,14 +18,12 @@ HashRealTimeMechanism::HashRealTimeMechanism(
     const GURL& url,
     const SBThreatTypeSet& threat_types,
     scoped_refptr<SafeBrowsingDatabaseManager> database_manager,
-    bool can_check_db,
     scoped_refptr<base::SequencedTaskRunner> ui_task_runner,
     base::WeakPtr<HashRealTimeService> lookup_service_on_ui,
     MechanismExperimentHashDatabaseCache experiment_cache_selection)
     : SafeBrowsingLookupMechanism(url,
                                   threat_types,
                                   database_manager,
-                                  can_check_db,
                                   experiment_cache_selection),
       ui_task_runner_(ui_task_runner),
       lookup_service_on_ui_(lookup_service_on_ui) {}
@@ -34,45 +32,27 @@ HashRealTimeMechanism::~HashRealTimeMechanism() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 }
 
-// static
-bool HashRealTimeMechanism::CanCheckUrl(
-    const GURL& url,
-    network::mojom::RequestDestination request_destination) {
-  return request_destination == network::mojom::RequestDestination::kDocument &&
-         CanGetReputationOfUrl(url);
-}
-
 SafeBrowsingLookupMechanism::StartCheckResult
 HashRealTimeMechanism::StartCheckInternal() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!can_check_db_) {
-    return StartCheckResult(
-        /*is_safe_synchronously=*/true,
-        /*did_check_url_real_time_allowlist=*/false,
-        /*matched_high_confidence_allowlist=*/false);
-  }
-
-  bool has_allowlist_match =
-      database_manager_->CheckUrlForHighConfidenceAllowlist(url_, "HPRT");
-  base::UmaHistogramEnumeration(
-      "SafeBrowsing.HPRT.LocalMatch.Result",
-      has_allowlist_match ? AsyncMatch::MATCH : AsyncMatch::NO_MATCH);
-  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
+  database_manager_->CheckUrlForHighConfidenceAllowlist(
+      url_, "HPRT",
       base::BindOnce(
           &HashRealTimeMechanism::OnCheckUrlForHighConfidenceAllowlist,
-          weak_factory_.GetWeakPtr(),
-          /*did_match_allowlist=*/has_allowlist_match));
+          weak_factory_.GetWeakPtr()));
 
   return StartCheckResult(
       /*is_safe_synchronously=*/false,
-      /*did_check_url_real_time_allowlist=*/false,
-      /*matched_high_confidence_allowlist=*/has_allowlist_match);
+      /*did_check_url_real_time_allowlist=*/false);
 }
 
 void HashRealTimeMechanism::OnCheckUrlForHighConfidenceAllowlist(
     bool did_match_allowlist) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  base::UmaHistogramEnumeration(
+      "SafeBrowsing.HPRT.LocalMatch.Result",
+      did_match_allowlist ? AsyncMatch::MATCH : AsyncMatch::NO_MATCH);
 
   if (did_match_allowlist) {
     // If the URL matches the high-confidence allowlist, still do the hash based
@@ -125,6 +105,7 @@ void HashRealTimeMechanism::OnLookupResponse(
       url_, threat_type.value(), ThreatMetadata(),
       /*is_from_url_real_time_check=*/false,
       /*url_real_time_lookup_response=*/nullptr,
+      /*matched_high_confidence_allowlist=*/false,
       /*locally_cached_results_threat_type=*/locally_cached_results_threat_type,
       /*real_time_request_failed=*/!is_lookup_successful));
 }
@@ -135,8 +116,7 @@ void HashRealTimeMechanism::PerformHashBasedCheck(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   hash_database_mechanism_ = std::make_unique<HashDatabaseMechanism>(
-      url, threat_types_, database_manager_, can_check_db_,
-      experiment_cache_selection_);
+      url, threat_types_, database_manager_, experiment_cache_selection_);
   auto result = hash_database_mechanism_->StartCheck(
       base::BindOnce(&HashRealTimeMechanism::OnHashDatabaseCompleteCheckResult,
                      weak_factory_.GetWeakPtr(), real_time_request_failed));
@@ -163,6 +143,7 @@ void HashRealTimeMechanism::OnHashDatabaseCompleteCheckResultInternal(
       url_, threat_type, metadata,
       /*is_from_url_real_time_check=*/false,
       /*url_real_time_lookup_response=*/nullptr,
+      /*matched_high_confidence_allowlist=*/!real_time_request_failed,
       /*locally_cached_results_threat_type=*/absl::nullopt,
       /*real_time_request_failed=*/real_time_request_failed));
 }

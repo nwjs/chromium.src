@@ -8,15 +8,14 @@
  * per-device-touchpad subsection settings in system settings.
  */
 
-import '../../icons.html.js';
-import '../../settings_shared.css.js';
+import '../icons.html.js';
+import '../settings_shared.css.js';
 import 'chrome://resources/cr_components/localized_link/localized_link.js';
 import 'chrome://resources/cr_elements/cr_radio_button/cr_radio_button.js';
 import 'chrome://resources/cr_elements/cr_shared_vars.css.js';
-import '../../controls/settings_radio_group.js';
-import '../../controls/settings_slider.js';
-import '../../controls/settings_toggle_button.js';
-import '../../settings_shared.css.js';
+import '/shared/settings/controls/settings_radio_group.js';
+import '/shared/settings/controls/settings_slider.js';
+import '/shared/settings/controls/settings_toggle_button.js';
 import './input_device_settings_shared.css.js';
 import 'chrome://resources/cr_elements/cr_slider/cr_slider.js';
 
@@ -197,6 +196,11 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
       touchpadIndex: {
         type: Number,
       },
+
+      isLastDevice: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
     };
   }
 
@@ -241,6 +245,7 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
   private inputDeviceSettingsProvider: InputDeviceSettingsProviderInterface =
       getInputDeviceSettingsProvider();
   private touchpadIndex: number;
+  private isLastDevice: boolean;
 
   private updateSettingsToCurrentPrefs(): void {
     // `updateSettingsToCurrentPrefs` gets called when the `keyboard` object
@@ -319,6 +324,27 @@ export class SettingsPerDeviceTouchpadSubsectionElement extends
   private getTouchpadName(): string {
     return this.touchpad.isExternal ? this.touchpad.name :
                                       this.i18n('builtInTouchpadName');
+  }
+
+  private getLabelWithoutLearnMore(stringName: string): string|TrustedHTML {
+    const tempEl = document.createElement('div');
+    const localizedString = this.i18nAdvanced(stringName);
+    tempEl.innerHTML = localizedString;
+
+    const nodesToDelete: Node[] = [];
+    tempEl.childNodes.forEach((node) => {
+      // Remove elements with the <a> tag
+      if (node.nodeType === Node.ELEMENT_NODE && node.nodeName === 'A') {
+        nodesToDelete.push(node);
+        return;
+      }
+    });
+
+    nodesToDelete.forEach((node) => {
+      tempEl.removeChild(node);
+    });
+
+    return tempEl.innerHTML;
   }
 }
 

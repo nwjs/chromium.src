@@ -102,12 +102,12 @@ bool WebClient::EnableLongPressUIContextMenu() const {
   return false;
 }
 
-bool WebClient::EnableWebInspector() const {
+bool WebClient::EnableWebInspector(BrowserState* browser_state) const {
   return false;
 }
 
-bool WebClient::RestoreSessionFromCache(web::WebState* web_state) const {
-  return false;
+NSData* WebClient::FetchSessionFromCache(web::WebState* web_state) const {
+  return nil;
 }
 
 void WebClient::CleanupNativeRestoreURLs(web::WebState* web_state) const {}

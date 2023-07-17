@@ -9,6 +9,7 @@
 #import "base/mac/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "build/build_config.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/content_suggestions/ntp_home_constant.h"
@@ -300,6 +301,21 @@ void FocusFakebox() {
   // Tap Search Copied Text menu button.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
       performAction:grey_longPress()];
+
+  // Wait for UIMenuController to appear or timeout after 2 seconds.
+  GREYCondition* SearchTextButtonIsDisplayed = [GREYCondition
+      conditionWithName:@"Search Copied Text button display condition"
+                  block:^BOOL {
+                    NSError* error = nil;
+                    [[EarlGrey
+                        selectElementWithMatcher:SearchCopiedTextButton()]
+                        assertWithMatcher:grey_notNil()
+                                    error:&error];
+                    return error == nil;
+                  }];
+  GREYAssertTrue([SearchTextButtonIsDisplayed
+                     waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()],
+                 @"Search Copied Text button display failed");
   [[EarlGrey selectElementWithMatcher:SearchCopiedTextButton()]
       performAction:grey_tap()];
   // Check that the omnibox contains the copied text.
@@ -317,6 +333,20 @@ void FocusFakebox() {
   // Tap Visit Copied Link menu button.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
       performAction:grey_longPress()];
+
+  // Wait for UIMenuController to appear or timeout after 2 seconds.
+  GREYCondition* VisitLinkButtonIsDisplayed = [GREYCondition
+      conditionWithName:@"Visit Copied Link button display condition"
+                  block:^BOOL {
+                    NSError* error = nil;
+                    [[EarlGrey selectElementWithMatcher:VisitCopiedLinkButton()]
+                        assertWithMatcher:grey_notNil()
+                                    error:&error];
+                    return error == nil;
+                  }];
+  GREYAssertTrue([VisitLinkButtonIsDisplayed
+                     waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()],
+                 @"Visit Copied Link button display failed");
   [[EarlGrey selectElementWithMatcher:VisitCopiedLinkButton()]
       performAction:grey_tap()];
   // Verify that the page is loaded.
@@ -337,6 +367,21 @@ void FocusFakebox() {
   [[EarlGrey selectElementWithMatcher:ClearButton()] performAction:grey_tap()];
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
       performAction:grey_longPress()];
+
+  // Wait for UIMenuController to appear or timeout after 2 seconds.
+  GREYCondition* SearchImageButtonIsDisplayed = [GREYCondition
+      conditionWithName:@"Search Copied Image button display condition"
+                  block:^BOOL {
+                    NSError* error = nil;
+                    [[EarlGrey
+                        selectElementWithMatcher:SearchCopiedImageButton()]
+                        assertWithMatcher:grey_notNil()
+                                    error:&error];
+                    return error == nil;
+                  }];
+  GREYAssertTrue([SearchImageButtonIsDisplayed
+                     waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()],
+                 @"Search Copied Image button display failed");
   [[EarlGrey selectElementWithMatcher:SearchCopiedImageButton()]
       performAction:grey_tap()];
 
@@ -349,7 +394,8 @@ void FocusFakebox() {
 
 // Tests that the keyboard accessory's paste to search button is shown with a
 // text in the clipboard and is starting a search.
-- (void)testOmniboxKeyboardAccessoryPasteTextToSearch {
+// TODO(crbug.com/1445718): Re-enable when fixed.
+- (void)DISABLED_testOmniboxKeyboardAccessoryPasteTextToSearch {
   if (@available(iOS 16, *)) {
     [[AppLaunchManager sharedManager]
         ensureAppLaunchedWithFeaturesEnabled:{kOmniboxKeyboardPasteButton}
@@ -388,7 +434,8 @@ void FocusFakebox() {
 
 // Tests that the keyboard accessory's paste to search button is shown with an
 // image in the clipboard and is starting an image search.
-- (void)testOmniboxKeyboardAccessoryPasteImageToSearch {
+// TODO(crbug.com/1445718): Re-enable when fixed.
+- (void)DISABLED_testOmniboxKeyboardAccessoryPasteImageToSearch {
   if (@available(iOS 16, *)) {
     [[AppLaunchManager sharedManager]
         ensureAppLaunchedWithFeaturesEnabled:{kOmniboxKeyboardPasteButton}
@@ -759,6 +806,7 @@ void FocusFakebox() {
 - (void)tearDown {
   // Clear the pasteboard after every test.
   [ChromeEarlGrey clearPasteboard];
+  [super tearDown];
 }
 
 // Tests that tapping on steady view on webpage and starting typing a query
@@ -795,8 +843,9 @@ void FocusFakebox() {
   [ChromeEarlGrey copyTextToPasteboard:@"hello"];
 
   // Tap on Omnibox on pre edit state.
+  // TODO(crbug.com/1442458): Find a better way to tap on the selected url.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_tap()];
+      performAction:grey_tapAtPoint(CGPointMake(0, 0))];
 
   // Wait for callout copy button to be displayed.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
@@ -826,8 +875,9 @@ void FocusFakebox() {
       assertWithMatcher:grey_sufficientlyVisible()];
 
   // Tap on Omnibox on pre edit state.
+  // TODO(crbug.com/1442458): Find a better way to tap on the selected url.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_tap()];
+      performAction:grey_tapAtPoint(CGPointMake(0, 0))];
 
   // Wait for callout cut button to be displayed.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
@@ -859,8 +909,9 @@ void FocusFakebox() {
   [ChromeEarlGrey copyTextToPasteboard:@"hello"];
 
   // Tap on Omnibox on pre edit state.
+  // TODO(crbug.com/1442458): Find a better way to tap on the selected url.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::Omnibox()]
-      performAction:grey_tap()];
+      performAction:grey_tapAtPoint(CGPointMake(0, 0))];
 
   // Wait for callout paste button to be displayed.
   [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
@@ -891,8 +942,7 @@ void FocusFakebox() {
   [ChromeEarlGrey clearBrowsingHistory];
 
   // Clear the pasteboard in case there is a URL copied.
-  UIPasteboard* pasteboard = UIPasteboard.generalPasteboard;
-  [pasteboard setValue:@"" forPasteboardType:UIPasteboardNameGeneral];
+  [ChromeEarlGrey clearPasteboard];
 }
 
 // Copy button should be hidden when the omnibox is empty otherwise it should be
@@ -970,6 +1020,18 @@ void FocusFakebox() {
                  @"SelectAll button display failed");
 
   // Cut the text.
+  GREYCondition* CutButtonIsDisplayed = [GREYCondition
+      conditionWithName:@"Cut button display condition"
+                  block:^BOOL {
+                    NSError* error = nil;
+                    [[EarlGrey selectElementWithMatcher:CutButton()]
+                        assertWithMatcher:grey_notNil()
+                                    error:&error];
+                    return error == nil;
+                  }];
+  GREYAssertTrue([CutButtonIsDisplayed
+                     waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()],
+                 @"Cut button display failed");
   [[EarlGrey selectElementWithMatcher:CutButton()] performAction:grey_tap()];
 
   // Long pressing should allow pasting.
@@ -1030,12 +1092,24 @@ void FocusFakebox() {
   [[EarlGrey selectElementWithMatcher:SelectAllButton()]
       assertWithMatcher:grey_notNil()];
 
+  // Wait for UIMenuController to appear or timeout after 2 seconds.
+  GREYCondition* CopyButtonIsDisplayed = [GREYCondition
+      conditionWithName:@"Copy button display condition"
+                  block:^BOOL {
+                    NSError* error = nil;
+                    [[EarlGrey selectElementWithMatcher:
+                                   chrome_test_util::
+                                       SystemSelectionCalloutCopyButton()]
+                        assertWithMatcher:grey_notNil()
+                                    error:&error];
+                    return error == nil;
+                  }];
   // Pressing select should allow copy.
   // select should be hidden.
   [[EarlGrey selectElementWithMatcher:SelectButton()] performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          SystemSelectionCalloutCopyButton()]
-      assertWithMatcher:grey_notNil()];
+  GREYAssertTrue([CopyButtonIsDisplayed
+                     waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()],
+                 @"Copy button display failed");
   [[EarlGrey selectElementWithMatcher:SelectButton()]
       assertWithMatcher:grey_nil()];
 
@@ -1043,9 +1117,9 @@ void FocusFakebox() {
   // selectAll should be hidden.
   [[EarlGrey selectElementWithMatcher:SelectAllButton()]
       performAction:grey_tap()];
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::
-                                          SystemSelectionCalloutCopyButton()]
-      assertWithMatcher:grey_notNil()];
+  GREYAssertTrue([CopyButtonIsDisplayed
+                     waitWithTimeout:kWaitForUIElementTimeout.InSecondsF()],
+                 @"Copy button display failed");
   [[EarlGrey selectElementWithMatcher:SelectAllButton()]
       assertWithMatcher:grey_nil()];
 }
@@ -1060,18 +1134,9 @@ void FocusFakebox() {
   NSString* copiedText = @"test no default match1";
 
   // Put some text in pasteboard.
-  UIPasteboard.generalPasteboard.string = copiedText;
+  [ChromeEarlGrey copyTextToPasteboard:copiedText];
 
-  // Copying can take a while, wait for it to happen.
-  GREYCondition* copyCondition =
-      [GREYCondition conditionWithName:@"test text copied condition"
-                                 block:^BOOL {
-                                   return [UIPasteboard.generalPasteboard.string
-                                       isEqualToString:copiedText];
-                                 }];
-  // Wait for copy to happen or timeout after 5 seconds.
-  GREYAssertTrue([copyCondition waitWithTimeout:5],
-                 @"Copying test text failed");
+  [ChromeEarlGrey verifyStringCopied:copiedText];
 
   // Focus the omnibox.
   [self focusFakebox];

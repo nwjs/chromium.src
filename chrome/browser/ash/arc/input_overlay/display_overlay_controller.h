@@ -19,16 +19,14 @@ class View;
 class Widget;
 }  // namespace views
 
-namespace ash {
-class PillButton;
-}  // namespace ash
-
 namespace arc::input_overlay {
 
 class Action;
 class ActionEditMenu;
 class ActionView;
+class ButtonOptionsMenu;
 class EditFinishView;
+class EditingList;
 class EducationalView;
 class InputMappingView;
 class InputMenuView;
@@ -83,6 +81,8 @@ class DisplayOverlayController : public ui::EventHandler,
   // Remove the action view when removing |action|.
   void OnActionRemoved(Action* action);
 
+  int GetInputMappingListSize();
+
   // For menu entry hover state:
   void SetMenuEntryHoverState(bool curr_hover_state);
 
@@ -103,10 +103,13 @@ class DisplayOverlayController : public ui::EventHandler,
 
  private:
   friend class ArcInputOverlayManagerTest;
+  friend class ButtonOptionsMenu;
   friend class DisplayOverlayControllerTest;
+  friend class EditingList;
   friend class EducationalView;
   friend class InputMappingView;
   friend class InputMenuView;
+  friend class MenuEntryView;
   friend class MenuEntryViewTest;
 
   // Display overlay is added for starting |display_mode|.
@@ -143,9 +146,14 @@ class DisplayOverlayController : public ui::EventHandler,
   void RemoveEducationalView();
   void OnEducationalViewDismissed();
 
+  bool HasButtonOptionsMenu() const;
+  void RemoveButtonOptionsMenu();
+
+  void AddEditingList();
+  void RemoveEditingList();
+
   views::Widget* GetOverlayWidget();
-  gfx::Point CalculateMenuEntryPosition();
-  views::View* GetParentView();
+  views::View* GetOverlayWidgetContentsView();
   bool HasMenuView() const;
   // Used for edit mode, in which the input mapping must be temporarily visible
   // regardless of user setting, until it is overridden when the user presses
@@ -168,8 +176,6 @@ class DisplayOverlayController : public ui::EventHandler,
   // window is moved back to the front of task stack on ARC side for view mode.
   void EnsureTaskWindowToFrontForViewMode(views::Widget* overlay_widget);
 
-  bool ShowingNudge();
-
   void UpdateForBoundsChanged();
 
   // For test:
@@ -183,18 +189,14 @@ class DisplayOverlayController : public ui::EventHandler,
   // References to UI elements owned by the overlay widget.
   raw_ptr<InputMappingView> input_mapping_view_ = nullptr;
   raw_ptr<InputMenuView> input_menu_view_ = nullptr;
+  raw_ptr<ButtonOptionsMenu> button_options_menu_ = nullptr;
   raw_ptr<MenuEntryView> menu_entry_ = nullptr;
   raw_ptr<ActionEditMenu> action_edit_menu_ = nullptr;
   raw_ptr<EditFinishView> edit_finish_view_ = nullptr;
   raw_ptr<MessageView> message_ = nullptr;
   raw_ptr<EducationalView> educational_view_ = nullptr;
-  // TODO(b/260937747): Update or remove when removing flags
-  // |kArcInputOverlayAlphaV2| or |kArcInputOverlayBeta|.
-  raw_ptr<ash::PillButton> nudge_view_alpha_ = nullptr;
   raw_ptr<NudgeView> nudge_view_ = nullptr;
-  // TODO(b/250900717): Below are temporary UIs for editor feature.
-  raw_ptr<ash::PillButton> add_action_tap_ = nullptr;
-  raw_ptr<ash::PillButton> add_action_move_ = nullptr;
+  raw_ptr<EditingList> editing_list_ = nullptr;
 
   DisplayMode display_mode_ = DisplayMode::kNone;
 };

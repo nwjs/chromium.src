@@ -6,11 +6,7 @@ const blankURL = (base = location.origin) => new URL('/wpt_internal/attribution-
 
 const attribution_reporting_promise_test = (f, name) =>
     promise_test(async t => {
-      await Promise.all([
-        internals.resetAttributionReporting(),
-        resetWptServer(),
-      ]);
-
+      await resetWptServer();
       return f(t);
     }, name);
 
@@ -23,7 +19,6 @@ const resetWptServer = () =>
           resetAttributionReports(aggregatableDebugReportsUrl),
           resetAttributionReports(verboseDebugReportsUrl),
           resetRegisteredSources(),
-          clearCookies(),
         ]);
 
 const eventLevelReportsUrl =
@@ -67,23 +62,6 @@ const resetRegisteredSources = () => {
   return fetch(`${blankURL()}?clear-stash=true`);
 }
 
-const clearCookies = async () => {
-  const headers = [{ name: 'Clear-Site-Data', value: '"cookies"'}];
-  await fetch(blankURLWithHeaders(headers, location.origin));
-
-  // If the test isn't configured to get a cross origin (does not import
-  // get-host-info.js), there is no need or way to clear its cookies.
-  if (typeof get_host_info != "function") {
-    return;
-  }
-
-  const crossOrigin = get_host_info().HTTPS_REMOTE_ORIGIN;
-  const params = getFetchParams(crossOrigin);
-  return fetch(
-      blankURLWithHeaders(params.headers.concat(headers), crossOrigin),
-      {credentials: params.credentials});
-}
-
 /**
  * Method to clear the stash. Takes the URL as parameter. This could be for
  * event-level or aggregatable reports.
@@ -96,6 +74,13 @@ const resetAttributionReports = url => {
     method: 'POST',
   };
   return fetch(url, options);
+};
+
+const redirectReportsTo = origin => {
+  return Promise.all([
+      fetch(`${eventLevelReportsUrl}?redirect_to=${origin}`, {method: 'POST'}),
+      fetch(`${aggregatableReportsUrl}?redirect_to=${origin}`, {method: 'POST'})
+    ]);
 };
 
 const getFetchParams = (origin, cookie) => {
@@ -329,10 +314,12 @@ const delay = ms => new Promise(resolve => step_timeout(resolve, ms));
 
 /**
  * Method that polls a particular URL for reports. Once reports
- * are received, returns the payload as promise.
+ * are received, returns the payload as promise. Returns null if the
+ * timeout is reached before a report is available.
  */
-const pollAttributionReports = async (url, origin = location.origin) => {
-  while (true) {
+const pollAttributionReports = async (url, origin = location.origin, timeout = 60 * 1000 /*ms*/) => {
+  let startTime = performance.now();
+  while (performance.now() - startTime < timeout) {
     const resp = await fetch(new URL(url, origin));
     const payload = await resp.json();
     if (payload.reports.length > 0) {
@@ -340,6 +327,7 @@ const pollAttributionReports = async (url, origin = location.origin) => {
     }
     await delay(/*ms=*/ 100);
   }
+  return null;
 };
 
 // Verbose debug reporting must have been enabled on the source registration for this to work.

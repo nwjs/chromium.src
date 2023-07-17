@@ -12,7 +12,7 @@
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/controls/hover_button.h"
 #include "chrome/browser/ui/views/extensions/extensions_dialogs_utils.h"
-#include "chrome/browser/ui/views/extensions/extensions_menu_navigation_handler.h"
+#include "chrome/browser/ui/views/extensions/extensions_menu_handler.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
@@ -132,7 +132,7 @@ int GetSiteAccessButtonIndex(PermissionsManager::UserSiteAccess site_access) {
 ExtensionsMenuSitePermissionsPageView::ExtensionsMenuSitePermissionsPageView(
     Browser* browser,
     extensions::ExtensionId extension_id,
-    ExtensionsMenuNavigationHandler* navigation_handler)
+    ExtensionsMenuHandler* menu_handler)
     : browser_(browser), extension_id_(extension_id) {
   // TODO(crbug.com/1390952): Same stretch specification as
   // ExtensionsMenuMainPageView. Move to a shared file.
@@ -158,8 +158,8 @@ ExtensionsMenuSitePermissionsPageView::ExtensionsMenuSitePermissionsPageView(
                     .SetGroup(kSiteAccessButtonsId)
                     .SetImageLabelSpacing(icon_label_spacing)
                     .SetCallback(base::BindRepeating(
-                        &ExtensionsMenuNavigationHandler::OnSiteAccessSelected,
-                        base::Unretained(navigation_handler), extension_id,
+                        &ExtensionsMenuHandler::OnSiteAccessSelected,
+                        base::Unretained(menu_handler), extension_id,
                         site_access)),
                 views::Builder<views::Label>()
                     .SetText(GetSiteAccessRadioButtonDescription(site_access))
@@ -185,8 +185,8 @@ ExtensionsMenuSitePermissionsPageView::ExtensionsMenuSitePermissionsPageView(
                   views::Builder<views::ImageButton>(
                       views::CreateVectorImageButtonWithNativeTheme(
                           base::BindRepeating(
-                              &ExtensionsMenuNavigationHandler::OpenMainPage,
-                              base::Unretained(navigation_handler)),
+                              &ExtensionsMenuHandler::OpenMainPage,
+                              base::Unretained(menu_handler)),
                           vector_icons::kArrowBackIcon))
                       .SetTooltipText(
                           l10n_util::GetStringUTF16(IDS_ACCNAME_BACK))
@@ -212,12 +212,24 @@ ExtensionsMenuSitePermissionsPageView::ExtensionsMenuSitePermissionsPageView(
                   views::Builder<views::Button>(
                       views::BubbleFrameView::CreateCloseButton(
                           base::BindRepeating(
-                              &ExtensionsMenuNavigationHandler::CloseBubble,
-                              base::Unretained(navigation_handler))))),
+                              &ExtensionsMenuHandler::CloseBubble,
+                              base::Unretained(menu_handler))))),
           // Content.
           views::Builder<views::BoxLayoutView>()
               .SetOrientation(views::BoxLayout::Orientation::kVertical)
               .AddChildren(
+                  // Site access section.
+                  views::Builder<views::Separator>(),
+                  views::Builder<views::Label>()
+                      .SetText(l10n_util::GetStringUTF16(
+                          IDS_EXTENSIONS_MENU_SITE_PERMISSIONS_PAGE_SITE_ACCESS_LABEL))
+                      .SetHorizontalAlignment(gfx::ALIGN_LEFT),
+                  create_radio_button_builder(
+                      PermissionsManager::UserSiteAccess::kOnClick),
+                  create_radio_button_builder(
+                      PermissionsManager::UserSiteAccess::kOnSite),
+                  create_radio_button_builder(
+                      PermissionsManager::UserSiteAccess::kOnAllSites),
                   // Requests in toolbar toggle.
                   views::Builder<views::Separator>(),
                   views::Builder<views::FlexLayoutView>()
@@ -234,18 +246,6 @@ ExtensionsMenuSitePermissionsPageView::ExtensionsMenuSitePermissionsPageView(
                                   &ExtensionsMenuSitePermissionsPageView::
                                       OnShowRequestsTogglePressed,
                                   base::Unretained(this)))),
-                  // Site access section.
-                  views::Builder<views::Separator>(),
-                  views::Builder<views::Label>()
-                      .SetText(l10n_util::GetStringUTF16(
-                          IDS_EXTENSIONS_MENU_SITE_PERMISSIONS_PAGE_SITE_ACCESS_LABEL))
-                      .SetHorizontalAlignment(gfx::ALIGN_LEFT),
-                  create_radio_button_builder(
-                      PermissionsManager::UserSiteAccess::kOnClick),
-                  create_radio_button_builder(
-                      PermissionsManager::UserSiteAccess::kOnSite),
-                  create_radio_button_builder(
-                      PermissionsManager::UserSiteAccess::kOnAllSites),
                   // Settings button.
                   views::Builder<views::Separator>(),
                   views::Builder<HoverButton>(std::make_unique<HoverButton>(
@@ -272,7 +272,9 @@ void ExtensionsMenuSitePermissionsPageView::Update(
     const ui::ImageModel& extension_icon,
     const std::u16string& current_site,
     PermissionsManager::UserSiteAccess user_site_access,
-    bool is_show_requests_toggle_on) {
+    bool is_show_requests_toggle_on,
+    bool is_on_site_enabled,
+    bool is_on_all_sites_enabled) {
   extension_icon_->SetImage(extension_icon);
   extension_name_->SetText(extension_name);
 
@@ -288,6 +290,12 @@ void ExtensionsMenuSitePermissionsPageView::Update(
           PermissionsManager::UserSiteAccess::kOnSite, current_site));
     }
   }
+
+  // Enable the site access buttons accordingly. The extension is guaranteed to
+  // at least have "on click" enabled when this page is opened.
+  site_access_buttons[kOnSiteButtonIndex]->SetEnabled(is_on_site_enabled);
+  site_access_buttons[kOnAllSitesButtonIndex]->SetEnabled(
+      is_on_all_sites_enabled);
 
   UpdateShowRequestsToggle(is_show_requests_toggle_on);
 }

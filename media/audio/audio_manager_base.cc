@@ -513,8 +513,7 @@ AudioParameters AudioManagerBase::GetOutputStreamParameters(
 
 AudioParameters AudioManagerBase::GetInputStreamParameters(
     const std::string& device_id) {
-  NOTREACHED();
-  return AudioParameters();
+  NOTREACHED_NORETURN();
 }
 
 std::string AudioManagerBase::GetAssociatedOutputDeviceID(

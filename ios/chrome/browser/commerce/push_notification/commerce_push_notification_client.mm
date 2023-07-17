@@ -11,14 +11,14 @@
 #import "components/commerce/core/price_tracking_utils.h"
 #import "components/commerce/core/proto/price_tracking.pb.h"
 #import "components/optimization_guide/proto/push_notification.pb.h"
-#import "ios/chrome/browser/application_context/application_context.h"
 #import "ios/chrome/browser/bookmarks/local_or_syncable_bookmark_model_factory.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state_manager.h"
-#import "ios/chrome/browser/main/browser_list.h"
-#import "ios/chrome/browser/main/browser_list_factory.h"
 #import "ios/chrome/browser/push_notification/push_notification_client_id.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_browser_agent.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "url/gurl.h"
@@ -89,11 +89,11 @@ CommercePushNotificationClient::RegisterActionableNotifications() {
                      options:UNNotificationCategoryOptionNone] ];
 }
 
-void CommercePushNotificationClient::OnBrowserReady() {
+void CommercePushNotificationClient::OnSceneActiveForegroundBrowserReady() {
   if (!urls_delayed_for_loading_.size()) {
     return;
   }
-  Browser* browser = GetActiveBrowser();
+  Browser* browser = GetSceneLevelForegroundActiveBrowser();
   CHECK(browser);
   for (const std::string& url : urls_delayed_for_loading_) {
     UrlLoadParams params = UrlLoadParams::InNewTab(GURL(url));
@@ -113,18 +113,12 @@ bookmarks::BookmarkModel* CommercePushNotificationClient::GetBookmarkModel() {
       GetLastUsedBrowserState());
 }
 
-Browser* CommercePushNotificationClient::GetActiveBrowser() {
+Browser*
+CommercePushNotificationClient::GetSceneLevelForegroundActiveBrowser() {
   BrowserList* browser_list =
       BrowserListFactory::GetForBrowserState(GetLastUsedBrowserState());
-  // Ideally we want a foregrounded active browser, but in the event we can't
-  // find one (e.g. notification was tapped when app was closed and app is
-  // currently opening), we fallback to the first active browser seen.
-  Browser* fallback_active_browser = nullptr;
   for (Browser* browser : browser_list->AllRegularBrowsers()) {
     if (!browser->IsInactive()) {
-      if (!fallback_active_browser) {
-        fallback_active_browser = browser;
-      }
       SceneStateBrowserAgent* scene_state_browser_agent =
           SceneStateBrowserAgent::FromBrowser(browser);
       if (scene_state_browser_agent &&
@@ -134,9 +128,6 @@ Browser* CommercePushNotificationClient::GetActiveBrowser() {
         return browser;
       }
     }
-  }
-  if (fallback_active_browser) {
-    return fallback_active_browser;
   }
   return nullptr;
 }
@@ -168,7 +159,7 @@ void CommercePushNotificationClient::HandleNotificationInteraction(
     // TODO(crbug.com/1403190) implement alternate Open URL handler which
     // attempts to find if a Tab with the URL already exists and switch
     // to that Tab.
-    Browser* browser = GetActiveBrowser();
+    Browser* browser = GetSceneLevelForegroundActiveBrowser();
     if (!browser) {
       urls_delayed_for_loading_.push_back(
           price_drop_notification.destination_url());

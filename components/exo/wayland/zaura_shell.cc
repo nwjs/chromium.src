@@ -881,6 +881,14 @@ void AuraToplevel::SetSnapSecondary(float snap_ratio) {
   shell_surface_->SetSnapSecondary(snap_ratio);
 }
 
+void AuraToplevel::SetPersistable(bool persistable) {
+  shell_surface_->SetPersistable(persistable);
+}
+
+void AuraToplevel::SetShape(absl::optional<cc::Region> shape) {
+  shell_surface_->SetShape(std::move(shape));
+}
+
 void AuraToplevel::IntentToSnap(uint32_t snap_direction) {
   switch (snap_direction) {
     case ZAURA_SURFACE_SNAP_DIRECTION_NONE:
@@ -1422,6 +1430,22 @@ void aura_toplevel_set_scale_factor(wl_client* client,
   GetUserDataAs<AuraToplevel>(resource)->SetScaleFactor(scale_factor);
 }
 
+void aura_toplevel_set_persistable(wl_client* client,
+                                   wl_resource* resource,
+                                   uint32_t persistable) {
+  GetUserDataAs<AuraToplevel>(resource)->SetPersistable(
+      persistable == ZAURA_TOPLEVEL_PERSISTABLE_PERSISTABLE);
+}
+
+void aura_toplevel_set_shape(wl_client* client,
+                             wl_resource* resource,
+                             wl_resource* region_resource) {
+  GetUserDataAs<AuraToplevel>(resource)->SetShape(
+      region_resource ? absl::optional<cc::Region>(
+                            *GetUserDataAs<SkRegion>(region_resource))
+                      : absl::nullopt);
+}
+
 const struct zaura_toplevel_interface aura_toplevel_implementation = {
     aura_toplevel_set_orientation_lock,
     aura_toplevel_surface_submission_in_pixel_coordinates,
@@ -1445,6 +1469,8 @@ const struct zaura_toplevel_interface aura_toplevel_implementation = {
     aura_toplevel_set_snap_secondary,
     aura_toplevel_intent_to_snap,
     aura_toplevel_unset_snap,
+    aura_toplevel_set_persistable,
+    aura_toplevel_set_shape,
 };
 
 void aura_popup_surface_submission_in_pixel_coordinates(wl_client* client,

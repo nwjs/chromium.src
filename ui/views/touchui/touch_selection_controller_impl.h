@@ -102,6 +102,12 @@ class VIEWS_EXPORT TouchSelectionControllerImpl
   // coordinates.
   gfx::Rect GetQuickMenuAnchorRect() const;
 
+  // Shows the touch selection magnifier (if there is one) at the focus bound.
+  void ShowMagnifier(const gfx::SelectionBound& focus_bound_in_screen);
+
+  // Hides the touch selection magnifier.
+  void HideMagnifier();
+
   // Convenience methods for testing.
   gfx::NativeView GetCursorHandleNativeView();
   gfx::SelectionBound::Type GetSelectionHandle1Type();
@@ -152,6 +158,11 @@ class VIEWS_EXPORT TouchSelectionControllerImpl
   // Selection bounds, clipped to client view's boundaries.
   gfx::SelectionBound selection_bound_1_clipped_;
   gfx::SelectionBound selection_bound_2_clipped_;
+
+  // Used to track whether the client is selection dragging. If the client's
+  // selection dragging state changes, then the handles need to be updated on
+  // the next selection change notification.
+  bool is_client_selection_dragging_ = false;
 };
 
 }  // namespace views

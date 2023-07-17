@@ -14,14 +14,14 @@ import 'chrome://resources/js/search_highlight_utils.js';
 import 'chrome://resources/polymer/v3_0/iron-icon/iron-icon.js';
 import '../os_about_page/os_about_page.js';
 import '../os_settings_page/os_settings_page.js';
-import '../../settings_shared.css.js';
-import '../../settings_vars.css.js';
+import '../settings_shared.css.js';
+import '../settings_vars.css.js';
 
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {assertExists} from '../assert_extras.js';
-import {OsPageVisibility} from '../os_page_visibility.js';
+import {OsPageAvailability} from '../os_page_availability.js';
 import {routes} from '../os_settings_routes.js';
 import {RouteObserverMixin} from '../route_observer_mixin.js';
 import {Route, Router} from '../router.js';
@@ -90,37 +90,16 @@ export class OsSettingsMainElement extends OsSettingsMainElementBase {
       },
 
       /**
-       * Dictionary defining page visibility.
+       * Dictionary defining page availability.
        */
-      pageVisibility: Object,
-
-      showAndroidApps: Boolean,
-
-      showArcvmManageUsb: Boolean,
-
-      showCrostini: Boolean,
-
-      showReset: Boolean,
-
-      showStartup: Boolean,
-
-      showKerberosSection: Boolean,
-
-      havePlayStoreApp: Boolean,
+      pageAvailability: Object,
     };
   }
 
   prefs: Object;
   advancedToggleExpanded: boolean;
   toolbarSpinnerActive: boolean;
-  pageVisibility: OsPageVisibility;
-  showAndroidApps: boolean;
-  showArcvmManageUsb: boolean;
-  showCrostini: boolean;
-  showReset: boolean;
-  showStartup: boolean;
-  showKerberosSection: boolean;
-  havePlayStoreApp: boolean;
+  pageAvailability: OsPageAvailability;
   private overscroll_: number;
   private showPages_: MainPageVisibility;
   private showingSubpage_: boolean;

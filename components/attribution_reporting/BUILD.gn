@@ -9,6 +9,7 @@ mojom("mojom") {
   sources = [
     "registration_type.mojom",
     "source_registration_error.mojom",
+    "source_registration_time_config.mojom",
     "trigger_registration_error.mojom",
   ]
   webui_module_path = "/"
@@ -34,6 +35,8 @@ component("attribution_reporting") {
     "destination_set.h",
     "event_trigger_data.cc",
     "event_trigger_data.h",
+    "features.cc",
+    "features.h",
     "filters.cc",
     "filters.h",
     "os_registration.cc",
@@ -159,9 +162,11 @@ mojom("registration_mojom") {
   generate_legacy_js_bindings = true
 
   deps = [
+    ":mojom",
     "//components/aggregation_service:mojom",
     "//mojo/public/mojom/base",
     "//services/network/public/mojom:mojom_schemeful_site",
+    "//url/mojom:url_mojom_gurl",
     "//url/mojom:url_mojom_origin",
   ]
 
@@ -255,6 +260,11 @@ mojom("registration_mojom") {
           default_constructible = false
           forward_declaration =
               "namespace attribution_reporting { class DestinationSet; }"
+        },
+        {
+          mojom = "attribution_reporting.mojom.OsRegistration"
+          cpp = "::std::vector<::GURL>"
+          move_only = true
         },
       ]
       traits_headers = [ "registration_mojom_traits.h" ]

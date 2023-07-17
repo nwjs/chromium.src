@@ -6,10 +6,11 @@
 
 #import <vector>
 
-#import "ios/chrome/browser/application_context/application_context.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state_manager.h"
-#import "ios/chrome/browser/main/all_web_state_list_observation_registrar.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
+#import "ios/chrome/browser/shared/model/browser/all_web_state_list_observation_registrar.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -25,7 +26,8 @@ IncognitoWebStateObserver::IncognitoWebStateObserver() {
   for (ChromeBrowserState* browser_state : browser_states) {
     DCHECK(!browser_state->IsOffTheRecord());
     registrars_.insert(std::make_unique<AllWebStateListObservationRegistrar>(
-        browser_state, std::make_unique<Observer>(this),
+        BrowserListFactory::GetForBrowserState(browser_state),
+        std::make_unique<Observer>(this),
         AllWebStateListObservationRegistrar::Mode::INCOGNITO));
   }
 }

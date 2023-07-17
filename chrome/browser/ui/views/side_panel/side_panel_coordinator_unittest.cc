@@ -76,7 +76,7 @@ class SidePanelCoordinatorTest : public TestWithBrowserView {
         ui::ImageModel::FromVectorIcon(kReadLaterIcon, ui::kColorIcon),
         base::BindRepeating([]() { return std::make_unique<views::View>(); })));
 
-    coordinator_ = browser_view()->side_panel_coordinator();
+    coordinator_ = SidePanelUtil::GetSidePanelCoordinatorForBrowser(browser());
     coordinator_->SetNoDelaysForTesting(true);
     global_registry_ = coordinator_->global_registry_;
 
@@ -1364,7 +1364,7 @@ TEST_F(SidePanelCoordinatorTest, DeregisterAndReturnView) {
   // Since the entry was never shown, its view was never created and
   // `returned_view` should be null.
   std::unique_ptr<views::View> returned_view =
-      global_registry_->DeregisterAndReturnView(extension_key);
+      SidePanelUtil::DeregisterAndReturnView(global_registry_, extension_key);
   EXPECT_FALSE(returned_view);
 
   // Register the entry and show it.
@@ -1373,7 +1373,8 @@ TEST_F(SidePanelCoordinatorTest, DeregisterAndReturnView) {
 
   // Since the entry was shown, its view was created. Check that the correct
   // view is returned by checking its state that was set at creation time.
-  returned_view = global_registry_->DeregisterAndReturnView(extension_key);
+  returned_view =
+      SidePanelUtil::DeregisterAndReturnView(global_registry_, extension_key);
   ASSERT_TRUE(returned_view);
   EXPECT_EQ(22, static_cast<ViewWithCounter*>(returned_view.get())->counter());
 
@@ -1385,7 +1386,8 @@ TEST_F(SidePanelCoordinatorTest, DeregisterAndReturnView) {
 
   // Since the entry was shown, its view was created. Check that the correct
   // view is returned by checking its state that was set at creation time.
-  returned_view = global_registry_->DeregisterAndReturnView(extension_key);
+  returned_view =
+      SidePanelUtil::DeregisterAndReturnView(global_registry_, extension_key);
   ASSERT_TRUE(returned_view);
   EXPECT_EQ(33, static_cast<ViewWithCounter*>(returned_view.get())->counter());
 }
@@ -1400,7 +1402,7 @@ class SidePanelCoordinatorLoadingContentTest : public SidePanelCoordinatorTest {
     AddTab(browser_view()->browser(), GURL("http://foo1.com"));
     AddTab(browser_view()->browser(), GURL("http://foo2.com"));
 
-    coordinator_ = browser_view()->side_panel_coordinator();
+    coordinator_ = SidePanelUtil::GetSidePanelCoordinatorForBrowser(browser());
     global_registry_ = SidePanelCoordinator::GetGlobalSidePanelRegistry(
         browser_view()->browser());
 

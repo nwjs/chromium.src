@@ -198,17 +198,6 @@ network::mojom::HttpAuthDynamicParamsPtr CreateHttpAuthDynamicParams(
       local_state->GetBoolean(prefs::kKerberosEnabled);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
-// TODO(crbug.com/1295308): Remove the following check after Chromad is
-// deprecated.
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (!auth_dynamic_params->allow_gssapi_library_load) {
-    policy::BrowserPolicyConnectorAsh* connector =
-        g_browser_process->platform_part()->browser_policy_connector_ash();
-    auth_dynamic_params->allow_gssapi_library_load =
-        connector->IsActiveDirectoryManaged();
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
   return auth_dynamic_params;
 }
 
@@ -538,8 +527,7 @@ void SystemNetworkContextManager::RegisterPrefs(PrefRegistrySimple* registry) {
         // !BUILDFLAG(IS_CHROMEOS)
 
   // Dynamic auth params.
-  registry->RegisterListPref(prefs::kAllHttpAuthSchemesAllowedForOrigins,
-                             base::Value(base::Value::Type::LIST));
+  registry->RegisterListPref(prefs::kAllHttpAuthSchemesAllowedForOrigins);
   registry->RegisterBooleanPref(prefs::kDisableAuthNegotiateCnameLookup, false);
   registry->RegisterBooleanPref(prefs::kEnableAuthNegotiatePort, false);
   registry->RegisterBooleanPref(prefs::kBasicAuthOverHttpEnabled, true);

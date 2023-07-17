@@ -102,13 +102,6 @@ class WebGLConformanceIntegrationTestBase(
     return {
         # crbug.com/1347970.
         'conformance/textures/misc/texture-video-transparent.html',
-        # Specifically when using Metal, this test can be rather slow. When run
-        # in parallel, even a minute is not long enough for it to reliably run,
-        # as it does not properly send heartbeats (possibly due to a large
-        # amount of work being done). Instead of increasing the heartbeat
-        # timeout further, run it serially. Can potentially be removed depending
-        # on the response to crbug.com/1363349.
-        'conformance/glsl/bugs/complex-glsl-does-not-crash.html',
     }
 
   @classmethod
@@ -289,21 +282,15 @@ class WebGLConformanceIntegrationTestBase(
       url = self.UrlOfStaticFilePath(TEST_PAGE_RELPATH)
       self.tab.Navigate(url, script_to_evaluate_on_commit=harness_script)
       self.tab.WaitForDocumentReadyStateToBeComplete(timeout=5)
-      # TODO(crbug.com/1432592): Remove this special casing once the flaky adb
-      # issues are investigated/resolved.
-      if self.browser.platform.GetOSName() != 'android':
-        self.tab.action_runner.EvaluateJavaScript(
-            'connectWebsocket("%d")' %
-            self.__class__.websocket_server.server_port,
-            timeout=WEBSOCKET_JAVASCRIPT_TIMEOUT_S)
-        self.__class__.websocket_server.WaitForConnection()
-        response = self.__class__.websocket_server.Receive(
-            WEBSOCKET_JAVASCRIPT_TIMEOUT_S)
-        response = json.loads(response)
-        assert response['type'] == 'CONNECTION_ACK'
-      else:
-        self.tab.action_runner.EvaluateJavaScript(
-            'eatWebsocketMessages()', timeout=WEBSOCKET_JAVASCRIPT_TIMEOUT_S)
+      self.tab.action_runner.EvaluateJavaScript(
+          'connectWebsocket("%d")' %
+          self.__class__.websocket_server.server_port,
+          timeout=WEBSOCKET_JAVASCRIPT_TIMEOUT_S)
+      self.__class__.websocket_server.WaitForConnection()
+      response = self.__class__.websocket_server.Receive(
+          WEBSOCKET_JAVASCRIPT_TIMEOUT_S)
+      response = json.loads(response)
+      assert response['type'] == 'CONNECTION_ACK'
       self.__class__.page_loaded = True
 
     gpu_info = self.browser.GetSystemInfo().gpu
@@ -318,13 +305,6 @@ class WebGLConformanceIntegrationTestBase(
     self.tab.action_runner.EvaluateJavaScript('runTest("%s")' % url)
 
   def _HandleMessageLoop(self, test_timeout: float) -> None:
-    # TODO(crbug.com/1432592): Remove this special casing once the flaky adb
-    # issues are investigated/resolved.
-    if self.browser.platform.GetOSName() == 'android':
-      self.tab.action_runner.WaitForJavaScriptCondition(
-          'webglTestHarness._finished', timeout=test_timeout)
-      return
-
     got_test_started = False
     start_time = time.time()
     try:

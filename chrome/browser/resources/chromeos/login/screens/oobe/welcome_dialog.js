@@ -8,6 +8,7 @@ import '//resources/cr_elements/cr_shared_style.css.js';
 import '../../components/oobe_icons.html.js';
 import '../../components/common_styles/oobe_dialog_host_styles.css.js';
 import '../../components/oobe_vars/oobe_shared_vars.css.js';
+import '../../components/buttons/oobe_icon_button.js';
 
 import {assert} from '//resources/ash/common/assert.js';
 import {loadTimeData} from '//resources/ash/common/load_time_data.m.js';
@@ -35,6 +36,9 @@ const OobeWelcomeDialogBase =
  */
 OobeWelcomeDialogBase.$;
 
+/**
+ * @polymer
+ */
 export class OobeWelcomeDialog extends OobeWelcomeDialogBase {
   static get is() {
     return 'oobe-welcome-dialog';
@@ -80,6 +84,16 @@ export class OobeWelcomeDialog extends OobeWelcomeDialogBase {
         readOnly: true,
       },
 
+      isSimon_: {
+        type: Boolean,
+        value: function() {
+          return (
+              loadTimeData.valueExists('isOobeSimonEnabled') &&
+              loadTimeData.getBoolean('isOobeSimonEnabled'));
+        },
+        readOnly: true,
+      },
+
       isDeviceRequisitionConfigurable_: {
         type: Boolean,
         value: function() {
@@ -110,8 +124,32 @@ export class OobeWelcomeDialog extends OobeWelcomeDialogBase {
     this.isQuickStartEnabled = false;
   }
 
+  ready() {
+    super.ready();
+    if (loadTimeData.getBoolean('isOobeLazyLoadingEnabled')) {
+      // Disable the 'Get Started' & 'Enable Debugging' button until OOBE is
+      // fully initialized.
+      this.$.getStarted.disabled = true;
+      this.$.enableDebuggingButton.disabled = true;
+      document.addEventListener(
+        'oobe-screens-loaded', this.enableButtonsWhenLoaded.bind(this));
+    }
+  }
+
   onBeforeShow() {
     this.setVideoPlay_(true);
+  }
+
+  /**
+   * Since we prioritize the showing of the the Welcome Screen, it becomes
+   * visible before the remaining of the OOBE flow is fully loaded. For this
+   * reason, we listen to the |oobe-screens-loaded| signal and enable it.
+   */
+  enableButtonsWhenLoaded(e) {
+    document.removeEventListener(
+      'oobe-screens-loaded', this.enableButtonsWhenLoaded.bind(this));
+    this.$.getStarted.disabled = false;
+    this.$.enableDebuggingButton.disabled = false;
   }
 
   onLanguageClicked_(e) {
@@ -215,12 +253,6 @@ export class OobeWelcomeDialog extends OobeWelcomeDialogBase {
     this.setVideoPlay_(visible);
   }
 
-  getProjectSimonProductName() {
-    return loadTimeData.valueExists('kProjectSimonProductName') ?
-        loadTimeData.getString('kProjectSimonProductName') :
-        '';
-  }
-
   /**
    * Play or pause welcome video.
    * @param {boolean} play - whether play or pause welcome video.
@@ -280,6 +312,13 @@ export class OobeWelcomeDialog extends OobeWelcomeDialogBase {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  /**
+   * Determines if AnimationSlot is needed for specific flow
+   */
+  showAnimationSlot() {
+    return !this.isSimon_;
   }
 }
 

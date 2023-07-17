@@ -38,6 +38,9 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/defaults.h"
 #include "chrome/browser/favicon/favicon_utils.h"
+#include "chrome/browser/predictors/loading_predictor.h"
+#include "chrome/browser/predictors/loading_predictor_config.h"
+#include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/preloading/chrome_preloading.h"
 #include "chrome/browser/preloading/prerender/prerender_manager.h"
 #include "chrome/browser/profiles/profile.h"
@@ -52,6 +55,7 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/view_ids.h"
@@ -65,7 +69,6 @@
 #include "chrome/browser/ui/views/event_utils.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_background.h"
-#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_ink_drop_util.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -103,6 +106,7 @@
 #include "ui/base/pointer/touch_ui_controller.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/theme_provider.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_id.h"
@@ -194,7 +198,10 @@ enum class PrerenderPredictionResult {
 };
 
 // These are used as control the behavior of kBookmarkTriggerForPrerender2.
-const base::FeatureParam<int> kPrerenderStartDelayOnMouseHoverByMiliSeconds{
+const base::FeatureParam<int> kPreconnectStartDelayOnMouseHoverByMiliseconds{
+    &features::kBookmarkTriggerForPrerender2,
+    "preconnect_start_delay_on_mouse_hover_ms", 100};
+const base::FeatureParam<int> kPrerenderStartDelayOnMouseHoverByMiliseconds{
     &features::kBookmarkTriggerForPrerender2,
     "prerender_start_delay_on_mouse_hover_ms", 300};
 const base::FeatureParam<bool> kPrerenderBookmarkBarOnMousePressedTrigger{
@@ -379,10 +386,9 @@ class BookmarkButton : public BookmarkButtonBase {
       preloading_timer_.Start(
           FROM_HERE,
           base::Milliseconds(
-              kPrerenderStartDelayOnMouseHoverByMiliSeconds.Get()),
-          base::BindRepeating(
-              &BookmarkButton::StartPrerendering, base::Unretained(this),
-              chrome_preloading_predictor::kMouseHoverOnBookmarkBar, *url_));
+              kPreconnectStartDelayOnMouseHoverByMiliseconds.Get()),
+          base::BindRepeating(&BookmarkButton::StartPreconnecting,
+                              base::Unretained(this), *url_));
     }
   }
 
@@ -438,6 +444,39 @@ class BookmarkButton : public BookmarkButtonBase {
   }
 
  private:
+  void StartPreconnecting(GURL url) {
+    CHECK(
+        base::FeatureList::IsEnabled(features::kBookmarkTriggerForPrerender2));
+    if (prerender_handle_) {
+      return;
+    }
+
+    // Directly start prerendering to avoid timer overhead.
+    if (kPrerenderStartDelayOnMouseHoverByMiliseconds.Get() -
+            kPreconnectStartDelayOnMouseHoverByMiliseconds.Get() <=
+        0) {
+      StartPrerendering(chrome_preloading_predictor::kMouseHoverOnBookmarkBar,
+                        url);
+    } else {
+      auto* loading_predictor =
+          predictors::LoadingPredictorFactory::GetForProfile(
+              browser_->profile());
+      if (loading_predictor) {
+        loading_predictor->PrepareForPageLoad(
+            url, predictors::HintOrigin::BOOKMARK_BAR, true);
+      }
+
+      preloading_timer_.Start(
+          FROM_HERE,
+          base::Milliseconds(
+              kPrerenderStartDelayOnMouseHoverByMiliseconds.Get() -
+              kPreconnectStartDelayOnMouseHoverByMiliseconds.Get()),
+          base::BindRepeating(
+              &BookmarkButton::StartPrerendering, base::Unretained(this),
+              chrome_preloading_predictor::kMouseHoverOnBookmarkBar, url));
+    }
+  }
+
   void StartPrerendering(content::PreloadingPredictor predictor, GURL url) {
     // TODO(https://crbug.com/1422819): Prerender only for https scheme, and add
     // an enum metric to report the protocol scheme.
@@ -620,15 +659,26 @@ class BookmarkBarView::ButtonSeparatorView : public views::Separator {
  public:
   METADATA_HEADER(ButtonSeparatorView);
   ButtonSeparatorView() {
-    // Total width of the separator and surrounding padding.
-    constexpr int kSeparatorWidth = 9;
-    constexpr int kPaddingWidth = kSeparatorWidth - kThickness;
-    constexpr int kLeadingPadding = (kPaddingWidth + 1) / 2;
+    const int leading_padding = features::IsChromeRefresh2023() ? 16 : 4;
+    const int trailing_padding = features::IsChromeRefresh2023() ? 8 : 3;
+    const int separator_thickness =
+        features::IsChromeRefresh2023() ? 2 : kThickness;
+    const gfx::Insets border_insets =
+        gfx::Insets::TLBR(0, leading_padding, 0, trailing_padding);
+    const ui::ColorId color_id = features::IsChromeRefresh2023()
+                                     ? kColorBookmarkBarSeparatorChromeRefresh
+                                     : kColorBookmarkBarSeparator;
 
-    SetColorId(kColorBookmarkBarSeparator);
-    SetBorder(views::CreateEmptyBorder(gfx::Insets::TLBR(
-        0, kLeadingPadding, 0, kPaddingWidth - kLeadingPadding)));
-    SetPreferredLength(gfx::kFaviconSize);
+    SetColorId(color_id);
+    SetPreferredSize(
+        gfx::Size(leading_padding + separator_thickness + trailing_padding,
+                  gfx::kFaviconSize));
+    if (features::IsChromeRefresh2023()) {
+      SetBorder(views::CreateThemedRoundedRectBorder(1, 100, border_insets,
+                                                     color_id));
+    } else {
+      SetBorder(views::CreateEmptyBorder(border_insets));
+    }
   }
   ButtonSeparatorView(const ButtonSeparatorView&) = delete;
   ButtonSeparatorView& operator=(const ButtonSeparatorView&) = delete;
@@ -1654,19 +1704,19 @@ std::unique_ptr<MenuButton> BookmarkBarView::CreateOtherBookmarksButton() {
   if (base::FeatureList::IsEnabled(features::kPowerBookmarksSidePanel)) {
     // Title is set in Loaded.
     button = std::make_unique<BookmarkFolderButton>(base::BindRepeating(
-        [](BookmarkBarView* bar, const ui::Event& event) {
-          SidePanelCoordinator* side_panel_coordinator =
-              bar->browser_view_->side_panel_coordinator();
-          if (side_panel_coordinator->GetCurrentEntryId() ==
+        [](Browser* browser, const ui::Event& event) {
+          SidePanelUI* side_panel_ui =
+              SidePanelUI::GetSidePanelUIForBrowser(browser);
+          if (side_panel_ui->GetCurrentEntryId() ==
               SidePanelEntry::Id::kBookmarks) {
-            side_panel_coordinator->Close();
+            side_panel_ui->Close();
           } else {
-            side_panel_coordinator->Show(
+            side_panel_ui->Show(
                 SidePanelEntry::Id::kBookmarks,
                 SidePanelUtil::SidePanelOpenTrigger::kBookmarkBar);
           }
         },
-        base::Unretained(this)));
+        browser_));
   } else {
     // Title is set in Loaded.
     button = std::make_unique<BookmarkFolderButton>(base::BindRepeating(

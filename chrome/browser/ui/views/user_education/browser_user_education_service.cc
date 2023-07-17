@@ -181,7 +181,6 @@ const char kTabGroupWithExistingGroupTutorialId[] =
     "Tab Group With Existing Group Tutorial";
 const char kSidePanelReadingListTutorialId[] =
     "Side Panel Reading List Tutorial";
-
 const char kSideSearchTutorialId[] = "Side Search Tutorial";
 
 user_education::HelpBubbleDelegate* GetHelpBubbleDelegate() {
@@ -355,6 +354,12 @@ void MaybeRegisterChromeFeaturePromos(
       feature_engagement::kIPHPowerBookmarksSidePanelFeature,
       kSidePanelButtonElementId, IDS_POWER_BOOKMARKS_SIDE_PANEL_PROMO));
 
+  // kIPHCompanionSidePanelFeature:
+  registry.RegisterFeature(FeaturePromoSpecification::CreateForSnoozePromo(
+      feature_engagement::kIPHCompanionSidePanelFeature,
+      kSidePanelCompanionToolbarButtonElementId,
+      IDS_SIDE_PANEL_COMPANION_PROMO));
+
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
   // kIPHSwitchProfileFeature:
   registry.RegisterFeature(FeaturePromoSpecification::CreateForToastPromo(
@@ -386,11 +391,10 @@ void MaybeRegisterChromeFeaturePromos(
       &feature_engagement::kIPHReadingListInSidePanelFeature,
       kSidePanelButtonElementId, IDS_READING_LIST_IN_SIDE_PANEL_PROMO));
 
-  // kIPHReopenTabFeature:
-  registry.RegisterFeature(FeaturePromoSpecification::CreateForToastPromo(
-      feature_engagement::kIPHReopenTabFeature, kAppMenuButtonElementId,
-      IDS_REOPEN_TAB_PROMO, IDS_REOPEN_TAB_PROMO_SCREENREADER,
-      FeaturePromoSpecification::AcceleratorInfo(IDC_RESTORE_TAB)));
+  // kIPHReadingModeSidePanelFeature:
+  registry.RegisterFeature(FeaturePromoSpecification::CreateForSnoozePromo(
+      feature_engagement::kIPHReadingModeSidePanelFeature,
+      kSidePanelButtonElementId, IDS_READING_MODE_SIDE_PANEL_PROMO));
 
   // kIPHSideSearchFeature:
   registry.RegisterFeature(std::move(
@@ -463,7 +467,7 @@ void MaybeRegisterChromeFeaturePromos(
                 RecordHighEfficiencyIPHEnableMode(true);
               }))
           .SetCustomActionIsDefault(true)
-          .SetCustomActionDismissText(IDS_NOT_NOW)
+          .SetCustomActionDismissText(IDS_NO_THANKS)
           .SetBubbleTitleText(IDS_HIGH_EFFICIENCY_MODE_PROMO_TITLE)));
 
   // kIPHPriceTrackingInSidePanelFeature;

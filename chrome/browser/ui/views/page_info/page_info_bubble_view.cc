@@ -164,7 +164,7 @@ PageInfoBubbleView::PageInfoBubbleView(
   SetShowCloseButton(false);
   // The title isn't visible, it is set for a11y purposes and the actual visible
   // title is a custom label in the content view.
-  SetTitle(presenter_->GetSiteNameOrAppNameToDisplay());
+  SetTitle(presenter_->GetSubjectNameForDisplay());
 
   SetLayoutManager(std::make_unique<views::BoxLayout>(
       views::BoxLayout::Orientation::kVertical));
@@ -249,8 +249,7 @@ void PageInfoBubbleView::OpenAdPersonalizationPage() {
 }
 
 void PageInfoBubbleView::OpenCookiesPage() {
-  presenter_->RecordPageInfoAction(
-      PageInfo::PageInfoAction::PAGE_INFO_COOKIES_PAGE_OPENED);
+  presenter_->OnCookiesPageOpened();
   std::unique_ptr<views::View> cookies_page_view =
       view_factory_->CreateCookiesPageView();
   cookies_page_view->SetID(PageInfoViewFactory::VIEW_ID_PAGE_INFO_CURRENT_VIEW);

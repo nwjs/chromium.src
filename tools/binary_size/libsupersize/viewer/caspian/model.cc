@@ -116,10 +116,12 @@ const char* Symbol::SourcePath() const {
   return source_path_;
 }
 const char* Symbol::GroupingPath() const {
-  if (*source_path_)
+  if (source_path_ && *source_path_) {
     return source_path_;
-  if (*object_path_)
+  }
+  if (object_path_ && *object_path_) {
     return object_path_;
+  }
   return kNoPath;
 }
 const char* Symbol::SectionName() const {
@@ -352,6 +354,8 @@ SectionId BaseSizeInfo::ShortSectionName(const char* section_name) {
       ret = SectionId::kPakNontranslated;
     } else if (!strcmp(section_name, ".pak.translations")) {
       ret = SectionId::kPakTranslations;
+    } else if (!strcmp(section_name, ".arsc")) {
+      ret = SectionId::kArsc;
     } else {
       std::cerr << "Attributing unrecognized section name to .other: "
                 << section_name << std::endl;

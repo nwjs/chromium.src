@@ -75,6 +75,10 @@ class MockPrivacySandboxSettings
   MOCK_METHOD(void, SetTopicsBlockedForTesting, (), (override));
   MOCK_METHOD(void, SetPrivacySandboxEnabled, (bool), (override));
   MOCK_METHOD(bool, IsPrivacySandboxRestricted, (), (override, const));
+  MOCK_METHOD(bool,
+              IsPrivacySandboxCurrentlyUnrestricted,
+              (),
+              (override, const));
   MOCK_METHOD(bool, IsSubjectToM1NoticeRestricted, (), (override, const));
   MOCK_METHOD(bool, IsRestrictedNoticeEnabled, (), (override, const));
   MOCK_METHOD(void, OnCookiesCleared, (), (override));
@@ -84,6 +88,18 @@ class MockPrivacySandboxSettings
               SetDelegateForTesting,
               (std::unique_ptr<Delegate>),
               (override));
+  MOCK_METHOD(void,
+              SetPrivacySandboxAttestationsMapForTesting,
+              (const privacy_sandbox::PrivacySandboxAttestationsMap&),
+              (override));
+  MOCK_METHOD(void,
+              AddPrivacySandboxAttestationOverride,
+              (const GURL&),
+              (override));
+  MOCK_METHOD(const std::vector<net::SchemefulSite>,
+              GetAttestationOverridesForTesting,
+              (),
+              (const override));
 };
 
 }  // namespace privacy_sandbox_test_util

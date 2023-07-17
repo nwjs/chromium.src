@@ -38,7 +38,6 @@ void PopulateWifiData(
     ap_data.radio_signal_strength = access_point->radio_signal_strength;
     ap_data.channel = access_point->channel;
     ap_data.signal_to_noise = access_point->signal_to_noise;
-    ap_data.ssid = access_point->ssid;
     wifi_data.access_point_data.insert(std::move(ap_data));
   }
 }
@@ -50,8 +49,8 @@ bool IsGeolocationServiceAvailable() {
   if (!chromeos::LacrosService::Get())
     return false;
   const int crosapiVersion =
-      chromeos::LacrosService::Get()->GetInterfaceVersion(
-          crosapi::mojom::Crosapi::Uuid_);
+      chromeos::LacrosService::Get()
+          ->GetInterfaceVersion<crosapi::mojom::Crosapi>();
   const int minRequiredVersion = static_cast<int>(
       crosapi::mojom::Crosapi::kBindGeolocationServiceMinVersion);
   return crosapiVersion >= minRequiredVersion;

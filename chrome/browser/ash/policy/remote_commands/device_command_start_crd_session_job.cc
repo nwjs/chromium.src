@@ -18,6 +18,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/strings/string_piece.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "base/values.h"
@@ -27,7 +28,10 @@
 #include "chrome/browser/ash/policy/remote_commands/crd_uma_logger.h"
 #include "chrome/browser/device_identity/device_oauth2_token_service.h"
 #include "chrome/browser/device_identity/device_oauth2_token_service_factory.h"
+#include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/common/pref_names.h"
 #include "components/policy/proto/device_management_backend.pb.h"
+#include "components/prefs/pref_service.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/oauth2_access_token_manager.h"
 #include "remoting/host/chromeos/features.h"
@@ -36,6 +40,9 @@
 namespace policy {
 
 namespace {
+
+using SessionParameters =
+    DeviceCommandStartCrdSessionJob::Delegate::SessionParameters;
 
 // OAuth2 Token scopes
 constexpr char kCloudDevicesOAuth2Scope[] =
@@ -59,6 +66,9 @@ const char kAckedUserPresenceFieldName[] = "ackedUserPresence";
 // The type of CRD session that the admin wants to start.
 const char kCrdSessionTypeFieldName[] = "crdSessionType";
 
+// The admin's email address.
+const char kAdminEmailFieldName[] = "adminEmail";
+
 // Result payload fields:
 
 // Integer value containing DeviceCommandStartCrdSessionJob::ResultCode
@@ -73,6 +83,14 @@ const char kResultMessageFieldName[] = "message";
 // Period in seconds since last user activity, if job finished with
 // FAILURE_NOT_IDLE result code.
 const char kResultLastActivityFieldName[] = "lastActivitySec";
+
+absl::optional<std::string> FindString(const base::Value::Dict& dict,
+                                       base::StringPiece key) {
+  if (!dict.contains(key)) {
+    return absl::nullopt;
+  }
+  return *dict.FindString(key);
+}
 
 void SendResultCodeToUma(CrdSessionType crd_session_type,
                          UserSessionType user_session_type,
@@ -207,6 +225,19 @@ class DeviceCommandStartCrdSessionJob::OAuthTokenFetcher
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+// DeviceCommandStartCrdSessionJob::Delegate::SessionParameters
+////////////////////////////////////////////////////////////////////////////////
+
+SessionParameters::SessionParameters() = default;
+SessionParameters::~SessionParameters() = default;
+
+SessionParameters::SessionParameters(const SessionParameters&) = default;
+SessionParameters& SessionParameters::operator=(const SessionParameters&) =
+    default;
+SessionParameters::SessionParameters(SessionParameters&&) = default;
+SessionParameters& SessionParameters::operator=(SessionParameters&&) = default;
+
+////////////////////////////////////////////////////////////////////////////////
 // DeviceCommandStartCrdSessionJob
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -251,14 +282,10 @@ bool DeviceCommandStartCrdSessionJob::ParseCommandPayload(
       ToCrdSessionTypeOrDefault(root_dict.FindInt(kCrdSessionTypeFieldName),
                                 CrdSessionType::REMOTE_SUPPORT_SESSION);
 
+  admin_email_ = FindString(root_dict, kAdminEmailFieldName);
+
   curtain_local_user_session_ =
       (crd_session_type == CrdSessionType::REMOTE_ACCESS_SESSION);
-
-  if (base::FeatureList::IsEnabled(
-          remoting::features::kForceCrdAdminRemoteAccess)) {
-    CRD_LOG(WARNING) << "Forcing remote access";
-    curtain_local_user_session_ = true;
-  }
 
   if (curtain_local_user_session_ &&
       !base::FeatureList::IsEnabled(
@@ -346,12 +373,15 @@ void DeviceCommandStartCrdSessionJob::FetchOAuthTokenASync(
 void DeviceCommandStartCrdSessionJob::StartCrdHostAndGetCode(
     const std::string& token) {
   CRD_DVLOG(1) << "Received OAuth token, now retrieving CRD access code";
-  Delegate::SessionParameters parameters{
-      .oauth_token = token,
-      .user_name = GetRobotAccountUserName(),
-      .terminate_upon_input = ShouldTerminateUponInput(),
-      .show_confirmation_dialog = ShouldShowConfirmationDialog(),
-      .curtain_local_user_session = curtain_local_user_session_};
+  SessionParameters parameters;
+  parameters.oauth_token = token;
+  parameters.user_name = GetRobotAccountUserName();
+  parameters.terminate_upon_input = ShouldTerminateUponInput();
+  parameters.show_confirmation_dialog = ShouldShowConfirmationDialog();
+  parameters.curtain_local_user_session = curtain_local_user_session_;
+  parameters.admin_email = admin_email_;
+  parameters.allow_troubleshooting_tools = ShouldAllowTroubleshootingTools();
+
   delegate_->StartCrdHostAndGetCode(
       parameters,
       base::BindOnce(&DeviceCommandStartCrdSessionJob::FinishWithSuccess,
@@ -512,6 +542,18 @@ bool DeviceCommandStartCrdSessionJob::ShouldTerminateUponInput() const {
       NOTREACHED();
       return true;
   }
+}
+
+bool DeviceCommandStartCrdSessionJob::ShouldAllowTroubleshootingTools() const {
+  if (GetCurrentUserSessionType() !=
+          UserSessionType::AUTO_LAUNCHED_KIOSK_SESSION &&
+      GetCurrentUserSessionType() !=
+          UserSessionType::MANUALLY_LAUNCHED_KIOSK_SESSION) {
+    return false;
+  }
+  auto* prefs = ProfileManager::GetActiveUserProfile()->GetPrefs();
+  CHECK(prefs);
+  return prefs->GetBoolean(prefs::kKioskTroubleshootingToolsEnabled);
 }
 
 DeviceCommandStartCrdSessionJob::ErrorCallback

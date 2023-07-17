@@ -118,7 +118,7 @@ class WebAppPolicyManager {
     WebAppSetting& operator=(const WebAppSetting&) = default;
     ~WebAppSetting() = default;
 
-    bool Parse(const base::Value& dict, bool for_default_settings);
+    bool Parse(const base::Value::Dict& dict, bool for_default_settings);
     void ResetSettings();
 
     RunOnOsLoginPolicy run_on_os_login_policy;
@@ -155,8 +155,8 @@ class WebAppPolicyManager {
 
   void OverrideManifest(const GURL& custom_values_key,
                         blink::mojom::ManifestPtr& manifest) const;
-  RunOnOsLoginPolicy GetUrlRunOnOsLoginPolicyByUnhashedAppId(
-      const std::string& unhashed_app_id) const;
+  RunOnOsLoginPolicy GetUrlRunOnOsLoginPolicyByManifestId(
+      const std::string& manifest_id) const;
 
   // Parses install options from a `base::Value::Dict`, which represents one
   // entry of the kWepAppInstallForceList. If the value contains a custom_name

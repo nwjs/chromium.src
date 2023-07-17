@@ -7,7 +7,10 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/quick_settings_catalogs.h"
 #include "ash/public/cpp/ash_view_ids.h"
+#include "ash/shell.h"
+#include "ash/shutdown_controller_impl.h"
 #include "ash/style/icon_button.h"
+#include "ash/system/tray/tray_detailed_view.h"
 #include "ash/system/unified/quick_settings_footer.h"
 #include "ash/system/unified/quick_settings_view.h"
 #include "ash/system/unified/unified_system_tray.h"
@@ -97,15 +100,8 @@ class PowerButtonTest : public NoSessionAshTestBase {
 
   ui::Layer* GetBackgroundLayer() { return button_->background_view_->layer(); }
 
-  // Simulates mouse press event on the power button. The generator click
-  // does not work anymore since menu is a nested run loop.
-  void SimulatePowerButtonPress() {
-    ui::MouseEvent event(ui::ET_MOUSE_PRESSED,
-                         button_->GetBoundsInScreen().CenterPoint(),
-                         button_->GetBoundsInScreen().CenterPoint(),
-                         ui::EventTimeForNow(), 0, 0);
-    button_->button_content_->NotifyClick(event);
-  }
+  // Simulates mouse press event on the power button.
+  void SimulatePowerButtonPress() { LeftClickOn(button_->button_content_); }
 
   // Owned by view hierarchy.
   raw_ptr<PowerButton, ExperimentalAsh> button_ = nullptr;
@@ -377,7 +373,7 @@ TEST_F(PowerButtonTest, ClickingEmailShowsUserChooserView) {
       GetPrimaryUnifiedSystemTray()->bubble()->quick_settings_view();
   EXPECT_TRUE(quick_settings_view->IsDetailedViewShown());
   EXPECT_TRUE(views::IsViewClass<UserChooserView>(
-      quick_settings_view->detailed_view()));
+      quick_settings_view->GetDetailedViewForTest()));
 }
 
 // Power button's rounded radii should change correctly when switching between
@@ -413,6 +409,17 @@ TEST_F(PowerButtonTest, ButtonRoundedRadii) {
 
   EXPECT_EQ(gfx::RoundedCornersF(16, 4, 16, 16),
             GetBackgroundLayer()->rounded_corner_radii());
+}
+
+TEST_F(PowerButtonTest, DeviceRebootOnShutdownPolicyHidesPowerOffButton) {
+  CreateUserSessions(1);
+  // Simulate DeviceRebootOnShutdownPolicy is enabled.
+  Shell::Get()->shutdown_controller()->SetRebootOnShutdown(true);
+
+  SimulatePowerButtonPress();
+
+  EXPECT_FALSE(GetPowerOffButton());
+  EXPECT_TRUE(GetRestartButton());
 }
 
 }  // namespace ash

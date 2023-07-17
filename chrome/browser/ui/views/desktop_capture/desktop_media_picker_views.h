@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker.h"
@@ -24,6 +25,8 @@ class MdTextButton;
 }  // namespace views
 
 class DesktopMediaPickerViews;
+
+BASE_DECLARE_FEATURE(kShareThisTabDialog);
 
 // Dialog view used for DesktopMediaPickerViews.
 //
@@ -52,7 +55,7 @@ class DesktopMediaPickerDialogView : public views::DialogDelegateView,
   // Called by DesktopMediaListController.
   void OnSelectionChanged();
   void AcceptSource();
-  void AcceptSpecificSource(content::DesktopMediaID source);
+  void AcceptSpecificSource(const content::DesktopMediaID& source);
   void Reject();
   void OnSourceListLayoutChanged();
   void OnDelegatedSourceListDismissed();
@@ -160,7 +163,7 @@ class DesktopMediaPickerViews : public DesktopMediaPicker {
   DesktopMediaPickerViews& operator=(const DesktopMediaPickerViews&) = delete;
   ~DesktopMediaPickerViews() override;
 
-  void NotifyDialogResult(content::DesktopMediaID source);
+  void NotifyDialogResult(const content::DesktopMediaID& source);
 
   // DesktopMediaPicker:
   void Show(const DesktopMediaPicker::Params& params,

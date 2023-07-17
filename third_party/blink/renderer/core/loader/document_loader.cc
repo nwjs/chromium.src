@@ -165,6 +165,12 @@
 namespace blink {
 namespace {
 
+// When enabled, ProgressStarted() and ProgressFinished() will be called
+// for same document navigations.
+BASE_FEATURE(kLoadNotificationsForSameDocumentNavigations,
+             "LoadNotificationsForSameDocumentNavigations",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 Vector<OriginTrialFeature> CopyInitiatorOriginTrials(
     const WebVector<int>& initiator_origin_trial_features) {
   Vector<OriginTrialFeature> result;
@@ -552,6 +558,11 @@ DocumentLoader::DocumentLoader(
       document_load_timing_.SetFetchStart(timings.fetch_start);
     }
   }
+  document_load_timing_.SetSystemEntropyAtNavigationStart(
+      params_->navigation_timings.system_entropy_at_navigation_start);
+
+  document_load_timing_.SetCriticalCHRestart(
+      params_->navigation_timings.critical_ch_restart);
 
   if (was_blocked_by_document_policy_)
     ReplaceWithEmptyDocument();
@@ -768,33 +779,6 @@ WebHistoryCommitType LoadTypeToCommitType(WebFrameLoadType type) {
   return kWebHistoryInertCommit;
 }
 
-static SinglePageAppNavigationType CategorizeSinglePageAppNavigation(
-    mojom::blink::SameDocumentNavigationType same_document_navigation_type,
-    WebFrameLoadType frame_load_type) {
-  // |SinglePageAppNavigationType| falls into this grid according to different
-  // combinations of |WebFrameLoadType| and |SameDocumentNavigationType|:
-  //
-  //                 HistoryApi           Default
-  //  kBackForward   illegal              otherFragmentNav
-  // !kBackForward   sameDocBack/Forward  historyPushOrReplace
-  switch (same_document_navigation_type) {
-    case mojom::blink::SameDocumentNavigationType::kFragment:
-      if (frame_load_type == WebFrameLoadType::kBackForward) {
-        return kSPANavTypeSameDocumentBackwardOrForward;
-      }
-      return kSPANavTypeOtherFragmentNavigation;
-    case mojom::blink::SameDocumentNavigationType::kHistoryApi:
-      // It's illegal to have both kHistoryApi and
-      // WebFrameLoadType::kBackForward.
-      DCHECK(frame_load_type != WebFrameLoadType::kBackForward);
-      return kSPANavTypeHistoryPushStateOrReplaceState;
-    case mojom::blink::SameDocumentNavigationType::kNavigationApiIntercept:
-      return kSPANavTypeNavigationApiIntercept;
-  }
-  NOTREACHED();
-  return kSPANavTypeSameDocumentBackwardOrForward;
-}
-
 void DocumentLoader::RunURLAndHistoryUpdateSteps(
     const KURL& new_url,
     HistoryItem* history_item,
@@ -827,12 +811,6 @@ void DocumentLoader::UpdateForSameDocumentNavigation(
         soft_navigation_heuristics_task_id) {
   DCHECK_EQ(IsBackForwardLoadType(type), !!history_item);
 
-  SinglePageAppNavigationType single_page_app_navigation_type =
-      CategorizeSinglePageAppNavigation(same_document_navigation_type, type);
-  UMA_HISTOGRAM_ENUMERATION(
-      "RendererScheduler.UpdateForSameDocumentNavigationCount",
-      single_page_app_navigation_type, kSPANavTypeCount);
-
   TRACE_EVENT1("blink", "FrameLoader::updateForSameDocumentNavigation", "url",
                new_url.GetString().Ascii());
 
@@ -842,14 +820,18 @@ void DocumentLoader::UpdateForSameDocumentNavigation(
   if (history_item)
     history_item_ = history_item;
 
+  bool send_loading_notifications = base::FeatureList::IsEnabled(
+      kLoadNotificationsForSameDocumentNavigations);
+
   // Generate start and stop notifications only when loader is completed so that
   // we don't fire them for fragment redirection that happens in window.onload
   // handler. See https://bugs.webkit.org/show_bug.cgi?id=31838
   // Do not fire the notifications if the frame is concurrently navigating away
   // from the document, since a new document is already loading.
   bool was_loading = frame_->IsLoading();
-  if (!was_loading)
+  if (!was_loading && send_loading_notifications) {
     GetFrameLoader().Progress().ProgressStarted();
+  }
 
   // Update the data source's request with the new URL to fake the URL change
   frame_->GetDocument()->SetURL(new_url);
@@ -908,7 +890,7 @@ void DocumentLoader::UpdateForSameDocumentNavigation(
   // NavigateEvent, the navigation will finish asynchronously, so
   // don't immediately call DidStopLoading() in that case.
   bool should_send_stop_notification =
-      !was_loading &&
+      !was_loading && send_loading_notifications &&
       same_document_navigation_type !=
           mojom::blink::SameDocumentNavigationType::kNavigationApiIntercept;
   if (should_send_stop_notification)
@@ -2498,8 +2480,14 @@ void DocumentLoader::CommitNavigation() {
     // PermissionsPolicy and DocumentPolicy require SecurityOrigin and origin
     // trials to be initialized.
     // TODO(iclelland): Add Permissions-Policy-Report-Only to Origin Policy.
+    auto required_permissions_for_fenced_frames =
+        FencedFrameProperties()
+            ? base::make_span(
+                  FencedFrameProperties()->required_permissions_to_load())
+            : base::span<const mojom::blink::PermissionsPolicyFeature>();
     security_init.ApplyPermissionsPolicy(
-        *frame_.Get(), response_, frame_policy_, initial_permissions_policy_);
+        *frame_.Get(), response_, frame_policy_, initial_permissions_policy_,
+        required_permissions_for_fenced_frames);
 
     // |document_policy_| is parsed in document loader because it is
     // compared with |frame_policy.required_document_policy| to decide
@@ -2545,6 +2533,8 @@ void DocumentLoader::CommitNavigation() {
                                     *policy.deprecated_feature);
     }
   }
+
+  frame_->ClearScrollSnapshotClients();
 
   // Clear the user activation state.
   // TODO(crbug.com/736415): Clear this bit unconditionally for all frames.
@@ -2990,6 +2980,13 @@ void DocumentLoader::RecordUseCountersForCommit() {
     CountUse(WebFeature::kEarlyHintsPreload);
   }
 
+  if (frame_->IsOutermostMainFrame() &&
+      !(Url().User().empty() && Url().Pass().empty())) {
+    // We're only measuring top-level documents here, as embedded documents
+    // with credentials are blocked (unless they match the credentials in the
+    // top-level document).
+    CountUse(WebFeature::kTopLevelDocumentWithEmbeddedCredentials);
+  }
 #if BUILDFLAG(IS_ANDROID)
   // Record whether this window was requested to be opened as a Popup.
   // Android doesn't treat popup windows any differently from normal windows

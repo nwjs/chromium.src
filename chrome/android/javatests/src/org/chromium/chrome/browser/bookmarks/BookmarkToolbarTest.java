@@ -14,9 +14,9 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.espresso.core.deps.guava.primitives.Ints;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -87,8 +87,6 @@ public class BookmarkToolbarTest extends BlankUiTestActivityTestCase {
     BookmarkModel mBookmarkModel;
     @Mock
     BookmarkOpener mBookmarkOpener;
-    @Mock
-    Runnable mOpenSearchUiRunnable;
     @Mock
     Callback<BookmarkId> mOpenFolderCallback;
 
@@ -163,7 +161,6 @@ public class BookmarkToolbarTest extends BlankUiTestActivityTestCase {
         mBookmarkToolbar.setSelectionDelegate(mSelectionDelegate);
         mBookmarkToolbar.setBookmarkUiMode(BookmarkUiMode.FOLDER);
         mBookmarkToolbar.setIsDialogUi(true);
-        mBookmarkToolbar.setOpenSearchUiRunnable(mOpenSearchUiRunnable);
         mBookmarkToolbar.setOpenFolderCallback(mOpenFolderCallback);
     }
 

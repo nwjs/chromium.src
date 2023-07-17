@@ -12,9 +12,9 @@
 #import <vector>
 
 #import "base/observer_list.h"
-#import "ios/chrome/browser/main/browser_observer.h"
-#import "ios/chrome/browser/main/browser_user_data.h"
-#import "ios/chrome/browser/web_state_list/web_state_list_observer.h"
+#import "ios/chrome/browser/shared/model/browser/browser_observer.h"
+#import "ios/chrome/browser/shared/model/browser/browser_user_data.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer.h"
 #import "ios/chrome/browser/web_state_list/web_state_list_serialization.h"
 #import "ios/web/public/web_state_observer.h"
 
@@ -126,6 +126,8 @@ class SessionRestorationBrowserAgent
                      web::WebState* web_state,
                      int from_index,
                      int to_index) override;
+  void WillBeginBatchOperation(WebStateList* web_state_list) override;
+  void BatchOperationEnded(WebStateList* web_state_list) override;
 
   // web::WebStateObserver methods.
   void DidFinishNavigation(web::WebState* web_state,
@@ -152,6 +154,13 @@ class SessionRestorationBrowserAgent
 
   // True when session restoration is in progress.
   bool restoring_session_ = false;
+
+  // Used to delay saves requested while a batch operation was in progress.
+  // The save will be scheduled with a delay unless any of the SaveSession()
+  // call was asking for no delay.
+  bool batch_in_progress_ = false;
+  bool save_after_batch_ = false;
+  bool save_immediately_ = false;
 
   const bool enable_pinned_web_states_;
 

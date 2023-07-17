@@ -118,12 +118,13 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   //                will be translated to other languages.
   private defaultFontName_: string = 'sans-serif';
   private validFontNames_: Array<{name: string, css: string}> = [
-    {name: 'Standard font', css: 'Standard font'},
+    {name: 'Poppins', css: 'Poppins'},
     {name: 'Sans-serif', css: 'sans-serif'},
     {name: 'Serif', css: 'serif'},
-    {name: 'Arial', css: 'Arial'},
-    {name: 'Comic Sans MS', css: '"Comic Sans MS"'},
-    {name: 'Times New Roman', css: '"Times New Roman"'},
+    {name: 'Comic Neue', css: '"Comic Neue"'},
+    {name: 'Lexend Deca', css: '"Lexend Deca"'},
+    {name: 'EB Garamond', css: '"EB Garamond"'},
+    {name: 'STIX Two Text', css: '"STIX Two Text"'},
   ];
 
   // Maps a DOM node to the AXNodeID that was used to create it. DOM nodes and
@@ -131,6 +132,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   // AXNodeID can be used to access the other.
   private domNodeToAxNodeIdMap_: TwoWayMap = new TwoWayMap();
 
+  private scrollingOnSelection_: boolean;
   private hasContent_: boolean;
   private emptyStateImagePath_: string;
   private emptyStateDarkImagePath_: string;
@@ -146,6 +148,9 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     this.showLoading();
 
     document.onselectionchange = () => {
+      if (!this.hasContent_) {
+        return;
+      }
       const shadowRoot = this.shadowRoot;
       assert(shadowRoot);
       const selection = shadowRoot.getSelection();
@@ -159,6 +164,18 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
       assert(anchorNodeId && focusNodeId);
       chrome.readAnything.onSelectionChange(
           anchorNodeId, anchorOffset, focusNodeId, focusOffset);
+    };
+
+    document.onscroll = () => {
+      chrome.readAnything.onScroll(this.scrollingOnSelection_);
+      this.scrollingOnSelection_ = false;
+    };
+
+    // Pass copy commands to main page. Copy commands will not work if they are
+    // disabled on the main page.
+    document.oncopy = () => {
+      chrome.readAnything.onCopy();
+      return false;
     };
   }
 
@@ -260,10 +277,16 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
 
     // If there is no content to show, the empty state container will be shown.
     const node = this.buildSubtree_(rootId);
+    // The empty state header tells the user to select text to distill. Some web
+    // pages don't work with selection, so we show a different message.
     if (!node.textContent) {
+      if (chrome.readAnything.isSelectable()) {
+        this.emptyStateHeading_ = loadTimeData.getString('emptyStateHeader');
+      } else {
+        this.emptyStateHeading_ = loadTimeData.getString('notSelectableHeader');
+      }
       this.emptyStateImagePath_ = './images/empty_state.svg';
       this.emptyStateDarkImagePath_ = './images/empty_state.svg';
-      this.emptyStateHeading_ = loadTimeData.getString('emptyStateHeader');
       this.emptyStateSubheading_ =
           loadTimeData.getString('emptyStateSubheader');
       this.hasContent_ = false;
@@ -303,7 +326,8 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     if (!startElement) {
       return;
     }
-    startElement.scrollIntoView();
+    this.scrollingOnSelection_ = true;
+    startElement.scrollIntoViewIfNeeded();
   }
 
   private validatedFontName_(): string {

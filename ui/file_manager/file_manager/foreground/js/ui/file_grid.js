@@ -811,9 +811,10 @@ export class FileGrid extends Grid {
     const bottom = li.ownerDocument.createElement('div');
     bottom.className = 'thumbnail-bottom';
 
-    const {contentMimeType, availableOffline, pinned} =
+    const {contentMimeType, availableOffline, pinned, canPin} =
         this.metadataModel_.getCache(
-            [entry], ['contentMimeType', 'availableOffline', 'pinned'])[0] ||
+            [entry],
+            ['contentMimeType', 'availableOffline', 'pinned', 'canPin'])[0] ||
         {};
 
     const locationInfo = this.volumeManager_.getLocationInfo(entry);
@@ -825,6 +826,9 @@ export class FileGrid extends Grid {
     checkmark.className = 'detail-checkmark';
     detailIcon.appendChild(checkmark);
     bottom.appendChild(detailIcon);
+    if (util.isDriveShortcutsEnabled()) {
+      bottom.appendChild(filelist.renderIconBadge(li.ownerDocument));
+    }
     bottom.appendChild(
         filelist.renderFileNameLabel(li.ownerDocument, entry, locationInfo));
     frame.appendChild(bottom);
@@ -837,7 +841,14 @@ export class FileGrid extends Grid {
 
     const inlineStatusIcon = li.ownerDocument.createElement('xf-icon');
     inlineStatusIcon.size = 'extra_small';
-    inlineStatusIcon.type = 'offline';
+    if (util.isDriveFsBulkPinningEnabled() && !util.isNullOrUndefined(canPin) &&
+        !canPin) {
+      inlineStatusIcon.type = 'cant-pin';
+      li.classList.toggle('cant-pin', true);
+    } else {
+      inlineStatusIcon.type = 'offline';
+      li.classList.toggle('cant-pin', false);
+    }
     inlineStatus.appendChild(inlineStatusIcon);
 
     if (util.isInlineSyncStatusEnabled()) {
@@ -1060,6 +1071,8 @@ export class FileGrid extends Grid {
       if (!util.isJellyEnabled()) {
         box.setAttribute('generic-thumbnail', 'folder');
       }
+    } else if (FileType.isEncrypted(entry, opt_mimeType)) {
+      box.setAttribute('generic-thumbnail', 'encrypted');
     } else {
       box.classList.toggle('no-thumbnail', true);
       const locationInfo = this.volumeManager_.getLocationInfo(entry);

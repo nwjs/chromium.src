@@ -107,11 +107,10 @@ int CalculateScoreFromFactors(size_t typed_length,
   // Due to appending 3 chars when updating shortcuts, and expanding the last
   // word when updating or creating shortcuts, the shortcut text can be longer
   // than the user's previous inputs (see
-  // `ShortcutsBackend::AddOrUpdateShortcut()`). As an approximation, ignore 3
-  // or 10 chars in the shortcut text. Shortcuts are often deduped with higher
-  // scoring history suggestions anyway.
-  const size_t adjustment =
-      OmniboxFieldTrial::IsShortcutExpandingEnabled() ? 10 : 3;
+  // `ShortcutsBackend::AddOrUpdateShortcut()`). As an approximation, ignore 10
+  // chars in the shortcut text. Shortcuts are often deduped with higher scoring
+  // history suggestions anyway.
+  const size_t adjustment = 10;
   const size_t adjusted_text_length =
       std::max(shortcut_text_length, typed_length + adjustment) - adjustment;
   // Using the square root of the typed fraction boosts the base score rapidly
@@ -198,7 +197,8 @@ void ShortcutsProvider::Start(const AutocompleteInput& input,
   if (input.focus_type() == metrics::OmniboxFocusType::INTERACTION_DEFAULT &&
       input.type() != metrics::OmniboxInputType::EMPTY &&
       !input.text().empty() && initialized_) {
-    GetMatches(input, OmniboxFieldTrial::IsLogUrlScoringSignalsEnabled());
+    GetMatches(input,
+               OmniboxFieldTrial::IsPopulatingUrlScoringSignalsEnabled());
   }
 }
 

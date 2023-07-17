@@ -7,11 +7,13 @@
 #import <memory>
 
 #import "components/bookmarks/common/bookmark_features.h"
+#import "components/prefs/pref_service.h"
+#import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/main/browser.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
@@ -130,8 +132,18 @@
   signin::IdentityManager* identityManager =
       IdentityManagerFactory::GetForBrowserState(browserState);
   if (!identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
-    // If the user is not signed in, the promo should be visible.
-    self.shouldShowSigninPromo = YES;
+    if (base::FeatureList::IsEnabled(
+            bookmarks::kEnableBookmarksAccountStorage)) {
+      PrefService* prefs = browserState->GetPrefs();
+      const std::string lastSignedInGaiaId =
+          prefs->GetString(prefs::kGoogleServicesLastGaiaId);
+      // If the last signed-in user did not remove data during sign-out, don't
+      // show the signin promo.
+      self.shouldShowSigninPromo = lastSignedInGaiaId.empty();
+    } else {
+      // If the user is not signed in, the promo should be visible.
+      self.shouldShowSigninPromo = YES;
+    }
     return;
   }
   if (identityManager->HasPrimaryAccount(signin::ConsentLevel::kSync)) {

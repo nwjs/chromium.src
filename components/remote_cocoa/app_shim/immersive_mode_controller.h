@@ -7,8 +7,6 @@
 
 #import <AppKit/AppKit.h>
 
-#include "base/functional/callback.h"
-#include "base/functional/callback_forward.h"
 #include "base/mac/scoped_nsobject.h"
 #import "components/remote_cocoa/app_shim/bridged_content_view.h"
 #include "components/remote_cocoa/app_shim/remote_cocoa_app_shim_export.h"
@@ -33,8 +31,7 @@ REMOTE_COCOA_APP_SHIM_EXPORT bool IsNSToolbarFullScreenWindow(NSWindow* window);
 class REMOTE_COCOA_APP_SHIM_EXPORT ImmersiveModeController {
  public:
   explicit ImmersiveModeController(NSWindow* browser_window,
-                                   NSWindow* overlay_window,
-                                   base::OnceClosure callback);
+                                   NSWindow* overlay_window);
   virtual ~ImmersiveModeController();
 
   virtual void Enable();
@@ -97,7 +94,17 @@ class REMOTE_COCOA_APP_SHIM_EXPORT ImmersiveModeController {
     last_used_style_ = style;
   }
 
+  // Layout the `window` on top of the `anchor_view`. The `window` will occupy
+  // the same place on screen as the `anchor_view`, completely occluding the
+  // `anchor_view`. The `window` is clear but needs to overlay the `anchor_view`
+  // to handle drag events.
+  // If the `anchor_view` is offscreen, the `window` will be moved offscreen.
+  void LayoutWindowWithAnchorView(NSWindow* window, NSView* anchor_view);
+
  private:
+  // Get offscreen y origin. Used for moving overlay windows offscreen.
+  double GetOffscreenYOrigin();
+
   bool enabled_ = false;
 
   NSWindow* const browser_window_;

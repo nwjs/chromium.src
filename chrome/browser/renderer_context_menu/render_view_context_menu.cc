@@ -93,6 +93,7 @@
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
 #include "chrome/browser/ui/side_panel/companion/companion_tab_helper.h"
 #include "chrome/browser/ui/side_panel/companion/companion_utils.h"
+#include "chrome/browser/ui/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
 #include "chrome/browser/ui/side_search/side_search_utils.h"
 #include "chrome/browser/ui/tab_contents/core_tab_helper.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -119,6 +120,8 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
+#include "components/autofill/core/browser/ui/popup_types.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/password_generation_util.h"
 #include "components/custom_handlers/protocol_handler.h"
 #include "components/download/public/common/download_url_parameters.h"
@@ -247,12 +250,12 @@
 #endif  // BUILDFLAG(ENABLE_PRINTING)
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
-#include "components/services/screen_ai/public/cpp/screen_ai_install_state.h"
+#include "chrome/browser/screen_ai/screen_ai_install_state.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-#include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #endif
 
@@ -280,6 +283,8 @@
 #include "chrome/browser/ash/arc/intent_helper/arc_intent_helper_mojo_ash.h"
 #include "chrome/browser/ash/system_web_apps/types/system_web_app_delegate.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/settings_window_manager_chromeos.h"
+#include "chrome/browser/ui/webui/settings/chromeos/constants/routes.mojom.h"
 #include "chromeos/crosapi/mojom/clipboard_history.mojom.h"
 #include "ui/aura/window.h"
 #endif
@@ -726,6 +731,25 @@ Browser* FindNormalBrowser(const Profile* profile) {
   return nullptr;
 }
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+ash::NewWindowDelegate::Disposition GetDispositionForLacros(
+    WindowOpenDisposition disposition) {
+  switch (disposition) {
+    case WindowOpenDisposition::NEW_FOREGROUND_TAB:
+      return ash::NewWindowDelegate::Disposition::kNewForegroundTab;
+    case WindowOpenDisposition::NEW_WINDOW:
+      return ash::NewWindowDelegate::Disposition::kNewWindow;
+    case WindowOpenDisposition::OFF_THE_RECORD:
+      return ash::NewWindowDelegate::Disposition::kOffTheRecord;
+    case WindowOpenDisposition::SWITCH_TO_TAB:
+      return ash::NewWindowDelegate::Disposition::kSwitchToTab;
+    default:
+      // Others are currently not supported.
+      return ash::NewWindowDelegate::Disposition::kNewForegroundTab;
+  }
+}
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
 }  // namespace
 
 // static
@@ -1107,11 +1131,15 @@ void RenderViewContextMenu::InitMenu() {
     AppendPlatformEditableItems();
   }
 
-  // Show Read Anything option if text is selected.
+  // Show Read Anything option if text is selected and if it's not already open
+  // in the side panel.
   if (features::IsReadAnythingEnabled()) {
-    if (content_type_->SupportsGroup(ContextMenuContentType::ITEM_GROUP_COPY) ||
-        content_type_->SupportsGroup(
-            ContextMenuContentType::ITEM_GROUP_EDITABLE)) {
+    if (GetBrowser() && GetBrowser()->is_type_normal() &&
+        !IsReadAnythingEntryShowing(GetBrowser()) &&
+        (content_type_->SupportsGroup(
+             ContextMenuContentType::ITEM_GROUP_COPY) ||
+         content_type_->SupportsGroup(
+             ContextMenuContentType::ITEM_GROUP_EDITABLE))) {
       AppendReadAnythingItem();
     }
   }
@@ -1222,6 +1250,19 @@ void RenderViewContextMenu::InitMenu() {
   // menu, meaning that each menu item added/removed in this function will cause
   // it to visibly jump on the screen (see b/173569669).
   AppendQuickAnswersItems();
+
+  if (base::FeatureList::IsEnabled(
+          autofill::features::kAutofillPopupDoesNotOverlapWithContextMenu)) {
+    // If the autofill popup is shown the context menu could
+    // overlap with the autofill popup, therefore we hide the autofill popup.
+    content::WebContents* web_contents = GetWebContents();
+    autofill::AutofillClient* autofill_client =
+        autofill::ContentAutofillClient::FromWebContents(web_contents);
+    if (autofill_client) {
+      autofill_client->HideAutofillPopup(
+          autofill::PopupHidingReason::kContextMenuOpened);
+    }
+  }
 }
 
 Profile* RenderViewContextMenu::GetProfile() const {
@@ -1774,6 +1815,15 @@ void RenderViewContextMenu::AppendImageItems() {
 }
 
 void RenderViewContextMenu::AppendSearchWebForImageItems() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
+    // If Lacros is the only browser, disable image search in Ash because we
+    // have decided not to support this feature in the system UI so as not to
+    // confuse users by opening an Ash browser window.
+    return;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
   // TODO(b/266624865): Image Search items do not function correctly when
   // |GetBrowser| returns nullptr, as is the case for a context menu in the
   // side panel, so for now we do not append image items in that case.
@@ -1800,6 +1850,9 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
   }
 
   menu_model_.AddItem(GetSearchForImageIdc(), menu_string);
+  if (companion::IsSearchImageInCompanionSidePanelSupported(GetBrowser())) {
+    menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
+  }
 
 #if 0
   if (base::FeatureList::IsEnabled(lens::features::kLensStandalone) &&
@@ -2010,7 +2063,9 @@ void RenderViewContextMenu::AppendMediaRouterItem() {
 void RenderViewContextMenu::AppendReadAnythingItem() {
   menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE,
                                   IDS_CONTENT_CONTEXT_READING_MODE);
-  menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
+  menu_model_.SetIsNewFeatureAt(
+      menu_model_.GetItemCount() - 1,
+      !content_type_->SupportsGroup(ContextMenuContentType::ITEM_GROUP_LINK));
 }
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -2084,6 +2139,9 @@ void RenderViewContextMenu::AppendSearchProvider() {
           l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHWEBFOR,
                                      default_provider->short_name(),
                                      printable_selection_text));
+      if (companion::IsSearchWebInCompanionSidePanelSupported(GetBrowser())) {
+        menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
+      }
     }
   } else {
     if ((selection_navigation_url_ != params_.link_url) &&
@@ -2342,6 +2400,9 @@ void RenderViewContextMenu::AppendRegionSearchItem() {
     menu_model_.AddItem(GetRegionSearchIdc(),
                         l10n_util::GetStringFUTF16(
                             resource_id, GetImageSearchProviderName(provider)));
+    if (companion::IsSearchImageInCompanionSidePanelSupported(GetBrowser())) {
+      menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
+    }
   }
 }
 
@@ -2623,7 +2684,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
 
     case IDC_CONTENT_CLIPBOARD_HISTORY_MENU:
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-      return ash::ClipboardHistoryController::Get()->CanShowMenu();
+      return ash::ClipboardHistoryController::Get()->HasAvailableHistoryItems();
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
     {
       auto* service = chromeos::LacrosService::Get();
@@ -2681,6 +2742,26 @@ bool RenderViewContextMenu::IsCommandIdVisible(int id) const {
   return RenderViewContextMenuBase::IsCommandIdVisible(id);
 }
 
+void RenderViewContextMenu::OpenURLWithExtraHeaders(
+    const GURL& url,
+    const GURL& referring_url,
+    WindowOpenDisposition disposition,
+    ui::PageTransition transition,
+    const std::string& extra_headers,
+    bool started_from_context_menu) {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
+    ash::NewWindowDelegate::GetPrimary()->OpenUrl(
+        url, ash::NewWindowDelegate::OpenUrlFrom::kUserInteraction,
+        GetDispositionForLacros(disposition));
+    return;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+  RenderViewContextMenuBase::OpenURLWithExtraHeaders(
+      url, referring_url, disposition, transition, extra_headers,
+      started_from_context_menu);
+}
+
 void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
   RenderViewContextMenuBase::ExecuteCommand(id, event_flags);
   if (command_executed_)
@@ -2723,6 +2804,15 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_OPENLINKNEWTAB: {
       WindowOpenDisposition new_tab_disposition =
           WindowOpenDisposition::NEW_BACKGROUND_TAB;
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+      if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
+        ash::NewWindowDelegate::GetPrimary()->OpenUrl(
+            params_.link_url,
+            ash::NewWindowDelegate::OpenUrlFrom::kUserInteraction,
+            GetDispositionForLacros(new_tab_disposition));
+        break;
+      }
+#endif
       Browser* browser = nullptr;
       if (IsInProgressiveWebApp()) {
         browser = FindNormalBrowser(GetProfile());
@@ -3017,22 +3107,6 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_GOTOURL: {
       auto disposition = ui::DispositionFromEventFlags(
           event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB);
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-      if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
-        // TODO(neis): Support the other possible dispositions in crosapi and
-        // then preserve them here.
-        auto nwd_disposition =
-            ash::NewWindowDelegate::Disposition::kNewForegroundTab;
-        if (disposition == WindowOpenDisposition::NEW_WINDOW) {
-          nwd_disposition = ash::NewWindowDelegate::Disposition::kNewWindow;
-        }
-        ash::NewWindowDelegate::GetPrimary()->OpenUrl(
-            selection_navigation_url_,
-            ash::NewWindowDelegate::OpenUrlFrom::kUserInteraction,
-            nwd_disposition);
-        break;
-      }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
       OpenURL(selection_navigation_url_, GURL(), disposition,
               ui::PAGE_TRANSITION_LINK);
       break;
@@ -3322,7 +3396,7 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   Profile* const profile = Profile::FromBrowserContext(browser_context_);
-  SupervisedUserService* supervised_user_service =
+  supervised_user::SupervisedUserService* supervised_user_service =
       SupervisedUserServiceFactory::GetForProfile(profile);
   if (supervised_user_service &&
       supervised_user_service->IsURLFilteringEnabled()) {
@@ -3458,6 +3532,15 @@ bool RenderViewContextMenu::IsQRCodeGeneratorEnabled() const {
 
 bool RenderViewContextMenu::IsRegionSearchEnabled() const {
 #if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
+    // If Lacros is the only browser, disable region search in Ash because we
+    // have decided not to support this feature in the system UI so as not to
+    // confuse users by opening an Ash browser window.
+    return false;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
   // TODO(nguyenbryan): Refactor to use lens_region_search_helper.cc after PDF
   // support is cleaned up.
   if (!GetBrowser())
@@ -3525,13 +3608,12 @@ void RenderViewContextMenu::AppendSendTabToSelfItem(bool add_separator) {
   if (add_separator)
     menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
 #if BUILDFLAG(IS_MAC)
-  menu_model_.AddItem(
-      IDC_SEND_TAB_TO_SELF,
-      l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF));
+  menu_model_.AddItem(IDC_SEND_TAB_TO_SELF,
+                      l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF));
 #else
   menu_model_.AddItemWithIcon(
       IDC_SEND_TAB_TO_SELF,
-      l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
+      l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
       ui::ImageModel::FromVectorIcon(kLaptopAndSmartphoneIcon));
 #endif
 }
@@ -3653,6 +3735,14 @@ void RenderViewContextMenu::ExecOpenLinkInProfile(int profile_index) {
   profiles::SwitchToProfile(
       profile_path, false,
       base::BindRepeating(OnBrowserCreated, params_.link_url));
+}
+
+void RenderViewContextMenu::ExecOpenInReadAnything() {
+  Browser* browser = GetBrowser();
+  if (!browser) {
+    return;
+  }
+  ShowReadAnythingSidePanel(browser);
 }
 
 void RenderViewContextMenu::ExecInspectElement() {
@@ -3971,7 +4061,10 @@ void RenderViewContextMenu::ExecPrint() {
   }
 
   printing::StartPrint(
-      source_web_contents_, mojo::NullAssociatedRemote(),
+      source_web_contents_,
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+      mojo::NullAssociatedRemote(),
+#endif
       GetPrefs(browser_context_)->GetBoolean(prefs::kPrintPreviewDisabled),
       !params_.selection_text.empty());
 #endif  // BUILDFLAG(ENABLE_PRINTING)
@@ -4021,10 +4114,19 @@ void RenderViewContextMenu::ExecPartialTranslate() {
 }
 
 void RenderViewContextMenu::ExecLanguageSettings(int event_flags) {
+// Open the browser language settings.
+// Exception: On Ash, the browser language settings consists solely of a link to
+// the OS language settings, so just open the OS settings directly (this has the
+// added benefit of also doing the right thing when Lacros is enabled).
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  chrome::SettingsWindowManager::GetInstance()->ShowOSSettings(
+      GetProfile(), chromeos::settings::mojom::kLanguagesAndInputSectionPath);
+#else
   WindowOpenDisposition disposition = ui::DispositionFromEventFlags(
       event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB);
   GURL url = chrome::GetSettingsUrl(chrome::kLanguageOptionsSubPage);
   OpenURL(url, GURL(), disposition, ui::PAGE_TRANSITION_LINK);
+#endif
 }
 
 void RenderViewContextMenu::ExecProtocolHandlerSettings(int event_flags) {

@@ -7,6 +7,7 @@
 #include "base/strings/string_util.h"
 #include "build/build_config.h"
 #include "components/feature_engagement/public/configuration.h"
+#include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
 
 #if BUILDFLAG(IS_IOS)
@@ -101,6 +102,19 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHReadingModeSidePanelFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    // Show the promo up to 3 times a year.
+    config->trigger = EventConfig("iph_reading_mode_side_panel_trigger",
+                                  Comparator(LESS_THAN, 3), 360, 360);
+    config->used = EventConfig("reading_mode_side_panel_shown",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
   if (kIPHGMCCastStartStopFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -141,7 +155,7 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
     config->trigger = EventConfig("battery_saver_info_triggered",
-                                  Comparator(LESS_THAN, 3), 360, 360);
+                                  Comparator(LESS_THAN, 1), 360, 360);
     config->used =
         EventConfig("battery_saver_info_shown", Comparator(EQUAL, 0), 7, 360);
     return config;
@@ -160,7 +174,7 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
                                Comparator(EQUAL, 0), 360, 360);
     config->event_configs.insert(
         EventConfig("high_efficiency_prompt_in_trigger",
-                    Comparator(LESS_THAN, 3), 360, 360));
+                    Comparator(LESS_THAN, 1), 360, 360));
     return config;
   }
 
@@ -237,6 +251,35 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHCompanionSidePanelFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    // Show the promo up to 3 times a year.
+    config->trigger = EventConfig("iph_companion_side_panel_trigger",
+                                  Comparator(LESS_THAN, 3), 360, 360);
+    config->used =
+        EventConfig("companion_side_panel_accessed_via_toolbar_button",
+                    Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
+  if (kIPHCompanionSidePanelRegionSearchFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    // Show the promo up to 1 times a year.
+    config->trigger =
+        EventConfig("iph_companion_side_panel_region_search_trigger",
+                    Comparator(LESS_THAN, 1), 360, 360);
+    config->used =
+        EventConfig("companion_side_panel_region_search_button_clicked",
+                    Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
   if (kIPHDesktopCustomizeChromeFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -281,6 +324,20 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     // Allow snoozing for 7 days, up to 3 times.
     config->snooze_params.snooze_interval = 7;
     config->snooze_params.max_limit = 3;
+    return config;
+  }
+
+  if (kIPHBackNavigationMenuFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger = EventConfig("back_navigation_menu_iph_is_triggered",
+                                  Comparator(LESS_THAN_OR_EQUAL, 4), 360, 360);
+    config->used = EventConfig("back_navigation_menu_is_opened",
+                               Comparator(EQUAL, 0), 7, 360);
+    config->snooze_params.snooze_interval = 7;
+    config->snooze_params.max_limit = 4;
     return config;
   }
 
@@ -1340,6 +1397,95 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
                                              Comparator(EQUAL, 0), 14, 360));
     config->blocked_by.type = BlockedBy::Type::NONE;
     config->blocking.type = Blocking::Type::NONE;
+    return config;
+  }
+
+  if (kIPHiOSNewTabToolbarItemFeature.name == feature->name) {
+    // the IPH of the new tab button on the tool bar (at bottom on iPhone or on
+    // top on iPad) is shown if:
+    // * the user has opened the url from omnibox for >= 5 times in a week.
+    // * the user has used the new tab toolbar item <= 2 times in a week.
+    // * the IPH is shown at most 1 time a week, 2 times a year.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->used = EventConfig(feature_engagement::events::kOpenUrlFromOmnibox,
+                               Comparator(GREATER_THAN_OR_EQUAL, 5), 7, 30);
+    config->trigger = EventConfig("iph_new_tab_toolbar_item_trigger",
+                                  Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(EventConfig("iph_new_tab_toolbar_item_trigger",
+                                             Comparator(LESS_THAN, 2), 365,
+                                             365));
+    config->event_configs.insert(
+        EventConfig(feature_engagement::events::kNewTabToolbarItemUsed,
+                    Comparator(LESS_THAN_OR_EQUAL, 2), 7, 30));
+    return config;
+  }
+
+  if (kIPHiOSTabGridToolbarItemFeature.name == feature->name) {
+    // the IPH of the tab grid button on the tool bar (at bottom on iPhone or on
+    // top on iPad) is shown if:
+    // * the user has tapped the new tab toolbar item < 2 times in a week.
+    // * the IPH is shown at most 1 time a week, 2 times a year.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->used =
+        EventConfig(feature_engagement::events::kTabGridToolbarItemUsed,
+                    Comparator(LESS_THAN, 2), 7, 30);
+    config->trigger = EventConfig("iph_tab_grid_toolbar_item_trigger",
+                                  Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(
+        EventConfig("iph_tab_grid_toolbar_item_trigger",
+                    Comparator(LESS_THAN, 2), 365, 365));
+    return config;
+  }
+
+  if (kIPHiOSHistoryOnOverflowMenuFeature.name == feature->name) {
+    // the IPH of the history item on the overflow menu is shown if:
+    // * the user has tapped the history on the overflow menu < 2 times in a
+    // month.
+    // * the user has opened URL from omnibox > 2 times in a week.
+    // * the IPH is shown at most 1 time a week, 2 times a year.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->used =
+        EventConfig(feature_engagement::events::kHistoryOnOverflowMenuUsed,
+                    Comparator(LESS_THAN, 2), 30, 30);
+    config->trigger = EventConfig("history_on_overflow_menu_trigger",
+                                  Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(EventConfig("history_on_overflow_menu_trigger",
+                                             Comparator(LESS_THAN, 2), 365,
+                                             365));
+    config->event_configs.insert(
+        EventConfig(feature_engagement::events::kOpenUrlFromOmnibox,
+                    Comparator(GREATER_THAN, 2), 7, 30));
+    return config;
+  }
+
+  if (kIPHiOSShareToolbarItemFeature.name == feature->name) {
+    // the IPH of the share item on the toolbar is shown if:
+    // * the user has tapped the share on the toolbar < 2 times in a month.
+    // * the user has exited overflow menu without taking action in a month.
+    // * the IPH is shown at most 1 time a week, 2 times a year.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->used =
+        EventConfig(feature_engagement::events::kShareToolbarItemUsed,
+                    Comparator(LESS_THAN, 2), 30, 30);
+    config->trigger =
+        EventConfig("share_toolbar_item_trigger", Comparator(EQUAL, 0), 7, 7);
+    config->event_configs.insert(EventConfig(
+        "share_toolbar_item_trigger", Comparator(LESS_THAN, 2), 365, 365));
+    config->event_configs.insert(EventConfig(
+        feature_engagement::events::kOverflowMenuNoHorizontalScrollOrAction,
+        Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 30));
     return config;
   }
 

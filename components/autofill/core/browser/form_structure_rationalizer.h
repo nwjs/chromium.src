@@ -32,6 +32,11 @@ class FormStructureRationalizer {
   FormStructureRationalizer& operator=(const FormStructureRationalizer&) =
       delete;
 
+  // Rationalizes autocomplete attributes like turning a generic
+  // autocomplete="cc-exp-year" into a 2 digit or 4 digit year if there are
+  // hints like max-length=4.
+  void RationalizeAutocompleteAttributes(LogManager* log_manager);
+
   // Tunes the fields with identical predictions.
   void RationalizeRepeatedFields(AutofillMetrics::FormInteractionsUkmLogger*,
                                  LogManager* log_manager);
@@ -70,11 +75,6 @@ class FormStructureRationalizer {
   // address_line2) as server predictions sometimes introduce wrong street
   // address predictions.
   void RationalizeStreetAddressAndAddressLine(LogManager* log_manager);
-
-  // Rewrites sequences of (street address/address-line1, house number) into
-  // (street name, house number) as server predictions sometimes introduce wrong
-  // street address predictions.
-  void RationalizeStreetAddressAndHouseNumber(LogManager* log_manager);
 
   // Depending on the existence of a preceding PHONE_HOME_COUNTRY_CODE field,
   // a phone number's city code and city-and-number representation needs to be

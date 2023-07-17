@@ -23,7 +23,7 @@
 
 namespace gfx {
 struct HDRMetadata;
-struct ColorVolumeMetadata;
+struct HdrMetadataSmpteSt2086;
 }  // namespace gfx
 
 namespace media {
@@ -457,7 +457,7 @@ struct MEDIA_EXPORT H265SEIMasteringDisplayInfo {
   uint32_t min_luminance;
 
   void PopulateColorVolumeMetadata(
-      gfx::ColorVolumeMetadata& color_volume_metadata) const;
+      gfx::HdrMetadataSmpteSt2086& smpte_st_2086) const;
 };
 
 struct MEDIA_EXPORT H265SEIMessage {
@@ -541,15 +541,6 @@ class MEDIA_EXPORT H265Parser : public H265NaluParser {
   static VideoCodecProfile ProfileIDCToVideoCodecProfile(int profile_idc);
 
  private:
-  // Exp-Golomb code parsing as specified in chapter 9.2 of the spec.
-  // Read one unsigned exp-Golomb code from the stream and return in |*val|
-  // with total bits read return in |*num_bits_read|.
-  Result ReadUE(int* val, int* num_bits_read);
-
-  // Read one signed exp-Golomb code from the stream and return in |*val|
-  // with total bits read return in |*num_bits_read|.
-  Result ReadSE(int* val, int* num_bits_read);
-
   Result ParseProfileTierLevel(bool profile_present,
                                int max_num_sub_layers_minus1,
                                H265ProfileTierLevel* profile_tier_level);

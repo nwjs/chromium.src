@@ -77,6 +77,7 @@ import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChrome;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChromePhone;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManagerChromeTablet;
+import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
 import org.chromium.chrome.browser.cookies.CookiesFetcher;
 import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.dependency_injection.ChromeActivityComponent;
@@ -167,6 +168,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelUtils;
 import org.chromium.chrome.browser.tabmodel.TabWindowManager;
 import org.chromium.chrome.browser.tasks.EngagementTimeUtil;
+import org.chromium.chrome.browser.tasks.HomeSurfaceTracker;
 import org.chromium.chrome.browser.tasks.JourneyManager;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil;
 import org.chromium.chrome.browser.tasks.ReturnToChromeUtil.ReturnToChromeBackPressHandler;
@@ -290,6 +292,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
     private TabbedModeTabModelOrchestrator mTabModelOrchestrator;
     private TabModelSelectorBase mTabModelSelector;
+    private TabModelSelectorObserver mTabModelSelectorObserver;
     private TabModelSelectorTabObserver mTabModelSelectorTabObserver;
     private TabModelSelectorTabModelObserver mTabModelObserver;
     private HistoricalTabModelObserver mHistoricalTabModelObserver;
@@ -358,6 +361,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             new OneshotSupplierImpl<>();
     private ObservableSupplierImpl<Tab> mStartSurfaceParentTabSupplier =
             new ObservableSupplierImpl<>();
+    private ObservableSupplierImpl<TabModelStartupInfo> mTabModelStartupInfoSupplier;
     // Calls isStartSurfaceRefactorEnabled() instead of using this variable directly.
     private Boolean mIsStartSurfaceRefactorEnabled;
 
@@ -369,6 +373,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     private ReturnToChromeBackPressHandler mReturnToChromeBackPressHandler;
     private ReadingListBackPressHandler mReadingListBackPressHandler;
     private MinimizeAppAndCloseTabBackPressHandler mMinimizeAppAndCloseTabBackPressHandler;
+
+    private HomeSurfaceTracker mHomeSurfaceTracker;
 
     // ID assigned to each ChromeTabbedActivity instance in Android S+ where multi-instance feature
     // is supported. This can be explicitly set in the incoming Intent or internally assigned.
@@ -447,8 +453,21 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         // clang-format on
     }
 
+    private void incrementCounter(String key) {
+        // Increment a counter for sessions where Java code runs up to this
+        // point, with the counter to be reset in the native C++ code. Thus
+        // this serves as a diagnostic tool in the cases where the native C++
+        // code is not reached.
+        SharedPreferencesManager prefs = SharedPreferencesManager.getInstance();
+        int count = prefs.readInt(key, 0);
+        // Note that this is written asynchronously, so there is a chance that
+        // this will not succeed.
+        prefs.writeInt(key, count + 1);
+    }
+
     @Override
     protected void onPreCreate() {
+        incrementCounter(ChromePreferenceKeys.UMA_ON_PRECREATE_COUNTER);
         super.onPreCreate();
         mMultiInstanceManager = MultiInstanceManager.create(this, getTabModelOrchestratorSupplier(),
                 getMultiWindowModeStateDispatcher(), getLifecycleDispatcher(),
@@ -559,6 +578,11 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             // For saving non-incognito tab closures for Recent Tabs.
             mHistoricalTabModelObserver =
                     new HistoricalTabModelObserver(mTabModelSelector.getModel(false));
+
+            // Defer initialization of this helper so it triggers after TabModelFilter
+            // observers.
+            UndoRefocusHelper.initialize(
+                    this, mTabModelSelector, getLayoutManagerSupplier(), isTablet());
 
             if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)) {
                 mTabModelSelector.addObserver(new TabModelSelectorObserver() {
@@ -702,8 +726,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             ViewGroup tabSwitcherViewHolder = findViewById(R.id.tab_switcher_view_holder);
             mLayoutManager = new LayoutManagerChromeTablet(compositorViewHolder, mContentContainer,
                 mStartSurfaceSupplier, mTabSwitcherSupplier, getTabContentManagerSupplier(),
-                mRootUiCoordinator::getTopUiThemeColorProvider, tabSwitcherViewHolder,
-                mRootUiCoordinator.getScrimCoordinator(),
+                mRootUiCoordinator::getTopUiThemeColorProvider, mTabModelStartupInfoSupplier,
+                tabSwitcherViewHolder, mRootUiCoordinator.getScrimCoordinator(),
                 getLifecycleDispatcher(), () -> createAndSetStartSurfaceForTablet());
             mLayoutStateProviderSupplier.set(mLayoutManager);
             // clang-format on
@@ -1179,7 +1203,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     private void setInitialOverviewState(boolean shouldShowOverviewPageOnStart) {
         if (isTablet()) {
             if (mFromResumption) {
-                setInitialOverviewState();
+                setInitialOverviewStateOnTablets();
             }
             return;
         }
@@ -1215,13 +1239,13 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     }
 
     /**
-     * Called on warm startup on Tablet to show a home surface instead of the last active Tab if the
-     * user has left Chrome for a while.
+     * Called on warm startup on tablets to show a home surface instead of the last active Tab if
+     * the user has left Chrome for a while.
      */
-    private void setInitialOverviewState() {
+    private void setInitialOverviewStateOnTablets() {
         ReturnToChromeUtil.setInitialOverviewStateOnResumeOnTablet(
                 mTabModelSelector.isIncognitoSelected(), shouldShowNtpHomeSurfaceOnStartup(),
-                getCurrentTabModel(), getTabCreator(false));
+                getCurrentTabModel(), getTabCreator(false), mHomeSurfaceTracker);
     }
 
     private void logMainIntentBehavior(Intent intent) {
@@ -1302,6 +1326,10 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 // from disk is an NTP that can be reused for Start.
                 Callback<String> onStandardActiveIndexRead = null;
                 shouldShowHomeSurfaceAtStartupOnTablet = shouldShowNtpHomeSurfaceOnStartup();
+                boolean skipSavingNonActiveNtps = skipSavingNonActiveNtps();
+                if (skipSavingNonActiveNtps) {
+                    mHomeSurfaceTracker = new HomeSurfaceTracker();
+                }
                 if (shouldShowHomeSurfaceAtStartupOnTablet) {
                     onStandardActiveIndexRead = url -> {
                         mLastActiveTabUrl = url;
@@ -1312,7 +1340,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     };
                 }
                 mTabModelOrchestrator.loadState(ignoreIncognitoFiles, onStandardActiveIndexRead);
-                mTabModelOrchestrator.setSkipSavingNonActiveNtps(skipSavingNonActiveNtps());
+                mTabModelOrchestrator.setSkipSavingNonActiveNtps(skipSavingNonActiveNtps);
             }
 
             mInactivityTracker.register(this.getLifecycleDispatcher());
@@ -1357,12 +1385,14 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 // one, and set it as the active Tab. |mLastActiveTabUrl| is null when there isn't
                 // any Tab.
                 if (!isActiveUrlNTP.get() && mLastActiveTabUrl != null) {
-                    ReturnToChromeUtil.createNewTabAndShowHomeSurfaceUi(
-                            getTabCreator(false), mTabModelSelector, mLastActiveTabUrl, null);
+                    ReturnToChromeUtil.createNewTabAndShowHomeSurfaceUi(getTabCreator(false),
+                            mHomeSurfaceTracker, mTabModelSelector, mLastActiveTabUrl, null);
                     activeTabBeingRestored = false;
                     mCreatedTabOnStartup = true;
                     mLastActiveTabUrl = null;
                 }
+                ReturnToChromeUtil.recordHomeSurfaceShownAtStartup();
+                ReturnToChromeUtil.recordHomeSurfaceShown();
             }
 
             mTabModelOrchestrator.restoreTabs(activeTabBeingRestored);
@@ -1753,7 +1783,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                 getTabReparentingControllerSupplier(),
                 // TODO(sinansahin): This currently only checks for incognito extras in the intent.
                 // We should make it more robust by using more signals.
-                IntentHandler.hasAnyIncognitoExtra(getIntent().getExtras()), mBackPressManager);
+                IntentHandler.hasAnyIncognitoExtra(getIntent().getExtras()), mBackPressManager,
+                this::getSavedInstanceState);
     }
 
     @Override
@@ -1832,8 +1863,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         mInactivityTracker = new ChromeInactivityTracker(
                 ChromePreferenceKeys.TABBED_ACTIVITY_LAST_BACKGROUNDED_TIME_MS_PREF);
         TabUsageTracker.initialize(this.getLifecycleDispatcher(), tabModelSelector);
-        UndoRefocusHelper.initialize(
-                this, tabModelSelector, getLayoutManagerSupplier(), isTablet());
 
         assert getActivityTabStartupMetricsTracker() != null;
         boolean shouldShowOverviewPageOnStart = shouldShowOverviewPageOnStart();
@@ -1902,6 +1931,10 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         boolean tabMergingEnabled =
                 mMultiInstanceManager != null && mMultiInstanceManager.isTabModelMergingEnabled();
         mTabModelOrchestrator = new TabbedModeTabModelOrchestrator(tabMergingEnabled);
+        if (ChromeFeatureList.sTabStripStartupRefactoring.isEnabled()) {
+            mTabModelStartupInfoSupplier = new ObservableSupplierImpl<>();
+            mTabModelOrchestrator.setStartupInfoObservableSupplier(mTabModelStartupInfoSupplier);
+        }
         return mTabModelOrchestrator;
     }
 
@@ -1933,15 +1966,20 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
 
         mTabModelSelector = mTabModelOrchestrator.getTabModelSelector();
-        mTabModelSelector.addObserver(new TabModelSelectorObserver() {
+        mTabModelSelectorObserver = new TabModelSelectorObserver() {
             @Override
             public void onTabStateInitialized() {
+                if (mMultiInstanceManager != null) {
+                    mMultiInstanceManager.onTabStateInitialized();
+                }
+
                 if (!mCreatedTabOnStartup) return;
 
                 TabModel model = mTabModelSelector.getModel(false);
                 TasksUma.recordTasksUma(model);
             }
-        });
+        };
+        mTabModelSelector.addObserver(mTabModelSelectorObserver);
 
         mTabModelSelectorTabObserver = new TabModelSelectorTabObserver(mTabModelSelector) {
             @Override
@@ -1960,6 +1998,21 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         mAppIndexingUtil = new AppIndexingUtil(mTabModelSelector);
 
         if (startIncognito) mTabModelSelector.selectModel(true);
+    }
+
+    @VisibleForTesting
+    TabModelSelectorObserver getTabModelSelectorObserverForTesting() {
+        return mTabModelSelectorObserver;
+    }
+
+    @VisibleForTesting
+    boolean getCreatedTabOnStartupForTesting() {
+        return mCreatedTabOnStartup;
+    }
+
+    @VisibleForTesting
+    void setCreatedTabOnStartupForTesting(boolean createdTabOnStartup) {
+        mCreatedTabOnStartup = createdTabOnStartup;
     }
 
     @Override
@@ -1995,8 +2048,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                     /* TabCreatorManager */ this, getTabModelSelectorSupplier(),
                     getCompositorViewHolderSupplier(), getModalDialogManagerSupplier(),
                     this::getSnackbarManager, getBrowserControlsManager(), getActivityTabProvider(),
-                    getLifecycleDispatcher(), getWindowAndroid(), this::getLastUserInteractionTime,
-                    this::hadWarmStart, getToolbarManager()::getToolbar);
+                    getLifecycleDispatcher(), getWindowAndroid(), getToolbarManager()::getToolbar, mHomeSurfaceTracker);
         }
         return mTabDelegateFactory;
     }
@@ -2064,7 +2116,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                         || getLayoutManager().getNextLayoutType() == LayoutType.START_SURFACE) {
                     getLayoutManager().addObserver(new LayoutStateProvider.LayoutStateObserver() {
                         @Override
-                        public void onStartedShowing(int layoutType, boolean showToolbar) {
+                        public void onStartedShowing(int layoutType) {
                             if (layoutType != LayoutType.TAB_SWITCHER
                                     && layoutType != LayoutType.START_SURFACE) {
                                 return;
@@ -2137,6 +2189,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         final Tab currentTab = getActivityTab();
         boolean currentTabIsNtp = isTabNtp(currentTab);
         if (id == R.id.new_tab_menu_id) {
+            if (!mTabModelSelector.isTabStateInitialized()) return false;
+
             getTabModelSelector().getModel(false).commitAllTabClosures();
             RecordUserAction.record("MobileMenuNewTab");
             RecordUserAction.record("MobileNewTabOpened");
@@ -2148,6 +2202,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             mLocaleManager.showSearchEnginePromoIfNeeded(this, null);
         } else if (id == R.id.new_incognito_tab_menu_id) {
             if (IncognitoUtils.isIncognitoModeEnabled()) {
+                if (!mTabModelSelector.isTabStateInitialized()) return false;
+
                 getTabModelSelector().getModel(false).commitAllTabClosures();
                 // This action must be recorded before opening the incognito tab since UMA actions
                 // are dropped when an incognito tab is open.
@@ -2250,9 +2306,12 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             QuickDeleteMetricsDelegate.recordHistogram(
                     QuickDeleteMetricsDelegate.QuickDeleteAction.MENU_ITEM_CLICKED);
 
+            ViewStub animationStub = findViewById(R.id.quick_delete_animation_stub);
             QuickDeleteController quickDeleteController = new QuickDeleteController(this,
                     new QuickDeleteDelegateImpl(), getModalDialogManager(), getSnackbarManager(),
-                    getLayoutManager(), mTabModelSelector);
+                    getLayoutManager(), mTabModelSelector,
+                    animationStub != null ? animationStub.inflate()
+                                          : findViewById(R.id.quick_delete_animation_layout));
             quickDeleteController.triggerQuickDeleteFlow();
         } else {
             return super.onMenuOrKeyboardAction(id, fromMenu);
@@ -2408,6 +2467,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     }
 
     private void initializeBackPressHandlers() {
+        mBackPressManager.setHasSystemBackArm(true);
         if (mReturnToChromeBackPressHandler == null && !isTablet()) {
             mReturnToChromeBackPressHandler = new ReturnToChromeBackPressHandler(
                     getActivityTabProvider(), this::returnToOverviewModeOnBackPressed,
@@ -2928,6 +2988,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     @Override
     public void onResume() {
         try (TraceEvent e = TraceEvent.scoped("ChromeTabbedActivity.onResume")) {
+            incrementCounter(ChromePreferenceKeys.UMA_ON_RESUME_COUNTER);
             super.onResume();
         }
     }
@@ -3026,6 +3087,11 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         }
     }
 
+    @Override
+    protected int getAutomotiveToolbarImplementation() {
+        return AutomotiveToolbarImplementation.WITH_ACTION_BAR;
+    }
+
     /**
      * Reports that a new tab launcher shortcut was selected or an action equivalent to a shortcut
      * was performed.
@@ -3082,8 +3148,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         if (mTabModelSelector.isIncognitoSelected()) return false;
 
         assert mInactivityTracker != null;
-        return ReturnToChromeUtil.shouldShowNtpAsHomeSurfaceAtStartup(
-                isTablet(), getIntent(), mTabModelSelector, mInactivityTracker);
+        return ReturnToChromeUtil.shouldShowNtpAsHomeSurfaceAtStartup(isTablet(), getIntent(),
+                getSavedInstanceState(), mTabModelSelector, mInactivityTracker);
     }
 
     /**

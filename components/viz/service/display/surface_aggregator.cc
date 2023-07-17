@@ -408,12 +408,6 @@ const DrawQuad* SurfaceAggregator::FindQuadWithOverlayDamage(
     const gfx::Transform& parent_target_transform,
     const Surface* surface,
     size_t* overlay_damage_index) {
-  // If we have damage from a surface animation, then we shouldn't have an
-  // overlay candidate from the root render pass, since that's an interpolated
-  // pass with "artificial" damage.
-  if (surface->HasSurfaceAnimationDamage())
-    return nullptr;
-
   // Only process the damage rect at the root render pass, once per surface.
   const CompositorFrame& frame = surface->GetActiveFrame();
   bool is_last_pass_on_src_surface =
@@ -461,6 +455,25 @@ const DrawQuad* SurfaceAggregator::FindQuadWithOverlayDamage(
   if (current_zero_damage_rect_is_not_recorded_) {
     current_zero_damage_rect_is_not_recorded_ = false;
     surface_damage_rect_list_->push_back(gfx::Rect());
+  }
+
+  // Before assigning a surface damage rect to this quad, make sure that it is
+  // not larger than the quad itself. This is possible when a quad is smaller
+  // than it was last frame, or when it moves. The damage should be the size of
+  // larger rect from last frame because we need to damage what's underneath the
+  // quad. So if we promote the now smaller quad to an overlay this frame we
+  // should not remove this damage rect. i.e. we should not assign the damage
+  // rect to this quad.
+  auto& damage_rect_in_target_space = surface_damage_rect_list_->back();
+  if (!damage_rect_in_target_space.IsEmpty()) {
+    gfx::Transform transform =
+        parent_target_transform *
+        target_quad->shared_quad_state->quad_to_target_transform;
+    gfx::Rect rect_in_target_space =
+        cc::MathUtil::MapEnclosingClippedRect(transform, target_quad->rect);
+    if (!rect_in_target_space.Contains(damage_rect_in_target_space)) {
+      return nullptr;
+    }
   }
 
   // The latest surface damage rect.
@@ -553,8 +566,7 @@ ResolvedFrameData* SurfaceAggregator::GetResolvedFrame(
     // If there is a new CompositorFrame for `surface` compute resolved frame
     // data for the new resolved CompositorFrame.
     if (resolved_frame.previous_frame_index() !=
-            surface->GetActiveFrameIndex() ||
-        surface->HasSurfaceAnimationDamage()) {
+        surface->GetActiveFrameIndex()) {
       base::ElapsedTimer timer;
       ProcessResolvedFrame(resolved_frame);
       stats_->declare_resources_time += timer.Elapsed();
@@ -912,7 +924,6 @@ void SurfaceAggregator::EmitSurfaceContent(
   }
 
   referenced_surfaces_.erase(surface_id);
-  surface->DidAggregate();
 }
 
 void SurfaceAggregator::EmitDefaultBackgroundColorQuad(
@@ -1669,11 +1680,10 @@ gfx::Rect SurfaceAggregator::PrewalkRenderPass(
       // offset backdrop filters may be involved.
 
       // For the pixel-moving foreground filters, all effects can be expanded
-      // outside the RenderPassDrawQuad rect to the size of rect +
-      // filters.MaximumPixelMovement(). Therefore, we have to check if
-      // (rpdq->rect + MaximumPixelMovement()) intersects the damage under it.
-      // Then we extend the damage rect to include the (rpdq->rect +
-      // MaximumPixelMovement()).
+      // outside the RenderPassDrawQuad rect based on filter pixel movement.
+      // Therefore, we have to check if the expanded rpdq->rect intersects the
+      // damage under it. Then we extend the damage rect to include the expanded
+      // rpdq->rect.
 
       // Expand the damage to cover entire |output_rect| if the |render_pass|
       // has pixel-moving foreground filter.

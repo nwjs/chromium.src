@@ -506,8 +506,10 @@ bool FormField::MatchesFormControlType(base::StringPiece type,
   if (match_type.contains(MatchFieldType::kTelephone) && type == "tel")
     return true;
 
-  if (match_type.contains(MatchFieldType::kSelect) && type == "select-one")
+  if (match_type.contains(MatchFieldType::kSelect) &&
+      (type == "select-one" || type == "selectmenu")) {
     return true;
+  }
 
   if (match_type.contains(MatchFieldType::kTextArea) && type == "textarea")
     return true;
@@ -536,7 +538,7 @@ void FormField::ParseUsingAutocompleteAttributes(
     FieldCandidatesMap& field_candidates) {
   for (const AutofillField* field : fields) {
     HtmlFieldType html_type = FieldTypeFromAutocompleteAttributeValue(
-        base::UTF16ToUTF8(field->parseable_name()), field->max_length);
+        base::UTF16ToUTF8(field->parseable_name()));
     // The HTML_MODE is irrelevant when converting to a ServerFieldType.
     ServerFieldType type =
         AutofillType(html_type, HtmlFieldMode::kNone).GetStorableType();

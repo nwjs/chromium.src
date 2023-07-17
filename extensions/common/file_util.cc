@@ -330,14 +330,15 @@ bool ValidateExtension(const Extension* extension,
   // extension.
 #if 0
   std::string warning;
-  if (!CheckForIllegalFilenames(extension->path(), &warning))
-    warnings->push_back(InstallWarning(warning));
+  if (!CheckForIllegalFilenames(extension->path(), &warning)) {
+    warnings->emplace_back(warning);
+  }
 
   // Check that the extension does not include any Windows reserved filenames.
   std::string windows_reserved_warning;
   if (!CheckForWindowsReservedFilenames(extension->path(),
                                         &windows_reserved_warning)) {
-    warnings->push_back(InstallWarning(windows_reserved_warning));
+    warnings->emplace_back(windows_reserved_warning);
   }
 
   // Check that extensions don't include private key files.
@@ -353,10 +354,9 @@ bool ValidateExtension(const Extension* extension,
       return false;
     }
   } else {
-    for (size_t i = 0; i < private_keys.size(); ++i) {
-      warnings->push_back(InstallWarning(
-          l10n_util::GetStringFUTF8(IDS_EXTENSION_CONTAINS_PRIVATE_KEY,
-                                    private_keys[i].LossyDisplayName())));
+    for (const auto& private_key : private_keys) {
+      warnings->emplace_back(l10n_util::GetStringFUTF8(
+          IDS_EXTENSION_CONTAINS_PRIVATE_KEY, private_key.LossyDisplayName()));
     }
     // Only warn; don't block loading the extension.
   }

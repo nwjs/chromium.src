@@ -70,8 +70,8 @@
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 // TODO(https://crbug.com/1060801): Here and elsewhere, possibly switch build
 // flag to #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/supervised_user/supervised_user_service.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/common/features.h"
 #include "extensions/browser/api/management/management_api.h"
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -525,7 +525,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnWebstoreParseSuccess(
   // Check if the supervised user is allowed to install extensions.
   // NOTE: we do not block themes.
   if (!dummy_extension_->is_theme()) {
-    SupervisedUserService* service =
+    supervised_user::SupervisedUserService* service =
         SupervisedUserServiceFactory::GetForProfile(profile_);
 
     if (service->AreExtensionsPermissionsEnabled()) {
@@ -679,7 +679,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::
 
 bool WebstorePrivateBeginInstallWithManifest3Function::
     PromptForParentApproval() {
-  SupervisedUserService* service =
+  supervised_user::SupervisedUserService* service =
       SupervisedUserServiceFactory::GetForProfile(profile_);
   DCHECK(service->AreExtensionsPermissionsEnabled());
   content::WebContents* web_contents = GetSenderWebContents();
@@ -742,7 +742,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::OnInstallPromptDone(
     case ExtensionInstallPrompt::Result::ACCEPTED:
     case ExtensionInstallPrompt::Result::ACCEPTED_WITH_WITHHELD_PERMISSIONS: {
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-      SupervisedUserService* service =
+      supervised_user::SupervisedUserService* service =
           SupervisedUserServiceFactory::GetForProfile(profile_);
       // Handle parent permission for child accounts on ChromeOS.
       if (!dummy_extension_->is_theme()  // Parent permission not required for
@@ -894,7 +894,7 @@ void WebstorePrivateBeginInstallWithManifest3Function::ShowInstallDialog(
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   if (!dummy_extension_->is_theme()) {
-    SupervisedUserService* service =
+    supervised_user::SupervisedUserService* service =
         SupervisedUserServiceFactory::GetForProfile(profile_);
     const bool requires_parent_permission =
         service->AreExtensionsPermissionsEnabled();
@@ -904,12 +904,12 @@ void WebstorePrivateBeginInstallWithManifest3Function::ShowInstallDialog(
     prompt->set_requires_parent_permission(requires_parent_permission);
     if (requires_parent_permission) {
       prompt->AddObserver(&supervised_user_extensions_metrics_recorder_);
-    }
-    // Bypass the install prompt dialog if V2 is enabled. The ParentAccessDialog
-    // handles both the blocked and install use case.
-    if (supervised_user::IsLocalExtensionApprovalsV2Enabled()) {
-      RequestExtensionApproval(contents);
-      return;
+      // Bypass the install prompt dialog if V2 is enabled. The
+      // ParentAccessDialog handles both the blocked and install use case.
+      if (supervised_user::IsLocalExtensionApprovalsV2Enabled()) {
+        RequestExtensionApproval(contents);
+        return;
+      }
     }
   }
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
@@ -1194,8 +1194,9 @@ WebstorePrivateIsPendingCustodianApprovalFunction::Run() {
   EXTENSION_FUNCTION_VALIDATE(params);
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-  SupervisedUserService* service = SupervisedUserServiceFactory::GetForProfile(
-      Profile::FromBrowserContext(browser_context()));
+  supervised_user::SupervisedUserService* service =
+      SupervisedUserServiceFactory::GetForProfile(
+          Profile::FromBrowserContext(browser_context()));
   if (!service->AreExtensionsPermissionsEnabled()) {
     return RespondNow(BuildResponse(false));
   }

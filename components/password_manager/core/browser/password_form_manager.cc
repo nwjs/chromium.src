@@ -47,6 +47,10 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "components/webauthn/android/webauthn_cred_man_delegate.h"
+#endif  // BUILDFLAG(IS_ANDROID)
+
 using autofill::FieldDataManager;
 using autofill::FieldRendererId;
 using autofill::FormData;
@@ -145,10 +149,6 @@ bool ShouldShowErrorMessage(
     return false;
   DCHECK(error.recovery_type !=
          PasswordStoreBackendErrorRecoveryType::kUnrecoverable);
-  if (!base::FeatureList::IsEnabled(
-          password_manager::features::kUnifiedPasswordManagerErrorMessages)) {
-    return false;
-  }
   return true;
 }
 #endif
@@ -334,8 +334,8 @@ bool PasswordFormManager::IsMovableToAccountStore() const {
 }
 
 void PasswordFormManager::Save() {
-  DCHECK_EQ(FormFetcher::State::NOT_WAITING, form_fetcher_->GetState());
-  DCHECK(!client_->IsIncognito());
+  CHECK_EQ(form_fetcher_->GetState(), FormFetcher::State::NOT_WAITING);
+  CHECK(!client_->IsOffTheRecord());
   if (IsBlocklisted()) {
     password_save_manager_->Unblocklist(ConstructObservedFormDigest());
     newly_blocklisted_ = false;
@@ -463,7 +463,7 @@ void PasswordFormManager::OnNoInteraction(bool is_update) {
 }
 
 void PasswordFormManager::Blocklist() {
-  DCHECK(!client_->IsIncognito());
+  CHECK(!client_->IsOffTheRecord());
   password_save_manager_->Blocklist(ConstructObservedFormDigest());
   newly_blocklisted_ = true;
 }
@@ -748,6 +748,13 @@ void PasswordFormManager::OnTimeout() {
 }
 
 bool PasswordFormManager::WebAuthnCredentialsAvailable() const {
+#if BUILDFLAG(IS_ANDROID)
+  if (WebAuthnCredManDelegate::IsCredManEnabled()) {
+    WebAuthnCredManDelegate* delegate =
+        client_->GetWebAuthnCredManDelegateForDriver(driver_.get());
+    return delegate ? delegate->HasResults() : false;
+  }
+#endif  // BUILDFLAG(IS_ANDROID)
   WebAuthnCredentialsDelegate* delegate =
       client_->GetWebAuthnCredentialsDelegateForDriver(driver_.get());
   if (delegate) {

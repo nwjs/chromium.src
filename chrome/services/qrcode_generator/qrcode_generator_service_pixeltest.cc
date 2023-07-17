@@ -4,6 +4,7 @@
 
 #include "base/run_loop.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "chrome/services/qrcode_generator/public/cpp/qrcode_generator_service.h"
 #include "chrome/services/qrcode_generator/public/mojom/qrcode_generator.mojom.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -24,16 +25,15 @@ class QrCodeGeneratorServicePixelTest : public PlatformBrowserTest {
     mojom::GenerateQRCodeRequestPtr request =
         mojom::GenerateQRCodeRequest::New();
     request->data = data;
-    request->should_render = true;
     request->center_image = center_image;
     request->render_module_style = module_style;
     request->render_locator_style = locator_style;
 
+    base::HistogramTester histograms;
     mojom::GenerateQRCodeResponsePtr response;
-    mojo::Remote<mojom::QRCodeGeneratorService> qr_service =
-        LaunchQRCodeGeneratorService();
     base::RunLoop run_loop;
-    qr_service->GenerateQRCode(
+    QRImageGenerator generator;
+    generator.GenerateQRCode(
         std::move(request),
         base::BindLambdaForTesting([&](mojom::GenerateQRCodeResponsePtr r) {
           response = std::move(r);
@@ -49,11 +49,17 @@ class QrCodeGeneratorServicePixelTest : public PlatformBrowserTest {
     // returned QR image has a size that is at least 21x21.
     ASSERT_GE(response->data_size.width(), 21);
 
-    // The `data_size` should indicate a square + should be consistent with
-    // the size of the actual `data`.
+    // The QR code should be a square.
     ASSERT_EQ(response->data_size.width(), response->data_size.height());
-    ASSERT_EQ(static_cast<int32_t>(response->data.size()),
-              response->data_size.width() * response->data_size.height());
+    ASSERT_EQ(response->bitmap.width(), response->bitmap.height());
+
+    // The bitmap size should be a multiple of the QR size.
+    ASSERT_EQ(response->bitmap.width() % response->data_size.width(), 0);
+    ASSERT_EQ(response->bitmap.height() % response->data_size.height(), 0);
+
+    // Verify that the expected UMA metrics got logged.
+    // TODO(1246137): Cover BytesToQrPixels and QrPixelsToQrImage as well.
+    histograms.ExpectTotalCount("Sharing.QRCodeGeneration.Duration", 1);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS_LACROS)

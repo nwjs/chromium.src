@@ -151,6 +151,18 @@ class ToolbarButton : public views::LabelButton,
   // Returns the icon size of the toolbar button
   virtual int GetIconSize() const;
 
+  // Retuns true if a non-empty border should be painted.
+  virtual bool ShouldPaintBorder() const;
+
+  // Returns whether to directly use the highlight as background instead
+  // of blending it with the toolbar colors.
+  // TODO(shibalik): remove this method after fixing for profile button.
+  virtual bool ShouldDirectlyUseHighlightAsBackground() const;
+
+  // Virtual method to explicitly set the highlighted text color instead of the
+  // default behavior of the HighlightColorAnimation.
+  virtual absl::optional<SkColor> GetHighlightTextColor() const;
+
   // Updates the images using the given icons and specific colors.
   void UpdateIconsWithColors(const gfx::VectorIcon& icon,
                              SkColor normal_color,

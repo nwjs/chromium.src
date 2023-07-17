@@ -406,6 +406,7 @@ class SelectFileDialogBridge;
 
 namespace remoting {
 class AutoThread;
+class ScopedAllowBlockingForCrashReporting;
 class ScopedBypassIOThreadRestrictions;
 namespace protocol {
 class ScopedAllowSyncPrimitivesForWebRtcDataStreamAdapter;
@@ -651,6 +652,7 @@ class BASE_EXPORT [[maybe_unused, nodiscard]] ScopedAllowBlocking {
   friend class remote_cocoa::SelectFileDialogBridge;
   friend class remoting::
       ScopedBypassIOThreadRestrictions;  // http://crbug.com/1144161
+  friend class remoting::ScopedAllowBlockingForCrashReporting;
   friend class ui::DrmDisplayHostManager;
   friend class ui::ScopedAllowBlockingForGbmSurface;
   friend class ui::SelectFileDialogLinux;

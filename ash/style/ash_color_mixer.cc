@@ -24,6 +24,7 @@ namespace ash {
 
 namespace {
 
+constexpr int kAlpha8 = SK_AlphaOPAQUE * 0.08f;
 constexpr int kAlpha20 = SK_AlphaOPAQUE * 0.2f;
 constexpr int kAlpha25 = SK_AlphaOPAQUE * 0.25f;
 constexpr int kAlpha40 = SK_AlphaOPAQUE * 0.4f;
@@ -155,7 +156,7 @@ void AddContentColors(ui::ColorMixer& mixer,
   mixer[kColorAshAppStateIndicatorColor] = {kColorAshTextColorPrimary};
   mixer[kColorAshAppStateIndicatorColorInactive] =
       ui::SetAlpha(kColorAshAppStateIndicatorColor, kDisabledColorOpacity);
-  mixer[kColorAshShelfHandleColor] = {cros_tokens::kIconColorSecondary};
+  mixer[kColorAshShelfHandleColor] = {cros_tokens::kCrosSysOnSurface};
   mixer[kColorAshShelfTooltipBackgroundColor] = {
       chromeos::features::IsJellyEnabled()
           ? static_cast<ui::ColorId>(cros_tokens::kCrosSysOnSurface)
@@ -342,6 +343,21 @@ void RemapLegacySemanticColors(ui::ColorMixer& mixer) {
   mixer[cros_tokens::kColorPositive] = {cros_tokens::kCrosSysPositive};
   mixer[cros_tokens::kColorWarning] = {cros_tokens::kCrosSysWarning};
   mixer[cros_tokens::kColorAlert] = {cros_tokens::kCrosSysError};
+
+  // Illustration Colors
+  mixer[cros_tokens::kIllustrationColor1] = {cros_tokens::kCrosSysIlloColor1};
+  mixer[cros_tokens::kIllustrationColor2] = {cros_tokens::kCrosSysIlloColor2};
+  mixer[cros_tokens::kIllustrationColor3] = {cros_tokens::kCrosSysIlloColor3};
+  mixer[cros_tokens::kIllustrationColor4] = {cros_tokens::kCrosSysIlloColor4};
+  mixer[cros_tokens::kIllustrationColor5] = {cros_tokens::kCrosSysIlloColor5};
+  mixer[cros_tokens::kIllustrationColor6] = {cros_tokens::kCrosSysIlloColor6};
+  mixer[cros_tokens::kIllustrationBaseColor] = {cros_tokens::kCrosSysIlloBase};
+  mixer[cros_tokens::kIllustrationSecondaryColor] = {
+      cros_tokens::kCrosSysIlloSecondary};
+  mixer[cros_tokens::kIllustrationColor1Shade1] = {
+      cros_tokens::kCrosSysIlloColor11};
+  mixer[cros_tokens::kIllustrationColor1Shade2] = {
+      cros_tokens::kCrosSysIlloColor12};
 }
 
 // Adds the dynamic color palette tokens based on user_color. This is the base
@@ -611,6 +627,8 @@ void AddAshColorMixer(ui::ColorProvider* provider,
                      : ui::ColorTransform(gfx::kGoogleBlue600);
   mixer[kColorAshPhantomWindowBackgroundColor] =
       ui::SetAlpha(cros_tokens::kCrosSysPrimary, kAlpha25);
+  mixer[kColorAshWindowHeaderStrokeColor] =
+      ui::SetAlpha(cros_tokens::kCrosRefNeutral0, kAlpha8);
 
   mixer[ui::kColorToggleButtonThumbOn] = {cros_tokens::kCrosSysOnPrimary};
   mixer[ui::kColorToggleButtonThumbOff] = {cros_tokens::kCrosSysOnSecondary};
@@ -628,6 +646,13 @@ void AddAshColorMixer(ui::ColorProvider* provider,
 
   mixer[ui::kColorTooltipBackground] = {cros_tokens::kCrosSysOnSurface};
   mixer[ui::kColorTooltipForeground] = {cros_tokens::kCrosSysInverseOnSurface};
+
+  if (chromeos::features::IsJellyEnabled() && !key.custom_theme) {
+    // Only override frame color if there's no custom theme or we'll
+    // override the value from the theme.
+    mixer[ui::kColorFrameActive] = {cros_tokens::kCrosSysHeader};
+    mixer[ui::kColorFrameInactive] = {cros_tokens::kCrosSysHeaderUnfocused};
+  }
 }
 
 }  // namespace ash

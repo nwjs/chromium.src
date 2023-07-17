@@ -10,7 +10,6 @@
 
 #include "base/notreached.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/ash/policy/dlp/dlp_files_controller.h"
 #include "chrome/browser/chromeos/policy/dlp/dialogs/policy_dialog_base.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_confidential_contents.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_confidential_file.h"
@@ -37,18 +36,6 @@ DlpWarnDialog::DlpWarnDialogOptions::DlpWarnDialogOptions(
     const std::u16string& application_title_)
     : restriction(restriction), confidential_contents(confidential_contents) {
   application_title.emplace(application_title_);
-}
-
-DlpWarnDialog::DlpWarnDialogOptions::DlpWarnDialogOptions(
-    Restriction restriction,
-    const std::vector<DlpConfidentialFile>& confidential_files,
-    absl::optional<DlpFileDestination> files_destination,
-    DlpFilesController::FileAction files_action)
-    : restriction(restriction),
-      confidential_files(confidential_files),
-      files_destination(files_destination),
-      files_action(files_action) {
-  DCHECK(restriction == Restriction::kFiles);
 }
 
 DlpWarnDialog::DlpWarnDialogOptions::DlpWarnDialogOptions(

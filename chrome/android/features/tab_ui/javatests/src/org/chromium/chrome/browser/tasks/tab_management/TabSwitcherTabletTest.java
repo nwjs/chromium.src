@@ -26,8 +26,8 @@ import android.graphics.Bitmap;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -126,7 +126,7 @@ public class TabSwitcherTabletTest {
             }
 
             @Override
-            public void onStartedShowing(int layoutType, boolean showToolbar) {
+            public void onStartedShowing(int layoutType) {
                 if (layoutType != LayoutType.TAB_SWITCHER) {
                     return;
                 }

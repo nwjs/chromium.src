@@ -719,7 +719,7 @@ UINT GetDXGIWaitableSwapChainMaxQueuedFrames() {
 void SetDirectCompositionOverlayWorkarounds(
     const DirectCompositionOverlayWorkarounds& workarounds) {
   // This has to be set before initializing overlay caps.
-  DCHECK(!OverlayCapsValid());
+  CHECK(!OverlayCapsValid());
   g_disable_sw_overlays = workarounds.disable_sw_video_overlays;
   g_disable_decode_swap_chain = workarounds.disable_decode_swap_chain;
   g_enable_bgra8_overlays_with_yuv_overlay_support =

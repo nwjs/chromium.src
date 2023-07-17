@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_TABS_SAVED_TAB_GROUPS_SAVED_TAB_GROUP_KEYED_SERVICE_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/timer/timer.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_controller.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_model_listener.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -49,16 +50,22 @@ class SavedTabGroupKeyedService : public KeyedService,
       const base::Uuid& saved_group_guid,
       const tab_groups::TabGroupId& group_id) override;
   void DisconnectLocalTabGroup(const tab_groups::TabGroupId& group_id) override;
-  void ConnectLocalTabGroup(const tab_groups::TabGroupId& group_id,
-                            const base::Uuid& saved_group_guid) override;
+  void ConnectLocalTabGroupIfPossible(
+      const tab_groups::TabGroupId& group_id,
+      const base::Uuid& saved_group_guid) override;
 
   // SavedTabGroupModelObserver
   void SavedTabGroupModelLoaded() override;
+  void SavedTabGroupRemovedFromSync(const SavedTabGroup* group) override;
   void SavedTabGroupUpdatedFromSync(
       const base::Uuid& group_guid,
       const absl::optional<base::Uuid>& tab_guid) override;
 
  private:
+  // Activates the first tab in saved group that is already opened when its
+  // button is pressed.
+  void FocusFirstTabInOpenGroup(tab_groups::TabGroupId local_group_id);
+
   // Returns a pointer to the TabStripModel which contains `local_group_id`.
   const TabStripModel* GetTabStripModelWithTabGroupId(
       const tab_groups::TabGroupId& local_group_id);
@@ -70,6 +77,15 @@ class SavedTabGroupKeyedService : public KeyedService,
   // changed using data found in `saved_group_guid`.
   void UpdateGroupVisualData(base::Uuid saved_group_guid,
                              tab_groups::TabGroupId group_id);
+
+  // Wrapper function that calls all metric recording functions.
+  void RecordMetrics();
+
+  // Records the SavedTabGroup count and Tab count per SavedTabGroup.
+  void RecordSavedTabGroupMetrics();
+
+  // Records the Unsaved TabGroup count and the Tab count per Unsaved TabGroup.
+  void RecordTabGroupMetrics();
 
   // The profile used to instantiate the keyed service.
   raw_ptr<Profile> profile_ = nullptr;
@@ -83,6 +99,10 @@ class SavedTabGroupKeyedService : public KeyedService,
 
   // Stores SavedTabGroup data to the disk and to sync if enabled.
   SavedTabGroupSyncBridge bridge_;
+
+  // Timer used to record periodic metrics about the state of the TabGroups
+  // (saved and unsaved).
+  base::RepeatingTimer metrics_timer_;
 
   // Keeps track of the ids of session restored tab groups that were once saved
   // in order to link them together again once the SavedTabGroupModelLoaded is

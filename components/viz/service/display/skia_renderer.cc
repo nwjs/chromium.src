@@ -93,6 +93,10 @@
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/gfx/gpu_fence_handle.h"
 
+#if BUILDFLAG(IS_ANDROID)
+#include "components/viz/service/display/overlay_processor_surface_control.h"
+#endif
+
 namespace viz {
 
 namespace {
@@ -429,11 +433,9 @@ struct SkiaRenderer::DrawRPDQParams {
     // pre-transformed by this before |content_device_transform|).
     SkMatrix transform;
 
-    // `rect` from the bypassed RenderPassDrawQuad.
-    gfx::RectF rect;
-
-    // `visible_rect` from the bypassed RenderPassDrawQuad.
-    gfx::RectF visible_rect;
+    // Clipping in bypassed render pass coordinate space. This can come from
+    // RenderPassDrawQuad::visible_rect and bypass quads clip_rect.
+    gfx::RectF clip_rect;
   };
 
   explicit DrawRPDQParams(const gfx::RectF& visible_rect);
@@ -471,7 +473,7 @@ struct SkiaRenderer::DrawRPDQParams {
 
     SkRect content_bounds =
         bypass_geometry->transform.mapRect(gfx::RectFToSkRect(content_rect));
-    return !bypass_geometry->visible_rect.Contains(
+    return !bypass_geometry->clip_rect.Contains(
         gfx::SkRectToRectF(content_bounds));
   }
 };
@@ -850,11 +852,6 @@ SkiaRenderer::SkiaRenderer(const RendererSettings* settings,
         number_of_buffers);
   }
 #endif
-
-#if OS_ANDROID
-  use_real_color_space_for_stream_video_ =
-      features::UseRealVideoColorSpaceForDisplay();
-#endif
 }
 
 SkiaRenderer::~SkiaRenderer() = default;
@@ -905,6 +902,15 @@ void SkiaRenderer::FinishDrawingFrame() {
       surface_candidate.resource_size_in_pixels = surface_plane.resource_size;
       surface_candidate.format = surface_plane.format;
       surface_candidate.color_space = surface_plane.color_space;
+      if (current_frame()->root_render_pass->content_color_usage ==
+          gfx::ContentColorUsage::kHDR) {
+        surface_candidate.hdr_metadata.emplace();
+        surface_candidate.hdr_metadata->extended_range_brightness.emplace();
+        // TODO(https://crbug.com/1430768): Track the actual brightness of the
+        // content. For now, assume that all HDR content is 1,000 nits.
+        surface_candidate.hdr_metadata->extended_range_brightness
+            ->desired_ratio = 1000.f / gfx::ColorSpace::kDefaultSDRWhiteLevel;
+      }
       surface_candidate.is_opaque = !surface_plane.enable_blending;
       surface_candidate.opacity = surface_plane.opacity;
       surface_candidate.priority_hint = surface_plane.priority_hint;
@@ -1065,8 +1071,8 @@ void SkiaRenderer::SwapBuffersComplete(
 
 void SkiaRenderer::BuffersPresented() {
   if (read_lock_release_fence_overlay_locks_.empty()) {
-    // Debug crbug.com/1357789.
-    base::debug::DumpWithoutCrashing();
+    // This shouldn't be needed, but could not figure out the cause in
+    // crbug.com/1357789 and crbug.com/1372602
     return;
   }
   read_lock_release_fence_overlay_locks_.pop_front();
@@ -1420,11 +1426,8 @@ void SkiaRenderer::PrepareCanvasForRPDQ(const DrawRPDQParams& rpdq_params,
 
     // Only sample from pixels behind the RPDQ for backdrop filters to avoid
     // color bleeding with pixel-moving filters.
-    if (rpdq_params.bypass_geometry) {
-      crop_rect.Intersect(rpdq_params.bypass_geometry->rect);
-    } else {
-      crop_rect.Intersect(params->rect);
-    }
+    crop_rect.Intersect(params->rect);
+
     SkIRect sk_crop_rect = gfx::RectToSkIRect(gfx::ToEnclosingRect(crop_rect));
 
     SkIRect sk_src_rect = backdrop_filter->filterBounds(
@@ -1455,7 +1458,7 @@ void SkiaRenderer::PrepareCanvasForRPDQ(const DrawRPDQParams& rpdq_params,
   }
 
   SkRect bounds = gfx::RectFToSkRect(
-      rpdq_params.bypass_geometry ? rpdq_params.bypass_geometry->visible_rect
+      rpdq_params.bypass_geometry ? rpdq_params.bypass_geometry->clip_rect
                                   : params->visible_rect);
   current_canvas_->saveLayer(
       SkCanvas::SaveLayerRec(&bounds, &layer_paint, backdrop_filter.get(), 0));
@@ -1542,7 +1545,7 @@ void SkiaRenderer::PreparePaintOrCanvasForRPDQ(
   // Whether or not we saved a layer, clip the bypassed RenderPass's content
   if (needs_bypass_clip) {
     current_canvas_->clipRect(
-        gfx::RectFToSkRect(rpdq_params.bypass_geometry->visible_rect),
+        gfx::RectFToSkRect(rpdq_params.bypass_geometry->clip_rect),
         params->aa_flags != SkCanvas::kNone_QuadAAFlags);
   }
 }
@@ -1575,7 +1578,7 @@ void SkiaRenderer::PrepareColorOrCanvasForRPDQ(
   // the output rect of the renderpass it is bypassing.
   if (rpdq_params.needs_bypass_clip(params->visible_rect)) {
     current_canvas_->clipRect(
-        gfx::RectFToSkRect(rpdq_params.bypass_geometry->visible_rect),
+        gfx::RectFToSkRect(rpdq_params.bypass_geometry->clip_rect),
         params->aa_flags != SkCanvas::kNone_QuadAAFlags);
   }
 }
@@ -1916,7 +1919,7 @@ SkiaRenderer::BypassMode SkiaRenderer::CalculateBypassParams(
         gfx::SkMatrixToTransform(bypass_geometry.transform);
     DCHECK(Is2dScaleTranslateTransform(bypass_transform));
 
-    // `bypass_geometry.visible_rect` is in the first bypassed render pass
+    // `bypass_geometry.clip_rect` is in the first bypassed render pass
     // coordinate space. The last CalculateBypassParams() updated
     // `params->visible_rect` so it is in the current bypassed render pass
     // coordinate space. Transform that into the first bypassed render pass
@@ -1925,17 +1928,17 @@ SkiaRenderer::BypassMode SkiaRenderer::CalculateBypassParams(
     // pass coordinate space.
     gfx::RectF bypass_visible_rect =
         bypass_transform.MapRect(params->visible_rect);
-    bypass_geometry.visible_rect.Intersect(bypass_visible_rect);
+    bypass_geometry.clip_rect.Intersect(bypass_visible_rect);
 
     // Update transform so it maps from `bypass_quad` to the first bypassed
     // render pass coordinate space.
     bypass_geometry.transform.preConcat(bypass_to_rpdq);
   } else {
-    // BypassGeometry holds the RenderPassDrawQuad rect and visible_rect, which
-    // are in the bypassed render pass coordinate space, along with the
-    // transform from bypassed render pass to `bypass_quad` coordinate space.
-    rpdq_params->bypass_geometry = DrawRPDQParams::BypassGeometry{
-        bypass_to_rpdq, params->rect, params->visible_rect};
+    // BypassGeometry holds the RenderPassDrawQuad visible_rect, which is in the
+    // bypassed render pass coordinate space, along with the transform from
+    // `bypass_quad` to bypassed render pass coordinate space.
+    rpdq_params->bypass_geometry =
+        DrawRPDQParams::BypassGeometry{bypass_to_rpdq, params->visible_rect};
   }
 
   if (bypass_quad->shared_quad_state->clip_rect) {
@@ -1943,7 +1946,7 @@ SkiaRenderer::BypassMode SkiaRenderer::CalculateBypassParams(
     // scissor_rect in SetScissorStateForQuad(). That never happens when the
     // render pass is bypassed. The clip_rect is in the same coordinate space as
     // the RPDQ + bypassed render pass aka the same as bypass_geometry.
-    rpdq_params->bypass_geometry->visible_rect.Intersect(
+    rpdq_params->bypass_geometry->clip_rect.Intersect(
         gfx::RectF(*bypass_quad->shared_quad_state->clip_rect));
   }
 
@@ -2409,11 +2412,19 @@ void SkiaRenderer::DrawTextureQuad(const TextureDrawQuad* quad,
     override_color_space = CurrentRenderPassSkColorSpace();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-  // Force SRGB color space if we don't want real color space from media
-  // decoder.
-  if (!use_real_color_space_for_stream_video_ && quad->is_stream_video) {
-    override_color_space = SkColorSpace::MakeSRGB();
+#if BUILDFLAG(IS_ANDROID)
+  if (quad->is_stream_video) {
+    // If overlay processor would override color space, override it here to to
+    // avoid color changes during promotion.
+    if (auto overlay_color_space =
+            OverlayProcessorSurfaceControl::GetOverrideColorSpace()) {
+      override_color_space = overlay_color_space->ToSkColorSpace();
+    }
   }
+#else
+  // Only on android stream video can be composited.
+  CHECK(!quad->is_stream_video);
+#endif
 
   ScopedSkImageBuilder builder(
       this, quad->resource_id(), /*maybe_concurrent_reads=*/true,
@@ -3537,13 +3548,13 @@ void SkiaRenderer::PrepareRenderPassOverlay(
   // When Render Pass has a single quad inside we would draw that directly.
   if (bypass != render_pass_bypass_quads_.end()) {
     bypass_mode = CalculateBypassParams(bypass->second, &rpdq_params, &params);
-    if (bypass_mode == BypassMode::kSkip)
+    if (bypass_mode == BypassMode::kSkip) {
       return;
+    }
 
     // For bypassed render pass, we use the same format and color space for the
     // framebuffer.
-    buffer_format = SharedImageFormat::SinglePlane(
-        GetResourceFormat(reshape_buffer_format()));
+    buffer_format = GetSharedImageFormat(reshape_buffer_format());
     color_space = reshape_color_space();
   } else {
     // A real render pass that was turned into an image
@@ -3683,8 +3694,6 @@ void SkiaRenderer::PrepareRenderPassOverlay(
     OverlayCandidate::ApplyClip(*overlay, gfx::RectF(apply_clip));
     overlay->clip_rect = absl::nullopt;
   }
-  // Assume full damage every time the pass is rendered.
-  overlay->damage_rect = gfx::RectF(filter_bounds);
   // Fill in |format| and |color_space| information based on selected backing.
   overlay->color_space = color_space;
   overlay->format = BufferFormat(buffer_format.resource_format());
@@ -3868,6 +3877,11 @@ void SkiaRenderer::MaybeScheduleBackgroundImage(
   // ScheduleOverlays() will convert this to a buffer-backed solid color overlay
   // if necessary.
   background_candidate.is_solid_color = true;
+  if (overlay_processor_) {
+    background_candidate.damage_rect =
+        overlay_processor_->GetUnassignedDamage();
+    DBG_DRAW_RECT("damage_not_assigned", background_candidate.damage_rect);
+  }
 
   overlay_list.push_back(background_candidate);
 }

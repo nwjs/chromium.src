@@ -193,17 +193,6 @@ FrameSchedulerImpl::FrameSchedulerImpl()
                          /*is_in_embedded_frame_tree=*/false,
                          FrameType::kSubframe) {}
 
-namespace {
-
-void CleanUpQueue(MainThreadTaskQueue* queue) {
-  DCHECK(queue);
-
-  queue->DetachFromMainThreadScheduler();
-  DCHECK(!queue->GetFrameScheduler());
-}
-
-}  // namespace
-
 FrameSchedulerImpl::~FrameSchedulerImpl() {
   weak_factory_.InvalidateWeakPtrs();
 
@@ -212,7 +201,10 @@ FrameSchedulerImpl::~FrameSchedulerImpl() {
     if (task_queue_and_voter.first->CanBeThrottled()) {
       RemoveThrottleableQueueFromBudgetPools(task_queue_and_voter.first);
     }
-    CleanUpQueue(task_queue_and_voter.first);
+    auto* queue = task_queue_and_voter.first;
+    CHECK(queue);
+    queue->DetachTaskQueue();
+    CHECK(!queue->GetFrameScheduler());
   }
 
   if (parent_page_scheduler_) {
@@ -387,6 +379,15 @@ QueueTraits FrameSchedulerImpl::CreateQueueTraitsForTaskType(TaskType type) {
       return IsInflightNetworkRequestBackForwardCacheSupportEnabled()
                  ? UnfreezableLoadingTaskQueueTraits()
                  : LoadingTaskQueueTraits();
+    case TaskType::kNetworkingUnfreezableImageLoading: {
+      QueueTraits queue_traits =
+          IsInflightNetworkRequestBackForwardCacheSupportEnabled()
+              ? UnfreezableLoadingTaskQueueTraits()
+              : LoadingTaskQueueTraits();
+      queue_traits.SetPrioritisationType(
+          QueueTraits::PrioritisationType::kRenderBlocking);
+      return queue_traits;
+    }
     case TaskType::kNetworkingControl:
       return LoadingControlTaskQueueTraits();
     case TaskType::kLowPriorityScriptExecution:
@@ -956,9 +957,7 @@ TaskPriority FrameSchedulerImpl::ComputePriority(
   }
 
   if (task_queue->GetPrioritisationType() ==
-          MainThreadTaskQueue::QueueTraits::PrioritisationType::kInput &&
-      base::FeatureList::IsEnabled(
-          ::blink::features::kInputTargetClientHighPriority)) {
+      MainThreadTaskQueue::QueueTraits::PrioritisationType::kInput) {
     return TaskPriority::kHighestPriority;
   }
 
@@ -969,6 +968,13 @@ TaskPriority FrameSchedulerImpl::ComputePriority(
     // visibility. Consider changing this before shipping anything.
     return parent_page_scheduler_->IsPageVisible()
                ? TaskPriority::kHighPriority
+               : TaskPriority::kNormalPriority;
+  }
+
+  if (task_queue->GetPrioritisationType() ==
+      MainThreadTaskQueue::QueueTraits::PrioritisationType::kRenderBlocking) {
+    return parent_page_scheduler_->IsPageVisible()
+               ? TaskPriority::kExtremelyHighPriority
                : TaskPriority::kNormalPriority;
   }
 
@@ -1166,10 +1172,12 @@ void FrameSchedulerImpl::OnWebSchedulingTaskQueuePriorityChanged(
 
 void FrameSchedulerImpl::OnWebSchedulingTaskQueueDestroyed(
     MainThreadTaskQueue* queue) {
-  if (queue->CanBeThrottled())
+  if (queue->CanBeThrottled()) {
     RemoveThrottleableQueueFromBudgetPools(queue);
+  }
 
-  CleanUpQueue(queue);
+  // Don't run web scheduling tasks after detach.
+  queue->ShutdownTaskQueue();
 
   // After this is called, the queue will be destroyed. Do not attempt
   // to use it further.

@@ -43,9 +43,9 @@ class DownloadBubbleRowView : public views::View,
   explicit DownloadBubbleRowView(
       DownloadUIModel::DownloadUIModelPtr model,
       DownloadBubbleRowListView* row_list_view,
-      DownloadBubbleUIController* bubble_controller,
-      DownloadBubbleNavigationHandler* navigation_handler,
-      Browser* browser,
+      base::WeakPtr<DownloadBubbleUIController> bubble_controller,
+      base::WeakPtr<DownloadBubbleNavigationHandler> navigation_handler,
+      base::WeakPtr<Browser> browser,
       int fixed_width);
   DownloadBubbleRowView(const DownloadBubbleRowView&) = delete;
   DownloadBubbleRowView& operator=(const DownloadBubbleRowView&) = delete;
@@ -94,6 +94,8 @@ class DownloadBubbleRowView : public views::View,
   void SetUIInfoForTesting(DownloadUIModel::BubbleUIInfo ui_info) {
     ui_info_ = ui_info;
   }
+
+  void SimulateMainButtonClickForTesting(const ui::Event& event);
 
  protected:
   // Overrides ui::LayerDelegate:
@@ -212,11 +214,11 @@ class DownloadBubbleRowView : public views::View,
   raw_ptr<DownloadBubbleRowListView> row_list_view_ = nullptr;
 
   // Controller for keeping track of downloads.
-  raw_ptr<DownloadBubbleUIController> bubble_controller_ = nullptr;
+  base::WeakPtr<DownloadBubbleUIController> bubble_controller_ = nullptr;
 
-  raw_ptr<DownloadBubbleNavigationHandler> navigation_handler_ = nullptr;
+  base::WeakPtr<DownloadBubbleNavigationHandler> navigation_handler_ = nullptr;
 
-  raw_ptr<Browser> browser_ = nullptr;
+  base::WeakPtr<Browser> browser_ = nullptr;
 
   download::DownloadItemMode mode_;
   download::DownloadItem::DownloadState state_;

@@ -245,6 +245,8 @@ namespace constants = chrome_browsing_data_remover;
 
 namespace {
 
+constexpr int kTopicsAPITestTaxonomyVersion = 1;
+
 const char kTestRegisterableDomain1[] = "host1.com";
 const char kTestRegisterableDomain3[] = "host3.com";
 
@@ -951,13 +953,6 @@ class RemoveAutofillTester {
   }
 
   bool HasOrigin(const std::string& origin) {
-    const std::vector<autofill::AutofillProfile*>& profiles =
-        personal_data_manager_->GetProfiles();
-    for (const autofill::AutofillProfile* profile : profiles) {
-      if (profile->origin() == origin)
-        return true;
-    }
-
     const std::vector<autofill::CreditCard*>& credit_cards =
         personal_data_manager_->GetCreditCards();
     for (const autofill::CreditCard* credit_card : credit_cards) {
@@ -968,22 +963,17 @@ class RemoveAutofillTester {
     return false;
   }
 
-  // Add two profiles and two credit cards to the database.  In each pair, one
-  // entry has a web origin and the other has a Chrome origin.
+  // Add one profile and two credit cards to the database. One credit card has a
+  // web origin and the other has a Chrome origin.
   void AddProfilesAndCards() {
     std::vector<autofill::AutofillProfile> profiles;
     autofill::AutofillProfile profile;
     profile.set_guid(base::Uuid::GenerateRandomV4().AsLowercaseString());
-    profile.set_origin(kWebOrigin);
     profile.SetRawInfo(autofill::NAME_FIRST, u"Bob");
     profile.SetRawInfo(autofill::NAME_LAST, u"Smith");
     profile.SetRawInfo(autofill::ADDRESS_HOME_ZIP, u"94043");
     profile.SetRawInfo(autofill::EMAIL_ADDRESS, u"sue@example.com");
     profile.SetRawInfo(autofill::COMPANY_NAME, u"Company X");
-    profiles.push_back(profile);
-
-    profile.set_guid(base::Uuid::GenerateRandomV4().AsLowercaseString());
-    profile.set_origin(autofill::kSettingsOrigin);
     profiles.push_back(profile);
 
     personal_data_manager_->SetProfilesForAllSources(&profiles);
@@ -3001,12 +2991,10 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemoveFledgeJoinSettings) {
 TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemoveTopicSettings) {
   auto* privacy_sandbox_settings =
       PrivacySandboxSettingsFactory::GetForProfile(GetProfile());
-  privacy_sandbox::CanonicalTopic topic_one(
-      browsing_topics::Topic(1),
-      privacy_sandbox::CanonicalTopic::AVAILABLE_TAXONOMY);
-  privacy_sandbox::CanonicalTopic topic_two(
-      browsing_topics::Topic(2),
-      privacy_sandbox::CanonicalTopic::AVAILABLE_TAXONOMY);
+  privacy_sandbox::CanonicalTopic topic_one(browsing_topics::Topic(1),
+                                            kTopicsAPITestTaxonomyVersion);
+  privacy_sandbox::CanonicalTopic topic_two(browsing_topics::Topic(2),
+                                            kTopicsAPITestTaxonomyVersion);
   EXPECT_TRUE(privacy_sandbox_settings->IsTopicAllowed(topic_one));
   EXPECT_TRUE(privacy_sandbox_settings->IsTopicAllowed(topic_two));
 

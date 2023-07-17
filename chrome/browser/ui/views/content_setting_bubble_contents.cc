@@ -50,8 +50,36 @@
 #include "ui/views/controls/separator.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/table_layout.h"
+#include "ui/views/view_class_properties.h"
 
 namespace {
+
+// Helper functions to access BubbleContent attributes that depend on user
+// modifiable state.
+std::u16string GetDoneButtonText(
+    const ContentSettingBubbleModel::BubbleContent& content) {
+  return content.is_user_modifiable
+             ? content.done_button_text
+             : l10n_util::GetStringUTF16(IDS_SETTINGS_GOT_IT);
+}
+
+std::u16string GetCancelButtonText(
+    const ContentSettingBubbleModel::BubbleContent& content) {
+  return content.is_user_modifiable ? content.cancel_button_text
+                                    : std::u16string();
+}
+
+bool ShouldShowMediaDeviceMenus(ContentSettingBubbleModel* model) {
+  return model->AsMediaStreamBubbleModel() &&
+         model->bubble_content().is_user_modifiable;
+}
+
+bool ShouldShowManageButton(
+    const ContentSettingBubbleModel::BubbleContent& content) {
+  return content.manage_text_style ==
+             ContentSettingBubbleModel::ManageTextStyle::kButton &&
+         content.is_user_modifiable;
+}
 
 enum class LayoutRowType {
   DEFAULT,
@@ -355,6 +383,9 @@ END_METADATA
 
 // ContentSettingBubbleContents -----------------------------------------------
 
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(ContentSettingBubbleContents,
+                                      kMainElementId);
+
 ContentSettingBubbleContents::ContentSettingBubbleContents(
     std::unique_ptr<ContentSettingBubbleModel> content_setting_bubble_model,
     content::WebContents* web_contents,
@@ -369,9 +400,9 @@ ContentSettingBubbleContents::ContentSettingBubbleContents(
   // has run - so it is never null here.
   DCHECK(content_setting_bubble_model_);
   const std::u16string& done_text =
-      content_setting_bubble_model_->bubble_content().done_button_text;
+      GetDoneButtonText(content_setting_bubble_model_->bubble_content());
   const std::u16string& cancel_text =
-      content_setting_bubble_model_->bubble_content().cancel_button_text;
+      GetCancelButtonText(content_setting_bubble_model_->bubble_content());
   SetButtons(cancel_text.empty()
                  ? ui::DIALOG_BUTTON_OK
                  : (ui::DIALOG_BUTTON_OK | ui::DIALOG_BUTTON_CANCEL));
@@ -392,6 +423,8 @@ ContentSettingBubbleContents::ContentSettingBubbleContents(
 
   set_fixed_width(views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
+
+  SetProperty(views::kElementIdentifierKey, kMainElementId);
 }
 
 ContentSettingBubbleContents::~ContentSettingBubbleContents() {
@@ -486,7 +519,7 @@ void ContentSettingBubbleContents::Init() {
     for (auto i(radio_group.radio_items.begin());
          i != radio_group.radio_items.end(); ++i) {
       auto radio = std::make_unique<views::RadioButton>(*i, 0);
-      radio->SetEnabled(radio_group.user_managed);
+      radio->SetVisible(bubble_content.is_user_modifiable);
       radio->SetMultiLine(true);
       radio_group_.push_back(radio.get());
       rows.push_back({std::move(radio), LayoutRowType::INDENTED});
@@ -498,7 +531,7 @@ void ContentSettingBubbleContents::Init() {
   }
 
   // Layout code for the media device menus.
-  if (content_setting_bubble_model_->AsMediaStreamBubbleModel()) {
+  if (ShouldShowMediaDeviceMenus(content_setting_bubble_model_.get())) {
     rows.push_back(
         {std::make_unique<MediaMenuBlock>(
              base::BindRepeating(&ContentSettingBubbleContents::OnPerformAction,
@@ -595,8 +628,7 @@ ContentSettingBubbleContents::CreateHelpAndManageView() {
   }
   // Optionally add a "Manage" button if the view wants to use a button to
   // invoke a separate management UI related to the dialog content.
-  if (bubble_content.manage_text_style ==
-      ContentSettingBubbleModel::ManageTextStyle::kButton) {
+  if (ShouldShowManageButton(bubble_content)) {
     std::u16string title = bubble_content.manage_text;
     if (title.empty())
       title = l10n_util::GetStringUTF16(IDS_MANAGE);

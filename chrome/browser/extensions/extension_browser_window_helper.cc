@@ -101,9 +101,6 @@ void ExtensionBrowserWindowHelper::OnExtensionUnloaded(
     browser_->window()->Close();
     return;
   }
-  // If an extension page was active, the toolbar may need to be updated to hide
-  // the extension name in the location icon.
-  browser_->window()->UpdateToolbar(nullptr);
 }
 
 void ExtensionBrowserWindowHelper::CleanUpTabsOnUnload(

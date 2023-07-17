@@ -25,11 +25,11 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "base/command_line.h"
+#include "base/values.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_builder.h"
-#include "extensions/common/value_builder.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 namespace {
@@ -47,7 +47,6 @@ class MockHidSystemTrayIcon : public HidSystemTrayIcon {
  public:
   MOCK_METHOD(void, StageProfile, (Profile*), (override));
   MOCK_METHOD(void, UnstageProfile, (Profile*, bool), (override));
-  MOCK_METHOD(bool, ContainProfile, (Profile*), (override));
   MOCK_METHOD(void, ProfileAdded, (Profile*), (override));
   MOCK_METHOD(void, ProfileRemoved, (Profile*), (override));
   MOCK_METHOD(void, NotifyConnectionCountUpdated, (Profile*), (override));
@@ -87,16 +86,16 @@ class HidConnectionTrackerTest : public BrowserWithTestWindowTest {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   scoped_refptr<const extensions::Extension> CreateExtensionWithName(
       const std::string& extension_name) {
-    extensions::DictionaryBuilder manifest;
-    manifest.Set("name", extension_name)
-        .Set("description", "For testing.")
-        .Set("version", "0.1")
-        .Set("manifest_version", 2)
-        .Set("web_accessible_resources",
-             extensions::ListBuilder().Append("index.html").Build());
+    auto manifest = base::Value::Dict()
+                        .Set("name", extension_name)
+                        .Set("description", "For testing.")
+                        .Set("version", "0.1")
+                        .Set("manifest_version", 2)
+                        .Set("web_accessible_resources",
+                             base::Value::List().Append("index.html"));
     scoped_refptr<const extensions::Extension> extension =
         extensions::ExtensionBuilder(/*name=*/extension_name)
-            .MergeManifest(manifest.Build())
+            .MergeManifest(std::move(manifest))
             .Build();
     CHECK(extension);
     return extension;

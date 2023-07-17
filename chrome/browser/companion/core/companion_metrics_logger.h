@@ -7,14 +7,20 @@
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/companion/core/mojom/companion.mojom.h"
+#include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "url/gurl.h"
 
+using side_panel::mojom::PhFeedback;
 using side_panel::mojom::PromoAction;
 using side_panel::mojom::PromoType;
 using side_panel::mojom::UiSurface;
 
 namespace companion {
+
+// Invalid values.
+const int32_t kInvalidPosition = -1;
+const int32_t kInvalidNumChildren = -1;
 
 // Types of events on the UI surfaces. Keep in sync with Companion.UiEvent in
 // enums.xml.
@@ -41,12 +47,23 @@ struct UiSurfaceMetrics {
   // Events on the surface. The last event wins and gets recorded.
   UiEvent last_event = UiEvent::kNotAvailable;
 
+  // The position of the UI surface relative to the companion page.
+  size_t ui_surface_position = kInvalidPosition;
+
+  // The number of child elements that were considered to be shown within the
+  // surface, e.g. number of candidate queries inside related queries component.
+  size_t child_element_available_count = kInvalidNumChildren;
+
   // The number of child elements shown within the surface, e.g. number of
   // related queries inside related queries component.
-  size_t child_element_count = 0;
+  size_t child_element_shown_count = kInvalidNumChildren;
 
   // The number of times user clicked on the surface.
-  size_t click_count = 0;
+  uint32_t click_count = 0;
+
+  // The position of the clicked UI element within its parent list. Applicable
+  // to surfaces that show a list.
+  int32_t click_position = kInvalidPosition;
 };
 
 // Various types of events happening on the promo surfaces on the companion
@@ -77,9 +94,29 @@ class CompanionMetricsLogger {
   CompanionMetricsLogger& operator=(const CompanionMetricsLogger&) = delete;
   ~CompanionMetricsLogger();
 
-  void RecordUiSurfaceShown(UiSurface ui_surface, uint32_t child_element_count);
-  void RecordUiSurfaceClicked(UiSurface ui_surface);
+  void RecordOpenTrigger(absl::optional<SidePanelOpenTrigger> open_trigger);
+
+  // For the following methods, please refer CompanionPageHandler in
+  // companion.mojom for detailed documentation.
+
+  // Logging method corresponding to `RecordUiSurfaceShown` in companion.mojom.
+  void RecordUiSurfaceShown(UiSurface ui_surface,
+                            uint32_t ui_surface_position,
+                            uint32_t child_element_available_count,
+                            uint32_t child_element_shown_count);
+
+  // Logging method corresponding to `RecordUiSurfaceClicked` in
+  // companion.mojom.
+  void RecordUiSurfaceClicked(UiSurface ui_surface, int32_t click_position);
+
+  // Logging method corresponding to `OnPromoAction` in companion.mojom.
   void OnPromoAction(PromoType promo_type, PromoAction promo_action);
+
+  // Logging method corresponding to `OnPhFeedback` in companion.mojom.
+  void OnPhFeedback(PhFeedback ph_feedback);
+
+  // Logging method recording the status of whether user is opted-in to exps.
+  void OnExpsOptInStatusAvailable(bool is_exps_opted_in) const;
 
  private:
   // Meant to be called at destruction. Flushes the UKM metrics.
@@ -93,6 +130,13 @@ class CompanionMetricsLogger {
 
   // Last event on the promo surfaces.
   absl::optional<PromoEvent> last_promo_event_;
+
+  // Last event on the promo surfaces.
+  absl::optional<PhFeedback> last_ph_feedback_;
+
+  // Indicates how the companion side panel was opened. Non-empty for the first
+  // navigation.
+  absl::optional<SidePanelOpenTrigger> open_trigger_;
 };
 
 }  // namespace companion

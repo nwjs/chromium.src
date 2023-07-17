@@ -244,7 +244,7 @@ base::expected<base::Value::Dict, std::string> ExtensionTabUtil::OpenTab(
   // -title
   // -favIconUrl
 
-  GURL url;
+  GURL url(chrome::kChromeUINewTabURL);
   if (params.url) {
     auto result = ExtensionTabUtil::PrepareURLForNavigation(
         *params.url, function->extension(), function->browser_context());
@@ -252,8 +252,6 @@ base::expected<base::Value::Dict, std::string> ExtensionTabUtil::OpenTab(
       return base::unexpected(result.error());
     }
     url = std::move(*result);
-  } else {
-    url = GURL(chrome::kChromeUINewTabURL);
   }
 
   // Default to foreground for the new tab. The presence of 'active' property

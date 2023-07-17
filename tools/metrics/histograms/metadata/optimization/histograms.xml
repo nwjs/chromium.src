@@ -25,7 +25,11 @@ chromium-metrics-reviews@google.com.
 <variants name="AnnotationType">
   <variant name="ContentVisibility" summary="Content Visibility"/>
   <variant name="PageEntities" summary="Page Entities"/>
-  <variant name="PageTopics" summary="Page Topics"/>
+  <variant name="PageTopics" summary="Page Topics">
+    <obsolete>
+      Removed in M115.
+    </obsolete>
+  </variant>
   <variant name="Unknown" summary="Unknown"/>
 </variants>
 
@@ -183,7 +187,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.ClearFetchedHints.StoreAvailable"
-    enum="BooleanAvailable" expires_after="2023-06-18">
+    enum="BooleanAvailable" expires_after="M117">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -217,7 +221,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintCache.HintType.Loaded"
-    enum="HintCacheStoreEntryType" expires_after="2023-06-25">
+    enum="HintCacheStoreEntryType" expires_after="M117">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -228,7 +232,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.HintCacheLevelDBStore.LoadMetadataResult"
     enum="OptimizationGuideHintCacheLevelDBStoreLoadMetadataResult"
-    expires_after="2023-06-18">
+    expires_after="2023-11-12">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -299,7 +303,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintsFetcher.GetHintsRequest.HintCount"
-    units="units" expires_after="2023-09-10">
+    units="units" expires_after="2023-11-12">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -309,7 +313,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintsFetcher.GetHintsRequest.HostCount"
-    units="total host count" expires_after="2023-07-09">
+    units="total host count" expires_after="M117">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -339,7 +343,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.HintsFetcher.GetHintsRequest.UrlCount"
-    units="total url count" expires_after="2023-09-10">
+    units="total url count" expires_after="2023-11-12">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -385,7 +389,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.HintsManager.ConcurrentPageNavigationFetches"
-    units="counts" expires_after="2023-09-03">
+    units="counts" expires_after="2023-11-12">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -410,7 +414,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.HintsManager.RaceNavigationFetchAttemptStatus"
     enum="OptimizationGuideRaceNavigationFetchAttemptStatus"
-    expires_after="2023-09-10">
+    expires_after="2023-11-12">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -449,7 +453,8 @@ chromium-metrics-reviews@google.com.
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
     Records whether the model execution for {OptimizationTarget} was cancelled
-    due to running past the configured timeout.
+    due to running past the configured timeout. In M115+ if batch execution is
+    used, this is recorded once per each input within the batch.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -462,7 +467,8 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the time duration it took execute the model for
     {OptimizationTarget}. Recorded once per model execution for
-    {OptimizationTarget}.
+    {OptimizationTarget}. In M115+ if batch execution is used, this is recorded
+    once per each input within the batch.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -475,7 +481,8 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the result of attempting to execute a {OptimizationTarget} model,
     including loading the file from disk. Recorded once per model execution
-    attempt for {OptimizationTarget}.
+    attempt for {OptimizationTarget}. In M115+ if batch execution is used, this
+    is recorded once per each input within the batch.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -490,7 +497,22 @@ chromium-metrics-reviews@google.com.
     {OptimizationTarget}. Recorded once per model execution for
     {OptimizationTarget}. This is effectively the same as
     `OptimizationGuide.ModelExecutor.ExecutionLatency.{OptimizationTarget}` but
-    this is recorded using `base::ElapsedThreadTimer` instead.
+    this is recorded using `base::ElapsedThreadTimer` instead. In M115+ if batch
+    execution is used, this is recorded once per each input within the batch.
+  </summary>
+  <token key="OptimizationTarget" variants="OptimizationTarget"/>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.ModelExecutor.ExecutionThreadTimeMicroseconds.{OptimizationTarget}"
+    units="microseconds" expires_after="M117">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>chrome-intelligence-core@google.com</owner>
+  <summary>
+    Same as OptimizationGuide.ModelExecutor.ExecutionThreadTime, but recorded in
+    microseconds to enable high precision timing of fast models.
+
+    Note: This metric is dropped for clients without high-precision clocks.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -533,7 +555,12 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the execution latency for the {OptimizationTarget} model run by the
     model executor from when the task is posted from execution complete.
-    Recorded once per {OptimizationTarget} model execution attempt.
+    Recorded once per {OptimizationTarget} model execution attempt. In M115+ if
+    batch execution is used, this is recorded once per batch whether.
+
+    In M115, this was changed to always record the task execution latency
+    whether or not the task succeeded, whereas before it was only recorded on
+    success.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -546,7 +573,8 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the duration a {OptimizationTarget} model execution request spent
     waiting for the background task queue to run the task. Recorded once per
-    {OptimizationTarget} model execution attempt.
+    {OptimizationTarget} model execution attempt. In M115+ if batch execution is
+    used, this is recorded once per batch.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -558,7 +586,8 @@ chromium-metrics-reviews@google.com.
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
     Records the time duration between runs of the model for
-    {OptimizationTarget}. Recorded once for every model run after the first.
+    {OptimizationTarget}. Recorded once for every model run after the first. In
+    M115+ if batch execution is used, this is recorded once per batch.
   </summary>
   <token key="OptimizationTarget" variants="OptimizationTarget"/>
 </histogram>
@@ -628,7 +657,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.AnnotateVisitResultCached"
-    enum="BooleanCacheHit" expires_after="2023-09-10">
+    enum="BooleanCacheHit" expires_after="2023-11-12">
   <owner>mcrouse@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -664,7 +693,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.PageContentAnnotations.EntityCollection_50"
-    enum="OptimizationGuidePageEntityCollection" expires_after="2023-09-17">
+    enum="OptimizationGuidePageEntityCollection" expires_after="2023-11-19">
   <owner>tbansal@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -674,6 +703,17 @@ chromium-metrics-reviews@google.com.
     Note that these are emitted when the user browses to a webpage. When that
     happens, multiple collections may be emitted per webpage. Only the
     collections associated with high weight entities are recorded.
+  </summary>
+</histogram>
+
+<histogram
+    name="OptimizationGuide.PageContentAnnotations.GoogleSearchMetadataExtracted"
+    enum="Boolean" expires_after="M120">
+  <owner>sophiechang@chromium.org</owner>
+  <owner>chrome-intelligence-core@google.com</owner>
+  <summary>
+    Records whether the TemplateURLService was able to extract metadata on a
+    Google SRP. Recorded once for each local visit to the Google SRP.
   </summary>
 </histogram>
 
@@ -704,7 +744,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.SalientImageAvailability"
-    enum="OptimizationGuideSalientImageAvailability" expires_after="2023-09-10">
+    enum="OptimizationGuideSalientImageAvailability" expires_after="2023-11-12">
   <owner>tbansal@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>Records the availability of salient images on page load.</summary>
@@ -712,7 +752,10 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotations.TemplateURLServiceLoadedAtNavigationFinish"
-    enum="BooleanLoaded" expires_after="M117">
+    enum="BooleanLoaded" expires_after="M115">
+  <obsolete>
+    Obsolete as of 04/2023.
+  </obsolete>
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -773,7 +816,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="OptimizationGuide.PageContentAnnotationsService.ContentAnnotationsStorageStatus"
     enum="OptimizationGuidePageContentAnnotationsStorageStatus"
-    expires_after="2023-10-22">
+    expires_after="2023-11-19">
   <owner>sophiechang@chromium.org</owner>
   <owner>mcrouse@chromium.org</owner>
   <summary>
@@ -870,7 +913,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageContentAnnotationsService.VisibilityScoreOfGoogleSRP"
-    units="score" expires_after="M117">
+    units="score" expires_after="2023-11-12">
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -913,7 +956,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PageEntitiesModelHandler.CreatedSuccessfully"
-    enum="BooleanSuccess" expires_after="2023-08-27">
+    enum="BooleanSuccess" expires_after="2023-11-12">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -925,7 +968,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.PageEntitiesModelHandler.CreationStatus"
     enum="OptimizationGuideEntityAnnotatorCreationStatus"
-    expires_after="2023-08-27">
+    expires_after="2023-11-12">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -998,6 +1041,9 @@ chromium-metrics-reviews@google.com.
 <histogram name="OptimizationGuide.PageTopicsOverrideList.FileLoadResult"
     enum="OptimizationGuidePageTopicsOverrideListFileLoadResult"
     expires_after="2023-10-15">
+  <obsolete>
+    Removed in M115.
+  </obsolete>
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1011,6 +1057,9 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.PageTopicsOverrideList.GotFile"
     enum="Boolean" expires_after="M117">
+  <obsolete>
+    Removed in M115.
+  </obsolete>
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1021,6 +1070,9 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="OptimizationGuide.PageTopicsOverrideList.UsedOverride"
     enum="Boolean" expires_after="2023-10-15">
+  <obsolete>
+    Removed in M115.
+  </obsolete>
   <owner>robertogden@chromium.org</owner>
   <owner>chrome-intelligence-core@google.com</owner>
   <summary>
@@ -1228,7 +1280,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelFetcher.GetModelsResponse.NetErrorCode"
-    enum="NetErrorCodes" expires_after="2023-10-22">
+    enum="NetErrorCodes" expires_after="2023-11-19">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1258,7 +1310,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="OptimizationGuide.PredictionModelFetcher.GetModelsResponse.Status"
-    enum="HttpResponseCode" expires_after="2023-10-22">
+    enum="HttpResponseCode" expires_after="2023-11-19">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>
@@ -1375,7 +1427,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="OptimizationGuide.ProcessHintsResult"
-    enum="OptimizationGuideProcessHintsResult" expires_after="2023-08-27">
+    enum="OptimizationGuideProcessHintsResult" expires_after="2023-11-12">
   <owner>mcrouse@chromium.org</owner>
   <owner>sophiechang@chromium.org</owner>
   <summary>

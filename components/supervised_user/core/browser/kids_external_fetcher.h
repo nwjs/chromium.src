@@ -5,14 +5,18 @@
 #ifndef COMPONENTS_SUPERVISED_USER_CORE_BROWSER_KIDS_EXTERNAL_FETCHER_H_
 #define COMPONENTS_SUPERVISED_USER_CORE_BROWSER_KIDS_EXTERNAL_FETCHER_H_
 
+#include <string>
+
 #include "base/functional/callback_forward.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/strings/string_piece.h"
 #include "base/types/strong_alias.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/supervised_user/core/browser/kids_external_fetcher_config.h"
 #include "components/supervised_user/core/browser/proto/kidschromemanagement_messages.pb.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "url/gurl.h"
 
 // -----------------------------------------------------------------------------
 // Usage documentation
@@ -25,18 +29,14 @@
 // * serializing the request and parsing the response,
 // * submitting metrics.
 //
-// If you want to create new fetcher factory method, then some implementation
+// If you want to create new fetcher factory method, then some
 // details must be provided in order to enable fetching for said <Request,
 // Response> pair. The new fetcher factory should have at least the following
-// arguments: signin::IdentityManager, network::SharedURLLoaderFactory, url of
-// the endpoint and consuming callback provided.
+// arguments: signin::IdentityManager, network::SharedURLLoaderFactory,
+// consuming callback and must reference a static configuration.
 //
-// In the corresponding cc file, there should be:
-// * a traffic annotation tag for the request, assuming that one Request
-// represents one API endpoint, in the implementation cc file (example:
-// GetDefaultNetworkTrafficAnnotationTag),
-// * a request path method for the request (example: GetPathForRequest),
-// * a metrics key constructing method (example: CreateMetricKey).
+// The static configuration should be placed in the
+// kids_external_fetcher_config.h module.
 
 // Holds the status of the fetch. The callback's response will be set iff the
 // status is ok.
@@ -44,17 +44,18 @@
 // numeric values should never be reused.
 class KidsExternalFetcherStatus {
  public:
-  using NetOrHttpErrorType = base::StrongAlias<class NetOrHttpErrorTag, int>;
+  using HttpStatusOrNetErrorType =
+      base::StrongAlias<class HttpStatusOrNetErrorTag, int>;
 
   enum State {
     OK = 0,
     GOOGLE_SERVICE_AUTH_ERROR = 1,  // Error occurred during the access token
                                     // fetching phase. See
                                     // GetGoogleServiceAuthError for details.
-    NET_OR_HTTP_ERROR = 2,  // The request was performed, but network or http
-                            // returned errors. This is default chromium
-                            // approach to combine those two error domains.
-    INVALID_RESPONSE = 3,   // The request was performed without error, but http
+    HTTP_STATUS_OR_NET_ERROR =
+        2,  // The request was performed, but network or http returned errors.
+            // This is default chromium approach to combine those two domains.
+    INVALID_RESPONSE = 3,  // The request was performed without error, but http
                            // response could not be processed or was unexpected.
     DATA_ERROR = 4,  // The request was parsed, but did not contain all required
                      // data. Not signalled by this fetcher itself, but might be
@@ -77,9 +78,9 @@ class KidsExternalFetcherStatus {
       GoogleServiceAuthError
           error);  // The copy follows the interface of
                    // https://source.chromium.org/chromium/chromium/src/+/main:components/signin/public/identity_manager/primary_account_access_token_fetcher.h;l=241;drc=8ba1bad80dc22235693a0dd41fe55c0fd2dbdabd
-  static KidsExternalFetcherStatus NetOrHttpError(
-      int error_code = 0);  // Either net::Error (negative numbers, 0 denotes
-                            // success) or HTTP error (standard error codes).
+  static KidsExternalFetcherStatus HttpStatusOrNetError(
+      int value = 0);  // Either net::Error (negative numbers, 0 denotes
+                       // success) or HTTP status.
   static KidsExternalFetcherStatus InvalidResponse();
   static KidsExternalFetcherStatus DataError();
 
@@ -92,14 +93,22 @@ class KidsExternalFetcherStatus {
   // Indicates whether the status is not ok and there is no point in retrying.
   bool IsPersistentError() const;
 
+  // Returns a message describing the status.
+  std::string ToString() const;
+
+  // Translate the status to metric enum label as defined in
+  // tools/metrics/histograms/enums.xml.
+  std::string ToMetricEnumLabel() const;
+
   State state() const;
-  NetOrHttpErrorType net_or_http_error_code() const;
+  HttpStatusOrNetErrorType http_status_or_net_error() const;
   const class GoogleServiceAuthError& google_service_auth_error() const;
 
  private:
   // Disallows impossible states.
   explicit KidsExternalFetcherStatus(State state);
-  explicit KidsExternalFetcherStatus(NetOrHttpErrorType error_code);
+  explicit KidsExternalFetcherStatus(
+      HttpStatusOrNetErrorType http_status_or_net_error);
   explicit KidsExternalFetcherStatus(
       class GoogleServiceAuthError
           google_service_auth_error);  // Implies State ==
@@ -109,8 +118,8 @@ class KidsExternalFetcherStatus {
       class GoogleServiceAuthError google_service_auth_error);
 
   State state_;
-  NetOrHttpErrorType net_or_http_error_code_{
-      0};  // Meaningful iff state_ == NET_OR_HTTP_ERROR
+  HttpStatusOrNetErrorType http_status_or_net_error_{
+      0};  // Meaningful iff state_ == HTTP_STATUS_OR_NET_ERROR
   class GoogleServiceAuthError google_service_auth_error_;
 };
 
@@ -133,9 +142,10 @@ std::unique_ptr<
 FetchListFamilyMembers(
     signin::IdentityManager& identity_manager,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    base::StringPiece url,
     KidsExternalFetcher<
         kids_chrome_management::ListFamilyMembersRequest,
-        kids_chrome_management::ListFamilyMembersResponse>::Callback callback);
+        kids_chrome_management::ListFamilyMembersResponse>::Callback callback,
+    const supervised_user::FetcherConfig& config =
+        supervised_user::kListFamilyMembersConfig);
 
 #endif  // COMPONENTS_SUPERVISED_USER_CORE_BROWSER_KIDS_EXTERNAL_FETCHER_H_

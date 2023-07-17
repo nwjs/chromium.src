@@ -17,7 +17,6 @@
 #include "base/android/jni_string.h"
 #include "base/android/scoped_java_ref.h"
 #include "base/containers/contains.h"
-#include "base/cxx17_backports.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
@@ -291,7 +290,10 @@ void TabContentManager::CaptureThumbnail(
   const int tab_id = tab_android->GetAndroidId();
 
   content::RenderWidgetHostView* rwhv = GetRwhvForTab(env, tab);
-  if (!rwhv) {
+  // If the tab's ID is in the list of VisibleIds then it has a LayoutTab
+  // active and can be captured. Otherwise the surface will be missing and
+  // the capture will stall forever.
+  if (!rwhv || !thumbnail_cache_->IsInVisibleIds(tab_id)) {
     if (j_callback) {
       RunObjectCallbackAndroid(j_callback, nullptr);
     }

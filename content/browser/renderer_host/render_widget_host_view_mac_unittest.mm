@@ -11,6 +11,7 @@
 
 #include "base/command_line.h"
 #include "base/containers/queue.h"
+#include "base/mac/scoped_cftyperef.h"
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -235,14 +236,13 @@ blink::WebPointerProperties::PointerType GetPointerType(
 NSEvent* MockTabletEventWithParams(CGEventType type,
                                    bool is_entering_proximity,
                                    NSPointingDeviceType device_type) {
-  CGEventRef cg_event = CGEventCreate(NULL);
+  base::ScopedCFTypeRef<CGEventRef> cg_event(CGEventCreate(/*source=*/nullptr));
   CGEventSetType(cg_event, type);
   CGEventSetIntegerValueField(cg_event, kCGTabletProximityEventEnterProximity,
                               is_entering_proximity);
   CGEventSetIntegerValueField(cg_event, kCGTabletProximityEventPointerType,
                               device_type);
   NSEvent* event = [NSEvent eventWithCGEvent:cg_event];
-  CFRelease(cg_event);
   return event;
 }
 
@@ -256,8 +256,8 @@ NSEvent* MockMouseEventWithParams(CGEventType mouse_type,
   // an NSEvent, below, flips the location back to bottom left origin.
   CGPoint cg_location =
       CGPointMake(location.x, NSHeight(NSScreen.screens[0].frame) - location.y);
-  CGEventRef cg_event =
-      CGEventCreateMouseEvent(NULL, mouse_type, cg_location, button);
+  base::ScopedCFTypeRef<CGEventRef> cg_event(CGEventCreateMouseEvent(
+      /*source=*/nullptr, mouse_type, cg_location, button));
   CGEventSetIntegerValueField(cg_event, kCGMouseEventSubtype, subtype);
   CGEventSetIntegerValueField(cg_event, kCGTabletProximityEventEnterProximity,
                               is_entering_proximity);
@@ -269,7 +269,6 @@ NSEvent* MockMouseEventWithParams(CGEventType mouse_type,
       base::Time::kNanosecondsPerMicrosecond;
   CGEventSetTimestamp(cg_event, timestamp);
   NSEvent* event = [NSEvent eventWithCGEvent:cg_event];
-  CFRelease(cg_event);
   return event;
 }
 
@@ -432,12 +431,11 @@ gfx::Rect GetExpectedRect(const gfx::Point& origin,
 // should correspond to a method in |MockPhaseMethods| that returns the desired
 // phase.
 NSEvent* MockScrollWheelEventWithPhase(SEL mockPhaseSelector, int32_t delta) {
-  CGEventRef cg_event = CGEventCreateScrollWheelEvent(
-      nullptr, kCGScrollEventUnitLine, 1, delta, 0);
+  base::ScopedCFTypeRef<CGEventRef> cg_event(CGEventCreateScrollWheelEvent(
+      /*source=*/nullptr, kCGScrollEventUnitLine, 1, delta, 0));
   CGEventTimestamp timestamp = 0;
   CGEventSetTimestamp(cg_event, timestamp);
   NSEvent* event = [NSEvent eventWithCGEvent:cg_event];
-  CFRelease(cg_event);
   method_setImplementation(
       class_getInstanceMethod([NSEvent class], @selector(phase)),
       [MockPhaseMethods instanceMethodForSelector:mockPhaseSelector]);
@@ -449,12 +447,11 @@ NSEvent* MockScrollWheelEventWithMomentumPhase(SEL mockPhaseSelector,
   // Create a fake event with phaseNone. This is for resetting the phase info
   // of CGEventRef.
   MockScrollWheelEventWithPhase(@selector(phaseNone), 0);
-  CGEventRef cg_event = CGEventCreateScrollWheelEvent(
-      nullptr, kCGScrollEventUnitLine, 1, delta, 0);
+  base::ScopedCFTypeRef<CGEventRef> cg_event(CGEventCreateScrollWheelEvent(
+      /*source=*/nullptr, kCGScrollEventUnitLine, 1, delta, 0));
   CGEventTimestamp timestamp = 0;
   CGEventSetTimestamp(cg_event, timestamp);
   NSEvent* event = [NSEvent eventWithCGEvent:cg_event];
-  CFRelease(cg_event);
   method_setImplementation(
       class_getInstanceMethod([NSEvent class], @selector(momentumPhase)),
       [MockPhaseMethods instanceMethodForSelector:mockPhaseSelector]);
@@ -1792,6 +1789,97 @@ TEST_F(InputMethodMacTest, SetMarkedText) {
   base::RunLoop().RunUntilIdle();
   events = host_->GetAndResetDispatchedMessages();
   EXPECT_EQ("SetComposition", GetMessageNames(events));
+}
+
+// This test makes sure that selectedRange and markedRange are updated correctly
+// in various scenarios.
+TEST_F(InputMethodMacTest, MarkedRangeSelectedRange) {
+  // If the replacement range is valid, the range should be replaced with the
+  // new text.
+  {
+    NSString* text = @"sample text";
+    NSRange selectedRange = NSMakeRange(2, 4);
+    NSRange replacementRange = NSMakeRange(1, 1);
+
+    SetTextInputType(tab_view(), ui::TEXT_INPUT_TYPE_TEXT);
+    EXPECT_EQ(tab_widget(), text_input_manager()->GetActiveWidget());
+    [tab_GetInProcessNSView() setMarkedText:text
+                              selectedRange:selectedRange
+                           replacementRange:replacementRange];
+
+    NSRange actualSelectedRange = [tab_GetInProcessNSView() selectedRange];
+    NSRange actualMarkedRange = [tab_GetInProcessNSView() markedRange];
+
+    EXPECT_EQ((signed)actualMarkedRange.location, 1);
+    EXPECT_EQ((signed)actualMarkedRange.length, 11);
+    EXPECT_EQ((signed)actualSelectedRange.location, 3);
+    EXPECT_EQ((signed)actualSelectedRange.length, 4);
+  }
+
+  // If the text is empty, the marked range should be reset and the selection
+  // should be collapsed to the begining of the old marked range.
+  {
+    NSString* text = @"";
+    NSRange selectedRange = NSMakeRange(0, 0);
+    NSRange replacementRange = NSMakeRange(NSNotFound, 0);
+
+    EXPECT_EQ(tab_widget(), text_input_manager()->GetActiveWidget());
+    [tab_GetInProcessNSView() setMarkedText:text
+                              selectedRange:selectedRange
+                           replacementRange:replacementRange];
+
+    NSRange actualSelectedRange = [tab_GetInProcessNSView() selectedRange];
+    NSRange actualMarkedRange = [tab_GetInProcessNSView() markedRange];
+
+    EXPECT_EQ((signed)actualMarkedRange.location, (signed)NSNotFound);
+    EXPECT_EQ((signed)actualMarkedRange.length, 0);
+    EXPECT_EQ((signed)actualSelectedRange.location, 1);
+    EXPECT_EQ((signed)actualSelectedRange.length, 0);
+  }
+
+  // If no marked range and no replacement range, the current selection should
+  // be replaced.
+  {
+    NSString* text = @"sample2";
+    NSRange selectedRange = NSMakeRange(3, 2);
+    NSRange replacementRange = NSMakeRange(NSNotFound, 0);
+
+    SetTextInputType(tab_view(), ui::TEXT_INPUT_TYPE_TEXT);
+    EXPECT_EQ(tab_widget(), text_input_manager()->GetActiveWidget());
+    [tab_GetInProcessNSView() setMarkedText:text
+                              selectedRange:selectedRange
+                           replacementRange:replacementRange];
+
+    NSRange actualSelectedRange = [tab_GetInProcessNSView() selectedRange];
+    NSRange actualMarkedRange = [tab_GetInProcessNSView() markedRange];
+
+    EXPECT_EQ((signed)actualMarkedRange.location, 1);
+    EXPECT_EQ((signed)actualMarkedRange.length, 7);
+    EXPECT_EQ((signed)actualSelectedRange.location, 4);
+    EXPECT_EQ((signed)actualSelectedRange.length, 2);
+  }
+
+  // If the marked range is valid and there is no replacement range, the current
+  // marked range should be replaced.
+  {
+    NSString* text = @"new";
+    NSRange selectedRange = NSMakeRange(2, 1);
+    NSRange replacementRange = NSMakeRange(NSNotFound, 0);
+
+    SetTextInputType(tab_view(), ui::TEXT_INPUT_TYPE_TEXT);
+    EXPECT_EQ(tab_widget(), text_input_manager()->GetActiveWidget());
+    [tab_GetInProcessNSView() setMarkedText:text
+                              selectedRange:selectedRange
+                           replacementRange:replacementRange];
+
+    NSRange actualSelectedRange = [tab_GetInProcessNSView() selectedRange];
+    NSRange actualMarkedRange = [tab_GetInProcessNSView() markedRange];
+
+    EXPECT_EQ((signed)actualMarkedRange.location, 1);
+    EXPECT_EQ((signed)actualMarkedRange.length, 3);
+    EXPECT_EQ((signed)actualSelectedRange.location, 3);
+    EXPECT_EQ((signed)actualSelectedRange.length, 1);
+  }
 }
 
 // This test verifies that calling insertText on the cocoa view will lead to a

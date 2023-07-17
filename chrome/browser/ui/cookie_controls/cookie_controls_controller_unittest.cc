@@ -27,9 +27,11 @@ using StorageType =
 
 class MockCookieControlsView : public content_settings::CookieControlsView {
  public:
-  MOCK_METHOD4(OnStatusChanged,
-               void(CookieControlsStatus, CookieControlsEnforcement, int, int));
-  MOCK_METHOD2(OnCookiesCountChanged, void(int, int));
+  MOCK_METHOD(void,
+              OnStatusChanged,
+              (CookieControlsStatus, CookieControlsEnforcement, int, int));
+  MOCK_METHOD(void, OnCookiesCountChanged, (int, int));
+  MOCK_METHOD(void, OnStatefulBounceCountChanged, (int));
 };
 
 }  // namespace

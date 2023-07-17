@@ -114,6 +114,7 @@ void AddUiColorMixer(ColorProvider* provider,
   mixer[kColorLiveCaptionBubbleLink] = {kColorLiveCaptionBubbleCheckbox};
   mixer[kColorMenuBackground] = {kColorPrimaryBackground};
   mixer[kColorMenuBorder] = {kColorMidground};
+  mixer[kColorMenuButtonBackground] = {kColorMenuBackground};
   mixer[kColorMenuDropmarker] = {kColorPrimaryForeground};
   mixer[kColorMenuIcon] = {kColorIcon};
   mixer[kColorMenuItemBackgroundAlertedInitial] =
@@ -128,7 +129,7 @@ void AddUiColorMixer(ColorProvider* provider,
   mixer[kColorMenuItemForegroundHighlighted] = {kColorMenuItemForeground};
   mixer[kColorMenuItemForegroundSecondary] = {kColorSecondaryForeground};
   mixer[kColorMenuItemForegroundSelected] = {kColorMenuItemForeground};
-  mixer[kColorMenuSeparator] = {kColorMidground};
+  mixer[kColorMenuSeparator] = {kColorSeparator};
   mixer[kColorNotificationActionsBackground] = {
       kColorNotificationBackgroundActive};
   mixer[kColorNotificationBackgroundActive] = {kColorSubtleEmphasisBackground};
@@ -217,7 +218,7 @@ void AddUiColorMixer(ColorProvider* provider,
   mixer[kColorShadowValueKeyShadowElevationSixteen] =
       SetAlpha(kColorShadowBase, 0x1a);
   mixer[kColorSidePanelComboboxBorder] = {SK_ColorTRANSPARENT};
-  mixer[kColorSidePanelComboboxBackground] = {kColorPrimaryBackground};
+  mixer[kColorSidePanelComboboxBackground] = {kColorSubtleEmphasisBackground};
   mixer[kColorSliderThumb] =
       PickGoogleColor(kColorAccent, kColorDialogBackground,
                       color_utils::kMinimumVisibleContrastRatio);

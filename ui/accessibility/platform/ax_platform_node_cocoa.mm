@@ -1821,7 +1821,14 @@ void CollectAncestorRoles(
   for (auto child_iterator_ptr = _node->GetDelegate()->ChildrenBegin();
        *child_iterator_ptr != *_node->GetDelegate()->ChildrenEnd();
        ++(*child_iterator_ptr)) {
-    [children addObject:child_iterator_ptr->GetNativeViewAccessible()];
+    ui::AXPlatformNodeDelegate* child = child_iterator_ptr->get();
+    if (child && child->IsInvisibleOrIgnored()) {
+      [children
+          addObjectsFromArray:[child_iterator_ptr->GetNativeViewAccessible()
+                                  accessibilityChildren]];
+    } else {
+      [children addObject:child_iterator_ptr->GetNativeViewAccessible()];
+    }
   }
   return NSAccessibilityUnignoredChildren(children);
 }
@@ -2592,8 +2599,13 @@ void CollectAncestorRoles(
   if (@available(macOS 11.0, *)) {
     NSString* description = [self descriptionIfFromAriaDescription];
     if ([description length]) {
-      return @[ [AXCustomContent customContentWithLabel:@"description"
-                                                  value:description] ];
+      AXCustomContent* contentItem =
+          [AXCustomContent customContentWithLabel:@"description"
+                                            value:description];
+      // A custom content importance of high causes it to be spoken
+      // automatically, rather than "More content available".
+      [contentItem setImportance:AXCustomContentImportanceHigh];
+      return @[ contentItem ];
     }
   }
 

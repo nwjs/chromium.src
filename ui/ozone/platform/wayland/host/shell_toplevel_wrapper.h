@@ -33,6 +33,8 @@ enum class ZOrderLevel;
 // and move.
 class ShellToplevelWrapper {
  public:
+  using ShapeRects = std::vector<gfx::Rect>;
+
   enum class DecorationMode {
     // Initial mode that the surface has till the first configure event.
     kNone,
@@ -177,6 +179,13 @@ class ShellToplevelWrapper {
   // feedback.
   virtual void ShowSnapPreview(WaylandWindowSnapDirection snap_direction,
                                bool allow_haptic_feedback) = 0;
+
+  // Sets the persistable window property.
+  virtual void SetPersistable(bool persistable) const = 0;
+
+  // Sets the shape of the toplevel window. If `shape_rects` is null this will
+  // unset the window shape.
+  virtual void SetShape(std::unique_ptr<ShapeRects> shape_rects) = 0;
 
   // Casts `this` to XDGToplevelWrapperImpl, if it is of that type.
   virtual XDGToplevelWrapperImpl* AsXDGToplevelWrapper();

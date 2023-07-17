@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/memory/raw_ptr.h"
-
 #import "chrome/browser/app_controller_mac.h"
 
 #include <dispatch/dispatch.h>
@@ -21,6 +19,7 @@
 #include "base/functional/bind.h"
 #include "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/run_loop.h"
 #include "base/scoped_multi_source_observation.h"
@@ -1059,9 +1058,8 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
                 download_core_service->HasCreatedDownloadManager()
             ? profile->GetDownloadManager()
             : nullptr;
-    if (download_manager &&
-        download_manager->NonMaliciousInProgressCount() > 0) {
-      int downloadCount = download_manager->NonMaliciousInProgressCount();
+    if (download_manager && download_manager->BlockingShutdownCount() > 0) {
+      int downloadCount = download_manager->BlockingShutdownCount();
       if ([self userWillWaitForInProgressDownloads:downloadCount]) {
         // Create a new browser window (if necessary) and navigate to the
         // downloads page if the user chooses to wait.

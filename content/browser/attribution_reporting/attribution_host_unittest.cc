@@ -114,6 +114,22 @@ class AttributionHostTest : public RenderViewHostTestHarness {
     return AttributionHost::FromWebContents(web_contents());
   }
 
+  void SetFencedFrameConfigPermissions(RenderFrameHost* fenced_frame) {
+    // Permissions in a fenced frame are tied to its urn:uuid-bound properties
+    // object. Because no navigation actually takes place in these tests, the
+    // code path that sets the permissions in the properties is never actually
+    // exercised. Instead, we need to manually inject the permissions into the
+    // properties object to ensure that the fenced frame loads with the needed
+    // permissions policy set.
+    FrameTreeNode* fenced_frame_node =
+        static_cast<RenderFrameHostImpl*>(fenced_frame)->frame_tree_node();
+    absl::optional<FencedFrameProperties> new_props =
+        fenced_frame_node->GetFencedFrameProperties();
+    new_props->required_permissions_to_load.push_back(
+        blink::mojom::PermissionsPolicyFeature::kAttributionReporting);
+    fenced_frame_node->set_fenced_frame_properties(new_props);
+  }
+
   void ClearAttributionManager() {
     mock_data_host_manager_ = nullptr;
     OverrideAttributionManager(nullptr);
@@ -213,21 +229,21 @@ TEST_F(AttributionHostTest, ValidSourceRegistrations_ForwardedToManager) {
       NotifyNavigationRegistrationData(
           impression.attribution_src_token, redirect_headers.get(),
           /*reporting_origin=*/b_origin, source_origin, _, impression.nav_type,
-          /*is_within_fenced_frame=*/false, frame_id, _,
+          /*is_within_fenced_frame=*/false, frame_id, _, _,
           /*is_final_response=*/false));
   EXPECT_CALL(
       *mock_data_host_manager(),
       NotifyNavigationRegistrationData(
           impression.attribution_src_token, redirect_headers.get(),
           /*reporting_origin=*/c_origin, source_origin, _, impression.nav_type,
-          /*is_within_fenced_frame=*/false, frame_id, _,
+          /*is_within_fenced_frame=*/false, frame_id, _, _,
           /*is_final_response=*/false));
   EXPECT_CALL(
       *mock_data_host_manager(),
       NotifyNavigationRegistrationData(
           impression.attribution_src_token, headers.get(),
           /*reporting_origin=*/d_origin, source_origin, _, impression.nav_type,
-          /*is_within_fenced_frame=*/false, frame_id, _,
+          /*is_within_fenced_frame=*/false, frame_id, _, _,
           /*is_final_response=*/true));
 
   contents()->NavigateAndCommit(GURL("https://secure_impression.com"));
@@ -290,7 +306,7 @@ TEST_F(AttributionHostTest,
 
   EXPECT_CALL(*mock_data_host_manager(),
               NotifyNavigationRegistrationData(impression.attribution_src_token,
-                                               _, _, _, _, _, _, _, _,
+                                               _, _, _, _, _, _, _, _, _,
                                                /*is_final_response=*/true));
 
   contents()->NavigateAndCommit(GURL("https://secure_impression.com"));
@@ -308,7 +324,7 @@ TEST_F(AttributionHostTest, AttributionSrcNavigationAborts_Notified) {
 
   EXPECT_CALL(*mock_data_host_manager(),
               NotifyNavigationRegistrationData(impression.attribution_src_token,
-                                               _, _, _, _, _, _, _, _,
+                                               _, _, _, _, _, _, _, _, _,
                                                /*is_final_response=*/true));
 
   contents()->NavigateAndCommit(GURL("https://secure_impression.com"));
@@ -576,9 +592,9 @@ TEST_F(AttributionHostTest, FeatureDisabled_FencedFrameReportingBeaconDropped) {
   fenced_frame = NavigationSimulatorImpl::NavigateAndCommitFromDocument(
       GURL("https://fencedframe.example"), fenced_frame);
 
-  attribution_host()->NotifyFencedFrameReportingBeaconStarted(
+  EXPECT_FALSE(attribution_host()->NotifyFencedFrameReportingBeaconStarted(
       kBeaconId, kNavigationId,
-      static_cast<RenderFrameHostImpl*>(fenced_frame));
+      static_cast<RenderFrameHostImpl*>(fenced_frame)));
 }
 
 TEST_F(AttributionHostTest, NotifyFencedFrameReportingBeaconStarted) {
@@ -616,12 +632,14 @@ TEST_F(AttributionHostTest, NotifyFencedFrameReportingBeaconStarted) {
     static_cast<RenderFrameHostImpl*>(fenced_frame)
         ->frame_tree_node()
         ->SetFencedFramePropertiesOpaqueAdsModeForTesting();
+    SetFencedFrameConfigPermissions(fenced_frame);
     fenced_frame = NavigationSimulatorImpl::NavigateAndCommitFromDocument(
         GURL("https://fencedframe.example"), fenced_frame);
 
-    attribution_host()->NotifyFencedFrameReportingBeaconStarted(
-        kBeaconId, kNavigationId,
-        static_cast<RenderFrameHostImpl*>(fenced_frame));
+    EXPECT_EQ(attribution_host()->NotifyFencedFrameReportingBeaconStarted(
+                  kBeaconId, kNavigationId,
+                  static_cast<RenderFrameHostImpl*>(fenced_frame)),
+              test_case.expected_valid);
   }
 }
 
@@ -637,6 +655,7 @@ TEST_F(AttributionHostTest, FencedFrameReportingBeacon_FeaturePolicyChecked) {
   static_cast<RenderFrameHostImpl*>(fenced_frame)
       ->frame_tree_node()
       ->SetFencedFramePropertiesOpaqueAdsModeForTesting();
+  SetFencedFrameConfigPermissions(fenced_frame);
 
   static constexpr char kAllowedOriginUrl[] = "https://a.test";
 
@@ -667,9 +686,10 @@ TEST_F(AttributionHostTest, FencedFrameReportingBeacon_FeaturePolicyChecked) {
     simulator->Commit();
     fenced_frame = simulator->GetFinalRenderFrameHost();
 
-    attribution_host()->NotifyFencedFrameReportingBeaconStarted(
-        kBeaconId, /*navigation_id=*/absl::nullopt,
-        static_cast<RenderFrameHostImpl*>(fenced_frame));
+    EXPECT_EQ(attribution_host()->NotifyFencedFrameReportingBeaconStarted(
+                  kBeaconId, /*navigation_id=*/absl::nullopt,
+                  static_cast<RenderFrameHostImpl*>(fenced_frame)),
+              test_case.expected);
   }
 }
 

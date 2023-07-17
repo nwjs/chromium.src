@@ -488,6 +488,7 @@ class MockSuggestionHandler : public SuggestionHandlerInterface {
               (int context_id,
                const std::u16string& candidate,
                size_t delete_previous_utf16_len,
+               bool use_replace_surrounding_text,
                std::string* error),
               (override));
   MOCK_METHOD(bool,
@@ -939,6 +940,26 @@ TEST_F(AutocorrectManagerTest, FocusChangeHidesUndoWindow) {
               SetAssistiveWindowProperties(_, hidden_properties, _));
 
   manager_.OnFocus(1);
+}
+
+TEST_F(AutocorrectManagerTest, EscapeHidesUndoWindow) {
+  manager_.HandleAutocorrect(gfx::Range(0, 3), u"teh", u"the");
+  manager_.OnSurroundingTextChanged(u"the ", gfx::Range(4));
+
+  // Show a window.
+  AssistiveWindowProperties shown_properties =
+      CreateVisibleUndoWindowWithLearnMoreButtonProperties(u"teh", u"the");
+  EXPECT_CALL(mock_suggestion_handler_,
+              SetAssistiveWindowProperties(_, shown_properties, _));
+  manager_.OnSurroundingTextChanged(u"the ", gfx::Range(1));
+
+  // OnFocus should try hiding the window.
+  AssistiveWindowProperties hidden_properties =
+      CreateHiddenUndoWindowProperties();
+  EXPECT_CALL(mock_suggestion_handler_,
+              SetAssistiveWindowProperties(_, hidden_properties, _));
+
+  manager_.OnKeyEvent(CreateKeyEvent(ui::DomKey::NONE, ui::DomCode::ESCAPE));
 }
 
 TEST_F(AutocorrectManagerTest, OnFocusRetriesHidingUndoWindow) {

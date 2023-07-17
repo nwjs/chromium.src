@@ -16,7 +16,7 @@ try_.defaults.set(
     builderless = True,
     os = os.MAC_ANY,
     ssd = True,
-    compilator_reclient_jobs = reclient.jobs.MID_JOBS_FOR_CQ,
+    compilator_reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     execution_timeout = try_.DEFAULT_EXECUTION_TIMEOUT,
     orchestrator_cores = 2,
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
@@ -131,7 +131,7 @@ try_.orchestrator_builder(
     experiments = {
         "chromium_rts.inverted_rts": 100,
         # go/nplus1shardsproposal
-        "chromium.add_one_test_shard": 5,
+        "chromium.add_one_test_shard": 10,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -329,7 +329,7 @@ try_.builder(
     name = "mac_upload_clang",
     executable = "recipe:chromium_toolchain/package_clang",
     builderless = False,
-    execution_timeout = 8 * time.hour,
+    execution_timeout = 6 * time.hour,
 )
 
 try_.builder(
@@ -350,7 +350,7 @@ try_.builder(
     name = "mac_upload_rust_arm",
     executable = "recipe:chromium_toolchain/package_rust",
     builderless = False,
-    execution_timeout = 8 * time.hour,
+    execution_timeout = 6 * time.hour,
 )
 
 try_.builder(
@@ -429,7 +429,7 @@ try_.orchestrator_builder(
     coverage_test_types = ["overall", "unit"],
     experiments = {
         # go/nplus1shardsproposal
-        "chromium.add_one_test_shard": 5,
+        "chromium.add_one_test_shard": 10,
     },
     main_list_view = "try",
     tryjob = try_.job(),
@@ -519,6 +519,7 @@ ios_builder(
 ios_builder(
     name = "ios15-beta-simulator",
     mirrors = ["ci/ios15-beta-simulator"],
+    os = os.MAC_13,
 )
 
 ios_builder(
@@ -533,7 +534,7 @@ ios_builder(
     mirrors = [
         "ci/ios16-beta-simulator",
     ],
-    os = os.MAC_DEFAULT,
+    os = os.MAC_13,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -601,4 +602,10 @@ try_.gpu.optional_tests_builder(
             cq.location_filter(path_regexp = "ui/gl/.+"),
         ],
     ),
+)
+
+try_.builder(
+    name = "mac-cr23-rel",
+    mirrors = ["ci/mac-cr23-rel"],
+    os = os.MAC_DEFAULT,
 )

@@ -21,7 +21,7 @@ constexpr char kDebugButton[] = "invokeDebuggerButton";
 constexpr char kDebugOverlay[] = "debuggerOverlay";
 constexpr char kScreensPanel[] = "DebuggerPanelScreens";
 
-constexpr int kOobeScreensCount = 46;
+constexpr int kOobeScreensCount = 47;
 constexpr int kLoginScreensCount = 44;
 constexpr int kOsInstallScreensCount = 2;
 
@@ -35,7 +35,9 @@ class DebugOverlayTest : public OobeBaseTest {
  public:
   DebugOverlayTest() {
     feature_list_.InitWithFeatures(
-        {ash::features::kOobeChoobe, ash::features::kOobeTouchpadScroll}, {});
+        {ash::features::kOobeChoobe, ash::features::kOobeTouchpadScroll,
+         features::kOobeGaiaInfoScreen},
+        {});
   }
 
   ~DebugOverlayTest() override = default;
@@ -59,6 +61,7 @@ class DebugOverlayOnLoginTest : public DebugOverlayTest {
 };
 
 IN_PROC_BROWSER_TEST_F(DebugOverlayTest, HideAndShow) {
+  WaitForOobeUI();
   test::OobeJS().ExpectHidden(kDebugOverlay);
   test::OobeJS().ExpectVisible(kDebugButton);
   test::OobeJS().ClickOn(kDebugButton);
@@ -84,6 +87,7 @@ class DebugOverlayScreensTest : public DebugOverlayTest,
 };
 
 IN_PROC_BROWSER_TEST_P(DebugOverlayScreensTest, ExpectScreenButtonsCount) {
+  WaitForOobeUI();
   test::OobeJS().ExpectHidden(kDebugOverlay);
   test::OobeJS().ExpectVisible(kDebugButton);
   test::OobeJS().ClickOn(kDebugButton);

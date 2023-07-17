@@ -5,6 +5,7 @@
 #include "components/autofill/core/browser/form_structure_rationalizer.h"
 
 #include "base/containers/contains.h"
+#include "components/autofill/core/browser/form_parsing/credit_card_field.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/rationalization_util.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -94,6 +95,63 @@ FormStructureRationalizer::FormStructureRationalizer(
     FormSignature form_signature)
     : fields_(*fields), form_signature_(form_signature) {}
 FormStructureRationalizer::~FormStructureRationalizer() = default;
+
+void FormStructureRationalizer::RationalizeAutocompleteAttributes(
+    LogManager* log_manager) {
+  for (const auto& field : *fields_) {
+    auto set_html_type = [&field](HtmlFieldType type) {
+      field->SetHtmlType(type, field->html_mode());
+    };
+    // The following rationalization operates only on text fields.
+    bool is_text_field = field->FormControlType() == FormControlType::kText ||
+                         field->FormControlType() == FormControlType::kTextarea;
+    if (!is_text_field) {
+      continue;
+    }
+    // TODO(crbug.com/1441057) For <select> elements we may rationalize the
+    // HtmlFieldType based on the length of option values.
+    switch (field->html_type()) {
+      case HtmlFieldType::kAdditionalName:
+        if (field->max_length == 1) {
+          set_html_type(HtmlFieldType::kAdditionalNameInitial);
+        }
+        break;
+      case HtmlFieldType::kCreditCardExp:
+        if (base::FeatureList::IsEnabled(
+                features::kAutofillEnableExpirationDateImprovements)) {
+          set_html_type(CreditCardField::DetermineExpirationDateFormat(
+                            *field, CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR)
+                                    .digits_in_expiration_year == 4
+                            ? HtmlFieldType::kCreditCardExpDate4DigitYear
+                            : HtmlFieldType::kCreditCardExpDate2DigitYear);
+        } else {
+          if (field->max_length == 5) {
+            set_html_type(HtmlFieldType::kCreditCardExpDate2DigitYear);
+          } else if (field->max_length == 7) {
+            set_html_type(HtmlFieldType::kCreditCardExpDate4DigitYear);
+          }
+        }
+        break;
+      case HtmlFieldType::kCreditCardExpYear:
+        if (base::FeatureList::IsEnabled(
+                features::kAutofillEnableExpirationDateImprovements)) {
+          // TODO(crbug.com/1441057) Look for YYYY vs. YY in placeholder/label.
+          set_html_type(field->max_length == 4
+                            ? HtmlFieldType::kCreditCardExp4DigitYear
+                            : HtmlFieldType::kCreditCardExp2DigitYear);
+        } else {
+          if (field->max_length == 2) {
+            set_html_type(HtmlFieldType::kCreditCardExp2DigitYear);
+          } else if (field->max_length == 4) {
+            set_html_type(HtmlFieldType::kCreditCardExp4DigitYear);
+          }
+        }
+        break;
+      default:
+        break;
+    }
+  }
+}
 
 void FormStructureRationalizer::RationalizeCreditCardFieldPredictions(
     LogManager* log_manager) {
@@ -385,46 +443,6 @@ void FormStructureRationalizer::RationalizeStreetAddressAndAddressLine(
         << "Street Address Rationalization: Converting sequence of (street "
            "address, address line 2) to (address line 1, address line 2)";
     previous_field.SetTypeTo(AutofillType(ADDRESS_HOME_LINE1));
-  }
-}
-
-void FormStructureRationalizer::RationalizeStreetAddressAndHouseNumber(
-    LogManager* log_manager) {
-  if (fields_->size() < 2)
-    return;
-  for (auto field = fields_->begin() + 1; field != fields_->end(); ++field) {
-    if ((*field)->ComputedType().GetStorableType() != ADDRESS_HOME_HOUSE_NUMBER)
-      continue;
-    // Rationalize a preceding street address belonging to the same section
-    // unless it's a server override.
-    AutofillField& previous_field = **(field - 1);
-
-    ServerFieldType previous_type =
-        previous_field.ComputedType().GetStorableType();
-    // We intentionally consider a street address and address-line1, but not
-    // address-line2. There are cases where an address-line2 has a separate
-    // meaning (overflow field) and the logic implicitly assumes an order of
-    // street name -> house number. It does not support house number ->
-    // street name.
-    bool is_street_address_type =
-        previous_type == ADDRESS_HOME_STREET_ADDRESS ||
-        previous_type == ADDRESS_HOME_LINE1;
-    if (!is_street_address_type ||
-        previous_field.section != (*field)->section ||
-        previous_field.server_type_prediction_is_override()) {
-      continue;
-    }
-    // TODO(crbug.com/1326425): Remove once feature is lanuched.
-    if (!base::FeatureList::IsEnabled(
-            features::kAutofillRationalizeStreetAddressAndHouseNumber)) {
-      continue;
-    }
-    LOG_AF(log_manager)
-        << LoggingScope::kRationalization << LogMessage::kRationalization
-        << "Street Address Rationalization: Converting sequence of (street "
-           "address/address-line1, house number) to (street name, house "
-           "number)";
-    previous_field.SetTypeTo(AutofillType(ADDRESS_HOME_STREET_NAME));
   }
 }
 
@@ -791,7 +809,6 @@ void FormStructureRationalizer::RationalizeFieldTypePredictions(
     RationalizeCreditCardNumberOffsets(log_manager);
   }
   RationalizeStreetAddressAndAddressLine(log_manager);
-  RationalizeStreetAddressAndHouseNumber(log_manager);
   RationalizePhoneNumberTrunkTypes(log_manager);
   for (const auto& field : *fields_)
     field->SetTypeTo(field->Type());

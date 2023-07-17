@@ -72,17 +72,33 @@ public class WebAuthnBrowserBridge {
     }
 
     /**
-     * Cancels an outstanding Conditional UI request that was initiated through
-     * onCredentialsDetailsListReceived. This causes the callback to be invoked with an
-     * empty credential.
+     * Notifies the C++ side that the credMan UI is closed.
+     *
+     * @param frameHost The RenderFrameHost related to this CredMan call
+     * @param success true iff user is authenticated
+     */
+    public void onCredManUiClosed(RenderFrameHost frameHost, boolean success) {
+        if (mNativeWebAuthnBrowserBridge == 0) {
+            mNativeWebAuthnBrowserBridge =
+                    WebAuthnBrowserBridgeJni.get().createNativeWebAuthnBrowserBridge(
+                            WebAuthnBrowserBridge.this);
+        }
+
+        WebAuthnBrowserBridgeJni.get().onCredManUiClosed(
+                mNativeWebAuthnBrowserBridge, frameHost, success);
+    }
+
+    /**
+     * Notifies the native code that an outstanding Conditional UI request initiated through
+     * onCredentialsDetailsListReceived has been completed or canceled.
      *
      * @param frameHost The RenderFrameHost for the frame that generated the cancellation.
      */
-    public void cancelRequest(RenderFrameHost frameHost) {
+    public void cleanupRequest(RenderFrameHost frameHost) {
         // This should never be called without a bridge already having been created.
         assert mNativeWebAuthnBrowserBridge != 0;
 
-        WebAuthnBrowserBridgeJni.get().cancelRequest(mNativeWebAuthnBrowserBridge, frameHost);
+        WebAuthnBrowserBridgeJni.get().cleanupRequest(mNativeWebAuthnBrowserBridge, frameHost);
     }
 
     @CalledByNative
@@ -115,6 +131,8 @@ public class WebAuthnBrowserBridge {
                 RenderFrameHost frameHost, boolean isConditionalRequest, Callback<byte[]> callback);
         void onCredManConditionalRequestPending(long nativeWebAuthnBrowserBridge,
                 RenderFrameHost frameHost, boolean hasResults, Runnable fullAssertion);
-        void cancelRequest(long nativeWebAuthnBrowserBridge, RenderFrameHost frameHost);
+        void onCredManUiClosed(
+                long nativeWebAuthnBrowserBridge, RenderFrameHost frameHost, boolean success);
+        void cleanupRequest(long nativeWebAuthnBrowserBridge, RenderFrameHost frameHost);
     }
 }

@@ -394,7 +394,8 @@ bool BackgroundManifestHandler::Validate(
 
   if (BackgroundInfo::IsServiceWorkerBased(extension)) {
     DCHECK(extension->is_extension() ||
-           extension->is_chromeos_system_extension());
+           extension->is_chromeos_system_extension() ||
+           extension->is_login_screen_extension());
     const std::string& background_service_worker_script =
         BackgroundInfo::GetBackgroundServiceWorkerScript(extension);
     if (!base::PathExists(
@@ -428,8 +429,7 @@ bool BackgroundManifestHandler::Validate(
         std::string(keys::kPlatformAppBackground) + ".persistent";
     // Validate that packaged apps do not use a persistent background page.
     if (extension->manifest()->FindBoolPath(manifest_key).value_or(false)) {
-      warnings->push_back(
-          InstallWarning(errors::kInvalidBackgroundPersistentInPlatformApp));
+      warnings->emplace_back(errors::kInvalidBackgroundPersistentInPlatformApp);
     }
   }
 

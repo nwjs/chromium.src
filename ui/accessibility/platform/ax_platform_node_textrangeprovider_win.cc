@@ -154,6 +154,8 @@ HRESULT AXPlatformNodeTextRangeProviderWin::Compare(ITextRangeProvider* other,
   if (other->QueryInterface(IID_PPV_ARGS(&other_provider)) != S_OK)
     return UIA_E_INVALIDOPERATION;
 
+  other_provider->SnapStartAndEndToMaxTextOffsetIfBeyond();
+
   if (*start() == *(other_provider->start()) &&
       *end() == *(other_provider->end())) {
     *result = TRUE;
@@ -173,6 +175,8 @@ HRESULT AXPlatformNodeTextRangeProviderWin::CompareEndpoints(
   Microsoft::WRL::ComPtr<AXPlatformNodeTextRangeProviderWin> other_provider;
   if (other->QueryInterface(IID_PPV_ARGS(&other_provider)) != S_OK)
     return UIA_E_INVALIDOPERATION;
+
+  other_provider->SnapStartAndEndToMaxTextOffsetIfBeyond();
 
   const AXPositionInstance& this_provider_endpoint =
       (this_endpoint == TextPatternRangeEndpoint_Start) ? start() : end();
@@ -212,6 +216,8 @@ HRESULT AXPlatformNodeTextRangeProviderWin::ExpandToEnclosingUnitImpl(
     SetStart(std::move(normalized_start));
     SetEnd(std::move(normalized_end));
   }
+
+  SnapStartAndEndToMaxTextOffsetIfBeyond();
 
   // Determine if start is on a boundary of the specified TextUnit, if it is
   // not, move backwards until it is. Move the end forwards from start until it
@@ -904,6 +910,9 @@ HRESULT AXPlatformNodeTextRangeProviderWin::MoveEndpointByRange(
   if (other->QueryInterface(IID_PPV_ARGS(&other_provider)) != S_OK)
     return UIA_E_INVALIDOPERATION;
 
+  SnapStartAndEndToMaxTextOffsetIfBeyond();
+  other_provider->SnapStartAndEndToMaxTextOffsetIfBeyond();
+
   const AXPositionInstance& other_provider_endpoint =
       (other_endpoint == TextPatternRangeEndpoint_Start)
           ? other_provider->start()
@@ -1204,7 +1213,7 @@ std::u16string AXPlatformNodeTextRangeProviderWin::GetString(
 }
 
 AXPlatformNodeWin* AXPlatformNodeTextRangeProviderWin::GetOwner() const {
-  // Unit tests can't call |GetPlatformNodeFromTree|, so they must provide an
+  // Unit tests can't call `GetPlatformNodeFromTree`, so they must provide an
   // owner node.
   if (owner_for_test_.Get())
     return owner_for_test_.Get();
@@ -1218,14 +1227,16 @@ AXPlatformNodeWin* AXPlatformNodeTextRangeProviderWin::GetOwner() const {
   const AXNode* anchor = position->GetAnchor();
   DCHECK(anchor);
   const AXTreeManager* ax_tree_manager = position->GetManager();
-  DCHECK(ax_tree_manager);
+  if (ax_tree_manager && ax_tree_manager->IsPlatformTreeManager()) {
+    const AXPlatformTreeManager* platform_tree_manager =
+        static_cast<const AXPlatformTreeManager*>(ax_tree_manager);
+    DCHECK(platform_tree_manager);
 
-  const AXPlatformTreeManager* platform_tree_manager =
-      static_cast<const AXPlatformTreeManager*>(ax_tree_manager);
-  DCHECK(platform_tree_manager);
+    return static_cast<AXPlatformNodeWin*>(
+        platform_tree_manager->GetPlatformNodeFromTree(*anchor));
+  }
 
-  return static_cast<AXPlatformNodeWin*>(
-      platform_tree_manager->GetPlatformNodeFromTree(*anchor));
+  return nullptr;
 }
 
 AXPlatformNodeDelegate* AXPlatformNodeTextRangeProviderWin::GetDelegate(
@@ -1503,6 +1514,16 @@ void AXPlatformNodeTextRangeProviderWin::SetStart(
 
 void AXPlatformNodeTextRangeProviderWin::SetEnd(AXPositionInstance new_end) {
   endpoints_.SetEnd(std::move(new_end));
+}
+
+void AXPlatformNodeTextRangeProviderWin::
+    SnapStartAndEndToMaxTextOffsetIfBeyond() {
+  if (start()) {
+    start()->SnapToMaxTextOffsetIfBeyond();
+  }
+  if (end()) {
+    end()->SnapToMaxTextOffsetIfBeyond();
+  }
 }
 
 void AXPlatformNodeTextRangeProviderWin::SetOwnerForTesting(

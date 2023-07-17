@@ -68,6 +68,8 @@ class CloudBinaryUploadService : public BinaryUploadService {
   // Protection users.
   static GURL GetUploadUrl(bool is_consumer_scan_eligible);
 
+  static void RemoveFCMRetryDelaysForTesting();
+
  protected:
   void FinishRequest(Request* request,
                      Result result,
@@ -90,6 +92,9 @@ class CloudBinaryUploadService : public BinaryUploadService {
   // This may destroy `request`.
   void OnGetInstanceID(Request* request, const std::string& token);
 
+  // Get the access token only if the user matches the management and
+  // affiliation requirements.
+  void MaybeGetAccessToken(Request* request);
   void OnGetAccessToken(Request* request, const std::string& access_token);
 
   // This may destroy `request`.
@@ -139,6 +144,16 @@ class CloudBinaryUploadService : public BinaryUploadService {
   // `active_requests_` shrinks so queued requests are started as soon as
   // possible.
   void PopRequestQueue();
+
+  // Called if the FCM connection isn't established to retry it. If it is
+  // established, `UploadForDeepScanning` is called.
+  void RetryFCMConnection(Request* request,
+                          int retry_count,
+                          base::TimeDelta next_backoff);
+
+  // This continues the upload of the scanning request after the
+  // `binary_fcm_service_` instance is known to be connected.
+  void OnFCMConnected(Request* request);
 
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   std::unique_ptr<BinaryFCMService> binary_fcm_service_;

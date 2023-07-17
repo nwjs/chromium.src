@@ -16,7 +16,7 @@
   }
 </style>
 <div id="header">
-  <div id="description">$i18n{remapKeyboardKeysDescription}</div>
+  <div id="description">[[computeKeyboardKeysDescription(keyboard.*)]]</div>
 </div>
 <div class="subsection">
   <keyboard-remap-modifier-key-row
@@ -24,7 +24,8 @@
       key="[[modifierKey.kMeta]]" id="metaKey"
       meta-key="[[keyboard.metaKey]]"
       aria-label="$i18n{perDeviceKeyboardKeySearch}"
-      pref="{{fakeMetaPref}}">
+      pref="{{fakeMetaPref}}"
+      remove-top-border>
   </keyboard-remap-modifier-key-row>
   <keyboard-remap-modifier-key-row
       default-remappings="[[defaultRemappings]]"

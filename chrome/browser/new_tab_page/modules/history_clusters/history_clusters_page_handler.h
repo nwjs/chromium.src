@@ -30,10 +30,6 @@ namespace content {
 class WebContents;
 }  // namespace content
 
-namespace history_clusters {
-class HistoryClustersServiceTask;
-}  // namespace history_clusters
-
 class HistoryClustersPageHandler
     : public ntp::history_clusters::mojom::PageHandler {
  public:
@@ -51,7 +47,9 @@ class HistoryClustersPageHandler
   void GetCartForCluster(history_clusters::mojom::ClusterPtr cluster,
                          GetCartForClusterCallback callback) override;
   void ShowJourneysSidePanel(const std::string& query) override;
-  void OpenUrlsInTabGroup(const std::vector<GURL>&) override;
+  void OpenUrlsInTabGroup(const std::vector<GURL>& urls,
+                          const absl::optional<std::string>& tab_group_name =
+                              absl::nullopt) override;
   void DismissCluster(
       const std::vector<history_clusters::mojom::URLVisitPtr> visits) override;
   void RecordClick(int64_t cluster_id) override;
@@ -71,10 +69,6 @@ class HistoryClustersPageHandler
   raw_ptr<Profile> profile_;
   raw_ptr<content::WebContents> web_contents_;
 
-  // Tracks the current fetch clusters task. Will be `nullptr` or
-  // `Done()` will be true if there is no ongoing task.
-  std::unique_ptr<history_clusters::HistoryClustersServiceTask>
-      fetch_clusters_task_;
   base::CancelableTaskTracker hide_visits_task_tracker_;
   std::unique_ptr<CartProcessor> cart_processor_;
   // The logger used to record metrics related to module ranking scoped to

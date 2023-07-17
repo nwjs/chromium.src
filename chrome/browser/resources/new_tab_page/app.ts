@@ -239,12 +239,6 @@ export class AppElement extends AppElementBase {
         reflectToAttribute: true,
       },
 
-      modulesRedesignedLayoutEnabled_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('modulesRedesignedLayoutEnabled'),
-        reflectToAttribute: true,
-      },
-
       middleSlotPromoEnabled_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('middleSlotPromoEnabled'),
@@ -258,6 +252,13 @@ export class AppElement extends AppElementBase {
       modulesRedesignedEnabled_: {
         type: Boolean,
         value: () => loadTimeData.getBoolean('modulesRedesignedEnabled'),
+        reflectToAttribute: true,
+      },
+
+      mostVisitedReflowOnOverflowEnabled_: {
+        type: Boolean,
+        value: () =>
+            loadTimeData.getBoolean('mostVisitedReflowOnOverflowEnabled'),
         reflectToAttribute: true,
       },
 
@@ -300,6 +301,12 @@ export class AppElement extends AppElementBase {
         reflectToAttribute: true,
       },
 
+      showOneGoogleBarScrim_: {
+        type: Boolean,
+        computed:
+            'computeShowOneGoogleBarScrim_(removeScrim_, showBackgroundImage_)',
+      },
+
       showLensUploadDialog_: Boolean,
 
       /**
@@ -307,12 +314,17 @@ export class AppElement extends AppElementBase {
        * to show up immediately on load.
        */
       lazyRender_: Boolean,
+
+      scrolledToTop_: {
+        type: Boolean,
+        value: document.documentElement.scrollTop <= 0,
+      },
     };
   }
 
   static get observers() {
     return [
-      'udpateOneGoogleBarAppearance_(oneGoogleBarLoaded_, removeScrim_, showBackgroundImage_, theme_)',
+      'udpateOneGoogleBarAppearance_(oneGoogleBarLoaded_, theme_)',
     ];
   }
 
@@ -338,7 +350,6 @@ export class AppElement extends AppElementBase {
   private oneGoogleBarEnabled_: boolean;
   private shortcutsEnabled_: boolean;
   private modulesFreShown: boolean;
-  private modulesRedesignedLayoutEnabled_: boolean;
   private middleSlotPromoEnabled_: boolean;
   private modulesEnabled_: boolean;
   private modulesRedesignedEnabled_: boolean;
@@ -348,6 +359,7 @@ export class AppElement extends AppElementBase {
   private promoAndModulesLoaded_: boolean;
   private removeScrim_: boolean;
   private lazyRender_: boolean;
+  private scrolledToTop_: boolean;
 
   private callbackRouter_: PageCallbackRouter;
   private pageHandler_: PageHandlerRemote;
@@ -430,6 +442,9 @@ export class AppElement extends AppElementBase {
     this.eventTracker_.add(window, 'keydown', this.onWindowKeydown_.bind(this));
     this.eventTracker_.add(
         window, 'click', this.onWindowClick_.bind(this), /*capture=*/ true);
+    this.eventTracker_.add(document, 'scroll', () => {
+      this.scrolledToTop_ = document.documentElement.scrollTop <= 0;
+    });
     if (this.shouldPrintPerformance_) {
       // It is possible that the background image has already loaded by now.
       // If it has, we request it to re-send the load time so that we can
@@ -480,10 +495,6 @@ export class AppElement extends AppElementBase {
         type: 'updateAppearance',
         // We should be using a light OGB for dark themes and vice versa.
         applyLightTheme: isNtpDarkTheme,
-        // Only apply background protection if using a custom background in
-        // combination with a light OGB theme.
-        applyBackgroundProtection:
-            this.removeScrim_ && this.showBackgroundImage_ && isNtpDarkTheme,
       });
     }
   }
@@ -516,6 +527,10 @@ export class AppElement extends AppElementBase {
     return (!loadTimeData.getBoolean('middleSlotPromoEnabled') ||
             this.middleSlotPromoLoaded_) &&
         (!loadTimeData.getBoolean('modulesEnabled') || this.modulesLoaded_);
+  }
+
+  private computeShowOneGoogleBarScrim_(): boolean {
+    return this.removeScrim_ && this.showBackgroundImage_;
   }
 
   private async onLazyRendered_() {

@@ -325,6 +325,7 @@ void AppTestHelper::FirstTaskRun() {
     {"update_all", WithSystemScope(Wrap(&UpdateAll))},
     {"delete_updater_directory",
      WithSystemScope(Wrap(&DeleteUpdaterDirectory))},
+    {"delete_file", (WithSwitch("path", WithSystemScope(Wrap(&DeleteFile))))},
     {"install_app", WithSwitch("app_id", WithSystemScope(Wrap(&InstallApp)))},
     {"uninstall_app",
      WithSwitch("app_id", WithSystemScope(Wrap(&UninstallApp)))},
@@ -363,6 +364,8 @@ void AppTestHelper::FirstTaskRun() {
      WithSwitch("silent",
                 WithSwitch("legacy_install",
                            WithSystemScope(Wrap(&RunOfflineInstall))))},
+    {"dm_deregister_device", WithSystemScope(Wrap(&DMDeregisterDevice))},
+    {"dm_cleanup", WithSystemScope(Wrap(&DMCleanup))},
   };
 
   const base::CommandLine* command_line =

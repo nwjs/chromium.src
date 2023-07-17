@@ -620,7 +620,6 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
       int cert_verify_flags,
       const quic::QuicConfig& config,
       std::unique_ptr<QuicCryptoClientConfigHandle> crypto_config,
-      const char* const connection_description,
       base::TimeTicks dns_resolution_start_time,
       base::TimeTicks dns_resolution_end_time,
       std::unique_ptr<quic::QuicClientPushPromiseIndex> push_promise_index,
@@ -750,8 +749,9 @@ class NET_EXPORT_PRIVATE QuicChromiumClientSession
   void OnPathDegrading() override;
   void OnForwardProgressMadeAfterPathDegrading() override;
   void OnKeyUpdate(quic::KeyUpdateReason reason) override;
-  std::unique_ptr<quic::QuicPathValidationContext>
-  CreateContextForMultiPortPath() override;
+  void CreateContextForMultiPortPath(
+      std::unique_ptr<quic::MultiPortPathContextObserver> context_observer)
+      override;
   void MigrateToMultiPortPath(
       std::unique_ptr<quic::QuicPathValidationContext> context) override;
 

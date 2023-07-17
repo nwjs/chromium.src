@@ -73,9 +73,8 @@ public final class BaseSuggestionViewBinder<T extends View>
 
     private static boolean sDimensionsInitialized;
     private static int sIconWidthPx;
-    private static int sPaddingStart;
+    private static int sPaddingSmallIcon;
     private static int sPaddingStartLargeIcon;
-    private static int sPaddingEnd;
     private static int sPaddingEndLargeIcon;
     private static int sEdgeSize;
     private static int sEdgeSizeLargeIcon;
@@ -105,7 +104,8 @@ public final class BaseSuggestionViewBinder<T extends View>
         } else if (DropdownCommonProperties.BG_BOTTOM_CORNER_ROUNDED == propertyKey
                 || DropdownCommonProperties.BG_TOP_CORNER_ROUNDED == propertyKey) {
             roundSuggestionViewCorners(model, view);
-        } else if (DropdownCommonProperties.TOP_MARGIN == propertyKey) {
+        } else if (DropdownCommonProperties.TOP_MARGIN == propertyKey
+                || DropdownCommonProperties.BOTTOM_MARGIN == propertyKey) {
             updateMargin(model, view);
         } else if (BaseSuggestionViewProperties.ACTION_BUTTONS == propertyKey) {
             bindActionButtons(model, view, model.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
@@ -207,8 +207,8 @@ public final class BaseSuggestionViewBinder<T extends View>
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     SuggestionLayout.LayoutParams.SuggestionViewType.DECORATION));
 
-            int paddingStart = sds.isLarge ? sPaddingStartLargeIcon : sPaddingStart;
-            int paddingEnd = sds.isLarge ? sPaddingEndLargeIcon : sPaddingEnd;
+            int paddingStart = sds.isLarge ? sPaddingStartLargeIcon : sPaddingSmallIcon;
+            int paddingEnd = sds.isLarge ? sPaddingEndLargeIcon : sPaddingSmallIcon;
             int edgeSize = sds.isLarge ? sEdgeSizeLargeIcon : sEdgeSize;
             rciv.setPadding(paddingStart, 0, paddingEnd, 0);
             rciv.setMinimumHeight(edgeSize);
@@ -342,7 +342,7 @@ public final class BaseSuggestionViewBinder<T extends View>
         ViewGroup.LayoutParams layoutParams = view.getLayoutParams();
         if (layoutParams == null) {
             layoutParams =
-                    new MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+                    new MarginLayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         }
 
         if (layoutParams instanceof MarginLayoutParams) {
@@ -391,7 +391,8 @@ public final class BaseSuggestionViewBinder<T extends View>
         view.setClipToOutline(true);
     }
 
-    private static void initializeDimensions(Context context) {
+    @VisibleForTesting
+    static void initializeDimensions(Context context) {
         boolean showModernizeVisualUpdate =
                 OmniboxFeatures.shouldShowModernizeVisualUpdate(context);
         Resources resources = context.getResources();
@@ -399,19 +400,16 @@ public final class BaseSuggestionViewBinder<T extends View>
                         ? R.dimen.omnibox_suggestion_icon_area_size_modern
                         : R.dimen.omnibox_suggestion_icon_area_size);
 
-        sPaddingStart = resources.getDimensionPixelSize(showModernizeVisualUpdate
-                        ? R.dimen.omnibox_suggestion_24dp_icon_margin_start_modern
-                        : R.dimen.omnibox_suggestion_24dp_icon_margin_start);
-        sPaddingStartLargeIcon =
-                resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_36dp_icon_margin_start);
-        sPaddingEnd =
-                resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_24dp_icon_margin_end);
-        sPaddingEndLargeIcon =
-                resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_36dp_icon_margin_end);
+        sPaddingSmallIcon = showModernizeVisualUpdate
+                ? OmniboxResourceProvider.getIconStartPadding(context)
+                : resources.getDimensionPixelSize(
+                        R.dimen.omnibox_suggestion_24dp_icon_margin_start);
+        sPaddingStartLargeIcon = OmniboxResourceProvider.getLargeIconStartPadding(context);
+        sPaddingEndLargeIcon = OmniboxResourceProvider.getLargeIconEndPadding(context);
         sEdgeSize = resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_24dp_icon_size);
         sEdgeSizeLargeIcon =
                 resources.getDimensionPixelSize(R.dimen.omnibox_suggestion_36dp_icon_size);
-        sSideSpacing = resources.getDimensionPixelOffset(R.dimen.omnibox_suggestion_side_spacing);
+        sSideSpacing = OmniboxResourceProvider.getSideSpacing(context);
     }
 
     /** @return Cached ConstantState for testing. */

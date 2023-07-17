@@ -6,6 +6,7 @@
 #define DEVICE_VR_WINDOWS_COMPOSITOR_BASE_H_
 
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
@@ -132,6 +133,14 @@ class XRCompositorCommon : public base::Thread,
   // processes
   virtual bool IsUsingSharedImages() const;
 
+  // XRPresentationProvider overrides:
+  void SubmitFrame(int16_t frame_index,
+                   const gpu::MailboxHolder& mailbox,
+                   base::TimeDelta time_waited) override;
+  void SubmitFrameDrawnIntoTexture(int16_t frame_index,
+                                   const gpu::SyncToken&,
+                                   base::TimeDelta time_waited) override;
+  void SubmitFrameMissing(int16_t frame_index, const gpu::SyncToken&) final;
 #if BUILDFLAG(IS_WIN)
   void SubmitFrameWithTextureHandle(int16_t frame_index,
                                     mojo::PlatformHandle texture_handle,
@@ -163,13 +172,6 @@ class XRCompositorCommon : public base::Thread,
   void MaybeCompositeAndSubmit();
 
   // XRPresentationProvider overrides:
-  void SubmitFrameMissing(int16_t frame_index, const gpu::SyncToken&) final;
-  void SubmitFrame(int16_t frame_index,
-                   const gpu::MailboxHolder& mailbox,
-                   base::TimeDelta time_waited) final;
-  void SubmitFrameDrawnIntoTexture(int16_t frame_index,
-                                   const gpu::SyncToken&,
-                                   base::TimeDelta time_waited) override;
   void UpdateLayerBounds(int16_t frame_id,
                          const gfx::RectF& left_bounds,
                          const gfx::RectF& right_bounds,
@@ -237,6 +239,8 @@ class XRCompositorCommon : public base::Thread,
       mojom::XRVisibilityState::VISIBLE;
   mojom::VRStageParametersPtr current_stage_parameters_;
   uint32_t stage_parameters_id_;
+
+  base::WeakPtrFactory<XRCompositorCommon> weak_ptr_factory_{this};
 };
 
 }  // namespace device

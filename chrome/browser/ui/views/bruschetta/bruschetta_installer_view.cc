@@ -256,6 +256,11 @@ void BruschettaInstallerView::OnInstallationEnded() {
   observation_.Reset();
   installer_.reset();
   GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
+
+  if (finish_callback_) {
+    std::move(finish_callback_)
+        .Run(bruschetta::BruschettaInstallResult::kSuccess);
+  }
 }
 
 bool BruschettaInstallerView::ShouldShowCloseButton() const {
@@ -291,11 +296,11 @@ std::u16string BruschettaInstallerView::GetSecondaryMessage() const {
         case InstallerState::kInstallStarted:
           // We don't really spend any time in the InstallStarted state, the
           // real first step is installing DLC so fall through to that.
-        case InstallerState::kDlcInstall:
+        case InstallerState::kToolsDlcInstall:
+        case InstallerState::kFirmwareDlcInstall:
           return l10n_util::GetStringUTF16(
               IDS_BRUSCHETTA_INSTALLER_INSTALLING_DLC_MESSAGE);
         case InstallerState::kBootDiskDownload:
-        case InstallerState::kFirmwareDownload:
         case InstallerState::kPflashDownload:
         case InstallerState::kOpenFiles:
           return l10n_util::GetStringUTF16(
@@ -429,6 +434,10 @@ void BruschettaInstallerView::UninstallBruschettaFinished(bool success) {
     state_ = State::kFailed;
   }
   OnStateUpdated();
+
+  if (finish_callback_) {
+    std::move(finish_callback_).Run(error_);
+  }
 }
 
 BEGIN_METADATA(BruschettaInstallerView, views::DialogDelegateView)

@@ -23,6 +23,7 @@
 #include "base/metrics/user_metrics.h"
 #include "base/no_destructor.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/chromeos_buildflags.h"
@@ -50,13 +51,18 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/url_identity.h"
 #include "chrome/browser/ui/webui/settings/recent_site_settings_helper.h"
 #include "chrome/browser/ui/webui/settings/site_settings_helper.h"
 #include "chrome/browser/usb/usb_chooser_context.h"
 #include "chrome/browser/usb/usb_chooser_context_factory.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/extensions/manifest_handlers/app_launch_info.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/browsing_data/content/browsing_data_model.h"
 #include "components/browsing_topics/browsing_topics_service.h"
@@ -125,6 +131,9 @@ constexpr char kIsValidKey[] = "isValid";
 constexpr char kReasonKey[] = "reason";
 
 constexpr char kEffectiveTopLevelDomainPlus1Name[] = "etldPlus1";
+constexpr char kGroupingKey[] = "groupingKey";
+constexpr char kGroupingKeyEtldPrefix[] = "etld:";
+constexpr char kGroupingKeyOriginPrefix[] = "origin:";
 constexpr char kOriginList[] = "origins";
 constexpr char kNumCookies[] = "numCookies";
 constexpr char kHasPermissionSettings[] = "hasPermissionSettings";
@@ -423,25 +432,26 @@ std::string GetCookieSettingDescription(Profile* profile) {
   NOTREACHED();
 }
 
-// Removes all nodes from |model| which match |origin| and |etld_plus1|. At
-// least one of |origin| or |etld_plus1| must be set. If only |origin| is set,
-// then unpartitioned storage for that origin is removed. If only |etld_plus1|
-// is set, then any unpartitioned storage which matches that etld + 1, or
-// partitioned storage where it is the partitioning site, is removed. If both
-// |origin| and |etld_plus1| is set, then only storage for |origin| partitioned
-// by |etld_plus1| is removed.
+// Removes all nodes from |model| which match |origin| and/or belong to
+// |grouping_key|. At least one of |origin| or |grouping_key| must be set. If
+// only |origin| is set, then unpartitioned storage for that origin is removed.
+// If only |grouping_key| is set, then any unpartitioned storage belonging to
+// that group, or partitioned storage where it is the partitioning site, is
+// removed. If both |origin| and |grouping_key| are set, then only storage for
+// |origin| partitioned by |grouping_key| is removed.
 void RemoveMatchingNodes(CookiesTreeModel* model,
-                         absl::optional<std::string> origin,
-                         absl::optional<std::string> etld_plus1) {
-  DCHECK(origin || etld_plus1);
+                         absl::optional<url::Origin> origin,
+                         absl::optional<GroupingKey> grouping_key) {
+  DCHECK(origin || grouping_key);
+  absl::optional<std::string> group_etld_plus1 =
+      grouping_key.has_value() ? grouping_key->GetEtldPlusOne() : absl::nullopt;
   std::vector<CookieTreeNode*> nodes_to_delete;
 
   for (const auto& host_node : model->GetRoot()->children()) {
     bool origin_matches =
-        origin &&
-        *origin == host_node->GetDetailedInfo().origin.GetURL().spec();
+        origin.has_value() && *origin == host_node->GetDetailedInfo().origin;
 
-    if (origin && !origin_matches) {
+    if (origin.has_value() && !origin_matches) {
       // If the origin is set, host nodes which do not match that origin cannot
       // contain storage targeted for removal.
       continue;
@@ -452,17 +462,18 @@ void RemoveMatchingNodes(CookiesTreeModel* model,
             base::UTF16ToUTF8(host_node->GetTitle()),
             net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
 
-    bool etld_plus1_matches = etld_plus1 && *etld_plus1 == host_node_etld_plus1;
+    bool group_etld_plus1_matches = group_etld_plus1.has_value() &&
+                                    *group_etld_plus1 == host_node_etld_plus1;
 
     for (const auto& storage_type_node : host_node->children()) {
       if (storage_type_node->GetDetailedInfo().node_type !=
           CookieTreeNode::DetailedInfo::TYPE_COOKIES) {
-        // Non cookie storage cannot (currently) be partitioned.
-        if (origin && etld_plus1) {
+        // Non-cookie storage cannot (currently) be partitioned.
+        if (origin.has_value() && group_etld_plus1.has_value()) {
           continue;
         }
 
-        if (origin_matches || etld_plus1_matches) {
+        if (origin_matches || group_etld_plus1_matches) {
           nodes_to_delete.push_back(storage_type_node.get());
           continue;
         }
@@ -473,8 +484,8 @@ void RemoveMatchingNodes(CookiesTreeModel* model,
         for (const auto& cookie_node : storage_type_node->children()) {
           const auto& cookie = cookie_node->GetDetailedInfo().cookie;
           if (!cookie->IsPartitioned() &&
-              (origin_matches || etld_plus1_matches) &&
-              (!origin || !etld_plus1)) {
+              (origin_matches || group_etld_plus1_matches) &&
+              (!origin.has_value() || !group_etld_plus1.has_value())) {
             nodes_to_delete.push_back(cookie_node.get());
             continue;
           }
@@ -484,9 +495,10 @@ void RemoveMatchingNodes(CookiesTreeModel* model,
 
             // If an origin has been set, it must match the origin of the
             // current node, which means it can be ignored.
-            DCHECK(!origin || origin_matches);
+            DCHECK(!origin.has_value() || origin_matches);
 
-            if (etld_plus1 && partition_site == *etld_plus1) {
+            if (group_etld_plus1.has_value() &&
+                partition_site == *group_etld_plus1) {
               nodes_to_delete.push_back(cookie_node.get());
             }
           }
@@ -580,7 +592,7 @@ void ConvertSiteGroupMapToList(
   for (const auto& entry : site_group_map) {
     base::Value::Dict site_group;
     const GroupingKey& grouping_key = entry.first;
-    site_group.Set(kEffectiveTopLevelDomainPlus1Name, grouping_key.Serialize());
+    site_group.Set(kGroupingKey, grouping_key.Serialize());
 
     // eTLD+1 is the effective top level domain + 1.
     absl::optional<std::string> etld_plus1 = grouping_key.GetEtldPlusOne();
@@ -592,6 +604,9 @@ void ConvertSiteGroupMapToList(
                        : site_settings::GetDisplayNameForGURL(
                              profile, group_origin->GetURL(),
                              /*hostname_only=*/false));
+    if (etld_plus1.has_value()) {
+      site_group.Set(kEffectiveTopLevelDomainPlus1Name, *etld_plus1);
+    }
 
     bool has_installed_pwa = false;
     base::Value::List origin_list;
@@ -606,7 +621,7 @@ void ConvertSiteGroupMapToList(
       origin_object.Set("isPartitioned", is_partitioned);
       origin_object.Set("engagement",
                         engagement_service->GetScore(origin.GetURL()));
-      origin_object.Set("usage", 0);
+      origin_object.Set("usage", 0.0);
       origin_object.Set(kNumCookies, 0);
 
       bool is_installed = installed_origins.contains(origin);
@@ -661,6 +676,24 @@ bool ShouldAddToNotificationPermissionReviewList(
   return is_minimal_engagement || is_low_engagement;
 }
 
+base::Value::Dict CreateZoomLevelException(
+    const std::string& host_or_spec,
+    const std::string& origin_for_favicon,
+    const std::string& display_name,
+    double zoom) {
+  base::Value::Dict exception;
+  exception.Set(site_settings::kHostOrSpec, host_or_spec);
+  exception.Set(site_settings::kOriginForFavicon, origin_for_favicon);
+  exception.Set(site_settings::kDisplayName, display_name);
+
+  // Calculate the zoom percent from the factor. Round up to the nearest
+  // whole number.
+  int zoom_percent =
+      static_cast<int>(blink::PageZoomLevelToZoomFactor(zoom) * 100 + 0.5);
+  exception.Set(kZoom, base::FormatPercent(zoom_percent));
+  return exception;
+}
+
 }  // namespace
 
 // static
@@ -676,6 +709,17 @@ GroupingKey GroupingKey::CreateFromEtldPlus1(const std::string& etld_plus1) {
   return GroupingKey(etld_plus1);
 }
 
+// static
+GroupingKey GroupingKey::Deserialize(const std::string& serialized) {
+  if (base::StartsWith(serialized, kGroupingKeyEtldPrefix)) {
+    return GroupingKey::CreateFromEtldPlus1(
+        serialized.substr(sizeof(kGroupingKeyEtldPrefix) - 1));
+  }
+  CHECK(base::StartsWith(serialized, kGroupingKeyOriginPrefix));
+  GURL url(serialized.substr(sizeof(kGroupingKeyOriginPrefix) - 1));
+  return GroupingKey::Create(url::Origin::Create(url));
+}
+
 GroupingKey::GroupingKey(const absl::variant<std::string, url::Origin>& value)
     : value_(value) {}
 
@@ -684,11 +728,15 @@ GroupingKey& GroupingKey::operator=(const GroupingKey& other) = default;
 GroupingKey::~GroupingKey() = default;
 
 std::string GroupingKey::Serialize() const {
-  return absl::visit(
-      base::Overloaded{
-          [](const std::string& etld_plus1) { return etld_plus1; },
-          [](const url::Origin& origin) { return origin.GetURL().spec(); }},
-      value_);
+  return absl::visit(base::Overloaded{[](const std::string& etld_plus1) {
+                                        return kGroupingKeyEtldPrefix +
+                                               etld_plus1;
+                                      },
+                                      [](const url::Origin& origin) {
+                                        return kGroupingKeyOriginPrefix +
+                                               origin.GetURL().spec();
+                                      }},
+                     value_);
 }
 
 absl::optional<std::string> GroupingKey::GetEtldPlusOne() const {
@@ -709,7 +757,7 @@ url::Origin GroupingKey::ToOrigin() const {
   return absl::visit(
       base::Overloaded{[](const std::string& etld_plus1) {
                          return ConvertEtldToOrigin(etld_plus1,
-                                                    /*secure=*/true);
+                                                    /*secure=*/false);
                        },
                        [](const url::Origin& origin) { return origin; }},
       value_);
@@ -882,9 +930,9 @@ void SiteSettingsHandler::RegisterMessages() {
       base::BindRepeating(&SiteSettingsHandler::HandleFetchBlockAutoplayStatus,
                           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
-      "clearEtldPlus1DataAndCookies",
+      "clearSiteGroupDataAndCookies",
       base::BindRepeating(
-          &SiteSettingsHandler::HandleClearEtldPlus1DataAndCookies,
+          &SiteSettingsHandler::HandleClearSiteGroupDataAndCookies,
           base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "recordAction",
@@ -906,15 +954,22 @@ void SiteSettingsHandler::OnJavascriptAllowed() {
       ObserveSourcesForProfile(primary_otr_profile);
   }
 
-  // Here we only subscribe to the HostZoomMap for the default storage partition
-  // since we don't allow the user to manage the zoom levels for apps.
-  // We're only interested in zoom-levels that are persisted, since the user
-  // is given the opportunity to view/delete these in the content-settings page.
-  host_zoom_map_subscription_ =
+  // Listen for zoom changes in the default StoragePartition and the primary
+  // StoragePartition of all installed Isolated Web Apps.
+  auto zoom_changed_callback = base::BindRepeating(
+      &SiteSettingsHandler::OnZoomLevelChanged, base::Unretained(this));
+  host_zoom_map_subscriptions_.push_back(
       content::HostZoomMap::GetDefaultForBrowserContext(profile_)
-          ->AddZoomLevelChangedCallback(
-              base::BindRepeating(&SiteSettingsHandler::OnZoomLevelChanged,
-                                  base::Unretained(this)));
+          ->AddZoomLevelChangedCallback(zoom_changed_callback));
+  for (const web_app::IsolatedWebAppUrlInfo& iwa_url_info :
+       site_settings::GetInstalledIsolatedWebApps(profile_)) {
+    content::StoragePartition* iwa_storage_partition =
+        profile_->GetStoragePartition(
+            iwa_url_info.storage_partition_config(profile_));
+    host_zoom_map_subscriptions_.push_back(
+        content::HostZoomMap::GetForStoragePartition(iwa_storage_partition)
+            ->AddZoomLevelChangedCallback(zoom_changed_callback));
+  }
 
   pref_change_registrar_ = std::make_unique<PrefChangeRegistrar>();
   pref_change_registrar_->Init(profile_->GetPrefs());
@@ -935,7 +990,7 @@ void SiteSettingsHandler::OnJavascriptAllowed() {
 void SiteSettingsHandler::OnJavascriptDisallowed() {
   observations_.RemoveAllObservations();
   chooser_observations_.RemoveAllObservations();
-  host_zoom_map_subscription_ = {};
+  host_zoom_map_subscriptions_.clear();
   pref_change_registrar_->Remove(prefs::kBlockAutoplayEnabled);
   pref_change_registrar_->Remove(prefs::kCookieControlsMode);
   observed_profiles_.RemoveAllObservations();
@@ -1009,7 +1064,8 @@ void SiteSettingsHandler::OnGetUsageInfo() {
 
   for (const BrowsingDataModel::BrowsingDataEntryView& entry :
        *browsing_data_model_) {
-    if (*entry.primary_host != usage_hostname) {
+    auto usage_origin = url::Origin::Create(GURL(usage_origin_));
+    if (!entry.Matches(usage_origin)) {
       continue;
     }
     size += entry.data_details->storage_size;
@@ -1131,8 +1187,7 @@ void SiteSettingsHandler::HandleGetFpsMembershipLabel(
 void SiteSettingsHandler::HandleClearUnpartitionedUsage(
     const base::Value::List& args) {
   CHECK_EQ(1U, args.size());
-  const std::string& origin_string = args[0].GetString();
-  auto origin = url::Origin::Create(GURL(origin_string));
+  auto origin = url::Origin::Create(GURL(args[0].GetString()));
   if (origin.opaque())
     return;
   AllowJavascript();
@@ -1143,7 +1198,7 @@ void SiteSettingsHandler::HandleClearUnpartitionedUsage(
   DCHECK(browsing_data_model_);
   DCHECK(cookies_tree_model_);
 
-  RemoveMatchingNodes(cookies_tree_model_.get(), origin_string, absl::nullopt);
+  RemoveMatchingNodes(cookies_tree_model_.get(), origin, absl::nullopt);
 
   // The scheme for some sites detail page is http on
   // chrome://settings/content/all. Cookies or site data might not cleared if
@@ -1162,8 +1217,7 @@ void SiteSettingsHandler::HandleClearUnpartitionedUsage(
     // avoid confusion when cookies already exist when refreshing clear site
     // data page. Notes: this also means HTTPS sites cookie will be cleared when
     // user clear HTTP scheme Cookie.
-    RemoveMatchingNodes(cookies_tree_model_.get(), https_origin.GetURL().spec(),
-                        absl::nullopt);
+    RemoveMatchingNodes(cookies_tree_model_.get(), https_origin, absl::nullopt);
     affected_origins.emplace_back(https_origin);
   }
 
@@ -1173,10 +1227,10 @@ void SiteSettingsHandler::HandleClearUnpartitionedUsage(
 void SiteSettingsHandler::HandleClearPartitionedUsage(
     const base::Value::List& args) {
   CHECK_EQ(2U, args.size());
-  const std::string& origin = args[0].GetString();
-  const std::string& etld_plus1 = args[1].GetString();
+  auto origin = url::Origin::Create(GURL(args[0].GetString()));
+  auto grouping_key = GroupingKey::Deserialize(args[1].GetString());
 
-  RemoveMatchingNodes(cookies_tree_model_.get(), origin, etld_plus1);
+  RemoveMatchingNodes(cookies_tree_model_.get(), origin, grouping_key);
 }
 
 void SiteSettingsHandler::HandleSetDefaultValueForContentType(
@@ -1330,7 +1384,6 @@ void SiteSettingsHandler::HandleGetCategoryList(const base::Value::List& args) {
 
   CHECK_EQ(2U, args.size());
   std::string callback_id = args[0].GetString();
-  GURL origin(args[1].GetString());
 
   base::Value::List result;
   for (ContentSettingsType content_type :
@@ -1413,15 +1466,18 @@ base::Value::List SiteSettingsHandler::PopulateCookiesAndUsageData(
     base::Value::Dict& site_group = item.GetDict();
     base::Value::List& origin_list = *site_group.FindList(kOriginList);
     int cookie_num = 0;
-    const std::string& etld_plus1 =
-        *site_group.FindString(kEffectiveTopLevelDomainPlus1Name);
-    const auto& etld_plus1_cookie_num_it =
-        host_cookie_map.find({etld_plus1, absl::nullopt});
+    auto grouping_key =
+        GroupingKey::Deserialize(*site_group.FindString(kGroupingKey));
     // Add the number of eTLD+1 scoped cookies.
-    if (etld_plus1_cookie_num_it != host_cookie_map.end()) {
-      cookie_num = etld_plus1_cookie_num_it->second;
+    absl::optional<std::string> etld_plus1 = grouping_key.GetEtldPlusOne();
+    if (etld_plus1.has_value()) {
+      const auto& etld_plus1_cookie_num_it =
+          std::as_const(host_cookie_map).find({*etld_plus1, absl::nullopt});
+      if (etld_plus1_cookie_num_it != host_cookie_map.end()) {
+        cookie_num += etld_plus1_cookie_num_it->second;
+      }
     }
-    // Iterate over the origins for the ETLD+1, and set their usage and cookie
+    // Iterate over the origins for the group, and set their usage and cookie
     // numbers.
     for (base::Value& value : origin_list) {
       base::Value::Dict& origin_info = value.GetDict();
@@ -1436,12 +1492,10 @@ base::Value::List SiteSettingsHandler::PopulateCookiesAndUsageData(
           origin_info.Set("usage", static_cast<double>(size_info_it->second));
       }
       const auto& host_cookie_num_it = host_cookie_map.find(
-          {origin.host(),
-           (is_partitioned ? absl::optional<std::string>(etld_plus1)
-                           : absl::nullopt)});
+          {origin.host(), (is_partitioned ? etld_plus1 : absl::nullopt)});
       if (host_cookie_num_it != host_cookie_map.end()) {
         origin_info.Set(kNumCookies, host_cookie_num_it->second);
-        // Add cookies numbers for origins that isn't an eTLD+1.
+        // Add cookies numbers for origins that aren't an eTLD+1.
         if (origin.host() != etld_plus1 || is_partitioned) {
           cookie_num += host_cookie_num_it->second;
         }
@@ -1547,9 +1601,9 @@ void SiteSettingsHandler::HandleGetOriginPermissions(
     HostContentSettingsMap* map =
         HostContentSettingsMapFactory::GetForProfile(profile_);
 
-    std::string source_string, display_name;
+    std::string source_string;
     ContentSetting content_setting = site_settings::GetContentSettingForOrigin(
-        profile_, map, origin_url, content_type, &source_string, &display_name);
+        profile_, map, origin_url, content_type, &source_string);
     std::string content_setting_string =
         content_settings::ContentSettingToString(content_setting);
 
@@ -1558,18 +1612,23 @@ void SiteSettingsHandler::HandleGetOriginPermissions(
     raw_site_exception.Set(site_settings::kIncognito,
                            profile_->IsOffTheRecord());
     raw_site_exception.Set(site_settings::kOrigin, origin);
-    absl::optional<std::string> extension_name =
-        site_settings::GetExtensionDisplayName(profile_, origin_url);
-    if (extension_name.has_value()) {
-      raw_site_exception.Set(site_settings::kExtensionNameWithId,
-                             l10n_util::GetStringFUTF8(
-                                 IDS_SETTINGS_EXTENSION_DISPLAY_NAME,
-                                 base::UTF8ToUTF16(extension_name.value()),
-                                 base::UTF8ToUTF16(origin_url.host_piece())));
-    }
-    raw_site_exception.Set(site_settings::kDisplayName, display_name);
     raw_site_exception.Set(site_settings::kSetting, content_setting_string);
     raw_site_exception.Set(site_settings::kSource, source_string);
+
+    UrlIdentity identity = site_settings::GetUrlIdentityForGURL(
+        profile_, origin_url, /*hostname_only=*/false);
+    std::string display_name;
+    if (identity.type == UrlIdentity::Type::kChromeExtension ||
+        identity.type == UrlIdentity::Type::kIsolatedWebApp) {
+      // Append " (ID: <id>)" to extensions and IWA names as the user could have
+      // multiple extensions/IWAs installed with the same name.
+      display_name = l10n_util::GetStringFUTF8(
+          IDS_SETTINGS_EXTENSION_OR_APP_DISPLAY_NAME, identity.name,
+          base::UTF8ToUTF16(origin_url.host_piece()));
+    } else {
+      display_name = base::UTF16ToUTF8(identity.name);
+    }
+    raw_site_exception.Set(site_settings::kDisplayName, display_name);
 
     exceptions.Append(std::move(raw_site_exception));
   }
@@ -1728,6 +1787,10 @@ void SiteSettingsHandler::HandleSetOriginPermissions(
             "SoundContentSetting.UnmuteBy.SiteSettings"));
       }
     }
+
+    permissions::PermissionUmaUtil::RecordPermissionRegrantForUnusedSites(
+        origin, content_type, permissions::PermissionSourceUI::SITE_SETTINGS,
+        profile_, base::Time::Now());
   }
 
   // Show an infobar reminding the user to reload tabs where their site
@@ -1894,13 +1957,13 @@ void SiteSettingsHandler::HandleResetChooserExceptionForSite(
       site_settings::ChooserTypeFromGroupName(chooser_type_str);
   CHECK(chooser_type);
 
-  const std::string& origin_str = args[1].GetString();
-  GURL origin(origin_str);
-  CHECK(origin.is_valid());
+  auto origin_url = GURL(args[1].GetString());
+  CHECK(origin_url.is_valid());
+  auto origin = url::Origin::Create(origin_url);
 
   permissions::ObjectPermissionContextBase* chooser_context =
       chooser_type->get_context(profile_);
-  chooser_context->RevokeObjectPermission(url::Origin::Create(origin), args[2]);
+  chooser_context->RevokeObjectPermission(origin, args[2].GetDict());
 }
 
 void SiteSettingsHandler::HandleIgnoreOriginsForNotificationPermissionReview(
@@ -2045,6 +2108,40 @@ void SiteSettingsHandler::SendZoomLevels() {
 
   base::Value::List zoom_levels_exceptions;
 
+  // Show any non-default Isolated Web App zoom levels at the top of the page.
+  auto* web_app_provider = web_app::WebAppProvider::GetForWebApps(profile_);
+  if (web_app_provider) {
+    const web_app::WebAppRegistrar& registrar =
+        web_app_provider->registrar_unsafe();
+    for (const web_app::IsolatedWebAppUrlInfo& iwa_url_info :
+         site_settings::GetInstalledIsolatedWebApps(profile_)) {
+      content::StoragePartition* iwa_storage_partition =
+          profile_->GetStoragePartition(
+              iwa_url_info.storage_partition_config(profile_));
+      auto* host_zoom_map =
+          content::HostZoomMap::GetForStoragePartition(iwa_storage_partition);
+      double iwa_zoom = host_zoom_map->GetZoomLevelForHostAndScheme(
+          chrome::kIsolatedAppScheme, iwa_url_info.origin().host());
+      if (iwa_zoom == host_zoom_map->GetDefaultZoomLevel()) {
+        continue;
+      }
+
+      zoom_levels_exceptions.Append(CreateZoomLevelException(
+          iwa_url_info.origin().Serialize(), iwa_url_info.origin().Serialize(),
+          registrar.GetAppShortName(iwa_url_info.app_id()), iwa_zoom));
+    }
+
+    // Sort by app name.
+    std::sort(zoom_levels_exceptions.begin(), zoom_levels_exceptions.end(),
+              [](const base::Value& a, const base::Value& b) {
+                const std::string& name_a =
+                    *a.GetDict().FindString(site_settings::kDisplayName);
+                const std::string& name_b =
+                    *b.GetDict().FindString(site_settings::kDisplayName);
+                return name_a < name_b;
+              });
+  }
+
   content::HostZoomMap* host_zoom_map =
       content::HostZoomMap::GetDefaultForBrowserContext(profile_);
   content::HostZoomMap::ZoomLevelVector zoom_levels(
@@ -2059,32 +2156,35 @@ void SiteSettingsHandler::SendZoomLevels() {
                const content::HostZoomMap::ZoomLevelChange& b) {
               return a.host == b.host ? a.scheme < b.scheme : a.host < b.host;
             });
+  GURL unreachable_web_data_url(content::kUnreachableWebDataURL);
   for (const auto& zoom_level : zoom_levels) {
     base::Value::Dict exception;
     switch (zoom_level.mode) {
       case content::HostZoomMap::ZOOM_CHANGED_FOR_HOST: {
-        std::string host = zoom_level.host;
-        if (host == content::kUnreachableWebDataURL) {
-          host =
+        std::string host_or_spec = zoom_level.host;
+        std::string origin_for_favicon = host_or_spec;
+        std::string display_name = host_or_spec;
+
+        if (host_or_spec == unreachable_web_data_url.host()) {
+          display_name =
               l10n_util::GetStringUTF8(IDS_ZOOMLEVELS_CHROME_ERROR_PAGES_LABEL);
         }
-        exception.Set(site_settings::kOrigin, host);
 
-        std::string display_name = host;
-        std::string origin_for_favicon = host;
         // As an optimization, only check hosts that could be an extension.
-        if (crx_file::id_util::IdIsValid(host)) {
+        if (crx_file::id_util::IdIsValid(host_or_spec)) {
           // Look up the host as an extension, if found then it is an extension.
           const extensions::Extension* extension =
               extension_registry->GetExtensionById(
-                  host, extensions::ExtensionRegistry::EVERYTHING);
+                  host_or_spec, extensions::ExtensionRegistry::EVERYTHING);
           if (extension) {
             origin_for_favicon = extension->url().spec();
             display_name = extension->name();
           }
         }
-        exception.Set(site_settings::kDisplayName, display_name);
-        exception.Set(site_settings::kOriginForFavicon, origin_for_favicon);
+
+        zoom_levels_exceptions.Append(
+            CreateZoomLevelException(host_or_spec, origin_for_favicon,
+                                     display_name, zoom_level.zoom_level));
         break;
       }
       case content::HostZoomMap::ZOOM_CHANGED_FOR_SCHEME_AND_HOST:
@@ -2094,23 +2194,6 @@ void SiteSettingsHandler::SendZoomLevels() {
       case content::HostZoomMap::ZOOM_CHANGED_TEMPORARY_ZOOM:
         NOTREACHED();
     }
-
-    std::string setting_string =
-        content_settings::ContentSettingToString(CONTENT_SETTING_DEFAULT);
-    DCHECK(!setting_string.empty());
-
-    exception.Set(site_settings::kSetting, setting_string);
-
-    // Calculate the zoom percent from the factor. Round up to the nearest whole
-    // number.
-    int zoom_percent = static_cast<int>(
-        blink::PageZoomLevelToZoomFactor(zoom_level.zoom_level) * 100 + 0.5);
-    exception.Set(kZoom, base::FormatPercent(zoom_percent));
-    exception.Set(site_settings::kSource,
-                  site_settings::SiteSettingSourceToString(
-                      site_settings::SiteSettingSource::kPreference));
-    // Append the new entry to the list and map.
-    zoom_levels_exceptions.Append(std::move(exception));
   }
 
   FireWebUIListener("onZoomLevelsChanged", zoom_levels_exceptions);
@@ -2119,17 +2202,29 @@ void SiteSettingsHandler::SendZoomLevels() {
 void SiteSettingsHandler::HandleRemoveZoomLevel(const base::Value::List& args) {
   CHECK_EQ(1U, args.size());
 
-  std::string origin = args[0].GetString();
+  std::string host_or_spec = args[0].GetString();
 
-  if (origin ==
-      l10n_util::GetStringUTF8(IDS_ZOOMLEVELS_CHROME_ERROR_PAGES_LABEL)) {
-    origin = content::kUnreachableWebDataURL;
+  GURL url(host_or_spec);
+  if (url.is_valid() && url.scheme() == chrome::kIsolatedAppScheme) {
+    base::expected<web_app::IsolatedWebAppUrlInfo, std::string> iwa_url_info =
+        web_app::IsolatedWebAppUrlInfo::Create(url);
+    if (!iwa_url_info.has_value()) {
+      return;
+    }
+    content::StoragePartition* iwa_storage_partition =
+        profile_->GetStoragePartition(
+            iwa_url_info->storage_partition_config(profile_));
+    auto* host_zoom_map =
+        content::HostZoomMap::GetForStoragePartition(iwa_storage_partition);
+    double default_level = host_zoom_map->GetDefaultZoomLevel();
+    host_zoom_map->SetZoomLevelForHost(url.host(), default_level);
+    return;
   }
 
-  content::HostZoomMap* host_zoom_map;
-  host_zoom_map = content::HostZoomMap::GetDefaultForBrowserContext(profile_);
+  content::HostZoomMap* host_zoom_map =
+      content::HostZoomMap::GetDefaultForBrowserContext(profile_);
   double default_level = host_zoom_map->GetDefaultZoomLevel();
-  host_zoom_map->SetZoomLevelForHost(origin, default_level);
+  host_zoom_map->SetZoomLevelForHost(host_or_spec, default_level);
 }
 
 void SiteSettingsHandler::HandleFetchBlockAutoplayStatus(
@@ -2316,10 +2411,14 @@ void SiteSettingsHandler::GetOriginStorage(
     if (entry.data_details->storage_size == 0)
       continue;
 
-    // Convert the primary host to an HTTPS url to match expecations for this
-    // code.
-    url::Origin origin =
-        ConvertEtldToOrigin(*entry.primary_host, /*secure=*/true);
+    url::Origin origin = absl::visit(
+        base::Overloaded{[](const std::string& host) {
+                           // Convert the primary host to an HTTPS url to match
+                           // expecations for this code.
+                           return ConvertEtldToOrigin(host, /*secure=*/true);
+                         },
+                         [](const url::Origin& origin) { return origin; }},
+        *entry.data_owner);
     UpdateDataFromModel(all_sites_map, origin_size_map, origin,
                         entry.data_details->storage_size);
   }
@@ -2371,16 +2470,15 @@ void SiteSettingsHandler::GetHostCookies(
   }
 }
 
-void SiteSettingsHandler::HandleClearEtldPlus1DataAndCookies(
+void SiteSettingsHandler::HandleClearSiteGroupDataAndCookies(
     const base::Value::List& args) {
   CHECK_EQ(1U, args.size());
-  const std::string& etld_plus1 = args[0].GetString();
-  auto grouping_key = GroupingKey::CreateFromEtldPlus1(etld_plus1);
+  auto grouping_key = GroupingKey::Deserialize(args[0].GetString());
 
   AllowJavascript();
-  RemoveMatchingNodes(cookies_tree_model_.get(), absl::nullopt, etld_plus1);
+  RemoveMatchingNodes(cookies_tree_model_.get(), absl::nullopt, grouping_key);
 
-  // Retrieve all of the origin entries grouped under this eTLD + 1.
+  // Retrieve all of the origin entries grouped under this group.
   std::vector<url::Origin> affected_origins;
   for (const auto& origin_is_partitioned : all_sites_map_[grouping_key]) {
     // Ignore entries which are partitioned, as no non-cookie tree storage is
@@ -2400,8 +2498,10 @@ void SiteSettingsHandler::HandleClearEtldPlus1DataAndCookies(
   // if the existing entry was https, otherwise a new http entry would be
   // created for the placeholder. Hence, we need only additionally include the
   // HTTPS version of the eTLD+1 as an origin.
-  affected_origins.emplace_back(
-      ConvertEtldToOrigin(etld_plus1, /*secure=*/true));
+  if (auto etld_plus1 = grouping_key.GetEtldPlusOne(); etld_plus1.has_value()) {
+    affected_origins.emplace_back(
+        ConvertEtldToOrigin(*etld_plus1, /*secure=*/true));
+  }
 
   RemoveNonTreeModelData(affected_origins);
 }

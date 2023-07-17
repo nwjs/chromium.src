@@ -4,7 +4,8 @@
 
 package org.chromium.net;
 
-import static junit.framework.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
+
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertNull;
@@ -53,9 +54,9 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
     // Whether to permit calls on the network thread.
     private boolean mAllowDirectExecutor;
 
-    // Whether to stop the executor thread after reaching a terminal method.
+    // The executor thread will block on this after reaching a terminal method.
     // Terminal methods are (onSucceeded, onFailed or onCancelled)
-    private boolean mBlockOnTerminalState;
+    private ConditionVariable mBlockOnTerminalState = new ConditionVariable(true);
 
     // Conditionally fail on certain steps.
     private FailureType mFailureType = FailureType.NONE;
@@ -63,9 +64,6 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
 
     // Signals when request is done either successfully or not.
     private final ConditionVariable mDone = new ConditionVariable();
-
-    // Hangs the calling thread until a terminal method has started executing.
-    private final ConditionVariable mWaitForTerminalToStart = new ConditionVariable();
 
     // Signaled on each step when mAutoAdvance is false.
     private final ConditionVariable mStepBlock = new ConditionVariable();
@@ -154,9 +152,10 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
      * @param blockOnTerminalState the state to set for the executor thread
      */
     public void setBlockOnTerminalState(boolean blockOnTerminalState) {
-        mBlockOnTerminalState = blockOnTerminalState;
-        if (!blockOnTerminalState) {
-            mDone.open();
+        if (blockOnTerminalState) {
+            mBlockOnTerminalState.close();
+        } else {
+            mBlockOnTerminalState.open();
         }
     }
 
@@ -175,14 +174,6 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
 
     public void blockForDone() {
         mDone.block();
-    }
-
-    /**
-     * Blocks the calling thread until one of the final states has been called.
-     * This is called before the callback has finished executed.
-     */
-    public void waitForTerminalToStart() {
-        mWaitForTerminalToStart.block();
     }
 
     public void waitForNextStep() {
@@ -287,9 +278,8 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
 
         mResponseStep = ResponseStep.ON_SUCCEEDED;
         mResponseInfo = info;
-        mWaitForTerminalToStart.open();
-        if (mBlockOnTerminalState) mDone.block();
         openDone();
+        mBlockOnTerminalState.block();
         maybeThrowCancelOrPause(request);
     }
 
@@ -309,19 +299,18 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
         assertFalse(mOnCanceledCalled);
         assertNull(mError);
         if (mCallbackExceptionThrown) {
-            assertTrue(error instanceof CallbackException);
+            assertThat(error).isInstanceOf(CallbackException.class);
             assertContains("Exception received from UrlRequest.Callback", error.getMessage());
             assertNotNull(error.getCause());
-            assertTrue(error.getCause() instanceof IllegalStateException);
+            assertThat(error).hasCauseThat().isInstanceOf(IllegalStateException.class);
             assertContains("Listener Exception.", error.getCause().getMessage());
         }
 
         mResponseStep = ResponseStep.ON_FAILED;
         mOnErrorCalled = true;
         mError = error;
-        mWaitForTerminalToStart.open();
-        if (mBlockOnTerminalState) mDone.block();
         openDone();
+        mBlockOnTerminalState.block();
         maybeThrowCancelOrPause(request);
     }
 
@@ -336,9 +325,8 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
 
         mResponseStep = ResponseStep.ON_CANCELED;
         mOnCanceledCalled = true;
-        mWaitForTerminalToStart.open();
-        if (mBlockOnTerminalState) mDone.block();
         openDone();
+        mBlockOnTerminalState.block();
         maybeThrowCancelOrPause(request);
     }
 
@@ -364,7 +352,7 @@ public class TestUrlRequestCallback extends UrlRequest.Callback {
 
     private void checkExecutorThread() {
         if (!mAllowDirectExecutor) {
-            assertEquals(mExecutorThread, Thread.currentThread());
+            assertThat(Thread.currentThread()).isEqualTo(mExecutorThread);
         }
     }
 

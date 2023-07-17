@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/side_panel/companion/companion_utils.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -33,6 +35,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/strings/grit/components_strings.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_header_macros.h"
@@ -89,9 +92,9 @@ std::unique_ptr<views::ToggleImageButton> CreatePinToggleButton(
   views::ConfigureVectorImageButton(button.get());
   ConfigureControlButton(button.get());
   button->SetTooltipText(
-      l10n_util::GetStringUTF16(IDS_SIDE_PANEL_TOOLBAR_BUTTON_CXMENU_PIN));
+      l10n_util::GetStringUTF16(IDS_SIDE_PANEL_HEADER_PIN_BUTTON_TOOLTIP));
   button->SetToggledTooltipText(
-      l10n_util::GetStringUTF16(IDS_SIDE_PANEL_TOOLBAR_BUTTON_CXMENU_UNPIN));
+      l10n_util::GetStringUTF16(IDS_SIDE_PANEL_HEADER_UNPIN_BUTTON_TOOLTIP));
 
   int dip_size = ChromeLayoutProvider::Get()->GetDistanceMetric(
       ChromeDistanceMetric::DISTANCE_SIDE_PANEL_HEADER_VECTOR_ICON_SIZE);
@@ -199,11 +202,18 @@ class SidePanelContentSwappingContainer : public views::View {
   PopulateSidePanelCallback loaded_callback_;
 };
 
+// Get the list of distillable URLs defined by the Finch experiment parameter.
+std::vector<std::string> GetDistillableURLs() {
+  return base::SplitString(base::GetFieldTrialParamValueByFeature(
+                               features::kReadAnything, "distillable_urls"),
+                           ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
+}
+
 }  // namespace
 
 SidePanelCoordinator::SidePanelCoordinator(BrowserView* browser_view)
-    : browser_view_(browser_view) {
-  combobox_model_ = std::make_unique<SidePanelComboboxModel>();
+    : browser_view_(browser_view), distillable_urls_(GetDistillableURLs()) {
+  combobox_model_ = std::make_unique<SidePanelComboboxModel>(browser_view_);
 
   auto global_registry = std::make_unique<SidePanelRegistry>();
   global_registry_ = global_registry.get();
@@ -212,6 +222,7 @@ SidePanelCoordinator::SidePanelCoordinator(BrowserView* browser_view)
                                        std::move(global_registry));
 
   browser_view_->browser()->tab_strip_model()->AddObserver(this);
+  Observe(GetActiveWebContents());
 
   SidePanelUtil::PopulateGlobalEntries(browser_view->browser(),
                                        global_registry_);
@@ -220,6 +231,7 @@ SidePanelCoordinator::SidePanelCoordinator(BrowserView* browser_view)
 SidePanelCoordinator::~SidePanelCoordinator() {
   browser_view_->browser()->tab_strip_model()->RemoveObserver(this);
   view_state_observers_.Clear();
+  Observe(nullptr);
 }
 
 // static
@@ -294,8 +306,10 @@ void SidePanelCoordinator::Close() {
   ClearCachedEntryViews();
 
   // TODO(pbos): Make this button observe panel-visibility state instead.
-  SetSidePanelButtonTooltipText(
-      l10n_util::GetStringUTF16(IDS_TOOLTIP_SIDE_PANEL_SHOW));
+  if (!companion::IsCompanionFeatureEnabled()) {
+    SetSidePanelButtonTooltipText(
+        l10n_util::GetStringUTF16(IDS_TOOLTIP_SIDE_PANEL_SHOW));
+  }
 
   // `OnEntryWillDeregister` (triggered by calling `OnEntryHidden`) may already
   // have deleted the content view, so check that it still exists.
@@ -360,16 +374,6 @@ absl::optional<SidePanelEntry::Id> SidePanelCoordinator::GetCurrentEntryId()
              : absl::nullopt;
 }
 
-SidePanelEntry::Id SidePanelCoordinator::GetComboboxDisplayedEntryIdForTesting()
-    const {
-  return combobox_model_->GetKeyAt(header_combobox_->GetSelectedIndex().value())
-      .id();
-}
-
-SidePanelEntry* SidePanelCoordinator::GetLoadingEntryForTesting() const {
-  return GetLoadingEntry();
-}
-
 bool SidePanelCoordinator::IsSidePanelShowing() const {
   return GetContentView() != nullptr;
 }
@@ -378,6 +382,16 @@ bool SidePanelCoordinator::IsSidePanelEntryShowing(
     const SidePanelEntry::Key& entry_key) const {
   return IsSidePanelShowing() && current_entry_ &&
          current_entry_->key() == entry_key;
+}
+
+SidePanelEntry::Id SidePanelCoordinator::GetComboboxDisplayedEntryIdForTesting()
+    const {
+  return combobox_model_->GetKeyAt(header_combobox_->GetSelectedIndex().value())
+      .id();
+}
+
+SidePanelEntry* SidePanelCoordinator::GetLoadingEntryForTesting() const {
+  return GetLoadingEntry();
 }
 
 bool SidePanelCoordinator::IsSidePanelEntryShowing(
@@ -412,6 +426,8 @@ void SidePanelCoordinator::Show(
         feature_engagement::kIPHReadingListInSidePanelFeature);
     browser_view_->browser()->window()->CloseFeaturePromo(
         feature_engagement::kIPHPowerBookmarksSidePanelFeature);
+    browser_view_->browser()->window()->CloseFeaturePromo(
+        feature_engagement::kIPHReadingModeSidePanelFeature);
   }
 
   SidePanelContentSwappingContainer* content_wrapper =
@@ -437,8 +453,8 @@ void SidePanelCoordinator::Show(
     return;
   }
 
-  SidePanelUtil::RecordEntryShowTriggeredMetrics(entry->key().id(),
-                                                 open_trigger);
+  SidePanelUtil::RecordEntryShowTriggeredMetrics(
+      browser_view_->browser(), entry->key().id(), open_trigger);
 
   content_wrapper->RequestEntry(
       entry, base::BindOnce(&SidePanelCoordinator::PopulateSidePanel,
@@ -485,8 +501,10 @@ bool SidePanelCoordinator::IsGlobalEntryShowing(
 
 void SidePanelCoordinator::InitializeSidePanel() {
   // TODO(pbos): Make this button observe panel-visibility state instead.
-  SetSidePanelButtonTooltipText(
-      l10n_util::GetStringUTF16(IDS_TOOLTIP_SIDE_PANEL_HIDE));
+  if (!companion::IsCompanionFeatureEnabled()) {
+    SetSidePanelButtonTooltipText(
+        l10n_util::GetStringUTF16(IDS_TOOLTIP_SIDE_PANEL_HIDE));
+  }
 
   auto container = std::make_unique<views::FlexLayoutView>();
   // Align views vertically top to bottom.
@@ -609,8 +627,7 @@ absl::optional<SidePanelEntry::Key> SidePanelCoordinator::GetSelectedKey()
 }
 
 SidePanelRegistry* SidePanelCoordinator::GetActiveContextualRegistry() const {
-  if (auto* web_contents =
-          browser_view_->browser()->tab_strip_model()->GetActiveWebContents()) {
+  if (auto* web_contents = GetActiveWebContents()) {
     return SidePanelRegistry::Get(web_contents);
   }
   return nullptr;
@@ -623,10 +640,11 @@ std::unique_ptr<views::View> SidePanelCoordinator::CreateHeader() {
       ChromeLayoutProvider::Get();
 
   // Set the interior margins of the header on the left and right sides.
-  header->SetInteriorMargin(gfx::Insets::VH(
-      0, chrome_layout_provider->GetDistanceMetric(
-             ChromeDistanceMetric::
-                 DISTANCE_SIDE_PANEL_HEADER_INTERIOR_MARGIN_HORIZONTAL)));
+  const int horizontal_margin = chrome_layout_provider->GetDistanceMetric(
+      ChromeDistanceMetric::
+          DISTANCE_SIDE_PANEL_HEADER_INTERIOR_MARGIN_HORIZONTAL);
+  header->SetInteriorMargin(
+      gfx::Insets::TLBR(0, horizontal_margin, 0, horizontal_margin * 2));
   // Set alignments for horizontal (main) and vertical (cross) axes.
   header->SetMainAxisAlignment(views::LayoutAlignment::kStart);
   header->SetCrossAxisAlignment(views::LayoutAlignment::kCenter);
@@ -936,6 +954,9 @@ void SidePanelCoordinator::OnTabStripModelChanged(
     Show(new_contextual_registry->active_entry().value(),
          SidePanelUtil::SidePanelOpenTrigger::kTabChanged);
   }
+
+  Observe(GetActiveWebContents());
+  MaybeShowReadingModeSidePanelIPH();
 }
 
 void SidePanelCoordinator::UpdateNewTabButtonState() {
@@ -974,4 +995,32 @@ void SidePanelCoordinator::UpdateToolbarButtonHighlight(
 void SidePanelCoordinator::OnViewVisibilityChanged(views::View* observed_view,
                                                    views::View* starting_from) {
   UpdateToolbarButtonHighlight(observed_view->GetVisible());
+}
+
+void SidePanelCoordinator::DidStopLoading() {
+  MaybeShowReadingModeSidePanelIPH();
+}
+
+content::WebContents* SidePanelCoordinator::GetActiveWebContents() const {
+  return browser_view_->browser()->tab_strip_model()->GetActiveWebContents();
+}
+
+void SidePanelCoordinator::MaybeShowReadingModeSidePanelIPH() {
+  if (!features::IsReadAnythingEnabled()) {
+    return;
+  }
+  auto* web_contents = GetActiveWebContents();
+  if (!web_contents) {
+    return;
+  }
+  auto url = web_contents->GetLastCommittedURL();
+  for (auto distillable : distillable_urls_) {
+    // If the url's domain is found in distillable urls AND the url has a
+    // filename (i.e. it is not a home page or sub-home page), show the promo.
+    if (url.DomainIs(distillable) && !url.ExtractFileName().empty()) {
+      browser_view_->browser()->window()->MaybeShowFeaturePromo(
+          feature_engagement::kIPHReadingModeSidePanelFeature);
+      return;
+    }
+  }
 }

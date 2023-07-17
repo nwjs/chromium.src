@@ -14,7 +14,7 @@ using namespace html_names;
 
 void V8HTMLIFrameElement::NwUserAgentAttributeSetterCustom(v8::Local<v8::Value> value, const v8::FunctionCallbackInfo<v8::Value>& info)
 {
-  HTMLIFrameElement* frame = V8HTMLIFrameElement::ToImpl(info.Holder());
+  HTMLIFrameElement* frame = V8HTMLIFrameElement::ToWrappableUnsafe(info.Holder());
   // String agentValue = toCoreStringWithNullCheck(value);
   TOSTRING_VOID(V8StringResource<>, agentValue, value);
 

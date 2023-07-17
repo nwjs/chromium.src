@@ -40,10 +40,7 @@ class AffiliatedCloudPolicyInvalidator;
 class AffiliatedInvalidationServiceProvider;
 class AffiliatedRemoteCommandsInvalidator;
 class BluetoothPolicyHandler;
-class DeviceActiveDirectoryPolicyManager;
 class DeviceCloudPolicyInitializer;
-class ActiveDirectoryDeviceStateUploader;
-class ActiveDirectoryMigrationManager;
 class DeviceDockMacAddressHandler;
 class DeviceLocalAccountPolicyService;
 class DeviceNamePolicyHandler;
@@ -97,9 +94,6 @@ class BrowserPolicyConnectorAsh : public ChromeBrowserPolicyConnector,
   // Checks whether this is a cloud (DM server) managed enterprise device.
   bool IsCloudManaged() const;
 
-  // Checks whether this is an Active Directory managed enterprise device.
-  bool IsActiveDirectoryManaged() const;
-
   // Returns the enterprise enrollment domain if device is managed.
   std::string GetEnterpriseEnrollmentDomain() const;
 
@@ -111,10 +105,6 @@ class BrowserPolicyConnectorAsh : public ChromeBrowserPolicyConnector,
   // Returns the SSO profile id for the managing OU of this device. Currently
   // identifies the SAML settings for the device.
   std::string GetSSOProfile() const;
-
-  // Returns the Kerberos realm (aka Windows Domain) if the device is managed by
-  // Active Directory.
-  std::string GetRealm() const;
 
   // Returns the device asset ID if it is set.
   std::string GetDeviceAssetID() const;
@@ -146,23 +136,20 @@ class BrowserPolicyConnectorAsh : public ChromeBrowserPolicyConnector,
   // Delegates to `ash::InstallAttributes::Get()`.
   ash::InstallAttributes* GetInstallAttributes() const;
 
-  // May be nullptr, e.g. for devices managed by Active Directory.
+  // May be nullptr.
+  // TODO(b/281771191) Document when this can return nullptr.
   DeviceCloudPolicyManagerAsh* GetDeviceCloudPolicyManager() const {
     return device_cloud_policy_manager_;
   }
 
-  // May be nullptr, e.g. for cloud-managed devices.
-  DeviceActiveDirectoryPolicyManager* GetDeviceActiveDirectoryPolicyManager()
-      const {
-    return device_active_directory_policy_manager_;
-  }
-
-  // May be nullptr, e.g. for devices managed by Active Directory.
+  // May be nullptr.
+  // TODO(b/281771191) Document when this can return nullptr.
   DeviceLocalAccountPolicyService* GetDeviceLocalAccountPolicyService() const {
     return device_local_account_policy_service_.get();
   }
 
-  // May be nullptr, e.g. for devices managed by Active Directory.
+  // May be nullptr.
+  // TODO(b/281771191) Document when this can return nullptr.
   ServerBackedStateKeysBroker* GetStateKeysBroker() const {
     return state_keys_broker_.get();
   }
@@ -269,12 +256,6 @@ class BrowserPolicyConnectorAsh : public ChromeBrowserPolicyConnector,
       affiliated_invalidation_service_provider_;
   raw_ptr<DeviceCloudPolicyManagerAsh, ExperimentalAsh>
       device_cloud_policy_manager_ = nullptr;
-  raw_ptr<DeviceActiveDirectoryPolicyManager, ExperimentalAsh>
-      device_active_directory_policy_manager_ = nullptr;
-  std::unique_ptr<ActiveDirectoryDeviceStateUploader>
-      active_directory_device_state_uploader_;
-  std::unique_ptr<ActiveDirectoryMigrationManager>
-      active_directory_migration_manager_;
   raw_ptr<PrefService, DanglingUntriaged | ExperimentalAsh> local_state_ =
       nullptr;
   std::unique_ptr<DeviceCloudPolicyInitializer>

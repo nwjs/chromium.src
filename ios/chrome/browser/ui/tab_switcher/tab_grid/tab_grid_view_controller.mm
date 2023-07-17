@@ -2220,7 +2220,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
 - (void)reportTabSelectionTime {
   if (self.tabGridEnterTime.is_null()) {
     // The enter time was not recorded. Bail out.
-    base::debug::DumpWithoutCrashing();
     return;
   }
   base::TimeDelta duration = base::TimeTicks::Now() - self.tabGridEnterTime;
@@ -2229,7 +2228,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   self.tabGridEnterTime = base::TimeTicks();
 }
 
-#pragma mark UIGestureRecognizerDelegate
+#pragma mark - UIGestureRecognizerDelegate
 
 - (BOOL)gestureRecognizer:(UIGestureRecognizer*)gestureRecognizer
     shouldRecognizeSimultaneouslyWithGestureRecognizer:
@@ -2239,7 +2238,7 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   return NO;
 }
 
-#pragma mark UISearchBarDelegate
+#pragma mark - UISearchBarDelegate
 
 - (void)searchBarTextDidBeginEditing:(UISearchBar*)searchBar {
   [self updateScrimVisibilityForText:searchBar.text];
@@ -2501,8 +2500,6 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
     return;
   }
 
-  // Check if the tab being selected is already selected.
-  BOOL alreadySelected = NO;
   id<GridCommands> tabsDelegate;
   if (gridViewController == self.regularTabsViewController) {
     tabsDelegate = self.regularTabsDelegate;
@@ -2523,7 +2520,8 @@ NSUInteger GetPageIndexFromPage(TabGridPage page) {
   // Record how long it took to select an item.
   [self reportTabSelectionTime];
 
-  alreadySelected = [tabsDelegate isItemWithIDSelected:itemID];
+  // Check if the tab being selected is already selected.
+  BOOL alreadySelected = [tabsDelegate isItemWithIDSelected:itemID];
   if (!alreadySelected) {
     [self setCurrentIdlePageStatus:NO];
   }

@@ -76,6 +76,7 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver_stats.h"
 #include "third_party/blink/renderer/core/css/selector_query.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/css/style_containment_scope_tree.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/css_value_keywords.h"
 #include "third_party/blink/renderer/core/display_lock/display_lock_context.h"
@@ -2396,7 +2397,8 @@ void Element::AttributeChanged(const AttributeModificationParams& params) {
     //
     // TODO(tkent): We should avoid updating style.  We'd like to check only
     // DOM-level focusability here.
-    GetDocument().UpdateStyleAndLayoutTreeForNode(this);
+    GetDocument().UpdateStyleAndLayoutTreeForNode(this,
+                                                  DocumentUpdateReason::kFocus);
     if (!SupportsFocus() && !GetFocusableArea()) {
       blur();
     }
@@ -3052,10 +3054,10 @@ scoped_refptr<const ComputedStyle> Element::StyleForLayoutObject(
     DCHECK(IsPseudoElement());
     return nullptr;
   }
-  if (style->IsPseudoInitialStyle()) {
-    // @initial pseudo styles matched. We need to compute the style a second
-    // time to compute the actual style and trigger transitions using the
-    // starting from the :initial style.
+  if (style->IsStartingStyle()) {
+    // @starting-style styles matched. We need to compute the style a second
+    // time to compute the actual style and trigger transitions starting from
+    // style with @starting-style applied.
     new_style_recalc_context.old_style =
         style->Display() == EDisplay::kNone ? nullptr : style.get();
     style = HasCustomStyleCallbacks()
@@ -3208,9 +3210,8 @@ const ComputedStyle* Element::ParentComputedStyle() const {
 // that children must also be recalculated, call ourself recursively
 // on any children (via RecalcDescendantStyles()), and/or update
 // pseudo-elements.
-StyleRecalcChange Element::RecalcStyle(
-    const StyleRecalcChange change,
-    const StyleRecalcContext& style_recalc_context) {
+void Element::RecalcStyle(const StyleRecalcChange change,
+                          const StyleRecalcContext& style_recalc_context) {
   DCHECK(InActiveDocument());
   DCHECK(GetDocument().InStyleRecalc());
   DCHECK(!GetDocument().Lifecycle().InDetach());
@@ -3245,11 +3246,6 @@ StyleRecalcChange Element::RecalcStyle(
     ClearNeedsStyleRecalc();
   }
 
-  const StyleRecalcChange sibling_change =
-      child_change.RecalcSiblingDescendants()
-          ? StyleRecalcChange(StyleRecalcChange::kRecalcSiblingDescendants)
-          : StyleRecalcChange();
-
   // We may need to update the internal CSSContainerValues of the
   // ContainerQueryEvaluator if e.g. the value of the 'rem' unit or container-
   // relative units changed. It are not guaranteed to reach RecalcOwnStyle for
@@ -3265,7 +3261,7 @@ StyleRecalcChange Element::RecalcStyle(
     if (HasCustomStyleCallbacks()) {
       DidRecalcStyle(child_change);
     }
-    return sibling_change;
+    return;
   }
 
   if (LayoutObject* layout_object = GetLayoutObject()) {
@@ -3312,7 +3308,7 @@ StyleRecalcChange Element::RecalcStyle(
                   child_change);
         }
       } else if (SkipStyleRecalcForContainer(*style, child_change)) {
-        return sibling_change;
+        return;
       }
     }
     if (style->IsContainerForSizeContainerQueries()) {
@@ -3371,8 +3367,6 @@ StyleRecalcChange Element::RecalcStyle(
   if (HasCustomStyleCallbacks()) {
     DidRecalcStyle(child_change);
   }
-
-  return sibling_change;
 }
 
 scoped_refptr<const ComputedStyle> Element::PropagateInheritedProperties() {
@@ -3430,30 +3424,18 @@ static ContainerQueryEvaluator* ComputeContainerQueryEvaluator(
       return nullptr;
     }
   }
-  // If we're switching to display:contents, any existing results cached on
-  // ContainerQueryEvaluator are no longer valid, since any style recalc
-  // based on that information would *not* be corrected by a subsequent
-  // interleaved style recalc, since the element has no layout object.
-  if (old_style && !element.LayoutObjectIsNeeded(new_style) &&
-      element.LayoutObjectIsNeeded(*old_style)) {
-    return MakeGarbageCollected<ContainerQueryEvaluator>();
+  if (evaluator) {
+    return evaluator;
   }
-  // Otherwise, the existing ContainerQueryEvaluator can be used, if any.
-  if (!evaluator) {
-    evaluator = MakeGarbageCollected<ContainerQueryEvaluator>();
-  }
-  return evaluator;
+  return MakeGarbageCollected<ContainerQueryEvaluator>();
 }
 
 static const StyleRecalcChange ApplyComputedStyleDiff(
     const StyleRecalcChange change,
     ComputedStyle::Difference diff) {
-  if (change.RecalcSiblingDescendants() ||
+  if (change.RecalcDescendants() ||
       diff < ComputedStyle::Difference::kPseudoElementStyle) {
     return change;
-  }
-  if (diff == ComputedStyle::Difference::kSiblingDescendantAffecting) {
-    return change.EnsureAtLeast(StyleRecalcChange::kRecalcSiblingDescendants);
   }
   if (diff == ComputedStyle::Difference::kDescendantAffecting) {
     return change.EnsureAtLeast(StyleRecalcChange::kRecalcDescendants);
@@ -3674,6 +3656,20 @@ StyleRecalcChange Element::RecalcOwnStyle(
     rare_data->ClearPseudoElements();
   }
   SetComputedStyle(new_style);
+
+  // Update style containment tree if the style containment of the element
+  // has changed.
+  if ((!new_style && old_style && old_style->ContainsStyle()) ||
+      (old_style && new_style &&
+       old_style->ContainsStyle() != new_style->ContainsStyle())) {
+    StyleContainmentScopeTree& tree =
+        GetDocument().GetStyleEngine().EnsureStyleContainmentScopeTree();
+    if (new_style && new_style->ContainsStyle()) {
+      tree.CreateScopeForElement(*this);
+    } else {
+      tree.DestroyScopeForElement(*this);
+    }
+  }
 
   ProcessContainIntrinsicSizeChanges();
 
@@ -4072,20 +4068,20 @@ void Element::setEditContext(EditContext* edit_context) {
   // If an element is in focus when being attached to a new EditContext,
   // its old EditContext, if it has any, will get blurred,
   // and the new EditContext will automatically get focused.
-  if (edit_context && IsFocusedElementInDocument()) {
-    if (auto* old_edit_context = editContext()) {
+  if (auto* old_edit_context = editContext()) {
+    if (IsFocusedElementInDocument()) {
       old_edit_context->Blur();
     }
 
-    edit_context->Focus();
-  }
-
-  if (auto* old_edit_context = editContext()) {
     old_edit_context->DetachElement(this);
   }
 
   if (edit_context) {
     edit_context->AttachElement(this);
+
+    if (IsFocusedElementInDocument()) {
+      edit_context->Focus();
+    }
   }
 
   EnsureElementRareData().SetEditContext(edit_context);
@@ -4434,14 +4430,48 @@ ShadowRoot* Element::attachShadow(const ShadowRootInit* shadow_root_init_dict,
   return &shadow_root;
 }
 
+bool Element::AttachStreamingDeclarativeShadowRoot(
+    HTMLTemplateElement& template_element,
+    ShadowRootType type,
+    FocusDelegation focus_delegation,
+    SlotAssignmentMode slot_assignment) {
+  CHECK(type == ShadowRootType::kOpen || type == ShadowRootType::kClosed);
+  CHECK(!template_element.IsNonStreamingDeclarativeShadowRoot());
+
+  // 12. Run attach a shadow root with shadow host equal to declarative shadow
+  // host element, mode equal to declarative shadow mode, and delegates focus
+  // equal to declarative shadow delegates focus. If an exception was thrown by
+  // attach a shadow root, catch it, and ignore the exception.
+  if (const char* error_message = ErrorMessageForAttachShadow()) {
+    template_element.SetDeclarativeShadowRootType(
+        DeclarativeShadowRootType::kNone);
+    GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
+        mojom::blink::ConsoleMessageSource::kOther,
+        mojom::blink::ConsoleMessageLevel::kError, error_message));
+    return false;
+  }
+
+  ShadowRoot& shadow_root =
+      AttachShadowRootInternal(type, focus_delegation, slot_assignment);
+  // 13.1. Set declarative shadow host element's shadow host's "is declarative
+  // shadow root" property to true.
+  shadow_root.SetIsDeclarativeShadowRoot(true);
+  // 13.NEW. Set declarative shadow host element's shadow host's "available
+  // to element internals" to true.
+  shadow_root.SetAvailableToElementInternals(true);
+  return true;
+}
+
 // TODO(crbug.com/1396384) Remove this entire function when the older version
 // of declarative shadow DOM is removed.
-bool Element::AttachDeclarativeShadowRoot(HTMLTemplateElement* template_element,
-                                          ShadowRootType type,
-                                          FocusDelegation focus_delegation,
-                                          SlotAssignmentMode slot_assignment) {
-  DCHECK(template_element);
-  DCHECK(type == ShadowRootType::kOpen || type == ShadowRootType::kClosed);
+bool Element::AttachDeprecatedNonStreamingDeclarativeShadowRoot(
+    HTMLTemplateElement& template_element,
+    ShadowRootType type,
+    FocusDelegation focus_delegation,
+    SlotAssignmentMode slot_assignment) {
+  CHECK(type == ShadowRootType::kOpen || type == ShadowRootType::kClosed);
+  CHECK(template_element.IsNonStreamingDeclarativeShadowRoot());
+
   Deprecation::CountDeprecation(
       GetDocument().GetExecutionContext(),
       mojom::blink::WebFeature::kDeclarativeShadowRoot);
@@ -4451,7 +4481,7 @@ bool Element::AttachDeclarativeShadowRoot(HTMLTemplateElement* template_element,
   // equal to declarative shadow delegates focus. If an exception was thrown by
   // attach a shadow root, catch it, and ignore the exception.
   if (const char* error_message = ErrorMessageForAttachShadow()) {
-    template_element->SetDeclarativeShadowRootType(
+    template_element.SetDeclarativeShadowRootType(
         DeclarativeShadowRootType::kNone);
     GetDocument().AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
         mojom::blink::ConsoleMessageSource::kOther,
@@ -4468,15 +4498,13 @@ bool Element::AttachDeclarativeShadowRoot(HTMLTemplateElement* template_element,
   // to element internals" to true.
   shadow_root.SetAvailableToElementInternals(true);
 
-  if (template_element->IsNonStreamingDeclarativeShadowRoot()) {
-    // 13.2. Append the declarative template element's DocumentFragment to the
-    // newly-created shadow root.
-    shadow_root.ParserTakeAllChildrenFrom(
-        *template_element->DeclarativeShadowContent());
-    // 13.3. Remove the declarative template element from the document.
-    if (template_element->parentNode()) {
-      template_element->parentNode()->ParserRemoveChild(*template_element);
-    }
+  // 13.2. Append the declarative template element's DocumentFragment to the
+  // newly-created shadow root.
+  shadow_root.ParserTakeAllChildrenFrom(
+      *template_element.DeclarativeShadowContent());
+  // 13.3. Remove the declarative template element from the document.
+  if (template_element.parentNode()) {
+    template_element.parentNode()->ParserRemoveChild(template_element);
   }
   return true;
 }
@@ -4955,7 +4983,7 @@ void Element::DefaultEventHandler(Event& event) {
 }
 
 bool Element::DelegatesFocus() const {
-  return AuthorShadowRoot() && AuthorShadowRoot()->delegatesFocus();
+  return GetShadowRoot() && GetShadowRoot()->delegatesFocus();
 }
 
 // https://html.spec.whatwg.org/C/#get-the-focusable-area
@@ -4973,7 +5001,9 @@ Element* Element::GetFocusableArea(bool in_descendant_traversal) const {
     return nullptr;
   }
   Document& doc = GetDocument();
-  UseCounter::Count(doc, WebFeature::kDelegateFocus);
+  if (AuthorShadowRoot()) {
+    UseCounter::Count(doc, WebFeature::kDelegateFocus);
+  }
 
   Element* focused_element = doc.FocusedElement();
   if (focused_element &&
@@ -4981,7 +5011,7 @@ Element* Element::GetFocusableArea(bool in_descendant_traversal) const {
     return focused_element;
   }
 
-  DCHECK(AuthorShadowRoot());
+  DCHECK(GetShadowRoot());
   if (RuntimeEnabledFeatures::DialogNewFocusBehaviorEnabled()) {
     return GetFocusDelegate(/*autofocus_only=*/false, in_descendant_traversal);
   } else {
@@ -4991,13 +5021,14 @@ Element* Element::GetFocusableArea(bool in_descendant_traversal) const {
 
 Element* Element::GetFocusDelegate(bool autofocus_only,
                                    bool in_descendant_traversal) const {
-  ShadowRoot* shadowroot = AuthorShadowRoot();
-  if (shadowroot && !shadowroot->delegatesFocus()) {
+  ShadowRoot* shadowroot = GetShadowRoot();
+  if (shadowroot && !shadowroot->IsUserAgent() &&
+      !shadowroot->delegatesFocus()) {
     return nullptr;
   }
 
   const ContainerNode* where_to_look = this;
-  if (shadowroot) {
+  if (shadowroot && shadowroot->delegatesFocus()) {
     where_to_look = shadowroot;
   }
 
@@ -5097,7 +5128,8 @@ void Element::Focus(const FocusParams& params) {
       params.gate_on_user_activation);
 
   // Ensure we have clean style (including forced display locks).
-  GetDocument().UpdateStyleAndLayoutTreeForNode(this);
+  GetDocument().UpdateStyleAndLayoutTreeForNode(this,
+                                                DocumentUpdateReason::kFocus);
 
   // https://html.spec.whatwg.org/C/#focusing-steps
   //
@@ -5356,7 +5388,8 @@ bool Element::IsFocusableStyleAfterUpdate() const {
           *this, DisplayLockActivationReason::kUserFocus)) {
     return false;
   }
-  GetDocument().UpdateStyleAndLayoutTreeForNode(this);
+  GetDocument().UpdateStyleAndLayoutTreeForNode(this,
+                                                DocumentUpdateReason::kFocus);
   return IsFocusableStyle();
 }
 
@@ -6447,6 +6480,13 @@ void Element::UpdateFirstLetterPseudoElement(
   // The StyleUpdatePhase tells where we are in the process of updating style
   // and layout tree.
 
+  // We need to update quotes to create the correct text fragments before the
+  // first letter element update.
+  if (StyleContainmentScopeTree* tree =
+          GetDocument().GetStyleEngine().GetStyleContainmentScopeTree()) {
+    tree->UpdateQuotes();
+  }
+
   PseudoElement* element = GetPseudoElement(kPseudoIdFirstLetter);
   if (!element) {
     element =
@@ -7059,10 +7099,10 @@ ScriptValue Element::requestPointerLock(ScriptState* script_state,
         "is no frame or that frame has no page.");
   }
 
-    if (exception_state.HadException()) {
-      resolver->Reject(exception_state);
-    }
-    return promise.AsScriptValue();
+  if (exception_state.HadException()) {
+    resolver->Reject(exception_state);
+  }
+  return promise.AsScriptValue();
 }
 
 SpellcheckAttributeState Element::GetSpellcheckAttributeState() const {
@@ -8517,21 +8557,28 @@ ALWAYS_INLINE void Element::SetAttributeInternal(
 
   const Attribute& existing_attribute =
       GetElementData()->Attributes().at(index);
-  AtomicString existing_attribute_value = existing_attribute.Value();
   QualifiedName existing_attribute_name = existing_attribute.GetName();
 
-  if (reason !=
-      AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
-    WillModifyAttribute(existing_attribute_name, existing_attribute_value,
-                        new_value);
-  }
-  if (new_value != existing_attribute_value) {
-    EnsureUniqueElementData().Attributes().at(index).SetValue(new_value);
-  }
-  if (reason !=
-      AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
-    DidModifyAttribute(existing_attribute_name, existing_attribute_value,
-                       new_value, reason);
+  if (new_value == existing_attribute.Value()) {
+    if (reason !=
+        AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
+      WillModifyAttribute(existing_attribute_name, new_value, new_value);
+      DidModifyAttribute(existing_attribute_name, new_value, new_value, reason);
+    }
+  } else {
+    Attribute& new_attribute = EnsureUniqueElementData().Attributes().at(index);
+    AtomicString existing_attribute_value = std::move(new_attribute.Value());
+    if (reason !=
+        AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
+      WillModifyAttribute(existing_attribute_name, existing_attribute_value,
+                          new_value);
+    }
+    new_attribute.SetValue(new_value);
+    if (reason !=
+        AttributeModificationReason::kBySynchronizationOfLazyAttribute) {
+      DidModifyAttribute(existing_attribute_name, existing_attribute_value,
+                         new_value, reason);
+    }
   }
 }
 

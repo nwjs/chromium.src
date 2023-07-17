@@ -93,6 +93,7 @@
 #include "components/no_state_prefetch/renderer/no_state_prefetch_helper.h"
 #include "components/no_state_prefetch/renderer/no_state_prefetch_utils.h"
 #include "components/no_state_prefetch/renderer/prerender_render_frame_observer.h"
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/page_load_metrics/renderer/metrics_render_frame_observer.h"
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -193,7 +194,7 @@
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/common/controlled_frame.h"
+#include "chrome/common/controlled_frame/controlled_frame.h"
 #include "chrome/common/initialize_extensions_client.h"
 #include "chrome/renderer/extensions/chrome_extensions_renderer_client.h"
 #include "extensions/common/constants.h"
@@ -645,9 +646,7 @@ void ChromeContentRendererClient::RenderFrameCreated(
 
   const bool search_result_extractor_enabled =
       render_frame->IsMainFrame() &&
-      history_clusters::GetConfig().is_journeys_enabled_no_locale_check &&
-      history_clusters::IsApplicationLocaleSupportedByJourneys(
-          RenderThread::Get()->GetLocale());
+      optimization_guide::features::IsPageContentAnnotationEnabled();
   if (search_result_extractor_enabled) {
     continuous_search::SearchResultExtractorImpl::Create(render_frame);
   }
@@ -1586,10 +1585,8 @@ ChromeContentRendererClient::CreateWorkerContentSettingsClient(
 #if BUILDFLAG(ENABLE_SPEECH_SERVICE)
 std::unique_ptr<media::SpeechRecognitionClient>
 ChromeContentRendererClient::CreateSpeechRecognitionClient(
-    content::RenderFrame* render_frame,
-    media::SpeechRecognitionClient::OnReadyCallback callback) {
-  return std::make_unique<ChromeSpeechRecognitionClient>(render_frame,
-                                                         std::move(callback));
+    content::RenderFrame* render_frame) {
+  return std::make_unique<ChromeSpeechRecognitionClient>(render_frame);
 }
 #endif  // BUILDFLAG(ENABLE_SPEECH_SERVICE)
 

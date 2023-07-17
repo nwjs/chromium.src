@@ -12,6 +12,7 @@
 #include "base/containers/flat_map.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/functional/callback.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -142,8 +143,12 @@ class AppServiceProxyAsh : public AppServiceProxyBase,
                            LoadIconCallback callback);
 
   // Get pointer to the Promise App Registry Cache which holds all promise
-  // apps.
+  // apps. May return a nullptr.
   apps::PromiseAppRegistryCache* PromiseAppRegistryCache();
+
+  // Get pointer to the Promise App Service which manages all promise apps.
+  // May return a nullptr.
+  apps::PromiseAppService* PromiseAppService();
 
   // Add or update a promise app in the Promise App Registry Cache.
   void OnPromiseApp(PromiseAppPtr delta);

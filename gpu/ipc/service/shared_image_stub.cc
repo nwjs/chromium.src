@@ -24,6 +24,16 @@
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gl/gl_context.h"
 
+namespace {
+
+constexpr char kInvalidMailboxOnCreateError[] =
+    "SharedImageStub: Trying to create a SharedImage with a non-SharedImage "
+    "mailbox.";
+constexpr char kSICreationFailureError[] =
+    "SharedImageStub: Unable to create shared image";
+
+}  // namespace
+
 namespace gpu {
 
 SharedImageStub::SharedImageStub(GpuChannel* channel, int32_t route_id)
@@ -143,8 +153,7 @@ bool SharedImageStub::CreateSharedImage(const Mailbox& mailbox,
   TRACE_EVENT2("gpu", "SharedImageStub::CreateSharedImage", "width",
                size.width(), "height", size.height());
   if (!mailbox.IsSharedImage()) {
-    LOG(ERROR) << "SharedImageStub: Trying to create a SharedImage with a "
-                  "non-SharedImage mailbox.";
+    LOG(ERROR) << kInvalidMailboxOnCreateError;
     OnError();
     return false;
   }
@@ -156,7 +165,7 @@ bool SharedImageStub::CreateSharedImage(const Mailbox& mailbox,
   if (!factory_->CreateSharedImage(mailbox, std::move(handle), format, plane,
                                    size, color_space, surface_origin,
                                    alpha_type, usage, GetLabel(debug_label))) {
-    LOG(ERROR) << "SharedImageStub: Unable to create shared image";
+    LOG(ERROR) << kSICreationFailureError;
     OnError();
     return false;
   }
@@ -174,15 +183,13 @@ bool SharedImageStub::CreateSharedImage(const Mailbox& mailbox,
                                         std::string debug_label) {
   TRACE_EVENT2("gpu", "SharedImageStub::CreateSharedImage", "width",
                size.width(), "height", size.height());
-  // TODO(kylechar): Add support for single-planar formats and remove this.
-  if (!format.is_multi_plane()) {
+  if (format.IsLegacyMultiplanar()) {
     LOG(ERROR) << "SharedImageStub: Incompatible format.";
     OnError();
     return false;
   }
   if (!mailbox.IsSharedImage()) {
-    LOG(ERROR) << "SharedImageStub: Trying to create a SharedImage with a "
-                  "non-SharedImage mailbox and multiplanar format";
+    LOG(ERROR) << kInvalidMailboxOnCreateError;
     OnError();
     return false;
   }
@@ -194,8 +201,7 @@ bool SharedImageStub::CreateSharedImage(const Mailbox& mailbox,
   if (!factory_->CreateSharedImage(mailbox, format, size, color_space,
                                    surface_origin, alpha_type, usage,
                                    GetLabel(debug_label), std::move(handle))) {
-    LOG(ERROR) << "SharedImageStub: Unable to create shared image with "
-                  "multiplanar format";
+    LOG(ERROR) << kSICreationFailureError;
     OnError();
     return false;
   }
@@ -231,8 +237,7 @@ void SharedImageStub::OnCreateSharedImage(
   TRACE_EVENT2("gpu", "SharedImageStub::OnCreateSharedImage", "width",
                params->size.width(), "height", params->size.height());
   if (!params->mailbox.IsSharedImage()) {
-    LOG(ERROR) << "SharedImageStub: Trying to create a SharedImage with a "
-                  "non-SharedImage mailbox.";
+    LOG(ERROR) << kInvalidMailboxOnCreateError;
     OnError();
     return;
   }
@@ -248,7 +253,7 @@ void SharedImageStub::OnCreateSharedImage(
           params->mailbox, params->format, params->size, params->color_space,
           params->surface_origin, params->alpha_type, gpu::kNullSurfaceHandle,
           params->usage, GetLabel(params->debug_label))) {
-    LOG(ERROR) << "SharedImageStub: Unable to create shared image";
+    LOG(ERROR) << kSICreationFailureError;
     OnError();
     return;
   }
@@ -261,8 +266,7 @@ void SharedImageStub::OnCreateSharedImageWithData(
   TRACE_EVENT2("gpu", "SharedImageStub::OnCreateSharedImageWithData", "width",
                params->size.width(), "height", params->size.height());
   if (!params->mailbox.IsSharedImage()) {
-    LOG(ERROR) << "SharedImageStub: Trying to create a SharedImage with a "
-                  "non-SharedImage mailbox.";
+    LOG(ERROR) << kInvalidMailboxOnCreateError;
     OnError();
     return;
   }
@@ -297,7 +301,7 @@ void SharedImageStub::OnCreateSharedImageWithData(
           params->mailbox, params->format, params->size, params->color_space,
           params->surface_origin, params->alpha_type, params->usage,
           GetLabel(params->debug_label), subspan)) {
-    LOG(ERROR) << "SharedImageStub: Unable to create shared image";
+    LOG(ERROR) << kSICreationFailureError;
     OnError();
     return;
   }
@@ -500,7 +504,10 @@ void SharedImageStub::OnRegisterSharedImageUploadBuffer(
 }
 
 bool SharedImageStub::MakeContextCurrent(bool needs_gl) {
-  DCHECK(context_state_);
+  // Software Renderer doesn't have valid context_state_.
+  if (!context_state_) {
+    return true;
+  }
 
   if (context_state_->context_lost()) {
     LOG(ERROR) << "SharedImageStub: context already lost";
@@ -518,20 +525,23 @@ bool SharedImageStub::MakeContextCurrent(bool needs_gl) {
 ContextResult SharedImageStub::MakeContextCurrentAndCreateFactory() {
   auto* channel_manager = channel_->gpu_channel_manager();
   DCHECK(!context_state_);
-  ContextResult result;
-  context_state_ = channel_manager->GetSharedContextState(&result);
-  if (result != ContextResult::kSuccess) {
-    LOG(ERROR) << "SharedImageStub: unable to create context";
-    context_state_ = nullptr;
-    return result;
-  }
-  DCHECK(context_state_);
-  DCHECK(!context_state_->context_lost());
-  // Some shared image backing factories will use GL in ctor, so we need GL even
-  // if chrome is using non-GL backing.
-  if (!MakeContextCurrent(/*needs_gl=*/true)) {
-    context_state_ = nullptr;
-    return ContextResult::kTransientFailure;
+
+  if (gl::GetGLImplementation() != gl::kGLImplementationDisabled) {
+    ContextResult result;
+    context_state_ = channel_manager->GetSharedContextState(&result);
+    if (result != ContextResult::kSuccess) {
+      LOG(ERROR) << "SharedImageStub: unable to create context";
+      context_state_ = nullptr;
+      return result;
+    }
+    DCHECK(context_state_);
+    DCHECK(!context_state_->context_lost());
+    // Some shared image backing factories will use GL in ctor, so we need GL
+    // even if chrome is using non-GL backing.
+    if (!MakeContextCurrent(/*needs_gl=*/true)) {
+      context_state_ = nullptr;
+      return ContextResult::kTransientFailure;
+    }
   }
 
   factory_ = std::make_unique<SharedImageFactory>(

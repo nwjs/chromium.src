@@ -11,7 +11,7 @@
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/angle_vulkan_image_backing.h"
-#include "gpu/command_buffer/service/shared_image/shared_image_format_utils.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "gpu/vulkan/vulkan_implementation.h"
 #include "ui/gl/gl_surface_egl.h"
 
@@ -114,8 +114,7 @@ AngleVulkanImageBackingFactory::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     std::string debug_label) {
-  auto resource_format = viz::GetResourceFormat(buffer_format);
-  auto si_format = viz::SharedImageFormat::SinglePlane(resource_format);
+  auto si_format = viz::GetSharedImageFormat(buffer_format);
   auto backing = std::make_unique<AngleVulkanImageBacking>(
       context_state_, mailbox, si_format, size, color_space, surface_origin,
       alpha_type, usage);

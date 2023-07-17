@@ -6,8 +6,8 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
-#include "ash/glanceables/glanceables_util.h"
-#include "base/feature_list.h"
+#include "ash/shell.h"
+#include "ash/system/media/media_notification_provider.h"
 #include "base/files/file_util.h"
 #include "base/path_service.h"
 #include "base/system/sys_info.h"
@@ -40,6 +40,7 @@
 #include "chrome/browser/net/nss_service.h"
 #include "chrome/browser/net/nss_service_factory.h"
 #include "chrome/browser/profiles/profile_manager.h"
+#include "chrome/browser/screen_ai/screen_ai_chromeos_installer.h"
 #include "chrome/browser/ui/ash/calendar/calendar_keyed_service_factory.h"
 #include "chrome/browser/ui/ash/clipboard_image_model_factory_impl.h"
 #include "chrome/browser/ui/ash/glanceables/chrome_glanceables_delegate.h"
@@ -261,6 +262,9 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
   // created one per user in a multiprofile session.
   CalendarKeyedServiceFactory::GetInstance()->GetService(profile);
 
+  screen_ai::chrome_os_installer::ManageInstallation(
+      g_browser_process->local_state());
+
   if (is_primary_user) {
     DCHECK_EQ(primary_profile_, profile);
 
@@ -268,9 +272,6 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
       // Must be called after CalenderKeyedServiceFactory is initialized.
       ChromeGlanceablesDelegate::Get()->OnPrimaryUserSessionStarted(profile);
     }
-
-    // TODO(b/270948434): Temporary cleanup logic.
-    glanceables_util::DeleteScreenshot();
 
     // Ensure that the `GlanceablesKeyedService` for `primary_profile_` is
     // created.
@@ -300,6 +301,8 @@ void UserSessionInitializer::OnUserSessionStarted(bool is_primary_user) {
         settings::PeripheralDataAccessHandler::GetPrefState());
 
     CrasAudioHandler::Get()->RefreshNoiseCancellationState();
+
+    Shell::Get()->media_notification_provider()->OnPrimaryUserSessionStarted();
   }
 }
 

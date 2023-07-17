@@ -9,6 +9,11 @@ import {assertNotReached} from 'chrome://resources/js/assert_ts.js';
 
 import {Accelerator, AcceleratorCategory, AcceleratorId, AcceleratorInfo, AcceleratorState, AcceleratorSubcategory, AcceleratorType, Modifier, MojoAcceleratorInfo, MojoSearchResult, StandardAcceleratorInfo, TextAcceleratorInfo} from './shortcut_types.js';
 
+// TODO(jimmyxgong): ChromeOS currently supports up to F24 but can be updated to
+// F32. Update here when F32 is available.
+const kF11 = 112;  // Keycode for F11.
+const kF24 = 135;  // Keycode for F24.
+
 const modifiers: Modifier[] = [
   Modifier.SHIFT,
   Modifier.CONTROL,
@@ -239,4 +244,17 @@ export const getURLForSearchResult = (searchResult: MojoSearchResult): URL => {
   url.searchParams.append('action', action.toString());
   url.searchParams.append('category', category.toString());
   return url;
+};
+
+export const isFunctionKey = (keycode: number): boolean => {
+  return keycode >= kF11 && keycode <= kF24;
+};
+
+// TODO(longbowei): Update to dynamically check if all shortcuts within a
+// category are locked instead of hardcoding specific categories.
+export const isCategoryLocked = (category: AcceleratorCategory): boolean => {
+  return (
+      category === AcceleratorCategory.kBrowser ||
+      category === AcceleratorCategory.kText ||
+      category === AcceleratorCategory.kAccessibility);
 };

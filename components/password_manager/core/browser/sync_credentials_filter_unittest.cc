@@ -92,9 +92,9 @@ class FakePasswordManagerClient : public StubPasswordManagerClient {
 
   PrefService* GetPrefs() const override { return prefs_.get(); }
 
-  bool IsIncognito() const override { return is_incognito_; }
+  bool IsOffTheRecord() const override { return is_incognito_; }
 
-  void SetIsIncognito(bool is_incognito) { is_incognito_ = is_incognito; }
+  void SetIsOffTheRecord(bool is_incognito) { is_incognito_ = is_incognito; }
 
  private:
   url::Origin last_committed_origin_;
@@ -288,7 +288,7 @@ TEST_P(CredentialsFilterTest, ShouldSaveGaiaPasswordHash) {
 }
 
 TEST_P(CredentialsFilterTest, ShouldNotSaveGaiaPasswordHashIncognito) {
-  client_->SetIsIncognito(true);
+  client_->SetIsOffTheRecord(true);
   PasswordForm gaia_form = SimpleGaiaForm("user@gmail.org");
   EXPECT_FALSE(filter_->ShouldSaveGaiaPasswordHash(gaia_form));
 
@@ -309,7 +309,7 @@ TEST_P(CredentialsFilterTest, ShouldSaveEnterprisePasswordHash) {
 }
 
 TEST_P(CredentialsFilterTest, ShouldNotSaveEnterprisePasswordHashIncognito) {
-  client_->SetIsIncognito(true);
+  client_->SetIsOffTheRecord(true);
   PasswordForm gaia_form = SimpleGaiaForm("user@gmail.org");
   EXPECT_FALSE(filter_->ShouldSaveEnterprisePasswordHash(gaia_form));
 
@@ -332,7 +332,7 @@ TEST_P(CredentialsFilterTest, IsSyncAccountEmail) {
 }
 
 TEST_P(CredentialsFilterTest, IsSyncAccountEmailIncognito) {
-  client_->SetIsIncognito(true);
+  client_->SetIsOffTheRecord(true);
   FakeSigninAs("user@gmail.com");
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user"));
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user2@gmail.com"));

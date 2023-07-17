@@ -861,11 +861,7 @@ void NGOutOfFlowLayoutPart::LayoutOOFsInMulticol(
         last_fragment_with_fragmentainer = multicol_box_fragment;
       }
 
-      limited_multicol_container_builder.AddChild(
-          *fragment, offset, /* margin_strut */ nullptr,
-          /* is_self_collapsing */ false, /* relative_offset */ absl::nullopt,
-          /* inline_container */ nullptr,
-          /* adjustment_for_oof_propagation */ absl::nullopt);
+      limited_multicol_container_builder.AddChild(*fragment, offset);
       multicol_children.emplace_back(MulticolChildInfo(&child));
     }
 
@@ -1681,18 +1677,18 @@ NGOutOfFlowLayoutPart::TryCalculateOffset(
         node_info.node.GetLayoutBox()->Container();
     DCHECK(css_containing_block);
     anchor_evaluator_storage.emplace(
-        *anchor_queries, candidate_style.AnchorDefault(), implicit_anchor,
-        *css_containing_block, container_converter, candidate_writing_direction,
-        container_converter.ToPhysical(node_info.container_info.rect).offset,
-        node_info.node.IsInTopOrViewTransitionLayer());
+        *node_info.node.GetLayoutBox(), *anchor_queries,
+        candidate_style.AnchorDefault(), implicit_anchor, *css_containing_block,
+        container_converter, candidate_writing_direction,
+        container_converter.ToPhysical(node_info.container_info.rect).offset);
   } else if (const NGLogicalAnchorQuery* anchor_query =
                  container_builder_->AnchorQuery()) {
     // Otherwise the |container_builder_| is the containing block.
     anchor_evaluator_storage.emplace(
-        *anchor_query, candidate_style.AnchorDefault(), implicit_anchor,
-        container_converter, candidate_writing_direction,
-        container_converter.ToPhysical(node_info.container_info.rect).offset,
-        node_info.node.IsInTopOrViewTransitionLayer());
+        *node_info.node.GetLayoutBox(), *anchor_query,
+        candidate_style.AnchorDefault(), implicit_anchor, container_converter,
+        candidate_writing_direction,
+        container_converter.ToPhysical(node_info.container_info.rect).offset);
   } else {
     anchor_evaluator_storage.emplace();
   }
@@ -2233,12 +2229,7 @@ void NGOutOfFlowLayoutPart::ReplaceFragmentainer(
 
   if (create_new_fragment) {
     const NGLayoutResult* new_result = algorithm->Layout();
-    container_builder_->AddChild(
-        new_result->PhysicalFragment(), offset,
-        /* margin_strut */ nullptr, /* is_self_collapsing */ false,
-        /* relative_offset */ absl::nullopt,
-        /* inline_container */ nullptr,
-        /* adjustment_for_oof_propagation */ absl::nullopt);
+    container_builder_->AddChild(new_result->PhysicalFragment(), offset);
   } else {
     const NGLayoutResult* new_result = algorithm->Layout();
     const NGPhysicalFragment* new_fragment = &new_result->PhysicalFragment();

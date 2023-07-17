@@ -202,11 +202,6 @@ WebContentsAccessibilityAndroid::WebContentsAccessibilityAndroid(
   // calling UpdateBrowserAccessibilityManager() which accesses
   // weak_ptr_factory_.
   connector_ = new Connector(web_contents, this);
-
-  BrowserAccessibilityStateImplAndroid* accessibility_state =
-      static_cast<BrowserAccessibilityStateImplAndroid*>(
-          BrowserAccessibilityStateImpl::GetInstance());
-  accessibility_state->CollectAccessibilityServiceStats();
 }
 
 WebContentsAccessibilityAndroid::WebContentsAccessibilityAndroid(
@@ -224,11 +219,6 @@ WebContentsAccessibilityAndroid::WebContentsAccessibilityAndroid(
       *ax_tree_snapshot, GetWeakPtr(), nullptr);
   snapshot_root_manager_->BuildAXTreeHitTestCache();
   connector_ = nullptr;
-
-  BrowserAccessibilityStateImplAndroid* accessibility_state =
-      static_cast<BrowserAccessibilityStateImplAndroid*>(
-          BrowserAccessibilityStateImpl::GetInstance());
-  accessibility_state->CollectAccessibilityServiceStats();
 }
 
 WebContentsAccessibilityAndroid::~WebContentsAccessibilityAndroid() {
@@ -285,14 +275,17 @@ void WebContentsAccessibilityAndroid::DisableRendererAccessibility(
   DCHECK(root_manager);
   root_manager->ResetWebContentsAccessibility();
 
-  // The local cache of Java strings can be cleared, and we should clear the web
-  // contents reference since the web contents can be different by the time the
-  // Java-side code decides to re-enable renderer accessibility (if ever), and
-  // it can provide the web contents object again, as is done for construction.
-  // The Connector should continue to live, since we want the RFHI to still
-  // have access to this object for possible re-enables, or frame notifications.
+  // The local cache of Java strings can be cleared, and we should reset any
+  // local state variables. The Connector should continue to live, since we want
+  // the RFHI to still have access to this object for possible re-enables,
+  // or frame notifications.
   common_string_cache_.clear();
-  web_contents_ = nullptr;
+  ResetContentChangedEventsCounter();
+
+  // Turn off accessibility on the renderer side by resetting the AXMode.
+  BrowserAccessibilityStateImpl* accessibility_state =
+      BrowserAccessibilityStateImpl::GetInstance();
+  accessibility_state->ResetAccessibilityMode();
 }
 
 void WebContentsAccessibilityAndroid::ReEnableRendererAccessibility(
@@ -311,14 +304,21 @@ void WebContentsAccessibilityAndroid::ReEnableRendererAccessibility(
 
   // A request to re-enable renderer accessibility implies AT use on the
   // Java-side, so we need to set the root manager's reference to |this| to
-  // rebuild the C++ -> Java bridge.
-  DCHECK(!web_contents_);
+  // rebuild the C++ -> Java bridge. The web contents may have changed, so
+  // update the reference just in case.
   web_contents_ = static_cast<WebContentsImpl*>(web_contents);
 
   BrowserAccessibilityManagerAndroid* root_manager =
       GetRootBrowserAccessibilityManager();
   DCHECK(root_manager);
   root_manager->set_web_contents_accessibility(GetWeakPtr());
+
+  // The AXMode should have been set when the accessibility state was changed,
+  // so by this method it should be something other than kNone.
+  BrowserAccessibilityStateImpl* accessibility_state =
+      BrowserAccessibilityStateImpl::GetInstance();
+  DCHECK(accessibility_state->GetAccessibilityMode().flags() !=
+         ui::AXMode::kNone);
 }
 
 jboolean WebContentsAccessibilityAndroid::IsRootManagerConnected(JNIEnv* env) {
@@ -1551,9 +1551,9 @@ void JNI_WebContentsAccessibilityImpl_SetBrowserAXMode(
   BrowserAccessibilityStateImpl* accessibility_state =
       BrowserAccessibilityStateImpl::GetInstance();
 
-  // The AXMode flags will be set according to enabled feature flags and what is
+  // The AXMode flags will be set according to enabled feature flag and what is
   // needed by the current system as indicated by the parameters.
-  if (!features::IsAccessibilityAXModesEnabled()) {
+  if (!features::IsAccessibilityPerformanceFilteringEnabled()) {
     // When the browser is not yet accessible, then set the AXMode to
     // |ui::kAXModeComplete| for all web contents.
     if (!accessibility_state->IsAccessibleBrowser()) {
@@ -1562,8 +1562,8 @@ void JNI_WebContentsAccessibilityImpl_SetBrowserAXMode(
     return;
   }
 
-  // If the AccessibilityAXModes feature flag has been enabled, then set
-  // |ui::kAXModeComplete| if a screen reader is present,
+  // If the AccessibilityPerformanceFiltering feature flag has been enabled,
+  // then set |ui::kAXModeComplete| if a screen reader is present,
   // |ui::kAXModeFormControls| if form controls mode is enabled, and
   // |ui::kAXModeBasic| otherwise.
   if (is_screen_reader_enabled) {

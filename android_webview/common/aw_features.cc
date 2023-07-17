@@ -17,7 +17,7 @@ namespace features {
 // flag
 BASE_FEATURE(kWebViewAppsPackageNamesServerSideAllowlist,
              "WebViewAppsPackageNamesServerSideAllowlist",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable brotli compression support in WebView.
 BASE_FEATURE(kWebViewBrotliSupport,
@@ -166,7 +166,7 @@ BASE_FEATURE(kWebViewUmaUploadQualityOfServiceSetToDefault,
 // This enables zoom keyboard shortcuts for zoom-in, zoom-out and zoom reset.
 BASE_FEATURE(kWebViewZoomKeyboardShortcuts,
              "WebViewZoomKeyboardShortcuts",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace features
 }  // namespace android_webview

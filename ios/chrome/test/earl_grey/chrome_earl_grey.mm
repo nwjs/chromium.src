@@ -5,6 +5,7 @@
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 
 #import <Foundation/Foundation.h>
+#import <WebKit/WebKit.h>
 
 #import "base/format_macros.h"
 #import "base/json/json_string_value_serializer.h"
@@ -172,6 +173,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   GREYWaitForAppToIdle(@"App failed to idle");
 }
 
+- (void)killWebKitNetworkProcess {
+  [ChromeEarlGreyAppInterface killWebKitNetworkProcess];
+}
+
 - (NSInteger)browsingHistoryEntryCount {
   NSError* error = nil;
   NSInteger result =
@@ -248,6 +253,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 
 - (NSUInteger)mainTabCount {
   return [ChromeEarlGreyAppInterface mainTabCount];
+}
+
+- (NSUInteger)inactiveTabCount {
+  return [ChromeEarlGreyAppInterface inactiveTabCount];
 }
 
 - (NSUInteger)incognitoTabCount {
@@ -1349,6 +1358,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 
 - (BOOL)isUIButtonConfigurationEnabled {
   return [ChromeEarlGreyAppInterface isUIButtonConfigurationEnabled];
+}
+
+- (BOOL)isSortingTabsByRecency {
+  return [ChromeEarlGreyAppInterface isSortingTabsByRecency];
 }
 
 #pragma mark - ContentSettings

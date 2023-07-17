@@ -74,7 +74,7 @@ struct CleanUpContext {
   std::unique_ptr<SkiaImageRepresentation::ScopedReadAccess> skia_scoped_access;
 };
 
-void CleanUpResource(SkImage::ReleaseContext context) {
+void CleanUpResource(SkImages::ReleaseContext context) {
   auto* clean_up_context = static_cast<CleanUpContext*>(context);
   DCHECK(clean_up_context->main_task_runner->BelongsToCurrentThread());
 
@@ -351,7 +351,7 @@ void ImageDecodeAcceleratorStub::ProcessCompletedDecode(
     resource->skia_scoped_access = std::move(skia_scoped_access);
 
     plane_sk_images[plane] = resource->skia_scoped_access->CreateSkImage(
-        shared_context_state->gr_context(), CleanUpResource, resource);
+        shared_context_state.get(), CleanUpResource, resource);
     if (!plane_sk_images[plane]) {
       DLOG(ERROR) << "Could not create planar SkImage";
       return;

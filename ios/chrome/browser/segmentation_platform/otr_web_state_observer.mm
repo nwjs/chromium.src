@@ -4,14 +4,14 @@
 
 #import "ios/chrome/browser/segmentation_platform/otr_web_state_observer.h"
 
-#import "ios/chrome/browser/browser_state/browser_state_info_cache.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/browser_state/chrome_browser_state_manager.h"
-#import "ios/chrome/browser/main/all_web_state_list_observation_registrar.h"
-#import "ios/chrome/browser/main/browser.h"
-#import "ios/chrome/browser/main/browser_list.h"
-#import "ios/chrome/browser/main/browser_list_factory.h"
-#import "ios/chrome/browser/web_state_list/web_state_list_observer.h"
+#import "ios/chrome/browser/shared/model/browser/all_web_state_list_observation_registrar.h"
+#import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list.h"
+#import "ios/chrome/browser/shared/model/browser/browser_list_factory.h"
+#import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state_manager.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -109,9 +109,8 @@ void OTRWebStateObserver::OnBrowserStateAdded(const base::FilePath& path) {
   if (browser_state_data_.count(path)) {
     return;
   }
-  auto* browser_state = browser_state_manager_->GetBrowserState(path);
-  BrowserList* browser_list =
-      BrowserListFactory::GetForBrowserState(browser_state);
+  BrowserList* browser_list = BrowserListFactory::GetForBrowserState(
+      browser_state_manager_->GetBrowserState(path));
   DCHECK(browser_list);
 
   auto it = browser_state_data_.emplace(
@@ -120,7 +119,7 @@ void OTRWebStateObserver::OnBrowserStateAdded(const base::FilePath& path) {
   BrowserStateData& data = *it.first->second;
   data.all_web_state_observation =
       std::make_unique<AllWebStateListObservationRegistrar>(
-          browser_state,
+          browser_list,
           std::make_unique<WebStateObserver>(path, this, browser_list),
           AllWebStateListObservationRegistrar::INCOGNITO);
 }

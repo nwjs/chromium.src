@@ -30,7 +30,6 @@
 #include "extensions/common/api/app_runtime.h"
 #include "extensions/common/extension_builder.h"
 #include "extensions/common/extension_features.h"
-#include "extensions/common/value_builder.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
@@ -731,7 +730,7 @@ class IntentUtilsFileTest : public ::testing::Test {
     profile_ = profile_manager_->CreateTestingProfile("testing_profile");
     ASSERT_TRUE(
         storage::ExternalMountPoints::GetSystemInstance()->RegisterFileSystem(
-            mount_name_, storage::FileSystemType::kFileSystemTypeExternal,
+            mount_name_, storage::FileSystemType::kFileSystemTypeLocal,
             storage::FileSystemMountOption(), base::FilePath(fs_root_)));
   }
 
@@ -773,7 +772,8 @@ TEST_F(IntentUtilsFileTest, ConvertFileSystemScheme) {
   app_service_intent->mime_type = "*/*";
   const std::string path = "Documents/foo.txt";
   const std::string mime_type = "text/plain";
-  auto url = ToGURL(base::FilePath(storage::kTestDir), path);
+  auto url =
+      ToGURL(base::FilePath(storage::kExternalDir).Append(mount_name_), path);
   EXPECT_TRUE(url.SchemeIsFileSystem());
   app_service_intent->files = std::vector<apps::IntentFilePtr>{};
   auto file = std::make_unique<apps::IntentFile>(url);
@@ -785,7 +785,8 @@ TEST_F(IntentUtilsFileTest, ConvertFileSystemScheme) {
   EXPECT_EQ(app_service_intent->mime_type, crosapi_intent->mime_type);
   ASSERT_TRUE(crosapi_intent->files.has_value());
   ASSERT_EQ(crosapi_intent->files.value().size(), 1U);
-  EXPECT_EQ(crosapi_intent->files.value()[0]->file_path, base::FilePath(path));
+  EXPECT_EQ(crosapi_intent->files.value()[0]->file_path,
+            base::FilePath(fs_root_).Append(base::FilePath(path)));
   EXPECT_EQ(crosapi_intent->files.value()[0]->mime_type, mime_type);
 }
 

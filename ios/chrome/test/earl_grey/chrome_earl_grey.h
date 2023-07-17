@@ -76,6 +76,11 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // cleared within a timeout.
 - (void)clearBrowsingHistory;
 
+// Shuts down the network process. Uses a
+// private WebKit API and should be refactored or removed in the event that
+// there's a different way to address hanging.
+- (void)killWebKitNetworkProcess;
+
 // Gets the number of entries in the browsing history database. GREYAssert is
 // induced on error.
 - (NSInteger)browsingHistoryEntryCount;
@@ -334,6 +339,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns the number of main (non-incognito) tabs.
 - (NSUInteger)mainTabCount [[nodiscard]];
 
+// Returns the number of inactive tabs.
+- (NSUInteger)inactiveTabCount [[nodiscard]];
+
 // Returns the number of incognito tabs.
 - (NSUInteger)incognitoTabCount [[nodiscard]];
 
@@ -477,7 +485,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Signs the user out, clears the known accounts entirely and checks whether the
 // accounts were correctly removed from the keychain. Induces a GREYAssert if
-// the operation fails.
+// the operation fails. This will block the UI with a spinner until all
+// identities are cleared. In order to interact with the UI again call
+// `WaitForActivityOverlayToDisappear()`.
 - (void)signOutAndClearIdentities;
 
 #pragma mark - Sync Utilities (EG2)
@@ -700,6 +710,9 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 
 // Returns whether UIButtonConfiguration changes are enabled.
 - (BOOL)isUIButtonConfigurationEnabled;
+
+// Returns whether TabGrid is sorted by recency (#tab-grid-recency-sort).
+- (BOOL)isSortingTabsByRecency;
 
 #pragma mark - ContentSettings
 

@@ -23,6 +23,7 @@
 #include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_log.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "build/config/compiler/compiler_buildflags.h"
@@ -109,6 +110,10 @@
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "components/user_manager/user_manager.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+#include "components/power_metrics/system_power_monitor.h"
+#endif
 
 namespace {
 
@@ -548,6 +553,23 @@ ChromeBrowserMainExtraPartsMetrics::ChromeBrowserMainExtraPartsMetrics()
 ChromeBrowserMainExtraPartsMetrics::~ChromeBrowserMainExtraPartsMetrics() =
     default;
 
+void ChromeBrowserMainExtraPartsMetrics::PreCreateThreads() {
+#if !BUILDFLAG(IS_ANDROID)
+  // Initialize the TabStatsTracker singleton instance. Must be initialized
+  // before `responsiveness::Watcher`, which happens in
+  // BrowserMainLoop::PreMainMessageLoopRun(), thus the decision to use
+  // `PreCreateThreads`.
+  // Only instantiate the tab stats tracker if a local state exists. This is
+  // always the case for Chrome but not for the unittests.
+  if (g_browser_process != nullptr &&
+      g_browser_process->local_state() != nullptr) {
+    metrics::TabStatsTracker::SetInstance(
+        std::make_unique<metrics::TabStatsTracker>(
+            g_browser_process->local_state()));
+  }
+#endif
+}
+
 void ChromeBrowserMainExtraPartsMetrics::PostCreateMainMessageLoop() {
 #if !BUILDFLAG(IS_ANDROID)
   // Must be initialized before any child processes are spawned.
@@ -696,14 +718,6 @@ void ChromeBrowserMainExtraPartsMetrics::PostBrowserStart() {
 
 #if !BUILDFLAG(IS_ANDROID)
   metrics::BeginFirstWebContentsProfiling();
-  // Only instantiate the tab stats tracker if a local state exists. This is
-  // always the case for Chrome but not for the unittests.
-  if (g_browser_process != nullptr &&
-      g_browser_process->local_state() != nullptr) {
-    metrics::TabStatsTracker::SetInstance(
-        std::make_unique<metrics::TabStatsTracker>(
-            g_browser_process->local_state()));
-  }
 
   // Instantiate the power-related metrics reporters.
 
@@ -731,6 +745,11 @@ void ChromeBrowserMainExtraPartsMetrics::PostBrowserStart() {
 #if BUILDFLAG(IS_LINUX)
   pressure_metrics_reporter_ = std::make_unique<PressureMetricsReporter>();
 #endif  // BUILDFLAG(IS_LINUX)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+  base::trace_event::TraceLog::GetInstance()->AddEnabledStateObserver(
+      power_metrics::SystemPowerMonitor::GetInstance());
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
 
   HandleEnableBenchmarkingCountdownAsync();
 }

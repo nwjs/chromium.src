@@ -82,8 +82,10 @@ polymorphic.launcher(
         polymorphic.target_builder(
             builder = "ci/Android x64 Builder (dbg)",
             dimensions = dimensions.dimensions(
-                os = os.LINUX_DEFAULT,
-                cpu = cpu.X86_64,
+                builderless = "",
+                ssd = "",
+                free_space = "",
+                builder = "Android x64 Builder (dbg)",
             ),
             testers = [
                 "ci/android-12l-x64-dbg-tests",
@@ -161,9 +163,18 @@ polymorphic.launcher(
     runner = "reviver/runner",
     target_builders = [
         "ci/fuchsia-fyi-arm64-dbg",
-        "ci/fuchsia-fyi-x64-asan",
         "ci/fuchsia-fyi-x64-dbg",
         "ci/fuchsia-x64-rel",
+        polymorphic.target_builder(
+            builder = "ci/fuchsia-fyi-x64-asan",
+            dimensions = dimensions.dimensions(
+                # It's weird that fuchsia-fyi-x64-asan is running out of space
+                # quite frequently on reviver runner. So increase it's
+                # free_space dimension to work around it.
+                # E.g. https://ci.chromium.org/ui/p/chromium/builders/reviver/runner/b8782210084759851793/overview
+                free_space = free_space.high,
+            ),
+        ),
     ],
 )
 

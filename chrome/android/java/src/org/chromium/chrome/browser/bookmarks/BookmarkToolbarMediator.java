@@ -10,6 +10,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.IdRes;
 import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
 
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.metrics.RecordUserAction;
@@ -18,6 +19,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkAddEditFolderActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkFolderSelectActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
+import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowSortOrder;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
@@ -29,6 +31,7 @@ import org.chromium.components.browser_ui.widget.selectable_list.SelectionDelega
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.List;
+import java.util.Objects;
 
 /** Responsible for the business logic for the BookmarkManagerToolbar. */
 class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
@@ -40,6 +43,7 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
     private final BookmarkModel mBookmarkModel;
     private final BookmarkOpener mBookmarkOpener;
     private final BookmarkUiPrefs mBookmarkUiPrefs;
+    private final BookmarkAddNewFolderCoordinator mBookmarkAddNewFolderCoordinator;
 
     // TODO(crbug.com/1413463): Remove reference to BookmarkDelegate if possible.
     private @Nullable BookmarkDelegate mBookmarkDelegate;
@@ -50,7 +54,8 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
             DragReorderableRecyclerViewAdapter dragReorderableRecyclerViewAdapter,
             OneshotSupplier<BookmarkDelegate> bookmarkDelegateSupplier,
             SelectionDelegate selectionDelegate, BookmarkModel bookmarkModel,
-            BookmarkOpener bookmarkOpener, BookmarkUiPrefs bookmarkUiPrefs) {
+            BookmarkOpener bookmarkOpener, BookmarkUiPrefs bookmarkUiPrefs,
+            BookmarkAddNewFolderCoordinator bookmarkAddNewFolderCoordinator) {
         mContext = context;
         mModel = model;
 
@@ -62,16 +67,19 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
         mBookmarkModel = bookmarkModel;
         mBookmarkOpener = bookmarkOpener;
         mBookmarkUiPrefs = bookmarkUiPrefs;
+        mBookmarkAddNewFolderCoordinator = bookmarkAddNewFolderCoordinator;
 
-        final @BookmarkRowDisplayPref int pref = mBookmarkUiPrefs.getBookmarkRowDisplayPref();
         if (BookmarkFeatures.isAndroidImprovedBookmarksEnabled()) {
             mModel.set(BookmarkToolbarProperties.CHECKED_SORT_MENU_ID,
-                    pref == BookmarkRowDisplayPref.COMPACT ? R.id.compact_view : R.id.visual_view);
+                    getMenuIdFromSortOrder(mBookmarkUiPrefs.getBookmarkRowSortOrder()));
+            final @BookmarkRowDisplayPref int displayPref =
+                    mBookmarkUiPrefs.getBookmarkRowDisplayPref();
+            mModel.set(BookmarkToolbarProperties.CHECKED_VIEW_MENU_ID,
+                    displayPref == BookmarkRowDisplayPref.COMPACT ? R.id.compact_view
+                                                                  : R.id.visual_view);
         }
         bookmarkDelegateSupplier.onAvailable((bookmarkDelegate) -> {
             mBookmarkDelegate = bookmarkDelegate;
-            mModel.set(BookmarkToolbarProperties.OPEN_SEARCH_UI_RUNNABLE,
-                    mBookmarkDelegate::openSearchUi);
             mModel.set(
                     BookmarkToolbarProperties.OPEN_FOLDER_CALLBACK, mBookmarkDelegate::openFolder);
             mBookmarkDelegate.addUiObserver(this);
@@ -83,19 +91,24 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
         // Sorting/viewing submenu needs to be caught, but haven't been implemented yet.
         // TODO(crbug.com/1413463): Handle the new toolbar options.
         if (id == R.id.create_new_folder_menu_id) {
+            mBookmarkAddNewFolderCoordinator.show(mCurrentFolder);
             return true;
         } else if (id == R.id.normal_options_submenu) {
             return true;
         } else if (id == R.id.sort_by_newest) {
+            mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.REVERSE_CHRONOLOGICAL);
             mModel.set(BookmarkToolbarProperties.CHECKED_SORT_MENU_ID, id);
             return true;
         } else if (id == R.id.sort_by_oldest) {
+            mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.CHRONOLOGICAL);
             mModel.set(BookmarkToolbarProperties.CHECKED_SORT_MENU_ID, id);
             return true;
         } else if (id == R.id.sort_by_alpha) {
+            mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.ALPHABETICAL);
             mModel.set(BookmarkToolbarProperties.CHECKED_SORT_MENU_ID, id);
             return true;
         } else if (id == R.id.sort_by_reverse_alpha) {
+            mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.REVERSE_ALPHABETICAL);
             mModel.set(BookmarkToolbarProperties.CHECKED_SORT_MENU_ID, id);
             return true;
         } else if (id == R.id.visual_view) {
@@ -209,12 +222,6 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
 
     @Override
     public void onFolderStateSet(BookmarkId folder) {
-        // If we're in the middle of a selection, do not override things.
-        // TODO(https://crbug.com/1435024): Rework logic to not be more robust.
-        if (mSelectionDelegate.isSelectionEnabled()) {
-            return;
-        }
-
         mCurrentFolder = folder;
         mModel.set(BookmarkToolbarProperties.CURRENT_FOLDER, mCurrentFolder);
 
@@ -225,6 +232,7 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
                 folderItem != null && folderItem.isEditable());
         if (folderItem == null) return;
 
+        // Title, navigation buttons.
         String title;
         @NavigationButton
         int navigationButton;
@@ -243,9 +251,24 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
             title = folderItem.getTitle();
             navigationButton = NavigationButton.BACK;
         }
-
+        // This doesn't handle selection state correctly, must be before we fake a selection change.
         mModel.set(BookmarkToolbarProperties.TITLE, title);
+
+        // Selection state isn't routed through MVC, but instead the View directly subscribes to
+        // events. The view then changes/ignores/overrides properties that were set above, based on
+        // selection. This is problematic because it means the View is sensitive to the order of
+        // inputs. To mitigate this, always make it re-apply selection the above properties.
+        mModel.set(BookmarkToolbarProperties.FAKE_SELECTION_STATE_CHANGE, true);
+
+        // Should typically be the last thing done, because lots of other properties will trigger
+        // an incorrect button state, and we need to override that.
         mModel.set(BookmarkToolbarProperties.NAVIGATION_BUTTON_STATE, navigationButton);
+
+        // New folder button.
+        if (BookmarkFeatures.isAndroidImprovedBookmarksEnabled()) {
+            mModel.set(BookmarkToolbarProperties.NEW_FOLDER_BUTTON_VISIBLE,
+                    isAddNewFolderButtonVisible());
+        }
     }
 
     @Override
@@ -268,5 +291,24 @@ class BookmarkToolbarMediator implements BookmarkUiObserver, DragListener,
         if (!mSelectionDelegate.isSelectionEnabled()) {
             onFolderStateSet(mCurrentFolder);
         }
+    }
+
+    private @IdRes int getMenuIdFromSortOrder(@BookmarkRowSortOrder int sortOrder) {
+        switch (sortOrder) {
+            case BookmarkRowSortOrder.REVERSE_CHRONOLOGICAL:
+                return R.id.sort_by_newest;
+            case BookmarkRowSortOrder.CHRONOLOGICAL:
+                return R.id.sort_by_oldest;
+            case BookmarkRowSortOrder.ALPHABETICAL:
+                return R.id.sort_by_alpha;
+            case BookmarkRowSortOrder.REVERSE_ALPHABETICAL:
+                return R.id.sort_by_reverse_alpha;
+        }
+        return ResourcesCompat.ID_NULL;
+    }
+
+    private boolean isAddNewFolderButtonVisible() {
+        return !Objects.equals(mCurrentFolder, mBookmarkModel.getReadingListFolder())
+                && !Objects.equals(mCurrentFolder, mBookmarkModel.getPartnerFolderId());
     }
 }

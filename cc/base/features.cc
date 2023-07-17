@@ -36,23 +36,14 @@ BASE_FEATURE(kSynchronizedScrolling,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-BASE_FEATURE(kAvoidRasterDuringElasticOverscroll,
-             "AvoidRasterDuringElasticOverscroll",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kRemoveMobileViewportDoubleTap,
              "RemoveMobileViewportDoubleTap",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Design doc: bit.ly/scrollunification
-// Disabled on Windows due to crbug.com/1378021.
 BASE_FEATURE(kScrollUnification,
              "ScrollUnification",
-#if BUILDFLAG(IS_WIN)
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#else
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 BASE_FEATURE(kMainRepaintScrollPrefersNewContent,
              "MainRepaintScrollPrefersNewContent",
@@ -60,7 +51,7 @@ BASE_FEATURE(kMainRepaintScrollPrefersNewContent,
 
 BASE_FEATURE(kFlushGpuAtDraw,
              "FlushGpuAtDraw",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSchedulerSmoothnessForAnimatedScrolls,
              "SmoothnessModeForAnimatedScrolls",
@@ -125,4 +116,9 @@ BASE_FEATURE(kMoreAggressiveSolidColorDetection,
 BASE_FEATURE(kReducedFrameRateEstimation,
              "kReducedFrameRateEstimation",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDetectHiDpiForMsaa,
+             "DetectHiDpiForMsaa",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 }  // namespace features

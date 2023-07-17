@@ -294,6 +294,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
                               const net::NetworkIsolationKey& key,
                               bool is_subframe_document_resource,
                               bool include_credentials) override;
+  void ClearCorsPreflightCache(
+      mojom::ClearDataFilterPtr filter,
+      ClearCorsPreflightCacheCallback callback) override;
   void ClearHostCache(mojom::ClearDataFilterPtr filter,
                       ClearHostCacheCallback callback) override;
   void ClearHttpAuthCache(base::Time start_time,
@@ -611,8 +614,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
     return cors_origin_access_list_;
   }
 
-  bool require_network_isolation_key() const {
-    return require_network_isolation_key_;
+  bool require_network_anonymization_key() const {
+    return require_network_anonymization_key_;
   }
 
   bool acam_preflight_spec_conformant() const {
@@ -928,7 +931,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // Whether all external consumers are expected to provide a non-empty
   // NetworkAnonymizationKey with all requests. When set, enabled a variety of
   // DCHECKs on APIs used by external callers.
-  bool require_network_isolation_key_ = false;
+  bool require_network_anonymization_key_ = false;
 
   // Whether Access-Control-Allow-Methods matching in CORS preflight is done
   // according to the spec.

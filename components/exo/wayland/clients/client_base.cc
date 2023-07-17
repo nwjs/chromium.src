@@ -41,6 +41,7 @@
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/gl/GrGLAssembleInterface.h"
 #include "third_party/skia/include/gpu/gl/GrGLInterface.h"
 #include "ui/gfx/geometry/size_conversions.h"
@@ -567,7 +568,8 @@ bool ClientBase::Init(const InitParams& params) {
           CastToClientBase(data)->HandleScale(data, wl_output, factor);
         }};
 
-    wl_output_add_listener(globals_.output.get(), &kOutputListener, this);
+    wl_output_add_listener(globals_.outputs.back().get(), &kOutputListener,
+                           this);
   } else {
     for (size_t i = 0; i < params.num_buffers; ++i) {
       auto buffer =
@@ -958,7 +960,7 @@ std::unique_ptr<ClientBase::Buffer> ClientBase::CreateBuffer(
     }
 
     SkSurfaceProps props = skia::LegacyDisplayGlobals::GetSkSurfaceProps();
-    buffer->sk_surface = SkSurface::MakeRasterDirect(
+    buffer->sk_surface = SkSurfaces::WrapPixels(
         SkImageInfo::Make(size.width(), size.height(), kColorType,
                           kOpaque_SkAlphaType),
         mapped_data, stride, &props);
@@ -1061,7 +1063,7 @@ std::unique_ptr<ClientBase::Buffer> ClientBase::CreateDrmBuffer(
     texture_info.fFormat = kSizedInternalFormat;
     GrBackendTexture backend_texture(size.width(), size.height(),
                                      GrMipMapped::kNo, texture_info);
-    buffer->sk_surface = SkSurface::MakeFromBackendTexture(
+    buffer->sk_surface = SkSurfaces::WrapBackendTexture(
         gr_context_.get(), backend_texture, kTopLeft_GrSurfaceOrigin,
         /* sampleCnt */ 0, kColorType, /* colorSpace */ nullptr,
         /* props */ nullptr);
@@ -1235,10 +1237,13 @@ void ClientBase::SetupAuraShellIfAvailable() {
          uint32_t display_id_lo) {},
   };
 
-  std::unique_ptr<zaura_output> aura_output(zaura_shell_get_aura_output(
-      globals_.aura_shell.get(), globals_.output.get()));
-  zaura_output_add_listener(aura_output.get(), &kAuraOutputListener, this);
-  globals_.aura_output = std::move(aura_output);
+  while (globals_.aura_outputs.size() < globals_.outputs.size()) {
+    size_t offset = globals_.aura_outputs.size();
+    std::unique_ptr<zaura_output> aura_output(zaura_shell_get_aura_output(
+        globals_.aura_shell.get(), globals_.outputs[offset].get()));
+    zaura_output_add_listener(aura_output.get(), &kAuraOutputListener, this);
+    globals_.aura_outputs.emplace_back(std::move(aura_output));
+  }
 }
 
 void ClientBase::SetupPointerStylus() {

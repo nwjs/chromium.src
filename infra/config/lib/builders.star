@@ -99,38 +99,11 @@ goma = struct(
             "server_host": "staging-goma.chromium.org",
             "rpc_extra_params": "?staging",
         },
-        RBE_TOT = {
-            "server_host": "staging-goma.chromium.org",
-            "rpc_extra_params": "?tot",
-        },
     ),
     jobs = struct(
-        J50 = 50,
-
         # This is for 4 cores mac. -j40 is too small, especially for clobber
         # builder.
         J80 = 80,
-
-        # This is for tryservers becoming slow and critical path of patch
-        # landing.
-        J150 = 150,
-
-        # This is for tryservers becoming very slow and critical path of patch
-        # landing.
-        J300 = 300,
-
-        # CI builders (of which are few) may use high number of concurrent Goma
-        # jobs.
-        # IMPORTANT: when
-        #  * bumping number of jobs below, or
-        #  * adding this mixin to many builders at once, or
-        #  * adding this mixin to a builder with many concurrent builds
-        # get review from Goma team.
-        MANY_JOBS_FOR_CI = 500,
-
-        # For load testing of the execution backend
-        LOAD_TESTING_J1000 = 1000,
-        LOAD_TESTING_J2000 = 2000,
     ),
 )
 
@@ -140,13 +113,13 @@ reclient = struct(
         TEST_TRUSTED = "rbe-chromium-trusted-test",
         DEFAULT_UNTRUSTED = "rbe-chromium-untrusted",
         TEST_UNTRUSTED = "rbe-chromium-untrusted-test",
+        DEVELOPER = "rbe-chrome-untrusted",
     ),
     jobs = struct(
         DEFAULT = 250,
         LOW_JOBS_FOR_CI = 80,
         HIGH_JOBS_FOR_CI = 500,
         LOW_JOBS_FOR_CQ = 150,
-        MID_JOBS_FOR_CQ = 225,
         HIGH_JOBS_FOR_CQ = 300,
     ),
 )
@@ -171,6 +144,7 @@ sheriff_rotations = struct(
     ANGLE = _rotation("angle"),
     CHROMIUM = _rotation("chromium"),
     CFT = _rotation("cft"),
+    DAWN = _rotation("dawn"),
     FUCHSIA = _rotation("fuchsia"),
     CHROMIUM_CLANG = _rotation("chromium.clang"),
     CHROMIUM_GPU = _rotation("chromium.gpu"),
@@ -223,17 +197,13 @@ _DEFAULT_BUILDERLESS_OS_CATEGORIES = [os_category.LINUX]
 # setting ssd:0 dimension
 _EXCLUDE_BUILDERLESS_SSD_OS_CATEGORIES = [os_category.MAC]
 
-def _goma_property(*, goma_backend, goma_debug, goma_enable_ats, goma_jobs):
+def _goma_property(*, goma_backend, goma_enable_ats, goma_jobs):
     goma_properties = {}
 
     goma_backend = defaults.get_value("goma_backend", goma_backend)
     if goma_backend == None:
         return None
     goma_properties.update(goma_backend)
-
-    goma_debug = defaults.get_value("goma_debug", goma_debug)
-    if goma_debug:
-        goma_properties["debug"] = True
 
     if goma_enable_ats != None:
         goma_properties["enable_ats"] = goma_enable_ats
@@ -398,7 +368,6 @@ defaults = args.defaults(
     cpu = None,
     fully_qualified_builder_dimension = False,
     goma_backend = None,
-    goma_debug = False,
     goma_enable_ats = args.COMPUTE,
     goma_jobs = None,
     console_view = args.COMPUTE,
@@ -472,7 +441,6 @@ def builder(
         console_view_entry = None,
         list_view = args.DEFAULT,
         goma_backend = args.DEFAULT,
-        goma_debug = args.DEFAULT,
         goma_enable_ats = args.DEFAULT,
         goma_jobs = args.DEFAULT,
         coverage_gs_bucket = args.DEFAULT,
@@ -604,9 +572,6 @@ def builder(
         goma_backend: a member of the `goma.backend` enum indicating the goma
             backend the builder should use. Will be incorporated into the
             '$build/goma' property. By default, considered None.
-        goma_debug: a boolean indicating whether goma should be debugged. If
-            True, the 'debug' field will be set in the '$build/goma' property.
-            By default, considered False.
         goma_enable_ats: a boolean indicating whether ats should be enabled for
             goma or args.COMPUTE if ats should be enabled where it is needed.
             If True or False are explicitly set, the 'enable_ats' field will be
@@ -711,7 +676,7 @@ def builder(
              "use sheriff_rotations instead")
     if "$build/goma" in properties:
         fail('Setting "$build/goma" property is not supported: ' +
-             "use goma_backend, goma_dbug, goma_enable_ats and goma_jobs instead")
+             "use goma_backend, goma_enable_ats and goma_jobs instead")
     if "$build/code_coverage" in properties:
         fail('Setting "$build/code_coverage" property is not supported: ' +
              "use coverage_gs_bucket, use_clang_coverage, use_java_coverage, " +
@@ -806,7 +771,6 @@ def builder(
             goma_enable_ats = None
     gp = _goma_property(
         goma_backend = goma_backend,
-        goma_debug = goma_debug,
         goma_enable_ats = goma_enable_ats,
         goma_jobs = goma_jobs,
     )

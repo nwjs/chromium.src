@@ -75,14 +75,22 @@ constexpr int32_t kAuthPayloadTargetDeviceRole = 1;
 // update.
 constexpr char kNotifySourceOfUpdateMessageKey[] = "forced_update_required";
 
+// bootstrapOptions key to inform source of the target device type.
+constexpr char kDeviceTypeKey[] = "deviceType";
+
+// Device type should map to ChromeOS device type. See:
+// http://google3/java/com/google/android/gmscore/integ/client/smartdevice/src/com/google/android/gms/smartdevice/d2d/DeviceType.java;l=57
+constexpr int kDeviceTypeChrome = 7;
+
 }  // namespace
 
 std::unique_ptr<QuickStartMessage> BuildBootstrapOptionsRequest() {
   std::unique_ptr<QuickStartMessage> message =
       std::make_unique<QuickStartMessage>(
-          QuickStartMessageType::kBootstrapConfigurations);
+          QuickStartMessageType::kBootstrapOptions);
   message->GetPayload()->Set(kAccountRequirementKey, kAccountRequirementSingle);
   message->GetPayload()->Set(kFlowTypeKey, kFlowTypeTargetChallenge);
+  message->GetPayload()->Set(kDeviceTypeKey, kDeviceTypeChrome);
   return message;
 }
 

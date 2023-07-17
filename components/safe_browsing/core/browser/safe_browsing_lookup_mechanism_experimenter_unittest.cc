@@ -59,7 +59,6 @@ class MockSafeBrowsingLookupMechanism : public SafeBrowsingLookupMechanism {
             GURL(),
             SBThreatTypeSet({}),
             /*database_manager=*/nullptr,
-            /*can_check_db=*/true,
             MechanismExperimentHashDatabaseCache::kNoExperiment),
         is_safe_synchronously_(is_safe_synchronously),
         time_to_completion_(time_to_completion),
@@ -92,15 +91,15 @@ class MockSafeBrowsingLookupMechanism : public SafeBrowsingLookupMechanism {
                   url_, threat_type_, ThreatMetadata(),
                   /*is_from_url_real_time_check=*/is_url_real_time_,
                   /*url_real_time_lookup_response=*/nullptr,
+                  /*matched_high_confidence_allowlist=*/
+                  matched_high_confidence_allowlist_,
                   /*locally_cached_results_threat_type=*/
                   locally_cached_results_threat_type_,
                   /*real_time_request_failed=*/real_time_request_failed_)),
           time_to_completion_);
     }
     return StartCheckResult(is_safe_synchronously_,
-                            /*did_check_url_real_time_allowlist=*/false,
-                            /*matched_high_confidence_allowlist=*/
-                            matched_high_confidence_allowlist_);
+                            /*did_check_url_real_time_allowlist=*/false);
   }
 
   // StartCheckInternal will return this value. Also, if it is true, the

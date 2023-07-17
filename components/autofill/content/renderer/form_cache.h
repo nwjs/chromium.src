@@ -85,9 +85,6 @@ class FormCache {
   UpdateFormCacheResult UpdateFormCache(
       const FieldDataManager* field_data_manager);
 
-  // Resets the forms.
-  void Reset();
-
   // Clears the values of all input elements in the section of the form that
   // contains |element|.  Returns false if the form is not found.
   bool ClearSectionWithElement(const blink::WebFormControlElement& element);
@@ -108,12 +105,10 @@ class FormCache {
  private:
   friend class FormCacheTestApi;
 
-  // Scans |control_elements| and returns the number of editable elements.
-  // Also logs warning messages for deprecated attribute if
-  // |log_deprecation_messages| is set.
-  size_t ScanFormControlElements(
-      const std::vector<blink::WebFormControlElement>& control_elements,
-      bool log_deprecation_messages);
+  // Iterates through |control_elements| and returns whether there is an
+  // autofillable form control.
+  bool HasAutofillableFormControl(
+      const std::vector<blink::WebFormControlElement>& control_elements);
 
   // Saves initial state of checkbox and select elements.
   void SaveInitialValues(

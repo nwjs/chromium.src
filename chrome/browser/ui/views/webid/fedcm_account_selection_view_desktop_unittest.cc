@@ -130,8 +130,8 @@ class TestFedCmAccountSelectionView : public FedCmAccountSelectionView {
   }
 
  private:
-  base::raw_ptr<views::Widget> widget_;
-  base::raw_ptr<TestBubbleView> bubble_view_;
+  raw_ptr<views::Widget> widget_;
+  raw_ptr<TestBubbleView> bubble_view_;
 };
 
 // Stub AccountSelectionView::Delegate.
@@ -150,12 +150,13 @@ class StubAccountSelectionViewDelegate : public AccountSelectionView::Delegate {
                          const content::IdentityRequestAccount&) override {}
   void OnDismiss(
       content::IdentityRequestDialogController::DismissReason) override {}
+  void OnSigninToIdP() override {}
   gfx::NativeView GetNativeView() override { return gfx::NativeView(); }
 
   content::WebContents* GetWebContents() override { return web_contents_; }
 
  private:
-  base::raw_ptr<content::WebContents> web_contents_;
+  raw_ptr<content::WebContents> web_contents_;
 };
 
 }  // namespace

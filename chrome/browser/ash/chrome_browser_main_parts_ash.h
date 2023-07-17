@@ -59,6 +59,7 @@ class VideoConferenceManagerClientImpl;
 namespace ash {
 
 class AccessibilityEventRewriterDelegateImpl;
+class ApnMigrator;
 class ArcKioskAppManager;
 class AudioSurveyHandler;
 class AuthParts;
@@ -76,7 +77,7 @@ class HatsBluetoothRevampTriggerImpl;
 class IdleActionWarningObserver;
 class LoginScreenExtensionsStorageCleaner;
 class LowDiskNotification;
-class AuthMetricsRecorder;
+class AuthEventsRecorder;
 class MultiCaptureLoginNotification;
 class MultiCaptureNotification;
 class NetworkChangeManagerClient;
@@ -294,6 +295,8 @@ class ChromeBrowserMainPartsAsh : public ChromeBrowserMainPartsLinux {
 
   std::unique_ptr<memory::ZramWritebackController> zram_writeback_controller_;
 
+  std::unique_ptr<ApnMigrator> apn_migrator_;
+
   // Only temporarily owned, will be null after PostCreateMainMessageLoop().
   // The Accessor is constructed before initialization of FeatureList and should
   // only be used by ChromeFeaturesServiceProvider.
@@ -301,7 +304,7 @@ class ChromeBrowserMainPartsAsh : public ChromeBrowserMainPartsLinux {
 
   std::unique_ptr<traffic_counters::TrafficCountersHandler>
       traffic_counters_handler_;
-  std::unique_ptr<ash::AuthMetricsRecorder> auth_metrics_recorder_;
+  std::unique_ptr<ash::AuthEventsRecorder> auth_events_recorder_;
   std::unique_ptr<ash::AuthParts> auth_parts_;
 
   std::unique_ptr<video_conference::VideoConferenceManagerClientImpl>

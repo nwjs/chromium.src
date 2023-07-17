@@ -13,7 +13,7 @@
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/dxgi_shared_handle_manager.h"
 #include "gpu/command_buffer/service/shared_image/d3d_image_backing.h"
-#include "gpu/command_buffer/service/shared_image/shared_image_format_utils.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "ui/gfx/buffer_format_util.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gl/direct_composition_support.h"
@@ -176,19 +176,13 @@ bool D3DImageBackingFactory::IsSwapChainSupported() {
 }
 
 // static
-bool D3DImageBackingFactory::ClearBackBufferToOpaque(
-    Microsoft::WRL::ComPtr<IDXGISwapChain1>& swap_chain,
-    Microsoft::WRL::ComPtr<ID3D11Device>& d3d11_device) {
-  Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture;
-  HRESULT hr = swap_chain->GetBuffer(0, IID_PPV_ARGS(&d3d11_texture));
-  if (FAILED(hr)) {
-    LOG(ERROR) << "GetBuffer failed: " << logging::SystemErrorCodeToString(hr);
-    return false;
-  }
-  DCHECK(d3d11_texture);
+bool D3DImageBackingFactory::ClearTextureToColor(ID3D11Device* d3d11_device,
+                                                 ID3D11Texture2D* d3d11_texture,
+                                                 const SkColor4f& color) {
+  HRESULT hr = S_OK;
 
   Microsoft::WRL::ComPtr<ID3D11RenderTargetView> render_target;
-  hr = d3d11_device->CreateRenderTargetView(d3d11_texture.Get(), nullptr,
+  hr = d3d11_device->CreateRenderTargetView(d3d11_texture, nullptr,
                                             &render_target);
   if (FAILED(hr)) {
     LOG(ERROR) << "CreateRenderTargetView failed: "
@@ -201,9 +195,24 @@ bool D3DImageBackingFactory::ClearBackBufferToOpaque(
   d3d11_device->GetImmediateContext(&d3d11_device_context);
   DCHECK(d3d11_device_context);
 
-  d3d11_device_context->ClearRenderTargetView(render_target.Get(),
-                                              SkColors::kBlack.vec());
+  d3d11_device_context->ClearRenderTargetView(render_target.Get(), color.vec());
+
   return true;
+}
+
+// static
+bool D3DImageBackingFactory::ClearBackBufferToColor(ID3D11Device* d3d11_device,
+                                                    IDXGISwapChain1* swap_chain,
+                                                    const SkColor4f& color) {
+  Microsoft::WRL::ComPtr<ID3D11Texture2D> d3d11_texture;
+  HRESULT hr = swap_chain->GetBuffer(0, IID_PPV_ARGS(&d3d11_texture));
+  if (FAILED(hr)) {
+    LOG(ERROR) << "GetBuffer failed: " << logging::SystemErrorCodeToString(hr);
+    return false;
+  }
+  DCHECK(d3d11_texture);
+
+  return ClearTextureToColor(d3d11_device, d3d11_texture.Get(), color);
 }
 
 D3DImageBackingFactory::SwapChainBackings
@@ -282,7 +291,8 @@ D3DImageBackingFactory::CreateSwapChain(const Mailbox& front_buffer_mailbox,
 
   // Explicitly clear front and back buffers to ensure that there are no
   // uninitialized pixels.
-  if (!ClearBackBufferToOpaque(swap_chain, d3d11_device_)) {
+  if (!ClearBackBufferToColor(d3d11_device_.Get(), swap_chain.Get(),
+                              SkColors::kBlack)) {
     return {nullptr, nullptr};
   }
 
@@ -295,7 +305,8 @@ D3DImageBackingFactory::CreateSwapChain(const Mailbox& front_buffer_mailbox,
     return {nullptr, nullptr};
   }
 
-  if (!ClearBackBufferToOpaque(swap_chain, d3d11_device_)) {
+  if (!ClearBackBufferToColor(d3d11_device_.Get(), swap_chain.Get(),
+                              SkColors::kBlack)) {
     return {nullptr, nullptr};
   }
 
@@ -502,8 +513,7 @@ std::unique_ptr<SharedImageBacking> D3DImageBackingFactory::CreateSharedImage(
     return nullptr;
   }
 
-  auto format = viz::SharedImageFormat::SinglePlane(
-      viz::GetResourceFormat(buffer_format));
+  auto format = viz::GetSharedImageFormat(buffer_format);
   return CreateSharedImageGMBs(mailbox, std::move(handle), format, plane, size,
                                color_space, surface_origin, alpha_type, usage);
 }
@@ -611,8 +621,7 @@ D3DImageBackingFactory::CreateSharedImageGMBs(
     // R/RG based on channels in plane.
     const gfx::Size plane_size = GetPlaneSize(plane, size);
     const viz::SharedImageFormat plane_format =
-        viz::SharedImageFormat::SinglePlane(
-            viz::GetResourceFormat(GetPlaneBufferFormat(plane, buffer_format)));
+        viz::GetSharedImageFormat(GetPlaneBufferFormat(plane, buffer_format));
     const size_t plane_index = plane == gfx::BufferPlane::UV ? 1 : 0;
     backing = D3DImageBacking::Create(
         mailbox, plane_format, plane_size, color_space, surface_origin,

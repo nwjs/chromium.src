@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "base/check.h"
@@ -190,19 +191,22 @@ bool UninstallGoogleUpdate(UpdaterScope scope,
         }));
   }
 
-  // Delete the GoogleUpdate tasks.
+  // Delete the GoogleUpdate tasks. This is a best-effort operation.
   scoped_refptr<TaskScheduler> task_scheduler(
       TaskScheduler::CreateInstance(scope, /*use_task_subfolders=*/false));
-  task_scheduler->ForEachTaskWithPrefix(
-      IsSystemInstall(scope) ? kLegacyTaskNamePrefixSystem
-                             : kLegacyTaskNamePrefixUser,
-      base::BindRepeating(
-          [](scoped_refptr<TaskScheduler> task_scheduler,
-             const std::wstring& task_name) {
-            VLOG(2) << __func__ << ": Deleting legacy task: " << task_name;
-            task_scheduler->DeleteTask(task_name.c_str());
-          },
-          task_scheduler));
+  if (task_scheduler) {
+    task_scheduler->ForEachTaskWithPrefix(
+        IsSystemInstall(scope) ? kLegacyTaskNamePrefixSystem
+                               : kLegacyTaskNamePrefixUser,
+        base::BindRepeating(
+            [](scoped_refptr<TaskScheduler> task_scheduler,
+               const std::wstring& task_name) {
+              VLOG(2) << __func__ << ": Deleting legacy task: " << task_name;
+              bool is_deleted = task_scheduler->DeleteTask(task_name);
+              VLOG_IF(2, !is_deleted) << "Legacy task was not deleted.";
+            },
+            task_scheduler));
+  }
 
   // Keep only `GoogleUpdate.exe` and nothing else under `\Google\Update`.
   const absl::optional<base::FilePath> google_update_exe =
@@ -246,10 +250,10 @@ HRESULT IsCOMCallerAllowed() {
     return S_OK;
   }
 
-  HResultOr<bool> result = IsCOMCallerAdmin();
+  const HResultOr<bool> result = IsCOMCallerAdmin();
   if (!result.has_value()) {
     HRESULT hr = result.error();
-    LOG(ERROR) << __func__ << ": IsCOMCallerAdmin failed: " << std::hex << hr;
+    LOG(ERROR) << "IsCOMCallerAdmin failed: " << std::hex << hr;
     return hr;
   }
 
@@ -470,6 +474,30 @@ bool ComServerApp::MigrateLegacyUpdaters(
       if (client_state_key.ReadValueDW(kRegValueDateOfLastRollcall,
                                        &date_last_rollcall) == ERROR_SUCCESS) {
         registration.dlrc = DaynumFromDWORD(date_last_rollcall);
+      }
+
+      base::win::RegKey cohort_key;
+      if (cohort_key.Open(root, GetAppCohortKey(app_id).c_str(),
+                          Wow6432(KEY_READ)) == ERROR_SUCCESS) {
+        std::wstring cohort;
+        if (cohort_key.ReadValue(nullptr, &cohort) == ERROR_SUCCESS) {
+          registration.cohort = base::SysWideToUTF8(cohort);
+
+          std::wstring cohort_name;
+          if (cohort_key.ReadValue(kRegValueCohortName, &cohort_name) ==
+              ERROR_SUCCESS) {
+            registration.cohort_name = base::SysWideToUTF8(cohort_name);
+          }
+
+          std::wstring cohort_hint;
+          if (cohort_key.ReadValue(kRegValueCohortHint, &cohort_hint) ==
+              ERROR_SUCCESS) {
+            registration.cohort_hint = base::SysWideToUTF8(cohort_hint);
+          }
+          VLOG(2) << "Cohort values: " << registration.cohort << ", "
+                  << registration.cohort_name << ", "
+                  << registration.cohort_hint;
+        }
       }
     }
 

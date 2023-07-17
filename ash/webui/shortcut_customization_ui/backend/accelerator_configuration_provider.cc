@@ -24,6 +24,7 @@
 #include "ash/webui/shortcut_customization_ui/backend/accelerator_layout_table.h"
 #include "ash/webui/shortcut_customization_ui/mojom/shortcut_customization.mojom.h"
 #include "base/check.h"
+#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/strings/strcat.h"
 #include "mojo/public/cpp/bindings/clone_traits.h"
@@ -51,31 +52,33 @@ using mojom::AcceleratorConfigResult;
 using HiddenAcceleratorMap =
     std::map<AcceleratorActionId, std::vector<ui::Accelerator>>;
 
+constexpr size_t kMaxAcceleratorsAllowed = 5;
+
 // Raw accelerator data may result in the same shortcut being displayed multiple
 // times in the frontend. GetHiddenAcceleratorMap() is used to collect such
 // accelerators and hide them from display.
 const HiddenAcceleratorMap& GetHiddenAcceleratorMap() {
   static auto hiddenAcceleratorMap = base::NoDestructor<HiddenAcceleratorMap>(
-      {{TOGGLE_APP_LIST,
+      {{AcceleratorAction::kToggleAppList,
         {ui::Accelerator(ui::VKEY_BROWSER_SEARCH, ui::EF_SHIFT_DOWN,
                          ui::Accelerator::KeyState::PRESSED),
          ui::Accelerator(ui::VKEY_LWIN, ui::EF_SHIFT_DOWN,
                          ui::Accelerator::KeyState::RELEASED)}},
-       {SHOW_SHORTCUT_VIEWER,
+       {AcceleratorAction::kShowShortcutViewer,
         {ui::Accelerator(ui::VKEY_F14, ui::EF_NONE,
                          ui::Accelerator::KeyState::PRESSED),
          ui::Accelerator(
              ui::VKEY_OEM_2,
              ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
              ui::Accelerator::KeyState::PRESSED)}},
-       {OPEN_GET_HELP,
+       {AcceleratorAction::kOpenGetHelp,
         {ui::Accelerator(ui::VKEY_OEM_2,
                          ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN,
                          ui::Accelerator::KeyState::PRESSED)}},
-       {TOGGLE_FULLSCREEN,
+       {AcceleratorAction::kToggleFullscreen,
         {ui::Accelerator(ui::VKEY_ZOOM, ui::EF_SHIFT_DOWN,
                          ui::Accelerator::KeyState::PRESSED)}},
-       {SWITCH_TO_LAST_USED_IME,
+       {AcceleratorAction::kSwitchToLastUsedIme,
         {ui::Accelerator(ui::VKEY_SPACE, ui::EF_CONTROL_DOWN,
                          ui::Accelerator::KeyState::RELEASED)}}});
   return *hiddenAcceleratorMap;
@@ -84,6 +87,11 @@ const HiddenAcceleratorMap& GetHiddenAcceleratorMap() {
 constexpr int kCustomizationModifierMask =
     ui::EF_SHIFT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN |
     ui::EF_COMMAND_DOWN;
+
+// The following are keys that are not allowed to be used as a customized
+// activation key.
+constexpr ui::KeyboardCode kReservedKeys[] = {ui::VKEY_POWER, ui::VKEY_F13,
+                                              ui::VKEY_SLEEP};
 
 // Gets the parts of the string that don't contain replacements.
 // Ex: "Press and " -> ["Press ", " and "]
@@ -263,6 +271,11 @@ absl::optional<AcceleratorConfigResult> ValidateAccelerator(
     return AcceleratorConfigResult::kMissingModifier;
   }
 
+  // Case: Reserved keys cannot be part of a custom accelerator.
+  if (base::Contains(kReservedKeys, accelerator.key_code())) {
+    return AcceleratorConfigResult::kKeyNotAllowed;
+  }
+
   // Case: Top-row action keys cannot be part of the accelerator.
   if (ui::KeyboardCapability::IsTopRowActionKey(accelerator.key_code())) {
     return AcceleratorConfigResult::kKeyNotAllowed;
@@ -283,6 +296,19 @@ std::string GetUuid(mojom::AcceleratorSource source,
                        base::NumberToString(action)});
 }
 
+// Returns true if the given `details` should be excluded from the view, since
+// certain shortcuts can be associated with a disabled feature behind a flag,
+// or specific device property.
+bool ShouldExcludeItem(const AcceleratorLayoutDetails& details) {
+  switch (details.action_id) {
+    case kToggleSnapGroupWindowsGroupAndUngroup:
+    case kToggleSnapGroupWindowsMinimizeAndRestore:
+      return !features::IsSnapGroupEnabled();
+  }
+
+  return false;
+}
+
 }  // namespace
 
 namespace shortcut_ui {
@@ -290,9 +316,6 @@ namespace shortcut_ui {
 AcceleratorConfigurationProvider::AcceleratorConfigurationProvider()
     : ash_accelerator_configuration_(
           Shell::Get()->ash_accelerator_configuration()) {
-  // Observe connected keyboard events.
-  ui::DeviceDataManager::GetInstance()->AddObserver(this);
-
   // Observe keyboard input method changes.
   input_method::InputMethodManager::Get()->AddObserver(this);
 
@@ -300,7 +323,13 @@ AcceleratorConfigurationProvider::AcceleratorConfigurationProvider()
   Shell::Get()->keyboard_capability()->AddObserver(this);
 
   if (features::IsInputDeviceSettingsSplitEnabled()) {
+    // `InputDeviceSettingsController` provides updates whenever a device is
+    // connected/disconnected or if its settings changed. In any of these cases,
+    // accelerators must be updated.
     Shell::Get()->input_device_settings_controller()->AddObserver(this);
+  } else {
+    // Observe connected keyboard events.
+    ui::DeviceDataManager::GetInstance()->AddObserver(this);
   }
 
   ash_accelerator_configuration_->AddAcceleratorsUpdatedCallback(
@@ -315,6 +344,9 @@ AcceleratorConfigurationProvider::AcceleratorConfigurationProvider()
   // data that provides additional details for the app for styling.
   // Also create a cached shortcut description lookup.
   for (const auto& layout_details : kAcceleratorLayouts) {
+    if (ShouldExcludeItem(layout_details)) {
+      continue;
+    }
     layout_infos_.push_back(LayoutInfoToMojom(layout_details));
     accelerator_layout_lookup_[GetUuid(
         layout_details.source, layout_details.action_id)] = layout_details;
@@ -342,21 +374,26 @@ AcceleratorConfigurationProvider::~AcceleratorConfigurationProvider() {
 void AcceleratorConfigurationProvider::IsMutable(
     ash::mojom::AcceleratorSource source,
     IsMutableCallback callback) {
-  if (source == ash::mojom::AcceleratorSource::kBrowser) {
-    // Browser shortcuts are not mutable.
-    std::move(callback).Run(/*is_mutable=*/false);
-    return;
+  bool is_mutable = false;
+  switch (source) {
+    case ash::mojom::AcceleratorSource::kAsh:
+      is_mutable = ash_accelerator_configuration_->IsMutable();
+      break;
+    case ash::mojom::AcceleratorSource::kBrowser:
+    case ash::mojom::AcceleratorSource::kAmbient:
+    case ash::mojom::AcceleratorSource::kAndroid:
+    case ash::mojom::AcceleratorSource::kEventRewriter:
+      // The sources above are not mutable.
+      break;
   }
 
-  // TODO(jimmyxgong): Add more cases for other source types when they're
-  // available.
-  std::move(callback).Run(/*is_mutable=*/true);
+  std::move(callback).Run(is_mutable);
 }
 
 void AcceleratorConfigurationProvider::HasLauncherButton(
     HasLauncherButtonCallback callback) {
   std::move(callback).Run(
-      Shell::Get()->keyboard_capability()->HasLauncherButton());
+      Shell::Get()->keyboard_capability()->HasLauncherButtonOnAnyKeyboard());
 }
 
 void AcceleratorConfigurationProvider::GetAccelerators(
@@ -403,12 +440,12 @@ void AcceleratorConfigurationProvider::OnTopRowKeysAreFKeysChanged() {
 
 void AcceleratorConfigurationProvider::OnKeyboardConnected(
     const mojom::Keyboard& keyboard) {
-  NotifyAcceleratorsUpdated();
+  UpdateKeyboards();
 }
 
 void AcceleratorConfigurationProvider::OnKeyboardDisconnected(
     const mojom::Keyboard& keyboard) {
-  NotifyAcceleratorsUpdated();
+  UpdateKeyboards();
 }
 
 void AcceleratorConfigurationProvider::OnKeyboardSettingsUpdated(
@@ -461,6 +498,16 @@ void AcceleratorConfigurationProvider::AddAccelerator(
   if (error_result.has_value()) {
     pending_accelerator_.reset();
     result_data->result = *error_result;
+    std::move(callback).Run(std::move(result_data));
+    return;
+  }
+
+  // Only allow a maximum of five accelerators per action.
+  const size_t accelerator_count =
+      ash_accelerator_configuration_->GetAcceleratorsForAction(action_id)
+          .size();
+  if (accelerator_count >= kMaxAcceleratorsAllowed) {
+    result_data->result = AcceleratorConfigResult::kMaximumAcceleratorsReached;
     std::move(callback).Run(std::move(result_data));
     return;
   }
@@ -689,8 +736,25 @@ AcceleratorConfigurationProvider::PreprocessAddAccelerator(
   // Check if the accelerator conflicts with an existing ash accelerator.
   const AcceleratorAction* found_ash_action =
       ash_accelerator_configuration_->FindAcceleratorAction(accelerator);
-  if (found_ash_action &&
-      !ash_accelerator_configuration_->IsDeprecated(accelerator)) {
+
+  // Accelerator does not exist, can add this accelerator.
+  if (!found_ash_action) {
+    return absl::nullopt;
+  }
+
+  // Check that the new accelerator is not already an existing accelerator of
+  // the same action. If so, return with `kConflict`.
+  if (*found_ash_action == action_id) {
+    pending_accelerator_.reset();
+    result_data->result = AcceleratorConfigResult::kConflict;
+    result_data->shortcut_name = l10n_util::GetStringUTF16(
+        accelerator_layout_lookup_[GetUuid(mojom::AcceleratorSource::kAsh,
+                                           *found_ash_action)]
+            .description_string_id);
+    return result_data;
+  }
+
+  if (!ash_accelerator_configuration_->IsDeprecated(accelerator)) {
     // Accelerator already exists, check if it belongs to a locked action.
     const auto& layout_iter = accelerator_layout_lookup_.find(
         GetUuid(mojom::AcceleratorSource::kAsh, *found_ash_action));
@@ -795,7 +859,8 @@ void AcceleratorConfigurationProvider::PopulateAshAcceleratorConfig(
       accelerator_config_output[mojom::AcceleratorSource::kAsh];
 
   for (const auto& layout_info : kAcceleratorLayouts) {
-    if (layout_info.source != mojom::AcceleratorSource::kAsh) {
+    if (layout_info.source != mojom::AcceleratorSource::kAsh ||
+        ShouldExcludeItem(layout_info)) {
       // Only ash accelerators can have dynamically modified properties.
       // Note that ambient accelerators cannot be in kAsh.
       continue;

@@ -6,6 +6,7 @@
 #define COMPONENTS_SAFE_BROWSING_CORE_BROWSER_HASHPREFIX_REALTIME_HASH_REALTIME_SERVICE_H_
 
 #include "base/containers/unique_ptr_adapters.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
@@ -70,6 +71,12 @@ class HashRealTimeService : public KeyedService {
   // TODO(crbug.com/1410253): Deprecate this (including the factory populating
   // it).
   bool IsEnhancedProtectionEnabled();
+
+  // Returns whether the |url| is eligible for hash-prefix real-time checks.
+  // It's never eligible if the |request_destination| is not mainframe.
+  static bool CanCheckUrl(
+      const GURL& url,
+      network::mojom::RequestDestination request_destination);
 
   // Start the lookup for |url|, and call |response_callback| on
   // |callback_task_runner| when response is received.
@@ -145,8 +152,13 @@ class HashRealTimeService : public KeyedService {
   };
 
   // Returns the traffic annotation tag that is attached in the simple URL
-  // loader.
-  net::NetworkTrafficAnnotationTag GetTrafficAnnotationTag() const;
+  // loader when a direct fetch request is sent.
+  net::NetworkTrafficAnnotationTag GetTrafficAnnotationTagForDirectFetch()
+      const;
+
+  // Returns the traffic annotation tag that is attached in the Oblivious HTTP
+  // request when an OHTTP request is sent.
+  net::NetworkTrafficAnnotationTag GetTrafficAnnotationTagForOhttp() const;
 
   // Get a resource request with URL, load_flags, credentials mode, and method
   // set.

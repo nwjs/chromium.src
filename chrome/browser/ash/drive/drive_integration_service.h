@@ -308,11 +308,23 @@ class DriveIntegrationService : public KeyedService,
 
   void ClearOfflineFiles(base::OnceCallback<void(drive::FileError)> callback);
 
+  // Tells Drive to immediately start uploading the file at |path|, which is a
+  // relative path in Drive. This avoids queuing delays for newly created files,
+  // when we are sure that there are no more subsequent operations on the file
+  // that we should wait for.
+  void ImmediatelyUpload(
+      const base::FilePath& path,
+      drivefs::mojom::DriveFs::ImmediatelyUploadCallback callback);
+
   // Called by lacros to register a bridge that this service can call into when
   // DriveFS wants to initiate a connection to an extension in lacros.
   void RegisterDriveFsNativeMessageHostBridge(
       mojo::PendingRemote<crosapi::mojom::DriveFsNativeMessageHostBridge>
           bridge);
+
+  // Gets counts of files in docs offline extension.
+  void GetDocsOfflineStats(
+      drivefs::mojom::DriveFs::GetDocsOfflineStatsCallback callback);
 
  private:
   enum State {
@@ -422,6 +434,10 @@ class DriveIntegrationService : public KeyedService,
       const base::FilePath& path,
       drivefs::mojom::DriveFs::ToggleSyncForPathCallback callback,
       bool exists);
+
+  void OnUpdateFromPairedDocComplete(const base::FilePath& drive_path,
+                                     base::OnceClosure callback,
+                                     drive::FileError error);
 
   friend class DriveIntegrationServiceFactory;
 

@@ -74,10 +74,8 @@ OmniboxAction::ExecutionContext::~ExecutionContext() = default;
 
 // =============================================================================
 
-OmniboxAction::OmniboxAction(LabelStrings strings,
-                             GURL url,
-                             bool takes_over_match)
-    : strings_(strings), url_(url), takes_over_match_(takes_over_match) {}
+OmniboxAction::OmniboxAction(LabelStrings strings, GURL url)
+    : strings_(strings), url_(url) {}
 
 OmniboxAction::~OmniboxAction() = default;
 
@@ -94,10 +92,6 @@ bool OmniboxAction::IsReadyToTrigger(
     const AutocompleteInput& input,
     const AutocompleteProviderClient& client) const {
   return true;
-}
-
-bool OmniboxAction::TakesOverMatch() const {
-  return takes_over_match_;
 }
 
 #if defined(SUPPORT_PEDALS_VECTOR_ICONS)
@@ -137,7 +131,8 @@ void OmniboxAction::OpenURL(OmniboxAction::ExecutionContext& context,
       .Run(url, nullptr, context.disposition_, ui::PAGE_TRANSITION_GENERATED,
            /*match_type=*/AutocompleteMatchType::URL_WHAT_YOU_TYPED,
            context.match_selection_timestamp_,
-           /*destination_url_entered_without_scheme=*/false, u"",
+           /*destination_url_entered_without_scheme=*/false,
+           /*destination_url_entered_with_http_scheme=*/false, u"",
            AutocompleteMatch(), AutocompleteMatch(),
            IDNA2008DeviationCharacter::kNone);
 }

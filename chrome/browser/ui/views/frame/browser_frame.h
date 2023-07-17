@@ -181,8 +181,10 @@ class BrowserFrame : public views::Widget, public views::ContextMenuController {
   bool frameless() { return frameless_; }
  protected:
   // views::Widget:
+  void OnNativeThemeUpdated(ui::NativeTheme* observed_theme) override;
   ui::ColorProviderManager::Key GetColorProviderKey() const override;
   absl::optional<SkColor> GetUserColor() const override;
+  ui::ColorProviderManager::ColorMode GetColorMode() const override;
 
  private:
   void OnTouchUiChanged();
@@ -198,9 +200,8 @@ class BrowserFrame : public views::Widget, public views::ContextMenuController {
   bool RegenerateFrameOnThemeChange(BrowserThemeChangeType theme_change_type);
   bool frameless_;
 
-  // Returns whether the browser should always use the dark theme no matter user
-  // makes any selection.
-  bool ShouldUseDarkTheme() const;
+  // Returns true if the browser instance belongs to an incognito profile.
+  bool IsIncognitoBrowser() const;
 
   raw_ptr<NativeBrowserFrame> native_browser_frame_;
 

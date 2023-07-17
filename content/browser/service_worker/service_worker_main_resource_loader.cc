@@ -28,6 +28,7 @@
 #include "content/common/service_worker/service_worker_resource_loader.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/common/content_features.h"
+#include "net/base/load_timing_info.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_status_code.h"
 #include "services/network/public/cpp/features.h"
@@ -199,6 +200,7 @@ void ServiceWorkerMainResourceLoader::StartRequest(
   url_loader_client_.Bind(std::move(client));
 
   TransitionToStatus(Status::kStarted);
+  CHECK_EQ(commit_responsibility(), FetchResponseFrom::kNoResponseYet);
 
   if (!container_host_) {
     // We lost |container_host_| (for the client) somehow before dispatching
@@ -285,6 +287,7 @@ bool ServiceWorkerMainResourceLoader::MaybeStartRaceNetworkRequest(
           context, frame_tree_node_id_);
 
   // Perform fetch
+  CHECK_EQ(commit_responsibility(), FetchResponseFrom::kNoResponseYet);
   mojo::PendingRemote<network::mojom::URLLoader> url_loader;
   factory->CreateLoaderAndStart(
       url_loader.InitWithNewPipeAndPassReceiver(),
@@ -364,7 +367,7 @@ void ServiceWorkerMainResourceLoader::CommitCompleted(int error_code,
   DCHECK(url_loader_client_.is_bound());
   TransitionToStatus(Status::kCompleted);
   if (error_code == net::OK) {
-    switch (fetch_response_from()) {
+    switch (commit_responsibility()) {
       case FetchResponseFrom::kNoResponseYet:
         NOTREACHED();
         break;
@@ -411,15 +414,31 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
       blink::ServiceWorkerStatusToString(status), "result",
       ComposeFetchEventResultString(fetch_result, *response));
 
-  if (fetch_response_from() == FetchResponseFrom::kWithoutServiceWorker) {
-    return;
+  switch (commit_responsibility()) {
+    case FetchResponseFrom::kNoResponseYet:
+      // If the RaceNetworkRequest is triggered but the response is not handled
+      // yet, and the fetch handler result is FetchEventResult::kShouldFallback,
+      // ask RaceNetworkRequestURLLoaderClient to handle the response regardless
+      // of the response status not to dispatch additional network request for
+      // fallback.
+      if (dispatched_preload_type_ ==
+              DispatchedPreloadType::kRaceNetworkRequest &&
+          fetch_result ==
+              ServiceWorkerFetchDispatcher::FetchEventResult::kShouldFallback) {
+        SetCommitResponsibility(FetchResponseFrom::kWithoutServiceWorker);
+        return;
+      }
+      SetCommitResponsibility(FetchResponseFrom::kServiceWorker);
+      break;
+    case FetchResponseFrom::kServiceWorker:
+      break;
+    case FetchResponseFrom::kWithoutServiceWorker:
+      // If the response of RaceNetworkRequest is already handled, discard the
+      // fetch handler result.
+      return;
   }
-  // Use the response from ServiceWorker fetch handler, and cancel the
-  // connection for RaceNetworkRequest.
-  // TODO(crbug.com/1420517) RaceNetworkRequrest doesn't support fallback case.
-  // If the response from the fetch handler is fallback, the fallback resource
-  // fetch will start separately without using RaceNetworkRequest's result.
-  SetFetchResponseFrom(FetchResponseFrom::kServiceWorker);
+
+  // Cancel the connection for RaceNetworkRequest.
   race_network_request_url_loader_.reset();
 
   DCHECK_EQ(status_, Status::kStarted);
@@ -443,7 +462,8 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
     container_host_->NotifyControllerLost();
     if (fallback_callback_) {
       std::move(fallback_callback_)
-          .Run(true /* reset_subresource_loader_params */);
+          .Run(true /* reset_subresource_loader_params */,
+               net::LoadTimingInfo());
     }
     return;
   }
@@ -471,11 +491,10 @@ void ServiceWorkerMainResourceLoader::DidDispatchFetchEvent(
       ServiceWorkerFetchDispatcher::FetchEventResult::kShouldFallback) {
     TransitionToStatus(Status::kCompleted);
     RecordTimingMetricsForNetworkFallbackCase();
-    // TODO(falken): Propagate the timing info to the renderer somehow, or else
-    // Navigation Timing etc APIs won't know about service worker.
     if (fallback_callback_) {
       std::move(fallback_callback_)
-          .Run(false /* reset_subresource_loader_params */);
+          .Run(false /* reset_subresource_loader_params */,
+               response_head_->load_timing);
     }
     return;
   }

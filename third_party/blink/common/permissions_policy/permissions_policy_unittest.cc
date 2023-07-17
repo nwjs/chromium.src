@@ -10,6 +10,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/frame/fenced_frame_permissions_policies.h"
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom.h"
 #include "third_party/blink/public/mojom/permissions_policy/policy_value.mojom.h"
 #include "url/gurl.h"
@@ -76,9 +77,18 @@ class PermissionsPolicyTest : public testing::Test {
   }
   std::unique_ptr<PermissionsPolicy> CreateForFencedFrame(
       const url::Origin& origin,
-      bool is_opaque_ads_mode) {
-    return PermissionsPolicy::CreateForFencedFrame(origin, feature_list_,
-                                                   is_opaque_ads_mode);
+      base::span<const blink::mojom::PermissionsPolicyFeature>
+          required_permissions_to_load) {
+    return PermissionsPolicy::CreateForFencedFrame(
+        origin, feature_list_, required_permissions_to_load);
+  }
+
+  bool IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+      PermissionsPolicy* policy,
+      mojom::PermissionsPolicyFeature feature,
+      const url::Origin& origin) const {
+    return policy->IsFeatureEnabledForSubresourceRequestAssumingOptIn(feature,
+                                                                      origin);
   }
 
   bool PolicyContainsInheritedValue(const PermissionsPolicy* policy,
@@ -163,7 +173,7 @@ TEST_F(PermissionsPolicyTest, TestCrossOriginChildCannotEnableFeature) {
       CreateFromParentPolicy(nullptr, origin_a_);
   std::unique_ptr<PermissionsPolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultSelfFeature, /*allowed_origins=*/
+  policy2->SetHeaderPolicy({{{kDefaultSelfFeature,
                               /*allowed_origins=*/{},
                               /*self_if_matches=*/origin_b_,
                               /*matches_all_origins=*/false,
@@ -189,7 +199,7 @@ TEST_F(PermissionsPolicyTest, TestFrameSelfInheritance) {
   // they are at a different origin.
   std::unique_ptr<PermissionsPolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, /*allowed_origins=*/
+  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
                               /*allowed_origins=*/{},
                               /*self_if_matches=*/origin_a_,
                               /*matches_all_origins=*/false,
@@ -225,7 +235,7 @@ TEST_F(PermissionsPolicyTest, TestReflexiveFrameSelfInheritance) {
   // it is embedded by frame 2, for which the feature is not enabled.
   std::unique_ptr<PermissionsPolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, /*allowed_origins=*/
+  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
                               /*allowed_origins=*/{},
                               /*self_if_matches=*/origin_a_,
                               /*matches_all_origins=*/false,
@@ -424,7 +434,7 @@ TEST_F(PermissionsPolicyTest, TestChildPolicyCanBlockChildren) {
       CreateFromParentPolicy(nullptr, origin_a_);
   std::unique_ptr<PermissionsPolicy> policy2 =
       CreateFromParentPolicy(policy1.get(), origin_b_);
-  policy2->SetHeaderPolicy({{{kDefaultOnFeature, /*allowed_origins=*/
+  policy2->SetHeaderPolicy({{{kDefaultOnFeature,
                               /*allowed_origins=*/{},
                               /*self_if_matches=*/origin_b_,
                               /*matches_all_origins=*/false,
@@ -720,7 +730,7 @@ TEST_F(PermissionsPolicyTest, TestBlockedFrameCannotReenable) {
   // Feature should be enabled at the top level; disabled in all other frames.
   std::unique_ptr<PermissionsPolicy> policy1 =
       CreateFromParentPolicy(nullptr, origin_a_);
-  policy1->SetHeaderPolicy({{{kDefaultSelfFeature, /*allowed_origins=*/
+  policy1->SetHeaderPolicy({{{kDefaultSelfFeature,
                               /*allowed_origins=*/{},
                               /*self_if_matches=*/origin_a_,
                               /*matches_all_origins=*/false,
@@ -878,7 +888,7 @@ TEST_F(PermissionsPolicyTest, TestFeaturesAreIndependent) {
          /*self_if_matches=*/origin_a_,
          /*matches_all_origins=*/false,
          /*matches_opaque_src=*/false},
-        {kDefaultOnFeature, /*allowed_origins=*/
+        {kDefaultOnFeature,
          /*allowed_origins=*/{},
          /*self_if_matches=*/origin_a_,
          /*matches_all_origins=*/false,
@@ -1621,49 +1631,93 @@ TEST_F(PermissionsPolicyTest, TestUndefinedFeaturesInFramePolicy) {
 
 // A cross-origin subresource request that explicitly sets the browsingTopics
 // flag should have the browsing-topics permission as long as it passes
-// allowlist check, regardless of the feature's default state.
+// allowlist check, regardless of the feature's default state. Similarly for the
+// sharedStorageWritable flag.
 TEST_F(PermissionsPolicyTest,
-       ProposedTestIsBrowsingTopicsFeatureEnabledForSubresourceRequest) {
+       ProposedTestIsFeatureEnabledForSubresourceRequest) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(blink::features::kBrowsingTopics);
+  feature_list.InitWithFeatures(
+      {blink::features::kBrowsingTopics, blink::features::kSharedStorageAPI},
+      /*disabled_features=*/{});
 
-  network::ResourceRequest request_without_topics_opt_in;
+  network::ResourceRequest request_without_any_opt_in;
 
   network::ResourceRequest request_with_topics_opt_in;
   request_with_topics_opt_in.browsing_topics = true;
 
+  network::ResourceRequest request_with_shared_storage_opt_in;
+  request_with_shared_storage_opt_in.shared_storage_writable = true;
+
+  network::ResourceRequest request_with_both_opt_in;
+  request_with_both_opt_in.browsing_topics = true;
+  request_with_both_opt_in.shared_storage_writable = true;
+
   {
-    // +-------------------------------------------------+
-    // |(1)Origin A                                      |
-    // |No Policy                                        |
-    // |                                                 |
-    // | fetch(<Origin B's url>, {browsingTopics: true}) |
-    // +-------------------------------------------------+
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |No Policy                                               |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {browsingTopics: true})        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin B's url>, {browsingTopics: true,         |
+    // |                          sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
 
     std::unique_ptr<PermissionsPolicy> policy =
         CreateFromParentPolicy(nullptr, origin_a_);
 
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
         request_with_topics_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_shared_storage_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_both_opt_in));
+
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
         request_with_topics_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_shared_storage_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_both_opt_in));
   }
 
   {
-    // +-------------------------------------------------+
-    // |(1)Origin A                                      |
-    // |Permissions-Policy: browsing-topics=(self)       |
-    // |                                                 |
-    // | fetch(<Origin B's url>, {browsingTopics: true}) |
-    // +-------------------------------------------------+
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: browsing-topics=(self),             |
+    // |                    shared-storage=(self)               |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {browsingTopics: true})        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin B's url>, {browsingTopics: true,         |
+    // |                          sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
 
     std::unique_ptr<PermissionsPolicy> policy =
         CreateFromParentPolicy(nullptr, origin_a_);
@@ -1671,29 +1725,65 @@ TEST_F(PermissionsPolicyTest,
                                /*allowed_origins=*/{},
                                /*self_if_matches=*/origin_a_,
                                /*matches_all_origins=*/false,
+                               /*matches_opaque_src=*/false},
+                              {mojom::PermissionsPolicyFeature::kSharedStorage,
+                               /*allowed_origins=*/{},
+                               /*self_if_matches=*/origin_a_,
+                               /*matches_all_origins=*/false,
                                /*matches_opaque_src=*/false}}});
 
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
         request_with_topics_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_shared_storage_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_both_opt_in));
+
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
         request_with_topics_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_shared_storage_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_both_opt_in));
   }
 
   {
-    // +-------------------------------------------------+
-    // |(1)Origin A                                      |
-    // |Permissions-Policy: browsing-topics=(none)       |
-    // |                                                 |
-    // | fetch(<Origin B's url>, {browsingTopics: true}) |
-    // +-------------------------------------------------+
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: browsing-topics=(none),             |
+    // |                    shared-storage=(none)               |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {browsingTopics: true})        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin B's url>, {browsingTopics: true,         |
+    // |                          sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
 
     std::unique_ptr<PermissionsPolicy> policy =
         CreateFromParentPolicy(nullptr, origin_a_);
@@ -1701,29 +1791,65 @@ TEST_F(PermissionsPolicyTest,
                                /*allowed_origins=*/{},
                                /*self_if_matches=*/absl::nullopt,
                                /*matches_all_origins=*/false,
+                               /*matches_opaque_src=*/false},
+                              {mojom::PermissionsPolicyFeature::kSharedStorage,
+                               /*allowed_origins=*/{},
+                               /*self_if_matches=*/absl::nullopt,
+                               /*matches_all_origins=*/false,
                                /*matches_opaque_src=*/false}}});
 
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
         request_with_topics_opt_in));
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_shared_storage_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
         request_with_topics_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_shared_storage_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_both_opt_in));
   }
 
   {
-    // +-------------------------------------------------+
-    // |(1)Origin A                                      |
-    // |Permissions-Policy: browsing-topics=*            |
-    // |                                                 |
-    // | fetch(<Origin B's url>, {browsingTopics: true}) |
-    // +-------------------------------------------------+
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: browsing-topics=*,                  |
+    // |                    shared-storage=*                    |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {browsingTopics: true})        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin B's url>, {browsingTopics: true,         |
+    // |                          sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
 
     std::unique_ptr<PermissionsPolicy> policy =
         CreateFromParentPolicy(nullptr, origin_a_);
@@ -1731,60 +1857,308 @@ TEST_F(PermissionsPolicyTest,
                                /*allowed_origins=*/{},
                                /*self_if_matches=*/absl::nullopt,
                                /*matches_all_origins=*/true,
+                               /*matches_opaque_src=*/false},
+                              {mojom::PermissionsPolicyFeature::kSharedStorage,
+                               /*allowed_origins=*/{},
+                               /*self_if_matches=*/absl::nullopt,
+                               /*matches_all_origins=*/true,
                                /*matches_opaque_src=*/false}}});
 
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
         request_with_topics_opt_in));
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_shared_storage_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
-        request_without_topics_opt_in));
+        request_without_any_opt_in));
     EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
         mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
         request_with_topics_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_shared_storage_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_both_opt_in));
   }
 
   {
-    // +-------------------------------------------------+
-    // |(1)Origin A                                      |
-    // |Permissions-Policy: browsing-topics=(Origin B)   |
-    // |                                                 |
-    // | fetch(<Origin B's url>, {browsingTopics: true}) |
-    // | fetch(<Origin C's url>, {browsingTopics: true}) |
-    // +-------------------------------------------------+
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: browsing-topics=(Origin B),         |
+    // |                    shared-storage=(Origin B)           |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {browsingTopics: true})        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin B's url>, {browsingTopics: true,         |
+    // |                          sharedStorageWritable: true}) |
+    // | fetch(<Origin C's url>, {browsingTopics: true})        |
+    // | fetch(<Origin C's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin C's url>, {browsingTopics: true,         |
+    // |                          sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
 
     std::unique_ptr<PermissionsPolicy> policy =
         CreateFromParentPolicy(nullptr, origin_a_);
-    policy->SetHeaderPolicy({{{mojom::PermissionsPolicyFeature::
-                                   kBrowsingTopics, /*allowed_origins=*/
-                               {blink::OriginWithPossibleWildcards(
-                                   origin_b_,
-                                   /*has_subdomain_wildcard=*/false)},
+    policy->SetHeaderPolicy(
+        {{{mojom::PermissionsPolicyFeature::
+               kBrowsingTopics, /*allowed_origins=*/
+           {blink::OriginWithPossibleWildcards(
+               origin_b_,
+               /*has_subdomain_wildcard=*/false)},
+           /*self_if_matches=*/absl::nullopt,
+           /*matches_all_origins=*/false,
+           /*matches_opaque_src=*/false},
+          {mojom::PermissionsPolicyFeature::kSharedStorage, /*allowed_origins=*/
+           {blink::OriginWithPossibleWildcards(
+               origin_b_,
+               /*has_subdomain_wildcard=*/false)},
+           /*self_if_matches=*/absl::nullopt,
+           /*matches_all_origins=*/false,
+           /*matches_opaque_src=*/false}}});
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_with_topics_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_shared_storage_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_with_topics_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
+        request_with_both_opt_in));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_without_any_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_shared_storage_opt_in));
+    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_c_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_c_,
+        request_with_topics_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_c_,
+        request_with_both_opt_in));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_c_,
+        request_without_any_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_c_,
+        request_with_shared_storage_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_c_,
+        request_with_both_opt_in));
+  }
+}
+
+// A cross-origin subresource request that explicitly sets the
+// sharedStorageWritable flag should have the Shared Storage permission as long
+// as it passes the allowlist check, regardless of the feature's default state.
+TEST_F(PermissionsPolicyTest,
+       ProposedTestIsFeatureEnabledForSubresourceRequestAssumingOptIn) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({blink::features::kSharedStorageAPI},
+                                /*disabled_features=*/{});
+
+  {
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |No Policy                                               |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
+
+    std::unique_ptr<PermissionsPolicy> policy =
+        CreateFromParentPolicy(nullptr, origin_a_);
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_));
+    EXPECT_TRUE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_a_));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_));
+    EXPECT_TRUE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_b_));
+  }
+
+  {
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: shared-storage=(self)              |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
+
+    std::unique_ptr<PermissionsPolicy> policy =
+        CreateFromParentPolicy(nullptr, origin_a_);
+    policy->SetHeaderPolicy({{{mojom::PermissionsPolicyFeature::kSharedStorage,
+                               /*allowed_origins=*/{},
+                               /*self_if_matches=*/origin_a_,
+                               /*matches_all_origins=*/false,
+                               /*matches_opaque_src=*/false}}});
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_));
+    EXPECT_TRUE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_a_));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_));
+    EXPECT_FALSE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_b_));
+  }
+
+  {
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: shared-storage=(none)              |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
+
+    std::unique_ptr<PermissionsPolicy> policy =
+        CreateFromParentPolicy(nullptr, origin_a_);
+    policy->SetHeaderPolicy({{{mojom::PermissionsPolicyFeature::kSharedStorage,
+                               /*allowed_origins=*/{},
                                /*self_if_matches=*/absl::nullopt,
                                /*matches_all_origins=*/false,
                                /*matches_opaque_src=*/false}}});
 
-    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
-        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
-        request_without_topics_opt_in));
-    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
-        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_a_,
-        request_with_topics_opt_in));
-    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
-        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
-        request_without_topics_opt_in));
-    EXPECT_TRUE(policy->IsFeatureEnabledForSubresourceRequest(
-        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_b_,
-        request_with_topics_opt_in));
-    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
-        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_c_,
-        request_without_topics_opt_in));
-    EXPECT_FALSE(policy->IsFeatureEnabledForSubresourceRequest(
-        mojom::PermissionsPolicyFeature::kBrowsingTopics, origin_c_,
-        request_with_topics_opt_in));
+    EXPECT_FALSE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_));
+    EXPECT_FALSE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_a_));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_));
+    EXPECT_FALSE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_b_));
+  }
+
+  {
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: shared-storage=*                   |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
+
+    std::unique_ptr<PermissionsPolicy> policy =
+        CreateFromParentPolicy(nullptr, origin_a_);
+    policy->SetHeaderPolicy({{{mojom::PermissionsPolicyFeature::kSharedStorage,
+                               /*allowed_origins=*/{},
+                               /*self_if_matches=*/absl::nullopt,
+                               /*matches_all_origins=*/true,
+                               /*matches_opaque_src=*/false}}});
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_));
+    EXPECT_TRUE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_a_));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_));
+    EXPECT_TRUE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_b_));
+  }
+
+  {
+    // +--------------------------------------------------------+
+    // |(1)Origin A                                             |
+    // |Permissions-Policy: shared-storage=(Origin B)          |
+    // |                                                        |
+    // | fetch(<Origin B's url>, {sharedStorageWritable: true}) |
+    // | fetch(<Origin C's url>, {sharedStorageWritable: true}) |
+    // +--------------------------------------------------------+
+
+    std::unique_ptr<PermissionsPolicy> policy =
+        CreateFromParentPolicy(nullptr, origin_a_);
+    policy->SetHeaderPolicy(
+        {{{mojom::PermissionsPolicyFeature::kSharedStorage, /*allowed_origins=*/
+           {blink::OriginWithPossibleWildcards(
+               origin_b_,
+               /*has_subdomain_wildcard=*/false)},
+           /*self_if_matches=*/absl::nullopt,
+           /*matches_all_origins=*/false,
+           /*matches_opaque_src=*/false}}});
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_a_));
+    EXPECT_FALSE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_a_));
+
+    EXPECT_TRUE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_b_));
+    EXPECT_TRUE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_b_));
+
+    EXPECT_FALSE(policy->IsFeatureEnabledForOrigin(
+        mojom::PermissionsPolicyFeature::kSharedStorage, origin_c_));
+    EXPECT_FALSE(IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+        policy.get(), mojom::PermissionsPolicyFeature::kSharedStorage,
+        origin_c_));
   }
 }
 
@@ -2177,7 +2551,7 @@ TEST_F(PermissionsPolicyTest, ProposedTestNestedPolicyPropagates) {
 
 TEST_F(PermissionsPolicyTest, CreateForDefaultFencedFrame) {
   std::unique_ptr<PermissionsPolicy> policy =
-      CreateForFencedFrame(origin_a_, /*is_opaque_ads_mode=*/false);
+      CreateForFencedFrame(origin_a_, {});
   EXPECT_FALSE(policy->IsFeatureEnabled(kDefaultOnFeature));
   EXPECT_FALSE(policy->IsFeatureEnabled(kDefaultSelfFeature));
   EXPECT_FALSE(policy->IsFeatureEnabled(
@@ -2186,9 +2560,34 @@ TEST_F(PermissionsPolicyTest, CreateForDefaultFencedFrame) {
       mojom::PermissionsPolicyFeature::kSharedStorage));
 }
 
-TEST_F(PermissionsPolicyTest, CreateForOpaqueFencedFrame) {
+TEST_F(PermissionsPolicyTest, CreateForFledgeFencedFrame) {
+  std::vector<blink::mojom::PermissionsPolicyFeature>
+      required_permissions_to_load;
+  required_permissions_to_load.insert(
+      required_permissions_to_load.end(),
+      std::begin(blink::kFencedFrameFledgeDefaultRequiredFeatures),
+      std::end(blink::kFencedFrameFledgeDefaultRequiredFeatures));
+
   std::unique_ptr<PermissionsPolicy> policy =
-      CreateForFencedFrame(origin_a_, /*is_opaque_ads_mode=*/true);
+      CreateForFencedFrame(origin_a_, required_permissions_to_load);
+  EXPECT_FALSE(policy->IsFeatureEnabled(kDefaultOnFeature));
+  EXPECT_FALSE(policy->IsFeatureEnabled(kDefaultSelfFeature));
+  EXPECT_TRUE(policy->IsFeatureEnabled(
+      mojom::PermissionsPolicyFeature::kAttributionReporting));
+  EXPECT_TRUE(policy->IsFeatureEnabled(
+      mojom::PermissionsPolicyFeature::kSharedStorage));
+}
+
+TEST_F(PermissionsPolicyTest, CreateForSharedStorageFencedFrame) {
+  std::vector<blink::mojom::PermissionsPolicyFeature>
+      required_permissions_to_load;
+  required_permissions_to_load.insert(
+      required_permissions_to_load.end(),
+      std::begin(blink::kFencedFrameSharedStorageDefaultRequiredFeatures),
+      std::end(blink::kFencedFrameSharedStorageDefaultRequiredFeatures));
+
+  std::unique_ptr<PermissionsPolicy> policy =
+      CreateForFencedFrame(origin_a_, required_permissions_to_load);
   EXPECT_FALSE(policy->IsFeatureEnabled(kDefaultOnFeature));
   EXPECT_FALSE(policy->IsFeatureEnabled(kDefaultSelfFeature));
   EXPECT_TRUE(policy->IsFeatureEnabled(

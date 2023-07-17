@@ -43,8 +43,8 @@
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
-#include "components/sync/driver/sync_service.h"
-#include "components/sync/driver/sync_user_settings.h"
+#include "components/sync/service/sync_service.h"
+#include "components/sync/service/sync_user_settings.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "url/url_util.h"
 
@@ -268,15 +268,12 @@ void FindBestMatches(
     const std::vector<const PasswordForm*>& non_federated_matches,
     PasswordForm::Scheme scheme,
     std::vector<const PasswordForm*>* non_federated_same_scheme,
-    std::vector<const PasswordForm*>* best_matches,
-    const PasswordForm** preferred_match) {
+    std::vector<const PasswordForm*>* best_matches) {
   DCHECK(base::ranges::none_of(non_federated_matches,
                                &PasswordForm::blocked_by_user));
   DCHECK(non_federated_same_scheme);
   DCHECK(best_matches);
-  DCHECK(preferred_match);
 
-  *preferred_match = nullptr;
   best_matches->clear();
   non_federated_same_scheme->clear();
 
@@ -317,8 +314,6 @@ void FindBestMatches(
       it->second.push_back(match);
     }
   }
-
-  *preferred_match = *non_federated_same_scheme->begin();
 }
 
 const PasswordForm* FindFormByUsername(

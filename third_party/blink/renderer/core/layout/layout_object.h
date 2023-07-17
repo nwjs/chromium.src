@@ -56,6 +56,7 @@
 #include "third_party/blink/renderer/core/loader/resource/image_resource_observer.h"
 #include "third_party/blink/renderer/core/paint/fragment_data.h"
 #include "third_party/blink/renderer/core/paint/paint_phase.h"
+#include "third_party/blink/renderer/core/paint/pre_paint_disable_side_effects_scope.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/style_difference.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_utils.h"
@@ -360,7 +361,6 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return parent_;
   }
   bool IsDescendantOf(const LayoutObject*) const;
-  LayoutObject* NonCulledParent() const;
 
   LayoutObject* PreviousSibling() const {
     NOT_DESTROYED();
@@ -1601,6 +1601,15 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     bitfields_.SetIntrinsicLogicalWidthsChildDependsOnBlockConstraints(b);
   }
 
+  void SetIntrinsicLogicalWidthsInFlexIntrinsicSizing(bool b) {
+    NOT_DESTROYED();
+    bitfields_.SetIntrinsicLogicalWidthsInFlexIntrinsicSizing(b);
+  }
+  bool IntrinsicLogicalWidthsInFlexIntrinsicSizing() const {
+    NOT_DESTROYED();
+    return bitfields_.IntrinsicLogicalWidthsInFlexIntrinsicSizing();
+  }
+
   bool NeedsLayoutOverflowRecalc() const {
     NOT_DESTROYED();
     return bitfields_.SelfNeedsLayoutOverflowRecalc() ||
@@ -1946,6 +1955,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   // is closed shadow hidden from |base|.
   Element* OffsetParent(const Element* base = nullptr) const;
 
+  // Inclusive of |this|, exclusive of |below|.
+  const LayoutBoxModelObject* FindFirstStickyContainer(LayoutBox* below) const;
+
   // Mark this object needing to re-run |CollectInlines()|. Ancestors may be
   // marked too if needed.
   void SetNeedsCollectInlines();
@@ -2075,6 +2087,21 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     return true;
   }
 
+  // Return true if this is a LayoutBox without physical fragments.
+  //
+  // This may happen for certain object types in certain circumstaces [*]. Code
+  // that attempts to enter fragment traversal from a LayoutObject needs to
+  // check if the box actually has fragments before proceeding.
+  //
+  // [*] Sometimes a LayoutView is fragment-less, e.g. if the root element has
+  // display:none. Frameset children may also be fragment-less, if there are
+  // more children than defined in the frameset's grid. Table columns
+  // (LayoutNGTableColumn) never creates fragments.
+  virtual bool IsFragmentLessBox() const {
+    NOT_DESTROYED();
+    return false;
+  }
+
   // Return true if |this| produces one or more inline fragments, including
   // whitespace-only text fragments.
   virtual bool HasInlineFragments() const {
@@ -2185,6 +2212,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 
   virtual RecalcLayoutOverflowResult RecalcLayoutOverflow();
 
+  // Invalidate visual overflow, using a method that varies based
+  // the object type and state of layout.
+  void InvalidateVisualOverflow();
+
   // Recalculates visual overflow for this object and non-self-painting
   // PaintLayer descendants.
   virtual void RecalcVisualOverflow();
@@ -2192,7 +2223,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
 #if DCHECK_IS_ON()
   // Enables DCHECK to ensure that the visual overflow for |this| is computed.
   // The actual invalidation is maintained in |PaintLayer|.
-  void InvalidateVisualOverflow();
+  void InvalidateVisualOverflowForDCheck();
 #endif
 
   // Subclasses must reimplement this method to compute the size and position
@@ -2858,11 +2889,15 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   bool ShouldUseTransformFromContainer(const LayoutObject* container) const;
 
   // The optional |size| parameter is used if the size of the object isn't
-  // correct yet.
-  void GetTransformFromContainer(const LayoutObject* container,
-                                 const PhysicalOffset& offset_in_container,
-                                 gfx::Transform&,
-                                 const PhysicalSize* size = nullptr) const;
+  // correct yet. If |fragment_transform| is provided, we'll use that instead of
+  // using the transform stored in the PaintLayer (which is useless if a box is
+  // fragmented).
+  void GetTransformFromContainer(
+      const LayoutObject* container,
+      const PhysicalOffset& offset_in_container,
+      gfx::Transform&,
+      const PhysicalSize* size = nullptr,
+      const gfx::Transform* fragment_transform = nullptr) const;
 
   bool CreatesGroup() const {
     NOT_DESTROYED();
@@ -3273,6 +3308,7 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   };
   MutableForPainting GetMutableForPainting() const {
     NOT_DESTROYED();
+    DCHECK(!PrePaintDisableSideEffectsScope::IsDisabled());
     return MutableForPainting(*this);
   }
 
@@ -3483,6 +3519,15 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
   void SetShouldAssumePaintOffsetTranslationForLayoutShiftTracking(bool b) {
     NOT_DESTROYED();
     bitfields_.SetShouldAssumePaintOffsetTranslationForLayoutShiftTracking(b);
+  }
+
+  bool ScrollableAreaSizeChanged() const {
+    NOT_DESTROYED();
+    return bitfields_.ScrollableAreaSizeChanged();
+  }
+  void SetScrollableAreaSizeChanged(bool b) {
+    NOT_DESTROYED();
+    bitfields_.SetScrollableAreaSizeChanged(b);
   }
 
   // Returns true if this layout object is created for an element which will be
@@ -3712,12 +3757,10 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     bitfields_.SetMightTraversePhysicalFragments(b);
   }
 
-  // See LayoutObjectBitfields::has_valid_cached_geometry_.
   void SetHasValidCachedGeometry(bool b) {
     NOT_DESTROYED();
     bitfields_.SetHasValidCachedGeometry(b);
   }
-  // See LayoutObjectBitfields::has_valid_cached_geometry_.
   bool HasValidCachedGeometry() const {
     NOT_DESTROYED();
     return bitfields_.HasValidCachedGeometry();
@@ -4008,6 +4051,9 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
         intrinsic_logical_widths_child_depends_on_block_constraints_,
         IntrinsicLogicalWidthsChildDependsOnBlockConstraints);
 
+    ADD_BOOLEAN_BITFIELD(intrinsic_logical_widths_in_flex_intrinsic_sizing_,
+                         IntrinsicLogicalWidthsInFlexIntrinsicSizing);
+
     // This flag is set on inline container boxes that need to run the
     // Pre-layout phase in LayoutNG. See NGInlineNode::CollectInlines().
     // Also maybe set to inline boxes to optimize the propagation.
@@ -4288,6 +4334,11 @@ class CORE_EXPORT LayoutObject : public GarbageCollected<LayoutObject>,
     // physical fragments.
     // This is set to false when LayoutBox::layout_results_ is updated.
     ADD_BOOLEAN_BITFIELD(has_valid_cached_geometry_, HasValidCachedGeometry);
+
+    // True if the size has changed since the associated PaintLayer updated
+    // its scrollable area.
+    ADD_BOOLEAN_BITFIELD(scrollable_area_size_changed_,
+                         ScrollableAreaSizeChanged);
   };
 
 #undef ADD_BOOLEAN_BITFIELD

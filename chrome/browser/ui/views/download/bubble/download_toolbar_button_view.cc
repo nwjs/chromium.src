@@ -74,7 +74,7 @@ using GetBadgeTextCallback = base::RepeatingCallback<gfx::RenderText&()>;
 
 constexpr int kProgressRingRadius = 9;
 constexpr int kProgressRingRadiusTouchMode = 12;
-constexpr float kProgressRingStrokeWidth = 1.7f;
+constexpr float kProgressRingStrokeWidth = 2.0f;
 
 // Close the partial bubble after 5 seconds if the user doesn't interact with
 // it.
@@ -139,7 +139,8 @@ DownloadToolbarButtonView::DownloadToolbarButtonView(BrowserView* browser_view)
                      : kDownloadToolbarButtonIcon,
                  kDownloadToolbarButtonIcon);
   GetViewAccessibility().OverrideHasPopup(ax::mojom::HasPopup::kDialog);
-  SetTooltipText(l10n_util::GetStringUTF16(IDS_TOOLTIP_DOWNLOAD_ICON));
+  tooltip_texts_[0] = l10n_util::GetStringUTF16(IDS_TOOLTIP_DOWNLOAD_ICON);
+  SetTooltipText(tooltip_texts_.at(0));
   SetVisible(false);
   SetProperty(views::kElementIdentifierKey, kDownloadToolbarButtonElementId);
 
@@ -292,7 +293,7 @@ void DownloadToolbarButtonView::Disable() {
 }
 
 void DownloadToolbarButtonView::UpdateDownloadIcon(bool show_animation) {
-  if (show_animation && gfx::Animation::ShouldRenderRichAnimation()) {
+  if (show_animation) {
     has_pending_download_started_animation_ = true;
     // Invalidate the layout to show the animation in Layout().
     PreferredSizeChanged();
@@ -364,11 +365,24 @@ void DownloadToolbarButtonView::UpdateIcon() {
       ui::ImageModel::FromVectorIcon(
           *new_icon, GetForegroundColor(ButtonState::STATE_DISABLED)));
 
-  badge_image_view_->SetImage(GetBadgeImage(
-      icon_info.is_active, controller_->GetProgress().download_count,
-      GetProgressColor(GetVisualState() == Button::STATE_DISABLED,
-                       icon_info.is_active),
-      GetColorProvider()->GetColor(kColorToolbar)));
+  int progress_download_count = controller_->GetProgress().download_count;
+  badge_image_view_->SetImage(
+      GetBadgeImage(icon_info.is_active, progress_download_count,
+                    GetProgressColor(GetVisualState() == Button::STATE_DISABLED,
+                                     icon_info.is_active),
+                    GetColorProvider()->GetColor(kColorToolbar)));
+
+  // Update the toolbar button's tooltip.
+  std::u16string& tooltip_for_progress_count =
+      tooltip_texts_[progress_download_count];
+  if (tooltip_for_progress_count.empty()) {
+    // We already initialized the text for 0 downloads in the constructor.
+    CHECK_GT(progress_download_count, 0);
+    // "1 download in progress" or "N downloads in progress".
+    tooltip_for_progress_count = l10n_util::GetPluralStringFUTF16(
+        IDS_DOWNLOAD_BUBBLE_TOOLTIP_IN_PROGRESS_COUNT, progress_download_count);
+  }
+  SetTooltipText(tooltip_texts_.at(progress_download_count));
 }
 
 void DownloadToolbarButtonView::Layout() {
@@ -398,7 +412,7 @@ bool DownloadToolbarButtonView::ShouldShowInkdropAfterIphInteraction() {
 std::unique_ptr<views::View> DownloadToolbarButtonView::GetPrimaryView() {
   if (is_primary_partial_view_) {
     return DownloadBubblePartialView::Create(
-        browser_, bubble_controller_.get(), this,
+        browser_->AsWeakPtr(), bubble_controller_->GetWeakPtr(), GetWeakPtr(),
         bubble_controller_->GetPartialView(),
         base::BindOnce(&DownloadToolbarButtonView::DeactivateAutoClose,
                        base::Unretained(this)));
@@ -406,7 +420,8 @@ std::unique_ptr<views::View> DownloadToolbarButtonView::GetPrimaryView() {
 
   std::unique_ptr<views::View> rows_with_scroll =
       DownloadBubbleRowListView::CreateWithScroll(
-          /*is_partial_view=*/false, browser_, bubble_controller_.get(), this,
+          /*is_partial_view=*/false, browser_->AsWeakPtr(),
+          bubble_controller_->GetWeakPtr(), GetWeakPtr(),
           bubble_controller_->GetMainView(),
           ChromeLayoutProvider::Get()->GetDistanceMetric(
               views::DISTANCE_BUBBLE_PREFERRED_WIDTH));
@@ -419,6 +434,7 @@ void DownloadToolbarButtonView::OpenPrimaryDialog() {
   primary_view_->SetVisible(true);
   security_view_->SetVisible(false);
   bubble_delegate_->SetButtons(ui::DIALOG_BUTTON_NONE);
+  bubble_delegate_->SetDefaultButton(ui::DIALOG_BUTTON_NONE);
   bubble_delegate_->set_margins(GetPrimaryViewMargin());
   ResizeDialog();
 }
@@ -446,6 +462,11 @@ void DownloadToolbarButtonView::ResizeDialog() {
     bubble_delegate_->SizeToContents();
 }
 
+base::WeakPtr<DownloadBubbleNavigationHandler>
+DownloadToolbarButtonView::GetWeakPtr() {
+  return weak_factory_.GetWeakPtr();
+}
+
 void DownloadToolbarButtonView::OnBubbleDelegateDeleted() {
   bubble_delegate_ = nullptr;
   primary_view_ = nullptr;
@@ -468,6 +489,7 @@ void DownloadToolbarButtonView::CreateBubbleDialogDelegate(
   bubble_delegate->SetShowTitle(false);
   bubble_delegate->SetShowCloseButton(false);
   bubble_delegate->SetButtons(ui::DIALOG_BUTTON_NONE);
+  bubble_delegate->SetDefaultButton(ui::DIALOG_BUTTON_NONE);
   bubble_delegate->RegisterDeleteDelegateCallback(
       base::BindOnce(&DownloadToolbarButtonView::OnBubbleDelegateDeleted,
                      weak_factory_.GetWeakPtr()));
@@ -476,11 +498,12 @@ void DownloadToolbarButtonView::CreateBubbleDialogDelegate(
   switcher_view->SetLayoutManager(std::make_unique<views::FlexLayout>())
       ->SetOrientation(views::LayoutOrientation::kVertical);
   primary_view_ = switcher_view->AddChildView(std::move(bubble_contents_view));
-  // raw ptr for this and member fields are safe as Toolbar Button view owns the
-  // Bubble.
+  // raw ptr for this bubble_delegate is safe as it owns the
+  // DownloadBubbleSecurityView.
   security_view_ =
       switcher_view->AddChildView(std::make_unique<DownloadBubbleSecurityView>(
-          bubble_controller_.get(), this, bubble_delegate.get()));
+          bubble_controller_->GetWeakPtr(), GetWeakPtr(),
+          bubble_delegate.get()));
   security_view_->SetVisible(false);
   bubble_delegate->set_margins(GetPrimaryViewMargin());
   bubble_delegate->SetEnableArrowKeyTraversal(true);
@@ -500,7 +523,7 @@ void DownloadToolbarButtonView::CreateBubbleDialogDelegate(
   if (is_primary_partial_view_) {
     bubble_delegate_->SetCloseCallback(
         base::BindOnce(&DownloadToolbarButtonView::OnPartialViewClosed,
-                       base::Unretained(this)));
+                       weak_factory_.GetWeakPtr()));
   }
 }
 
@@ -524,6 +547,7 @@ void DownloadToolbarButtonView::OnPartialViewClosed() {
           browser_->profile()->GetOriginalProfile())) {
     return;
   }
+
   browser_->window()->MaybeShowFeaturePromo(
       feature_engagement::kIPHDownloadToolbarButtonFeature);
 }
@@ -532,6 +556,8 @@ void DownloadToolbarButtonView::CreateAutoCloseTimer() {
   auto_close_bubble_timer_ = std::make_unique<base::RetainingOneShotTimer>(
       FROM_HERE, kAutoClosePartialViewDelay,
       base::BindRepeating(&DownloadToolbarButtonView::AutoClosePartialView,
+                          // This is safe because `this` owns
+                          // `auto_close_bubble_timer_`.
                           base::Unretained(this)));
 }
 
@@ -570,6 +596,10 @@ void DownloadToolbarButtonView::ShowPendingDownloadStartedAnimation() {
   if (!has_pending_download_started_animation_) {
     return;
   }
+  has_pending_download_started_animation_ = false;
+  if (!gfx::Animation::ShouldRenderRichAnimation()) {
+    return;
+  }
   content::WebContents* const web_contents =
       browser_->tab_strip_model()->GetActiveWebContents();
   if (!web_contents ||
@@ -582,7 +612,6 @@ void DownloadToolbarButtonView::ShowPendingDownloadStartedAnimation() {
       web_contents, image()->GetBoundsInScreen(),
       color_provider->GetColor(kColorDownloadToolbarButtonAnimationForeground),
       color_provider->GetColor(kColorDownloadToolbarButtonAnimationBackground));
-  has_pending_download_started_animation_ = false;
 }
 
 SkColor DownloadToolbarButtonView::GetIconColor() const {

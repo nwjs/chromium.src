@@ -33,10 +33,8 @@ using CanonicalTopicTest = testing::Test;
 TEST_F(CanonicalTopicTest, LocalizedRepresentation) {
   // Confirm that topics at the boundaries convert to strings appropriately.
   base::HistogramTester histogram_tester;
-  CanonicalTopic first_topic(
-      kLowestTopicID, privacy_sandbox::CanonicalTopic::AVAILABLE_TAXONOMY);
-  CanonicalTopic last_topic(
-      kHighestTopicID, privacy_sandbox::CanonicalTopic::AVAILABLE_TAXONOMY);
+  CanonicalTopic first_topic(kLowestTopicID, kAvailableTaxononmyVersion);
+  CanonicalTopic last_topic(kHighestTopicID, kAvailableTaxononmyVersion);
   EXPECT_EQ(l10n_util::GetStringUTF16(
                 IDS_PRIVACY_SANDBOX_TOPICS_TAXONOMY_V1_TOPIC_ID_1),
             first_topic.GetLocalizedRepresentation());
@@ -86,28 +84,11 @@ TEST_F(CanonicalTopicTest, ValueConversion) {
   EXPECT_TRUE(converted_topic);
   EXPECT_EQ(test_topic, *converted_topic);
 
-  base::Value invalid_value(base::Value::Type::DICT);
-  invalid_value.SetKey("unrelated", base::Value("unrelated"));
-  converted_topic = CanonicalTopic::FromValue(invalid_value);
+  base::Value::Dict invalid_value;
+  invalid_value.Set("unrelated", "unrelated");
+  converted_topic =
+      CanonicalTopic::FromValue(base::Value(std::move(invalid_value)));
   EXPECT_FALSE(converted_topic);
-}
-
-using CanonicalTopicDeathTest = testing::Test;
-
-TEST_F(CanonicalTopicDeathTest, OutOfBoundsDeath) {
-  // Confirm that requesting a topics with invalid Taxononmy results in a
-  // CHECK failure.
-  CanonicalTopic too_low_taxonomy(kLowestTopicID,
-                                  kAvailableTaxononmyVersion - 1);
-  CanonicalTopic negative_taxonomy(kLowestTopicID, -1);
-  CanonicalTopic too_high_taxonomy(kLowestTopicID,
-                                   kAvailableTaxononmyVersion + 1);
-
-  std::vector<CanonicalTopic> test_bad_topics = {
-      too_low_taxonomy, negative_taxonomy, too_high_taxonomy};
-
-  for (const auto& topic : test_bad_topics)
-    EXPECT_CHECK_DEATH(topic.GetLocalizedRepresentation());
 }
 
 }  // namespace privacy_sandbox

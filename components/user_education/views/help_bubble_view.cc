@@ -52,6 +52,7 @@
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/menu/menu_scroll_view_container.h"
 #include "ui/views/event_monitor.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
@@ -121,13 +122,26 @@ class MdIPHBubbleButton : public views::MdTextButton {
     SetProminent(true);
     GetViewAccessibility().OverrideIsLeaf(true);
 
-    // Focus ring rendering varies significantly between pre- and post-refresh
-    // Chrome. The pre-refresh tactic of setting the focus color to background
-    // is actually a hack; the post-refresh approach is more "correct".
-    views::FocusRing::Get(this)->SetColorId(
-        features::IsChromeRefresh2023()
-            ? delegate_->GetHelpBubbleForegroundColorId()
-            : delegate_->GetHelpBubbleBackgroundColorId());
+    if (features::IsChromeRefresh2023()) {
+      views::FocusRing::Get(this)->SetColorId(
+          delegate_->GetHelpBubbleForegroundColorId());
+
+      // The default behavior in 2023 refresh is for MD buttons is to have the
+      // alpha baked into the color, but we currently don't have that yet, so
+      // switch back to using the old default alpha blending mode.
+      auto* const ink_drop = views::InkDrop::Get(this);
+      ink_drop->SetBaseColorId(
+          is_default_button_
+              ? delegate_->GetHelpBubbleDefaultButtonForegroundColorId()
+              : delegate_->GetHelpBubbleForegroundColorId());
+      ink_drop->SetHighlightOpacity(absl::nullopt);
+    } else {
+      // Focus ring rendering varies significantly between pre- and post-refresh
+      // Chrome. The pre-refresh tactic of setting the focus color to background
+      // is actually a hack; the post-refresh approach is more "correct".
+      views::FocusRing::Get(this)->SetColorId(
+          delegate_->GetHelpBubbleBackgroundColorId());
+    }
   }
   MdIPHBubbleButton(const MdIPHBubbleButton&) = delete;
   MdIPHBubbleButton& operator=(const MdIPHBubbleButton&) = delete;
@@ -172,7 +186,7 @@ class MdIPHBubbleButton : public views::MdTextButton {
   }
 
  private:
-  const base::raw_ptr<const HelpBubbleDelegate> delegate_;
+  const raw_ptr<const HelpBubbleDelegate> delegate_;
   bool is_default_button_;
 };
 
@@ -218,7 +232,7 @@ class ClosePromoButton : public views::ImageButton {
   }
 
  private:
-  const base::raw_ptr<const HelpBubbleDelegate> delegate_;
+  const raw_ptr<const HelpBubbleDelegate> delegate_;
 };
 
 BEGIN_METADATA(ClosePromoButton, views::ImageButton)
@@ -271,7 +285,7 @@ class DotView : public views::View {
  private:
   static constexpr int kStrokeWidth = 1;
 
-  base::raw_ptr<const HelpBubbleDelegate> delegate_;
+  raw_ptr<const HelpBubbleDelegate> delegate_;
   const gfx::Size size_;
   const bool should_fill_;
 };
@@ -747,6 +761,33 @@ gfx::Rect HelpBubbleView::GetAnchorRect() const {
   // Translate back to screen coordinates.
   result.Offset(default_anchor_rect.OffsetFromOrigin());
   return result;
+}
+
+void HelpBubbleView::OnBeforeBubbleWidgetInit(views::Widget::InitParams* params,
+                                              views::Widget* widget) const {
+  BubbleDialogDelegateView::OnBeforeBubbleWidgetInit(params, widget);
+#if BUILDFLAG(IS_LINUX)
+  // Help bubbles anchored to menus may be clipped to their anchors' bounds,
+  // resulting in visual errors, unless they use accelerated rendering. See
+  // crbug.com/1445770 for details.
+  //
+  // In Views, [nearly] all menus have a scroll container as their root view.
+  // Key off of this in order to minimize the number of widgets that are forced
+  // to be accelerated. Accelerated widgets are "desktop native" widgets and
+  // interact with the OS window activation system; this is, in turn, a problem
+  // for Linux because of known technical limitations around window activation.
+  //
+  // See the following bug for more information regarding window activation
+  // issues in Weston, the windowing environment used on chrome's Wayland
+  // testbots:
+  // https://gitlab.freedesktop.org/wayland/weston/-/issues/669
+  const views::View* const contents =
+      const_cast<HelpBubbleView*>(this)->anchor_widget()->GetContentsView();
+  if (contents &&
+      views::IsViewClass<views::MenuScrollViewContainer>(contents)) {
+    params->requires_accelerated_widget = true;
+  }
+#endif
 }
 
 // static

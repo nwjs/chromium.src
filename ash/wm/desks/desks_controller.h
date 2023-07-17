@@ -57,6 +57,7 @@ enum class DeskCloseType {
 
 class Desk;
 class DeskAnimationBase;
+class DeskBarController;
 class DeskTemplate;
 
 // Defines a controller for creating, destroying and managing virtual desks and
@@ -131,6 +132,10 @@ class ASH_EXPORT DesksController : public chromeos::DesksHelper,
 
   DeskAnimationBase* animation() const { return animation_.get(); }
 
+  DeskBarController* desk_bar_controller() const {
+    return desk_bar_controller_.get();
+  }
+
   // Finds and returns the name of the desk that `desk` would be combined with
   // when the user clicks or presses the combine desks button or context menu
   // item.
@@ -180,6 +185,10 @@ class ASH_EXPORT DesksController : public chromeos::DesksHelper,
   // Returns the desk that matches the desk_uuid, and returns null if no matches
   // found.
   Desk* GetDeskByUuid(const base::Uuid& desk_uuid) const;
+
+  // Returns the desk index of the desk that matches the desk_uuid, and returns
+  // -1 if no match is found.
+  int GetDeskIndexByUuid(const base::Uuid& desk_uuid) const;
 
   // Creates a new desk. CanCreateDesks() must be checked before calling this.
   void NewDesk(DesksCreationRemovalSource source);
@@ -512,6 +521,9 @@ class ASH_EXPORT DesksController : public chromeos::DesksHelper,
   // Holds a desk when it has been removed but we are still waiting for the user
   // to confirm that they want the desk to be removed.
   std::unique_ptr<RemovedDeskData> temporary_removed_desk_;
+
+  // Dedicated controller for the desk bars.
+  std::unique_ptr<DeskBarController> desk_bar_controller_;
 
   base::ObserverList<Observer>::Unchecked observers_;
 

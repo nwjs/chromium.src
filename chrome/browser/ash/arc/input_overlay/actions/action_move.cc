@@ -12,7 +12,9 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/arc/input_overlay/actions/action.h"
 #include "chrome/browser/ash/arc/input_overlay/touch_id_manager.h"
+#include "chrome/browser/ash/arc/input_overlay/touch_injector.h"
 #include "chrome/browser/ash/arc/input_overlay/ui/action_label.h"
+#include "chrome/browser/ash/arc/input_overlay/ui/ui_utils.h"
 #include "chrome/browser/ash/arc/input_overlay/util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/events/keycodes/dom/dom_code.h"
@@ -65,9 +67,7 @@ class ActionMove::ActionMoveMouseView : public ActionView {
       return;
     }
 
-    int radius = std::max(kActionMoveMinRadius, action_->GetUIRadius());
-    labels_ = ActionLabel::Show(this, ActionType::MOVE, *input_binding, radius,
-                                allow_reposition_);
+    labels_ = ActionLabel::Show(this, ActionType::MOVE, *input_binding);
   }
 
   // TODO(b/241966781): rewrite for Beta once design is ready.
@@ -118,8 +118,7 @@ class ActionMove::ActionMoveKeyView : public ActionView {
 
     const auto& keys = input_binding->keys();
     if (labels_.empty()) {
-      labels_ = ActionLabel::Show(this, ActionType::MOVE, *input_binding,
-                                  radius, allow_reposition_);
+      labels_ = ActionLabel::Show(this, ActionType::MOVE, *input_binding);
     } else {
       DCHECK(labels_.size() == keys.size());
       for (size_t i = 0; i < keys.size(); i++) {
@@ -202,9 +201,7 @@ class ActionMove::ActionMoveKeyView : public ActionView {
     DCHECK_LT(left, right);
     DCHECK_LT(top, bottom);
 
-    const int radius = std::max(kActionMoveMinRadius, action_->GetUIRadius());
-    auto size = allow_reposition_ ? TouchPoint::GetSize(ActionType::MOVE)
-                                  : gfx::Size(radius * 2, radius * 2);
+    auto size = TouchPoint::GetSize(ActionType::MOVE);
     size.SetToMax(gfx::Size(right - left, bottom - top));
     SetSize(size);
     SetPositionFromCenterPosition(action_->GetUICenterPosition());
@@ -216,7 +213,7 @@ ActionMove::ActionMove(TouchInjector* touch_injector)
 
 ActionMove::~ActionMove() = default;
 
-bool ActionMove::ParseFromJson(const base::Value& value) {
+bool ActionMove::ParseFromJson(const base::Value::Dict& value) {
   Action::ParseFromJson(value);
   if (parsed_input_sources_ == InputSource::IS_KEYBOARD) {
     if (original_positions_.empty()) {
@@ -242,8 +239,8 @@ bool ActionMove::InitFromEditor() {
   return true;
 }
 
-bool ActionMove::ParseJsonFromKeyboard(const base::Value& value) {
-  const auto* list = value.GetDict().FindList(kKeys);
+bool ActionMove::ParseJsonFromKeyboard(const base::Value::Dict& value) {
+  const auto* list = value.FindList(kKeys);
   if (!list) {
     LOG(ERROR) << "Require key codes for move key action: " << name_ << ".";
     return false;
@@ -277,8 +274,8 @@ bool ActionMove::ParseJsonFromKeyboard(const base::Value& value) {
   return true;
 }
 
-bool ActionMove::ParseJsonFromMouse(const base::Value& value) {
-  const auto* mouse_action = value.FindStringKey(kMouseAction);
+bool ActionMove::ParseJsonFromMouse(const base::Value::Dict& value) {
+  const auto* mouse_action = value.FindString(kMouseAction);
   if (!mouse_action) {
     LOG(ERROR) << "Must include mouse action for mouse-bound move action.";
     return false;
@@ -292,7 +289,7 @@ bool ActionMove::ParseJsonFromMouse(const base::Value& value) {
   original_input_ = InputElement::CreateActionMoveMouseElement(*mouse_action);
   current_input_ = InputElement::CreateActionMoveMouseElement(*mouse_action);
 
-  const auto* target_area = value.GetDict().FindDict(kTargetArea);
+  const auto* target_area = value.FindDict(kTargetArea);
   if (target_area) {
     auto top_left = ParseApplyAreaPosition(*target_area, kTopLeft);
     if (!top_left) {
@@ -407,6 +404,10 @@ void ActionMove::UnbindInput(const InputElement& input_element) {
     // TODO(cuicuiruan): Implement for unbinding mouse-bound action move.
     NOTIMPLEMENTED();
   }
+}
+
+ActionType ActionMove::GetType() {
+  return ActionType::MOVE;
 }
 
 bool ActionMove::RewriteKeyEvent(const ui::KeyEvent* key_event,

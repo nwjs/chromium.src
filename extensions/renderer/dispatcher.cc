@@ -1365,8 +1365,8 @@ void Dispatcher::UpdateDefaultPolicyHostRestrictions(
 }
 
 void Dispatcher::UpdateUserScriptWorld(mojom::UserScriptWorldInfoPtr info) {
-  IsolatedWorldManager::GetInstance().SetUserScriptWorldCsp(info->extension_id,
-                                                            info->csp);
+  IsolatedWorldManager::GetInstance().SetUserScriptWorldProperties(
+      info->extension_id, info->csp, info->enable_messaging);
 }
 
 void Dispatcher::UpdateUserHostRestrictions(URLPatternSet user_blocked_hosts,
@@ -1458,11 +1458,7 @@ void Dispatcher::OnDispatchOnDisconnect(int worker_thread_id,
 
 void Dispatcher::DispatchEvent(mojom::DispatchEventParamsPtr params,
                                base::Value::List event_args) {
-  if (params->worker_thread_id != kMainThreadId) {
-    WorkerThreadDispatcher::Get()->DispatchEvent(std::move(params),
-                                                 std::move(event_args));
-    return;
-  }
+  CHECK_EQ(params->worker_thread_id, kMainThreadId);
   content::RenderFrame* background_frame =
       ExtensionFrameHelper::GetBackgroundPageFrame(params->extension_id);
 

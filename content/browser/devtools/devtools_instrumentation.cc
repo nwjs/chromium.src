@@ -133,48 +133,6 @@ std::unique_ptr<protocol::Audits::InspectorIssue> BuildHeavyAdIssue(
   return issue;
 }
 
-std::unique_ptr<protocol::Audits::InspectorIssue> BuildTWAQualityIssue(
-    const blink::mojom::TrustedWebActivityIssueDetailsPtr& issue_details) {
-  protocol::String type_string;
-  switch (issue_details->violation_type) {
-    case blink::mojom::TwaQualityEnforcementViolationType::kHttpError:
-      type_string =
-          protocol::Audits::TwaQualityEnforcementViolationTypeEnum::KHttpError;
-      break;
-    case blink::mojom::TwaQualityEnforcementViolationType::kUnavailableOffline:
-      type_string = protocol::Audits::TwaQualityEnforcementViolationTypeEnum::
-          KUnavailableOffline;
-      break;
-    case blink::mojom::TwaQualityEnforcementViolationType::kDigitalAssetLinks:
-      type_string = protocol::Audits::TwaQualityEnforcementViolationTypeEnum::
-          KDigitalAssetLinks;
-      break;
-  }
-
-  auto twa_details = protocol::Audits::TrustedWebActivityIssueDetails::Create()
-                         .SetUrl(issue_details->url.spec())
-                         .SetViolationType(type_string)
-                         .Build();
-  if (issue_details->http_error_code)
-    twa_details->SetHttpStatusCode(issue_details->http_error_code);
-  if (issue_details->package_name)
-    twa_details->SetPackageName(*issue_details->package_name);
-  if (issue_details->signature)
-    twa_details->SetSignature(*issue_details->signature);
-
-  auto protocol_issue_details =
-      protocol::Audits::InspectorIssueDetails::Create()
-          .SetTwaQualityEnforcementDetails(std::move(twa_details))
-          .Build();
-  auto issue =
-      protocol::Audits::InspectorIssue::Create()
-          .SetCode(
-              protocol::Audits::InspectorIssueCodeEnum::TrustedWebActivityIssue)
-          .SetDetails(std::move(protocol_issue_details))
-          .Build();
-  return issue;
-}
-
 std::string FederatedAuthRequestResultToProtocol(
     blink::mojom::FederatedAuthRequestResult result) {
   using blink::mojom::FederatedAuthRequestResult;
@@ -273,6 +231,9 @@ std::string FederatedAuthRequestResultToProtocol(
       return FederatedAuthRequestIssueReasonEnum::RpPageNotVisible;
     case FederatedAuthRequestResult::kError: {
       return FederatedAuthRequestIssueReasonEnum::ErrorIdToken;
+    }
+    case FederatedAuthRequestResult::kErrorSilentMediationFailure: {
+      return FederatedAuthRequestIssueReasonEnum::SilentMediationFailure;
     }
     case FederatedAuthRequestResult::kSuccess: {
       DCHECK(false);
@@ -460,11 +421,6 @@ void DidActivatePrerender(
     const NavigationRequest& nav_request,
     const base::UnguessableToken& initiator_devtools_navigation_token) {
   FrameTreeNode* ftn = nav_request.frame_tree_node();
-  WebContentsImpl* web_contents = WebContentsImpl::FromFrameTreeNode(ftn);
-  // Record prerender activation here because users don't necessarily open
-  // DevTools when the activation is triggered. If the DevTools is not opened at
-  // the moment, recording the activation here will still preserve the signal.
-  web_contents->set_last_navigation_was_prerender_activation_for_devtools();
   DispatchToAgents(ftn, &protocol::PreloadHandler::DidActivatePrerender,
                    initiator_devtools_navigation_token, nav_request);
   UpdateChildFrameTrees(ftn, /* update_target_info= */ true);
@@ -491,7 +447,8 @@ void DidUpdatePrefetchStatus(
     FrameTreeNode* ftn,
     const base::UnguessableToken& initiator_devtools_navigation_token,
     const GURL& prefetch_url,
-    PreloadingTriggeringOutcome status) {
+    PreloadingTriggeringOutcome status,
+    PrefetchStatus prefetch_status) {
   if (!ftn) {
     return;
   }
@@ -500,23 +457,24 @@ void DidUpdatePrefetchStatus(
       ftn->current_frame_host()->devtools_frame_token().ToString();
   DispatchToAgents(ftn, &protocol::PreloadHandler::DidUpdatePrefetchStatus,
                    initiator_devtools_navigation_token, initiating_frame_id,
-                   prefetch_url, status);
+                   prefetch_url, status, prefetch_status);
 }
 
 void DidUpdatePrerenderStatus(
     int initiator_frame_tree_node_id,
     const base::UnguessableToken& initiator_devtools_navigation_token,
     const GURL& prerender_url,
-    PreloadingTriggeringOutcome status) {
+    PreloadingTriggeringOutcome status,
+    absl::optional<PrerenderFinalStatus> prerender_status) {
   auto* ftn = FrameTreeNode::GloballyFindByID(initiator_frame_tree_node_id);
   // ftn will be null if this is browser-initiated, which has no initiator.
-  if (ftn) {
-    std::string initiating_frame_id =
-        ftn->current_frame_host()->devtools_frame_token().ToString();
-    DispatchToAgents(ftn, &protocol::PreloadHandler::DidUpdatePrerenderStatus,
-                     initiator_devtools_navigation_token, initiating_frame_id,
-                     prerender_url, status);
+  if (!ftn) {
+    return;
   }
+
+  DispatchToAgents(ftn, &protocol::PreloadHandler::DidUpdatePrerenderStatus,
+                   initiator_devtools_navigation_token, prerender_url, status,
+                   prerender_status);
 }
 
 namespace {
@@ -1531,10 +1489,7 @@ void BuildAndReportBrowserInitiatedIssue(
     RenderFrameHostImpl* frame,
     blink::mojom::InspectorIssueInfoPtr info) {
   std::unique_ptr<protocol::Audits::InspectorIssue> issue;
-  if (info->code ==
-      blink::mojom::InspectorIssueCode::kTrustedWebActivityIssue) {
-    issue = BuildTWAQualityIssue(info->details->twa_issue_details);
-  } else if (info->code == blink::mojom::InspectorIssueCode::kHeavyAdIssue) {
+  if (info->code == blink::mojom::InspectorIssueCode::kHeavyAdIssue) {
     issue = BuildHeavyAdIssue(info->details->heavy_ad_issue_details);
   } else if (info->code ==
              blink::mojom::InspectorIssueCode::kFederatedAuthRequestIssue) {
@@ -1941,6 +1896,46 @@ void OnFedCmAccountsDialogShown(RenderFrameHost* render_frame_host) {
     return;
   }
   DispatchToAgents(ftn, &protocol::FedCmHandler::OnDialogShown);
+}
+
+void OnFencedFrameReportRequestSent(int initiator_frame_tree_node_id,
+                                    const std::string& devtools_request_id,
+                                    network::ResourceRequest& request) {
+  const net::HttpRequestHeaders& headers = request.headers;
+  network::mojom::URLRequestDevToolsInfoPtr request_info =
+      network::ExtractDevToolsInfo(request);
+
+  DispatchToAgents(initiator_frame_tree_node_id,
+                   &protocol::NetworkHandler::RequestSent,
+                   /*request_id=*/devtools_request_id,
+                   /*loader_id=*/devtools_request_id, headers, *request_info,
+                   protocol::Network::Initiator::TypeEnum::Other,
+                   /*initiator_url=*/absl::nullopt,
+                   /*initiator_devtools_request_id=*/devtools_request_id,
+                   base::TimeTicks::Now());
+}
+
+void OnFencedFrameReportResponseReceived(
+    int initiator_frame_tree_node_id,
+    const std::string& devtools_request_id,
+    const GURL& final_url,
+    scoped_refptr<net::HttpResponseHeaders> headers) {
+  network::mojom::URLResponseHeadDevToolsInfoPtr response_info =
+      network::mojom::URLResponseHeadDevToolsInfo::New();
+  response_info->headers = headers;
+
+  DispatchToAgents(initiator_frame_tree_node_id,
+                   &protocol::NetworkHandler::ResponseReceived,
+                   /*request_id=*/devtools_request_id,
+                   /*loader_id=*/devtools_request_id, final_url,
+                   protocol::Network::ResourceTypeEnum::Other, *response_info,
+                   /*frame_id=*/protocol::Maybe<std::string>());
+
+  DispatchToAgents(initiator_frame_tree_node_id,
+                   &protocol::NetworkHandler::LoadingComplete,
+                   /*request_id=*/devtools_request_id,
+                   protocol::Network::Initiator::TypeEnum::Other,
+                   network::URLLoaderCompletionStatus(net::OK));
 }
 
 }  // namespace devtools_instrumentation

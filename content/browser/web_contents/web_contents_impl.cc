@@ -441,9 +441,9 @@ bool IsWindowManagementGranted(RenderFrameHost* host) {
          blink::mojom::PermissionStatus::GRANTED;
 }
 
-// Adjust the requested |bounds| for opening or placing a window and return the
-// id of the display where the window will be placed. The bounds may not extend
-// outside a single screen's work area, and the |host| requires permission to
+// Adjust the requested `rect` for opening or placing a window and return the id
+// of the display where the window will be placed. The bounds may not extend
+// outside a single screen's work area, and the `host` requires permission to
 // specify bounds on a screen other than its current screen.
 // TODO(crbug.com/897300): These adjustments are inaccurate for window.open(),
 // which specifies the inner content size, and for window.moveTo, resizeTo, etc.
@@ -451,17 +451,19 @@ bool IsWindowManagementGranted(RenderFrameHost* host) {
 // indicate uninitialized placement information in the renderer. Constraints
 // enforced later should resolve most inaccuracies, but this early enforcement
 // is needed to ensure bounds indicate the appropriate display.
-int64_t AdjustRequestedWindowBounds(gfx::Rect* bounds, RenderFrameHost* host) {
+int64_t AdjustRequestedWindowBounds(gfx::Rect* rect, RenderFrameHost* host) {
   auto* screen = display::Screen::GetScreen();
-  auto display = screen->GetDisplayMatching(*bounds);
+  auto display = screen->GetDisplayMatching(*rect);
 
   // Check, but do not prompt, for permission to place windows on other screens.
   // Sites generally need permission to get such bounds in the first place.
   // Also clamp offscreen bounds to the window's current screen.
-  if (!bounds->Intersects(display.bounds()) || !IsWindowManagementGranted(host))
-    display = screen->GetDisplayNearestView(host->GetNativeView());
-
-  bounds->AdjustToFit(display.work_area());
+  if (!rect->Intersects(display.bounds()) || !IsWindowManagementGranted(host)) {
+    // Use the main frame's NativeView; cross-origin iframes yield null.
+    gfx::NativeView view = host->GetOutermostMainFrame()->GetNativeView();
+    display = screen->GetDisplayNearestView(view);
+  }
+  rect->AdjustToFit(display.work_area());
   return display.id();
 }
 
@@ -1373,14 +1375,18 @@ void WebContentsImpl::SetDelegate(WebContentsDelegate* delegate) {
   // TODO(cbentzel): remove this debugging code?
   if (delegate == delegate_)
     return;
-  if (delegate_)
+  const bool had_delegate = !!delegate_;
+  if (had_delegate) {
     delegate_->Detach(this);
+  }
   delegate_ = delegate;
   if (delegate_) {
     delegate_->Attach(this);
     // RenderFrameDevToolsAgentHost should not be told about the WebContents
     // until there is a `delegate_`.
-    RenderFrameDevToolsAgentHost::AttachToWebContents(this);
+    if (!had_delegate) {
+      RenderFrameDevToolsAgentHost::AttachToWebContents(this);
+    }
   }
 
   // Re-read values from the new delegate and apply them.
@@ -5371,7 +5377,7 @@ void WebContentsImpl::GenerateMHTMLWithResult(
 }
 
 const std::string& WebContentsImpl::GetContentsMimeType() {
-  return GetPrimaryPage().contents_mime_type();
+  return GetPrimaryPage().GetContentsMimeType();
 }
 
 blink::RendererPreferences* WebContentsImpl::GetMutableRendererPrefs() {
@@ -5918,15 +5924,6 @@ void WebContentsImpl::DidFinishNavigation(NavigationHandle* navigation_handle) {
     if (navigation_handle->IsInPrimaryMainFrame() &&
         !navigation_handle->IsSameDocument()) {
       was_ever_audible_ = false;
-    }
-
-    // Clear the stored prerender activation result if this is not a prerender
-    // activation. If this is another prerender activation, it will override
-    // the old result in DevTools.
-    if (!navigation_handle->IsPrerenderedPageActivation() &&
-        !navigation_handle->IsSameDocument() &&
-        navigation_handle->IsInPrimaryMainFrame()) {
-      last_navigation_was_prerender_activation_for_devtools_ = false;
     }
 
     if (!navigation_handle->IsSameDocument())
@@ -7606,6 +7603,11 @@ void WebContentsImpl::UpdateWindowPreferredSize(const gfx::Size& pref_size) {
   OnPreferredSizeChanged(old_size);
 }
 
+// TODO(https://crbug.com/1424417): This function is used exclusively for COOP
+// reporting, to determine what other pages might try to access this page, for
+// the purpose of installing and removing access reporters. Update it to handle
+// CoopRelatedGroups instead of BrowsingContextGroups as a part of COOP:
+// restrict-properties reporting implementation.
 std::vector<RenderFrameHostImpl*>
 WebContentsImpl::GetActiveTopLevelDocumentsInBrowsingContextGroup(
     RenderFrameHostImpl* render_frame_host) {

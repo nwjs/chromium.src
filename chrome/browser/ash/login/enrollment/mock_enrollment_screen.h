@@ -47,15 +47,10 @@ class MockEnrollmentScreenView : public EnrollmentScreenView {
   MOCK_METHOD(void, MockUnbind, ());
   MOCK_METHOD(void, ShowSigninScreen, ());
   MOCK_METHOD(void, ReloadSigninScreen, ());
+  MOCK_METHOD(void, ResetEnrollmentScreen, ());
   MOCK_METHOD(void, ShowUserError, (const std::string& email));
   MOCK_METHOD(void, ShowEnrollmentDuringTrialNotAllowedError, ());
   MOCK_METHOD(void, ShowSkipConfirmationDialog, ());
-  MOCK_METHOD(void,
-              ShowActiveDirectoryScreen,
-              (const std::string& domain_join_config,
-               const std::string& machine_name,
-               const std::string& username,
-               authpolicy::ErrorType error));
   MOCK_METHOD(void,
               ShowAttributePromptScreen,
               (const std::string& asset_id, const std::string& location));

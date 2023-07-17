@@ -881,13 +881,11 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
     }
 
     private ResolveInfo queryWebApkResolveInfo(Context context, Tab currentTab) {
-        ResolveInfo resolveInfo = null;
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.WEB_APK_UNIQUE_ID)) {
-            String manifestId = AppBannerManager.maybeGetManifestId(currentTab.getWebContents());
-            resolveInfo = WebApkValidator.queryFirstWebApkResolveInfo(context,
-                    currentTab.getUrl().getSpec(),
-                    WebappRegistry.getInstance().findWebApkWithManifestId(manifestId));
-        }
+        String manifestId = AppBannerManager.maybeGetManifestId(currentTab.getWebContents());
+        ResolveInfo resolveInfo =
+                WebApkValidator.queryFirstWebApkResolveInfo(context, currentTab.getUrl().getSpec(),
+                        WebappRegistry.getInstance().findWebApkWithManifestId(manifestId));
+
         if (resolveInfo == null) {
             // If a WebAPK with matching manifestId can't be found, fallback to query without it.
             resolveInfo = WebApkValidator.queryFirstWebApkResolveInfo(
@@ -1081,11 +1079,11 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         startPriceTrackingMenuItem.setEnabled(editEnabled);
         stopPriceTrackingMenuItem.setEnabled(editEnabled);
 
-        if (info != null) {
+        if (info != null && info.productClusterId.isPresent()) {
             CommerceSubscription sub = new CommerceSubscription(SubscriptionType.PRICE_TRACK,
                     IdentifierType.PRODUCT_CLUSTER_ID,
-                    UnsignedLongs.toString(info.productClusterId), ManagementType.USER_MANAGED,
-                    null);
+                    UnsignedLongs.toString(info.productClusterId.get()),
+                    ManagementType.USER_MANAGED, null);
             boolean isSubscribed = service.isSubscribedFromCache(sub);
             startPriceTrackingMenuItem.setVisible(!isSubscribed);
             stopPriceTrackingMenuItem.setVisible(isSubscribed);

@@ -938,6 +938,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   // Virtual for testing.
   virtual bool AnimateLayers(base::TimeTicks monotonic_time,
                              bool is_active_tree);
+  virtual viz::CompositorFrame GenerateCompositorFrame(FrameData* frame);
   void ImageDecodeFinished(int request_id, bool decode_succeeded);
 
   bool is_likely_to_require_a_draw() const {
@@ -954,8 +955,6 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   BeginFrameTracker current_begin_frame_tracker_;
 
  private:
-  viz::CompositorFrame GenerateCompositorFrame(FrameData* frame);
-
   void CollectScrollbarUpdatesForCommit(
       CompositorCommitData* commit_data) const;
 
@@ -1335,7 +1334,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   bool downsample_metrics_ = true;
   base::MetricsSubSampler metrics_subsampler_;
 
-  const bool use_dmsaa_for_tiles_;
+  bool use_dmsaa_for_tiles_ = false;
 
   // Must be the last member to ensure this is destroyed first in the
   // destruction order and invalidates all weak pointers.

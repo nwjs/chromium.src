@@ -10,29 +10,16 @@
 #import "base/ios/block_types.h"
 
 #import "base/memory/weak_ptr.h"
-#import "ios/chrome/browser/metrics/tab_usage_recorder_browser_agent.h"
-#import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
+#import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
-#import "ios/chrome/browser/ui/authentication/signin_presenter.h"
-#import "ios/chrome/browser/ui/browser_view/key_commands_provider.h"
-#import "ios/chrome/browser/ui/browser_view/safe_area_provider.h"
 #import "ios/chrome/browser/ui/browser_view/tab_consumer.h"
 #import "ios/chrome/browser/ui/find_bar/find_bar_coordinator.h"
 #import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_consumer.h"
 #import "ios/chrome/browser/ui/ntp/logo_animation_controller.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_focus_delegate.h"
 #import "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_presenter.h"
-#import "ios/chrome/browser/ui/page_info/requirements/page_info_presentation.h"
-#import "ios/chrome/browser/ui/settings/sync/utils/sync_presenter.h"
 #import "ios/chrome/browser/ui/thumb_strip/thumb_strip_supporting.h"
-#import "ios/chrome/browser/ui/toolbar_container/toolbar_container_coordinator.h"
-#import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
-#import "ios/chrome/browser/url_loading/url_loading_notifier_browser_agent.h"
-#import "ios/chrome/browser/web/web_navigation_browser_agent.h"
-#import "ios/chrome/browser/web/web_navigation_ntp_delegate.h"
 #import "ios/chrome/browser/web/web_state_container_view_provider.h"
-#import "ios/chrome/browser/web_state_list/web_state_list.h"
-#import "ios/public/provider/chrome/browser/voice_search/voice_search_controller.h"
 
 @protocol ApplicationCommands;
 @class BookmarksCoordinator;
@@ -40,7 +27,7 @@
 @protocol BrowserCoordinatorCommands;
 @class BubblePresenter;
 @protocol CRWResponderInputView;
-@class DefaultBrowserPromoNonModalScheduler;
+@class NonModalDefaultBrowserPromoSchedulerSceneAgent;
 @protocol DefaultPromoNonModalPresentationDelegate;
 @protocol FindInPageCommands;
 class FullscreenController;
@@ -52,9 +39,6 @@ class FullscreenController;
 class PagePlaceholderBrowserAgent;
 @protocol PopupMenuCommands;
 @class PopupMenuCoordinator;
-// TODO(crbug.com/1328039): Remove all use of the prerender service from BVC
-@protocol PopupMenuUIUpdating;
-class PrerenderService;
 @class PrimaryToolbarCoordinator;
 @class SafeAreaProvider;
 @class SecondaryToolbarCoordinator;
@@ -64,7 +48,6 @@ class PrerenderService;
 class TabUsageRecorderBrowserAgent;
 @protocol TextZoomCommands;
 @class ToolbarAccessoryPresenter;
-@class ToolbarContainerCoordinator;
 @protocol IncognitoReauthCommands;
 @class LayoutGuideCenter;
 @protocol LoadQueryCommands;
@@ -72,10 +55,9 @@ class UrlLoadingBrowserAgent;
 class UrlLoadingNotifierBrowserAgent;
 @protocol VoiceSearchController;
 class WebNavigationBrowserAgent;
+class WebStateUpdateBrowserAgent;
 
-// TODO(crbug.com/1328039): Remove all use of the prerender service from BVC
 typedef struct {
-  PrerenderService* prerenderService;
   BubblePresenter* bubblePresenter;
   ToolbarAccessoryPresenter* toolbarAccessoryPresenter;
   PopupMenuCoordinator* popupMenuCoordinator;
@@ -94,9 +76,7 @@ typedef struct {
   id<ApplicationCommands> applicationCommandsHandler;
   id<BrowserCoordinatorCommands> browserCoordinatorCommandsHandler;
   id<FindInPageCommands> findInPageCommandsHandler;
-  id<LoadQueryCommands> loadQueryCommandsHandler;
   LayoutGuideCenter* layoutGuideCenter;
-  id<OmniboxCommands> omniboxCommandsHandler;
   BOOL isOffTheRecord;
   PagePlaceholderBrowserAgent* pagePlaceholderBrowserAgent;
   UrlLoadingBrowserAgent* urlLoadingBrowserAgent;
@@ -105,8 +85,8 @@ typedef struct {
   TabUsageRecorderBrowserAgent* tabUsageRecorderBrowserAgent;
   WebNavigationBrowserAgent* webNavigationBrowserAgent;
   base::WeakPtr<WebStateList> webStateList;
-  ToolbarContainerCoordinator* secondaryToolbarContainerCoordinator;
   SafeAreaProvider* safeAreaProvider;
+  WebStateUpdateBrowserAgent* webStateUpdateBrowserAgent;
 } BrowserViewControllerDependencies;
 
 // The top-level view controller for the browser UI. Manages other controllers
@@ -157,11 +137,17 @@ typedef struct {
 // Scheduler for the non-modal default browser promo.
 // TODO(crbug.com/1204120): The BVC should not need this model-level object.
 @property(nonatomic, weak)
-    DefaultBrowserPromoNonModalScheduler* nonModalPromoScheduler;
+    NonModalDefaultBrowserPromoSchedulerSceneAgent* nonModalPromoScheduler;
 
 // Presentation delegate for the non-modal default browser promo.
 @property(nonatomic, weak) id<DefaultPromoNonModalPresentationDelegate>
     nonModalPromoPresentationDelegate;
+
+// Command handler for load query commands.
+@property(nonatomic, weak) id<LoadQueryCommands> loadQueryCommandsHandler;
+
+// Command handler for omnibox commands.
+@property(nonatomic, weak) id<OmniboxCommands> omniboxCommandsHandler;
 
 // Whether the receiver is currently the primary BVC.
 - (void)setPrimary:(BOOL)primary;

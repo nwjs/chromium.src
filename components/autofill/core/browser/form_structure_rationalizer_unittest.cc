@@ -44,10 +44,11 @@ struct FieldTemplate {
   base::StringPiece name;
   // This is a field type we assume the autofill server would provide for
   // the given field.
-  ServerFieldType field_type;
+  ServerFieldType field_type = UNKNOWN_TYPE;
   // Section name of a field.
   base::StringPiece section = "";
   base::StringPiece form_control_type = "text";
+  absl::optional<AutocompleteParsingResult> parsed_autocomplete = absl::nullopt;
   bool is_focusable = true;
   size_t max_length = std::numeric_limits<int>::max();
   FormFieldData::RoleAttribute role = FormFieldData::RoleAttribute::kOther;
@@ -90,6 +91,7 @@ std::pair<FormData, std::string> CreateFormAndServerClassification(
     field.form_control_type = std::string(field_template.form_control_type);
     field.is_focusable = field_template.is_focusable;
     field.max_length = field_template.max_length;
+    field.parsed_autocomplete = field_template.parsed_autocomplete;
     field.role = field_template.role;
     field.host_frame = field_template.host_form.frame_token;
     field.host_form_id = field_template.host_form.renderer_id;
@@ -191,8 +193,7 @@ class FormStructureRationalizerTest : public testing::Test {
 FormStructureRationalizerTest::FormStructureRationalizerTest() {
   scoped_features_.InitWithFeatures(
       /*enabled_features=*/
-      {features::kAutofillRationalizeStreetAddressAndHouseNumber,
-       features::kAutofillEnableSupportForPhoneNumberTrunkTypes},
+      {features::kAutofillEnableSupportForPhoneNumberTrunkTypes},
       /*disabled_features=*/{});
 }
 
@@ -285,22 +286,6 @@ TEST_F(FormStructureRationalizerTest, RationalizeStreetAddressAndAddressLine) {
               ElementsAre(NAME_FULL, ADDRESS_HOME_LINE1, ADDRESS_HOME_LINE2));
 }
 
-// Ensure that a tuple of (street-address, house number) is rewritten to (street
-// name, house number). We have seen several cases where the field preceding the
-// house number was not classified as a street name.
-TEST_F(FormStructureRationalizerTest, RationalizeStreetAddressAndHouseNumber) {
-  std::unique_ptr<FormStructure> form_structure = BuildFormStructure(
-      CreateFormAndServerClassification({
-          {"Full Name", "fullName", NAME_FULL},
-          {"Address1", "address1", ADDRESS_HOME_STREET_ADDRESS},
-          {"Address2", "address2", ADDRESS_HOME_HOUSE_NUMBER},
-      }),
-      /*run_heuristics=*/false);
-  EXPECT_THAT(GetTypes(*form_structure),
-              ElementsAre(NAME_FULL, ADDRESS_HOME_STREET_NAME,
-                          ADDRESS_HOME_HOUSE_NUMBER));
-}
-
 // Tests that phone number trunk types are rationalized correctly.
 TEST_F(FormStructureRationalizerTest, RationalizePhoneNumberTrunkTypes) {
   // Different phone number representations spanned over one or more fields,
@@ -349,22 +334,6 @@ TEST_F(FormStructureRationalizerTest, RationalizePhoneNumberTrunkTypes) {
   expected_types.insert(expected_types.end(), kCorrectTypes.begin(),
                         kCorrectTypes.end());
   EXPECT_THAT(GetTypes(*form_structure), ElementsAreArray(expected_types));
-}
-
-// Ensure that a tuple of (address-line1, house number) is rewritten to (street
-// name, house number). We have seen several cases where the field preceding the
-// house number was not classified as a street name.
-TEST_F(FormStructureRationalizerTest, RationalizeAddressLine1AndHouseNumber) {
-  std::unique_ptr<FormStructure> form_structure = BuildFormStructure(
-      CreateFormAndServerClassification({
-          {"Full Name", "fullName", NAME_FULL},
-          {"Address1", "address1", ADDRESS_HOME_LINE1},
-          {"Address2", "address2", ADDRESS_HOME_HOUSE_NUMBER},
-      }),
-      /*run_heuristics=*/false);
-  EXPECT_THAT(GetTypes(*form_structure),
-              ElementsAre(NAME_FULL, ADDRESS_HOME_STREET_NAME,
-                          ADDRESS_HOME_HOUSE_NUMBER));
 }
 
 // Tests that a form that has only one address predicted as
@@ -914,6 +883,85 @@ TEST_F(FormStructureRationalizerTest,
                         HasTypeAndOffset(CREDIT_CARD_NUMBER, 0),
                         HasTypeAndOffset(CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR, 0),
                         HasTypeAndOffset(CREDIT_CARD_NUMBER, 0)));
+}
+
+struct RationalizeAutocompleteTestParam {
+  std::vector<FieldTemplate> fields;
+  std::vector<ServerFieldType> final_types;
+};
+class RationalizeAutocompleteTest
+    : public testing::Test,
+      public testing::WithParamInterface<RationalizeAutocompleteTestParam> {
+ protected:
+  base::test::ScopedFeatureList scoped_features_{
+      features::kAutofillEnableExpirationDateImprovements};
+  test::AutofillUnitTestEnvironment autofill_test_environment_;
+};
+INSTANTIATE_TEST_SUITE_P(
+    RationalizeAutocompleteTest,
+    RationalizeAutocompleteTest,
+    testing::Values(
+        // <input autocomplete="additional-name" max-length=1> becomes a middle
+        // initial.
+        RationalizeAutocompleteTestParam{
+            .fields = {{.parsed_autocomplete =
+                            AutocompleteParsingResult{
+                                .field_type = HtmlFieldType::kAdditionalName},
+                        .max_length = 1}},
+            .final_types = {NAME_MIDDLE_INITIAL}},
+        // <input autocomplete="cc-exp" max-length=5> becomes a MM/YY field.
+        RationalizeAutocompleteTestParam{
+            .fields = {{.parsed_autocomplete =
+                            AutocompleteParsingResult{
+                                .field_type = HtmlFieldType::kCreditCardExp},
+                        .max_length = 5}},
+            .final_types = {CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR}},
+        // <input autocomplete="cc-exp" max-length=7> becomes a MM/YYYY field.
+        RationalizeAutocompleteTestParam{
+            .fields = {{.parsed_autocomplete =
+                            AutocompleteParsingResult{
+                                .field_type = HtmlFieldType::kCreditCardExp},
+                        .max_length = 7}},
+            .final_types = {CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR}},
+        // <input autocomplete="cc-exp" max-length=7> becomes a MM/YY field
+        // if there is a MM / YY label.
+        RationalizeAutocompleteTestParam{
+            .fields = {{.label = "MM / YY",
+                        .parsed_autocomplete =
+                            AutocompleteParsingResult{
+                                .field_type = HtmlFieldType::kCreditCardExp},
+                        .max_length = 7}},
+            .final_types = {CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR}},
+        // <input autocomplete="cc-exp-year" max-length=4> becomes a YYYY field.
+        RationalizeAutocompleteTestParam{
+            .fields =
+                {{.parsed_autocomplete =
+                      AutocompleteParsingResult{
+                          .field_type = HtmlFieldType::kCreditCardExpMonth}},
+                 {.parsed_autocomplete =
+                      AutocompleteParsingResult{
+                          .field_type = HtmlFieldType::kCreditCardExpYear},
+                  .max_length = 4}},
+            .final_types = {CREDIT_CARD_EXP_MONTH,
+                            CREDIT_CARD_EXP_4_DIGIT_YEAR}},
+        // <input autocomplete="cc-exp-year" max-length=2> becomes a YY field.
+        RationalizeAutocompleteTestParam{
+            .fields =
+                {{.parsed_autocomplete =
+                      AutocompleteParsingResult{
+                          .field_type = HtmlFieldType::kCreditCardExpMonth}},
+                 {.parsed_autocomplete =
+                      AutocompleteParsingResult{
+                          .field_type = HtmlFieldType::kCreditCardExpYear},
+                  .max_length = 2}},
+            .final_types = {CREDIT_CARD_EXP_MONTH,
+                            CREDIT_CARD_EXP_2_DIGIT_YEAR}}));
+
+TEST_P(RationalizeAutocompleteTest, RationalizeAutocompleteAttribute) {
+  std::unique_ptr<FormStructure> form_structure =
+      BuildFormStructure(CreateFormAndServerClassification(GetParam().fields),
+                         /*run_heuristics=*/false);
+  EXPECT_THAT(GetTypes(*form_structure), GetParam().final_types);
 }
 
 struct RationalizationTypeRelationshipsTestParams {

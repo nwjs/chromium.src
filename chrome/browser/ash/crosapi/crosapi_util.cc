@@ -70,6 +70,7 @@
 #include "chromeos/crosapi/mojom/dlp.mojom.h"
 #include "chromeos/crosapi/mojom/document_scan.mojom.h"
 #include "chromeos/crosapi/mojom/download_controller.mojom.h"
+#include "chromeos/crosapi/mojom/download_status_updater.mojom.h"
 #include "chromeos/crosapi/mojom/drive_integration_service.mojom.h"
 #include "chromeos/crosapi/mojom/echo_private.mojom.h"
 #include "chromeos/crosapi/mojom/emoji_picker.mojom.h"
@@ -85,6 +86,7 @@
 #include "chromeos/crosapi/mojom/identity_manager.mojom.h"
 #include "chromeos/crosapi/mojom/image_writer.mojom.h"
 #include "chromeos/crosapi/mojom/in_session_auth.mojom.h"
+#include "chromeos/crosapi/mojom/kerberos_in_browser.mojom.h"
 #include "chromeos/crosapi/mojom/keystore_service.mojom.h"
 #include "chromeos/crosapi/mojom/kiosk_session_service.mojom.h"
 #include "chromeos/crosapi/mojom/launcher_search.mojom.h"
@@ -266,7 +268,7 @@ constexpr InterfaceVersionEntry MakeInterfaceVersionEntry() {
   return {T::Uuid_, T::Version_};
 }
 
-static_assert(crosapi::mojom::Crosapi::Version_ == 106,
+static_assert(crosapi::mojom::Crosapi::Version_ == 108,
               "If you add a new crosapi, please add it to "
               "kInterfaceVersionEntries below.");
 
@@ -307,6 +309,7 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::Dlp>(),
     MakeInterfaceVersionEntry<crosapi::mojom::DocumentScan>(),
     MakeInterfaceVersionEntry<crosapi::mojom::DownloadController>(),
+    MakeInterfaceVersionEntry<crosapi::mojom::DownloadStatusUpdater>(),
     MakeInterfaceVersionEntry<crosapi::mojom::DriveIntegrationService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::EchoPrivate>(),
     MakeInterfaceVersionEntry<crosapi::mojom::EmojiPicker>(),
@@ -325,6 +328,7 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::ImageWriter>(),
     MakeInterfaceVersionEntry<crosapi::mojom::InputMethodTestInterface>(),
     MakeInterfaceVersionEntry<crosapi::mojom::InSessionAuth>(),
+    MakeInterfaceVersionEntry<crosapi::mojom::KerberosInBrowser>(),
     MakeInterfaceVersionEntry<crosapi::mojom::KeystoreService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::KioskSessionService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::LocalPrinter>(),
@@ -449,20 +453,7 @@ base::flat_map<base::Token, uint32_t> GetInterfaceVersions() {
 
 InitialBrowserAction::InitialBrowserAction(
     crosapi::mojom::InitialBrowserAction action)
-    : action(action) {
-  // kOpnWindowWIthUrls should take the argument, so the ctor below should be
-  // used.
-  DCHECK_NE(action, crosapi::mojom::InitialBrowserAction::kOpenWindowWithUrls);
-}
-
-InitialBrowserAction::InitialBrowserAction(
-    crosapi::mojom::InitialBrowserAction action,
-    std::vector<GURL> urls,
-    crosapi::mojom::OpenUrlFrom from)
-    : action(action), urls(std::move(urls)), from(from) {
-  // Currently, only kOpenWindowWithUrls can take the URLs as its argument.
-  DCHECK_EQ(action, crosapi::mojom::InitialBrowserAction::kOpenWindowWithUrls);
-}
+    : action(action) {}
 
 InitialBrowserAction::InitialBrowserAction(InitialBrowserAction&&) = default;
 InitialBrowserAction& InitialBrowserAction::operator=(InitialBrowserAction&&) =
@@ -619,6 +610,9 @@ void InjectBrowserInitParams(
 
   params->is_upload_office_to_cloud_enabled =
       chromeos::features::IsUploadOfficeToCloudEnabled();
+
+  params->enable_clipboard_history_refresh =
+      chromeos::features::IsClipboardHistoryRefreshEnabled();
 }
 
 template <typename BrowserParams>
@@ -645,12 +639,6 @@ void InjectBrowserPostLoginParams(BrowserParams* params,
       environment_provider->GetLastPolicyFetchAttemptTimestamp().ToTimeT();
 
   params->initial_browser_action = initial_browser_action.action;
-  if (initial_browser_action.action ==
-      crosapi::mojom::InitialBrowserAction::kOpenWindowWithUrls) {
-    params->startup_urls = std::move(initial_browser_action.urls);
-    params->startup_urls_from = initial_browser_action.from;
-  }
-
   params->web_apps_enabled = web_app::IsWebAppsCrosapiEnabled();
   params->standalone_browser_is_primary = IsLacrosPrimaryBrowser();
 

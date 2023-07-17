@@ -11,6 +11,7 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/style/close_button.h"
+#include "ash/style/system_shadow.h"
 #include "ash/test_shell_delegate.h"
 #include "ash/wm/overview/overview_controller.h"
 #include "ash/wm/overview/overview_grid.h"
@@ -20,6 +21,7 @@
 #include "ash/wm/overview/overview_wallpaper_controller.h"
 #include "ash/wm/overview/scoped_overview_transform_window.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
+#include "ash/wm/window_mini_view_header_view.h"
 #include "ash/wm/window_preview_view.h"
 #include "components/app_constants/constants.h"
 #include "ui/aura/client/aura_constants.h"
@@ -117,7 +119,7 @@ CloseButton* OverviewTestBase::GetCloseButton(OverviewItem* item) {
 }
 
 views::Label* OverviewTestBase::GetLabelView(OverviewItem* item) {
-  return item->overview_item_view_->title_label();
+  return item->overview_item_view_->header_view()->title_label();
 }
 
 views::View* OverviewTestBase::GetBackdropView(OverviewItem* item) {
@@ -126,6 +128,23 @@ views::View* OverviewTestBase::GetBackdropView(OverviewItem* item) {
 
 WindowPreviewView* OverviewTestBase::GetPreviewView(OverviewItem* item) {
   return item->overview_item_view_->preview_view();
+}
+
+gfx::Rect OverviewTestBase::GetShadowBounds(OverviewItem* item) const {
+  SystemShadow* shadow = item->shadow_.get();
+  if (!shadow || !shadow->GetLayer()->visible()) {
+    return gfx::Rect();
+  }
+
+  return shadow->GetContentBounds();
+}
+
+views::Widget* OverviewTestBase::GetCannotSnapWidget(OverviewItem* item) {
+  return item->cannot_snap_widget_.get();
+}
+
+void OverviewTestBase::SetAnimatingToClose(OverviewItem* item, bool val) {
+  item->animating_to_close_ = val;
 }
 
 float OverviewTestBase::GetCloseButtonOpacity(OverviewItem* item) {
@@ -204,13 +223,14 @@ void OverviewTestBase::CheckOverviewEnterExitHistogram(
     const std::vector<int>& exit_counts) {
   CheckForDuplicateTraceName(trace);
 
-  // Overview histograms recorded via ui::ThroughputTracker is reported
-  // on the next frame presented after animation stops. Wait for the next
-  // frame with a 100ms timeout for the report, regardless of whether there
-  // is a next frame.
-  std::ignore = ui::WaitForNextFrameToBePresented(
-      Shell::GetPrimaryRootWindow()->layer()->GetCompositor(),
-      base::Milliseconds(500));
+  // Force a frame then wait, ensuring there is one more frame presented after
+  // animation finishes to allow animation throughput data to be passed from
+  // cc to ui.
+  ui::Compositor* compositor =
+      Shell::GetPrimaryRootWindow()->layer()->GetCompositor();
+  compositor->ScheduleFullRedraw();
+  std::ignore =
+      ui::WaitForNextFrameToBePresented(compositor, base::Milliseconds(500));
 
   {
     SCOPED_TRACE(trace + ".Enter");

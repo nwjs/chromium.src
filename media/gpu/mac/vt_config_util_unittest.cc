@@ -211,9 +211,8 @@ TEST(VTConfigUtil, CreateFormatExtensions_H264_BT2020_HLG) {
 TEST(VTConfigUtil, CreateFormatExtensions_HDRMetadata) {
   // Values from real YouTube HDR content.
   gfx::HDRMetadata hdr_meta;
-  hdr_meta.max_content_light_level = 1000;
-  hdr_meta.max_frame_average_light_level = 600;
-  auto& cv_metadata = hdr_meta.color_volume_metadata;
+  hdr_meta.cta_861_3 = gfx::HdrMetadataCta861_3(1000, 600);
+  auto& cv_metadata = hdr_meta.smpte_st_2086;
   cv_metadata.luminance_min = 0;
   cv_metadata.luminance_max = 1000;
   cv_metadata.primaries = {0.6800f, 0.3200f, 0.2649f, 0.6900f,
@@ -260,9 +259,9 @@ TEST(VTConfigUtil, CreateFormatExtensions_HDRMetadata) {
     mp4::ContentLightLevelInformation clli_box;
     ASSERT_TRUE(clli_box.Parse(box_reader.get()));
     EXPECT_EQ(clli_box.max_content_light_level,
-              hdr_meta.max_content_light_level);
+              hdr_meta.cta_861_3.max_content_light_level);
     EXPECT_EQ(clli_box.max_pic_average_light_level,
-              hdr_meta.max_frame_average_light_level);
+              hdr_meta.cta_861_3.max_frame_average_light_level);
   }
 }
 
@@ -379,7 +378,7 @@ TEST(VTConfigUtil, FormatDescriptionInvalid) {
       CreateFormatDescription(CFSTR("Cows"), CFSTR("Go"), CFSTR("Moo"));
   ASSERT_TRUE(format_descriptor);
   auto cs = GetFormatDescriptionColorSpace(format_descriptor);
-  EXPECT_EQ(gfx::ColorSpace::CreateREC709(), cs);
+  EXPECT_FALSE(cs.IsValid());
 }
 
 TEST(VTConfigUtil, FormatDescriptionBT709) {

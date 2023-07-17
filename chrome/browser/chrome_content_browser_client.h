@@ -14,6 +14,7 @@
 
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
+#include "base/gtest_prod_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/strings/string_piece_forward.h"
@@ -208,7 +209,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool CanCommitURL(content::RenderProcessHost* process_host,
                     const GURL& url) override;
   void OverrideNavigationParams(
-      content::SiteInstance* site_instance,
+      absl::optional<GURL> source_process_site_url,
       ui::PageTransition* transition,
       bool* is_renderer_initiated,
       content::Referrer* referrer,
@@ -229,7 +230,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldEmbeddedFramesTryToReuseExistingProcess(
       content::RenderFrameHost* outermost_main_frame) override;
   void SiteInstanceGotProcess(content::SiteInstance* site_instance) override;
-  void SiteInstanceDeleting(content::SiteInstance* site_instance) override;
   bool ShouldSwapBrowsingInstancesForNavigation(
       content::SiteInstance* site_instance,
       const GURL& current_effective_url,
@@ -250,9 +250,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url) override;
   bool IsIsolatedContextAllowedForUrl(content::BrowserContext* browser_context,
                                       const GURL& lock_url) override;
-  bool IsGetDisplayMediaSetSelectAllScreensAllowed(
-      content::BrowserContext* context,
-      const url::Origin& origin) override;
+  bool IsGetAllScreensMediaAllowed(content::BrowserContext* context,
+                                   const url::Origin& origin) override;
   bool IsFileAccessAllowed(const base::FilePath& path,
                            const base::FilePath& absolute_path,
                            const base::FilePath& profile_path) override;
@@ -719,8 +718,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsBuiltinComponent(content::BrowserContext* browser_context,
                           const url::Origin& origin) override;
 
-  bool ShouldBlockRendererDebugURL(const GURL& url,
-                                   content::BrowserContext* context) override;
+  bool ShouldBlockRendererDebugURL(
+      const GURL& url,
+      content::BrowserContext* context,
+      content::RenderFrameHost* render_frame_host) override;
 
   ui::AXMode GetAXModeForBrowserContext(
       content::BrowserContext* browser_context) override;
@@ -745,6 +746,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       bool get_topics,
       bool observe,
       std::vector<blink::mojom::EpochTopicPtr>& topics) override;
+
+  int NumVersionsInTopicsEpochs(
+      content::RenderFrameHost* main_frame) const override;
 
   bool IsBluetoothScanningBlocked(content::BrowserContext* browser_context,
                                   const url::Origin& requesting_origin,
@@ -800,6 +804,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsJitDisabledForSite(content::BrowserContext* browser_context,
                             const GURL& site_url) override;
   ukm::UkmService* GetUkmService() override;
+
+  blink::mojom::OriginTrialsSettingsPtr GetOriginTrialsSettings() override;
 
   void OnKeepaliveRequestStarted(
       content::BrowserContext* browser_context) override;
@@ -882,6 +888,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
 
   bool ShouldUseFirstPartyStorageKey(const url::Origin& origin) override;
 
+  std::unique_ptr<content::ResponsivenessCalculatorDelegate>
+  CreateResponsivenessCalculatorDelegate() override;
+
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);
   static bool HandleWebUIReverse(GURL* url,
@@ -896,6 +905,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
  private:
   friend class DisableWebRtcEncryptionFlagTest;
   friend class InProcessBrowserTest;
+
+  FRIEND_TEST_ALL_PREFIXES(ChromeSiteIsolationPolicyTest,
+                           IsolatedOriginsContainChromeOrigins);
 
   // Initializes `network_contexts_parent_directory_` and
   // `safe_browsing_service_` on the UI thread.
@@ -967,6 +979,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   void OnKeepaliveTimerFired(
       std::unique_ptr<ScopedKeepAlive> keep_alive_handle);
 #endif
+
+  // True if the Gaia origin should be isolated in a dedicated process.
+  static bool DoesGaiaOriginRequireDedicatedProcess();
 
   // Vector of additional ChromeContentBrowserClientParts.
   // Parts are deleted in the reverse order they are added.

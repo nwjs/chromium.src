@@ -103,8 +103,7 @@ GrGLenum GLFormatForPlane(VideoPixelFormat format, size_t plane) {
     case kBGRA_8888_SkColorType:
       return GL_BGRA8_EXT;
     default:
-      NOTREACHED();
-      return 0;
+      NOTREACHED_NORETURN();
   }
 }
 
@@ -1247,9 +1246,9 @@ EncoderStatus ConvertAndScaleFrame(const VideoFrame& src_frame,
       .WithData("dst", dst_frame.AsHumanReadableString());
 }
 
-// TODO(crbug.com/1395524): There is some strange channel switch during RGB
-// readback. When frame's pixel format matches GL and Skia color types we get
-// reversed channels. But why?
+// Media pixel format enums have names opposite to their byte order.
+// That's why PIXEL_FORMAT_ABGR corresponds to kRGBA_8888_SkColorType
+// and so on.
 MEDIA_EXPORT SkColorType SkColorTypeForPlane(VideoPixelFormat format,
                                              size_t plane) {
   switch (format) {
@@ -1277,8 +1276,7 @@ MEDIA_EXPORT SkColorType SkColorTypeForPlane(VideoPixelFormat format,
     case PIXEL_FORMAT_ARGB:
       return kBGRA_8888_SkColorType;
     default:
-      NOTREACHED();
-      return kUnknown_SkColorType;
+      NOTREACHED_NORETURN();
   }
 }
 

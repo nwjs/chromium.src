@@ -17,7 +17,6 @@
 #include "chrome/browser/ash/policy/enrollment/enrollment_config.h"
 #include "chrome/browser/policy/device_account_initializer.h"
 #include "chromeos/ash/components/attestation/attestation_flow.h"
-#include "chromeos/ash/components/dbus/authpolicy/authpolicy_client.h"
 #include "chromeos/ash/components/dbus/constants/attestation_constants.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
@@ -41,7 +40,6 @@ class SequencedTaskRunner;
 
 namespace policy {
 
-class ActiveDirectoryJoinDelegate;
 class DeviceCloudPolicyStoreAsh;
 class DMTokenStorage;
 class EnrollmentStatus;
@@ -82,7 +80,6 @@ class EnrollmentHandler : public CloudPolicyClient::Observer,
       ash::attestation::AttestationFlow* attestation_flow,
       std::unique_ptr<CloudPolicyClient> client,
       scoped_refptr<base::SequencedTaskRunner> background_task_runner,
-      ActiveDirectoryJoinDelegate* ad_join_delegate,
       const EnrollmentConfig& enrollment_config,
       LicenseType license_type,
       DMAuth dm_auth,
@@ -140,13 +137,12 @@ class EnrollmentHandler : public CloudPolicyClient::Observer,
     STEP_VALIDATION = 5,        // Policy validation.
     STEP_ROBOT_AUTH_FETCH = 6,  // Fetching device API auth code.
     UNUSED_ROBOT_AUTH_REFRESH = 7,  // Fetching device API refresh token.
-    STEP_AD_DOMAIN_JOIN = 8,        // Joining Active Directory domain.
+    UNUSED_AD_DOMAIN_JOIN = 8,      // Joining Active Directory domain.
     STEP_SET_FWMP_DATA = 9,      // Setting the firmware management parameters.
     STEP_LOCK_DEVICE = 10,       // Writing installation-time attributes.
     STEP_STORE_TOKEN = 11,       // Encrypting and storing DM token.
     STEP_STORE_ROBOT_AUTH = 12,  // Encrypting & writing robot refresh token.
-    STEP_STORE_POLICY = 13,      // Storing policy and API refresh token. For
-                                 // AD, includes policy fetch via authpolicyd.
+    STEP_STORE_POLICY = 13,      // Storing policy and API refresh token.
     STEP_FINISHED = 14,          // Enrollment process done, no further action.
   };
 
@@ -173,13 +169,6 @@ class EnrollmentHandler : public CloudPolicyClient::Observer,
   // successful.
   void HandlePolicyValidationResult(DeviceCloudPolicyValidator* validator);
 
-  // Start joining the Active Directory domain in case the device is enrolling
-  // into Active Directory management mode.
-  void StartJoinAdDomain();
-
-  // Handles successful Active Directory domain join.
-  void OnAdDomainJoined(const std::string& realm);
-
   // Updates the firmware management partition from TPM, setting the flags
   // according to enum FirmwareManagementParametersFlags from rpc.proto if
   // devmode is blocked.
@@ -198,17 +187,8 @@ class EnrollmentHandler : public CloudPolicyClient::Observer,
   // Handle callback from InstallAttributes::LockDevice() and retry on failure.
   void HandleLockDeviceResult(ash::InstallAttributes::LockResult lock_result);
 
-  // Initiates storing DM token. For Active Directory devices only.
-  void StartStoreDMToken();
-
-  // Called after StartStoreDMtoken() is done.
-  void HandleDMTokenStoreResult(bool success);
-
   // Initiates storing of robot auth token.
   void StartStoreRobotAuth();
-
-  // Handles result from device policy refresh via authpolicyd.
-  void HandleActiveDirectoryPolicyRefreshed(authpolicy::ErrorType error);
 
   std::unique_ptr<DeviceCloudPolicyValidator> CreateValidator(
       std::unique_ptr<enterprise_management::PolicyFetchResponse> policy,
@@ -231,8 +211,6 @@ class EnrollmentHandler : public CloudPolicyClient::Observer,
   std::unique_ptr<SigningServiceProvider> signing_service_provider_;
   std::unique_ptr<CloudPolicyClient> client_;
   scoped_refptr<base::SequencedTaskRunner> background_task_runner_;
-  raw_ptr<ActiveDirectoryJoinDelegate, ExperimentalAsh> ad_join_delegate_ =
-      nullptr;
   std::unique_ptr<DeviceAccountInitializer> device_account_initializer_;
   std::unique_ptr<DMTokenStorage> dm_token_storage_;
 

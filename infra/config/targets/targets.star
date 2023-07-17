@@ -259,15 +259,6 @@ targets.compile_target(
 #     executable = "browser_tests",
 # )
 
-targets.generated_script(
-    name = "devtools_web_tests",
-    label = "//:devtools_web_tests",
-    args = [
-        "--results-directory",
-        "${ISOLATED_OUTDIR}",
-    ],
-)
-
 targets.console_test_launcher(
     name = "boringssl_crypto_tests",
     label = "//third_party/boringssl:boringssl_crypto_tests",
@@ -431,9 +422,12 @@ targets.console_test_launcher(
     label = "//chrome/test:chrome_app_unittests",
 )
 
-targets.console_test_launcher(
-    name = "chrome_cleaner_unittests",
-    label = "//chrome/chrome_cleaner:chrome_cleaner_unittests",
+targets.generated_script(
+    name = "chrome_criticalstaging_tast_tests",
+    label = "//chromeos:chrome_criticalstaging_tast_tests",
+    args = [
+        "--logs-dir=${ISOLATED_OUTDIR}",
+    ],
 )
 
 targets.console_test_launcher(
@@ -515,6 +509,10 @@ targets.console_test_launcher(
 targets.generated_script(
     name = "chrome_public_wpt",
     label = "//chrome/android:chrome_public_wpt",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
 )
 
 targets.compile_target(
@@ -583,16 +581,28 @@ targets.generated_script(
 targets.generated_script(
     name = "wpt_tests_isolate",
     label = "//:wpt_tests_isolate",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
 )
 
 targets.generated_script(
     name = "wpt_tests_isolate_content_shell",
     label = "//:wpt_tests_isolate_content_shell",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
 )
 
 targets.generated_script(
     name = "wpt_tests_ios",
     label = "//ios/chrome/test/wpt:wpt_tests_ios",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
 )
 
 targets.compile_target(
@@ -626,6 +636,16 @@ targets.generated_script(
 )
 
 targets.script(
+    name = "variations_desktop_smoke_tests",
+    label = "//chrome/test/variations:variations_desktop_smoke_tests",
+    script = "//testing/scripts/run_isolated_script_test.py",
+    args = [
+        "--xvfb",
+        "../../chrome/test/variations/run_variations_tests.py",
+    ],
+)
+
+targets.script(
     name = "chromedriver_replay_unittests",
     label = "//chrome/test/chromedriver:chromedriver_replay_unittests",
     script = "//chrome/test/chromedriver/log_replay/client_replay_unittest.py",
@@ -634,6 +654,11 @@ targets.script(
 targets.windowed_test_launcher(
     name = "chromedriver_unittests",
     label = "//chrome/test/chromedriver:chromedriver_unittests",
+)
+
+targets.generated_script(
+    name = "chrome_finch_smoke_tests",
+    label = "//clank/java:chrome_finch_smoke_tests",
 )
 
 targets.console_test_launcher(
@@ -802,7 +827,7 @@ targets.console_test_launcher(
 
 targets.console_test_launcher(
     name = "gnrt_unittests",
-    label = "//tools/crates/gnrt:gnrt_unittests",
+    label = "//tools/crates/gnrt/lib:gnrt_unittests",
 )
 
 targets.compile_target(
@@ -1194,11 +1219,6 @@ targets.generated_script(
 )
 
 targets.generated_script(
-    name = "ios_swift_interop_xcuitests_module",
-    label = "//ios/chrome/test/swift_interop:ios_swift_interop_xcuitests_module",
-)
-
-targets.generated_script(
     name = "ios_testing_unittests",
     label = "//ios/testing:ios_testing_unittests",
 )
@@ -1301,14 +1321,6 @@ targets.generated_script(
 targets.generated_script(
     name = "lacros_fyi_tast_tests",
     label = "//chromeos/lacros:lacros_fyi_tast_tests",
-    args = [
-        "--logs-dir=${ISOLATED_OUTDIR}",
-    ],
-)
-
-targets.generated_script(
-    name = "lacros_variations_tast_tests",
-    label = "//chromeos/lacros:lacros_variations_tast_tests",
     args = [
         "--logs-dir=${ISOLATED_OUTDIR}",
     ],
@@ -1428,6 +1440,11 @@ targets.script(
 targets.generated_script(
     name = "module_installer_junit_tests",
     label = "//components/module_installer/android:module_installer_junit_tests",
+)
+
+targets.generated_script(
+    name = "monochrome_finch_smoke_tests",
+    label = "//clank/android_webview/components:monochrome_finch_smoke_tests",
 )
 
 targets.console_test_launcher(
@@ -1642,8 +1659,8 @@ targets.generated_script(
 )
 
 targets.generated_script(
-    name = "performance_test_suite_android_clank_chrome",
-    label = "//chrome/test:performance_test_suite_android_clank_chrome",
+    name = "performance_test_suite_android_clank_monochrome",
+    label = "//chrome/test:performance_test_suite_android_clank_monochrome",
 )
 
 targets.generated_script(
@@ -1917,6 +1934,10 @@ targets.console_test_launcher(
 targets.generated_script(
     name = "system_webview_wpt",
     label = "//android_webview/test:system_webview_wpt",
+    args = [
+        "--results-directory",
+        "${ISOLATED_OUTDIR}",
+    ],
 )
 
 targets.script(

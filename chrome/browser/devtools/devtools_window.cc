@@ -1174,7 +1174,7 @@ DevToolsWindow* DevToolsWindow::Create(
   // Create WebContents with devtools.
   GURL url(GetDevToolsURL(profile, frontend_type, chrome::GetChannel(),
                           frontend_url, can_dock, panel, has_other_clients,
-                          browser_connection));
+                          browser_connection, cdt_web_contents != nullptr));
 
   if (cdt_web_contents) {
     cdt_web_contents->GetController().LoadURL(
@@ -1214,7 +1214,8 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
                                     bool can_dock,
                                     const std::string& panel,
                                     bool has_other_clients,
-                                    bool browser_connection) {
+                                    bool browser_connection,
+				    bool headless) {
   std::string url;
 
   std::string remote_base =
@@ -1235,7 +1236,7 @@ GURL DevToolsWindow::GetDevToolsURL(Profile* profile,
         url += "&can_dock=true";
       if (!panel.empty())
         url += "&panel=" + panel;
-      if (base::FeatureList::IsEnabled(::features::kDevToolsTabTarget)) {
+      if (base::FeatureList::IsEnabled(::features::kDevToolsTabTarget) && !headless) {
         url += "&targetType=tab";
       }
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -1405,7 +1406,8 @@ void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
 }
 
 void DevToolsWindow::CloseContents(WebContents* source) {
-  CHECK(is_docked_);
+  // We shouldn't get here as long as we're owned by the browser.
+  CHECK(!browser_);
   life_stage_ = kClosing;
   UpdateBrowserWindow();
   // In case of docked main_web_contents_, we own it so delete here.

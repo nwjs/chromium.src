@@ -433,7 +433,8 @@ class AutomationApiFencedFrameTest : public AutomationApiTest {
     feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/{{blink::features::kFencedFrames, {}},
                               {features::kPrivacySandboxAdsAPIsOverride, {}},
-                              {blink::features::kFencedFramesAPIChanges, {}}},
+                              {blink::features::kFencedFramesAPIChanges, {}},
+                              {blink::features::kFencedFramesDefaultMode, {}}},
         /*disabled_features=*/{features::kSpareRendererForSitePerProcess});
   }
 
@@ -487,8 +488,8 @@ IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopHitTestIframe) {
 IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopFocusViews) {
   AutomationManagerAura::GetInstance()->Enable();
   // Trigger the shelf subtree to be computed.
-  ash::AcceleratorController::Get()->PerformActionIfEnabled(ash::FOCUS_SHELF,
-                                                            {});
+  ash::AcceleratorController::Get()->PerformActionIfEnabled(
+      ash::AcceleratorAction::kFocusShelf, {});
 
   ASSERT_TRUE(RunExtensionTest("automation/tests/desktop",
                                {.extension_url = "focus_views.html"}))
@@ -512,8 +513,8 @@ IN_PROC_BROWSER_TEST_F(AutomationApiTest, LocationInWebView) {
 IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopActions) {
   AutomationManagerAura::GetInstance()->Enable();
   // Trigger the shelf subtree to be computed.
-  ash::AcceleratorController::Get()->PerformActionIfEnabled(ash::FOCUS_SHELF,
-                                                            {});
+  ash::AcceleratorController::Get()->PerformActionIfEnabled(
+      ash::AcceleratorAction::kFocusShelf, {});
 
   ASSERT_TRUE(RunExtensionTest("automation/tests/desktop",
                                {.extension_url = "actions.html"}))
@@ -528,11 +529,11 @@ IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopHitTestOneDisplay) {
 
 IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopHitTestPrimaryDisplay) {
   ash::ShellTestApi shell_test_api;
-  // Create two displays, both 800x800px, next to each other. The primary
+  // Create two displays, both 800x750px, next to each other. The primary
   // display has top left corner at (0, 0), and the secondary display has
   // top left corner at (801, 0).
   display::test::DisplayManagerTestApi(shell_test_api.display_manager())
-      .UpdateDisplay("800x800,801+0-800x800");
+      .UpdateDisplay("800x750,801+0-800x750");
   // Ensure it worked. By default InProcessBrowserTest uses just one display.
   ASSERT_EQ(2u, shell_test_api.display_manager()->GetNumDisplays());
   display::test::DisplayManagerTestApi display_manager_test_api(
@@ -545,11 +546,11 @@ IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopHitTestPrimaryDisplay) {
 
 IN_PROC_BROWSER_TEST_F(AutomationApiTest, DesktopHitTestSecondaryDisplay) {
   ash::ShellTestApi shell_test_api;
-  // Create two displays, both 800x800px, next to each other. The primary
+  // Create two displays, both 800x750px, next to each other. The primary
   // display has top left corner at (0, 0), and the secondary display has
   // top left corner at (801, 0).
   display::test::DisplayManagerTestApi(shell_test_api.display_manager())
-      .UpdateDisplay("800x800,801+0-800x800");
+      .UpdateDisplay("800x750,801+0-800x750");
   // Ensure it worked. By default InProcessBrowserTest uses just one display.
   ASSERT_EQ(2u, shell_test_api.display_manager()->GetNumDisplays());
   display::test::DisplayManagerTestApi display_manager_test_api(

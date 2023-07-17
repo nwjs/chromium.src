@@ -14,6 +14,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/dips/dips_redirect_info.h"
 #include "chrome/browser/dips/dips_service.h"
+#include "chrome/browser/dips/dips_utils.h"
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/cookie_access_details.h"
@@ -24,16 +25,79 @@ namespace testing {
 class MatchResultListener;
 }
 
+constexpr char kStorageAccessScript[] = R"(
+    async function accessDatabase() {
+      var my_db = openDatabase('my_db', '1.0', 'description', 1024);
+      var num_rows;
+      await new Promise((resolve, reject) => {
+        my_db.transaction((tx) => {
+          tx.executeSql('CREATE TABLE IF NOT EXISTS tbl (id unique, data)');
+          tx.executeSql('INSERT INTO tbl (id, data) VALUES (1, "foo")');
+          tx.executeSql('SELECT * FROM tbl', [], (tx, results) => {
+            num_rows = results.rows.length;
+          });
+        }, reject, resolve);
+      });
+      if(num_rows <= 0) {throw new Error('Failed to access!')}
+    }
+
+    function accessLocalStorage() {
+      localStorage.setItem('foo', 'bar');
+      return localStorage.getItem('foo');
+    }
+
+    function accessSessionStorage() {
+      sessionStorage.setItem('foo', 'bar');
+      return sessionStorage.getItem('foo') == 'bar';
+    }
+
+    async function accessFileSystem() {
+      const fs = await new Promise((resolve, reject) => {
+        window.webkitRequestFileSystem(TEMPORARY, 1024, resolve, reject);
+      });
+      return new Promise((resolve, reject) => {
+        fs.root.getFile('foo.txt', {create: true, exclusive: true}, resolve,
+          reject);
+      });
+    }
+
+    function accessIndexedDB() {
+      var request = indexedDB.open('my_db', 2);
+
+      request.onupgradeneeded = () => {
+        request.result.createObjectStore('store');
+      }
+      return new Promise((resolve) => {
+        request.onsuccess = () => {
+          request.result.close();
+          resolve(true);
+        }
+        request.onerror = () => {throw new Error('Failed to access!')}
+      });
+    }
+
+    function accessCache() {
+      return caches.open("cache")
+      .then((cache) => cache.put("/foo", new Response("bar")))
+      .then(() => true)
+      .catch(() => {throw new Error('Failed to access!')});
+    }
+
+    // Placeholder for execution statement.
+    access%s();
+  )";
+
 using StateForURLCallback = base::OnceCallback<void(DIPSState)>;
 
 class URLCookieAccessObserver : public content::WebContentsObserver {
  public:
-  using Type = content::CookieAccessDetails::Type;
   URLCookieAccessObserver(content::WebContents* web_contents,
                           const GURL& url,
-                          Type access_type);
+                          CookieOperation access_type);
 
   void Wait();
+
+  bool CookieAccessedInPrimaryPage() const;
 
  private:
   // WebContentsObserver overrides
@@ -43,7 +107,28 @@ class URLCookieAccessObserver : public content::WebContentsObserver {
                          const content::CookieAccessDetails& details) override;
 
   GURL url_;
-  Type access_type_;
+  CookieOperation access_type_;
+  bool cookie_accessed_in_primary_page_ = false;
+  base::RunLoop run_loop_;
+};
+
+class FrameCookieAccessObserver : public content::WebContentsObserver {
+ public:
+  explicit FrameCookieAccessObserver(
+      content::WebContents* web_contents,
+      content::RenderFrameHost* render_frame_host,
+      CookieOperation access_type);
+
+  // Wait until the frame accesses cookies.
+  void Wait();
+
+  // WebContentsObserver override
+  void OnCookiesAccessed(content::RenderFrameHost* render_frame_host,
+                         const content::CookieAccessDetails& details) override;
+
+ private:
+  const raw_ptr<content::RenderFrameHost> render_frame_host_;
+  CookieOperation access_type_;
   base::RunLoop run_loop_;
 };
 
@@ -55,6 +140,8 @@ class RedirectChainObserver : public DIPSService::Observer {
   void OnChainHandled(const DIPSRedirectChainInfoPtr& chain) override;
 
   void Wait();
+
+  size_t handle_call_count = 0;
 
  private:
   GURL final_url_;

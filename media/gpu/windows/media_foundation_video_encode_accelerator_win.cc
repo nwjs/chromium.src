@@ -32,6 +32,7 @@
 #include "media/base/media_switches.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_util.h"
+#include "media/base/win/color_space_util_win.h"
 #include "media/base/win/mf_helpers.h"
 #include "media/base/win/mf_initializer.h"
 #include "media/filters/win/media_foundation_utils.h"
@@ -359,10 +360,12 @@ class MediaFoundationVideoEncodeAccelerator::EncodeOutput {
   EncodeOutput(uint32_t size,
                bool key_frame,
                base::TimeDelta timestamp,
-               int temporal_id = 0)
+               int temporal_id,
+               gfx::ColorSpace color_space)
       : keyframe(key_frame),
         capture_timestamp(timestamp),
         temporal_layer_id(temporal_id),
+        color_space(color_space),
         data_(size) {}
 
   EncodeOutput(const EncodeOutput&) = delete;
@@ -377,6 +380,7 @@ class MediaFoundationVideoEncodeAccelerator::EncodeOutput {
   const base::TimeDelta capture_timestamp;
   const int temporal_layer_id;
   absl::optional<int32_t> frame_qp;
+  const gfx::ColorSpace color_space;
 
  private:
   std::vector<uint8_t> data_;
@@ -777,6 +781,9 @@ void MediaFoundationVideoEncodeAccelerator::UseOutputBitstreamBuffer(
   }
   if (temporal_scalable_coding()) {
     md.h264.emplace().temporal_idx = encode_output->temporal_layer_id;
+  }
+  if (encode_output->color_space.IsValid()) {
+    md.encoded_color_space = encode_output->color_space;
   }
 
   client_->BitstreamBufferReady(buffer_ref->id, md);
@@ -1182,6 +1189,7 @@ void MediaFoundationVideoEncodeAccelerator::FeedInputs() {
   // There's no point in trying to feed more than one input here,
   // because MF encoder never accepts more than one input in a row.
   auto& next_input = pending_input_queue_.front();
+
   HRESULT hr = ProcessInput(next_input);
   if (hr == MF_E_NOTACCEPTING) {
     return;
@@ -1234,6 +1242,11 @@ HRESULT MediaFoundationVideoEncodeAccelerator::ProcessInput(
       hr = input_sample_->SetUINT64(MFSampleExtension_VideoEncodeQP, var.ulVal);
       RETURN_ON_HR_FAILURE(hr, "Couldn't set input sample attribute QP", hr);
     }
+
+    // We don't actually tell the MFT about the color space since all current
+    // MFT implementations just write UNSPECIFIED in the bitstream, and setting
+    // it can actually break some encoders; see https://crbug.com/1446081.
+    output_color_spaces_.push_back(input.frame->ColorSpace());
 
     has_prepared_input_sample_ = true;
   }
@@ -1718,13 +1731,17 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
   }
   DVLOG(3) << "Encoded data with size:" << size << " keyframe " << keyframe;
 
+  DCHECK(!output_color_spaces_.empty());
+  auto output_cs = output_color_spaces_.front();
+  output_color_spaces_.pop_front();
+
   // If no bit stream buffer presents, queue the output first.
   if (bitstream_buffer_queue_.empty()) {
     DVLOG(3) << "No bitstream buffers.";
 
     // We need to copy the output so that encoding can continue.
-    auto encode_output =
-        std::make_unique<EncodeOutput>(size, keyframe, timestamp, temporal_id);
+    auto encode_output = std::make_unique<EncodeOutput>(
+        size, keyframe, timestamp, temporal_id, output_cs);
     {
       MediaBufferScopedPointer scoped_buffer(output_buffer.Get());
       memcpy(encode_output->memory(), scoped_buffer.get(), size);
@@ -1766,6 +1783,9 @@ void MediaFoundationVideoEncodeAccelerator::ProcessOutput() {
     } else if (codec_ == VideoCodec::kHEVC) {
       md.h265.emplace().temporal_idx = temporal_id;
     }
+  }
+  if (output_cs.IsValid()) {
+    md.encoded_color_space = output_cs;
   }
 
   client_->BitstreamBufferReady(buffer_ref->id, md);
@@ -1810,6 +1830,8 @@ void MediaFoundationVideoEncodeAccelerator::MediaEventHandler(
     }
     case METransformDrainComplete: {
       DCHECK(pending_input_queue_.empty());
+      DCHECK(encoder_output_queue_.empty());
+      DCHECK(output_color_spaces_.empty());
       DCHECK_EQ(state_, kFlushing);
       auto hr = encoder_->ProcessMessage(MFT_MESSAGE_NOTIFY_START_OF_STREAM, 0);
       if (FAILED(hr)) {

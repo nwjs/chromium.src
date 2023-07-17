@@ -69,7 +69,8 @@ WaylandZAuraOutputManager::WaylandZAuraOutputManager(
        &OnPanelTransform,
        &OnName,
        &OnDescription,
-       &OnActivated};
+       &OnActivated,
+       &OnOverscanInsets};
   zaura_output_manager_add_listener(obj_.get(), &zaura_output_manager_listener,
                                     this);
 }
@@ -195,8 +196,8 @@ void WaylandZAuraOutputManager::OnDeviceScaleFactor(
     wl_output* output,
     uint32_t scale_as_uint) {
   auto* self = static_cast<WaylandZAuraOutputManager*>(data);
-  float scale = base::bit_cast<float>(scale_as_uint);
-  self->pending_output_metrics_map_[self->GetId(output)].scale_factor = scale;
+  self->pending_output_metrics_map_[self->GetId(output)].scale_factor =
+      base::bit_cast<float>(scale_as_uint);
 }
 
 // static
@@ -252,6 +253,20 @@ void WaylandZAuraOutputManager::OnActivated(
   const WaylandOutput::Id output_id = self->GetId(output);
   display::Screen::GetScreen()->SetDisplayForNewWindows(
       self->GetOutputMetrics(output_id)->display_id);
+}
+
+// static
+void WaylandZAuraOutputManager::OnOverscanInsets(
+    void* data,
+    zaura_output_manager* output_manager,
+    wl_output* output,
+    int32_t top,
+    int32_t left,
+    int32_t bottom,
+    int32_t right) {
+  auto* self = static_cast<WaylandZAuraOutputManager*>(data);
+  self->pending_output_metrics_map_[self->GetId(output)]
+      .physical_overscan_insets = gfx::Insets::TLBR(top, left, bottom, right);
 }
 
 }  // namespace ui

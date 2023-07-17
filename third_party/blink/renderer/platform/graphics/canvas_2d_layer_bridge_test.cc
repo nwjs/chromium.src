@@ -1036,12 +1036,14 @@ TEST_F(Canvas2DLayerBridgeTest,
                                                    &release_callback2));
   EXPECT_FALSE(release_callback2);
 }
+
 class CustomFakeCanvasResourceHost : public FakeCanvasResourceHost {
  public:
   explicit CustomFakeCanvasResourceHost(const gfx::Size& size)
       : FakeCanvasResourceHost(size) {}
   void RestoreCanvasMatrixClipStack(cc::PaintCanvas* canvas) const override {
-    // Alter canvas' matrix to emulate a restore
+    // Restore the canvas stack to hold a simple matrix transform.
+    canvas->save();
     canvas->translate(5, 0);
   }
 };
@@ -1078,8 +1080,8 @@ TEST_F(Canvas2DLayerBridgeTest, DisplayedCanvasIsRateLimited) {
   EXPECT_TRUE(bridge->IsValid());
   bridge->SetIsBeingDisplayed(true);
   EXPECT_FALSE(bridge->HasRateLimiterForTesting());
-  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kTesting);
-  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kTesting);
+  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kCanvasPushFrame);
+  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kCanvasPushFrame);
   EXPECT_TRUE(bridge->HasRateLimiterForTesting());
 }
 
@@ -1088,13 +1090,13 @@ TEST_F(Canvas2DLayerBridgeTest, NonDisplayedCanvasIsNotRateLimited) {
       MakeBridge(gfx::Size(300, 150), RasterMode::kGPU, kNonOpaque);
   EXPECT_TRUE(bridge->IsValid());
   bridge->SetIsBeingDisplayed(true);
-  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kTesting);
-  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kTesting);
+  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kCanvasPushFrame);
+  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kCanvasPushFrame);
   EXPECT_TRUE(bridge->HasRateLimiterForTesting());
   bridge->SetIsBeingDisplayed(false);
   EXPECT_FALSE(bridge->HasRateLimiterForTesting());
-  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kTesting);
-  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kTesting);
+  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kCanvasPushFrame);
+  bridge->FinalizeFrame(CanvasResourceProvider::FlushReason::kCanvasPushFrame);
   EXPECT_FALSE(bridge->HasRateLimiterForTesting());
 }
 

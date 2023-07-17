@@ -5,6 +5,7 @@
 import("//build/buildflag_header.gni")
 import("//build/config/chromeos/ui_mode.gni")
 import("//build/config/features.gni")
+import("//build/config/logging.gni")
 import("//build/config/ui.gni")
 import("//gpu/vulkan/features.gni")
 import("//media/gpu/args.gni")
@@ -70,6 +71,10 @@ component("gpu") {
   }
 
   defines = [ "MEDIA_GPU_IMPLEMENTATION" ]
+  if (!use_runtime_vlog) {
+    # Enable VLOG(1) when using build time VLOG.
+    defines += [ "ENABLED_VLOG_LEVEL=1" ]
+  }
 
   sources = [
     "gpu_video_accelerator_util.cc",
@@ -235,6 +240,8 @@ component("gpu") {
       "windows/d3d11_vp9_accelerator.h",
       "windows/d3d11_vp9_picture.cc",
       "windows/d3d11_vp9_picture.h",
+      "windows/d3d_accelerator.cc",
+      "windows/d3d_accelerator.h",
       "windows/dxva_picture_buffer_win.cc",
       "windows/dxva_picture_buffer_win.h",
       "windows/dxva_video_decode_accelerator_win.cc",
@@ -274,6 +281,7 @@ component("gpu") {
     ]
     deps += [
       "//gpu/ipc/common:common",
+      "//media/base/win:color_space_util_win",
       "//media/parsers",
       "//third_party/angle:includes",
       "//third_party/libvpx:libvpxrc",

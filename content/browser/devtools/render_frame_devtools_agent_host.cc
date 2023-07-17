@@ -208,8 +208,6 @@ void RenderFrameDevToolsAgentHost::AddAllAgentHosts(
           FrameTreeNode* node = FrameTreeNode::From(render_frame_host);
           if (!ShouldCreateDevToolsForNode(node))
             return;
-          if (!render_frame_host->IsRenderFrameLive())
-            return;
           result->push_back(RenderFrameDevToolsAgentHost::GetOrCreateFor(node));
         });
   }
@@ -219,7 +217,8 @@ void RenderFrameDevToolsAgentHost::AddAllAgentHosts(
 void RenderFrameDevToolsAgentHost::AttachToWebContents(
     WebContents* web_contents) {
   if (ShouldForceCreation()) {
-    // Force agent host.
+    // Force agent hosts.
+    DevToolsAgentHost::GetOrCreateForTab(web_contents);
     DevToolsAgentHost::GetOrCreateFor(web_contents);
   }
 }
@@ -427,6 +426,12 @@ void RenderFrameDevToolsAgentHost::InspectElement(RenderFrameHost* frame_host,
     }
   }
   host->GetRendererChannel()->InspectElement(point);
+}
+
+void RenderFrameDevToolsAgentHost::GetUniqueFormControlId(
+    int node_id,
+    GetUniqueFormControlIdCallback callback) {
+  GetRendererChannel()->GetUniqueFormControlId(node_id, std::move(callback));
 }
 
 RenderFrameDevToolsAgentHost::~RenderFrameDevToolsAgentHost() {

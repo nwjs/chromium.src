@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <memory>
 
+#include "ash/constants/ash_features.h"
 #include "ash/constants/tray_background_view_catalog.h"
 #include "ash/focus_cycler.h"
 #include "ash/login/ui/lock_screen.h"
@@ -28,6 +29,7 @@
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_container.h"
 #include "ash/system/tray/tray_event_filter.h"
+#include "ash/user_education/user_education_class_properties.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -617,8 +619,6 @@ void TrayBackgroundView::UpdateAfterStatusAreaCollapseChange() {
   views::View::SetVisible(GetEffectiveVisibility());
 }
 
-void TrayBackgroundView::BubbleResized(const TrayBubbleView* bubble_view) {}
-
 void TrayBackgroundView::OnAnyBubbleVisibilityChanged(
     views::Widget* bubble_widget,
     bool visible) {}
@@ -633,6 +633,12 @@ void TrayBackgroundView::UpdateBackground() {
   const views::Widget* widget = GetWidget();
   if (widget)
     layer()->SetColor(ShelfConfig::Get()->GetShelfControlButtonColor(widget));
+
+  // Update ping insets when background insets change so that ping animations
+  // emanate from user perceived bounds instead of actual bounds.
+  if (features::IsUserEducationEnabled()) {
+    SetProperty(kPingInsetsKey, GetBackgroundInsets());
+  }
 }
 
 void TrayBackgroundView::OnAnimationAborted() {
@@ -728,6 +734,24 @@ void TrayBackgroundView::BounceInAnimation() {
                                      smoothness);
       })));
 
+  // Alias to avoid difficult to read line wrapping below.
+  using ConstantTransform = ui::InterpolatedConstantTransform;
+  using MatrixTransform = ui::InterpolatedMatrixTransform;
+
+  // NOTE: It is intentional that `ui::InterpolatedTransform`s be used below
+  // rather than `gfx::Transform`s which could otherwise be used to accomplish
+  // the same animation.
+  //
+  // This is because the latter only informs layer delegates of transform
+  // changes on animation completion whereas the former informs layer delegates
+  // of transform changes at each animation step [1].
+  //
+  // Failure to inform layer delegates of transform changes at each animation
+  // step can result in the ink drop layer going out of sync if the
+  // `TrayBackgroundView`s activation state changes while an animation is in
+  // progress.
+  //
+  // [1] See discussion in https://crrev.com/c/4304899.
   views::AnimationBuilder()
       .SetPreemptionStrategy(
           ui::LayerAnimator::IMMEDIATELY_ANIMATE_TO_NEW_TARGET)
@@ -746,17 +770,24 @@ void TrayBackgroundView::BounceInAnimation() {
       .Once()
       .SetDuration(base::TimeDelta())
       .SetOpacity(this, 1.0)
-      .SetTransform(this, std::move(initial_state))
+      .SetInterpolatedTransform(
+          this, std::make_unique<ConstantTransform>(initial_state))
       .Then()
       .SetDuration(kAnimationDurationForBounceElement)
-      .SetTransform(this, std::move(scale_about_pivot),
-                    gfx::Tween::FAST_OUT_SLOW_IN_3)
+      .SetInterpolatedTransform(
+          this,
+          std::make_unique<MatrixTransform>(initial_state, scale_about_pivot),
+          gfx::Tween::FAST_OUT_SLOW_IN_3)
       .Then()
       .SetDuration(kAnimationDurationForBounceElement)
-      .SetTransform(this, std::move(move_down), gfx::Tween::EASE_OUT_4)
+      .SetInterpolatedTransform(
+          this, std::make_unique<MatrixTransform>(scale_about_pivot, move_down),
+          gfx::Tween::EASE_OUT_4)
       .Then()
       .SetDuration(kAnimationDurationForBounceElement)
-      .SetTransform(this, gfx::Transform(), gfx::Tween::FAST_OUT_SLOW_IN_3);
+      .SetInterpolatedTransform(
+          this, std::make_unique<MatrixTransform>(move_down, gfx::Transform()),
+          gfx::Tween::FAST_OUT_SLOW_IN_3);
 }
 
 // Any visibility updates should be called after the hide animation is

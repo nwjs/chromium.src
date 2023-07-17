@@ -84,6 +84,7 @@
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
+#include "components/signin/public/base/signin_switches.h"
 #include "crypto/scoped_mock_unexportable_key_provider.h"
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 
@@ -718,8 +719,19 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, Signin) {
 }
 
 #if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
+class DiceBrowserTestWithBoundSessionCredentialsEnabled
+    : public DiceBrowserTest {
+ public:
+  DiceBrowserTestWithBoundSessionCredentialsEnabled() = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_{
+      switches::kEnableBoundSessionCrendentials};
+};
+
 // Checks that signin on Gaia triggers the fetch for a refresh token.
-IN_PROC_BROWSER_TEST_F(DiceBrowserTest, SigninWithTokenBinding) {
+IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithBoundSessionCredentialsEnabled,
+                       SigninWithTokenBinding) {
   crypto::ScopedMockUnexportableKeyProvider mock_key_provider_;
 
   // Navigate to Gaia and sign in.
@@ -1042,7 +1054,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, EnableSyncAfterToken) {
   EXPECT_EQ(GetMainAccountID(), GetIdentityManager()->GetPrimaryAccountId(
                                     signin::ConsentLevel::kSignin));
   EXPECT_TRUE(browser()->profile()->GetPrefs()->GetBoolean(
-      syncer::prefs::kSyncRequested));
+      syncer::prefs::internal::kSyncRequested));
 
   EXPECT_EQ(1, reconcilor_blocked_count_);
   WaitForReconcilorUnblockedCount(1);
@@ -1143,7 +1155,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest,
   EXPECT_EQ(GetMainAccountID(), GetIdentityManager()->GetPrimaryAccountId(
                                     signin::ConsentLevel::kSignin));
   EXPECT_TRUE(browser()->profile()->GetPrefs()->GetBoolean(
-      syncer::prefs::kSyncRequested));
+      syncer::prefs::internal::kSyncRequested));
 
   // Wait until the sync confirmation webUI is created but not fully loaded
   // yet. The native dialog is not displayed yet since it waits until the webUI
@@ -1233,7 +1245,8 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, TurnOffDice_NotOptedIntoSync) {
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, PRE_TurnOffDice_OptedIntoSync) {
   // Sign the profile in and turn sync on.
   SetupSignedInAccounts(signin::ConsentLevel::kSync);
-  syncer::SyncPrefs(browser()->profile()->GetPrefs()).SetFirstSetupComplete();
+  syncer::SyncPrefs(browser()->profile()->GetPrefs())
+      .SetInitialSyncFeatureSetupComplete();
 
   ASSERT_TRUE(
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSync));

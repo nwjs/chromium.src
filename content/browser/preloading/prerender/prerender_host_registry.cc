@@ -20,6 +20,7 @@
 #include "build/build_config.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
+#include "content/browser/preloading/prerender/devtools_prerender_attempt.h"
 #include "content/browser/preloading/prerender/prerender_final_status.h"
 #include "content/browser/preloading/prerender/prerender_metrics.h"
 #include "content/browser/preloading/prerender/prerender_navigation_utils.h"
@@ -201,7 +202,241 @@ bool IsDevToolsOpen(WebContents& web_contents) {
   return DevToolsAgentHost::HasFor(&web_contents);
 }
 
+PreloadingEligibility ToEligibility(PrerenderFinalStatus status) {
+  switch (status) {
+    case PrerenderFinalStatus::kActivated:
+    case PrerenderFinalStatus::kDestroyed:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kLowEndDevice:
+      return PreloadingEligibility::kLowMemory;
+    case PrerenderFinalStatus::kInvalidSchemeRedirect:
+    case PrerenderFinalStatus::kInvalidSchemeNavigation:
+    case PrerenderFinalStatus::kInProgressNavigation:
+    case PrerenderFinalStatus::kNavigationRequestBlockedByCsp:
+    case PrerenderFinalStatus::kMainFrameNavigation:
+    case PrerenderFinalStatus::kMojoBinderPolicy:
+    case PrerenderFinalStatus::kRendererProcessCrashed:
+    case PrerenderFinalStatus::kRendererProcessKilled:
+    case PrerenderFinalStatus::kDownload:
+    case PrerenderFinalStatus::kTriggerDestroyed:
+    case PrerenderFinalStatus::kNavigationNotCommitted:
+    case PrerenderFinalStatus::kNavigationBadHttpStatus:
+    case PrerenderFinalStatus::kClientCertRequested:
+    case PrerenderFinalStatus::kNavigationRequestNetworkError:
+    case PrerenderFinalStatus::kMaxNumOfRunningPrerendersExceeded:
+    case PrerenderFinalStatus::kCancelAllHostsForTesting:
+    case PrerenderFinalStatus::kDidFailLoad:
+    case PrerenderFinalStatus::kStop:
+    case PrerenderFinalStatus::kSslCertificateError:
+    case PrerenderFinalStatus::kLoginAuthRequested:
+    case PrerenderFinalStatus::kUaChangeRequiresReload:
+    case PrerenderFinalStatus::kBlockedByClient:
+    case PrerenderFinalStatus::kAudioOutputDeviceRequested:
+    case PrerenderFinalStatus::kMixedContent:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kTriggerBackgrounded:
+      return PreloadingEligibility::kHidden;
+    case PrerenderFinalStatus::kEmbedderTriggeredAndCrossOriginRedirected:
+    case PrerenderFinalStatus::kMemoryLimitExceeded:
+    case PrerenderFinalStatus::kFailToGetMemoryUsage:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kDataSaverEnabled:
+      return PreloadingEligibility::kDataSaverEnabled;
+    case PrerenderFinalStatus::kHasEffectiveUrl:
+      return PreloadingEligibility::kHasEffectiveUrl;
+    case PrerenderFinalStatus::kActivatedBeforeStarted:
+    case PrerenderFinalStatus::kInactivePageRestriction:
+    case PrerenderFinalStatus::kStartFailed:
+    case PrerenderFinalStatus::kTimeoutBackgrounded:
+    case PrerenderFinalStatus::kCrossSiteRedirectInInitialNavigation:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kCrossSiteNavigationInInitialNavigation:
+      return PreloadingEligibility::kCrossOrigin;
+    case PrerenderFinalStatus::
+        kSameSiteCrossOriginRedirectNotOptInInInitialNavigation:
+    case PrerenderFinalStatus::
+        kSameSiteCrossOriginNavigationNotOptInInInitialNavigation:
+    case PrerenderFinalStatus::kActivationNavigationParameterMismatch:
+    case PrerenderFinalStatus::kActivatedInBackground:
+    case PrerenderFinalStatus::kEmbedderHostDisallowed:
+    case PrerenderFinalStatus::kActivationNavigationDestroyedBeforeSuccess:
+    case PrerenderFinalStatus::kTabClosedByUserGesture:
+    case PrerenderFinalStatus::kTabClosedWithoutUserGesture:
+    case PrerenderFinalStatus::kPrimaryMainFrameRendererProcessCrashed:
+    case PrerenderFinalStatus::kPrimaryMainFrameRendererProcessKilled:
+    case PrerenderFinalStatus::kActivationFramePolicyNotCompatible:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kPreloadingDisabled:
+      return PreloadingEligibility::kPreloadingDisabled;
+    case PrerenderFinalStatus::kBatterySaverEnabled:
+      return PreloadingEligibility::kBatterySaverEnabled;
+    case PrerenderFinalStatus::kActivatedDuringMainFrameNavigation:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kPreloadingUnsupportedByWebContents:
+      return PreloadingEligibility::kPreloadingUnsupportedByWebContents;
+    case PrerenderFinalStatus::kCrossSiteRedirectInMainFrameNavigation:
+    case PrerenderFinalStatus::kCrossSiteNavigationInMainFrameNavigation:
+    case PrerenderFinalStatus::
+        kSameSiteCrossOriginRedirectNotOptInInMainFrameNavigation:
+    case PrerenderFinalStatus::
+        kSameSiteCrossOriginNavigationNotOptInInMainFrameNavigation:
+      NOTREACHED_NORETURN();
+    case PrerenderFinalStatus::kMemoryPressureOnTrigger:
+      return PreloadingEligibility::kMemoryPressure;
+    case PrerenderFinalStatus::kMemoryPressureAfterTriggered:
+      NOTREACHED_NORETURN();
+  }
+
+  NOTREACHED_NORETURN();
+}
+
+// Represents a contract and ensures that the given prerender attempt is started
+// as a PrerenderHost or rejected with a reason. It is allowed to use it only in
+// PrerenderHostRegistry::CreateAndStartHost.
+//
+// TODO(kenoss): Add emits of Preload.prerenderStatusUpdated.
+class PrerenderHostBuilder {
+ public:
+  explicit PrerenderHostBuilder(PreloadingAttempt* attempt);
+  ~PrerenderHostBuilder();
+
+  PrerenderHostBuilder(const PrerenderHostBuilder&) = delete;
+  PrerenderHostBuilder& operator=(const PrerenderHostBuilder&) = delete;
+  PrerenderHostBuilder(PrerenderHostBuilder&&) = delete;
+  PrerenderHostBuilder& operator=(PrerenderHostBuilder&&) = delete;
+
+  void SetHoldbackAllowed();
+
+  // The following methods consumes this class.
+  std::unique_ptr<PrerenderHost> Build(const PrerenderAttributes& attributes,
+                                       WebContentsImpl& prerender_web_contents);
+  void RejectAsNotEligible(const PrerenderAttributes& attributes,
+                           PrerenderFinalStatus status);
+  void RejectDueToHoldback();
+  void RejectAsDuplicate();
+  void RejectAsFailure(const PrerenderAttributes& attributes,
+                       PrerenderFinalStatus status);
+  // Public only for exceptional case.
+  // TODO(https://crbug.com/1435376): Make this private again.
+  void Drop();
+  bool IsDropped();
+
+ private:
+  // Use raw pointer as PrerenderHostBuilder is alive only during
+  // PrerenderHostRegistry::CreateAndStartHost(), and PreloadingAttempt should
+  // outlive the function.
+  raw_ptr<PreloadingAttempt> attempt_;
+  std::unique_ptr<DevToolsPrerenderAttempt> devtools_attempt_;
+};
+
+PrerenderHostBuilder::PrerenderHostBuilder(PreloadingAttempt* attempt)
+    : attempt_(attempt),
+      devtools_attempt_(std::make_unique<DevToolsPrerenderAttempt>()) {}
+
+PrerenderHostBuilder::~PrerenderHostBuilder() {
+  CHECK(IsDropped());
+}
+
+void PrerenderHostBuilder::Drop() {
+  attempt_ = nullptr;
+  devtools_attempt_.reset();
+}
+
+bool PrerenderHostBuilder::IsDropped() {
+  return devtools_attempt_ == nullptr;
+}
+
+void PrerenderHostBuilder::SetHoldbackAllowed() {
+  if (attempt_) {
+    attempt_->SetHoldbackStatus(PreloadingHoldbackStatus::kAllowed);
+  }
+}
+
+std::unique_ptr<PrerenderHost> PrerenderHostBuilder::Build(
+    const PrerenderAttributes& attributes,
+    WebContentsImpl& prerender_web_contents) {
+  CHECK(!IsDropped());
+
+  auto prerender_host = std::make_unique<PrerenderHost>(
+      attributes, prerender_web_contents,
+      attempt_ ? attempt_->GetWeakPtr() : nullptr,
+      std::move(devtools_attempt_));
+
+  Drop();
+
+  return prerender_host;
+}
+
+void PrerenderHostBuilder::RejectAsNotEligible(
+    const PrerenderAttributes& attributes,
+    PrerenderFinalStatus status) {
+  CHECK(!IsDropped());
+
+  if (attempt_) {
+    attempt_->SetEligibility(ToEligibility(status));
+  }
+
+  devtools_attempt_->SetFailureReason(attributes, status);
+
+  RecordFailedPrerenderFinalStatus(PrerenderCancellationReason(status),
+                                   attributes);
+
+  Drop();
+}
+
+void PrerenderHostBuilder::RejectAsDuplicate() {
+  CHECK(!IsDropped());
+
+  if (attempt_) {
+    attempt_->SetTriggeringOutcome(PreloadingTriggeringOutcome::kDuplicate);
+  }
+
+  // No need to report DevTools nor UMA; just removing duplicates.
+
+  Drop();
+}
+
+void PrerenderHostBuilder::RejectDueToHoldback() {
+  CHECK(!IsDropped());
+
+  if (attempt_) {
+    attempt_->SetHoldbackStatus(PreloadingHoldbackStatus::kHoldback);
+  }
+
+  // If DevTools is opened, holdbacks are force-disabled. So, we don't need to
+  // report this case to DevTools.
+
+  Drop();
+}
+
+void PrerenderHostBuilder::RejectAsFailure(
+    const PrerenderAttributes& attributes,
+    PrerenderFinalStatus status) {
+  CHECK(!IsDropped());
+
+  if (attempt_) {
+    attempt_->SetFailureReason(ToPreloadingFailureReason(status));
+  }
+
+  devtools_attempt_->SetFailureReason(attributes, status);
+
+  RecordFailedPrerenderFinalStatus(PrerenderCancellationReason(status),
+                                   attributes);
+
+  Drop();
+}
+
 }  // namespace
+
+// Kill-switch controlled by the field trial. When this feature is enabled,
+// PrerenderHostRegistry doesn't cancel prerendering even if query about the
+// current memory footprint fails. Now this is enabled by default as the query
+// frequently fails. Without the memory footprint check, the limit on the number
+// of ongoing prerendering requests and memory pressure events should prevent
+// excessive memory usage. See https://crbug.com/1444521 for details.
+BASE_FEATURE(kPrerender2IgnoreFailureOnMemoryFootprintQuery,
+             "Prerender2IgnoreFailureOnMemoryFootprintQuery",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 PrerenderHostRegistry::PrerenderHostRegistry(WebContents& web_contents)
     : memory_pressure_listener_(
@@ -209,12 +444,14 @@ PrerenderHostRegistry::PrerenderHostRegistry(WebContents& web_contents)
           base::BindRepeating(&PrerenderHostRegistry::OnMemoryPressure,
                               base::Unretained(this))) {
   Observe(&web_contents);
+  DCHECK_CURRENTLY_ON(BrowserThread::UI);
 }
 
 PrerenderHostRegistry::~PrerenderHostRegistry() {
   // This function is called by WebContentsImpl's dtor, so web_contents() should
   // not be a null ptr at this moment.
   CHECK(web_contents());
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   PrerenderFinalStatus final_status =
       web_contents()->GetClosedByUserGesture()
@@ -240,6 +477,7 @@ void PrerenderHostRegistry::RemoveObserver(Observer* observer) {
 int PrerenderHostRegistry::CreateAndStartHost(
     const PrerenderAttributes& attributes,
     PreloadingAttempt* attempt) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   std::string recorded_url =
       attributes.initiator_origin.has_value()
           ? attributes.initiator_origin.value().GetURL().spec()
@@ -265,66 +503,64 @@ int PrerenderHostRegistry::CreateAndStartHost(
         base::BindOnce(&PrerenderHostRegistry::NotifyTrigger,
                        base::Unretained(this), attributes.prerendering_url));
 
-    // Check whether preloading is enabled. If it is not enabled, report the
-    // reason.
-    if (auto reason =
-            initiator_web_contents.GetDelegate()->IsPrerender2Supported(
-                initiator_web_contents);
-        reason != PreloadingEligibility::kEligible) {
-      switch (reason) {
-        case PreloadingEligibility::kPreloadingDisabled:
-          RecordFailedPrerenderFinalStatus(
-              PrerenderCancellationReason(
-                  PrerenderFinalStatus::kPreloadingDisabled),
-              attributes);
-          break;
-        case PreloadingEligibility::kDataSaverEnabled:
-          RecordFailedPrerenderFinalStatus(
-              PrerenderCancellationReason(
-                  PrerenderFinalStatus::kDataSaverEnabled),
-              attributes);
-          break;
-        case PreloadingEligibility::kBatterySaverEnabled:
-          RecordFailedPrerenderFinalStatus(
-              PrerenderCancellationReason(
-                  PrerenderFinalStatus::kBatterySaverEnabled),
-              attributes);
-          break;
-        case PreloadingEligibility::kPreloadingUnsupportedByWebContents:
-          RecordFailedPrerenderFinalStatus(
-              PrerenderCancellationReason(
-                  PrerenderFinalStatus::kPreloadingUnsupportedByWebContents),
-              attributes);
-          break;
-        default:
-          NOTREACHED_NORETURN();
-      }
-      if (attempt)
-        attempt->SetEligibility(reason);
+    auto builder = PrerenderHostBuilder(attempt);
+
+    // We don't know the root cause, but there is a case this is null.
+    //
+    // TODO(https://crbug.com/1435376): Continue investigation and fix the root
+    // cause.
+    if (initiator_web_contents.GetDelegate() == nullptr) {
+      // Note that return without consuming `builder` is exceptional.
+      builder.Drop();
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
-    // Don't prerender when the trigger is in the background.
-    // TODO(https://crbug.com/1401252): When the sequential prerendering is
-    // enabled, enqueue this prerender request until the initiator page gets
-    // foregrounded.
-    if (initiator_web_contents.GetVisibility() == Visibility::HIDDEN) {
-      RecordFailedPrerenderFinalStatus(
-          PrerenderCancellationReason(
-              PrerenderFinalStatus::kTriggerBackgrounded),
-          attributes);
-      if (attempt)
-        attempt->SetEligibility(PreloadingEligibility::kHidden);
+    // Check whether preloading is enabled. If it is not enabled, report the
+    // reason.
+    switch (initiator_web_contents.GetDelegate()->IsPrerender2Supported(
+        initiator_web_contents)) {
+      case PreloadingEligibility::kEligible:
+        // nop
+        break;
+      case PreloadingEligibility::kPreloadingDisabled:
+        builder.RejectAsNotEligible(attributes,
+                                    PrerenderFinalStatus::kPreloadingDisabled);
+        return RenderFrameHost::kNoFrameTreeNodeId;
+      case PreloadingEligibility::kDataSaverEnabled:
+        builder.RejectAsNotEligible(attributes,
+                                    PrerenderFinalStatus::kDataSaverEnabled);
+        return RenderFrameHost::kNoFrameTreeNodeId;
+      case PreloadingEligibility::kBatterySaverEnabled:
+        builder.RejectAsNotEligible(attributes,
+                                    PrerenderFinalStatus::kBatterySaverEnabled);
+        return RenderFrameHost::kNoFrameTreeNodeId;
+      case PreloadingEligibility::kPreloadingUnsupportedByWebContents:
+        builder.RejectAsNotEligible(
+            attributes,
+            PrerenderFinalStatus::kPreloadingUnsupportedByWebContents);
+        return RenderFrameHost::kNoFrameTreeNodeId;
+      default:
+        NOTREACHED_NORETURN();
+    }
+
+    // Don't prerender when the initiator is in the background and its type is
+    // `kEmbedder`, as current implementation doesn't use `pending_prerenders_`
+    // when kEmbedder.
+    // If the trigger type is speculation rules, nothing should be done here and
+    // then prerender host will be created and its id will be enqueued to
+    // `pending_prerenders_`. The visibility of the initiator will be considered
+    // when trying to pop from `pending_prerenders_` on `StartPrerendering()`.
+    if (attributes.trigger_type == PrerenderTriggerType::kEmbedder &&
+        initiator_web_contents.GetVisibility() == Visibility::HIDDEN) {
+      builder.RejectAsNotEligible(attributes,
+                                  PrerenderFinalStatus::kTriggerBackgrounded);
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
     // Don't prerender on low-end devices.
     if (!DeviceHasEnoughMemoryForPrerender()) {
-      RecordFailedPrerenderFinalStatus(
-          PrerenderCancellationReason(PrerenderFinalStatus::kLowEndDevice),
-          attributes);
-      if (attempt)
-        attempt->SetEligibility(PreloadingEligibility::kLowMemory);
+      builder.RejectAsNotEligible(attributes,
+                                  PrerenderFinalStatus::kLowEndDevice);
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
@@ -334,13 +570,8 @@ int PrerenderHostRegistry::CreateAndStartHost(
       case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
         break;
       case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_CRITICAL:
-        RecordFailedPrerenderFinalStatus(
-            PrerenderCancellationReason(
-                PrerenderFinalStatus::kMemoryPressureOnTrigger),
-            attributes);
-        if (attempt) {
-          attempt->SetEligibility(PreloadingEligibility::kMemoryPressure);
-        }
+        builder.RejectAsNotEligible(
+            attributes, PrerenderFinalStatus::kMemoryPressureOnTrigger);
         return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
@@ -351,13 +582,9 @@ int PrerenderHostRegistry::CreateAndStartHost(
     if (!attributes.IsBrowserInitiated() &&
         !prerender_navigation_utils::IsSameSite(
             attributes.prerendering_url, attributes.initiator_origin.value())) {
-      RecordFailedPrerenderFinalStatus(
-          PrerenderCancellationReason(
-              PrerenderFinalStatus::kCrossSiteNavigationInInitialNavigation),
-          attributes);
-      if (attempt) {
-        attempt->SetEligibility(PreloadingEligibility::kCrossOrigin);
-      }
+      builder.RejectAsNotEligible(
+          attributes,
+          PrerenderFinalStatus::kCrossSiteNavigationInInitialNavigation);
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
@@ -365,11 +592,8 @@ int PrerenderHostRegistry::CreateAndStartHost(
     if (SiteInstanceImpl::HasEffectiveURL(
             prerender_web_contents.GetBrowserContext(),
             prerender_web_contents.GetURL())) {
-      RecordFailedPrerenderFinalStatus(
-          PrerenderCancellationReason(PrerenderFinalStatus::kHasEffectiveUrl),
-          attributes);
-      if (attempt)
-        attempt->SetEligibility(PreloadingEligibility::kHasEffectiveUrl);
+      builder.RejectAsNotEligible(attributes,
+                                  PrerenderFinalStatus::kHasEffectiveUrl);
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
@@ -392,21 +616,15 @@ int PrerenderHostRegistry::CreateAndStartHost(
         RenderFrameDevToolsAgentHost::GetFor(initiator_rfh) != nullptr;
     if (!should_prerender2holdback_be_overridden &&
         base::FeatureList::IsEnabled(features::kPrerender2Holdback)) {
-      if (attempt)
-        attempt->SetHoldbackStatus(PreloadingHoldbackStatus::kHoldback);
+      builder.RejectDueToHoldback();
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
-    if (attempt)
-      attempt->SetHoldbackStatus(PreloadingHoldbackStatus::kAllowed);
+    builder.SetHoldbackAllowed();
 
     // Ignore prerendering requests for the same URL.
     for (auto& iter : prerender_host_by_frame_tree_node_id_) {
       if (iter.second->GetInitialUrl() == attributes.prerendering_url) {
-        if (attempt) {
-          attempt->SetTriggeringOutcome(
-              PreloadingTriggeringOutcome::kDuplicate);
-        }
-
+        builder.RejectAsDuplicate();
         return RenderFrameHost::kNoFrameTreeNodeId;
       }
     }
@@ -415,25 +633,17 @@ int PrerenderHostRegistry::CreateAndStartHost(
     // until the forerunners are cancelled, and suspend starting a new prerender
     // when the number reaches the limit.
     if (!IsAllowedToStartPrerenderingForTrigger(attributes.trigger_type)) {
-      if (attempt) {
-        // The reason we don't consider limit exceeded as an ineligibility
-        // reason is because we can't replicate the behavior in our other
-        // experiment groups for analysis. To prevent this we set
-        // TriggeringOutcome to kFailure and look into the failure reason to
-        // learn more.
-        attempt->SetFailureReason(ToPreloadingFailureReason(
-            PrerenderFinalStatus::kMaxNumOfRunningPrerendersExceeded));
-      }
-      RecordFailedPrerenderFinalStatus(
-          PrerenderCancellationReason(
-              PrerenderFinalStatus::kMaxNumOfRunningPrerendersExceeded),
-          attributes);
+      // The reason we don't consider limit exceeded as an ineligibility
+      // reason is because we can't replicate the behavior in our other
+      // experiment groups for analysis. To prevent this we set
+      // TriggeringOutcome to kFailure and look into the failure reason to
+      // learn more.
+      builder.RejectAsFailure(
+          attributes, PrerenderFinalStatus::kMaxNumOfRunningPrerendersExceeded);
       return RenderFrameHost::kNoFrameTreeNodeId;
     }
 
-    auto prerender_host = std::make_unique<PrerenderHost>(
-        attributes, prerender_web_contents,
-        attempt ? attempt->GetWeakPtr() : nullptr);
+    auto prerender_host = builder.Build(attributes, prerender_web_contents);
     frame_tree_node_id = prerender_host->frame_tree_node_id();
 
     CHECK(!base::Contains(prerender_host_by_frame_tree_node_id_,
@@ -442,43 +652,37 @@ int PrerenderHostRegistry::CreateAndStartHost(
         std::move(prerender_host);
   }
 
-  // TODO(crbug.com/1355151): Complete the implementation of
-  // `pending_prerenders_` handling such as removing the pending request from
-  // the queue on cancellation to unwrap this feature flag.
-  if (base::FeatureList::IsEnabled(
-          blink::features::kPrerender2SequentialPrerendering)) {
-    switch (attributes.trigger_type) {
-      case PrerenderTriggerType::kSpeculationRule:
-      case PrerenderTriggerType::kSpeculationRuleFromIsolatedWorld:
-        pending_prerenders_.push_back(frame_tree_node_id);
-        // Start the initial prerendering navigation of the pending request in
-        // the head of the queue if there's no running prerender.
-        if (running_prerender_host_id_ == RenderFrameHost::kNoFrameTreeNodeId) {
-          // No running prerender means that no other prerender is waiting in
-          // the pending queue, because the prerender sequence only stops when
-          // all the pending prerenders are started.
-          CHECK_EQ(pending_prerenders_.size(), 1u);
-          int started_frame_tree_node_id =
-              StartPrerendering(RenderFrameHost::kNoFrameTreeNodeId);
-          CHECK(started_frame_tree_node_id == frame_tree_node_id ||
-                started_frame_tree_node_id ==
-                    RenderFrameHost::kNoFrameTreeNodeId);
-          frame_tree_node_id = started_frame_tree_node_id;
+  switch (attributes.trigger_type) {
+    case PrerenderTriggerType::kSpeculationRule:
+    case PrerenderTriggerType::kSpeculationRuleFromIsolatedWorld:
+      pending_prerenders_.push_back(frame_tree_node_id);
+      // Start the initial prerendering navigation of the pending request in
+      // the head of the queue if there's no running prerender and the initiator
+      // is in the foreground.
+      if (running_prerender_host_id_ == RenderFrameHost::kNoFrameTreeNodeId) {
+        // No running prerender means that either no other prerenders are in the
+        // pending queue or the initiator continues to be in the background.
+        // Skip starting prerendering in the latter case.
+        if (IsBackground(initiator_web_contents.GetVisibility())) {
+          break;
         }
-        break;
-      case PrerenderTriggerType::kEmbedder:
-        // The prerendering request from embedder should have high-priority
-        // because embedder prediction is more likely for the user to visit.
-        // Hold the return value of `StartPrerendering` because the requested
-        // prerender might be cancelled due to some restrictions and
-        // `kNoFrameTreeNodeId` should be returned in that case.
-        frame_tree_node_id = StartPrerendering(frame_tree_node_id);
-    }
-  } else {
-    // Hold the return value of `StartPrerendering` because the requested
-    // prerender might be cancelled due to some restrictions and
-    // `kNoFrameTreeNodeId` should be returned in that case.
-    frame_tree_node_id = StartPrerendering(frame_tree_node_id);
+        CHECK_EQ(pending_prerenders_.size(), 1u);
+        int started_frame_tree_node_id =
+            StartPrerendering(RenderFrameHost::kNoFrameTreeNodeId);
+        CHECK(started_frame_tree_node_id == frame_tree_node_id ||
+              started_frame_tree_node_id ==
+                  RenderFrameHost::kNoFrameTreeNodeId);
+        frame_tree_node_id = started_frame_tree_node_id;
+      }
+      break;
+    case PrerenderTriggerType::kEmbedder:
+      // The prerendering request from embedder should have high-priority
+      // because embedder prediction is more likely for the user to visit.
+      // Hold the return value of `StartPrerendering` because the requested
+      // prerender might be cancelled due to some restrictions and
+      // `kNoFrameTreeNodeId` should be returned in that case.
+      frame_tree_node_id = StartPrerendering(frame_tree_node_id);
+      break;
   }
 
   return frame_tree_node_id;
@@ -512,8 +716,6 @@ int PrerenderHostRegistry::StartPrerendering(int frame_tree_node_id) {
   // memory pressure level goes down.
 
   if (frame_tree_node_id == RenderFrameHost::kNoFrameTreeNodeId) {
-    CHECK(base::FeatureList::IsEnabled(
-        blink::features::kPrerender2SequentialPrerendering));
     CHECK_EQ(running_prerender_host_id_, RenderFrameHost::kNoFrameTreeNodeId);
 
     for (auto iter = pending_prerenders_.begin();
@@ -561,34 +763,24 @@ int PrerenderHostRegistry::StartPrerendering(int frame_tree_node_id) {
     return RenderFrameHost::kNoFrameTreeNodeId;
   }
 
-  // Check the current memory usage and destroy a prerendering if the entire
-  // browser uses excessive memory. This occurs asynchronously.
   switch (prerender_host_by_frame_tree_node_id_[frame_tree_node_id]
               ->trigger_type()) {
     case PrerenderTriggerType::kSpeculationRule:
     case PrerenderTriggerType::kSpeculationRuleFromIsolatedWorld:
+      // Check the current memory usage and destroy a prerendering if the entire
+      // browser uses excessive memory. This occurs asynchronously.
       DestroyWhenUsingExcessiveMemory(frame_tree_node_id);
+
+      // Update the `running_prerender_host_id` to the starting prerender's id.
+      running_prerender_host_id_ = frame_tree_node_id;
       break;
     case PrerenderTriggerType::kEmbedder:
       // We don't check the memory usage for embedder triggered prerenderings
       // for now.
-      break;
-  }
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kPrerender2SequentialPrerendering)) {
-    // Update the `running_prerender_host_id` to the starting prerender's id.
-    switch (prerender_host_by_frame_tree_node_id_[frame_tree_node_id]
-                ->trigger_type()) {
-      case PrerenderTriggerType::kSpeculationRule:
-      case PrerenderTriggerType::kSpeculationRuleFromIsolatedWorld:
-        running_prerender_host_id_ = frame_tree_node_id;
-        break;
-      case PrerenderTriggerType::kEmbedder:
-        // `running_prerender_host_id` only tracks the id for speculation rules
-        // trigger, so we don't update it in the case of embedder.
-        break;
-    }
+      // `running_prerender_host_id` only tracks the id for speculation rules
+      // trigger, so we also don't update it in the case of embedder.
+      break;
   }
 
   RecordPrerenderTriggered(
@@ -648,9 +840,7 @@ std::set<int> PrerenderHostRegistry::CancelHosts(
   }
 
   // Start another prerender if the running prerender is cancelled.
-  if (base::FeatureList::IsEnabled(
-          blink::features::kPrerender2SequentialPrerendering) &&
-      running_prerender_host_id_ == RenderFrameHost::kNoFrameTreeNodeId) {
+  if (running_prerender_host_id_ == RenderFrameHost::kNoFrameTreeNodeId) {
     StartPrerendering(RenderFrameHost::kNoFrameTreeNodeId);
   }
 
@@ -742,6 +932,7 @@ int PrerenderHostRegistry::ReserveHostToActivate(
   TRACE_EVENT2("navigation", "PrerenderHostRegistry::ReserveHostToActivate",
                "navigation_url", navigation_request.GetURL().spec(),
                "render_frame_host", render_frame_host);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   // Find an available host for the navigation request.
   int host_id = FindHostToActivateInternal(navigation_request);
@@ -798,6 +989,7 @@ RenderFrameHostImpl* PrerenderHostRegistry::GetRenderFrameHostForReservedHost(
 std::unique_ptr<StoredPage> PrerenderHostRegistry::ActivateReservedHost(
     int frame_tree_node_id,
     NavigationRequest& navigation_request) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   CHECK(reserved_prerender_host_);
   CHECK_EQ(frame_tree_node_id, reserved_prerender_host_->frame_tree_node_id());
 
@@ -1091,9 +1283,7 @@ void PrerenderHostRegistry::DidFinishNavigation(
 
   prerender_host->DidFinishNavigation(navigation_handle);
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kPrerender2SequentialPrerendering) &&
-      running_prerender_host_id_ == main_frame_host_id) {
+  if (running_prerender_host_id_ == main_frame_host_id) {
     running_prerender_host_id_ = RenderFrameHost::kNoFrameTreeNodeId;
     StartPrerendering(RenderFrameHost::kNoFrameTreeNodeId);
   }
@@ -1136,12 +1326,9 @@ void PrerenderHostRegistry::OnVisibilityChanged(Visibility visibility) {
     timeout_timer_for_embedder_.Stop();
     timeout_timer_for_speculation_rules_.Stop();
 
-    if (base::FeatureList::IsEnabled(
-            blink::features::kPrerender2SequentialPrerendering)) {
-      // Start the next prerender if needed.
-      if (running_prerender_host_id_ == RenderFrameHost::kNoFrameTreeNodeId) {
-        StartPrerendering(RenderFrameHost::kNoFrameTreeNodeId);
-      }
+    // Start the next prerender if needed.
+    if (running_prerender_host_id_ == RenderFrameHost::kNoFrameTreeNodeId) {
+      StartPrerendering(RenderFrameHost::kNoFrameTreeNodeId);
     }
   }
 }
@@ -1163,12 +1350,15 @@ void PrerenderHostRegistry::ResourceLoadComplete(
   }
 
   // Cancel the corresponding prerender if the resource load is blocked.
-  for (auto& iter : prerender_host_by_frame_tree_node_id_) {
+  for (auto& [host_id, host] : prerender_host_by_frame_tree_node_id_) {
     if (&render_frame_host->GetPage() !=
-        &iter.second->GetPrerenderedMainFrameHost()->GetPage()) {
+        &host->GetPrerenderedMainFrameHost()->GetPage()) {
       continue;
     }
-    CancelHost(iter.first, PrerenderFinalStatus::kBlockedByClient);
+    RecordBlockedByClientResourceType(resource_load_info.request_destination,
+                                      host->trigger_type(),
+                                      host->embedder_histogram_suffix());
+    CancelHost(host_id, PrerenderFinalStatus::kBlockedByClient);
     break;
   }
 }
@@ -1235,8 +1425,6 @@ int PrerenderHostRegistry::FindHostToActivateInternal(
   }
 
   if (!host->GetInitialNavigationId().has_value()) {
-    CHECK(base::FeatureList::IsEnabled(
-        blink::features::kPrerender2SequentialPrerendering));
     CancelHost(host->frame_tree_node_id(),
                PrerenderFinalStatus::kActivatedBeforeStarted);
     return RenderFrameHost::kNoFrameTreeNodeId;
@@ -1289,6 +1477,11 @@ int PrerenderHostRegistry::FindHostToActivateInternal(
 void PrerenderHostRegistry::ScheduleToDeleteAbandonedHost(
     std::unique_ptr<PrerenderHost> prerender_host,
     const PrerenderCancellationReason& cancellation_reason) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI))
+      << "Post tasks to destroy PrerenderHosts on non-ui threads "
+         "with reason of "
+      << static_cast<int>(cancellation_reason.final_status());
   prerender_host->RecordFailedFinalStatus(PassKey(), cancellation_reason);
 
   // Asynchronously delete the prerender host.
@@ -1299,7 +1492,14 @@ void PrerenderHostRegistry::ScheduleToDeleteAbandonedHost(
 }
 
 void PrerenderHostRegistry::DeleteAbandonedHosts() {
-  to_be_deleted_hosts_.clear();
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // Swap the vector and let it scope out instead of directly destructing the
+  // hosts in the vector, for example, by `to_be_deleted_hosts_.clear()`. This
+  // avoids potential cases where a host being deleted indirectly modifies
+  // `to_be_deleted_hosts_` while the vector is being cleared up. See
+  // https://crbug.com/1431744 for contexts.
+  std::vector<std::unique_ptr<PrerenderHost>> hosts;
+  to_be_deleted_hosts_.swap(hosts);
 }
 
 void PrerenderHostRegistry::NotifyTrigger(const GURL& url) {
@@ -1379,8 +1579,13 @@ void PrerenderHostRegistry::DidReceiveMemoryDump(
     return;
   }
 
-  // Stop a prerendering when we can't get the current memory usage.
+  // Stop a prerendering or give up checking the memory consumption depending on
+  // the feature flag when we can't get the current memory usage.
   if (!success) {
+    if (base::FeatureList::IsEnabled(
+            kPrerender2IgnoreFailureOnMemoryFootprintQuery)) {
+      return;
+    }
     CancelHost(frame_tree_node_id, PrerenderFinalStatus::kFailToGetMemoryUsage);
     return;
   }

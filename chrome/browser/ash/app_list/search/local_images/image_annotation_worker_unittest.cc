@@ -29,9 +29,8 @@ class ImageAnnotationWorkerTest : public testing::Test {
     ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
 
     test_directory_ = temp_dir.GetPath();
-    annotation_worker_ =
-        std::make_unique<ImageAnnotationWorker>(test_directory_);
-    annotation_worker_->UseFakeAnnotatorForTests();
+    annotation_worker_ = std::make_unique<ImageAnnotationWorker>(
+        test_directory_, /*use_ocr=*/false, /*use_ica=*/false);
     bar_image_path_ = test_directory_.AppendASCII("bar.jpg");
     const base::FilePath test_db = test_directory_.AppendASCII("test.db");
     storage_ = std::make_unique<AnnotationStorage>(
@@ -39,7 +38,8 @@ class ImageAnnotationWorkerTest : public testing::Test {
         /*current_version_number=*/2, /*annotation_worker=*/nullptr);
   }
 
-  base::test::TaskEnvironment task_environment_;
+  base::test::TaskEnvironment task_environment_{
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   std::unique_ptr<ImageAnnotationWorker> annotation_worker_;
   std::unique_ptr<AnnotationStorage> storage_;
   base::FilePath test_directory_;
@@ -65,6 +65,7 @@ TEST_F(ImageAnnotationWorkerTest, MustProcessTheFolderAtInitTest) {
   }
 
   annotation_worker_->Initialize(storage_.get());
+  task_environment_.FastForwardBy(base::Seconds(1));
   task_environment_.RunUntilIdle();
 
   ImageInfo jpg_image({"bar"}, jpg_path, image_time);

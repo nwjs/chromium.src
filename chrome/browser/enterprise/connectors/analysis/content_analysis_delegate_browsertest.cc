@@ -37,6 +37,10 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "content/public/test/browser_test.h"
 
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#include "chrome/browser/enterprise/connectors/analysis/fake_content_analysis_sdk_manager.h"  // nogncheck
+#endif
+
 using extensions::SafeBrowsingPrivateEventRouter;
 using safe_browsing::BinaryUploadService;
 using safe_browsing::CloudBinaryUploadService;
@@ -285,12 +289,10 @@ class ContentAnalysisDelegateBrowserTestBase
 
   void EnableUploadsScanningAndReporting() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    SetDMTokenForTesting(
-        policy::DMToken::CreateValidTokenForTesting(kBrowserDMToken));
+    SetDMTokenForTesting(policy::DMToken::CreateValidToken(kBrowserDMToken));
 #else
     if (machine_scope_) {
-      SetDMTokenForTesting(
-          policy::DMToken::CreateValidTokenForTesting(kBrowserDMToken));
+      SetDMTokenForTesting(policy::DMToken::CreateValidToken(kBrowserDMToken));
     } else {
       safe_browsing::SetProfileDMToken(browser()->profile(), kProfileDMToken);
     }
@@ -377,6 +379,12 @@ class ContentAnalysisDelegateBrowserTestBase
   }
 
  private:
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  // This installs a fake SDK manager that creates fake SDK clients when
+  // its GetClient() method is called. This is needed so that calls to
+  // ContentAnalysisSdkManager::Get()->GetClient() do not fail.
+  FakeContentAnalysisSdkManager sdk_manager_;
+#endif
   std::unique_ptr<policy::MockCloudPolicyClient> client_;
   std::unique_ptr<signin::IdentityTestEnvironment> identity_test_environment_;
   base::ScopedTempDir temp_dir_;
@@ -1397,12 +1405,10 @@ class ContentAnalysisDelegateUnauthorizedBrowserTest
 
   void SetUpScanning(bool file_scan) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-    SetDMTokenForTesting(
-        policy::DMToken::CreateValidTokenForTesting(dm_token()));
+    SetDMTokenForTesting(policy::DMToken::CreateValidToken(dm_token()));
 #else
     if (machine_scope()) {
-      SetDMTokenForTesting(
-          policy::DMToken::CreateValidTokenForTesting(dm_token()));
+      SetDMTokenForTesting(policy::DMToken::CreateValidToken(dm_token()));
     } else {
       safe_browsing::SetProfileDMToken(browser()->profile(), dm_token());
     }

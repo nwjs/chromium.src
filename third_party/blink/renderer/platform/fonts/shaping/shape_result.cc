@@ -1453,16 +1453,6 @@ void ShapeResult::CheckConsistency() const {
 
 scoped_refptr<ShapeResult> ShapeResult::CreateForTabulationCharacters(
     const Font* font,
-    const TextRun& text_run,
-    float position_offset,
-    unsigned length) {
-  return CreateForTabulationCharacters(
-      font, text_run.Direction(), text_run.GetTabSize(),
-      text_run.XPos() + position_offset, 0, length);
-}
-
-scoped_refptr<ShapeResult> ShapeResult::CreateForTabulationCharacters(
-    const Font* font,
     TextDirection direction,
     const TabSize& tab_size,
     float position,
@@ -1890,7 +1880,7 @@ unsigned ShapeResult::CharacterPositionData::PreviousSafeToBreakOffset(
     unsigned offset) const {
   DCHECK_LE(start_offset_, offset);
   unsigned adjusted_offset = offset - start_offset_;
-  DCHECK_LT(adjusted_offset, data_.size());
+  DCHECK_LE(adjusted_offset, data_.size());
 
   // Assume it is always safe to break at the end of the run.
   if (adjusted_offset >= data_.size())

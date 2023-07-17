@@ -34,6 +34,22 @@ namespace content {
 
 namespace {
 
+// Whether loading state updates to the
+// network::mojom::URLLoaderNetworkServiceObserver are inhibited for URLLoaders
+// created via URLLoaderFactoryParamsHelper.
+//
+// network::mojom::URLLoaderNetworkServiceObserver::OnLoadingStateUpdate is
+// among the most frequent Mojo messages in traces from the field
+// (go/mojos-in-field-traces-2022). We'll disable it via a Canary/Dev-only
+// experiment to measure impact on performance. The user observable impact is
+// that the status bubble will no longer be displayed. We'll determine the next
+// steps after running the experiment.
+//
+// crbug.com/1433341
+BASE_FEATURE(kInhibitLoadingStateUpdate,
+             "InhibitLoadingStateUpdate",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Helper used by the public URLLoaderFactoryParamsHelper::Create... methods.
 //
 // |origin| is the origin that will use the URLLoaderFactory.
@@ -107,7 +123,8 @@ network::mojom::URLLoaderFactoryParamsPtr CreateParams(
   }
 
   // If we have a URLLoaderNetworkObserver, request loading state updates.
-  if (url_loader_network_observer) {
+  if (url_loader_network_observer &&
+      !base::FeatureList::IsEnabled(kInhibitLoadingStateUpdate)) {
     params->provide_loading_state_updates = true;
   }
 

@@ -150,7 +150,6 @@ TEST_F(AutofillFeedbackDataUnitTest, CreatesCompleteReport) {
   auto expected_data = base::JSONReader::ReadAndReturnValueWithError(
       kExpectedFeedbackDataJSON,
       base::JSONParserOptions::JSON_ALLOW_TRAILING_COMMAS);
-
   ASSERT_TRUE(expected_data.has_value()) << expected_data.error().message;
   ASSERT_TRUE(expected_data->is_dict());
   EXPECT_EQ(autofill_feedback_data, expected_data->GetDict());
@@ -166,7 +165,7 @@ TEST_F(AutofillFeedbackDataUnitTest, IncludesLastAutofillEventLogEntry) {
 
   // Simulates an autofill event.
   browser_autofill_manager_->OnSingleFieldSuggestionSelected(
-      u"TestValue", POPUP_ITEM_ID_IBAN_ENTRY, form, field);
+      u"TestValue", PopupItemId::kIbanEntry, form, field);
 
   auto expected_data = base::JSONReader::ReadAndReturnValueWithError(
       kExpectedFeedbackDataJSON,
@@ -198,7 +197,7 @@ TEST_F(AutofillFeedbackDataUnitTest,
 
   // Simulates an autofill event.
   browser_autofill_manager_->OnSingleFieldSuggestionSelected(
-      u"TestValue", POPUP_ITEM_ID_IBAN_ENTRY, form, field);
+      u"TestValue", PopupItemId::kIbanEntry, form, field);
 
   // Advance the clock 4 minutes should disregard the last autofill event log.
   clock.Advance(base::Minutes(4));

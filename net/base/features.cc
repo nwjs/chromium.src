@@ -80,7 +80,7 @@ BASE_FEATURE(kEncryptedClientHello,
 
 BASE_FEATURE(kEncryptedClientHelloQuic,
              "EncryptedClientHelloQuic",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kNetworkQualityEstimator,
              "NetworkQualityEstimator",
@@ -226,6 +226,10 @@ BASE_FEATURE(kSamePartyAttributeEnabled,
              "SamePartyAttributeEnabled",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kWaitForFirstPartySetsInit,
+             "WaitForFirstPartySetsInit",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kPartitionedCookies,
              "PartitionedCookies",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -353,5 +357,21 @@ BASE_FEATURE(kAddressTrackerLinuxIsProxied,
              "AddressTrackerLinuxIsProxied",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_LINUX)
+
+// Enables binding of cookies to the port that originally set them by default.
+BASE_FEATURE(kEnablePortBoundCookies,
+             "EnablePortBoundCookies",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables binding of cookies to the scheme that originally set them.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableSchemeBoundCookies);
+BASE_FEATURE(kEnableSchemeBoundCookies,
+             "EnableSchemeBoundCookies",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable third-party cookie blocking from the command line.
+BASE_FEATURE(kForceThirdPartyCookieBlocking,
+             "ForceThirdPartyCookieBlockingEnabled",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace net::features

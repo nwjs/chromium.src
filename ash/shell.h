@@ -18,6 +18,7 @@
 #include "ash/public/cpp/session/session_observer.h"
 #include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/system_sounds_delegate.h"
+#include "ash/quick_pair/keyed_service/quick_pair_mediator.h"
 #include "ash/wm/system_modal_container_event_filter_delegate.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -52,6 +53,7 @@ namespace display {
 class DisplayChangeObserver;
 class DisplayConfigurator;
 class DisplayManager;
+class DisplayPortObserver;
 }  // namespace display
 
 namespace gfx {
@@ -98,6 +100,7 @@ class AccessibilityEventHandlerManager;
 class AccessibilityFocusRingControllerImpl;
 class AdaptiveChargingController;
 class AmbientController;
+class AnchoredNudgeManagerImpl;
 class AppListControllerImpl;
 class AppListFeatureUsageMetrics;
 class AshAcceleratorConfiguration;
@@ -114,6 +117,7 @@ class BacklightsForcedOffSetter;
 class BluetoothDeviceStatusUiHandler;
 class BluetoothNotificationController;
 class BluetoothStateCache;
+class BootingAnimationController;
 class BrightnessControlDelegate;
 class CalendarController;
 class CameraEffectsController;
@@ -152,6 +156,7 @@ class GlanceablesController;
 class GlanceablesV2Controller;
 class ColorEnhancementController;
 class HoldingSpaceController;
+class HotspotInfoCache;
 class HumanPresenceOrientationController;
 class ImeControllerImpl;
 class InputDeviceKeyAliasManager;
@@ -406,6 +411,9 @@ class ASH_EXPORT Shell : public SessionObserver,
     return adaptive_charging_controller_.get();
   }
   AmbientController* ambient_controller() { return ambient_controller_.get(); }
+  AnchoredNudgeManagerImpl* anchored_nudge_manager() {
+    return anchored_nudge_manager_.get();
+  }
   AshAcceleratorConfiguration* ash_accelerator_configuration() {
     return ash_accelerator_configuration_.get();
   }
@@ -426,6 +434,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   }
   BluetoothStateCache* bluetooth_state_cache() {
     return bluetooth_state_cache_.get();
+  }
+  BootingAnimationController* booting_animation_controller() {
+    return booting_animation_controller_.get();
   }
   BrightnessControlDelegate* brightness_control_delegate() {
     return brightness_control_delegate_.get();
@@ -547,6 +558,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   ColorEnhancementController* color_enhancement_controller() {
     return color_enhancement_controller_.get();
   }
+  HotspotInfoCache* hotspot_info_cache() { return hotspot_info_cache_.get(); }
   HumanPresenceOrientationController* human_presence_orientation_controller() {
     return human_presence_orientation_controller_.get();
   }
@@ -855,6 +867,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   void Init(ui::ContextFactory* context_factory,
             PrefService* local_state,
             std::unique_ptr<keyboard::KeyboardUIFactory> keyboard_ui_factory,
+            std::unique_ptr<ash::quick_pair::Mediator::Factory>
+                quick_pair_mediator_factory,
             scoped_refptr<dbus::Bus> dbus_bus);
 
   // Initializes the display manager and related components.
@@ -912,6 +926,7 @@ class ASH_EXPORT Shell : public SessionObserver,
       accessibility_focus_ring_controller_;
   std::unique_ptr<AdaptiveChargingController> adaptive_charging_controller_;
   std::unique_ptr<AmbientController> ambient_controller_;
+  std::unique_ptr<AnchoredNudgeManagerImpl> anchored_nudge_manager_;
   std::unique_ptr<AppListControllerImpl> app_list_controller_;
   std::unique_ptr<AppListFeatureUsageMetrics> app_list_feature_usage_metrics_;
   // May be null in tests or when running on linux-chromeos.
@@ -947,6 +962,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<FloatController> float_controller_;
   std::unique_ptr<GameDashboardController> game_dashboard_controller_;
   std::unique_ptr<GeolocationController> geolocation_controller_;
+  std::unique_ptr<BootingAnimationController> booting_animation_controller_;
   std::unique_ptr<GlanceablesController> glanceables_controller_;
   std::unique_ptr<GlanceablesV2Controller> glanceables_v2_controller_;
   std::unique_ptr<HoldingSpaceController> holding_space_controller_;
@@ -1091,6 +1107,8 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<DisplayColorManager> display_color_manager_;
   std::unique_ptr<DisplayErrorObserver> display_error_observer_;
   std::unique_ptr<ProjectingObserver> projecting_observer_;
+  std::unique_ptr<HotspotInfoCache> hotspot_info_cache_;
+  std::unique_ptr<display::DisplayPortObserver> display_port_observer_;
 
   // Listens for output changes and updates the display manager.
   std::unique_ptr<display::DisplayChangeObserver> display_change_observer_;

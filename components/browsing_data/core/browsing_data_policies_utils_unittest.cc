@@ -41,12 +41,13 @@ TEST(BrowsingDataPoliciesUtils, UpdateSyncTypesForBrowsingDataLifetime) {
   syncer::UserSelectableTypeSet sync_types =
       browsing_data::GetSyncTypesForBrowsingDataLifetime(
           browsing_data_lifetime_value);
-  syncer::UserSelectableTypeSet expected_types = syncer::UserSelectableTypeSet(
+  const syncer::UserSelectableTypeSet expected_types = {
       syncer::UserSelectableType::kAutofill,
       syncer::UserSelectableType::kPreferences,
       syncer::UserSelectableType::kPasswords,
-      syncer::UserSelectableType::kHistory, syncer::UserSelectableType::kTabs,
-      syncer::UserSelectableType::kSavedTabGroups);
+      syncer::UserSelectableType::kHistory,
+      syncer::UserSelectableType::kTabs,
+      syncer::UserSelectableType::kSavedTabGroups};
   EXPECT_EQ(sync_types, expected_types);
 }
 
@@ -74,12 +75,32 @@ TEST(BrowsingDataPoliciesUtils, UpdateSyncTypesForClearBrowsingDataOnExit) {
   syncer::UserSelectableTypeSet sync_types =
       browsing_data::GetSyncTypesForClearBrowsingData(
           clear_browsing_data_on_exit_value);
-  syncer::UserSelectableTypeSet expected_types = syncer::UserSelectableTypeSet(
+  const syncer::UserSelectableTypeSet expected_types = {
       syncer::UserSelectableType::kAutofill,
       syncer::UserSelectableType::kPreferences,
       syncer::UserSelectableType::kPasswords,
-      syncer::UserSelectableType::kHistory, syncer::UserSelectableType::kTabs,
-      syncer::UserSelectableType::kSavedTabGroups);
+      syncer::UserSelectableType::kHistory,
+      syncer::UserSelectableType::kTabs,
+      syncer::UserSelectableType::kSavedTabGroups};
   EXPECT_EQ(sync_types, expected_types);
 }
 #endif
+
+TEST(BrowsingDataPoliciesUtils, NameToPolicyDataType) {
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("browsing_history"),
+            browsing_data::PolicyDataType::kBrowsingHistory);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("password_signin"),
+            browsing_data::PolicyDataType::kPasswordSignin);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("autofill"),
+            browsing_data::PolicyDataType::kAutofill);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("site_settings"),
+            browsing_data::PolicyDataType::kSiteSettings);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("hosted_app_data"),
+            browsing_data::PolicyDataType::kHostedAppData);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("download_history"),
+            browsing_data::PolicyDataType::kDownloadHistory);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("cookies_and_other_site_data"),
+            browsing_data::PolicyDataType::kCookiesAndOtherSiteData);
+  EXPECT_EQ(browsing_data::NameToPolicyDataType("cached_images_and_files"),
+            browsing_data::PolicyDataType::kCachedImagesAndFiles);
+}

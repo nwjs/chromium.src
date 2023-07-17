@@ -34,11 +34,21 @@ class DeviceCommandStartCrdSessionJob : public RemoteCommandJob {
    public:
     // Session parameters used to start the CRD host.
     struct SessionParameters {
+      SessionParameters();
+      ~SessionParameters();
+
+      SessionParameters(const SessionParameters&);
+      SessionParameters& operator=(const SessionParameters&);
+      SessionParameters(SessionParameters&&);
+      SessionParameters& operator=(SessionParameters&&);
+
       std::string oauth_token = "";
       std::string user_name = "";
+      absl::optional<std::string> admin_email;
       bool terminate_upon_input = false;
       bool show_confirmation_dialog = false;
       bool curtain_local_user_session = false;
+      bool allow_troubleshooting_tools = false;
     };
 
     virtual ~Delegate() = default;
@@ -109,6 +119,7 @@ class DeviceCommandStartCrdSessionJob : public RemoteCommandJob {
   std::string GetRobotAccountUserName() const;
   bool ShouldShowConfirmationDialog() const;
   bool ShouldTerminateUponInput() const;
+  bool ShouldAllowTroubleshootingTools() const;
 
   ErrorCallback GetErrorCallback();
 
@@ -129,6 +140,9 @@ class DeviceCommandStartCrdSessionJob : public RemoteCommandJob {
 
   // True if the admin requested a curtained remote access session.
   bool curtain_local_user_session_ = false;
+
+  // The email address of the admin user who issued the remote command.
+  absl::optional<std::string> admin_email_;
 
   // -- End of command parameters --
 

@@ -65,6 +65,11 @@ export class Preview {
   private faceOverlay: FaceOverlay|null = null;
 
   /**
+   * The observer to monitor average FPS of the preview stream.
+   */
+  private fpsObserver: util.FpsObserver|null = null;
+
+  /**
    * Current active stream.
    */
   private streamInternal: MediaStream|null = null;
@@ -245,7 +250,7 @@ export class Preview {
 
   toString(): string {
     const {videoWidth, videoHeight} = this.video;
-    return videoHeight ? `${videoWidth} x ${videoHeight}` : '';
+    return videoHeight > 0 ? `${videoWidth} x ${videoHeight}` : '';
   }
 
   /**
@@ -337,7 +342,8 @@ export class Preview {
         this.vidPid = await deviceOperator.getVidPid(deviceId);
       }
 
-      assert(this.onPreviewExpired === null);
+      assert(
+          this.onPreviewExpired === null || this.onPreviewExpired.isSignaled());
       this.onPreviewExpired = new WaitableEvent();
       state.set(state.State.STREAMING, true);
     } catch (e) {
@@ -369,7 +375,6 @@ export class Preview {
 
     if (this.onPreviewExpired !== null) {
       this.onPreviewExpired.signal();
-      this.onPreviewExpired = null;
     }
     state.set(state.State.STREAMING, false);
   }
@@ -403,7 +408,7 @@ export class Preview {
    * @return Promise for the operation.
    */
   private async enableShowMetadata(): Promise<void> {
-    if (!this.streamInternal) {
+    if (this.streamInternal === null) {
       return;
     }
 
@@ -534,36 +539,19 @@ export class Preview {
     const resolution = `${videoWidth}x${videoHeight}`;
     const videoTrack = this.getVideoTrack();
     const deviceName = videoTrack.label;
-
-    // Currently there is no easy way to calculate the fps of a video element.
-    // Here we use the metadata events to calculate a reasonable approximation.
-    const updateFps = (() => {
-      const FPS_MEASURE_FRAMES = 100;
-      const timestamps: number[] = [];
-      return () => {
-        const now = performance.now();
-        timestamps.push(now);
-        if (timestamps.length > FPS_MEASURE_FRAMES) {
-          timestamps.shift();
-        }
-        if (timestamps.length === 1) {
-          return null;
-        }
-        return (timestamps.length - 1) / (now - timestamps[0]) * 1000;
-      };
-    })();
-
     const deviceOperator = DeviceOperator.getInstance();
-    if (!deviceOperator) {
+    if (deviceOperator === null) {
       return;
     }
+
+    this.fpsObserver = new util.FpsObserver(this.video);
 
     const {deviceId} = getVideoTrackSettings(videoTrack);
     const activeArraySize = await deviceOperator.getActiveArraySize(deviceId);
     const cameraFrameRotation =
         await deviceOperator.getCameraFrameRotation(deviceId);
-    this.faceOverlay = new FaceOverlay(
-        activeArraySize, (360 - cameraFrameRotation) % 360, deviceId);
+    this.faceOverlay =
+        new FaceOverlay(activeArraySize, cameraFrameRotation, deviceId);
 
     const updateFace =
         (mode: AndroidStatisticsFaceDetectMode, rects: number[]) => {
@@ -586,9 +574,11 @@ export class Preview {
     const callback = (metadata: CameraMetadata) => {
       showValue('#preview-resolution', resolution);
       showValue('#preview-device-name', deviceName);
-      const fps = updateFps();
-      if (fps !== null) {
-        showValue('#preview-fps', `${fps.toFixed(0)} FPS`);
+      if (this.fpsObserver !== null) {
+        const fps = this.fpsObserver.getAverageFps();
+        if (fps !== null) {
+          showValue('#preview-fps', `${fps.toFixed(0)} FPS`);
+        }
       }
 
       let faceMode = AndroidStatisticsFaceDetectMode
@@ -642,7 +632,7 @@ export class Preview {
    * @return Promise for the operation.
    */
   private async disableShowMetadata(): Promise<void> {
-    if (!this.streamInternal || this.metadataObserver === null) {
+    if (this.streamInternal === null || this.metadataObserver === null) {
       return;
     }
 
@@ -652,6 +642,11 @@ export class Preview {
     if (this.faceOverlay !== null) {
       this.faceOverlay.clear();
       this.faceOverlay = null;
+    }
+
+    if (this.fpsObserver !== null) {
+      this.fpsObserver.stop();
+      this.fpsObserver = null;
     }
   }
 
@@ -702,8 +697,8 @@ export class Preview {
       if (marker !== this.focusMarker) {
         return;  // Focus was cancelled.
       }
-      const aim = dom.get('#preview-focus-aim', HTMLObjectElement);
-      const clone = assertInstanceof(aim.cloneNode(true), HTMLObjectElement);
+      const aim = dom.get('#preview-focus-aim', HTMLElement);
+      const clone = assertInstanceof(aim.cloneNode(true), HTMLElement);
       clone.style.left = `${event.offsetX + this.video.offsetLeft}px`;
       clone.style.top = `${event.offsetY + this.video.offsetTop}px`;
       clone.hidden = false;
@@ -717,7 +712,7 @@ export class Preview {
    */
   private cancelFocus() {
     this.focusMarker = null;
-    const aim = dom.get('#preview-focus-aim', HTMLObjectElement);
+    const aim = dom.get('#preview-focus-aim', HTMLElement);
     aim.hidden = true;
   }
 }

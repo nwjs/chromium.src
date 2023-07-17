@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "base/check_op.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
 #include "build/build_config.h"
@@ -20,9 +21,23 @@ namespace viz {
 
 namespace {
 
+void LogInfo(WGPULoggingType type, char const* message, void* userdata) {
+  VLOG(1) << message;
+}
+
+void LogError(WGPUErrorType type, char const* message, void* userdata) {
+  LOG(ERROR) << message;
+}
+
+void LogFatal(WGPUDeviceLostReason reason,
+              char const* message,
+              void* userdata) {
+  LOG(FATAL) << message;
+}
+
 wgpu::BackendType GetDefaultBackendType() {
 #if BUILDFLAG(IS_WIN)
-  return wgpu::BackendType::D3D12;
+  return wgpu::BackendType::D3D11;
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   return wgpu::BackendType::Vulkan;
 #elif BUILDFLAG(IS_MAC)
@@ -54,30 +69,58 @@ DawnContextProvider::DawnContextProvider() {
 DawnContextProvider::~DawnContextProvider() = default;
 
 wgpu::Device DawnContextProvider::CreateDevice(wgpu::BackendType type) {
+#if DCHECK_IS_ON()
+  instance_.EnableBackendValidation(true);
+#endif
+
   instance_.DiscoverDefaultAdapters();
   DawnProcTable backend_procs = dawn::native::GetProcs();
   dawnProcSetProcs(&backend_procs);
 
   // If a new toggle is added here, ForceDawnTogglesForSkia() which collects
   // info for about:gpu should be updated as well.
+  wgpu::DeviceDescriptor descriptor;
 
   // Disable validation in non-DCHECK builds.
-  dawn::native::DawnDeviceDescriptor descriptor;
 #if !DCHECK_IS_ON()
-  descriptor.forceEnabledToggles.push_back("disable_robustness");
-  descriptor.forceEnabledToggles.push_back("skip_validation");
-  descriptor.forceDisabledToggles.push_back("lazy_clear_resource_on_first_use");
+  std::vector<const char*> force_enabled_toggles;
+  std::vector<const char*> force_disabled_toggles;
+
+  force_enabled_toggles.push_back("disable_robustness");
+  force_enabled_toggles.push_back("skip_validation");
+  force_disabled_toggles.push_back("lazy_clear_resource_on_first_use");
+
+  wgpu::DawnTogglesDescriptor toggles_desc;
+  toggles_desc.enabledToggles = force_enabled_toggles.data();
+  toggles_desc.enabledTogglesCount = force_enabled_toggles.size();
+  toggles_desc.disabledToggles = force_disabled_toggles.data();
+  toggles_desc.disabledTogglesCount = force_disabled_toggles.size();
+  descriptor.nextInChain = &toggles_desc;
 #endif
-  descriptor.requiredFeatures.push_back("dawn-internal-usages");
-  descriptor.requiredFeatures.push_back("depth-clip-control");
-  descriptor.requiredFeatures.push_back("depth32float-stencil8");
+
+  std::vector<wgpu::FeatureName> features;
+  features.push_back(wgpu::FeatureName::DawnInternalUsages);
+  features.push_back(wgpu::FeatureName::DepthClipControl);
+  features.push_back(wgpu::FeatureName::Depth32FloatStencil8);
+  features.push_back(wgpu::FeatureName::ImplicitDeviceSynchronization);
+  features.push_back(wgpu::FeatureName::SurfaceCapabilities);
+
+  descriptor.requiredFeatures = features.data();
+  descriptor.requiredFeaturesCount = features.size();
 
   std::vector<dawn::native::Adapter> adapters = instance_.GetAdapters();
   for (dawn::native::Adapter adapter : adapters) {
     wgpu::AdapterProperties properties;
     adapter.GetProperties(&properties);
-    if (properties.backendType == type)
-      return adapter.CreateDevice(&descriptor);
+    if (properties.backendType == type) {
+      wgpu::Device device(adapter.CreateDevice(&descriptor));
+      if (device) {
+        device.SetUncapturedErrorCallback(&LogError, nullptr);
+        device.SetDeviceLostCallback(&LogFatal, nullptr);
+        device.SetLoggingCallback(&LogInfo, nullptr);
+      }
+      return device;
+    }
   }
   return nullptr;
 }

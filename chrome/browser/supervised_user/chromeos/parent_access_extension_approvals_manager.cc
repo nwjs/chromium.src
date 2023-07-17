@@ -10,11 +10,10 @@
 #include "chrome/browser/extensions/extension_util.h"
 #include "chrome/browser/extensions/install_prompt_permissions.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/supervised_user/supervised_user_service.h"
-#include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "chrome/browser/supervised_user/supervised_user_browser_utils.h"
+#include "chrome/browser/supervised_user/supervised_user_extensions_metrics_recorder.h"
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_dialog.h"
 #include "chrome/browser/ui/webui/ash/parent_access/parent_access_ui.mojom.h"
-#include "components/user_manager/user_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "extensions/browser/supervised_user_extensions_delegate.h"
 #include "extensions/common/extension.h"
@@ -23,14 +22,7 @@
 #include "ui/gfx/image/image_skia.h"
 
 namespace {
-
-std::u16string GetActiveUserFirstName() {
-  // TODO(b/250924204): Support fetching active user name in LaCrOS.
-  user_manager::UserManager* manager = user_manager::UserManager::Get();
-  const user_manager::User* user = manager->GetActiveUser();
-  return user->GetGivenName();
-}
-
+extensions::TestExtensionApprovalsManagerObserver* test_observer = nullptr;
 }  // namespace
 
 namespace extensions {
@@ -45,12 +37,16 @@ void ParentAccessExtensionApprovalsManager::ShowParentAccessDialog(
     const Extension& extension,
     content::BrowserContext* context,
     const gfx::ImageSkia& icon,
+    ExtensionInstallMode extension_install_mode,
     SupervisedUserExtensionsDelegate::ExtensionApprovalDoneCallback callback) {
+  Profile* profile = Profile::FromBrowserContext(context);
+  CHECK(profile);
+
   // Load permission strings.
   InstallPromptPermissions prompt_permissions;
   std::unique_ptr<const PermissionSet> permissions_to_display =
       util::GetInstallPromptPermissionSetForExtension(
-          &extension, Profile::FromBrowserContext(context),
+          &extension, profile,
           // Matches behavior of regular extension install prompt because this
           // prompt is never used for delegated permissions, which is the only
           // time optional permissions are shown.
@@ -74,8 +70,11 @@ void ParentAccessExtensionApprovalsManager::ShowParentAccessDialog(
           parent_access_ui::mojom::FlowTypeParams::NewExtensionApprovalsParams(
               parent_access_ui::mojom::ExtensionApprovalsParams::New(
                   base::UTF8ToUTF16(extension.name()), icon_bitmap,
-                  GetActiveUserFirstName(), std::move(permissions))),
-          /* is_disabled= */ !CanInstallExtensions(context));
+                  base::UTF8ToUTF16(
+                      supervised_user::GetAccountGivenName(*profile)),
+                  std::move(permissions))),
+          /* is_disabled= */ extension_install_mode ==
+              ExtensionInstallMode::kInstallationDenied);
 
   ash::ParentAccessDialogProvider::ShowError show_error =
       GetParentAccessDialogProvider()->Show(
@@ -89,6 +88,9 @@ void ParentAccessExtensionApprovalsManager::ShowParentAccessDialog(
         SupervisedUserExtensionsDelegate::ExtensionApprovalResult::kFailed);
   } else {
     done_callback_ = std::move(callback);
+    if (test_observer) {
+      test_observer->OnTestParentAccessDialogCreated();
+    }
   }
 }
 
@@ -97,13 +99,6 @@ ParentAccessExtensionApprovalsManager::SetDialogProviderForTest(
     std::unique_ptr<ash::ParentAccessDialogProvider> provider) {
   dialog_provider_ = std::move(provider);
   return dialog_provider_.get();
-}
-
-bool ParentAccessExtensionApprovalsManager::CanInstallExtensions(
-    content::BrowserContext* context) const {
-  SupervisedUserService* supervised_user_service =
-      SupervisedUserServiceFactory::GetForBrowserContext(context);
-  return supervised_user_service->CanInstallExtensions();
 }
 
 void ParentAccessExtensionApprovalsManager::OnParentAccessDialogClosed(
@@ -128,6 +123,9 @@ void ParentAccessExtensionApprovalsManager::OnParentAccessDialogClosed(
                    kFailed);
       break;
     case ash::ParentAccessDialog::Result::Status::kDisabled:
+      SupervisedUserExtensionsMetricsRecorder::RecordEnablementUmaMetrics(
+          SupervisedUserExtensionsMetricsRecorder::EnablementState::
+              kFailedToEnable);
       std::move(done_callback_)
           .Run(SupervisedUserExtensionsDelegate::ExtensionApprovalResult::
                    kBlocked);
@@ -143,4 +141,13 @@ ParentAccessExtensionApprovalsManager::GetParentAccessDialogProvider() {
   return dialog_provider_.get();
 }
 
+TestExtensionApprovalsManagerObserver::TestExtensionApprovalsManagerObserver(
+    TestExtensionApprovalsManagerObserver* observer) {
+  test_observer = observer;
+}
+
+TestExtensionApprovalsManagerObserver::
+    ~TestExtensionApprovalsManagerObserver() {
+  test_observer = nullptr;
+}
 }  // namespace extensions

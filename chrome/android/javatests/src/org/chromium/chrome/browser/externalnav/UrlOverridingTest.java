@@ -29,10 +29,11 @@ import android.util.Pair;
 import android.widget.TextView;
 
 import androidx.browser.customtabs.CustomTabsSessionToken;
-import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.Espresso;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.lifecycle.Stage;
 
 import org.hamcrest.Matchers;
@@ -55,6 +56,7 @@ import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.PackageManagerUtils;
+import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.CommandLineFlags;
@@ -392,7 +394,7 @@ public class UrlOverridingTest {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             intent = LaunchIntentDispatcher.createCustomTabActivityIntent(
-                    InstrumentationRegistry.getTargetContext(), intent);
+                    ApplicationProvider.getApplicationContext(), intent);
             IntentUtils.addTrustedIntentExtras(intent);
             return intent;
         });
@@ -1051,6 +1053,12 @@ public class UrlOverridingTest {
             Criteria.checkThat(mActivityTestRule.getActivity().getActivityTab().getUrl().getSpec(),
                     Matchers.is(mTestServer.getURL(HELLO_PAGE)));
         });
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            Assert.assertTrue(
+                    RedirectHandlerTabHelper
+                            .getOrCreateHandlerFor(mActivityTestRule.getActivity().getActivityTab())
+                            .shouldNotOverrideUrlLoading());
+        });
     }
 
     @Test
@@ -1242,8 +1250,8 @@ public class UrlOverridingTest {
 
     @Test
     @LargeTest
-    @Features.
-    EnableFeatures({"FencedFrames<Study,PrivacySandboxAdsAPIsOverride,FencedFramesAPIChanges"})
+    @Features.EnableFeatures(
+            {"FencedFrames<Study,PrivacySandboxAdsAPIsOverride,FencedFramesAPIChanges,FencedFramesDefaultMode"})
     @CommandLineFlags.Add({"force-fieldtrials=Study/Group",
             "force-fieldtrial-params=Study.Group:implementation_type/mparch"})
     public void

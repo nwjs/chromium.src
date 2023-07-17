@@ -38,6 +38,7 @@ class ConfigurableStorageDelegate : public AttributionStorageDelegate {
       base::TimeDelta expiry_deadline) const override;
   RandomizedResponse GetRandomizedResponse(
       const CommonSourceInfo&,
+      base::Time source_time,
       base::Time event_report_window_time) override;
   base::Time GetExpiryTime(absl::optional<base::TimeDelta> declared_expiry,
                            base::Time source_time,
@@ -56,7 +57,7 @@ class ConfigurableStorageDelegate : public AttributionStorageDelegate {
 
   void set_max_reports_per_destination(AttributionReport::Type, int max);
 
-  void set_max_destinations_per_source_site_reporting_origin(int max);
+  void set_max_destinations_per_source_site_reporting_site(int max);
 
   void set_aggregatable_budget_per_source(int64_t max);
 

@@ -92,8 +92,8 @@ class CONTENT_EXPORT AttributionStorageDelegate {
 
   // Returns the maximum number of distinct attribution destinations that can
   // be in storage at any time for sources with the same <source site,
-  // reporting origin>.
-  int GetMaxDestinationsPerSourceSiteReportingOrigin() const;
+  // reporting site>.
+  int GetMaxDestinationsPerSourceSiteReportingSite() const;
 
   // Returns the rate limits for capping contributions per window.
   AttributionConfig::RateLimitConfig GetRateLimits() const;
@@ -136,6 +136,7 @@ class CONTENT_EXPORT AttributionStorageDelegate {
   // should not be randomized.
   virtual RandomizedResponse GetRandomizedResponse(
       const CommonSourceInfo& source,
+      base::Time source_time,
       base::Time event_report_window_time) = 0;
 
   virtual base::Time GetExpiryTime(
@@ -150,6 +151,8 @@ class CONTENT_EXPORT AttributionStorageDelegate {
   // Returns the maximum sum of the contributions (values) across all buckets
   // per source.
   int64_t GetAggregatableBudgetPerSource() const;
+
+  int GetMaxAggregatableReportsPerSource() const;
 
   // Sanitizes `trigger_data` according to the data limits for `source_type`.
   uint64_t SanitizeTriggerData(uint64_t trigger_data,

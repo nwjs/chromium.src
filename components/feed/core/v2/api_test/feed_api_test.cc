@@ -200,6 +200,7 @@ void TestSurfaceBase::StreamUpdate(const feedui::StreamUpdate& stream_update) {
     initial_state = stream_update;
   }
   update = stream_update;
+  all_updates.push_back(stream_update);
 
   described_updates_.push_back(CurrentState());
 }
@@ -355,6 +356,10 @@ std::string TestReliabilityLoggingBridge::GetEventsString() const {
   return oss.str();
 }
 
+void TestReliabilityLoggingBridge::ClearEventsString() {
+  events_.clear();
+}
+
 void TestReliabilityLoggingBridge::LogFeedLaunchOtherStart(
     base::TimeTicks timestamp) {
   events_.push_back("LogFeedLaunchOtherStart");
@@ -413,7 +418,9 @@ void TestReliabilityLoggingBridge::LogResponseReceived(
     int64_t server_send_timestamp_ns,
     base::TimeTicks client_receive_timestamp) {
   events_.push_back(base::StrCat(
-      {"LogResponseReceived id=", base::NumberToString(id.GetUnsafeValue())}));
+      {"LogResponseReceived id=", base::NumberToString(id.GetUnsafeValue()),
+       " receive_timestamp=", base::NumberToString(server_receive_timestamp_ns),
+       " send_timestamp=", base::NumberToString(server_send_timestamp_ns)}));
 }
 
 void TestReliabilityLoggingBridge::LogRequestFinished(
@@ -444,6 +451,38 @@ void TestReliabilityLoggingBridge::LogLaunchFinishedAfterStreamUpdate(
   events_.push_back(
       base::StrCat({"LogLaunchFinishedAfterStreamUpdate result=",
                     feedwire::DiscoverLaunchResult_Name(result)}));
+}
+
+void TestReliabilityLoggingBridge::LogLoadMoreStarted() {
+  events_.push_back("LogLoadMoreStarted");
+}
+
+void TestReliabilityLoggingBridge::LogLoadMoreActionUploadRequestStarted() {
+  events_.push_back("LogLoadMoreActionUploadRequestStarted");
+}
+
+void TestReliabilityLoggingBridge::LogLoadMoreRequestSent() {
+  events_.push_back("LogLoadMoreRequestSent");
+}
+
+void TestReliabilityLoggingBridge::LogLoadMoreResponseReceived(
+    int64_t server_receive_timestamp_ns,
+    int64_t server_send_timestamp_ns) {
+  events_.push_back(base::StrCat(
+      {"LogLoadMoreResponseReceived receive_timestamp=",
+       base::NumberToString(server_receive_timestamp_ns),
+       " send_timestamp=", base::NumberToString(server_send_timestamp_ns)}));
+}
+
+void TestReliabilityLoggingBridge::LogLoadMoreRequestFinished(
+    int canonical_status) {
+  events_.push_back(base::StrCat({"LogLoadMoreRequestFinished result=",
+                                  base::NumberToString(canonical_status)}));
+}
+
+void TestReliabilityLoggingBridge::LogLoadMoreEnded(bool success) {
+  events_.push_back(
+      base::StrCat({"LogLoadMoreEnded success=", success ? "true" : "false"}));
 }
 
 TestImageFetcher::TestImageFetcher(

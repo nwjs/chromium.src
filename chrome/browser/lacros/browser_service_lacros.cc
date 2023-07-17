@@ -503,6 +503,9 @@ void BrowserServiceLacros::OpenUrlImpl(Profile* profile,
     case OpenUrlParams::WindowOpenDisposition::kNewWindow:
       navigate_params.disposition = WindowOpenDisposition::NEW_WINDOW;
       break;
+    case OpenUrlParams::WindowOpenDisposition::kOffTheRecord:
+      navigate_params.disposition = WindowOpenDisposition::OFF_THE_RECORD;
+      break;
     case OpenUrlParams::WindowOpenDisposition::kSwitchToTab:
       navigate_params.disposition = WindowOpenDisposition::SWITCH_TO_TAB;
       navigate_params.path_behavior =
@@ -568,11 +571,11 @@ void BrowserServiceLacros::NewWindowWithProfile(
 
   display::ScopedDisplayForNewWindows scoped(target_display_id);
 
-  if (HasPendingUncleanExit(profile)) {
+  if (HasPendingUncleanExit(profile) &&
+      BrowserLauncher::GetForProfile(profile)->LaunchForLastOpenedProfiles(
+          /*skip_crash_restore=*/false)) {
     // Restore all previously open profiles when recovering from a crash with
-    // the profile picker disabled, which is equivalent to performing a
-    // FullRestore.
-    OpenForFullRestoreWithProfile(/*skip_crash_restore=*/false, profile);
+    // the profile picker disabled.
     std::move(callback).Run();
     return;
   }
@@ -686,17 +689,18 @@ void BrowserServiceLacros::LaunchOrNewTabWithProfile(
 
   display::ScopedDisplayForNewWindows scoped(target_display_id);
 
-  if (HasPendingUncleanExit(profile)) {
+  if (HasPendingUncleanExit(profile) &&
+      BrowserLauncher::GetForProfile(profile)->LaunchForLastOpenedProfiles(
+          /*skip_crash_restore=*/false)) {
     // Restore all previously open profiles when recovering from a crash with
-    // the profile picker disabled, which is equivalent to performing a
-    // FullRestore.
-    OpenForFullRestoreWithProfile(/*skip_crash_restore=*/false, profile);
+    // the profile picker disabled.
     std::move(callback).Run();
     return;
   }
 
-  Browser* browser =
-      chrome::FindTabbedBrowser(profile, /*match_original_profiles=*/false);
+  Browser* browser = chrome::FindTabbedBrowser(
+      profile, /*match_original_profiles=*/false, display::kInvalidDisplayId,
+      /*ignore_closing_browsers=*/true);
   if (browser != nullptr) {
     chrome::NewTab(browser);
     browser->SetFocusToLocationBar();
@@ -766,7 +770,7 @@ void BrowserServiceLacros::OpenForFullRestoreWithProfile(
                     "Aborting the requested action.";
     return;
   }
-  BrowserLauncher::GetForProfile(profile)->LaunchForFullRestore(
+  BrowserLauncher::GetForProfile(profile)->LaunchForLastOpenedProfiles(
       skip_crash_restore);
 }
 

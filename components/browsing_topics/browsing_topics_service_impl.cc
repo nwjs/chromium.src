@@ -18,7 +18,6 @@
 #include "components/browsing_topics/common/common_types.h"
 #include "components/browsing_topics/mojom/browsing_topics_internals.mojom.h"
 #include "components/browsing_topics/util.h"
-#include "components/optimization_guide/content/browser/page_content_annotations_service.h"
 #include "components/privacy_sandbox/canonical_topic.h"
 #include "content/public/browser/browsing_topics_site_data_manager.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
@@ -322,26 +321,21 @@ BrowsingTopicsServiceImpl::BrowsingTopicsServiceImpl(
     privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
     history::HistoryService* history_service,
     content::BrowsingTopicsSiteDataManager* site_data_manager,
-    optimization_guide::PageContentAnnotationsService* annotations_service,
+    std::unique_ptr<Annotator> annotator,
     TopicAccessedCallback topic_accessed_callback)
     : privacy_sandbox_settings_(privacy_sandbox_settings),
       history_service_(history_service),
       site_data_manager_(site_data_manager),
-      annotations_service_(annotations_service),
       browsing_topics_state_(
           profile_path,
           base::BindOnce(
               &BrowsingTopicsServiceImpl::OnBrowsingTopicsStateLoaded,
               base::Unretained(this))),
+      annotator_(std::move(annotator)),
       topic_accessed_callback_(std::move(topic_accessed_callback)) {
   DCHECK(topic_accessed_callback_);
   privacy_sandbox_settings_observation_.Observe(privacy_sandbox_settings);
   history_service_observation_.Observe(history_service);
-
-  // Greedily request the model to be available to reduce the latency in later
-  // topics calculation.
-  annotations_service_->RequestAndNotifyWhenModelAvailable(
-      optimization_guide::AnnotationType::kPageTopics, base::DoNothing());
 }
 
 bool BrowsingTopicsServiceImpl::HandleTopicsWebApi(
@@ -455,12 +449,45 @@ bool BrowsingTopicsServiceImpl::HandleTopicsWebApi(
     topics.emplace_back(std::move(result_topic));
   }
 
-  std::sort(topics.begin(), topics.end());
+  // Sort result based on the version first, and then based on the topic ID.
+  // This groups the topics with the same version together, so that when
+  // transforming into the header format, all duplicate versions can be omitted.
+  std::sort(topics.begin(), topics.end(),
+            [](const blink::mojom::EpochTopicPtr& left,
+               const blink::mojom::EpochTopicPtr& right) {
+              if (left->version != right->version) {
+                return left->version < right->version;
+              }
+
+              return left->topic < right->topic;
+            });
 
   // Remove duplicate entries.
   topics.erase(std::unique(topics.begin(), topics.end()), topics.end());
 
   return true;
+}
+
+int BrowsingTopicsServiceImpl::NumVersionsInEpochs(
+    const url::Origin& main_frame_origin) const {
+  CHECK(browsing_topics_state_loaded_);
+  CHECK(privacy_sandbox_settings_->IsTopicsAllowed());
+
+  std::string main_frame_domain =
+      net::registry_controlled_domains::GetDomainAndRegistry(
+          main_frame_origin.GetURL(),
+          net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
+
+  std::set<std::pair<int, int64_t>> distinct_versions;
+  for (const EpochTopics* epoch :
+       browsing_topics_state_.EpochsForSite(main_frame_domain)) {
+    if (epoch->HasValidVersions()) {
+      distinct_versions.emplace(epoch->taxonomy_version(),
+                                epoch->model_version());
+    }
+  }
+
+  return distinct_versions.size();
 }
 
 void BrowsingTopicsServiceImpl::GetBrowsingTopicsStateForWebUi(
@@ -526,13 +553,16 @@ BrowsingTopicsServiceImpl::GetTopTopicsForDisplay() const {
   return result;
 }
 
+Annotator* BrowsingTopicsServiceImpl::GetAnnotator() {
+  return annotator_.get();
+}
+
 void BrowsingTopicsServiceImpl::ClearTopic(
     const privacy_sandbox::CanonicalTopic& canonical_topic) {
   if (!browsing_topics_state_loaded_)
     return;
 
-  browsing_topics_state_.ClearTopic(canonical_topic.topic_id(),
-                                    canonical_topic.taxonomy_version());
+  browsing_topics_state_.ClearTopic(canonical_topic.topic_id());
 }
 
 void BrowsingTopicsServiceImpl::ClearTopicsDataForOrigin(
@@ -565,12 +595,12 @@ BrowsingTopicsServiceImpl::CreateCalculator(
     privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
     history::HistoryService* history_service,
     content::BrowsingTopicsSiteDataManager* site_data_manager,
-    optimization_guide::PageContentAnnotationsService* annotations_service,
+    Annotator* annotator,
     const base::circular_deque<EpochTopics>& epochs,
     BrowsingTopicsCalculator::CalculateCompletedCallback callback) {
   return std::make_unique<BrowsingTopicsCalculator>(
-      privacy_sandbox_settings, history_service, site_data_manager,
-      annotations_service, epochs, std::move(callback));
+      privacy_sandbox_settings, history_service, site_data_manager, annotator,
+      epochs, std::move(callback));
 }
 
 const BrowsingTopicsState& BrowsingTopicsServiceImpl::browsing_topics_state() {
@@ -598,7 +628,7 @@ void BrowsingTopicsServiceImpl::CalculateBrowsingTopics() {
   // the callback once it's destroyed.
   topics_calculator_ = CreateCalculator(
       privacy_sandbox_settings_, history_service_, site_data_manager_,
-      annotations_service_, browsing_topics_state_.epochs(),
+      annotator_.get(), browsing_topics_state_.epochs(),
       base::BindOnce(
           &BrowsingTopicsServiceImpl::OnCalculateBrowsingTopicsCompleted,
           base::Unretained(this)));
@@ -647,8 +677,7 @@ void BrowsingTopicsServiceImpl::OnBrowsingTopicsStateLoaded() {
   } else if (!decision.topics_to_clear.empty()) {
     for (const privacy_sandbox::CanonicalTopic& canonical_topic :
          decision.topics_to_clear) {
-      browsing_topics_state_.ClearTopic(canonical_topic.topic_id(),
-                                        canonical_topic.taxonomy_version());
+      browsing_topics_state_.ClearTopic(canonical_topic.topic_id());
     }
   }
 

@@ -186,6 +186,17 @@ class RenderViewContextMenu
   virtual const policy::DlpRulesManager* GetDlpRulesManager() const;
 #endif
 
+  // RenderViewContextMenuBase:
+  // If called in Ash when Lacros is the only browser, this open the URL in
+  // Lacros. In that case, only the |url| and some values of |disposition| are
+  // respected - other parameters are ignored.
+  void OpenURLWithExtraHeaders(const GURL& url,
+                               const GURL& referring_url,
+                               WindowOpenDisposition disposition,
+                               ui::PageTransition transition,
+                               const std::string& extra_headers,
+                               bool started_from_context_menu) override;
+
  private:
   friend class RenderViewContextMenuTest;
   friend class TestRenderViewContextMenu;
@@ -347,8 +358,7 @@ class RenderViewContextMenu
   void ExecLanguageSettings(int event_flags);
   void ExecProtocolHandlerSettings(int event_flags);
   void ExecPictureInPicture();
-  // Implemented in RenderViewContextMenuViews.
-  void ExecOpenInReadAnything() override {}
+  void ExecOpenInReadAnything();
 
   void MediaPlayerActionAt(const gfx::Point& location,
                            const blink::mojom::MediaPlayerAction& action);

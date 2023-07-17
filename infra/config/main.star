@@ -41,6 +41,7 @@ lucicfg.config(
         "sheriff-rotations/*.txt",
         "project.pyl",
         "testing/gn_isolate_map.pyl",
+        "testing/mixins.pyl",
     ],
     fail_on_warnings = True,
     lint_checks = [
@@ -199,6 +200,7 @@ luci.builder.defaults.test_presentation.set(resultdb.test_presentation(grouping_
 exec("//swarming.star")
 
 exec("//recipes.star")
+exec("//targets/mixins.star")
 exec("//targets/targets.star")
 
 exec("//notifiers.star")
@@ -206,6 +208,7 @@ exec("//notifiers.star")
 exec("//subprojects/chromium/subproject.star")
 exec("//subprojects/chrome/subproject.star")
 exec("//subprojects/crossbench/subproject.star")
+exec("//subprojects/infra.star")
 branches.exec("//subprojects/codesearch/subproject.star")
 branches.exec("//subprojects/findit/subproject.star")
 branches.exec("//subprojects/flakiness/subproject.star")

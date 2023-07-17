@@ -262,16 +262,13 @@ class PLATFORM_EXPORT Color {
   bool SetFromString(const String&);
   bool SetNamedColor(const String&);
 
-  // Returns true if the color is not opaque.
-  bool HasAlpha() const { return Alpha() < 255; }
-
-  // Returns true if the color is transparent.
-  bool IsTransparent() const { return Alpha() == 0; }
+  bool IsFullyTransparent() const { return Alpha() <= 0.0f; }
+  bool IsOpaque() const { return Alpha() >= 1.0f; }
 
   float Param0() const { return param0_; }
   float Param1() const { return param1_; }
   float Param2() const { return param2_; }
-  float FloatAlpha() const { return alpha_; }
+  float Alpha() const { return alpha_; }
 
   void SetAlpha(float alpha) { alpha_ = alpha; }
 
@@ -284,7 +281,9 @@ class PLATFORM_EXPORT Color {
   int Blue() const;
 
   // No colorspace conversions affect alpha.
-  int Alpha() const { return static_cast<int>(lrintf(alpha_ * 255.0f)); }
+  int AlphaAsInteger() const {
+    return static_cast<int>(lrintf(alpha_ * 255.0f));
+  }
 
   RGBA32 Rgb() const;
   void GetRGBA(float& r, float& g, float& b, float& a) const;
@@ -340,7 +339,7 @@ class PLATFORM_EXPORT Color {
   Color::ColorSpace GetColorInterpolationSpace() const;
 
   ColorSpace GetColorSpace() const { return color_space_; }
-  void ConvertToColorSpace(ColorSpace interpolation_space);
+  void ConvertToColorSpace(ColorSpace destination_color_space);
 
   FRIEND_TEST_ALL_PREFIXES(BlinkColor, ColorMixNone);
   FRIEND_TEST_ALL_PREFIXES(BlinkColor, ColorInterpolation);

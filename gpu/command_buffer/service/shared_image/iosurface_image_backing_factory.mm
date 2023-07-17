@@ -14,7 +14,7 @@
 #include "gpu/command_buffer/service/shared_image/iosurface_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_backing.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_factory.h"
-#include "gpu/command_buffer/service/shared_image/shared_image_format_utils.h"
+#include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_representation.h"
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/texture_manager.h"
@@ -133,8 +133,7 @@ IOSurfaceImageBackingFactory::IOSurfaceImageBackingFactory(
   max_texture_size_ = std::min(max_texture_size_, INT_MAX - 1);
 
   for (gfx::BufferFormat buffer_format : gpu_memory_buffer_formats_) {
-    viz::SharedImageFormat format = viz::SharedImageFormat::SinglePlane(
-        viz::GetResourceFormat(buffer_format));
+    viz::SharedImageFormat format = viz::GetSharedImageFormat(buffer_format);
     if (IsFormatSupported(format)) {
       supported_formats_.insert(format);
     }
@@ -213,8 +212,7 @@ IOSurfaceImageBackingFactory::CreateSharedImage(
   }
 
   const uint32_t io_surface_plane = GetPlaneIndex(plane, buffer_format);
-  auto format = viz::SharedImageFormat::SinglePlane(
-      viz::GetResourceFormat(buffer_format));
+  auto format = viz::GetSharedImageFormat(buffer_format);
   return CreateSharedImageGMBs(
       mailbox, format, size, color_space, surface_origin, alpha_type, usage,
       std::move(handle), io_surface_plane, plane, /*is_plane_format=*/true);
@@ -228,9 +226,6 @@ bool IOSurfaceImageBackingFactory::IsSupported(
     gfx::GpuMemoryBufferType gmb_type,
     GrContextType gr_context_type,
     base::span<const uint8_t> pixel_data) {
-  if (!pixel_data.empty() && gr_context_type != GrContextType::kGL) {
-    return false;
-  }
   if (thread_safe) {
     return false;
   }
@@ -393,9 +388,8 @@ IOSurfaceImageBackingFactory::CreateSharedImageGMBs(
 
   if (is_plane_format) {
     const gfx::Size plane_size = gpu::GetPlaneSize(buffer_plane, size);
-    auto plane_format =
-        viz::SharedImageFormat::SinglePlane(viz::GetResourceFormat(
-            GetPlaneBufferFormat(buffer_plane, buffer_format)));
+    auto plane_format = viz::GetSharedImageFormat(
+        GetPlaneBufferFormat(buffer_plane, buffer_format));
     return std::make_unique<IOSurfaceImageBacking>(
         io_surface, io_surface_plane, io_surface_id, mailbox, plane_format,
         plane_size, color_space, surface_origin, alpha_type, usage, target,

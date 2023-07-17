@@ -233,7 +233,7 @@ class ContinueButton : public views::MdTextButton {
   }
 
  private:
-  base::raw_ptr<AccountSelectionBubbleView> bubble_view_;
+  raw_ptr<AccountSelectionBubbleView> bubble_view_;
   absl::optional<SkColor> brand_background_color_;
   absl::optional<SkColor> brand_text_color_;
 };
@@ -327,7 +327,7 @@ class IdpImageView : public views::ImageView {
 
   // The AccountSelectionBubbleView outlives IdpImageView so it is safe to store
   // a raw pointer to it.
-  base::raw_ptr<AccountSelectionBubbleView> bubble_view_;
+  raw_ptr<AccountSelectionBubbleView> bubble_view_;
 
   base::WeakPtrFactory<IdpImageView> weak_ptr_factory_{this};
 };
@@ -598,9 +598,8 @@ void AccountSelectionBubbleView::ShowFailureDialog(
       views::BoxLayout::Orientation::kVertical,
       gfx::Insets::VH(kTopBottomPadding, kLeftRightPadding)));
   auto button = std::make_unique<ContinueButton>(
-      base::BindRepeating(&Observer::ShowModalDialogView,
-                          base::Unretained(observer_),
-                          idp_metadata.idp_signin_url),
+      base::BindRepeating(&Observer::OnSigninToIdP,
+                          base::Unretained(observer_)),
       l10n_util::GetStringUTF16(IDS_IDP_SIGNIN_STATUS_FAILURE_DIALOG_CONTINUE),
       this, idp_metadata);
   signin_to_idp_button_ = row->AddChildView(std::move(button));

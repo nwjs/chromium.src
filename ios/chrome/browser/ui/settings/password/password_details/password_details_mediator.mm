@@ -12,23 +12,23 @@
 #import "base/containers/cxx20_erase.h"
 #import "base/containers/flat_set.h"
 #import "base/memory/raw_ptr.h"
-#import "base/metrics/histogram_functions.h"
 #import "base/ranges/algorithm.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/browser/password_manager_features_util.h"
-#import "components/password_manager/core/browser/password_manager_metrics_util.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/signin/public/identity_manager/account_info.h"
 #import "components/sync/base/features.h"
-#import "components/sync/driver/sync_service.h"
+#import "components/sync/service/sync_service.h"
 #import "ios/chrome/browser/passwords/password_check_observer_bridge.h"
+#import "ios/chrome/browser/passwords/password_checkup_metrics.h"
 #import "ios/chrome/browser/passwords/password_checkup_utils.h"
 #import "ios/chrome/browser/ui/settings/password/account_storage_utils.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_consumer.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_mediator_delegate.h"
+#import "ios/chrome/browser/ui/settings/password/password_details/password_details_metrics_utils.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_table_view_controller_delegate.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
@@ -61,7 +61,8 @@ bool ShouldDisplayCredentialAsCompromised(
     const CredentialUIEntry& credential,
     std::vector<password_manager::CredentialUIEntry> insecure_credentials) {
   switch (details_context) {
-    case DetailsContext::kGeneral:
+    case DetailsContext::kPasswordSettings:
+    case DetailsContext::kOutsideSettings:
     case DetailsContext::kCompromisedIssues:
     case DetailsContext::kDismissedWarnings:
       for (const auto& insecure_credential : insecure_credentials) {
@@ -93,7 +94,8 @@ bool ShouldDisplayCredentialAsMuted(
   }
 
   switch (details_context) {
-    case DetailsContext::kGeneral:
+    case DetailsContext::kPasswordSettings:
+    case DetailsContext::kOutsideSettings:
     case DetailsContext::kCompromisedIssues:
     case DetailsContext::kReusedIssues:
     case DetailsContext::kWeakIssues:
@@ -117,7 +119,7 @@ bool ShouldDisplayCredentialAsMuted(
   std::vector<CredentialUIEntry> _credentials;
 
   // Password Check manager.
-  raw_ptr<IOSChromePasswordCheckManager> _manager;
+  scoped_refptr<IOSChromePasswordCheckManager> _manager;
 
   // Listens to compromised passwords changes.
   std::unique_ptr<PasswordCheckObserverBridge> _passwordCheckObserver;
@@ -151,7 +153,7 @@ bool ShouldDisplayCredentialAsMuted(
 - (instancetype)
        initWithPasswords:(const std::vector<CredentialUIEntry>&)credentials
              displayName:(NSString*)displayName
-    passwordCheckManager:(IOSChromePasswordCheckManager*)manager
+    passwordCheckManager:(scoped_refptr<IOSChromePasswordCheckManager>)manager
              prefService:(PrefService*)prefService
              syncService:(syncer::SyncService*)syncService
                  context:(DetailsContext)context
@@ -165,10 +167,10 @@ bool ShouldDisplayCredentialAsMuted(
   }
 
   _manager = manager;
+  _passwordCheckObserver =
+      std::make_unique<PasswordCheckObserverBridge>(self, manager.get());
   _credentials = credentials;
   _displayName = displayName;
-  _passwordCheckObserver =
-      std::make_unique<PasswordCheckObserverBridge>(self, manager);
   _context = context;
   _prefService = prefService;
   _syncService = syncService;
@@ -231,11 +233,12 @@ bool ShouldDisplayCredentialAsMuted(
 }
 
 - (void)removeCredential:(PasswordDetails*)password {
-  if (password.compromised) {
-    base::UmaHistogramEnumeration(
-        "PasswordManager.BulkCheck.UserAction",
-        password_manager::metrics_util::PasswordCheckInteraction::
-            kRemovePassword);
+  // When details was opened from the Password Manager, only log password
+  // check actions if the password is compromised.
+  if (password_manager::ShouldRecordPasswordCheckUserAction(
+          _context, password.compromised)) {
+    password_manager::LogDeletePassword(
+        password_manager::GetWarningTypeForDetailsContext(_context));
   }
 
   // Map from PasswordDetails to CredentialUIEntry. Should support blocklists.
@@ -259,6 +262,10 @@ bool ShouldDisplayCredentialAsMuted(
   // be multiple credentials; nor username/password since the values changed).
   base::Erase(_credentials, *it);
   [self providePasswordsToConsumer];
+
+  // Update form managers so the list of password suggestions shown to the user
+  // is the correct one.
+  [_delegate updateFormManagers];
 }
 
 - (void)moveCredentialToAccountStore:(PasswordDetails*)password {
@@ -368,6 +375,10 @@ bool ShouldDisplayCredentialAsMuted(
 
       // Update the credential in the credentials vector.
       *it = std::move(updated_credential);
+
+      // Update form managers so the list of password suggestions shown to the
+      // user is the correct one.
+      [_delegate updateFormManagers];
       return;
     }
   }
@@ -470,7 +481,7 @@ bool ShouldDisplayCredentialAsMuted(
     // - The user is interested in saving passwords to the account, i.e. they
     // are opted in to account storage.
     password.shouldOfferToMoveToAccount =
-        _context == DetailsContext::kGeneral &&
+        _context == DetailsContext::kPasswordSettings &&
         password_manager::features_util::IsOptedInForAccountStorage(
             _prefService, _syncService) &&
         ShouldShowLocalOnlyIcon(credential, _syncService);

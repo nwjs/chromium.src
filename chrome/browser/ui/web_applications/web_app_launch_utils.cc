@@ -68,16 +68,16 @@
 #include "extensions/common/extension.h"
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/components/kiosk/kiosk_utils.h"
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "chrome/browser/ash/app_mode/web_app/web_kiosk_browser_controller_ash.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ash/system_web_apps/types/system_web_app_delegate.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/constants/chromeos_features.h"
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
 
 namespace web_app {
 
@@ -362,7 +362,7 @@ std::unique_ptr<AppBrowserController> MaybeCreateAppBrowserController(
       WebAppProvider::GetForLocalAppsUnchecked(browser->profile());
   if (provider && provider->registrar_unsafe().IsInstalled(app_id)) {
 #if BUILDFLAG(IS_CHROMEOS)
-    if (profiles::IsKioskSession() &&
+    if (chromeos::IsKioskSession() &&
         base::FeatureList::IsEnabled(features::kKioskEnableAppService)) {
       controller = CreateWebKioskBrowserController(browser, provider, app_id);
     } else {
@@ -487,12 +487,13 @@ content::WebContents* NavigateWebAppUsingParams(const std::string& app_id,
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // Highly experimental feature to isolate web app application with a different
   // storage partition.
-  if (base::FeatureList::IsEnabled(
-          chromeos::features::kExperimentalWebAppStoragePartitionIsolation)) {
+  if (ResolveExperimentalWebAppIsolationFeature() ==
+      ExperimentalWebAppIsolationMode::kStoragePartition) {
     // TODO(crbug.com/1425284): Cover other app launch paths (e.g. restore
     // apps).
     auto partition_config = content::StoragePartitionConfig::Create(
-        nav_params.browser->profile(), /*partition_domain=*/"goldfish",
+        nav_params.browser->profile(),
+        /*partition_domain=*/kExperimentalWebAppStorageParitionDomain,
         /*partition_name=*/app_id, /*in_memory=*/false);
 
     auto guest_site_instance = content::SiteInstance::CreateForGuest(
@@ -642,11 +643,6 @@ void UpdateLaunchStats(content::WebContents* web_contents,
   // app launch will provide an engagement boost to the origin.
   site_engagement::SiteEngagementService::Get(profile)
       ->SetLastShortcutLaunchTime(web_contents, launch_url);
-
-  // Refresh the app banner added to homescreen event. The user may have
-  // cleared their browsing data since installing the app, which removes the
-  // event and will potentially permit a banner to be shown for the site.
-  RecordAppBanner(web_contents, launch_url);
 }
 
 }  // namespace web_app

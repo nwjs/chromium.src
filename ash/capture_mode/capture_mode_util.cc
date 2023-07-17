@@ -278,7 +278,7 @@ std::unique_ptr<views::View> CreateClipboardShortcutView() {
       views::BoxLayout::Orientation::kHorizontal));
 
   const std::u16string shortcut_key = l10n_util::GetStringUTF16(
-      Shell::Get()->keyboard_capability()->HasLauncherButton()
+      Shell::Get()->keyboard_capability()->HasLauncherButtonOnAnyKeyboard()
           ? IDS_ASH_SHORTCUT_MODIFIER_LAUNCHER
           : IDS_ASH_SHORTCUT_MODIFIER_SEARCH);
 
@@ -546,22 +546,6 @@ gfx::Rect CalculateHighlightLayerBounds(const gfx::PointF& center_point,
   return gfx::Rect(center_point.x() - highlight_layer_radius,
                    center_point.y() - highlight_layer_radius,
                    highlight_layer_radius * 2, highlight_layer_radius * 2);
-}
-
-int GetNumberOfSupportedRecordingTypes(bool is_in_projector_mode) {
-  int total = 0;
-  for (const auto& type : {RecordingType::kGif, RecordingType::kWebM}) {
-    switch (type) {
-      case RecordingType::kGif:
-        total +=
-            features::IsGifRecordingEnabled() && !is_in_projector_mode ? 1 : 0;
-        break;
-      case RecordingType::kWebM:
-        total += 1;
-        break;
-    }
-  }
-  return total;
 }
 
 void SetHighlightBorder(views::View* view,
