@@ -2088,6 +2088,8 @@ component("base") {
       "memory/platform_shared_memory_region_mac.cc",
       "message_loop/message_pump_mac.h",
       "message_loop/message_pump_mac.mm",
+      "message_loop/message_pumpuv_mac.h",
+      "message_loop/message_pumpuv_mac.mm",
       "process/process_metrics_apple_internal.cc",
       "process/process_metrics_apple_internal.h",
       "profiler/module_cache_mac.cc",

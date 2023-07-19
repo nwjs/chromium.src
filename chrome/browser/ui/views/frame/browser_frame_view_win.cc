@@ -281,7 +281,7 @@ gfx::Rect BrowserFrameViewWin::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
   HWND hwnd = views::HWNDForWidget(frame());
   if (!browser_view()->GetTabStripVisible() && hwnd) {
-    if (ShouldCustomDrawSystemTitlebar()) {
+    if (ShouldBrowserCustomDrawTitlebar(browser_view())) {
       const int top_inset = GetTopInset(false);
       const int thickness = std::floor(
         FrameTopBorderThicknessPx(false) /

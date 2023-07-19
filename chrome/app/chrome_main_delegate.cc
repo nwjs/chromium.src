@@ -244,7 +244,7 @@
 #include "base/native_library.h"
 #include "base/strings/utf_string_conversions.h"
 #if defined(OS_MAC)
-#include "base/mac/bundle_locations.h"
+#include "base/apple/bundle_locations.h"
 #include "base/strings/sys_string_conversions.h"
 #endif
 
@@ -1110,7 +1110,7 @@ absl::optional<int> ChromeMainDelegate::BasicStartupComplete() {
         base::PathExists(fp) && !base::DirectoryExists(fp) && !reader.Open(fp)) {
       base::NativeLibraryLoadError error;
 #if defined(OS_MAC)
-      base::FilePath node_dll_path = base::mac::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
+      base::FilePath node_dll_path = base::apple::FrameworkBundlePath().Append(base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node")));
       std::string blob_path = base::mac::PathForFrameworkBundleResource(BUILDFLAG(V8_CONTEXT_SNAPSHOT_FILENAME)).AsUTF8Unsafe();
 #else
       base::FilePath node_dll_path = base::FilePath::FromUTF8Unsafe(base::GetNativeLibraryName("node"));
