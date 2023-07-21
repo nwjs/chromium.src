@@ -32,7 +32,7 @@
 
 #include <vector>
 #include "third_party/node-nw/src/node_webkit.h"
-#include "content/nw/src/nw_content.h"
+#include "content/nw/src/renderer/nw_content_renderer_hooks.h"
 
 #define EVENTLOOP_DEBUG 0
 
