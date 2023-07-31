@@ -86,6 +86,12 @@
   _tangibleSyncCoordinator.coordinatorCompleted = nil;
   _tangibleSyncCoordinator = nil;
   _baseNavigationController = nil;
+  _delegate = nil;
+}
+
+- (void)dealloc {
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(!_tangibleSyncCoordinator);
 }
 
 #pragma mark - Private

@@ -9,7 +9,7 @@
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
 #include "base/strings/string_piece.h"
-#include "chrome/browser/ui/android/webid/jni_headers/AccountSelectionBridge_jni.h"
+#include "chrome/browser/ui/android/webid/internal/jni/AccountSelectionBridge_jni.h"
 #include "chrome/browser/ui/android/webid/jni_headers/Account_jni.h"
 #include "chrome/browser/ui/android/webid/jni_headers/ClientIdMetadata_jni.h"
 #include "chrome/browser/ui/android/webid/jni_headers/IdentityProviderMetadata_jni.h"
@@ -38,7 +38,7 @@ ScopedJavaLocalRef<jobject> ConvertToJavaAccount(JNIEnv* env,
       ConvertUTF8ToJavaString(env, account.name),
       ConvertUTF8ToJavaString(env, account.given_name),
       url::GURLAndroid::FromNativeGURL(env, account.picture),
-      base::android::ToJavaArrayOfStrings(env, account.hints),
+      base::android::ToJavaArrayOfStrings(env, account.login_hints),
       account.login_state == Account::LoginState::kSignIn);
 }
 
@@ -98,9 +98,9 @@ Account ConvertFieldsToAccount(
 
   GURL picture_url = *url::GURLAndroid::ToNativeGURL(env, picture_url_obj);
 
-  std::vector<std::string> hints;
-  AppendJavaStringArrayToStringVector(env, account_hints, &hints);
-  return Account(account_id, email, name, given_name, picture_url, hints,
+  std::vector<std::string> login_hints;
+  AppendJavaStringArrayToStringVector(env, account_hints, &login_hints);
+  return Account(account_id, email, name, given_name, picture_url, login_hints,
                  login_state);
 }
 

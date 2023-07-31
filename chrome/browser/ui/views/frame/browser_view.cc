@@ -71,9 +71,11 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/sharing_hub/sharing_hub_features.h"
 #include "chrome/browser/signin/chrome_signin_helper.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/themes/theme_properties.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
@@ -214,6 +216,11 @@
 #include "components/prefs/pref_service.h"
 #include "components/reading_list/core/reading_list_pref_names.h"
 #include "components/safe_browsing/core/browser/password_protection/metrics_util.h"
+#include "components/segmentation_platform/embedder/default_model/device_switcher_model.h"
+#include "components/segmentation_platform/public/constants.h"
+#include "components/segmentation_platform/public/input_context.h"
+#include "components/segmentation_platform/public/prediction_options.h"
+#include "components/segmentation_platform/public/segmentation_platform_service.h"
 #include "components/services/screen_ai/buildflags/buildflags.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
@@ -249,6 +256,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/text/bytes_formatting.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
@@ -304,6 +312,11 @@
 #include "components/remote_cocoa/app_shim/application_bridge.h"
 #include "components/remote_cocoa/browser/application_host.h"
 #endif
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#include "chrome/browser/promos/promos_utils.h"
+#include "chrome/browser/ui/views/promos/ios_promo_password_bubble.h"
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/app_window/app_window_registry.h"
@@ -820,8 +833,6 @@ class BrowserView::AccessibilityModeObserver : public ui::AXModeObserver {
       if (features::IsPdfOcrEnabled()) {
         screen_ai::PdfOcrControllerFactory::GetForProfile(
             browser_view_->GetProfile());
-        // TODO(crbug.com/1393069): Destroy `PdfOcrController` when no longer
-        // needed.
       }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
     }
@@ -2351,6 +2362,20 @@ void BrowserView::ToggleWindowControlsOverlayEnabled(base::OnceClosure done) {
           .Then(std::move(done)));
 }
 
+bool BrowserView::ChildOfAnchorWidgetContainsPoint(
+    const gfx::Point& point_in_browser_view_coords) {
+  auto* parent_widget = GetWidgetForAnchoring();
+  views::Widget::Widgets widgets;
+  views::Widget::GetAllChildWidgets(parent_widget->GetNativeView(), &widgets);
+
+  return base::ranges::any_of(widgets, [&](auto* widget) {
+    return widget != parent_widget && widget->IsVisible() &&
+           widget->GetWindowBoundsInScreen().Contains(
+               views::View::ConvertPointToScreen(this,
+                                                 point_in_browser_view_coords));
+  });
+}
+
 bool BrowserView::IsBorderlessModeEnabled() const {
   return borderless_mode_enabled_ && window_management_permission_granted_;
 }
@@ -2618,6 +2643,91 @@ void BrowserView::ShowIntentPickerBubble(
 void BrowserView::ShowBookmarkBubble(const GURL& url, bool already_bookmarked) {
   toolbar_->ShowBookmarkBubble(url, already_bookmarked);
 }
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+void BrowserView::VerifyUserEligibilityIOSPasswordPromoBubble() {
+  if (!browser_) {
+    return;
+  }
+
+  if (promos_utils::IsActivationCriteriaOverriddenIOSPasswordPromo()) {
+    ShowIOSPasswordPromoBubble();
+    return;
+  }
+
+  const syncer::SyncService* sync_service =
+      SyncServiceFactory::GetForProfile(browser_->profile());
+
+  // Verify that the user is currently syncing their preferences, hasn't
+  // exceeded their impression limit, is not in the cooldown period or has not
+  // opted-out from seeing the promo.
+  if (sync_service && sync_service->IsSyncFeatureActive() &&
+      sync_service->GetActiveDataTypes().Has(syncer::PREFERENCES) &&
+      promos_utils::ShouldShowIOSPasswordPromo(browser_->profile())) {
+    auto input_context =
+        base::MakeRefCounted<segmentation_platform::InputContext>();
+    input_context->metadata_args.emplace(
+        "active_days_limit", promos_utils::kiOSPasswordPromoLookbackWindow);
+    input_context->metadata_args.emplace(
+        "wait_for_device_info_in_seconds",
+        segmentation_platform::processing::ProcessedValue(0));
+
+    segmentation_platform::PredictionOptions options;
+    options.on_demand_execution = true;
+
+    // Get segmentation platform classification results and pass callback.
+    segmentation_platform::SegmentationPlatformServiceFactory::GetForProfile(
+        browser_->profile())
+        ->GetClassificationResult(
+            segmentation_platform::kDeviceSwitcherKey, options, input_context,
+            base::BindOnce(&BrowserView::MaybeShowIOSPasswordPromoBubble,
+                           GetAsWeakPtr()));
+  }
+}
+
+void BrowserView::MaybeShowIOSPasswordPromoBubble(
+    const segmentation_platform::ClassificationResult& result) {
+  if (!browser_) {
+    return;
+  }
+
+  feature_engagement::Tracker* tracker =
+      feature_engagement::TrackerFactory::GetForBrowserContext(
+          browser_->profile());
+
+  if (promos_utils::UserNotClassifiedAsMobileDeviceSwitcher(result) &&
+      tracker->ShouldTriggerHelpUI(
+          feature_engagement::kIPHiOSPasswordPromoDesktopFeature)) {
+    promos_utils::iOSPasswordPromoShown(browser_->profile());
+    ShowIOSPasswordPromoBubble();
+  }
+}
+
+void BrowserView::ShowIOSPasswordPromoBubble() {
+  if (!browser_) {
+    return;
+  }
+
+  ToolbarButtonProvider* button_provider =
+      BrowserView::GetBrowserViewForBrowser(browser_.get())
+          ->toolbar_button_provider();
+
+  IOSPromoPasswordBubble::PromoVariant variant;
+  if (promos_utils::IsDirectVariantIOSPasswordPromo()) {
+    variant = IOSPromoPasswordBubble::PromoVariant::QR_CODE_VARIANT;
+  } else if (promos_utils::IsIndirectVariantIOSPasswordPromo()) {
+    variant = IOSPromoPasswordBubble::PromoVariant::GET_STARTED_BUTTON_VARIANT;
+  } else {
+    NOTREACHED_NORETURN();
+  }
+
+  IOSPromoPasswordBubble::ShowBubble(
+      button_provider->GetAnchorView(PageActionIconType::kManagePasswords),
+      button_provider->GetPageActionIconView(
+          PageActionIconType::kManagePasswords),
+      variant, browser_.get());
+}
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 qrcode_generator::QRCodeGeneratorBubbleView*
 BrowserView::ShowQRCodeGeneratorBubble(content::WebContents* contents,
@@ -3313,48 +3423,84 @@ std::u16string BrowserView::GetAccessibleTabLabel(bool include_app_name,
 
   // Alert tab states.
   absl::optional<TabAlertState> alert = tabstrip_->GetTabAlertState(index);
-  if (!alert.has_value())
-    return title;
-
-  switch (alert.value()) {
-    case TabAlertState::AUDIO_PLAYING:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_AUDIO_PLAYING_FORMAT,
-                                        title);
-    case TabAlertState::USB_CONNECTED:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_USB_CONNECTED_FORMAT,
-                                        title);
-    case TabAlertState::BLUETOOTH_CONNECTED:
-      return l10n_util::GetStringFUTF16(
-          IDS_TAB_AX_LABEL_BLUETOOTH_CONNECTED_FORMAT, title);
-    case TabAlertState::BLUETOOTH_SCAN_ACTIVE:
-      return l10n_util::GetStringFUTF16(
-          IDS_TAB_AX_LABEL_BLUETOOTH_SCAN_ACTIVE_FORMAT, title);
-    case TabAlertState::HID_CONNECTED:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_HID_CONNECTED_FORMAT,
-                                        title);
-    case TabAlertState::SERIAL_CONNECTED:
-      return l10n_util::GetStringFUTF16(
-          IDS_TAB_AX_LABEL_SERIAL_CONNECTED_FORMAT, title);
-    case TabAlertState::MEDIA_RECORDING:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_MEDIA_RECORDING_FORMAT,
-                                        title);
-    case TabAlertState::AUDIO_MUTING:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_AUDIO_MUTING_FORMAT,
-                                        title);
-    case TabAlertState::TAB_CAPTURING:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_TAB_CAPTURING_FORMAT,
-                                        title);
-    case TabAlertState::PIP_PLAYING:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_PIP_PLAYING_FORMAT,
-                                        title);
-    case TabAlertState::DESKTOP_CAPTURING:
-      return l10n_util::GetStringFUTF16(
-          IDS_TAB_AX_LABEL_DESKTOP_CAPTURING_FORMAT, title);
-    case TabAlertState::VR_PRESENTING_IN_HEADSET:
-      return l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_VR_PRESENTING, title);
+  if (alert.has_value()) {
+    switch (alert.value()) {
+      case TabAlertState::AUDIO_PLAYING:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_AUDIO_PLAYING_FORMAT, title);
+        break;
+      case TabAlertState::USB_CONNECTED:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_USB_CONNECTED_FORMAT, title);
+        break;
+      case TabAlertState::BLUETOOTH_CONNECTED:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_BLUETOOTH_CONNECTED_FORMAT, title);
+        break;
+      case TabAlertState::BLUETOOTH_SCAN_ACTIVE:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_BLUETOOTH_SCAN_ACTIVE_FORMAT, title);
+        break;
+      case TabAlertState::HID_CONNECTED:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_HID_CONNECTED_FORMAT, title);
+        break;
+      case TabAlertState::SERIAL_CONNECTED:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_SERIAL_CONNECTED_FORMAT, title);
+        break;
+      case TabAlertState::MEDIA_RECORDING:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_MEDIA_RECORDING_FORMAT, title);
+        break;
+      case TabAlertState::AUDIO_MUTING:
+        title = l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_AUDIO_MUTING_FORMAT,
+                                           title);
+        break;
+      case TabAlertState::TAB_CAPTURING:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_TAB_CAPTURING_FORMAT, title);
+        break;
+      case TabAlertState::PIP_PLAYING:
+        title = l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_PIP_PLAYING_FORMAT,
+                                           title);
+        break;
+      case TabAlertState::DESKTOP_CAPTURING:
+        title = l10n_util::GetStringFUTF16(
+            IDS_TAB_AX_LABEL_DESKTOP_CAPTURING_FORMAT, title);
+        break;
+      case TabAlertState::VR_PRESENTING_IN_HEADSET:
+        title =
+            l10n_util::GetStringFUTF16(IDS_TAB_AX_LABEL_VR_PRESENTING, title);
+        break;
+    }
   }
 
-  NOTREACHED_NORETURN();
+  const TabRendererData& tab_data = tabstrip_->tab_at(index)->data();
+  if (tab_data.should_show_discard_status &&
+      base::FeatureList::IsEnabled(
+          performance_manager::features::kDiscardedTabTreatment)) {
+    title = l10n_util::GetStringFUTF16(IDS_TAB_AX_INACTIVE_TAB, title);
+    if (tab_data.discarded_memory_savings_in_bytes > 0) {
+      title = l10n_util::GetStringFUTF16(
+          IDS_TAB_AX_MEMORY_SAVINGS, title,
+          ui::FormatBytes(tab_data.discarded_memory_savings_in_bytes));
+    }
+  } else if (tab_data.tab_resource_usage &&
+             tab_data.tab_resource_usage->memory_usage_in_bytes() > 0) {
+    const uint64_t memory_used =
+        tab_data.tab_resource_usage->memory_usage_in_bytes();
+    const int message_id =
+        memory_used > static_cast<uint64_t>(
+                          performance_manager::features::
+                              kMemoryUsageInHovercardsHighThresholdBytes.Get())
+            ? IDS_TAB_AX_HIGH_MEMORY_USAGE
+            : IDS_TAB_AX_MEMORY_USAGE;
+    title = l10n_util::GetStringFUTF16(message_id, title,
+                                       ui::FormatBytes(memory_used));
+  }
+
+  return title;
 }
 
 std::vector<views::NativeViewHost*>
@@ -3931,9 +4077,12 @@ bool BrowserView::ShouldDescendIntoChildForEventHandling(
                                       contents_web_view_,
                                       &point_in_contents_web_view_coords);
 
+    // Draggable regions should be ignored for clicks into any child widgets,
+    // for example alerts or find bar.
     return !controller->draggable_region()->contains(
-        point_in_contents_web_view_coords.x(),
-        point_in_contents_web_view_coords.y());
+               point_in_contents_web_view_coords.x(),
+               point_in_contents_web_view_coords.y()) ||
+           ChildOfAnchorWidgetContainsPoint(point_in_contents_web_view_coords);
   }
 
 #if defined(USE_AURA)
@@ -5027,6 +5176,11 @@ void BrowserView::OnImmersiveRevealStarted() {
   overlay_view_->SetVisible(true);
   InvalidateLayout();
   GetWidget()->GetRootView()->Layout();
+
+#if BUILDFLAG(IS_CHROMEOS)
+  top_container()->SetBackground(
+      views::CreateThemedSolidBackground(ui::kColorFrameActive));
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void BrowserView::OnImmersiveRevealEnded() {
@@ -5042,6 +5196,7 @@ void BrowserView::OnImmersiveRevealEnded() {
   if (AppUsesWindowControlsOverlay()) {
     UpdateWindowControlsOverlayEnabled();
   }
+  top_container()->SetBackground(nullptr);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 

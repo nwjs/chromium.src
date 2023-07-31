@@ -10,19 +10,34 @@
 
 @protocol BubblePresenterDelegate;
 @class BubbleViewControllerPresenter;
-class ChromeBrowserState;
+class HostContentSettingsMap;
 @class LayoutGuideCenter;
-@protocol ToolbarCommands;
+class UrlLoadingNotifierBrowserAgent;
 class WebStateList;
 
+namespace feature_engagement {
+class Tracker;
+}  // namespace feature_engagement
+
+namespace segmentation_platform {
+class DeviceSwitcherResultDispatcher;
+}  // namespace segmentation_platform
+
+// TODO(crbug.com/1454553): refactor the class.
 // Object handling the presentation of the different bubbles tips. The class is
 // holding all the bubble presenters.
 @interface BubblePresenter : NSObject <HelpCommands>
 
 // Initializes a BubblePresenter whose bubbles are presented on the
 // `rootViewController`.
-- (instancetype)initWithBrowserState:(ChromeBrowserState*)browserState
-                        webStateList:(WebStateList*)webStateList
+- (instancetype)initWithTracker:(feature_engagement::Tracker*)engagementTracker
+            hostContentSettingsMap:(HostContentSettingsMap*)settingsMap
+                      webStateList:(WebStateList*)webStateList
+    deviceSwitcherResultDispatcher:
+        (segmentation_platform::DeviceSwitcherResultDispatcher*)
+            deviceSwitcherResultDispatcher
+                   loadingNotifier:
+                       (UrlLoadingNotifierBrowserAgent*)urlLoadingNotifier
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -33,9 +48,9 @@ class WebStateList;
 
 @property(nonatomic, weak) id<BubblePresenterDelegate> delegate;
 @property(nonatomic, weak) UIViewController* rootViewController;
-@property(nonatomic, weak) id<ToolbarCommands> toolbarHandler;
 @property(nonatomic, strong) LayoutGuideCenter* layoutGuideCenter;
 
+// Stops this presenter.
 - (void)stop;
 
 // Notifies the presenter that the user entered the tab switcher.

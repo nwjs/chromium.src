@@ -135,8 +135,12 @@ bool OverlayProcessorDelegated::AttemptWithStrategies(
   DCHECK(candidates->empty());
   auto* render_pass = render_pass_list->back().get();
   QuadList* quad_list = &render_pass->quad_list;
-  constexpr bool is_delegated_context = true;
   delegated_status_ = DelegationStatus::kCompositedOther;
+
+  if (!features::IsDelegatedCompositingEnabled()) {
+    delegated_status_ = DelegationStatus::kCompositedFeatureDisabled;
+    return false;
+  }
 
   if (disable_delegation())
     return false;
@@ -159,10 +163,15 @@ bool OverlayProcessorDelegated::AttemptWithStrategies(
     return false;
   }
 
+  const OverlayCandidateFactory::OverlayContext context = {
+      .is_delegated_context = true,
+      .supports_clip_rect = supports_clip_rect_,
+      .supports_mask_filter = true};
+
   OverlayCandidateFactory candidate_factory = OverlayCandidateFactory(
       render_pass, resource_provider, surface_damage_rect_list,
       &output_color_matrix, GetPrimaryPlaneDisplayRect(primary_plane),
-      &render_pass_filters, is_delegated_context, supports_clip_rect_);
+      &render_pass_filters, context);
 
   unassigned_damage_ = gfx::RectF(candidate_factory.GetUnassignedDamage());
 
@@ -195,7 +204,8 @@ bool OverlayProcessorDelegated::AttemptWithStrategies(
       num_quads_skipped++;
     } else {
       DBG_DRAW_RECT("delegated.overlay.failed", display_rect);
-      DBG_LOG("delegated.overlay.failed", "error code %d", candidate_status);
+      DBG_LOG("delegated.overlay.failed", "error code %d",
+              static_cast<int>(candidate_status));
 
       switch (candidate_status) {
         case OverlayCandidate::CandidateStatus::kFailNotAxisAligned:
@@ -305,7 +315,8 @@ void OverlayProcessorDelegated::ProcessForOverlays(
 
   UMA_HISTOGRAM_ENUMERATION("Viz.DelegatedCompositing.Status",
                             delegated_status_);
-  DBG_LOG("delegation_status", "delegation status: %d", delegated_status_);
+  DBG_LOG("delegation_status", "delegation status: %d",
+          static_cast<int>(delegated_status_));
   DBG_DRAW_RECT("delegated.outgoing.damage", (*damage_rect));
 
   TRACE_COUNTER1(TRACE_DISABLED_BY_DEFAULT("viz.debug.overlay_planes"),

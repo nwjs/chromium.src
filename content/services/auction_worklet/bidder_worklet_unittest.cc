@@ -352,7 +352,7 @@ class BidderWorkletTest : public testing::Test {
     browser_signal_ad_cost_.reset();
     browser_signal_modeling_signals_.reset();
     browser_signal_join_count_ = 2;
-    browser_signal_recency_ = 5;
+    browser_signal_recency_report_win_ = 5;
     data_version_.reset();
   }
 
@@ -535,7 +535,7 @@ class BidderWorkletTest : public testing::Test {
         browser_signal_highest_scoring_other_bid_currency_,
         browser_signal_made_highest_scoring_other_bid_, browser_signal_ad_cost_,
         browser_signal_modeling_signals_, browser_signal_join_count_,
-        browser_signal_recency_, browser_signal_seller_origin_,
+        browser_signal_recency_report_win_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_, data_version_.value_or(0),
         data_version_.has_value(),
         /*trace_id=*/1,
@@ -677,7 +677,8 @@ class BidderWorkletTest : public testing::Test {
             ? absl::nullopt
             : direct_from_seller_auction_signals_,
         browser_signal_seller_origin_, browser_signal_top_level_seller_origin_,
-        CreateBiddingBrowserSignals(), auction_start_time_,
+        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
+        auction_start_time_,
         /*trace_id=*/1, std::move(generate_bid_client), std::move(finalizer));
     bidder_worklet->SendPendingSignalsRequests();
   }
@@ -712,7 +713,8 @@ class BidderWorkletTest : public testing::Test {
         CreateBidderWorkletNonSharedParams(), kanon_mode_, join_origin_,
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
-        browser_signal_top_level_seller_origin_, CreateBiddingBrowserSignals(),
+        browser_signal_top_level_seller_origin_,
+        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
         auction_start_time_,
         /*trace_id=*/1, GenerateBidClientWithCallbacks::CreateNeverCompletes(),
         bid_finalizer.BindNewEndpointAndPassReceiver());
@@ -867,6 +869,7 @@ class BidderWorkletTest : public testing::Test {
       interest_group_trusted_bidding_signals_keys_;
   int browser_signal_join_count_;
   int browser_signal_bid_count_;
+  base::TimeDelta browser_signal_recency_generate_bid_;
   std::vector<mojo::StructPtr<mojom::PreviousWin>> browser_signal_prev_wins_;
 
   absl::optional<std::string> auction_signals_;
@@ -895,7 +898,7 @@ class BidderWorkletTest : public testing::Test {
   bool browser_signal_made_highest_scoring_other_bid_;
   absl::optional<double> browser_signal_ad_cost_;
   absl::optional<uint16_t> browser_signal_modeling_signals_;
-  uint8_t browser_signal_recency_;
+  uint8_t browser_signal_recency_report_win_;
 
   // Used for reportWin();
   auction_worklet::mojom::ReportingIdField reporting_id_field_ =
@@ -2424,7 +2427,8 @@ TEST_F(BidderWorkletTest, GenerateBidParallel) {
           direct_from_seller_per_buyer_signals_,
           direct_from_seller_auction_signals_, browser_signal_seller_origin_,
           browser_signal_top_level_seller_origin_,
-          CreateBiddingBrowserSignals(), auction_start_time_,
+          browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
+          auction_start_time_,
           /*trace_id=*/1,
           GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
               [&run_loop, &num_generate_bid_calls, bid_value](
@@ -2539,7 +2543,8 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignalsParallelBatched1) {
         std::move(interest_group_fields), kanon_mode_, join_origin_,
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
-        browser_signal_top_level_seller_origin_, CreateBiddingBrowserSignals(),
+        browser_signal_top_level_seller_origin_,
+        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
         auction_start_time_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
@@ -2663,7 +2668,8 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignalsParallelBatched2) {
         std::move(interest_group_fields), kanon_mode_, join_origin_,
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
-        browser_signal_top_level_seller_origin_, CreateBiddingBrowserSignals(),
+        browser_signal_top_level_seller_origin_,
+        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
         auction_start_time_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
@@ -2793,7 +2799,8 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignalsParallelBatched3) {
         std::move(interest_group_fields), kanon_mode_, join_origin_,
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
-        browser_signal_top_level_seller_origin_, CreateBiddingBrowserSignals(),
+        browser_signal_top_level_seller_origin_,
+        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
         auction_start_time_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
@@ -2902,7 +2909,8 @@ TEST_F(BidderWorkletTest, GenerateBidTrustedBiddingSignalsParallelNotBatched) {
         std::move(interest_group_fields), kanon_mode_, join_origin_,
         direct_from_seller_per_buyer_signals_,
         direct_from_seller_auction_signals_, browser_signal_seller_origin_,
-        browser_signal_top_level_seller_origin_, CreateBiddingBrowserSignals(),
+        browser_signal_top_level_seller_origin_,
+        browser_signal_recency_generate_bid_, CreateBiddingBrowserSignals(),
         auction_start_time_,
         /*trace_id=*/1,
         GenerateBidClientWithCallbacks::Create(base::BindLambdaForTesting(
@@ -3550,7 +3558,7 @@ TEST_F(BidderWorkletTest, WasmReportWin) {
       browser_signal_highest_scoring_other_bid_currency_,
       browser_signal_made_highest_scoring_other_bid_, browser_signal_ad_cost_,
       browser_signal_modeling_signals_, browser_signal_join_count_,
-      browser_signal_recency_, browser_signal_seller_origin_,
+      browser_signal_recency_report_win_, browser_signal_seller_origin_,
       browser_signal_top_level_seller_origin_, data_version_.value_or(0),
       data_version_.has_value(),
       /*trace_id=*/1,
@@ -3701,9 +3709,11 @@ TEST_F(BidderWorkletTest, GenerateBidPrevWins) {
   base::Time time2 = auction_start_time_ - delta - tiny_delta;
   base::Time future_time = auction_start_time_ + delta;
 
-  auto win1 = mojom::PreviousWin::New(time1, R"("ad1")");
-  auto win2 = mojom::PreviousWin::New(time2, R"(["ad2"])");
-  auto future_win = mojom::PreviousWin::New(future_time, R"("future_ad")");
+  auto win1 = mojom::PreviousWin::New(time1, R"({"renderURL":"ad1"})");
+  auto win2 = mojom::PreviousWin::New(
+      time2, R"({"renderURL":"ad2", "metadata":"{\"key\":\"value\"}"})");
+  auto future_win =
+      mojom::PreviousWin::New(future_time, R"({"renderURL":"future_ad"})");
   struct TestCase {
     std::vector<mojo::StructPtr<mojom::PreviousWin>> prev_wins;
     // Value to output as the ad data.
@@ -3719,37 +3729,43 @@ TEST_F(BidderWorkletTest, GenerateBidPrevWins) {
       {
           CreateWinList(win1),
           "browserSignals.prevWins",
-          R"([[200,"ad1"]])",
+          R"([[200,{"renderURL":"ad1","render_url":"ad1"}]])",
       },
       // Make sure it's passed on as an object and not a string.
       {
           CreateWinList(win1),
           "browserSignals.prevWins[0]",
-          R"([200,"ad1"])",
+          R"([200,{"renderURL":"ad1","render_url":"ad1"}])",
       },
       // Test rounding.
       {
           CreateWinList(win2),
           "browserSignals.prevWins",
-          R"([[100,["ad2"]]])",
+          R"([[100,{"renderURL":"ad2",)"
+          R"("metadata":{"key":"value"},"render_url":"ad2"}]])",
       },
       // Multiple previous wins.
       {
           CreateWinList(win1, win2),
           "browserSignals.prevWins",
-          R"([[200,"ad1"],[100,["ad2"]]])",
+          R"([[200,{"renderURL":"ad1","render_url":"ad1"}],)"
+          R"([100,{"renderURL":"ad2",)"
+          R"("metadata":{"key":"value"},"render_url":"ad2"}]])",
       },
       // Times are trimmed at 0.
       {
           CreateWinList(future_win),
           "browserSignals.prevWins",
-          R"([[0,"future_ad"]])",
+          R"([[0,{"renderURL":"future_ad","render_url":"future_ad"}]])",
       },
       // Out of order wins should be sorted.
       {
           CreateWinList(win2, future_win, win1),
           "browserSignals.prevWins",
-          R"([[200,"ad1"],[100,["ad2"]],[0,"future_ad"]])",
+          R"([[200,{"renderURL":"ad1","render_url":"ad1"}],)"
+          R"([100,{"renderURL":"ad2",)"
+          R"("metadata":{"key":"value"},"render_url":"ad2"}],)"
+          R"([0,{"renderURL":"future_ad","render_url":"future_ad"}]])",
       },
       // Same as above, but for prevWinsMs.
       {
@@ -3760,37 +3776,43 @@ TEST_F(BidderWorkletTest, GenerateBidPrevWins) {
       {
           CreateWinList(win1),
           "browserSignals.prevWinsMs",
-          R"([[200000,"ad1"]])",
+          R"([[200000,{"renderURL":"ad1","render_url":"ad1"}]])",
       },
       // Make sure it's passed on as an object and not a string.
       {
           CreateWinList(win1),
           "browserSignals.prevWinsMs[0]",
-          R"([200000,"ad1"])",
+          R"([200000,{"renderURL":"ad1","render_url":"ad1"}])",
       },
       // Test rounding.
       {
           CreateWinList(win2),
           "browserSignals.prevWinsMs",
-          R"([[100000,["ad2"]]])",
+          R"([[100000,{"renderURL":"ad2",)"
+          R"("metadata":{"key":"value"},"render_url":"ad2"}]])",
       },
       // Multiple previous wins.
       {
           CreateWinList(win1, win2),
           "browserSignals.prevWinsMs",
-          R"([[200000,"ad1"],[100000,["ad2"]]])",
+          R"([[200000,{"renderURL":"ad1","render_url":"ad1"}],)"
+          R"([100000,{"renderURL":"ad2",)"
+          R"("metadata":{"key":"value"},"render_url":"ad2"}]])",
       },
       // Times are trimmed at 0.
       {
           CreateWinList(future_win),
           "browserSignals.prevWinsMs",
-          R"([[0,"future_ad"]])",
+          R"([[0,{"renderURL":"future_ad","render_url":"future_ad"}]])",
       },
       // Out of order wins should be sorted.
       {
           CreateWinList(win2, future_win, win1),
           "browserSignals.prevWinsMs",
-          R"([[200000,"ad1"],[100000,["ad2"]],[0,"future_ad"]])",
+          R"([[200000,{"renderURL":"ad1","render_url":"ad1"}],)"
+          R"([100000,{"renderURL":"ad2",)"
+          R"("metadata":{"key":"value"},"render_url":"ad2"}],)"
+          R"([0,{"renderURL":"future_ad","render_url":"future_ad"}]])",
       },
 
   };
@@ -4858,7 +4880,7 @@ TEST_F(BidderWorkletTest, DeleteBeforeReportWinCallback) {
       browser_signal_highest_scoring_other_bid_currency_,
       browser_signal_made_highest_scoring_other_bid_, browser_signal_ad_cost_,
       browser_signal_modeling_signals_, browser_signal_join_count_,
-      browser_signal_recency_, browser_signal_seller_origin_,
+      browser_signal_recency_report_win_, browser_signal_seller_origin_,
       browser_signal_top_level_seller_origin_, data_version_.value_or(0),
       data_version_.has_value(),
       /*trace_id=*/1,
@@ -4908,7 +4930,7 @@ TEST_F(BidderWorkletTest, ReportWinParallel) {
           browser_signal_highest_scoring_other_bid_currency_,
           browser_signal_made_highest_scoring_other_bid_,
           browser_signal_ad_cost_, browser_signal_modeling_signals_,
-          browser_signal_join_count_, browser_signal_recency_,
+          browser_signal_join_count_, browser_signal_recency_report_win_,
           browser_signal_seller_origin_,
           browser_signal_top_level_seller_origin_, data_version_.value_or(0),
           data_version_.has_value(),
@@ -4960,7 +4982,7 @@ TEST_F(BidderWorkletTest, ReportWinParallelLoadFails) {
         browser_signal_highest_scoring_other_bid_currency_,
         browser_signal_made_highest_scoring_other_bid_, browser_signal_ad_cost_,
         browser_signal_modeling_signals_, browser_signal_join_count_,
-        browser_signal_recency_, browser_signal_seller_origin_,
+        browser_signal_recency_report_win_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_, data_version_.value_or(0),
         data_version_.has_value(),
         /*trace_id=*/1,
@@ -5262,7 +5284,7 @@ TEST_F(BidderWorkletTest, ReportWinBrowserSignalJoinCount) {
 }
 
 TEST_F(BidderWorkletTest, ReportWinBrowserSignalRecency) {
-  browser_signal_recency_ = 19u;
+  browser_signal_recency_report_win_ = 19u;
   RunReportWinWithFunctionBodyExpectingResult(
       R"(if (browserSignals.recency === 19)
         sendReportTo("https://jumboshrimp.test"))",
@@ -5337,7 +5359,7 @@ TEST_F(BidderWorkletTest, ScriptIsolation) {
         browser_signal_highest_scoring_other_bid_currency_,
         browser_signal_made_highest_scoring_other_bid_, browser_signal_ad_cost_,
         browser_signal_modeling_signals_, browser_signal_join_count_,
-        browser_signal_recency_, browser_signal_seller_origin_,
+        browser_signal_recency_report_win_, browser_signal_seller_origin_,
         browser_signal_top_level_seller_origin_, data_version_.value_or(0),
         data_version_.has_value(),
         /*trace_id=*/1,
@@ -6099,7 +6121,7 @@ TEST_F(BidderWorkletTest, CancelationDtor) {
       browser_signal_highest_scoring_other_bid_currency_,
       browser_signal_made_highest_scoring_other_bid_, browser_signal_ad_cost_,
       browser_signal_modeling_signals_, browser_signal_join_count_,
-      browser_signal_recency_, browser_signal_seller_origin_,
+      browser_signal_recency_report_win_, browser_signal_seller_origin_,
       browser_signal_top_level_seller_origin_, data_version_.value_or(0),
       data_version_.has_value(),
       /*trace_id=*/1,

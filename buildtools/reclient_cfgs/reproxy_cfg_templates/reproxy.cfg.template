@@ -2,6 +2,7 @@ instance=$rbe_instance
 service=remotebuildexecution.googleapis.com:443
 log_format=reducedtext
 automatic_auth=true
+gcert_refresh_timeout=20
 fail_early_min_action_count=4000
 fail_early_min_fallback_ratio=0.5
 deps_cache_max_mb=256
@@ -20,3 +21,6 @@ cas_concurrency=1000
 # Always compress artifacts
 compression_threshold=0
 use_batches=false
+
+# Metric metadata
+metrics_namespace=$rbe_project

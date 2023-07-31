@@ -63,7 +63,6 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/ash/multi_user/multi_user_util.h"
-#include "chrome/browser/ui/scoped_tabbed_browser_displayer.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/extensions/api/accessibility_private.h"
@@ -389,9 +388,7 @@ void AccessibilityManager::ShowAccessibilityHelp() {
     return;
   }
 
-  chrome::ScopedTabbedBrowserDisplayer displayer(
-      ProfileManager::GetActiveUserProfile());
-  ShowSingletonTab(displayer.browser(),
+  ShowSingletonTab(ProfileManager::GetActiveUserProfile(),
                    GURL(chrome::kChromeAccessibilityHelpURL));
 }
 
@@ -563,6 +560,11 @@ bool AccessibilityManager::ShouldShowAccessibilityMenu() {
         prefs->GetBoolean(prefs::kDockedMagnifierEnabled)) {
       return true;
     }
+    if (::features::
+            AreExperimentalAccessibilityColorEnhancementSettingsEnabled() &&
+        prefs->GetBoolean(prefs::kAccessibilityColorFiltering)) {
+      return true;
+    }
   }
   return false;
 }
@@ -676,8 +678,6 @@ void AccessibilityManager::OnSpokenFeedbackChanged() {
       // Create PdfOcrController when both the PDF OCR feature flag and
       // Chromevox are enabled.
       ::screen_ai::PdfOcrControllerFactory::GetForProfile(profile());
-      // TODO(crbug.com/1393069): Destroy `PdfOcrController` when no longer
-      // needed.
     }
   }
 
@@ -1061,6 +1061,10 @@ void AccessibilityManager::OnDictationChanged(bool triggered_by_user) {
   const bool enabled =
       pref_service->GetBoolean(prefs::kAccessibilityDictationEnabled);
 
+  if (accessibility_service_client_) {
+    accessibility_service_client_->SetDictationEnabled(enabled);
+  }
+
   if (enabled &&
       pref_service->GetString(prefs::kAccessibilityDictationLocale).empty()) {
     // Dictation was turned on but the language pref isn't set yet. Determine if
@@ -1081,11 +1085,13 @@ void AccessibilityManager::OnDictationChanged(bool triggered_by_user) {
   if (!::features::IsDictationOfflineAvailable()) {
     // Show network dictation dialog if needed. Locale doesn't matter as no
     // languages are supported by SODA.
-    if (enabled && triggered_by_user && ShouldShowNetworkDictationDialog(""))
+    if (enabled && triggered_by_user && ShouldShowNetworkDictationDialog("")) {
       ShowNetworkDictationDialog();
+    }
     return;
   }
 
+  // We only reach this point if SODA is available.
   if (triggered_by_user && !enabled) {
     // Note: This should not be called at start-up or it will
     // push back SODA deletion each time start-up occurs with dictation
@@ -1093,9 +1099,6 @@ void AccessibilityManager::OnDictationChanged(bool triggered_by_user) {
     speech::SodaInstaller::GetInstance()->SetUninstallTimer(
         pref_service, g_browser_process->local_state());
   }
-
-  if (accessibility_service_client_)
-    accessibility_service_client_->SetDictationEnabled(enabled);
 
   if (!enabled)
     return;
@@ -1344,6 +1347,21 @@ void AccessibilityManager::OnSwitchAccessChanged() {
 
 void AccessibilityManager::OnSwitchAccessDisabled() {
   switch_access_loader_->Unload();
+}
+
+void AccessibilityManager::SetColorCorrectionEnabled(bool enabled) {
+  if (!profile_) {
+    return;
+  }
+
+  PrefService* pref_service = profile_->GetPrefs();
+  pref_service->SetBoolean(prefs::kAccessibilityColorFiltering, enabled);
+  pref_service->CommitPendingWrite();
+}
+
+bool AccessibilityManager::IsColorCorrectionEnabled() const {
+  return profile_ &&
+         profile_->GetPrefs()->GetBoolean(prefs::kAccessibilityColorFiltering);
 }
 
 bool AccessibilityManager::IsBrailleDisplayConnected() const {

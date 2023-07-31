@@ -32,6 +32,8 @@
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/live_tab_context_browser_agent.h"
 #import "ios/chrome/browser/sessions/session_util.h"
+#import "ios/chrome/browser/settings/sync/utils/sync_presenter.h"
+#import "ios/chrome/browser/settings/sync/utils/sync_util.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
@@ -78,8 +80,6 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_presentation_delegate.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller_delegate.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_table_view_controller_ui_delegate.h"
-#import "ios/chrome/browser/ui/settings/sync/utils/sync_presenter.h"
-#import "ios/chrome/browser/ui/settings/sync/utils/sync_util.h"
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/url_loading/url_loading_util.h"
@@ -203,8 +203,8 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 }
 
 - (void)dealloc {
-  [self.signinPromoViewMediator disconnect];
-  self.signinPromoViewMediator = nil;
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(!self.signinPromoViewMediator);
 }
 
 - (void)viewDidLoad {
@@ -722,6 +722,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
                   authService:AuthenticationServiceFactory::GetForBrowserState(
                                   self.browserState)
                   prefService:self.browserState->GetPrefs()
+                  syncService:self.syncService
                   accessPoint:signin_metrics::AccessPoint::
                                   ACCESS_POINT_RECENT_TABS
                     presenter:self
@@ -1750,12 +1751,12 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
 
 #pragma mark - SyncPresenter
 
-- (void)showReauthenticateSignin {
-  [self.handler showSignin:
-                    [[ShowSigninCommand alloc]
-                        initWithOperation:AuthenticationOperationReauthenticate
-                              accessPoint:signin_metrics::AccessPoint::
-                                              ACCESS_POINT_RECENT_TABS]
+- (void)showPrimaryAccountReauth {
+  [self.handler showSignin:[[ShowSigninCommand alloc]
+                               initWithOperation:
+                                   AuthenticationOperationPrimaryAccountReauth
+                                     accessPoint:signin_metrics::AccessPoint::
+                                                     ACCESS_POINT_RECENT_TABS]
         baseViewController:self];
 }
 
@@ -1844,7 +1845,7 @@ typedef std::pair<SessionID, TableViewURLItem*> RecentlyClosedTableViewItemPair;
   syncer::SyncService::UserActionableError error =
       syncService->GetUserActionableError();
   if (error == syncer::SyncService::UserActionableError::kSignInNeedsUpdate) {
-    [self showReauthenticateSignin];
+    [self showPrimaryAccountReauth];
   } else if (ShouldShowSyncSettings(error)) {
     [self showSyncManagerSettings];
   } else if (error ==

@@ -10,6 +10,7 @@
 #include "base/test/gtest_util.h"
 #include "content/browser/fenced_frame/fenced_frame_config.h"
 #include "content/browser/fenced_frame/fenced_frame_reporter.h"
+#include "content/public/test/test_renderer_host.h"
 #include "mojo/public/cpp/test_support/test_utils.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -193,8 +194,12 @@ void TestProperty(
       unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
   TestPropertyForEntityIsDefinedIsOpaque<ClassName, RedactedClassName, TestType,
                                          RedactedTestType>(
-      config, property, redacted_property, Entity::kContent, false, false,
-      unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
+      config, property, redacted_property, Entity::kSameOriginContent, false,
+      false, unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
+  TestPropertyForEntityIsDefinedIsOpaque<ClassName, RedactedClassName, TestType,
+                                         RedactedTestType>(
+      config, property, redacted_property, Entity::kCrossOriginContent, false,
+      false, unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
 
   // Test when `property` is opaque to embedder and transparent to content.
   (config.*property)
@@ -206,8 +211,12 @@ void TestProperty(
       unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
   TestPropertyForEntityIsDefinedIsOpaque<ClassName, RedactedClassName, TestType,
                                          RedactedTestType>(
-      config, property, redacted_property, Entity::kContent, true, false,
-      unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
+      config, property, redacted_property, Entity::kSameOriginContent, true,
+      false, unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
+  TestPropertyForEntityIsDefinedIsOpaque<ClassName, RedactedClassName, TestType,
+                                         RedactedTestType>(
+      config, property, redacted_property, Entity::kCrossOriginContent, true,
+      true, unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
 
   // Test when `property` is transparent to embedder and opaque to content.
   (config.*property)
@@ -219,11 +228,17 @@ void TestProperty(
       unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
   TestPropertyForEntityIsDefinedIsOpaque<ClassName, RedactedClassName, TestType,
                                          RedactedTestType>(
-      config, property, redacted_property, Entity::kContent, true, true,
-      unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
+      config, property, redacted_property, Entity::kSameOriginContent, true,
+      true, unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
+  TestPropertyForEntityIsDefinedIsOpaque<ClassName, RedactedClassName, TestType,
+                                         RedactedTestType>(
+      config, property, redacted_property, Entity::kCrossOriginContent, true,
+      true, unredacted_redacted_equality_fn, redacted_redacted_equality_fn);
 }
 
-TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsInternalUrnTest) {
+class FencedFrameConfigMojomTraitsTest : public RenderViewHostTestHarness {};
+
+TEST_F(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsInternalUrnTest) {
   GURL test_url("test_url");
 
   struct TestCase {
@@ -258,14 +273,14 @@ TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsInternalUrnTest) {
   }
 }
 
-TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsModeTest) {
+TEST_F(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsModeTest) {
   std::vector<blink::FencedFrame::DeprecatedFencedFrameMode> modes = {
       blink::FencedFrame::DeprecatedFencedFrameMode::kDefault,
       blink::FencedFrame::DeprecatedFencedFrameMode::kOpaqueAds,
   };
   std::vector<FencedFrameEntity> entities = {
       FencedFrameEntity::kEmbedder,
-      FencedFrameEntity::kContent,
+      FencedFrameEntity::kSameOriginContent,
   };
   GURL test_url("test_url");
   GURL test_urn = GenerateUrnUuid();
@@ -294,7 +309,7 @@ TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsModeTest) {
   }
 }
 
-TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsNullInternalUrnTest) {
+TEST_F(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsNullInternalUrnTest) {
   FencedFrameConfig browser_config;
   RedactedFencedFrameConfig input_config =
       browser_config.RedactFor(FencedFrameEntity::kEmbedder);
@@ -326,7 +341,7 @@ absl::optional<GURL> Project(const RedactedFencedFrameConfig& config) {
                      GURL>::potentially_opaque_value);
 }
 
-TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsTest) {
+TEST_F(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsTest) {
   GURL test_url("test_url");
 
   // See the above tests for `urn`.
@@ -448,13 +463,12 @@ TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsTest) {
                  &RedactedFencedFrameConfig::shared_storage_budget_metadata,
                  test_shared_storage_budget_metadata, eq_fn, eq_fn);
 
-    auto pointer_value_eq_fn =
-        [](const raw_ptr<const SharedStorageBudgetMetadata>& a,
-           const SharedStorageBudgetMetadata& b) {
-          return a->origin == b.origin &&
-                 a->budget_to_charge == b.budget_to_charge &&
-                 a->top_navigated == b.top_navigated;
-        };
+    auto pointer_value_eq_fn = [](const SharedStorageBudgetMetadata* a,
+                                  const SharedStorageBudgetMetadata& b) {
+      return a->origin == b.origin &&
+             a->budget_to_charge == b.budget_to_charge &&
+             a->top_navigated == b.top_navigated;
+    };
     TestProperty(&FencedFrameProperties::shared_storage_budget_metadata_,
                  &RedactedFencedFrameProperties::shared_storage_budget_metadata,
                  static_cast<raw_ptr<const SharedStorageBudgetMetadata>>(
@@ -466,7 +480,8 @@ TEST(FencedFrameConfigMojomTraitsTest, ConfigMojomTraitsTest) {
 // Test `has_fenced_frame_reporting`, which only appears in
 // FencedFrameProperties, and does not use the redacted mechanism used by other
 // fields.
-TEST(FencedFrameConfigMojomTraitsTest, PropertiesHasFencedFrameReportingTest) {
+TEST_F(FencedFrameConfigMojomTraitsTest,
+       PropertiesHasFencedFrameReportingTest) {
   FencedFrameProperties properties;
   RedactedFencedFrameProperties input_properties =
       properties.RedactFor(FencedFrameEntity::kEmbedder);
@@ -479,7 +494,7 @@ TEST(FencedFrameConfigMojomTraitsTest, PropertiesHasFencedFrameReportingTest) {
   // Create a reporting service with a dummy SharedURLLoaderFactory.
   properties.fenced_frame_reporter_ = FencedFrameReporter::CreateForFledge(
       base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(nullptr),
-      /*attribution_manager=*/nullptr,
+      /*browser_context=*/browser_context(),
       /*direct_seller_is_seller=*/false,
       /*private_aggregation_manager=*/nullptr,
       /*main_frame_origin=*/url::Origin(),

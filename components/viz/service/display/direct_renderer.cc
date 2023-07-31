@@ -29,7 +29,7 @@
 #include "components/viz/common/quads/draw_quad.h"
 #include "components/viz/common/quads/solid_color_draw_quad.h"
 #include "components/viz/common/resources/platform_color.h"
-#include "components/viz/common/resources/resource_format_utils.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "components/viz/common/viz_utils.h"
 #include "components/viz/service/display/bsp_tree.h"
 #include "components/viz/service/display/bsp_walk_action.h"
@@ -165,6 +165,10 @@ gfx::Rect DirectRenderer::MoveFromDrawToWindowSpace(
 const DrawQuad* DirectRenderer::CanPassBeDrawnDirectly(
     const AggregatedRenderPass* pass) {
   return nullptr;
+}
+
+void DirectRenderer::SetOutputSurfaceClipRect(const gfx::Rect& clip_rect) {
+  output_surface_clip_rect_ = clip_rect;
 }
 
 void DirectRenderer::SetVisible(bool visible) {
@@ -589,6 +593,11 @@ const absl::optional<gfx::RRectF> DirectRenderer::BackdropFilterBoundsForPass(
              : it->second;
 }
 
+bool DirectRenderer::SupportsBGRA() const {
+  // TODO(penghuang): check supported format correctly.
+  return true;
+}
+
 void DirectRenderer::FlushPolygons(
     base::circular_deque<std::unique_ptr<DrawPolygon>>* poly_list,
     const gfx::Rect& render_pass_scissor,
@@ -695,6 +704,10 @@ void DirectRenderer::DrawRenderPass(const AggregatedRenderPass* render_pass) {
   if (use_partial_swap_) {
     render_pass_scissor_in_draw_space.Intersect(
         ComputeScissorRectForRenderPass(current_frame()->current_render_pass));
+  }
+
+  if (is_root_render_pass && output_surface_clip_rect_) {
+    render_pass_scissor_in_draw_space.Intersect(*output_surface_clip_rect_);
   }
 
   const bool render_pass_is_clipped =
@@ -1158,9 +1171,8 @@ gfx::ColorSpace DirectRenderer::CurrentRenderPassColorSpace() const {
 
 SharedImageFormat DirectRenderer::GetColorSpaceSharedImageFormat(
     gfx::ColorSpace color_space) const {
-  // TODO(penghuang): check supported format correctly.
   gpu::Capabilities caps;
-  caps.texture_format_bgra8888 = true;
+  caps.texture_format_bgra8888 = SupportsBGRA();
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // TODO(crbug.com/1317015): add support RGBA_F16 in LaCrOS.

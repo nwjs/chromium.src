@@ -13,12 +13,15 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
 #import "ios/chrome/browser/ui/browser_view/tab_consumer.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_coordinator.h"
 #import "ios/chrome/browser/ui/tabs/switch_to_tab_animation_view.h"
+#import "ios/chrome/browser/ui/toolbar/public/side_swipe_toolbar_snapshot_providing.h"
 #import "ios/chrome/browser/url_loading/new_tab_animation_tab_helper.h"
 #import "ios/chrome/browser/url_loading/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/url_loading/url_loading_observer_bridge.h"
+#import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
 #import "ios/web/public/ui/crw_web_view_proxy.h"
 #import "ios/web/public/web_state.h"
 #import "ios/web/public/web_state_observer_bridge.h"
@@ -124,6 +127,55 @@
 
 #pragma mark - WebStateListObserving methods
 
+- (void)didChangeWebStateList:(WebStateList*)webStateList
+                       change:(const WebStateListChange&)change
+                    selection:(const WebStateSelection&)selection {
+  switch (change.type()) {
+    case WebStateListChange::Type::kSelectionOnly:
+      // TODO(crbug.com/1442546): Move the implementation from
+      // webStateList:didChangeActiveWebState:oldWebState:atIndex:reason to
+      // here. Note that here is reachable only when `reason` ==
+      // ActiveWebStateChangeReason::Activated.
+      break;
+    case WebStateListChange::Type::kDetach:
+      // TODO(crbug.com/1442546): Move the implementation from
+      // webStateList:didDetachWebState:atIndex: to here.
+      break;
+    case WebStateListChange::Type::kMove:
+      // Do nothing when a WebState is moved.
+      break;
+    case WebStateListChange::Type::kReplace: {
+      const WebStateListChangeReplace& replaceChange =
+          change.As<WebStateListChangeReplace>();
+      NewTabPageTabHelper* NTPTabHelper =
+          NewTabPageTabHelper::FromWebState(replaceChange.replaced_web_state());
+      if (NTPTabHelper->IsActive()) {
+        [self stopNTPIfNeeded];
+      }
+
+      web::WebState* currentWebState = _webStateList->GetActiveWebState();
+      web::WebState* newWebState = replaceChange.inserted_web_state();
+      // Add `newTab`'s view to the hierarchy if it's the current Tab.
+      if (currentWebState == newWebState) {
+        // Set this before triggering any of the possible page loads in
+        // displayTabViewIfActive.
+        newWebState->SetKeepRenderProcessAlive(true);
+        [self.consumer displayTabViewIfActive];
+      }
+      break;
+    }
+    case WebStateListChange::Type::kInsert: {
+      // If a tab is inserted in the background (not activating), trigger an
+      // animation. (The animation for foreground tab insertion is handled in
+      // `didChangeActiveWebState`).
+      if (!selection.activating) {
+        [self.consumer initiateNewTabBackgroundAnimation];
+      }
+      break;
+    }
+  }
+}
+
 - (void)webStateList:(WebStateList*)webStateList
     willDetachWebState:(web::WebState*)webState
                atIndex:(int)atIndex {
@@ -131,18 +183,6 @@
   web::WebState* currentWebState = _webStateList->GetActiveWebState();
   if (webState == currentWebState) {
     [self.consumer resetTab];
-  }
-}
-
-- (void)webStateList:(WebStateList*)webStateList
-    didInsertWebState:(web::WebState*)webState
-              atIndex:(int)index
-           activating:(BOOL)activating {
-  // If a tab is inserted in the background (not activating), trigger an
-  // animation. (The animation for foreground tab insertion is handled in
-  // `didChangeActiveWebState`).
-  if (!activating) {
-    [self.consumer initiateNewTabBackgroundAnimation];
   }
 }
 
@@ -200,27 +240,6 @@
     }
 
     [self.consumer webStateSelected];
-  }
-}
-
-// Observer method, WebState replaced in `webStateList`.
-- (void)webStateList:(WebStateList*)webStateList
-    didReplaceWebState:(web::WebState*)oldWebState
-          withWebState:(web::WebState*)newWebState
-               atIndex:(int)atIndex {
-  NewTabPageTabHelper* NTPTabHelper =
-      NewTabPageTabHelper::FromWebState(oldWebState);
-  if (NTPTabHelper->IsActive()) {
-    [self stopNTPIfNeeded];
-  }
-
-  web::WebState* currentWebState = _webStateList->GetActiveWebState();
-  // Add `newTab`'s view to the hierarchy if it's the current Tab.
-  if (currentWebState == newWebState) {
-    // Set this before triggering any of the possible page loads in
-    // displayTabViewIfActive.
-    newWebState->SetKeepRenderProcessAlive(true);
-    [self.consumer displayTabViewIfActive];
   }
 }
 
@@ -290,10 +309,36 @@
         _browserState->IsOffTheRecord(), currentWebState, URL, transitionType);
   }
 }
-
 - (void)willSwitchToTabWithURL:(GURL)URL
               newWebStateIndex:(NSInteger)newWebStateIndex {
-  [self.consumer switchtoTabWithNewWebStateIndex:newWebStateIndex];
+  base::WeakPtr<web::WebState> weakWebStateBeingActivated =
+      _webStateList->GetWebStateAt(newWebStateIndex)->GetWeakPtr();
+  web::WebState* webStateBeingActivated = weakWebStateBeingActivated.get();
+  if (!webStateBeingActivated) {
+    return;
+  }
+  SnapshotTabHelper* snapshotTabHelper =
+      SnapshotTabHelper::FromWebState(webStateBeingActivated);
+  BOOL willAddPlaceholder =
+      PagePlaceholderTabHelper::FromWebState(webStateBeingActivated)
+          ->will_add_placeholder_for_next_navigation();
+  NewTabPageTabHelper* NTPHelper =
+      NewTabPageTabHelper::FromWebState(webStateBeingActivated);
+  UIImage* topToolbarImage = [self.primaryToolbarSnapshotProvider
+      toolbarSideSwipeSnapshotForWebState:webStateBeingActivated];
+  UIImage* bottomToolbarImage = [self.secondaryToolbarSnapshotProvider
+      toolbarSideSwipeSnapshotForWebState:webStateBeingActivated];
+  SwitchToTabAnimationPosition position =
+      newWebStateIndex > _webStateList->active_index()
+          ? SwitchToTabAnimationPositionAfter
+          : SwitchToTabAnimationPositionBefore;
+
+  [self.consumer switchToTabAnimationPosition:position
+                            snapshotTabHelper:snapshotTabHelper
+                           willAddPlaceholder:willAddPlaceholder
+                          newTabPageTabHelper:NTPHelper
+                              topToolbarImage:topToolbarImage
+                           bottomToolbarImage:bottomToolbarImage];
 }
 
 @end

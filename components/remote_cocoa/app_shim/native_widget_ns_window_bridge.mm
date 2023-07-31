@@ -41,7 +41,6 @@
 #import "ui/base/cocoa/window_size_constants.h"
 #include "ui/base/emoji/emoji_panel_helper.h"
 #include "ui/base/hit_test.h"
-#include "ui/base/layout.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -161,11 +160,11 @@ display::Display GetDisplayForWindow(NSWindow* window) {
 }
 - (void)stopAnimation {
   [super stopAnimation];
-  [_window invalidateShadow];
+  [self.window invalidateShadow];
 }
 - (void)setCurrentProgress:(NSAnimationProgress)progress {
   [super setCurrentProgress:progress];
-  [_window invalidateShadow];
+  [self.window invalidateShadow];
 }
 @end
 
@@ -891,7 +890,8 @@ void NativeWidgetNSWindowBridge::SetLocalEventMonitorEnabled(bool enabled) {
         return event;
       }
 
-      std::unique_ptr<ui::Event> ui_event = ui::EventFromNative(event);
+      std::unique_ptr<ui::Event> ui_event =
+          ui::EventFromNative(base::apple::OwnedNSEvent(event));
       bool event_handled = false;
       weak_ptr->host_->DispatchMonitorEvent(std::move(ui_event),
                                             &event_handled);

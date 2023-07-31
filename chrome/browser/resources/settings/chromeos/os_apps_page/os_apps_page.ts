@@ -14,6 +14,7 @@ import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/cr_link_row/cr_link_row.js';
 import 'chrome://resources/cr_elements/policy/cr_policy_pref_indicator.js';
 import '../os_settings_page/os_settings_animated_pages.js';
+import '../os_settings_page/os_settings_section.js';
 import '../os_settings_page/os_settings_subpage.js';
 import '/shared/settings/controls/settings_dropdown_menu.js';
 import '../settings_shared.css.js';
@@ -38,10 +39,10 @@ import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bu
 import {androidAppsVisible, isArcVmEnabled, isPlayStoreAvailable, isPluginVmAvailable} from '../common/load_time_booleans.js';
 import {DeepLinkingMixin} from '../deep_linking_mixin.js';
 import {App as AppWithNotifications, AppNotificationsHandlerInterface, AppNotificationsObserverReceiver, Readiness} from '../mojom-webui/app_notification_handler.mojom-webui.js';
+import {Section} from '../mojom-webui/routes.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import {routes} from '../os_settings_routes.js';
 import {RouteObserverMixin} from '../route_observer_mixin.js';
-import {Route, Router} from '../router.js';
+import {Route, Router, routes} from '../router.js';
 
 import {AndroidAppsBrowserProxyImpl, AndroidAppsInfo} from './android_apps_browser_proxy.js';
 import {AppManagementStoreMixin} from './app_management_page/store_mixin.js';
@@ -78,6 +79,12 @@ class OsSettingsAppsPageElement extends OsSettingsAppsPageElementBase {
 
   static get properties() {
     return {
+      section_: {
+        type: Number,
+        value: Section.kApps,
+        readOnly: true,
+      },
+
       /**
        * This object holds the playStoreEnabled and settingsAppAvailable
        * boolean.
@@ -204,6 +211,7 @@ class OsSettingsAppsPageElement extends OsSettingsAppsPageElementBase {
   private isPluginVmAvailable_: boolean;
   private mojoInterfaceProvider_: AppNotificationsHandlerInterface;
   private onStartupOptions_: DropdownMenuOptionList;
+  private section_: Section;
   private showAndroidApps_: boolean;
   private showAppNotificationsRow_: boolean;
   private showStartup_: boolean;

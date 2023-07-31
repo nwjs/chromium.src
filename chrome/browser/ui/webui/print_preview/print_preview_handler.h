@@ -104,7 +104,8 @@ class PrintPreviewHandler : public content::WebUIMessageHandler {
 
   // Send the default page layout
   void SendPageLayoutReady(base::Value::Dict layout,
-                           bool has_custom_page_size_style,
+                           bool all_pages_have_custom_size,
+                           bool all_pages_have_custom_orientation,
                            int request_id);
 
   // Notify the WebUI that the page preview is ready.
@@ -285,6 +286,9 @@ class PrintPreviewHandler : public content::WebUIMessageHandler {
                                    scoped_refptr<base::RefCountedMemory> data,
                                    const std::string& callback_id,
                                    bool allowed);
+
+  // Wrapper for OnHidePreviewDialog() from PrintPreviewUI.
+  void OnHidePreviewDialog();
 #endif  // BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
 
   // Whether we have already logged a failed print preview.
@@ -326,7 +330,8 @@ class PrintPreviewHandler : public content::WebUIMessageHandler {
   // Note that this is not propagated to LocalPrinterHandlerLacros.
   // The pointer is constant - if ash crashes and the mojo connection is lost,
   // lacros will automatically be restarted.
-  raw_ptr<crosapi::mojom::LocalPrinter> local_printer_ = nullptr;
+  raw_ptr<crosapi::mojom::LocalPrinter, DanglingUntriaged> local_printer_ =
+      nullptr;
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -337,8 +342,8 @@ class PrintPreviewHandler : public content::WebUIMessageHandler {
   // Null if the interface is unavailable.
   // The pointer is constant - if ash crashes and the mojo connection is lost,
   // lacros will automatically be restarted.
-  raw_ptr<crosapi::mojom::DriveIntegrationService> drive_integration_service_ =
-      nullptr;
+  raw_ptr<crosapi::mojom::DriveIntegrationService, DanglingUntriaged>
+      drive_integration_service_ = nullptr;
 #endif
 
   base::WeakPtrFactory<PrintPreviewHandler> weak_factory_{this};

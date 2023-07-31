@@ -15,6 +15,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/containers/cxx20_erase_vector.h"
 #include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
@@ -39,6 +40,9 @@
 #include "content/browser/interest_group/noiser_and_bucketer.h"
 #include "content/browser/private_aggregation/private_aggregation_budget_key.h"
 #include "content/browser/private_aggregation/private_aggregation_manager.h"
+#include "content/public/browser/browser_context.h"
+#include "content/public/browser/privacy_sandbox_invoking_api.h"
+#include "content/public/common/content_client.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
 #include "content/services/auction_worklet/public/mojom/seller_worklet.mojom.h"
@@ -129,7 +133,7 @@ InterestGroupAuctionReporter::WinningBidInfo::~WinningBidInfo() = default;
 InterestGroupAuctionReporter::InterestGroupAuctionReporter(
     InterestGroupManagerImpl* interest_group_manager,
     AuctionWorkletManager* auction_worklet_manager,
-    AttributionManager* attribution_manager,
+    BrowserContext* browser_context,
     PrivateAggregationManager* private_aggregation_manager,
     LogPrivateAggregationRequestsCallback
         log_private_aggregation_requests_callback,
@@ -176,17 +180,20 @@ InterestGroupAuctionReporter::InterestGroupAuctionReporter(
           std::move(private_aggregation_requests_non_reserved)),
       fenced_frame_reporter_(FencedFrameReporter::CreateForFledge(
           url_loader_factory_,
-          attribution_manager,
+          browser_context,
           /*direct_seller_is_seller=*/
           !component_seller_winning_bid_info.has_value(),
           private_aggregation_manager_,
           main_frame_origin_,
-          winning_bid_info_.storage_interest_group->interest_group.owner)) {
+          winning_bid_info_.storage_interest_group->interest_group.owner)),
+      browser_context_(browser_context) {
   DCHECK(interest_group_manager_);
   DCHECK(auction_worklet_manager_);
   DCHECK(url_loader_factory_);
   DCHECK(client_security_state_);
   DCHECK(!interest_groups_that_bid_.empty());
+  EnforceAttestationsReportUrls(debug_win_report_urls_);
+  EnforceAttestationsReportUrls(debug_loss_report_urls_);
 }
 
 InterestGroupAuctionReporter ::~InterestGroupAuctionReporter() {
@@ -264,6 +271,7 @@ double InterestGroupAuctionReporter::RoundStochasticallyToKBits(double value,
   }
 
   double norm_value = std::frexp(value, &value_exp);
+  // frexp() returns numbers in the range +-[0.5, 1)
 
   if (value_exp < std::numeric_limits<int8_t>::min()) {
     return std::copysign(0, value);
@@ -272,11 +280,32 @@ double InterestGroupAuctionReporter::RoundStochasticallyToKBits(double value,
     return std::copysign(std::numeric_limits<double>::infinity(), value);
   }
 
+  // Shift so we get k integer bits. Since we are in the range +-[0.5, 1) we
+  // multiply by 2**k to get to the range +-[2**(k-1), 2**k).
   double precision_scaled_value = std::ldexp(norm_value, k);
-  double noisy_scaled_value = precision_scaled_value + 0.5 * base::RandDouble();
-  double truncated_scaled_value = std::floor(noisy_scaled_value);
 
-  return std::ldexp(truncated_scaled_value, value_exp - k);
+  // Remove the fractional part.
+  double truncated_scaled_value = std::trunc(precision_scaled_value);
+
+  // Apply random noise based on truncated portion such that we increment with
+  // probability equal to the truncated portion.
+  double noised_truncated_scaled_value = truncated_scaled_value;
+  if (std::abs(precision_scaled_value - truncated_scaled_value) >
+      base::RandDouble()) {
+    noised_truncated_scaled_value =
+        truncated_scaled_value + std::copysign(1, precision_scaled_value);
+
+    // Handle overflow caused by the increment. Incrementing can only
+    // increase the absolute value, so only worry about the mantissa
+    // overflowing.
+    if (value_exp == std::numeric_limits<int8_t>::max() &&
+        std::abs(std::ldexp(noised_truncated_scaled_value, -k)) >= 1.0) {
+      DCHECK_EQ(1.0, std::abs(std::ldexp(noised_truncated_scaled_value, -k)));
+      return std::copysign(std::numeric_limits<double>::infinity(), value);
+    }
+  }
+
+  return std::ldexp(noised_truncated_scaled_value, value_exp - k);
 }
 
 void InterestGroupAuctionReporter::RequestSellerWorklet(
@@ -356,20 +385,26 @@ void InterestGroupAuctionReporter::OnSellerWorkletReceived(
   }
 
   double bid = seller_info->bid;
-  absl::optional<blink::AdCurrency> bid_currency;
+  double winning_bid_for_aggregation = bid;
+  absl::optional<blink::AdCurrency> bid_currency = seller_info->bid_currency;
+  absl::optional<blink::AdCurrency> highest_scoring_other_bid_currency;
   double highest_scoring_other_bid = seller_info->highest_scoring_other_bid;
   if (seller_info->auction_config->non_shared_params.seller_currency
           .has_value()) {
-    bid = seller_info->bid_in_seller_currency;
+    // While reportResult() gets the bid that actually participated in the
+    // auction, for private aggregation and second-highest we want to do things
+    // in seller currency if it's enabled.
+    winning_bid_for_aggregation = seller_info->bid_in_seller_currency;
     highest_scoring_other_bid =
         seller_info->highest_scoring_other_bid_in_seller_currency.value_or(0.0);
-    bid_currency =
+    highest_scoring_other_bid_currency =
         *seller_info->auction_config->non_shared_params.seller_currency;
   }
 
   // top-level auctions with components don't report highest_scoring_other_bid.
   if (top_level_with_components) {
     highest_scoring_other_bid = 0.0;
+    highest_scoring_other_bid_currency = absl::nullopt;
   }
 
   // Send in buyer_and_seller_reporting_id if it's configured on the winning
@@ -403,16 +438,15 @@ void InterestGroupAuctionReporter::OnSellerWorkletReceived(
                                  kFledgeScoreReportingBits.Get()),
       RoundStochasticallyToKBits(highest_scoring_other_bid,
                                  kFledgeBidReportingBits.Get()),
-      /*browser_signal_highest_scoring_other_bid_currency=*/
-      top_level_with_components ? absl::nullopt : bid_currency,
+      highest_scoring_other_bid_currency,
       std::move(browser_signals_component_auction_report_result_params),
       seller_info->scoring_signals_data_version.value_or(0),
       seller_info->scoring_signals_data_version.has_value(),
       seller_info->trace_id,
       base::BindOnce(
           &InterestGroupAuctionReporter::OnSellerReportResultComplete,
-          weak_ptr_factory_.GetWeakPtr(), base::Unretained(seller_info), bid,
-          highest_scoring_other_bid));
+          weak_ptr_factory_.GetWeakPtr(), base::Unretained(seller_info),
+          winning_bid_for_aggregation, highest_scoring_other_bid));
 }
 
 void InterestGroupAuctionReporter::OnSellerReportResultComplete(
@@ -845,6 +879,9 @@ InterestGroupAuctionReporter::GetBidderAuction() {
 }
 
 void InterestGroupAuctionReporter::AddPendingReportUrl(const GURL& report_url) {
+  if (!CheckReportUrl(report_url)) {
+    return;
+  }
   pending_report_urls_.push_back(report_url);
 }
 
@@ -879,6 +916,26 @@ void InterestGroupAuctionReporter::MaybeSendPrivateAggregationReports() {
   // the feature flags are disabled. Then CHECK that
   // `private_aggregation_requests_non_reserved_` is empty here.
   private_aggregation_requests_non_reserved_.clear();
+}
+
+bool InterestGroupAuctionReporter::CheckReportUrl(const GURL& url) {
+  if (!GetContentClient()
+           ->browser()
+           ->IsPrivacySandboxReportingDestinationAttested(
+               browser_context_, url::Origin::Create(url),
+               PrivacySandboxInvokingAPI::kProtectedAudience)) {
+    errors_.push_back(base::StringPrintf(
+        "The reporting destination %s is not attested for Protected Audience.",
+        url.spec().c_str()));
+    return false;
+  }
+
+  return true;
+}
+
+void InterestGroupAuctionReporter::EnforceAttestationsReportUrls(
+    std::vector<GURL>& urls) {
+  base::EraseIf(urls, [this](const GURL& url) { return !CheckReportUrl(url); });
 }
 
 }  // namespace content

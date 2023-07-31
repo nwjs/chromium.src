@@ -29,12 +29,11 @@ import org.mockito.Mockito;
 import org.chromium.base.CollectionUtil;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
-import org.chromium.chrome.browser.sync.SyncService;
+import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
@@ -43,6 +42,7 @@ import org.chromium.chrome.test.util.browser.signin.SigninTestRule;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.search_engines.TemplateUrlService;
 import org.chromium.components.sync.ModelType;
+import org.chromium.components.sync.SyncService;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.io.IOException;
@@ -86,14 +86,15 @@ public class ClearBrowsingDataFragmentBasicTest {
     @Before
     public void setUp() throws InterruptedException {
         initMocks(this);
-        TestThreadUtils.runOnUiThreadBlocking(() -> SyncService.overrideForTests(mMockSyncService));
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> SyncServiceFactory.overrideForTests(mMockSyncService));
         setSyncable(false);
         mActivityTestRule.startMainActivityOnBlankPage();
     }
 
     @After
     public void tearDown() {
-        TestThreadUtils.runOnUiThreadBlocking(() -> SyncService.resetForTests());
+        TestThreadUtils.runOnUiThreadBlocking(() -> SyncServiceFactory.resetForTests());
         TemplateUrlServiceFactory.setInstanceForTesting(null);
     }
 
@@ -164,7 +165,6 @@ public class ClearBrowsingDataFragmentBasicTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisabledTest(message = "https://crbug.com/1446404")
     public void testRenderSearchHistoryLinkSignedInGoogleDSE() throws IOException {
         mSigninTestRule.addTestAccountThenSignin();
         setSyncable(false);
@@ -197,7 +197,6 @@ public class ClearBrowsingDataFragmentBasicTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisabledTest(message = "crbug.com/1407312")
     public void testRenderSearchHistoryLinkSignedInUnknownNonGoogleDSE() throws IOException {
         mSigninTestRule.addTestAccountThenSigninAndEnableSync();
         setSyncable(false);
@@ -217,7 +216,6 @@ public class ClearBrowsingDataFragmentBasicTest {
     @Test
     @LargeTest
     @Feature({"RenderTest"})
-    @DisabledTest(message = "crbug.com/1407312")
     public void testRenderSearchHistoryLinkSignedOutKnownNonGoogleDSE() throws IOException {
         configureMockSearchEngine();
         Mockito.doReturn(false).when(mMockTemplateUrlService).isDefaultSearchEngineGoogle();

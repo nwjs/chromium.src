@@ -716,8 +716,8 @@ void SetKeysForCrashLogging(const GPUInfo& gpu_info) {
   crash_keys::gpu_driver_version.Set(active_gpu.driver_version);
   crash_keys::gpu_pixel_shader_version.Set(gpu_info.pixel_shader_version);
   crash_keys::gpu_vertex_shader_version.Set(gpu_info.vertex_shader_version);
-  crash_keys::gpu_generation_intel.Set(
-      base::StringPrintf("%d", GetIntelGpuGeneration(gpu_info)));
+  crash_keys::gpu_generation_intel.Set(base::StringPrintf(
+      "%d", static_cast<int>(GetIntelGpuGeneration(gpu_info))));
 #if BUILDFLAG(IS_MAC)
   crash_keys::gpu_gl_version.Set(gpu_info.gl_version);
 #elif BUILDFLAG(IS_POSIX)
@@ -917,6 +917,8 @@ IntelGpuSeriesType GetIntelGpuSeriesType(uint32_t vendor_id,
         return IntelGpuSeriesType::kAlchemist;
       case 0xa700:
         return IntelGpuSeriesType::kRaptorlake;
+      case 0x7d00:
+        return IntelGpuSeriesType::kMeteorlake;
       default:
         break;
     }
@@ -963,6 +965,7 @@ std::string GetIntelGpuGeneration(uint32_t vendor_id, uint32_t device_id) {
       case IntelGpuSeriesType::kAlderlake:
       case IntelGpuSeriesType::kAlchemist:
       case IntelGpuSeriesType::kRaptorlake:
+      case IntelGpuSeriesType::kMeteorlake:
         return "12";
       default:
         break;

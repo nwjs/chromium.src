@@ -6,6 +6,7 @@
 #define COMPONENTS_FEATURE_ENGAGEMENT_PUBLIC_FEATURE_CONSTANTS_H_
 
 #include "base/feature_list.h"
+#include "build/branding_buildflags.h"
 #include "build/build_config.h"
 
 namespace feature_engagement {
@@ -41,8 +42,10 @@ BASE_DECLARE_FEATURE(kIPHPasswordsAccountStorageFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsManagementBubbleAfterSaveFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsManagementBubbleDuringSigninFeature);
 BASE_DECLARE_FEATURE(kIPHPasswordsWebAppProfileSwitchFeature);
+BASE_DECLARE_FEATURE(kIPHPasswordManagerShortcutFeature);
 BASE_DECLARE_FEATURE(kIPHPerformanceNewBadgeFeature);
 BASE_DECLARE_FEATURE(kIPHPowerBookmarksSidePanelFeature);
+BASE_DECLARE_FEATURE(kIPHPriceInsightsPageActionIconLabelFeature);
 BASE_DECLARE_FEATURE(kIPHPriceTrackingChipFeature);
 BASE_DECLARE_FEATURE(kIPHPriceTrackingPageActionIconLabelFeature);
 BASE_DECLARE_FEATURE(kIPHReadingListDiscoveryFeature);
@@ -170,12 +173,12 @@ BASE_DECLARE_FEATURE(kIPHWebFeedPostFollowDialogFeature);
 BASE_DECLARE_FEATURE(kIPHSharedHighlightingBuilder);
 BASE_DECLARE_FEATURE(kIPHSharedHighlightingReceiverFeature);
 BASE_DECLARE_FEATURE(kIPHSharingHubWebnotesStylizeFeature);
+BASE_DECLARE_FEATURE(kIPHRestoreTabsOnFREFeature);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
 BASE_DECLARE_FEATURE(kIPHBottomToolbarTipFeature);
 BASE_DECLARE_FEATURE(kIPHLongPressToolbarTipFeature);
-BASE_DECLARE_FEATURE(kIPHNewTabTipFeature);
 BASE_DECLARE_FEATURE(kIPHNewIncognitoTabTipFeature);
 BASE_DECLARE_FEATURE(kIPHBadgedReadingListFeature);
 BASE_DECLARE_FEATURE(kIPHWhatsNewFeature);
@@ -199,6 +202,7 @@ BASE_DECLARE_FEATURE(kIPHiOSTabGridToolbarItemFeature);
 BASE_DECLARE_FEATURE(kIPHiOSHistoryOnOverflowMenuFeature);
 BASE_DECLARE_FEATURE(kIPHiOSShareToolbarItemFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserVideoPromoTriggerFeature);
+BASE_DECLARE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature);
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -213,6 +217,10 @@ BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHGoogleOneOfferNotificationFeature);
 BASE_DECLARE_FEATURE(kIPHLauncherSearchHelpUiFeature);
 #endif
+
+#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+BASE_DECLARE_FEATURE(kIPHiOSPasswordPromoDesktopFeature);
+#endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 }  // namespace feature_engagement
 

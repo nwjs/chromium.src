@@ -186,7 +186,7 @@ TEST_F(AshAcceleratorConfigurationTest, DeprecatedAccelerators) {
   const DeprecatedAcceleratorData deprecated_data[] = {
       {AcceleratorAction::kShowTaskManager,
        /*uma_histogram_name=*/"deprecated.showTaskManager",
-       /*notification_message_id=*/1, /*old_shortcut_id=*/1,
+       /*notification_message_id=*/1,
        /*new_shortcut_id=*/2, /*deprecated_enabled=*/true},
   };
 
@@ -264,7 +264,7 @@ TEST_F(AshAcceleratorConfigurationTest,
   const DeprecatedAcceleratorData deprecated_data[] = {
       {AcceleratorAction::kShowTaskManager,
        /*uma_histogram_name=*/"deprecated.showTaskManager",
-       /*notification_message_id=*/1, /*old_shortcut_id=*/1,
+       /*notification_message_id=*/1,
        /*new_shortcut_id=*/2, /*deprecated_enabled=*/true},
   };
 
@@ -960,7 +960,7 @@ TEST_F(AshAcceleratorConfigurationTest, AddAcceleratorDeprecatedConflict) {
   const DeprecatedAcceleratorData deprecated_data[] = {
       {AcceleratorAction::kShowTaskManager,
        /*uma_histogram_name=*/"deprecated.showTaskManager",
-       /*notification_message_id=*/1, /*old_shortcut_id=*/1,
+       /*notification_message_id=*/1,
        /*new_shortcut_id=*/2, /*deprecated_enabled=*/true},
   };
 
@@ -1150,6 +1150,62 @@ TEST_F(AshAcceleratorConfigurationTest, AddRestoreAccelerator) {
   EXPECT_EQ(AcceleratorConfigResult::kSuccess, result);
   EXPECT_FALSE(config_->FindAcceleratorAction(new_accelerator));
   ExpectAllAcceleratorsEqual(test_data, config_->GetAllAccelerators());
+}
+
+TEST_F(AshAcceleratorConfigurationTest, RestoreWithDefaultConflicts) {
+  EXPECT_EQ(0, observer_.num_times_accelerator_updated_called());
+  const AcceleratorData test_data[] = {
+      {/*trigger_on_press=*/true, ui::VKEY_SPACE,
+       ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
+       AcceleratorAction::kSwitchToLastUsedIme},
+      {/*trigger_on_press=*/true, ui::VKEY_TAB, ui::EF_ALT_DOWN,
+       AcceleratorAction::kCycleForwardMru},
+      {/*trigger_on_press=*/true, ui::VKEY_C, ui::EF_ALT_DOWN,
+       AcceleratorAction::kCycleForwardMru},
+  };
+
+  config_->Initialize(test_data);
+
+  ExpectAllAcceleratorsEqual(test_data, config_->GetAllAccelerators());
+  EXPECT_EQ(1, observer_.num_times_accelerator_updated_called());
+
+  // Add ALT + SHIFT + TAB to AcceleratorAction::kSwitchToLastUsedIme, which
+  // conflicts with AcceleratorAction::kCycleBackwardMru.
+  const AcceleratorData updated_test_data[] = {
+      {/*trigger_on_press=*/true, ui::VKEY_C, ui::EF_ALT_DOWN,
+       AcceleratorAction::kSwitchToLastUsedIme},
+      {/*trigger_on_press=*/true, ui::VKEY_SPACE,
+       ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN,
+       AcceleratorAction::kSwitchToLastUsedIme},
+      {/*trigger_on_press=*/true, ui::VKEY_TAB, ui::EF_ALT_DOWN,
+       AcceleratorAction::kCycleForwardMru},
+  };
+
+  const ui::Accelerator new_accelerator(ui::VKEY_C, ui::EF_ALT_DOWN);
+  AcceleratorConfigResult result = config_->AddUserAccelerator(
+      AcceleratorAction::kSwitchToLastUsedIme, new_accelerator);
+  EXPECT_EQ(AcceleratorConfigResult::kSuccess, result);
+
+  // Compare expected accelerators and that the observer was fired after
+  // removing an accelerator.
+  EXPECT_EQ(2, observer_.num_times_accelerator_updated_called());
+  ExpectAllAcceleratorsEqual(updated_test_data, config_->GetAllAccelerators());
+  const AcceleratorAction* found_action =
+      config_->FindAcceleratorAction(new_accelerator);
+  EXPECT_TRUE(found_action);
+  EXPECT_EQ(AcceleratorAction::kSwitchToLastUsedIme, *found_action);
+
+  // Confirm that conflicting accelerator was removed.
+  const std::vector<ui::Accelerator>& forward_mru_accelerators =
+      config_->GetAcceleratorsForAction(AcceleratorAction::kCycleForwardMru);
+  EXPECT_EQ(1u, forward_mru_accelerators.size());
+
+  // Now restore the default of `kCycleForwardMru`, this will effectively be a
+  // no-opt since one of its default is a used by `kSwitchToLastUsedIme`.
+  result = config_->RestoreDefault(AcceleratorAction::kCycleForwardMru);
+  EXPECT_EQ(3, observer_.num_times_accelerator_updated_called());
+  EXPECT_EQ(AcceleratorConfigResult::kRestoreSuccessWithConflicts, result);
+  ExpectAllAcceleratorsEqual(updated_test_data, config_->GetAllAccelerators());
 }
 
 // Add an accelerator, then add the same accelerator to another action.

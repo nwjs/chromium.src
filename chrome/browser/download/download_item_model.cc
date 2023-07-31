@@ -57,6 +57,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/base/text/bytes_formatting.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/color/color_id.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -77,11 +78,6 @@ using ReportThreatDetailsResult =
 using TailoredVerdict = safe_browsing::ClientDownloadResponse::TailoredVerdict;
 
 namespace {
-
-#if !BUILDFLAG(IS_ANDROID)
-// How long an ephemeral warning is displayed on the download bubble.
-constexpr base::TimeDelta kEphemeralWarningLifetimeOnBubble = base::Minutes(5);
-#endif
 
 // Per DownloadItem data used by DownloadItemModel. The model doesn't keep any
 // state since there could be multiple models associated with a single
@@ -391,6 +387,7 @@ bool DownloadItemModel::IsMalicious() const {
     case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING:
     case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_BLOCK:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:
+    case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_FAILED:
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
       return false;
@@ -750,6 +747,7 @@ bool DownloadItemModel::IsCommandEnabled(
     case DownloadCommands::BYPASS_DEEP_SCANNING:
     case DownloadCommands::REVIEW:
     case DownloadCommands::RETRY:
+    case DownloadCommands::CANCEL_DEEP_SCAN:
       return DownloadUIModel::IsCommandEnabled(download_commands, command);
   }
   NOTREACHED();
@@ -791,6 +789,7 @@ bool DownloadItemModel::IsCommandChecked(
     case DownloadCommands::BYPASS_DEEP_SCANNING:
     case DownloadCommands::REVIEW:
     case DownloadCommands::RETRY:
+    case DownloadCommands::CANCEL_DEEP_SCAN:
       return false;
   }
   return false;
@@ -902,7 +901,7 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
     case DownloadCommands::RETRY:
       DownloadUIModel::ExecuteCommand(download_commands, command);
       break;
-    case DownloadCommands::DEEP_SCAN:
+    case DownloadCommands::DEEP_SCAN: {
 #if 0
       safe_browsing::SafeBrowsingService* sb_service =
           g_browser_process->safe_browsing_service();
@@ -941,6 +940,22 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
           safe_browsing::DeepScanEvent::kPromptAccepted);
 #endif
       break;
+    }
+    case DownloadCommands::CANCEL_DEEP_SCAN: {
+#if 0
+      DownloadCoreService* download_core_service =
+          DownloadCoreServiceFactory::GetForBrowserContext(
+              content::DownloadItemUtils::GetBrowserContext(download_));
+      DCHECK(download_core_service);
+      ChromeDownloadManagerDelegate* delegate =
+          download_core_service->GetDownloadManagerDelegate();
+      DCHECK(delegate);
+      delegate->CheckClientDownloadDone(
+          download_->GetId(),
+          safe_browsing::DownloadCheckResult::PROMPT_FOR_SCANNING);
+#endif
+      break;
+    }
   }
 }
 
@@ -958,7 +973,9 @@ DownloadItemModel::GetBubbleUIInfoForTailoredWarning() const {
     return DownloadUIModel::BubbleUIInfo()
         .AddSubpageSummary(l10n_util::GetStringUTF16(
             IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_SUSPICIOUS_ARCHIVE))
-        .AddIconAndColor(vector_icons::kNotSecureWarningIcon,
+        .AddIconAndColor(features::IsChromeRefresh2023()
+                             ? vector_icons::kNotSecureWarningChromeRefreshIcon
+                             : vector_icons::kNotSecureWarningIcon,
                          ui::kColorAlertMediumSeverityIcon)
         .AddSecondaryTextColor(ui::kColorAlertMediumSeverityText)
         .AddPrimaryButton(DownloadCommands::Command::DISCARD)
@@ -992,7 +1009,9 @@ DownloadItemModel::GetBubbleUIInfoForTailoredWarning() const {
             .AddSubpageSummary(l10n_util::GetStringFUTF16(
                 IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_COOKIE_THEFT_AND_ACCOUNT,
                 base::ASCIIToUTF16(email)))
-            .AddIconAndColor(vector_icons::kDangerousIcon,
+            .AddIconAndColor(features::IsChromeRefresh2023()
+                                 ? vector_icons::kDangerousChromeRefreshIcon
+                                 : vector_icons::kDangerousIcon,
                              ui::kColorAlertHighSeverity)
             .AddPrimaryButton(DownloadCommands::Command::DISCARD)
             .AddPrimarySubpageButton(
@@ -1003,7 +1022,9 @@ DownloadItemModel::GetBubbleUIInfoForTailoredWarning() const {
     return DownloadUIModel::BubbleUIInfo()
         .AddSubpageSummary(l10n_util::GetStringUTF16(
             IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_COOKIE_THEFT))
-        .AddIconAndColor(vector_icons::kDangerousIcon,
+        .AddIconAndColor(features::IsChromeRefresh2023()
+                             ? vector_icons::kDangerousChromeRefreshIcon
+                             : vector_icons::kDangerousIcon,
                          ui::kColorAlertHighSeverity)
         .AddPrimaryButton(DownloadCommands::Command::DISCARD)
         .AddPrimarySubpageButton(
@@ -1109,6 +1130,7 @@ bool DownloadItemModel::IsEphemeralWarning() const {
     case download::DOWNLOAD_DANGER_TYPE_DANGEROUS_URL:
     case download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT:
     case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING:
+    case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_FAILED:
       return true;
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_OPENED_DANGEROUS:
     case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:

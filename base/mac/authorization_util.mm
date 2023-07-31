@@ -18,7 +18,12 @@
 #include "base/posix/eintr_wrapper.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/sys_string_conversions.h"
 #include "base/threading/hang_watcher.h"
+
+#if !defined(__has_feature) || !__has_feature(objc_arc)
+#error "This file requires ARC support."
+#endif
 
 namespace base::mac {
 
@@ -65,11 +70,15 @@ ScopedAuthorizationRef GetAuthorizationRightsWithPrompt(
   const char* icon_path_c = [icon_path fileSystemRepresentation];
   size_t icon_path_length = icon_path_c ? strlen(icon_path_c) : 0;
 
-  // The OS will dispay |prompt| along with a sentence asking the user to type
+  // The OS will display |prompt| along with a sentence asking the user to type
   // the "password to allow this."
-  NSString* prompt_ns = base::mac::CFToNSCast(prompt);
-  const char* prompt_c = [prompt_ns UTF8String];
-  size_t prompt_length = prompt_c ? strlen(prompt_c) : 0;
+  const char* prompt_c = nullptr;
+  size_t prompt_length = 0;
+  if (prompt) {
+    std::string prompt_string = SysCFStringRefToUTF8(prompt);
+    prompt_c = prompt_string.c_str();
+    prompt_length = prompt_string.length();
+  }
 
   AuthorizationItem environment_items[] = {
     {kAuthorizationEnvironmentIcon, icon_path_length, (void*)icon_path_c, 0},

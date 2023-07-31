@@ -7,15 +7,16 @@
 #include "base/check_op.h"
 #include "base/memory/ptr_util.h"
 #include "components/viz/common/resources/resource_format_utils.h"
+#include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
-#include "third_party/skia/include/core/SkPromiseImageTexture.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrContextThreadSafeProxy.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "third_party/skia/include/private/chromium/GrPromiseImageTexture.h"
 #include "ui/gl/gl_bindings.h"
 
 namespace gpu {
@@ -42,7 +43,7 @@ std::unique_ptr<SkiaGLImageRepresentation> SkiaGLImageRepresentation::Create(
     SharedImageManager* manager,
     SharedImageBacking* backing,
     MemoryTypeTracker* tracker) {
-  std::vector<sk_sp<SkPromiseImageTexture>> promise_textures;
+  std::vector<sk_sp<GrPromiseImageTexture>> promise_textures;
   auto format = backing->format();
   bool angle_rgbx_internal_format =
       context_state->feature_info()->feature_flags().angle_rgbx_internal_format;
@@ -57,7 +58,7 @@ std::unique_ptr<SkiaGLImageRepresentation> SkiaGLImageRepresentation::Create(
             context_state->gr_context()->threadSafeProxy(), &backend_texture)) {
       return nullptr;
     }
-    auto promise_texture = SkPromiseImageTexture::Make(backend_texture);
+    auto promise_texture = GrPromiseImageTexture::Make(backend_texture);
     if (!promise_texture)
       return nullptr;
     promise_textures.push_back(std::move(promise_texture));
@@ -79,7 +80,7 @@ std::unique_ptr<SkiaGLImageRepresentation> SkiaGLImageRepresentation::Create(
               &backend_texture)) {
         return nullptr;
       }
-      auto promise_texture = SkPromiseImageTexture::Make(backend_texture);
+      auto promise_texture = GrPromiseImageTexture::Make(backend_texture);
       if (!promise_texture)
         return nullptr;
       promise_textures.push_back(std::move(promise_texture));
@@ -93,7 +94,7 @@ std::unique_ptr<SkiaGLImageRepresentation> SkiaGLImageRepresentation::Create(
 
 SkiaGLImageRepresentation::SkiaGLImageRepresentation(
     std::unique_ptr<GLTextureImageRepresentationBase> gl_representation,
-    std::vector<sk_sp<SkPromiseImageTexture>> promise_textures,
+    std::vector<sk_sp<GrPromiseImageTexture>> promise_textures,
     scoped_refptr<SharedContextState> context_state,
     SharedImageManager* manager,
     SharedImageBacking* backing,
@@ -135,9 +136,10 @@ std::vector<sk_sp<SkSurface>> SkiaGLImageRepresentation::BeginWriteAccess(
     return {};
   }
 
-  mode_ = RepresentationAccessMode::kWrite;
-  if (!surfaces_.empty())
+  if (!surfaces_.empty()) {
+    mode_ = RepresentationAccessMode::kWrite;
     return surfaces_;
+  }
 
   DCHECK_EQ(static_cast<int>(promise_textures_.size()),
             format().NumberOfPlanes());
@@ -157,11 +159,12 @@ std::vector<sk_sp<SkSurface>> SkiaGLImageRepresentation::BeginWriteAccess(
     surfaces.push_back(surface);
   }
 
+  mode_ = RepresentationAccessMode::kWrite;
   surfaces_ = surfaces;
   return surfaces;
 }
 
-std::vector<sk_sp<SkPromiseImageTexture>>
+std::vector<sk_sp<GrPromiseImageTexture>>
 SkiaGLImageRepresentation::BeginWriteAccess(
     std::vector<GrBackendSemaphore>* begin_semaphores,
     std::vector<GrBackendSemaphore>* end_semaphores,
@@ -186,7 +189,7 @@ void SkiaGLImageRepresentation::EndWriteAccess() {
   mode_ = RepresentationAccessMode::kNone;
 }
 
-std::vector<sk_sp<SkPromiseImageTexture>>
+std::vector<sk_sp<GrPromiseImageTexture>>
 SkiaGLImageRepresentation::BeginReadAccess(
     std::vector<GrBackendSemaphore>* begin_semaphores,
     std::vector<GrBackendSemaphore>* end_semaphores,

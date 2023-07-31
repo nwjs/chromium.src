@@ -7,7 +7,9 @@
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/i18n/time_formatting.h"
 #include "base/observer_list.h"
+#include "base/time/time.h"
 #include "build/build_config.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -15,6 +17,7 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/content_settings/core/common/cookie_settings_base.h"
+#include "components/content_settings/core/common/features.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
@@ -89,8 +92,10 @@ void CookieSettings::SetCookieSetting(const GURL& primary_url,
 
 void CookieSettings::SetCookieSettingForUserBypass(
     const GURL& first_party_url) {
-  base::Time expiry_time = GetConstraintExpiration(kUserBypassEntriesTTL);
-  ContentSettingConstraints constraints = {expiry_time, SessionModel::Durable};
+  ContentSettingConstraints constraints;
+  constraints.set_lifetime(
+      content_settings::features::kUserBypassUIExceptionExpiration.Get());
+  constraints.set_session_model(SessionModel::Durable);
 
   host_content_settings_map_->SetContentSettingCustomScope(
       ContentSettingsPattern::Wildcard(),
@@ -106,15 +111,13 @@ void CookieSettings::SetCookieSettingForUserBypass(
 bool CookieSettings::IsStoragePartitioningBypassEnabled(
     const GURL& first_party_url) {
   SettingInfo info;
-  const base::Value value = host_content_settings_map_->GetWebsiteSetting(
+  ContentSetting setting = host_content_settings_map_->GetContentSetting(
       GURL(), first_party_url, ContentSettingsType::COOKIES, &info);
 
   bool is_default = info.primary_pattern.MatchesAllHosts() &&
                     info.secondary_pattern.MatchesAllHosts();
 
-  DCHECK(value.is_int());
-
-  return is_default ? false : IsAllowed(ValueToContentSetting(value));
+  return is_default ? false : IsAllowed(setting);
 }
 
 void CookieSettings::ResetCookieSetting(const GURL& primary_url) {
@@ -212,7 +215,7 @@ ContentSetting CookieSettings::GetCookieSettingInternal(
 
   // First get any host-specific settings.
   SettingInfo info;
-  const base::Value value = host_content_settings_map_->GetWebsiteSetting(
+  ContentSetting setting = host_content_settings_map_->GetContentSetting(
       url, first_party_url, ContentSettingsType::COOKIES, &info);
   if (source) {
     *source = info.source;
@@ -225,9 +228,6 @@ ContentSetting CookieSettings::GetCookieSettingInternal(
                      ShouldBlockThirdPartyCookies() &&
                      !first_party_url.SchemeIs(extension_scheme_);
 
-  // We should always have a value, at least from the default provider.
-  DCHECK(value.is_int());
-  ContentSetting setting = ValueToContentSetting(value);
   bool block = block_third && is_third_party_request;
 
   if (!block) {

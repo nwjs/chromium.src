@@ -19,6 +19,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.LinearLayout;
+import android.widget.LinearLayout.LayoutParams;
 
 import androidx.annotation.CallSuper;
 import androidx.annotation.IntDef;
@@ -26,6 +27,7 @@ import androidx.annotation.LayoutRes;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.annotation.StyleRes;
+import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
@@ -33,6 +35,7 @@ import com.google.android.material.color.DynamicColors;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.BundleUtils;
+import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -46,6 +49,8 @@ import org.chromium.chrome.browser.metrics.UmaSessionStats;
 import org.chromium.chrome.browser.night_mode.GlobalNightModeStateProviderHolder;
 import org.chromium.chrome.browser.night_mode.NightModeStateProvider;
 import org.chromium.chrome.browser.night_mode.NightModeUtils;
+import org.chromium.ui.display.DisplaySwitches;
+import org.chromium.ui.display.DisplayUtil;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManagerHolder;
 
@@ -239,8 +244,7 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      * Creates a {@link ModalDialogManager} for this class. Subclasses that need one should override
      * this method.
      */
-    @Nullable
-    protected ModalDialogManager createModalDialogManager() {
+    protected @Nullable ModalDialogManager createModalDialogManager() {
         return null;
     }
 
@@ -255,8 +259,20 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
      */
     @CallSuper
     protected boolean applyOverrides(Context baseContext, Configuration overrideConfig) {
+        applyOverridesForAutomotive(baseContext, overrideConfig);
         return NightModeUtils.applyOverridesForNightMode(
                 getNightModeStateProvider(), overrideConfig);
+    }
+
+    @VisibleForTesting
+    static void applyOverridesForAutomotive(Context baseContext, Configuration overrideConfig) {
+        if (BuildInfo.getInstance().isAutomotive) {
+            DisplayUtil.scaleUpConfigurationForAutomotive(baseContext, overrideConfig);
+
+            // Enable web ui scaling for automotive devices.
+            CommandLine.getInstance().appendSwitch(
+                    DisplaySwitches.AUTOMOTIVE_WEB_UI_SCALE_UP_ENABLED);
+        }
     }
 
     /**
@@ -381,7 +397,8 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             super.setContentView(R.layout.automotive_layout_with_back_button_toolbar);
             setAutomotiveToolbarBackButtonAction();
             LinearLayout linearLayout = findViewById(R.id.automotive_base_linear_layout);
-            linearLayout.addView(view);
+            linearLayout.addView(
+                    view, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         } else {
             super.setContentView(view);
         }
@@ -396,7 +413,8 @@ public class ChromeBaseAppCompatActivity extends AppCompatActivity
             setAutomotiveToolbarBackButtonAction();
             LinearLayout linearLayout = findViewById(R.id.automotive_base_linear_layout);
             linearLayout.setLayoutParams(params);
-            linearLayout.addView(view);
+            linearLayout.addView(
+                    view, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         } else {
             super.setContentView(view, params);
         }

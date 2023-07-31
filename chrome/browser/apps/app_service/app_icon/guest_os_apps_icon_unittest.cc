@@ -29,7 +29,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "third_party/skia/include/core/SkColor.h"
-#include "ui/base/layout.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image_skia_rep_default.h"
 
@@ -127,10 +126,10 @@ class AppServiceGuestOSIconTest : public testing::Test {
  private:
   content::BrowserTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
-  raw_ptr<ash::FakeCiceroneClient> fake_cicerone_client_;
+  raw_ptr<ash::FakeCiceroneClient, DanglingUntriaged> fake_cicerone_client_;
   std::unique_ptr<TestingProfile> profile_;
   data_decoder::test::InProcessDataDecoder in_process_data_decoder_;
-  raw_ptr<AppServiceProxy> proxy_;
+  raw_ptr<AppServiceProxy, DanglingUntriaged> proxy_;
   std::unique_ptr<crostini::CrostiniTestHelper> crostini_test_helper_;
 };
 

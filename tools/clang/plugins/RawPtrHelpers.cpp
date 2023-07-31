@@ -112,40 +112,73 @@ clang::ast_matchers::internal::Matcher<clang::QualType> StackAllocatedQualType(
 // is part of chromium git repo.
 clang::ast_matchers::internal::Matcher<clang::NamedDecl> PtrAndRefExclusions(
     const RawPtrAndRefExclusionsOptions& options) {
-  if (!options.should_exclude_stack_allocated_records) {
-    return anyOf(isExpansionInSystemHeader(), isInExternCContext(),
-                 isRawPtrExclusionAnnotated(), isInThirdPartyLocation(),
-                 isInGeneratedLocation(),
-                 isInLocationListedInFilterFile(options.paths_to_exclude),
-                 isFieldDeclListedInFilterFile(options.fields_to_exclude),
-                 ImplicitFieldDeclaration());
+  if (!options.fix_crbug_1449812) {
+    // Before fix for crbug.com/1449812
+    // - File exclusion is performed based on the `SourceLocation` obtained
+    //   via `getBeginLoc()`.
+    // - System header check is based on expansion location.
+    if (!options.should_exclude_stack_allocated_records) {
+      return anyOf(
+          isExpansionInSystemHeader(), isInExternCContext(),
+          isRawPtrExclusionAnnotated(), isBeginInThirdPartyLocation(),
+          isBeginInGeneratedLocation(),
+          isBeginInLocationListedInFilterFile(options.paths_to_exclude),
+          isFieldDeclListedInFilterFile(options.fields_to_exclude),
+          ImplicitFieldDeclaration(), isObjCSynthesize());
+    } else {
+      return anyOf(
+          isExpansionInSystemHeader(), isInExternCContext(),
+          isRawPtrExclusionAnnotated(), isBeginInThirdPartyLocation(),
+          isBeginInGeneratedLocation(),
+          isBeginInLocationListedInFilterFile(options.paths_to_exclude),
+          isFieldDeclListedInFilterFile(options.fields_to_exclude),
+          ImplicitFieldDeclaration(), isObjCSynthesize(),
+          hasDescendant(
+              StackAllocatedQualType(options.stack_allocated_predicate)));
+    }
   } else {
-    return anyOf(isExpansionInSystemHeader(), isInExternCContext(),
-                 isRawPtrExclusionAnnotated(), isInThirdPartyLocation(),
-                 isInGeneratedLocation(),
-                 isInLocationListedInFilterFile(options.paths_to_exclude),
-                 isFieldDeclListedInFilterFile(options.fields_to_exclude),
-                 ImplicitFieldDeclaration(),
-                 hasDescendant(StackAllocatedQualType(
-                     options.stack_allocated_predicate)));
+    // After fix for crbug.com/1449812
+    // - File exclusion is performed based on the `SourceLocation` obtained
+    //   via `getLocation()`.
+    // - System header check is based on spelling location.
+    if (!options.should_exclude_stack_allocated_records) {
+      return anyOf(isSpellingInSystemHeader(), isInExternCContext(),
+                   isRawPtrExclusionAnnotated(), isInThirdPartyLocation(),
+                   isInGeneratedLocation(),
+                   isInLocationListedInFilterFile(options.paths_to_exclude),
+                   isFieldDeclListedInFilterFile(options.fields_to_exclude),
+                   ImplicitFieldDeclaration(), isObjCSynthesize());
+    } else {
+      return anyOf(isSpellingInSystemHeader(), isInExternCContext(),
+                   isRawPtrExclusionAnnotated(), isInThirdPartyLocation(),
+                   isInGeneratedLocation(),
+                   isInLocationListedInFilterFile(options.paths_to_exclude),
+                   isFieldDeclListedInFilterFile(options.fields_to_exclude),
+                   ImplicitFieldDeclaration(), isObjCSynthesize(),
+                   hasDescendant(StackAllocatedQualType(
+                       options.stack_allocated_predicate)));
+    }
   }
 }
+
+static const auto unsupported_pointee_types =
+    pointee(hasUnqualifiedDesugaredType(
+        anyOf(functionType(), memberPointerType(), arrayType())));
 
 clang::ast_matchers::internal::Matcher<clang::Decl> AffectedRawPtrFieldDecl(
     const RawPtrAndRefExclusionsOptions& options) {
   // Supported pointer types =========
   // Given
-  //   struct MyStrict {
+  //   struct MyStruct {
   //     int* int_ptr;
   //     int i;
   //     int (*func_ptr)();
   //     int (MyStruct::* member_func_ptr)(char);
-  //     int (*ptr_to_array_of_ints)[123]
+  //     int (*ptr_to_array_of_ints)[123];
   //   };
   // matches |int*|, but not the other types.
   auto supported_pointer_types_matcher =
-      pointerType(unless(pointee(hasUnqualifiedDesugaredType(
-          anyOf(functionType(), memberPointerType(), arrayType())))));
+      pointerType(unless(unsupported_pointee_types));
 
   // TODO(crbug.com/1381955): Skipping const char pointers as it likely points
   // to string literals where raw_ptr isn't necessary. Remove when we have
@@ -167,6 +200,18 @@ clang::ast_matchers::internal::Matcher<clang::Decl> AffectedRawPtrFieldDecl(
 
 clang::ast_matchers::internal::Matcher<clang::Decl> AffectedRawRefFieldDecl(
     const RawPtrAndRefExclusionsOptions& options) {
+  // Supported reference types =========
+  // Given
+  //   struct MyStruct {
+  //     int& int_ref;
+  //     int i;
+  //     int (&func_ref)();
+  //     int (&ref_to_array_of_ints)[123];
+  //   };
+  // matches |int&|, but not the other types.
+  auto supported_ref_types_matcher =
+      referenceType(unless(unsupported_pointee_types));
+
   // Field declarations =========
   // Given
   //   struct S {
@@ -177,6 +222,7 @@ clang::ast_matchers::internal::Matcher<clang::Decl> AffectedRawRefFieldDecl(
   // - fields matching criteria elaborated in PtrAndRefExclusions
   auto field_decl_matcher =
       fieldDecl(allOf(has(referenceTypeLoc().bind("affectedFieldDeclType")),
+                      hasType(supported_ref_types_matcher),
                       unless(PtrAndRefExclusions(options))))
           .bind("affectedFieldDecl");
 

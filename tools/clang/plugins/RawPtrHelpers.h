@@ -7,6 +7,7 @@
 
 #include <optional>
 
+#include "RawPtrCastingUnsafeChecker.h"
 #include "StackAllocatedChecker.h"
 #include "Util.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
@@ -69,6 +70,8 @@ struct RawPtrAndRefExclusionsOptions {
   FilterFile* paths_to_exclude;
   bool should_exclude_stack_allocated_records;
   chrome_checker::StackAllocatedPredicate* stack_allocated_predicate;
+  // Enable a fix for https://crbug.com/1449812 when true.
+  bool fix_crbug_1449812;
 };
 
 AST_MATCHER(clang::Type, anyCharType) {
@@ -88,12 +91,29 @@ AST_MATCHER(clang::Decl, isInScratchSpace) {
 
 AST_MATCHER(clang::Decl, isInThirdPartyLocation) {
   std::string filename = GetFilename(Finder->getASTContext().getSourceManager(),
+                                     Node.getLocation());
+
+  // Blink is part of the Chromium git repo, even though it contains
+  // "third_party" in its path.
+  if (filename.find("/third_party/blink/") != std::string::npos) {
+    return false;
+  }
+  // Otherwise, just check if the paths contains the "third_party" substring.
+  // We don't want to rewrite content of such paths even if they are in the main
+  // Chromium git repository.
+  return filename.find("/third_party/") != std::string::npos;
+}
+
+// TODO(mikt): Remove after option `raw-ptr-fix-crbug-1449812` is fully enabled.
+AST_MATCHER(clang::Decl, isBeginInThirdPartyLocation) {
+  std::string filename = GetFilename(Finder->getASTContext().getSourceManager(),
                                      Node.getSourceRange().getBegin());
 
   // Blink is part of the Chromium git repo, even though it contains
   // "third_party" in its path.
-  if (filename.find("/third_party/blink/") != std::string::npos)
+  if (filename.find("/third_party/blink/") != std::string::npos) {
     return false;
+  }
   // Otherwise, just check if the paths contains the "third_party" substring.
   // We don't want to rewrite content of such paths even if they are in the main
   // Chromium git repository.
@@ -101,6 +121,15 @@ AST_MATCHER(clang::Decl, isInThirdPartyLocation) {
 }
 
 AST_MATCHER(clang::Decl, isInGeneratedLocation) {
+  std::string filename = GetFilename(Finder->getASTContext().getSourceManager(),
+                                     Node.getLocation());
+
+  return filename.find("/gen/") != std::string::npos ||
+         filename.rfind("gen/", 0) == 0;
+}
+
+// TODO(mikt): Remove after option `raw-ptr-fix-crbug-1449812` is fully enabled.
+AST_MATCHER(clang::Decl, isBeginInGeneratedLocation) {
   std::string filename = GetFilename(Finder->getASTContext().getSourceManager(),
                                      Node.getSourceRange().getBegin());
 
@@ -119,9 +148,24 @@ AST_MATCHER_P(clang::Decl,
               isInLocationListedInFilterFile,
               const FilterFile*,
               Filter) {
-  clang::SourceLocation loc = Node.getSourceRange().getBegin();
-  if (loc.isInvalid())
+  clang::SourceLocation loc = Node.getLocation();
+  if (loc.isInvalid()) {
     return false;
+  }
+  std::string file_path =
+      GetFilename(Finder->getASTContext().getSourceManager(), loc);
+  return Filter->ContainsSubstringOf(file_path);
+}
+
+// TODO(mikt): Remove after option `raw-ptr-fix-crbug-1449812` is fully enabled.
+AST_MATCHER_P(clang::Decl,
+              isBeginInLocationListedInFilterFile,
+              const FilterFile*,
+              Filter) {
+  clang::SourceLocation loc = Node.getSourceRange().getBegin();
+  if (loc.isInvalid()) {
+    return false;
+  }
   std::string file_path =
       GetFilename(Finder->getASTContext().getSourceManager(), loc);
   return Filter->ContainsSubstringOf(file_path);
@@ -195,6 +239,12 @@ AST_MATCHER(clang::FunctionDecl, isImplicitFunctionTemplateSpecialization) {
     case clang::TSK_ExplicitInstantiationDefinition:
       return false;
   }
+}
+
+// Matches Objective-C @synthesize field declaration.
+AST_MATCHER(clang::Decl, isObjCSynthesize) {
+  const auto* ivar_decl = clang::dyn_cast<clang::ObjCIvarDecl>(&Node);
+  return ivar_decl && ivar_decl->getSynthesize();
 }
 
 // Matches field declarations that do not explicitly appear in the source
@@ -353,11 +403,31 @@ AST_POLYMORPHIC_MATCHER(isInMacroLocation,
   return Node.getBeginLoc().isMacroID();
 }
 
+// Matches AST nodes that were spelled within system-header-files.
+// Unlike clang's `isExpansionInSystemHeader`, this is based on:
+// - spelling location
+// - Node's `getLocation()`, not `getBeginLoc()`
+AST_POLYMORPHIC_MATCHER(isSpellingInSystemHeader,
+                        AST_POLYMORPHIC_SUPPORTED_TYPES(clang::Decl,
+                                                        clang::Stmt,
+                                                        clang::TypeLoc)) {
+  auto& source_manager = Finder->getASTContext().getSourceManager();
+  auto spelling_loc = source_manager.getSpellingLoc(Node.getLocation());
+  if (spelling_loc.isInvalid()) {
+    return false;
+  }
+  return source_manager.isInSystemHeader(spelling_loc);
+}
+
 AST_MATCHER_P(clang::CXXRecordDecl,
               isStackAllocated,
               chrome_checker::StackAllocatedPredicate,
               checker) {
   return checker.IsStackAllocated(&Node);
+}
+
+AST_MATCHER_P(clang::Type, isCastingUnsafe, CastingUnsafePredicate, checker) {
+  return checker.IsCastingUnsafe(&Node);
 }
 
 #endif  // TOOLS_CLANG_PLUGINS_RAWPTRHELPERS_H_

@@ -28,7 +28,6 @@
 #import "ios/chrome/browser/commerce/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/default_browser/utils.h"
 #import "ios/chrome/browser/find_in_page/abstract_find_tab_helper.h"
-#import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/follow/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/follow_menu_updater.h"
 #import "ios/chrome/browser/follow/follow_tab_helper.h"
@@ -57,6 +56,7 @@
 #import "ios/chrome/browser/shared/public/commands/reading_list_add_command.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/tabs/features.h"
@@ -156,6 +156,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
                                     CRWWebStateObserver,
                                     FollowMenuUpdater,
                                     IOSLanguageDetectionTabHelperObserving,
+                                    OverflowMenuActionProvider,
+                                    OverflowMenuDestinationProvider,
                                     OverlayPresenterObserving,
                                     PrefObserverDelegate,
                                     WebStateListObserving> {
@@ -314,6 +316,8 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   if (!self.menuOrderer) {
     self.menuOrderer =
         [[OverflowMenuOrderer alloc] initWithIsIncognito:self.isIncognito];
+    self.menuOrderer.destinationProvider = self;
+    self.menuOrderer.actionProvider = self;
   }
   [self updateModel];
 }
@@ -824,48 +828,26 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   }
 }
 
-// Adds SpotlightDebugger to the OverflowMenuDestination to be displayed in the
-// destinations carousel.
-- (NSArray<OverflowMenuDestination*>*)insertSpotlightDebuggerToDestinations:
-    (NSArray<OverflowMenuDestination*>*)destinations {
-  DCHECK(IsSpotlightDebuggingEnabled());
+- (DestinationRanking)baseDestinations {
+  std::vector<overflow_menu::Destination> destinations = {
+      overflow_menu::Destination::Bookmarks,
+      overflow_menu::Destination::History,
+      overflow_menu::Destination::ReadingList,
+      overflow_menu::Destination::Passwords,
+      overflow_menu::Destination::Downloads,
+      overflow_menu::Destination::RecentTabs,
+      overflow_menu::Destination::SiteInfo,
+      overflow_menu::Destination::Settings,
+  };
 
-  NSMutableArray<OverflowMenuDestination*>* newDestinations =
-      [[NSMutableArray alloc] init];
-
-  // Place the debugger at the top of the overflow menu carousel.
-  [newDestinations addObject:self.spotlightDebuggerDestination];
-  [newDestinations addObjectsFromArray:destinations];
-
-  return newDestinations;
-}
-
-// Creates an NSArray containing the destinations contained in the overflow menu
-// carousel.
-- (NSArray<OverflowMenuDestination*>*)baseDestinations {
-  NSMutableArray* baseDestinations = [[NSMutableArray alloc] initWithArray:@[
-    self.bookmarksDestination,
-    self.historyDestination,
-    self.readingListDestination,
-    self.passwordsDestination,
-    self.downloadsDestination,
-    self.recentTabsDestination,
-    self.siteInfoDestination,
-    self.settingsDestination,
-  ]];
-
-  if (self.webState &&
-      IsPriceTrackingEnabled(ChromeBrowserState::FromBrowserState(
-          self.webState->GetBrowserState())) &&
+  if (IsPriceNotificationsEnabled() &&
       IsSmartSortingPriceTrackingDestinationEnabled()) {
-    [baseDestinations addObject:self.priceNotificationsDestination];
+    destinations.push_back(overflow_menu::Destination::PriceNotifications);
   }
 
-  if (IsWhatsNewEnabled()) {
-    [baseDestinations addObject:self.whatsNewDestination];
-  }
+  destinations.push_back(overflow_menu::Destination::WhatsNew);
 
-  return baseDestinations;
+  return destinations;
 }
 
 // Returns YES if the Overflow Menu should indicate an identity error.
@@ -884,48 +866,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
     return;
   }
 
-  if ([self shouldIndicateIdentityError]) {
-    self.settingsDestination.badge = BadgeTypeError;
-  } else {
-    [self maybeHighlightSettingsWithPromoBadge];
-  }
-
-  if (IsWhatsNewEnabled() && !WasWhatsNewUsed()) {
-    // Highlight What's New with a badge if it was never used before.
-    self.whatsNewDestination.badge = BadgeTypeNew;
-  }
-
-  // Set badges if necessary.
-  if (self.engagementTracker &&
-      self.engagementTracker->ShouldTriggerHelpUI(
-          feature_engagement::kIPHBadgedReadingListFeature)) {
-    self.readingListDestination.badge = BadgeTypePromo;
-  }
-
-  NSArray<OverflowMenuDestination*>* baseDestinations = [self baseDestinations];
-
-  baseDestinations = [self.menuOrderer
-      sortedDestinationsFromCarouselDestinations:baseDestinations];
-
-  if (IsSpotlightDebuggingEnabled()) {
-    baseDestinations =
-        [self insertSpotlightDebuggerToDestinations:baseDestinations];
-  }
-
-  self.overflowMenuModel.destinations = [baseDestinations
-      filteredArrayUsingPredicate:[NSPredicate predicateWithBlock:^BOOL(
-                                                   id object,
-                                                   NSDictionary* bindings) {
-        if (object == self.siteInfoDestination) {
-          return [self currentWebPageSupportsSiteInfo];
-        }
-        // All other destinations are displayed in regular mode.
-        if (!self.isIncognito) {
-          return true;
-        }
-        return object != self.historyDestination &&
-               object != self.recentTabsDestination;
-      }]];
+  self.overflowMenuModel.destinations = [self.menuOrderer sortedDestinations];
 
   NSMutableArray<OverflowMenuAction*>* appActions =
       [[NSMutableArray alloc] init];
@@ -953,55 +894,7 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
   self.appActionsGroup.actions = appActions;
 
-  BOOL pageIsBookmarked =
-      self.webState && self.localOrSyncableBookmarkModel &&
-      bookmark_utils_ios::IsBookmarked(self.webState->GetVisibleURL(),
-                                       self.localOrSyncableBookmarkModel,
-                                       self.accountBookmarkModel);
-
-  NSMutableArray<OverflowMenuAction*>* pageActions =
-      [[NSMutableArray alloc] init];
-
-  // Try to create the followAction if there isn't one. It's possible that
-  // sometimes when creating the model the followActionState is hidden so the
-  // followAction hasn't been created but at the time when updating the model,
-  // the followAction should be valid.
-  if (!self.followAction) {
-    self.followAction = [self createFollowActionIfNeeded];
-    DCHECK(!self.followAction || self.webState != nullptr);
-  }
-
-  if (self.followAction) {
-    [pageActions addObject:self.followAction];
-    FollowTabHelper* followTabHelper =
-        FollowTabHelper::FromWebState(self.webState);
-    if (followTabHelper) {
-      followTabHelper->UpdateFollowMenuItem();
-    }
-  }
-
-  // Add actions before a possible Clear Browsing Data action.
-  [pageActions addObjectsFromArray:@[
-    (pageIsBookmarked) ? self.editBookmarkAction : self.addBookmarkAction,
-    self.readLaterAction
-  ]];
-
-  // Clear Browsing Data Action is not relevant in incognito, so don't show it.
-  // History is also hidden for similar reasons.
-  if (!self.isIncognito) {
-    [pageActions addObject:self.clearBrowsingDataAction];
-  }
-
-  // Add actions after a possible Clear Browsing Data action.
-  [pageActions addObjectsFromArray:@[
-    self.translateAction,
-    ([self userAgentType] != web::UserAgentType::DESKTOP)
-        ? self.requestDesktopAction
-        : self.requestMobileAction,
-    self.findInPageAction, self.textZoomAction
-  ]];
-
-  self.pageActionsGroup.actions = pageActions;
+  self.pageActionsGroup.actions = [self.menuOrderer pageActions];
 
   NSMutableArray<OverflowMenuAction*>* helpActions =
       [[NSMutableArray alloc] init];
@@ -1368,6 +1261,121 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
   self.webContentAreaShowingOverlay = NO;
 }
 
+#pragma mark - OverflowMenuDestinationProvider
+
+- (OverflowMenuDestination*)destinationForDestinationType:
+    (overflow_menu::Destination)destinationType {
+  switch (destinationType) {
+    case overflow_menu::Destination::Bookmarks:
+      return self.bookmarksDestination;
+    case overflow_menu::Destination::History:
+      return (self.isIncognito) ? nil : self.historyDestination;
+    case overflow_menu::Destination::ReadingList:
+      // Set badges if necessary.
+      if (self.engagementTracker &&
+          self.engagementTracker->ShouldTriggerHelpUI(
+              feature_engagement::kIPHBadgedReadingListFeature)) {
+        self.readingListDestination.badge = BadgeTypePromo;
+      }
+      return self.readingListDestination;
+    case overflow_menu::Destination::Passwords:
+      return self.passwordsDestination;
+    case overflow_menu::Destination::Downloads:
+      return self.downloadsDestination;
+    case overflow_menu::Destination::RecentTabs:
+      return self.isIncognito ? nil : self.recentTabsDestination;
+    case overflow_menu::Destination::SiteInfo:
+      return ([self currentWebPageSupportsSiteInfo]) ? self.siteInfoDestination
+                                                     : nil;
+    case overflow_menu::Destination::Settings:
+      if ([self shouldIndicateIdentityError]) {
+        self.settingsDestination.badge = BadgeTypeError;
+      } else {
+        [self maybeHighlightSettingsWithPromoBadge];
+      }
+      return self.settingsDestination;
+    case overflow_menu::Destination::WhatsNew:
+      if (!WasWhatsNewUsed()) {
+        // Highlight What's New with a badge if it was never used before.
+        self.whatsNewDestination.badge = BadgeTypeNew;
+      }
+      return self.whatsNewDestination;
+    case overflow_menu::Destination::SpotlightDebugger:
+      return self.spotlightDebuggerDestination;
+    case overflow_menu::Destination::PriceNotifications:
+      BOOL priceNotificationsActive =
+          self.webState &&
+          IsPriceTrackingEnabled(ChromeBrowserState::FromBrowserState(
+              self.webState->GetBrowserState()));
+      return (priceNotificationsActive) ? self.priceNotificationsDestination
+                                        : nil;
+  }
+}
+
+#pragma mark - OverflowMenuActionProvider
+
+- (ActionRanking)basePageActions {
+  return {
+      overflow_menu::ActionType::Follow,
+      overflow_menu::ActionType::Bookmarks,
+      overflow_menu::ActionType::ReadingList,
+      overflow_menu::ActionType::ClearBrowsingData,
+      overflow_menu::ActionType::Translate,
+      overflow_menu::ActionType::DesktopSite,
+      overflow_menu::ActionType::FindInPage,
+      overflow_menu::ActionType::TextZoom,
+  };
+}
+
+- (OverflowMenuAction*)actionForActionType:
+    (overflow_menu::ActionType)actionType {
+  switch (actionType) {
+    case overflow_menu::ActionType::Follow: {
+      // Try to create the followAction if there isn't one. It's possible that
+      // sometimes when creating the model the followActionState is hidden so
+      // the followAction hasn't been created but at the time when updating the
+      // model, the followAction should be valid.
+      if (!self.followAction) {
+        self.followAction = [self createFollowActionIfNeeded];
+        DCHECK(!self.followAction || self.webState != nullptr);
+      }
+
+      if (self.followAction) {
+        FollowTabHelper* followTabHelper =
+            FollowTabHelper::FromWebState(self.webState);
+        if (followTabHelper) {
+          followTabHelper->UpdateFollowMenuItem();
+        }
+      }
+      return self.followAction;
+    }
+    case overflow_menu::ActionType::Bookmarks: {
+      BOOL pageIsBookmarked =
+          self.webState && self.localOrSyncableBookmarkModel &&
+          bookmark_utils_ios::IsBookmarked(self.webState->GetVisibleURL(),
+                                           self.localOrSyncableBookmarkModel,
+                                           self.accountBookmarkModel);
+      return (pageIsBookmarked) ? self.editBookmarkAction
+                                : self.addBookmarkAction;
+    }
+    case overflow_menu::ActionType::ReadingList:
+      return self.readLaterAction;
+    case overflow_menu::ActionType::ClearBrowsingData:
+      // Showing the Clear Browsing Data Action would be confusing in incognito.
+      return (self.isIncognito) ? nil : self.clearBrowsingDataAction;
+    case overflow_menu::ActionType::Translate:
+      return self.translateAction;
+    case overflow_menu::ActionType::DesktopSite:
+      return ([self userAgentType] != web::UserAgentType::DESKTOP)
+                 ? self.requestDesktopAction
+                 : self.requestMobileAction;
+    case overflow_menu::ActionType::FindInPage:
+      return self.findInPageAction;
+    case overflow_menu::ActionType::TextZoom:
+      return self.textZoomAction;
+  }
+}
+
 #pragma mark - Action handlers
 
 // Dismisses the menu and reloads the current page.
@@ -1412,6 +1420,11 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
 // Dismisses the menu and pins the tab.
 - (void)pinTab {
+  if (!self.webState) {
+    [self.popupMenuCommandsHandler dismissPopupMenuAnimated:YES];
+    return;
+  }
+
   RecordAction(UserMetricsAction("MobileMenuPinTab"));
   [[self class] setTabPinned:YES
                     webState:self.webState
@@ -1430,6 +1443,11 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
 // Dismisses the menu and unpins the tab.
 - (void)unpinTab {
+  if (!self.webState) {
+    [self.popupMenuCommandsHandler dismissPopupMenuAnimated:YES];
+    return;
+  }
+
   RecordAction(UserMetricsAction("MobileMenuUnpinTab"));
   [[self class] setTabPinned:NO
                     webState:self.webState
@@ -1565,8 +1583,12 @@ OverflowMenuFooter* CreateOverflowMenuManagedFooter(int nameID,
 
 // Dismisses the menu and opens history.
 - (void)openHistory {
-  _engagementTracker->NotifyEvent(
-      feature_engagement::events::kHistoryOnOverflowMenuUsed);
+  if (base::FeatureList::IsEnabled(
+          feature_engagement::kIPHiOSHistoryOnOverflowMenuFeature) &&
+      _engagementTracker) {
+    _engagementTracker->NotifyEvent(
+        feature_engagement::events::kHistoryOnOverflowMenuUsed);
+  }
   [self.popupMenuCommandsHandler dismissPopupMenuAnimated:YES];
   [self.dispatcher showHistory];
 }

@@ -20,6 +20,7 @@
 #include "base/containers/cxx20_erase_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
+#include "base/json/json_string_value_serializer.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
@@ -47,6 +48,7 @@
 #include "content/browser/interest_group/interest_group_pa_report_util.h"
 #include "content/browser/interest_group/interest_group_priority_util.h"
 #include "content/browser/interest_group/storage_interest_group.h"
+#include "content/public/browser/browser_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom-forward.h"
 #include "content/services/auction_worklet/public/mojom/bidder_worklet.mojom.h"
@@ -1143,6 +1145,8 @@ class InterestGroupAuction::BuyerHelper
         auction_->config_->seller,
         auction_->parent_ ? auction_->parent_->config_->seller
                           : absl::optional<url::Origin>(),
+        (base::Time::Now() - bid_state->bidder->join_time)
+            .RoundToMultiple(base::Milliseconds(100)),
         bid_state->bidder->bidding_browser_signals.Clone(),
         auction_->auction_start_time_, *bid_state->trace_id,
         std::move(pending_remote),
@@ -1276,7 +1280,7 @@ class InterestGroupAuction::BuyerHelper
     // Remove Bid states that were filtered out due to having negative new
     // priorities, as ApplySizeLimitAndSort() assumes all bidders are still
     // potentially capable of generating bids. Do these all at once to avoid
-    // repeatedly searching for bid stats that had negative priority vector
+    // repeatedly searching for bid states that had negative priority vector
     // multiplication results, each time a priority vector is received.
     for (size_t i = 0; i < bid_states_.size();) {
       // Removing a bid is guaranteed to destroy the worklet handle, though not
@@ -1800,6 +1804,7 @@ InterestGroupAuction::InterestGroupAuction(
 
   if (!parent_) {
     auction_metrics_recorder_->SetKAnonymityBidMode(kanon_mode);
+    auction_metrics_recorder_->SetNumConfigPromises(config_->NumPromises());
   }
 }
 
@@ -1967,7 +1972,7 @@ void InterestGroupAuction::StartBiddingAndScoringPhase(
 
 std::unique_ptr<InterestGroupAuctionReporter>
 InterestGroupAuction::CreateReporter(
-    AttributionManager* attribution_manager,
+    BrowserContext* browser_context,
     PrivateAggregationManager* private_aggregation_manager,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     std::unique_ptr<blink::AuctionConfig> auction_config,
@@ -2020,17 +2025,16 @@ InterestGroupAuction::CreateReporter(
   winning_bid_info.bid_duration = winner->bid->bid_duration;
   winning_bid_info.bidding_signals_data_version =
       winner->bid->bidding_signals_data_version;
+  base::Value::Dict ad_metadata;
+  ad_metadata.Set("renderURL", winner->bid->ad_descriptor.url.spec());
   if (winner->bid->bid_ad->metadata) {
-    // `metadata` is already in JSON so no quotes are needed.
-    winning_bid_info.ad_metadata =
-        base::StringPrintf(R"({"render_url":"%s","metadata":%s})",
-                           winner->bid->ad_descriptor.url.spec().c_str(),
-                           winner->bid->bid_ad->metadata.value().c_str());
-  } else {
-    winning_bid_info.ad_metadata =
-        base::StringPrintf(R"({"render_url":"%s"})",
-                           winner->bid->ad_descriptor.url.spec().c_str());
+    ad_metadata.Set("metadata", winner->bid->bid_ad->metadata.value());
   }
+  if (winner->bid->bid_ad->ad_render_id) {
+    ad_metadata.Set("adRenderId", winner->bid->bid_ad->ad_render_id.value());
+  }
+  JSONStringValueSerializer serializer(&winning_bid_info.ad_metadata);
+  serializer.Serialize(base::Value(std::move(ad_metadata)));
 
   InterestGroupAuctionReporter::SellerWinningBidInfo
       top_level_seller_winning_bid_info;
@@ -2039,6 +2043,23 @@ InterestGroupAuction::CreateReporter(
   top_level_seller_winning_bid_info.subresource_url_builder =
       std::move(subresource_url_builder_);
   top_level_seller_winning_bid_info.bid = winner->bid->bid;
+
+  if (winner->bid->auction == this) {
+    // Bid came directly from bidder, not a component auction.
+    top_level_seller_winning_bid_info.bid_currency =
+        winning_bid_info.bid_currency;
+  } else {
+    // Bid comes from component auction, so we redact the config expectation of
+    // the bid of component auction in top-level auction.
+    InterestGroupAuction* component_auction = winner->bid->auction;
+    top_level_seller_winning_bid_info.bid_currency =
+        component_auction->config_->non_shared_params.seller_currency;
+    if (!top_level_seller_winning_bid_info.bid_currency) {
+      top_level_seller_winning_bid_info.bid_currency =
+          PerBuyerCurrency(component_auction->config_->seller, *config_);
+    }
+  }
+
   top_level_seller_winning_bid_info.bid_in_seller_currency =
       winner->bid_in_seller_currency.value_or(0.0);
   top_level_seller_winning_bid_info.score = winner->score;
@@ -2075,6 +2096,10 @@ InterestGroupAuction::CreateReporter(
         std::move(component_auction->subresource_url_builder_);
     const LeaderInfo& component_leader = component_auction->leader_info();
     component_seller_winning_bid_info->bid = component_leader.top_bid->bid->bid;
+    // The bidder in this auction was the actual bidder, so the currency comes
+    // from it, too.
+    component_seller_winning_bid_info->bid_currency =
+        winning_bid_info.bid_currency;
     component_seller_winning_bid_info->bid_in_seller_currency =
         component_leader.top_bid->bid_in_seller_currency.value_or(0.0);
     component_seller_winning_bid_info->score = component_leader.top_bid->score;
@@ -2099,7 +2124,7 @@ InterestGroupAuction::CreateReporter(
       debug_win_report_urls, debug_loss_report_urls);
 
   return std::make_unique<InterestGroupAuctionReporter>(
-      interest_group_manager_, auction_worklet_manager_, attribution_manager,
+      interest_group_manager_, auction_worklet_manager_, browser_context,
       private_aggregation_manager,
       maybe_log_private_aggregation_web_features_callback_,
       std::move(auction_config), main_frame_origin, frame_origin,
@@ -3099,6 +3124,7 @@ void InterestGroupAuction::ScoreBidIfReady(std::unique_ptr<Bid> bid) {
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN1("fledge", ScoreAdTraceEventName(*bid),
                                     bid_trace_id, "decision_logic_url",
                                     config_->decision_logic_url);
+  bid->seller_worklet_score_ad_start = base::TimeTicks::Now();
 
   ++bids_being_scored_;
   Bid* bid_raw = bid.get();
@@ -3198,7 +3224,8 @@ void InterestGroupAuction::OnScoreAdComplete(
     const absl::optional<GURL>& debug_win_report_url,
     PrivateAggregationRequests pa_requests,
     base::TimeDelta scoring_latency,
-    base::TimeDelta trusted_signals_fetch_latency,
+    auction_worklet::mojom::ScoreAdDependencyLatenciesPtr
+        score_ad_dependency_latencies,
     const std::vector<std::string>& errors) {
   DCHECK_GT(bids_being_scored_, 0);
 
@@ -3213,6 +3240,12 @@ void InterestGroupAuction::OnScoreAdComplete(
   std::unique_ptr<Bid> bid = std::move(score_ad_receivers_.current_context());
   score_ad_receivers_.Remove(score_ad_receivers_.current_receiver());
 
+  auction_metrics_recorder_->RecordScoreAdFlowLatency(
+      base::TimeTicks::Now() - bid->seller_worklet_score_ad_start);
+  auction_metrics_recorder_->RecordScoreAdLatency(scoring_latency);
+  auction_metrics_recorder_->RecordScoreAdDependencyLatencies(
+      *score_ad_dependency_latencies);
+
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", ScoreAdTraceEventName(*bid),
                                   bid->TraceId());
   if (bid->bid_role == Bid::BidRole::kEnforcedKAnon) {
@@ -3222,7 +3255,8 @@ void InterestGroupAuction::OnScoreAdComplete(
   }
   bid->bid_state->pa_timings(seller_phase()).script_run_time = scoring_latency;
   bid->bid_state->pa_timings(seller_phase()).signals_fetch_time =
-      trusted_signals_fetch_latency;
+      score_ad_dependency_latencies->trusted_scoring_signals_latency.value_or(
+          base::TimeDelta());
 
   --bids_being_scored_;
 

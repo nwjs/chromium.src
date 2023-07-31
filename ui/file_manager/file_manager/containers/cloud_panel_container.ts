@@ -80,7 +80,9 @@ export class CloudPanelContainer {
          (this.progress_.stage === bulkPinProgress.stage &&
           this.progress_.filesToPin === bulkPinProgress.filesToPin &&
           this.progress_.pinnedBytes === bulkPinProgress.pinnedBytes &&
-          this.progress_.bytesToPin === bulkPinProgress.bytesToPin)) &&
+          this.progress_.bytesToPin === bulkPinProgress.bytesToPin &&
+          this.progress_.remainingSeconds ===
+              bulkPinProgress.remainingSeconds)) &&
         this.bulkPinningPreference_ === bulkPinPref) {
       return;
     }
@@ -97,10 +99,13 @@ export class CloudPanelContainer {
     }
 
     // If the bulk pinning is paused, this indicates that it is currently
-    // offline. This could be from either the network not being connected or
-    // cellular being disabled for syncing.
-    if (bulkPinProgress.stage === BulkPinStage.PAUSED) {
+    // offline or battery saver mode is active.
+    if (bulkPinProgress.stage === BulkPinStage.PAUSED_OFFLINE) {
       this.updatePanelType_(CloudPanelType.OFFLINE);
+      return;
+    }
+    if (bulkPinProgress.stage === BulkPinStage.PAUSED_BATTERY_SAVER) {
+      this.updatePanelType_(CloudPanelType.BATTERY_SAVER);
       return;
     }
 
@@ -125,6 +130,8 @@ export class CloudPanelContainer {
         (bulkPinProgress.pinnedBytes / bulkPinProgress.bytesToPin * 100)
             .toFixed(0);
     this.panel_.setAttribute('percentage', String(percentage));
+    this.panel_.setAttribute(
+        'seconds', String(bulkPinProgress.remainingSeconds));
     this.increaseUpdates_();
   }
 
@@ -136,6 +143,7 @@ export class CloudPanelContainer {
     this.panel_.setAttribute('type', type);
     this.panel_.removeAttribute('items');
     this.panel_.removeAttribute('percentage');
+    this.panel_.removeAttribute('seconds');
     this.increaseUpdates_();
   }
 

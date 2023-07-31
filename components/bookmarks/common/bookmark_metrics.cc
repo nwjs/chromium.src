@@ -61,14 +61,18 @@ void RecordBookmarkRemoved(BookmarkEditSource source) {
 
 void RecordBookmarkOpened(base::Time now,
                           base::Time date_last_used,
-                          base::Time date_added) {
+                          base::Time date_added,
+                          StorageStateForUma storage_state) {
   if (date_last_used != base::Time()) {
     base::UmaHistogramCounts10000("Bookmarks.Opened.TimeSinceLastUsed",
                                   (now - date_last_used).InDays());
   }
   base::UmaHistogramCounts10000("Bookmarks.Opened.TimeSinceAdded",
                                 (now - date_added).InDays());
+
   base::RecordAction(base::UserMetricsAction("Bookmarks.Opened"));
+  base::RecordComputedAction(base::StrCat(
+      {"Bookmarks.Opened", GetStorageStateSuffixForMetrics(storage_state)}));
 }
 
 void RecordBookmarkMovedTo(BookmarkFolderTypeForUMA new_parent) {
@@ -162,6 +166,12 @@ void RecordUrlLoadStatsOnProfileLoad(const UrlLoadStats& stats) {
                    stats.total_url_bookmark_count / 2) /
                   stats.total_url_bookmark_count;
   }
+
+  for (size_t num_days_since_used : stats.per_bookmark_num_days_since_used) {
+    base::UmaHistogramCounts1000(
+        "Bookmarks.UtilizationPerBookmark.OnProfileLoad.DaysSinceUsed",
+        base::saturated_cast<int>(num_days_since_used));
+  };
 
   base::UmaHistogramPercentage(
       "Bookmarks.Utilization.OnProfileLoad.PercentageUsed", utilization);

@@ -1149,6 +1149,8 @@ Status Capabilities::Parse(const base::Value::Dict& desired_caps,
       base::BindRepeating(&ParseBoolean, nullptr);
   parser_map["webauthn:extension:largeBlob"] =
       base::BindRepeating(&ParseBoolean, nullptr);
+  // See https://github.com/fedidcg/FedCM/pull/478
+  parser_map["fedcm:accounts"] = base::BindRepeating(&ParseBoolean, nullptr);
 
   // ChromeDriver specific capabilities.
   // Vendor-prefixed is the current spec conformance, but unprefixed is

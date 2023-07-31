@@ -29,7 +29,7 @@ constexpr char kCardGuid[] = "10000000-0000-0000-0000-000000000001";
 class CardMetadataFormEventMetricsTest
     : public AutofillMetricsBaseTest,
       public testing::Test,
-      public testing::WithParamInterface<std::tuple<bool, bool, bool>> {
+      public testing::WithParamInterface<std::tuple<bool, bool, bool, bool>> {
  public:
   CardMetadataFormEventMetricsTest() = default;
   ~CardMetadataFormEventMetricsTest() override = default;
@@ -37,6 +37,9 @@ class CardMetadataFormEventMetricsTest
   bool card_issuer_available() const { return std::get<0>(GetParam()); }
   bool card_metadata_available() const { return std::get<1>(GetParam()); }
   bool card_has_static_art_image() const { return std::get<2>(GetParam()); }
+  bool new_card_art_and_network_images_used() const {
+    return std::get<3>(GetParam());
+  }
 
   FormData form() { return form_; }
   const CreditCard& card() const { return card_; }
@@ -60,7 +63,11 @@ class CardMetadataFormEventMetricsTest
       card_.set_issuer_id(kCapitalOneCardIssuerId);
     }
     if (card_has_static_art_image()) {
-      card_.set_card_art_url(GURL(kCapitalOneCardArtUrl));
+      if (new_card_art_and_network_images_used()) {
+        card_.set_card_art_url(GURL(kCapitalOneLargeCardArtUrl));
+      } else {
+        card_.set_card_art_url(GURL(kCapitalOneCardArtUrl));
+      }
     }
     // Set metadata to card. The `card_art_url` will be overriden with rich card
     // art url regarless of `card_has_static_art_image()` in the test set-up,
@@ -84,6 +91,7 @@ class CardMetadataFormEventMetricsTest
 INSTANTIATE_TEST_SUITE_P(All,
                          CardMetadataFormEventMetricsTest,
                          testing::Combine(testing::Bool(),
+                                          testing::Bool(),
                                           testing::Bool(),
                                           testing::Bool()));
 
@@ -238,21 +246,59 @@ TEST_P(CardMetadataFormEventMetricsTest, LogFilledMetrics) {
 
   // Verify that:
   // 1. if the card suggestion filled had issuer id and metadata,
-  // `FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED` is logged.
+  // `FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED` is logged as many times
+  // as the suggestions are filled, and
+  // `FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED_ONCE` is logged only
+  // once.
   // 2. if the card suggestion filled did not have either issuer id or metadata,
-  // `FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED` is logged.
+  // `FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED` is logged as many
+  // times as the suggestions are filled, and
+  // `FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED_ONCE` is logged only
+  // once.
   // 3. if the card suggestion filled had issuer id, two histograms are logged
   // which tell if the card from the issuer had metadata.
+  const bool should_log_for_metadata =
+      card_issuer_available() && card_metadata_available();
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
       BucketsInclude(
           Bucket(FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_FILLED, 1),
           Bucket(FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED,
-                 card_issuer_available() && card_metadata_available()),
+                 should_log_for_metadata ? 1 : 0),
           Bucket(FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED,
-                 !card_issuer_available() || !card_metadata_available())));
+                 should_log_for_metadata ? 0 : 1),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED_ONCE,
+                 should_log_for_metadata ? 1 : 0),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED_ONCE,
+                 should_log_for_metadata ? 0 : 1)));
   histogram_tester.ExpectUniqueSample(
       "Autofill.CreditCard.CapitalOne.FilledWithMetadata",
+      card_metadata_available(), card_issuer_available() ? 1 : 0);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.CreditCard.CapitalOne.FilledWithMetadataOnce",
+      card_metadata_available(), card_issuer_available() ? 1 : 0);
+
+  // Fill the suggestion again.
+  autofill_manager().OnCreditCardFetchedForTest(CreditCardFetchResult::kSuccess,
+                                                &card(), u"123");
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
+      BucketsInclude(
+          Bucket(FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_FILLED, 2),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED,
+                 should_log_for_metadata ? 2 : 0),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED,
+                 should_log_for_metadata ? 0 : 2),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_FILLED_ONCE,
+                 should_log_for_metadata ? 1 : 0),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_FILLED_ONCE,
+                 should_log_for_metadata ? 0 : 1)));
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.CreditCard.CapitalOne.FilledWithMetadata",
+      card_metadata_available(), card_issuer_available() ? 2 : 0);
+  histogram_tester.ExpectUniqueSample(
+      "Autofill.CreditCard.CapitalOne.FilledWithMetadataOnce",
       card_metadata_available(), card_issuer_available() ? 1 : 0);
 }
 
@@ -272,21 +318,30 @@ TEST_P(CardMetadataFormEventMetricsTest, LogSubmitMetrics) {
   // Verify that:
   // 1. if the form was submitted after a card suggestion with isser id and
   // metadata was filled,
-  // `FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_SUBMITTED_ONCE` is logged.
+  // `FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_WILL_SUBMIT_ONCE` and
+  // `FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_SUBMITTED_ONCE` are logged.
   // 2. if the form was submitted after a card suggestion without isser id or
   // metadata was filled,
-  // `FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_WILL_SUBMIT_ONCE` is logged.
+  // `FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_WILL_SUBMIT_ONCE` and
+  // `FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_SUBMITTED_ONCE` are logged.
   // 3. if the form was submitted after a card suggestion with issuer id was
   // filled, two histograms are logged which tell if the card from the issuer
   // had metadata.
+  const bool should_log_for_metadata =
+      card_issuer_available() && card_metadata_available();
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.FormEvents.CreditCard"),
       BucketsInclude(
+          Bucket(FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_WILL_SUBMIT_ONCE, 1),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_WILL_SUBMIT_ONCE,
+                 should_log_for_metadata),
+          Bucket(FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_WILL_SUBMIT_ONCE,
+                 !should_log_for_metadata),
           Bucket(FORM_EVENT_MASKED_SERVER_CARD_SUGGESTION_SUBMITTED_ONCE, 1),
           Bucket(FORM_EVENT_CARD_SUGGESTION_WITH_METADATA_SUBMITTED_ONCE,
-                 card_issuer_available() && card_metadata_available()),
+                 should_log_for_metadata),
           Bucket(FORM_EVENT_CARD_SUGGESTION_WITHOUT_METADATA_SUBMITTED_ONCE,
-                 !card_issuer_available() || !card_metadata_available())));
+                 !should_log_for_metadata)));
   histogram_tester.ExpectUniqueSample(
       "Autofill.CreditCard.CapitalOne.WillSubmitWithMetadataOnce",
       card_metadata_available(), card_issuer_available() ? 1 : 0);

@@ -75,6 +75,7 @@ export async function testProgressAndItemsArePassedToElement(done: () => void) {
     bytesToPin: 1000,
     pinnedBytes: 150,
     filesToPin: 24,
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store and wait for the panel to have the
@@ -108,6 +109,7 @@ export async function testOutOfBoundsValuesDoNotUpdateProgress(
     bytesToPin: 150,
     pinnedBytes: 1000,  // Greater than `bytesToPin`.
     filesToPin: -10,    // Negative number of files to pin.
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store and ensure the panel doesn't get
@@ -137,6 +139,7 @@ export async function testOtherStoreUpdatesDontCauseThisContainerToUpdate(
     bytesToPin: 1000,
     pinnedBytes: 150,
     filesToPin: 24,
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store and ensure the panel does get attributes.
@@ -194,6 +197,7 @@ export async function testZeroBytesToPinShouldShowAllFilesSynced(
     bytesToPin: 0,
     pinnedBytes: 0,
     filesToPin: 0,
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store and wait for the panel to have the
@@ -258,6 +262,7 @@ export async function testInProgressStateDoesNotUpdateThePanelWhenPrefDisabled(
     bytesToPin: 1000,
     pinnedBytes: 100,
     filesToPin: 10,
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store, wait for the store to update before
@@ -299,6 +304,7 @@ testPausedStateAddsTypeAttributeAndSyncingRemovesAttribute(done: () => void) {
     bytesToPin: 1000,
     pinnedBytes: 100,
     filesToPin: 10,
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store and ensure the panel does get attributes.
@@ -312,11 +318,22 @@ testPausedStateAddsTypeAttributeAndSyncingRemovesAttribute(done: () => void) {
   // Pausing the bulk pinning operation does not update the attributes except
   // changing the type attribute to offline.
   store.dispatch(updateBulkPinProgress(
-      {...bulkPinning, pinnedBytes: 200, stage: BulkPinStage.PAUSED}));
+      {...bulkPinning, pinnedBytes: 200, stage: BulkPinStage.PAUSED_OFFLINE}));
   assertEquals(
       container!.updates, 2,
       'Bulk pin state stage should increment updates to 2');
   assertEquals(panel!.getAttribute('type'), 'offline');
+  assertFalse(panel!.hasAttribute('items'));
+  assertFalse(panel!.hasAttribute('percentage'));
+  store.dispatch(updateBulkPinProgress({
+    ...bulkPinning,
+    pinnedBytes: 200,
+    stage: BulkPinStage.PAUSED_BATTERY_SAVER,
+  }));
+  assertEquals(
+      container!.updates, 3,
+      'Bulk pin state stage should increment updates to 3');
+  assertEquals(panel!.getAttribute('type'), 'battery_saver');
   assertFalse(panel!.hasAttribute('items'));
   assertFalse(panel!.hasAttribute('percentage'));
 
@@ -324,8 +341,8 @@ testPausedStateAddsTypeAttributeAndSyncingRemovesAttribute(done: () => void) {
   // attribute and updates the attributes.
   store.dispatch(updateBulkPinProgress({...bulkPinning, pinnedBytes: 300}));
   assertEquals(
-      container!.updates, 3,
-      'Bulk pin state stage should increment updates to 3');
+      container!.updates, 4,
+      'Bulk pin state stage should increment updates to 4');
   assertFalse(panel!.hasAttribute('type'));
   assertEquals(panel!.getAttribute('items'), '10');
   assertEquals(panel!.getAttribute('percentage'), '30');
@@ -353,6 +370,7 @@ testNotEnoughSpaceStateAddsTypeAttributeAndSyncingRemovesAttribute(
     bytesToPin: 1000,
     pinnedBytes: 100,
     filesToPin: 10,
+    remainingSeconds: 0,
   };
 
   // Dispatch an update to the store and ensure the panel does get attributes.
@@ -373,7 +391,7 @@ testNotEnoughSpaceStateAddsTypeAttributeAndSyncingRemovesAttribute(
   assertEquals(
       container!.updates, 2,
       'Bulk pin state stage should increment updates to 2');
-  assertEquals(panel!.getAttribute('type'), 'not-enough-space');
+  assertEquals(panel!.getAttribute('type'), 'not_enough_space');
   assertFalse(panel!.hasAttribute('items'));
   assertFalse(panel!.hasAttribute('percentage'));
 

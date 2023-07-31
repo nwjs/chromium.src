@@ -8,6 +8,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "base/memory/raw_ptr.h"
@@ -143,7 +144,10 @@ class VIEWS_EXPORT SubmenuView : public View,
   bool SkipDefaultKeyEventProcessing(const ui::KeyEvent& e) override;
 
   // Returns the parent menu item we're showing children for.
-  MenuItemView* GetMenuItem();
+  const MenuItemView* GetMenuItem() const;
+  MenuItemView* GetMenuItem() {
+    return const_cast<MenuItemView*>(std::as_const(*this).GetMenuItem());
+  }
 
   // Set the drop item and position.
   void SetDropMenuItem(MenuItemView* item, MenuDelegate::DropPosition position);
@@ -212,7 +216,7 @@ class VIEWS_EXPORT SubmenuView : public View,
 
   // If non-null, indicates a drop is in progress and drop_item is the item
   // the drop is over.
-  raw_ptr<MenuItemView> drop_item_;
+  raw_ptr<MenuItemView, DanglingUntriaged> drop_item_;
 
   // Position of the drop.
   MenuDelegate::DropPosition drop_position_ = MenuDelegate::DropPosition::kNone;

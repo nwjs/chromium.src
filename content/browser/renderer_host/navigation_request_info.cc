@@ -33,6 +33,7 @@ NavigationRequestInfo::NavigationRequestInfo(
     WeakDocumentPtr initiator_document,
     const GlobalRenderFrameHostId& previous_render_frame_host_id,
     bool allow_cookies_from_browser,
+    int64_t navigation_id,
     bool nw_trusted)
     : common_params(std::move(common_params)),
       begin_params(std::move(begin_params)),
@@ -55,6 +56,7 @@ NavigationRequestInfo::NavigationRequestInfo(
       initiator_document(std::move(initiator_document)),
       previous_render_frame_host_id(previous_render_frame_host_id),
       allow_cookies_from_browser(allow_cookies_from_browser),
+      navigation_id(navigation_id),
       nw_trusted(nw_trusted) {}
 
 NavigationRequestInfo::~NavigationRequestInfo() {}

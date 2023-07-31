@@ -75,7 +75,6 @@ _CONFIG = [
             'base::FilePath',
             'base::FunctionRef',
             'base::GetUniqueIdForProcess',
-            'base::GUID',
             'base::HexStringToUInt64',
             'base::Hours',
             "base::i18n::TextDirection",
@@ -319,6 +318,7 @@ _CONFIG = [
 
             # cc painting and raster types.
             'cc::CategorizedWorkerPool',
+            'cc::ColorFilter',
             'cc::InspectablePaintRecorder',
             'cc::InspectableRecordPaintCanvas',
             'cc::PaintCanvas',
@@ -532,9 +532,6 @@ _CONFIG = [
             'skia::.+',
             'url::.+',
 
-            # Power scheduling instrumentation, which only depends on //base
-            "power_scheduler::.+",
-
             # Nested namespaces under the blink namespace
             'bindings::.+',
             'canvas_heuristic_parameters::.+',
@@ -543,6 +540,7 @@ _CONFIG = [
             'css_parsing_utils::.+',
             'css_toggle_key_handling::.+',
             'cssvalue::.+',
+            'element_locator::.+',
             'encoding::.+',
             'encoding_enum::.+',
             'event_handling_util::.+',
@@ -1302,7 +1300,6 @@ _CONFIG = [
             'gpu::MailboxHolder',
             'media::.+',
             'libyuv::.+',
-            'viz::SkColorTypeToResourceFormat',
             'viz::SkColorTypeToSinglePlaneSharedImageFormat',
         ]
     },
@@ -1867,6 +1864,29 @@ _CONFIG = [
             'shared_highlighting::kFragmentTextBackgroundColorARGB',
         ]
     },
+    {
+        'paths': [
+            'third_party/blink/renderer/core/events/keyboard_event.h',
+            'third_party/blink/renderer/core/events/keyboard_event.cc',
+        ],
+        'allowed': [
+            'base::StringPiece16',
+            'base::i18n::UTF16CharIterator',
+        ]
+    },
+    {
+        'paths': [
+            'third_party/blink/renderer/modules/service_worker/service_worker_router_type_converter.cc',
+            'third_party/blink/renderer/modules/service_worker/service_worker_router_type_converter_test.cc',
+            # TODO(crbug.com/1371756): consolidate code using liburlpattern.
+            # Especially, consolidate manifest and this code.
+        ],
+        'allowed': [
+            'liburlpattern::Parse',
+            'liburlpattern::Part',
+            'liburlpattern::PartType',
+        ]
+    }
 ]
 
 

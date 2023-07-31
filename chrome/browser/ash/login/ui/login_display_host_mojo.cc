@@ -14,6 +14,7 @@
 #include "ash/public/cpp/login_screen_model.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/shell.h"
+#include "ash/style/color_palette_controller.h"
 #include "ash/system/model/enterprise_domain_model.h"
 #include "ash/system/model/system_tray_model.h"
 #include "base/command_line.h"
@@ -751,6 +752,7 @@ void LoginDisplayHostMojo::HandleAuthenticateUserWithChallengeResponse(
 void LoginDisplayHostMojo::HandleOnFocusPod(const AccountId& account_id) {
   user_selection_screen_->HandleFocusPod(account_id);
   WallpaperControllerClientImpl::Get()->ShowUserWallpaper(account_id);
+  Shell::Get()->color_palette_controller()->SelectLocalAccount(account_id);
   if (features::IsInputDeviceSettingsSplitEnabled()) {
     InputDeviceSettingsController::Get()->OnLoginScreenFocusedPodChanged(
         account_id);
@@ -760,12 +762,6 @@ void LoginDisplayHostMojo::HandleOnFocusPod(const AccountId& account_id) {
     MaybeUpdateOfflineLoginLinkVisibility(account_id);
   }
   focused_pod_account_id_ = account_id;
-}
-
-void LoginDisplayHostMojo::HandleOnNoPodFocused() {
-  user_selection_screen_->HandleNoPodFocused();
-  focused_pod_account_id_ = EmptyAccountId();
-  ErrorScreen::AllowOfflineLoginPerUser(true);
 }
 
 bool LoginDisplayHostMojo::HandleFocusLockScreenApps(bool reverse) {

@@ -30,7 +30,6 @@ import com.google.common.primitives.UnsignedLongs;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.CallbackController;
-import org.chromium.base.ContextUtils;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
 import org.chromium.base.supplier.OneshotSupplier;
@@ -91,6 +90,7 @@ import org.chromium.components.webapk.lib.client.WebApkValidator;
 import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.components.webapps.WebappsUtils;
 import org.chromium.content_public.browser.ContentFeatureList;
+import org.chromium.content_public.browser.ContentFeatureMap;
 import org.chromium.net.ConnectionType;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.modelutil.MVCListAdapter;
@@ -850,9 +850,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         openWebApkItem.setVisible(false);
 
         if (currentTab != null && shouldShowHomeScreenMenuItem) {
-            Context context = ContextUtils.getApplicationContext();
             long addToHomeScreenStart = SystemClock.elapsedRealtime();
-            ResolveInfo resolveInfo = queryWebApkResolveInfo(context, currentTab);
+            ResolveInfo resolveInfo = queryWebApkResolveInfo(mContext, currentTab);
             RecordHistogram.recordTimesHistogram("Android.PrepareMenu.OpenWebApkVisibilityCheck",
                     SystemClock.elapsedRealtime() - addToHomeScreenStart);
 
@@ -860,8 +859,8 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
                     resolveInfo != null && resolveInfo.activityInfo.packageName != null;
 
             if (openWebApkItemVisible) {
-                String appName = resolveInfo.loadLabel(context.getPackageManager()).toString();
-                openWebApkItem.setTitle(context.getString(R.string.menu_open_webapk, appName));
+                String appName = resolveInfo.loadLabel(mContext.getPackageManager()).toString();
+                openWebApkItem.setTitle(mContext.getString(R.string.menu_open_webapk, appName));
                 openWebApkItem.setVisible(true);
             } else {
                 AppBannerManager.InstallStringPair installStrings =
@@ -1111,7 +1110,7 @@ public class AppMenuPropertiesDelegateImpl implements AppMenuPropertiesDelegate 
         // REQUEST_DESKTOP_SITE_EXCEPTIONS is enabled, hide the entry for all native pages.
         boolean itemVisible = currentTab != null && canShowRequestDesktopSite
                 && (!isChromeScheme
-                        || (!ContentFeatureList.isEnabled(
+                        || (!ContentFeatureMap.isEnabled(
                                     ContentFeatureList.REQUEST_DESKTOP_SITE_EXCEPTIONS)
                                 && currentTab.isNativePage()))
                 && !shouldShowReaderModePrefs(currentTab) && currentTab.getWebContents() != null;

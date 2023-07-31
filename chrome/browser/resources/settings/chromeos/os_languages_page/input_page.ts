@@ -36,9 +36,8 @@ import {DeepLinkingMixin} from '../deep_linking_mixin.js';
 import {FocusConfig} from '../focus_config.js';
 import {recordSettingChange} from '../metrics_recorder.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import {routes} from '../os_settings_routes.js';
 import {RouteObserverMixin} from '../route_observer_mixin.js';
-import {Route, Router} from '../router.js';
+import {Route, Router, routes} from '../router.js';
 
 import {hasOptionsPageInSettings} from './input_method_util.js';
 import {getTemplate} from './input_page.html.js';
@@ -305,9 +304,14 @@ class OsSettingsInputPageElement extends OsSettingsInputPageElementBase {
    *     method ID.
    */
   private hasOptionsPageInSettings_(id: string): boolean {
-    return hasOptionsPageInSettings(
-        id, loadTimeData.getBoolean('allowPredictiveWriting'),
-        loadTimeData.getBoolean('systemJapanesePhysicalTyping'));
+    return hasOptionsPageInSettings(id, {
+      isPhysicalKeyboardAutocorrectAllowed:
+          loadTimeData.getBoolean('isPhysicalKeyboardAutocorrectAllowed'),
+      isPhysicalKeyboardPredictiveWritingAllowed:
+          loadTimeData.getBoolean('isPhysicalKeyboardPredictiveWritingAllowed'),
+      isJapaneseSettingsAllowed:
+          loadTimeData.getBoolean('systemJapanesePhysicalTyping'),
+    });
   }
 
   private navigateToOptionsPageInSettings_(

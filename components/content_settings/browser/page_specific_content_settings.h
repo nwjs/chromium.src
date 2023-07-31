@@ -76,14 +76,15 @@ struct AccessDetails {
                 AccessType access_type,
                 GURL url,
                 bool blocked_by_policy,
-                content::RenderFrameHost* render_frame_host);
+                bool is_from_primary_page);
   ~AccessDetails();
 
   SiteDataType site_data_type = SiteDataType::kUnknown;
   AccessType access_type = AccessType::kUnknown;
   GURL url;
   bool blocked_by_policy = false;
-  raw_ptr<content::RenderFrameHost> render_frame_host;
+  // Specifies whether the access occurred in the primary page.
+  bool is_from_primary_page = false;
 };
 
 // TODO(msramek): Media is storing their state in PageSpecificContentSettings:
@@ -182,23 +183,6 @@ class PageSpecificContentSettings
 
     // Notifies the delegate a particular content settings type was blocked.
     virtual void OnContentBlocked(ContentSettingsType type) = 0;
-
-    // Notifies the delegate that access to storage of type |storage_type| was
-    // granted in |page|.
-    virtual void OnStorageAccessAllowed(
-        mojom::ContentSettingsManager::StorageType storage_type,
-        const url::Origin& origin,
-        content::Page& page) = 0;
-
-    // Notifies the delegate that access was granted to |accessed_cookies| in
-    // |page|.
-    virtual void OnCookieAccessAllowed(const net::CookieList& accessed_cookies,
-                                       content::Page& page) = 0;
-
-    // Notifies the delegate that access was granted to service workers for
-    // |origin|.
-    virtual void OnServiceWorkerAccessAllowed(const url::Origin& origin,
-                                              content::Page& page) = 0;
   };
 
   // Classes that want to be notified about site data events must implement
@@ -397,11 +381,11 @@ class PageSpecificContentSettings
   void OnContentBlocked(ContentSettingsType type);
   void OnContentAllowed(ContentSettingsType type);
 
-  // Call when a two-site permission was prompted in order to display a
-  // ContentSettingsImageModel icon.
-  void OnTwoSitePermissionRequested(ContentSettingsType type,
-                                    net::SchemefulSite requesting_site,
-                                    bool is_allowed);
+  // Call when a two-site permission was prompted or modified in order to
+  // display a ContentSettingsImageModel icon.
+  void OnTwoSitePermissionChanged(ContentSettingsType type,
+                                  net::SchemefulSite requesting_site,
+                                  ContentSetting content_setting);
 
   // |originating_page| is non-null when it differs from page(), which happens
   // when an embedding page's PSCS is notified of an access that happens in an
@@ -410,7 +394,6 @@ class PageSpecificContentSettings
       mojom::ContentSettingsManager::StorageType storage_type,
       const GURL& url,
       bool blocked_by_policy,
-      content::RenderFrameHost* rfh = nullptr,
       content::Page* originating_page = nullptr);
   void OnSharedWorkerAccessed(const GURL& worker_url,
                               const std::string& name,
@@ -559,8 +542,7 @@ class PageSpecificContentSettings
 
   // Stores embedded sites that requested a permission. Only applies to
   // permissions that are scoped to two sites, e.g. StorageAccess.
-  std::map<ContentSettingsType,
-           std::map<net::SchemefulSite, ContentSettingsStatus>>
+  std::map<ContentSettingsType, std::map<net::SchemefulSite, bool>>
       content_settings_two_site_requests_;
 
   // Profile-bound, this will outlive this class (which is WebContents bound).

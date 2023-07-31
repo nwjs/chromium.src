@@ -21,6 +21,8 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/user_education/user_education_service.h"
+#include "chrome/browser/ui/user_education/user_education_service_factory.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/toolbar/app_menu.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_button.h"
@@ -76,7 +78,7 @@ BrowserAppMenuButton::~BrowserAppMenuButton() {}
 void BrowserAppMenuButton::SetTypeAndSeverity(
     AppMenuIconController::TypeAndSeverity type_and_severity) {
   type_and_severity_ = type_and_severity;
-  UpdateColors();
+  UpdateThemeBasedState();
 }
 
 void BrowserAppMenuButton::ShowMenu(int run_types) {
@@ -112,6 +114,13 @@ AlertMenuItem BrowserAppMenuButton::CloseFeaturePromoAndContinue() {
   if (browser_window == nullptr)
     return AlertMenuItem::kNone;
 
+  auto* const service =
+      UserEducationServiceFactory::GetForProfile(browser->profile());
+  if (service && service->tutorial_service().IsRunningTutorial(
+                     kPasswordManagerTutorialId)) {
+    return AlertMenuItem::kPasswordManager;
+  }
+
   promo_handle_ = browser_window->CloseFeaturePromoAndContinue(
       feature_engagement::kIPHHighEfficiencyModeFeature);
 
@@ -122,11 +131,12 @@ AlertMenuItem BrowserAppMenuButton::CloseFeaturePromoAndContinue() {
 }
 
 void BrowserAppMenuButton::OnThemeChanged() {
-  UpdateColors();
+  UpdateThemeBasedState();
   AppMenuButton::OnThemeChanged();
 }
 
-void BrowserAppMenuButton::UpdateColors() {
+void BrowserAppMenuButton::UpdateThemeBasedState() {
+  UpdateLayoutInsets();
   UpdateTextAndHighlightColor();
   // Call `UpdateIcon()` after `UpdateTextAndHighlightColor()` as the icon color
   // depends on if the container is in an expanded state.
@@ -243,6 +253,18 @@ void BrowserAppMenuButton::UpdateTextAndHighlightColor() {
 
 bool BrowserAppMenuButton::ShouldPaintBorder() const {
   return !features::IsChromeRefresh2023();
+}
+
+void BrowserAppMenuButton::UpdateLayoutInsets() {
+  if (!features::IsChromeRefresh2023()) {
+    return;
+  }
+
+  if (IsLabelPresentAndVisible()) {
+    SetLayoutInsets(::GetLayoutInsets(BROWSER_APP_MENU_CHIP_PADDING));
+  } else {
+    SetLayoutInsets(::GetLayoutInsets(TOOLBAR_BUTTON));
+  }
 }
 
 absl::optional<SkColor> BrowserAppMenuButton::GetHighlightTextColor() const {

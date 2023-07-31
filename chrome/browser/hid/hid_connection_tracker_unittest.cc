@@ -10,6 +10,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
+#include "chrome/browser/device_notifications/device_status_icon_renderer.h"
 #include "chrome/browser/hid/hid_connection_tracker.h"
 #include "chrome/browser/hid/hid_connection_tracker_factory.h"
 #include "chrome/browser/hid/hid_system_tray_icon.h"
@@ -45,6 +46,8 @@ constexpr char kTestProfileName[] = "user@gmail.com";
 
 class MockHidSystemTrayIcon : public HidSystemTrayIcon {
  public:
+  MockHidSystemTrayIcon() : HidSystemTrayIcon(nullptr) {}
+
   MOCK_METHOD(void, StageProfile, (Profile*), (override));
   MOCK_METHOD(void, UnstageProfile, (Profile*, bool), (override));
   MOCK_METHOD(void, ProfileAdded, (Profile*), (override));
@@ -297,8 +300,8 @@ class HidConnectionTrackerTest : public BrowserWithTestWindowTest {
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
  private:
-  raw_ptr<HidConnectionTracker> hid_connection_tracker_;
-  raw_ptr<MockHidSystemTrayIcon> hid_system_tray_icon_;
+  raw_ptr<HidConnectionTracker, DanglingUntriaged> hid_connection_tracker_;
+  raw_ptr<MockHidSystemTrayIcon, DanglingUntriaged> hid_system_tray_icon_;
 };
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)

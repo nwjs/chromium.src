@@ -40,7 +40,7 @@ enum class EngineAttemptStatus {
 }  // namespace
 
 struct AuthHubVectorLifecycle::FactorAttemptState {
-  base::raw_ptr<AuthFactorEngine> engine;
+  base::raw_ptr<AuthFactorEngine, DanglingUntriaged> engine;
   EngineAttemptStatus status;
 };
 
@@ -273,7 +273,7 @@ void AuthHubVectorLifecycle::OnPolicyChanged(AshAuthFactor factor) {
 void AuthHubVectorLifecycle::OnLockoutChanged(AshAuthFactor factor) {
   // Ignored
 }
-void AuthHubVectorLifecycle::OnOrientationRestrictionsChanged(
+void AuthHubVectorLifecycle::OnFactorSpecificRestrictionsChanged(
     AshAuthFactor factor) {
   // Ignored
 }

@@ -4,10 +4,13 @@
 
 package org.chromium.chrome.browser.pwd_migration;
 
+import static org.chromium.chrome.browser.pwd_migration.PasswordMigrationWarningProperties.ACCOUNT_DISPLAY_NAME;
+import static org.chromium.chrome.browser.pwd_migration.PasswordMigrationWarningProperties.CURRENT_SCREEN;
 import static org.chromium.chrome.browser.pwd_migration.PasswordMigrationWarningProperties.DISMISS_HANDLER;
+import static org.chromium.chrome.browser.pwd_migration.PasswordMigrationWarningProperties.ON_CLICK_HANDLER;
+import static org.chromium.chrome.browser.pwd_migration.PasswordMigrationWarningProperties.SHOULD_OFFER_SYNC;
 import static org.chromium.chrome.browser.pwd_migration.PasswordMigrationWarningProperties.VISIBLE;
 
-import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 
@@ -27,11 +30,15 @@ class PasswordMigrationWarningViewBinder {
         if (propertyKey == DISMISS_HANDLER) {
             view.setDismissHandler(model.get(DISMISS_HANDLER));
         } else if (propertyKey == VISIBLE) {
-            boolean visibilityChangeSuccessful = view.setVisible(model.get(VISIBLE));
-            if (!visibilityChangeSuccessful && model.get(VISIBLE)) {
-                assert model.get(DISMISS_HANDLER) != null;
-                model.get(DISMISS_HANDLER).onResult(BottomSheetController.StateChangeReason.NONE);
-            }
+            view.setVisible(model.get(VISIBLE));
+        } else if (propertyKey == CURRENT_SCREEN) {
+            view.setScreen(model.get(CURRENT_SCREEN));
+        } else if (propertyKey == SHOULD_OFFER_SYNC) {
+            view.setShouldOfferSync(model.get(SHOULD_OFFER_SYNC));
+        } else if (propertyKey == ON_CLICK_HANDLER) {
+            view.setOnClickHandler(model.get(ON_CLICK_HANDLER));
+        } else if (propertyKey == ACCOUNT_DISPLAY_NAME) {
+            view.setAccountDisplayName((String) model.get(ACCOUNT_DISPLAY_NAME));
         } else {
             assert false : "Unhandled update to property:" + propertyKey;
         }

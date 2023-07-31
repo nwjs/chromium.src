@@ -230,10 +230,6 @@ class CORE_EXPORT NGBoxFragmentBuilder final : public NGFragmentBuilder {
   // this break token is for content in the same flow as this parent.
   void AddBreakToken(const NGBreakToken*, bool is_in_parallel_flow = false);
 
-  void AddOutOfFlowLegacyCandidate(NGBlockNode,
-                                   const NGLogicalStaticPosition&,
-                                   const LayoutInline* inline_container);
-
   // Before layout we'll determine whether we can tell for sure that the node
   // (or what's left of it to lay out, in case we've already broken) will fit in
   // the current fragmentainer. If this is the case, we'll know that any
@@ -444,8 +440,6 @@ class CORE_EXPORT NGBoxFragmentBuilder final : public NGFragmentBuilder {
 
   void SetIsAtBlockEnd() { is_at_block_end_ = true; }
   bool IsAtBlockEnd() const { return is_at_block_end_; }
-
-  void SetDisableSimplifiedLayout() { disable_simplified_layout = true; }
 
   void SetIsTruncatedByFragmentationLine() {
     is_truncated_by_fragmentation_line = true;
@@ -707,7 +701,6 @@ class CORE_EXPORT NGBoxFragmentBuilder final : public NGFragmentBuilder {
   bool is_math_fraction_ = false;
   bool is_math_operator_ = false;
   bool is_at_block_end_ = false;
-  bool disable_simplified_layout = false;
   bool is_truncated_by_fragmentation_line = false;
   bool use_last_baseline_for_inline_baseline_ = false;
   LayoutUnit block_offset_for_additional_columns_;

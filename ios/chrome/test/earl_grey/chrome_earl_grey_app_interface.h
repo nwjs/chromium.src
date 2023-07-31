@@ -8,10 +8,11 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
 
-#include "base/time/time.h"
+#import "base/ios/block_types.h"
+#import "base/time/time.h"
 #import "components/content_settings/core/common/content_settings.h"
 #import "components/sync/base/model_type.h"
-#include "third_party/metrics_proto/user_demographics.pb.h"
+#import "third_party/metrics_proto/user_demographics.pb.h"
 
 @class ElementSelector;
 @class FakeSystemIdentity;
@@ -293,10 +294,10 @@
 
 // Signs the user out from Chrome and then starts clearing the identities.
 //
-// Note: This method does not wait for identities to be cleared from the
-// keychain. To wait for this operation to finish, please use an GREYCondition
-// and wait for +hasIdentities to return NO.
-+ (void)signOutAndClearIdentities;
+// Note: The idendities & browsing data cleanings are executed asynchronously.
+// The completion block should be used if there's a need to wait the end of
+// those operations.
++ (void)signOutAndClearIdentitiesWithCompletion:(ProceduralBlock)completion;
 
 // Returns YES if there is at at least identity in the ChromeIdentityService.
 + (BOOL)hasIdentities;
@@ -681,6 +682,15 @@
 // in a second window, this needs to be disabled or the popup will kill the
 // message.
 + (void)disableDefaultBrowserPromo;
+
+#pragma mark - First Run Utilities
+
+// Writes the First Run Sentinel file, used to record that First Run has
+// completed.
++ (void)writeFirstRunSentinel;
+
+// Remove the FirstRun sentinel file.
++ (void)removeFirstRunSentinel;
 
 @end
 

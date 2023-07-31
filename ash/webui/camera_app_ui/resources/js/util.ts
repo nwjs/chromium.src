@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import * as animate from './animation.js';
-import {assert, assertInstanceof} from './assert.js';
+import {assert, assertInstanceof, assertString} from './assert.js';
 import * as dom from './dom.js';
 import {I18nString} from './i18n_string.js';
 import * as loadTimeData from './models/load_time_data.js';
@@ -16,7 +16,6 @@ import {AspectRatioSet, Facing, FpsRange, Resolution} from './type.js';
  * @param params Size of the canvas.
  * @param params.width Width of the canvas.
  * @param params.height Height of the canvas.
- * @return Returns canvas element and the context for 2D drawing.
  */
 export function newDrawingCanvas(
     {width, height}: {width: number, height: number}):
@@ -115,7 +114,6 @@ export type KeyboardShortcut =
 /**
  * Returns a shortcut string, such as Ctrl-Alt-A.
  *
- * @param event Keyboard event.
  * @return Shortcut identifier.
  */
 export function getKeyboardShortcut(event: KeyboardEvent): KeyboardShortcut {
@@ -376,6 +374,14 @@ export function assertEnumVariant<T extends string>(
   const ret = checkEnumVariant(enumType, value);
   assert(ret !== null, `${value} is not a valid enum variant`);
   return ret;
+}
+
+/**
+ * Asserts that the argument is an I18nString, throws error otherwise.
+ */
+export function assertI18nString(value: unknown): I18nString {
+  const stringValue = assertString(value);
+  return assertEnumVariant(I18nString, stringValue);
 }
 
 /**

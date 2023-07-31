@@ -782,14 +782,13 @@ void PasswordAutofillAgent::TrackAutofilledElement(
   autofill_agent_->TrackAutofilledElement(element);
 }
 
-bool PasswordAutofillAgent::FillSuggestion(
-    const WebFormControlElement& control_element,
+void PasswordAutofillAgent::FillPasswordSuggestion(
     const std::u16string& username,
     const std::u16string& password) {
-  // The element in context of the suggestion popup.
-  WebInputElement element = control_element.DynamicTo<WebInputElement>();
+  auto element =
+      autofill_agent_->focused_element().DynamicTo<WebInputElement>();
   if (element.IsNull())
-    return false;
+    return;
 
   WebInputElement username_element;
   WebInputElement password_element;
@@ -799,7 +798,7 @@ bool PasswordAutofillAgent::FillSuggestion(
                                   &username_element, &password_element,
                                   &password_info) ||
       (!password_element.IsNull() && !IsElementEditable(password_element))) {
-    return false;
+    return;
   }
 
   password_info->password_was_edited_last = false;
@@ -840,8 +839,6 @@ bool PasswordAutofillAgent::FillSuggestion(
   }
 
   element.SetSelectionRange(element.Value().length(), element.Value().length());
-
-  return true;
 }
 
 void PasswordAutofillAgent::FillIntoFocusedField(
@@ -1048,18 +1045,7 @@ bool PasswordAutofillAgent::TryToShowKeyboardReplacingSurface(
       username_element, input_element.IsPasswordFieldForAutofill());
   bool has_editable_password_element =
       !password_element.IsNull() && IsElementEditable(password_element);
-  DCHECK(has_amendable_username_element || has_editable_password_element);
-
-  // Highlight the fields that are about to be filled by the user and remember
-  // the old autofill state of |username_element| and |password_element|.
-  if (has_amendable_username_element) {
-    username_autofill_state_ = username_element.GetAutofillState();
-    username_element.SetAutofillState(WebAutofillState::kPreviewed);
-  }
-  if (has_editable_password_element) {
-    password_autofill_state_ = password_element.GetAutofillState();
-    password_element.SetAutofillState(WebAutofillState::kPreviewed);
-  }
+  CHECK(has_amendable_username_element || has_editable_password_element);
 
   WebFormElement form = !password_element.IsNull() ? password_element.Form()
                                                    : username_element.Form();
@@ -1535,30 +1521,11 @@ void PasswordAutofillAgent::KeyboardReplacingSurfaceClosed(
     bool show_virtual_keyboard) {
   keyboard_replacing_surface_state_ = KeyboardReplacingSurfaceState::kWasShown;
 
-  // Clear the autofill state from the username and password element. Note that
-  // we don't make use of ClearPreview() here, since this is considering the
-  // elements' SuggestedValue(), which a keyboard replacing surface does not
-  // set.
   auto focused_input_element =
       autofill_agent_->focused_element().DynamicTo<WebInputElement>();
   if (focused_input_element.IsNull()) {
     return;
   }
-
-  WebInputElement username_element;
-  WebInputElement password_element;
-  PasswordInfo* password_info = nullptr;
-  if (!FindPasswordInfoForElement(focused_input_element, UseFallbackData(true),
-                                  &username_element, &password_element,
-                                  &password_info)) {
-    return;
-  }
-
-  if (!username_element.IsNull())
-    username_element.SetAutofillState(username_autofill_state_);
-
-  if (!password_element.IsNull())
-    password_element.SetAutofillState(password_autofill_state_);
 
   if (show_virtual_keyboard) {
     render_frame()->ShowVirtualKeyboard();

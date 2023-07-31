@@ -181,12 +181,9 @@ void OpenInBrowser(const GURL& event_url) {
   }
 
   // Lacros is not the primary browser, so use this workaround.
-  chrome::ScopedTabbedBrowserDisplayer displayer(
-      ProfileManager::GetActiveUserProfile());
-  NavigateParams params(
-      GetSingletonTabNavigateParams(displayer.browser(), event_url));
-  params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
-  ShowSingletonTabOverwritingNTP(displayer.browser(), &params);
+  ShowSingletonTabOverwritingNTP(ProfileManager::GetActiveUserProfile(),
+                                 event_url,
+                                 NavigateParams::IGNORE_AND_NAVIGATE);
 }
 
 ash::ManagementDeviceMode GetManagementDeviceMode(
@@ -520,6 +517,16 @@ void SystemTrayClientImpl::ShowAccessibilitySettings() {
           : chromeos::settings::mojom::kAccessibilitySectionPath);
 }
 
+void SystemTrayClientImpl::ShowColorCorrectionSettings() {
+  if (user_manager::UserManager::Get()->IsLoggedInAsAnyKioskApp()) {
+    // TODO(b/259370808): Color correction settings subpage not available in
+    // Kiosk.
+    return;
+  }
+  ShowSettingsSubPageForActiveUser(
+      chromeos::settings::mojom::kDisplayAndMagnificationSubpagePath);
+}
+
 void SystemTrayClientImpl::ShowGestureEducationHelp() {
   base::RecordAction(base::UserMetricsAction("ShowGestureEducationHelp"));
   Profile* profile = ProfileManager::GetActiveUserProfile();
@@ -540,9 +547,8 @@ void SystemTrayClientImpl::ShowPaletteHelp() {
     return;
   }
 
-  chrome::ScopedTabbedBrowserDisplayer displayer(
-      ProfileManager::GetActiveUserProfile());
-  ShowSingletonTab(displayer.browser(), GURL(chrome::kChromePaletteHelpURL));
+  ShowSingletonTab(ProfileManager::GetActiveUserProfile(),
+                   GURL(chrome::kChromePaletteHelpURL));
 }
 
 void SystemTrayClientImpl::ShowPaletteSettings() {
@@ -794,7 +800,6 @@ void SystemTrayClientImpl::ShowChannelInfoGiveFeedback() {
 }
 
 void SystemTrayClientImpl::ShowAudioSettings() {
-  DCHECK(ash::features::IsAudioSettingsPageEnabled());
   base::RecordAction(base::UserMetricsAction("ShowAudioSettingsPage"));
   ShowSettingsSubPageForActiveUser(
       chromeos::settings::mojom::kAudioSubpagePath);

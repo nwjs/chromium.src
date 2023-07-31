@@ -4,6 +4,7 @@
 
 #include "components/exo/shell_surface.h"
 
+#include <sstream>
 #include <vector>
 
 #include "ash/accessibility/accessibility_delegate.h"
@@ -23,6 +24,7 @@
 #include "base/functional/callback.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/test/mock_callback.h"
 #include "components/app_restore/window_properties.h"
 #include "components/exo/buffer.h"
 #include "components/exo/permission.h"
@@ -110,6 +112,7 @@ struct ConfigureData {
   bool is_resizing = false;
   bool is_active = false;
   float raster_scale = 1.0f;
+  size_t count = 0;
 };
 
 uint32_t Configure(ConfigureData* config_data,
@@ -124,6 +127,7 @@ uint32_t Configure(ConfigureData* config_data,
   config_data->is_resizing = resizing;
   config_data->is_active = activated;
   config_data->raster_scale = raster_scale;
+  config_data->count++;
   return 0;
 }
 
@@ -718,6 +722,101 @@ TEST_F(ShellSurfaceTest, SetStartupId) {
 
   shell_surface->SetStartupId(nullptr);
   EXPECT_EQ(nullptr, GetShellStartupId(window));
+}
+
+TEST_F(ShellSurfaceTest, AckRotateFocus) {
+  std::unique_ptr<ShellSurface> surface1 =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+
+  uint32_t serial = 0;
+
+  auto dummy_cb = base::BindLambdaForTesting(
+      [&serial](ash::FocusCycler::Direction, bool) { return serial; });
+
+  views::View* v1 = new views::View();
+  v1->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+  surface1->AddChildView(v1);
+  surface1->set_rotate_focus_callback(dummy_cb);
+
+  std::unique_ptr<ShellSurface> surface2 =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+  views::View* v2 = new views::View();
+  v2->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+  surface2->AddChildView(v2);
+  surface2->set_rotate_focus_callback(dummy_cb);
+
+  std::unique_ptr<ShellSurface> surface3 =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+  views::View* v3 = new views::View();
+  v3->SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+  surface3->AddChildView(v3);
+  surface3->set_rotate_focus_callback(dummy_cb);
+
+  ash::Shell::Get()->focus_cycler()->AddWidget(surface1->GetWidget());
+  ash::Shell::Get()->focus_cycler()->AddWidget(surface2->GetWidget());
+  ash::Shell::Get()->focus_cycler()->AddWidget(surface3->GetWidget());
+
+  // We will do most of our testing with surface2 because it is in the middle.
+  // This will allow us to easily test directional logic.
+  ash::Shell::Get()->focus_cycler()->FocusWidget(surface2->GetWidget());
+  ASSERT_TRUE(surface2->GetWidget()->IsActive());
+
+  // Test handled. This should result in no rotation.
+  surface2->RotatePaneFocusFromView(v2, true, false);
+  surface2->AckRotateFocus(serial++, true);
+  ASSERT_TRUE(surface2->GetWidget()->IsActive());
+
+  surface2->RotatePaneFocusFromView(v2, true, false);
+  surface2->AckRotateFocus(serial++, true);
+  ASSERT_TRUE(surface2->GetWidget()->IsActive());
+
+  // Now test unhandled in the forward direction. The next widget should be
+  // focused.
+  surface2->RotatePaneFocusFromView(v2, true, false);
+  surface2->AckRotateFocus(serial++, false);
+  ASSERT_TRUE(surface3->GetWidget()->IsActive());
+
+  // Reset
+  ash::Shell::Get()->focus_cycler()->FocusWidget(surface2->GetWidget());
+  ASSERT_TRUE(surface2->GetWidget()->IsActive());
+
+  // Now test unhandled in the forward direction. The next widget should be
+  // focused.
+  surface2->RotatePaneFocusFromView(v2, false, false);
+  surface2->AckRotateFocus(serial++, false);
+  ASSERT_TRUE(surface1->GetWidget()->IsActive());
+}
+
+TEST_F(ShellSurfaceTest, RotatePaneFocusFromView) {
+  using ::testing::Return;
+
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+  base::MockRepeatingCallback<uint32_t(ash::FocusCycler::Direction, bool)> cb;
+  shell_surface->set_rotate_focus_callback(cb.Get());
+
+  auto serial = 0;
+
+  EXPECT_CALL(cb, Run(ash::FocusCycler::FORWARD, true))
+      .WillOnce(Return(serial++));
+  auto rotated = shell_surface->RotatePaneFocusFromView(nullptr, true, true);
+  // Async operations always return successful rotation immediately.
+  EXPECT_TRUE(rotated);
+
+  EXPECT_CALL(cb, Run(ash::FocusCycler::BACKWARD, false))
+      .WillOnce(Return(serial++));
+  rotated = shell_surface->RotatePaneFocusFromView(nullptr, false, false);
+  EXPECT_TRUE(rotated);
+}
+
+TEST_F(ShellSurfaceTest, RotatePaneFocusFromView_NoCallback) {
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256}).BuildShellSurface();
+
+  auto rotated = shell_surface->RotatePaneFocusFromView(nullptr, true, true);
+  // No focusable view for the shell surface. This should result in a
+  // non-rotation using the base rotation logic.
+  EXPECT_FALSE(rotated);
 }
 
 TEST_F(ShellSurfaceTest, StartMove) {
@@ -3222,6 +3321,114 @@ TEST_F(ShellSurfaceTest, SetShapeUpdatesAndUnsetsCorrectlyAfterCommit) {
   shell_surface->root_surface()->Commit();
   layer_shape_rects = shell_surface->host_window()->layer()->alpha_shape();
   EXPECT_FALSE(layer_shape_rects);
+}
+
+TEST_F(ShellSurfaceTest, MaximizedOrFullscreenInitialState) {
+  UpdateDisplay("800x600, 800x600");
+  constexpr gfx::Size kEmptySize{0, 0};
+  // on secondary display.
+  constexpr gfx::Rect kInitialBounds{800, 0, 100, 100};
+  const auto primary_display = GetPrimaryDisplay();
+  const auto secondary_display = GetSecondaryDisplay();
+  for (auto initial_state : {chromeos::WindowStateType::kMaximized,
+                             chromeos::WindowStateType::kFullscreen}) {
+    std::stringstream ss;
+    ss << initial_state;
+    SCOPED_TRACE(ss.str());
+    gfx::Rect primary_bounds =
+        initial_state == chromeos::WindowStateType::kMaximized
+            ? primary_display.work_area()
+            : primary_display.bounds();
+    gfx::Rect secondary_bounds =
+        initial_state == chromeos::WindowStateType::kMaximized
+            ? secondary_display.work_area()
+            : secondary_display.bounds();
+    // While it is possible to start in fullscreen, SessionRestore restores the
+    // originally fullscreen window to maximized, so the fullscreen window won't
+    // have restore bounds.
+    bool verify_restore_bounds =
+        initial_state == chromeos::WindowStateType::kMaximized;
+    {
+      ConfigureData config_data;
+      std::unique_ptr<ShellSurface> shell_surface =
+          test::ShellSurfaceBuilder(kEmptySize)
+              .SetConfigureCallback(base::BindRepeating(
+                  &Configure, base::Unretained(&config_data)))
+              .SetWindowState(initial_state)
+              .BuildShellSurface();
+      EXPECT_EQ(1u, config_data.count);
+      EXPECT_EQ(initial_state, config_data.state_type);
+      EXPECT_EQ(primary_bounds, config_data.suggested_bounds);
+    }
+    {
+      ConfigureData config_data;
+      std::unique_ptr<ShellSurface> shell_surface =
+          test::ShellSurfaceBuilder(kEmptySize)
+              .SetConfigureCallback(base::BindRepeating(
+                  &Configure, base::Unretained(&config_data)))
+              .SetWindowState(initial_state)
+              .SetDisplayId(secondary_display.id())
+              .BuildShellSurface();
+      EXPECT_EQ(1u, config_data.count);
+      EXPECT_EQ(initial_state, config_data.state_type);
+      EXPECT_EQ(secondary_bounds, config_data.suggested_bounds);
+    }
+    {
+      ConfigureData config_data;
+      std::unique_ptr<ShellSurface> shell_surface =
+          test::ShellSurfaceBuilder(kEmptySize)
+              .SetConfigureCallback(base::BindRepeating(
+                  &Configure, base::Unretained(&config_data)))
+              .SetWindowState(initial_state)
+              .SetBounds(kInitialBounds)
+              .BuildShellSurface();
+      EXPECT_EQ(1u, config_data.count);
+      EXPECT_EQ(initial_state, config_data.state_type);
+      EXPECT_EQ(secondary_bounds, config_data.suggested_bounds);
+      EXPECT_EQ(secondary_bounds,
+                shell_surface->GetWidget()->GetWindowBoundsInScreen());
+      if (verify_restore_bounds) {
+        EXPECT_EQ(kInitialBounds,
+                  shell_surface->GetWidget()->GetRestoredBounds());
+      }
+    }
+    {
+      ConfigureData config_data;
+      std::unique_ptr<ShellSurface> shell_surface =
+          test::ShellSurfaceBuilder(kEmptySize)
+              .SetConfigureCallback(base::BindRepeating(
+                  &Configure, base::Unretained(&config_data)))
+              .SetWindowState(initial_state)
+              .SetBounds(kInitialBounds)
+              .BuildShellSurface();
+      EXPECT_EQ(1u, config_data.count);
+      EXPECT_EQ(initial_state, config_data.state_type);
+      EXPECT_EQ(secondary_bounds, config_data.suggested_bounds);
+      if (verify_restore_bounds) {
+        EXPECT_EQ(kInitialBounds,
+                  shell_surface->GetWidget()->GetRestoredBounds());
+      }
+    }
+    {
+      // The display id has higher priority.
+      ConfigureData config_data;
+      std::unique_ptr<ShellSurface> shell_surface =
+          test::ShellSurfaceBuilder(kEmptySize)
+              .SetConfigureCallback(base::BindRepeating(
+                  &Configure, base::Unretained(&config_data)))
+              .SetWindowState(initial_state)
+              .SetBounds(kInitialBounds)
+              .SetDisplayId(primary_display.id())
+              .BuildShellSurface();
+      EXPECT_EQ(1u, config_data.count);
+      EXPECT_EQ(initial_state, config_data.state_type);
+      EXPECT_EQ(primary_bounds, config_data.suggested_bounds);
+      if (verify_restore_bounds) {
+        EXPECT_EQ(kInitialBounds,
+                  shell_surface->GetWidget()->GetRestoredBounds());
+      }
+    }
+  }
 }
 
 }  // namespace exo

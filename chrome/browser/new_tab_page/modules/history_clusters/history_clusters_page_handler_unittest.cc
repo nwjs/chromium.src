@@ -177,12 +177,13 @@ class HistoryClustersPageHandlerTest : public BrowserWithTestWindowTest {
              })}};
   }
 
-  raw_ptr<MockHistoryClustersModuleService>
+  raw_ptr<MockHistoryClustersModuleService, DanglingUntriaged>
       mock_history_clusters_module_service_;
   std::unique_ptr<content::WebContents> web_contents_;
-  raw_ptr<MockHistoryClustersTabHelper> mock_history_clusters_tab_helper_;
-  raw_ptr<MockHistoryService> mock_history_service_;
-  raw_ptr<MockCartService> mock_cart_service_;
+  raw_ptr<MockHistoryClustersTabHelper, DanglingUntriaged>
+      mock_history_clusters_tab_helper_;
+  raw_ptr<MockHistoryService, DanglingUntriaged> mock_history_service_;
+  raw_ptr<MockCartService, DanglingUntriaged> mock_cart_service_;
   std::unique_ptr<HistoryClustersPageHandler> handler_;
   ukm::SourceId ukm_source_id_;
 };
@@ -405,6 +406,24 @@ TEST_F(HistoryClustersPageHandlerTest, OpenUrlsInTabGroup) {
 }
 
 TEST_F(HistoryClustersPageHandlerTest, DismissCluster) {
+  // Send down some clusters so we have a logger.
+  int64_t cluster_id = 123;
+  std::vector<history::Cluster> sample_clusters = {SampleCluster(0, 1, 2)};
+  base::flat_map<int64_t, HistoryClustersModuleRankingSignals> ranking_signals =
+      {{cluster_id, HistoryClustersModuleRankingSignals()}};
+  EXPECT_CALL(mock_history_clusters_module_service(), GetClusters(testing::_))
+      .WillOnce(testing::Invoke(
+          [&sample_clusters, &ranking_signals](
+              base::OnceCallback<void(
+                  std::vector<history::Cluster>,
+                  base::flat_map<int64_t, HistoryClustersModuleRankingSignals>)>
+                  callback) {
+            std::move(callback).Run(sample_clusters, ranking_signals);
+          }));
+  base::MockCallback<HistoryClustersPageHandler::GetClustersCallback> callback;
+  EXPECT_CALL(callback, Run(testing::_));
+  handler().GetClusters(callback.Get());
+
   std::vector<history::VisitID> visit_ids;
   EXPECT_CALL(mock_history_service(), HideVisits)
       .Times(1)
@@ -422,9 +441,21 @@ TEST_F(HistoryClustersPageHandlerTest, DismissCluster) {
   std::vector<history_clusters::mojom::URLVisitPtr> visits_mojom;
   visits_mojom.push_back(std::move(visit_mojom));
 
-  handler().DismissCluster(std::move(visits_mojom));
+  handler().RecordLayoutTypeShown(
+      ntp::history_clusters::mojom::LayoutType::kLayout1, cluster_id);
+  handler().DismissCluster(std::move(visits_mojom), cluster_id);
   ASSERT_EQ(1u, visit_ids.size());
   ASSERT_EQ(1u, visit_ids.front());
+
+  // Reset handler to make sure UKM is recorded.
+  ukm::TestAutoSetUkmRecorder test_ukm_recorder;
+  ResetHandler();
+  auto entries = test_ukm_recorder.GetEntriesByName(
+      ukm::builders::NewTabPage_HistoryClusters::kEntryName);
+  ASSERT_EQ(entries.size(), 1u);
+  test_ukm_recorder.ExpectEntryMetric(
+      entries[0],
+      ukm::builders::NewTabPage_HistoryClusters::kDidDismissModuleName, 1);
 }
 
 TEST_F(HistoryClustersPageHandlerTest, RecordClick) {
@@ -463,6 +494,41 @@ TEST_F(HistoryClustersPageHandlerTest, RecordClick) {
   test_ukm_recorder.ExpectEntryMetric(
       entries[0],
       ukm::builders::NewTabPage_HistoryClusters::kDidEngageWithModuleName, 1);
+}
+
+TEST_F(HistoryClustersPageHandlerTest, RecordDisabled) {
+  // Send down some clusters so we have a logger.
+  int64_t cluster_id = 123;
+  std::vector<history::Cluster> sample_clusters = {SampleCluster(0, 1, 2)};
+  base::flat_map<int64_t, HistoryClustersModuleRankingSignals> ranking_signals =
+      {{cluster_id, HistoryClustersModuleRankingSignals()}};
+  EXPECT_CALL(mock_history_clusters_module_service(), GetClusters(testing::_))
+      .WillOnce(testing::Invoke(
+          [&sample_clusters, &ranking_signals](
+              base::OnceCallback<void(
+                  std::vector<history::Cluster>,
+                  base::flat_map<int64_t, HistoryClustersModuleRankingSignals>)>
+                  callback) {
+            std::move(callback).Run(sample_clusters, ranking_signals);
+          }));
+  base::MockCallback<HistoryClustersPageHandler::GetClustersCallback> callback;
+  EXPECT_CALL(callback, Run(testing::_));
+  handler().GetClusters(callback.Get());
+
+  // Simulate a disable and layout type.
+  handler().RecordLayoutTypeShown(
+      ntp::history_clusters::mojom::LayoutType::kLayout1, cluster_id);
+  handler().RecordDisabled(cluster_id);
+
+  // Reset handler to make sure UKM is recorded.
+  ukm::TestAutoSetUkmRecorder test_ukm_recorder;
+  ResetHandler();
+  auto entries = test_ukm_recorder.GetEntriesByName(
+      ukm::builders::NewTabPage_HistoryClusters::kEntryName);
+  ASSERT_EQ(entries.size(), 1u);
+  test_ukm_recorder.ExpectEntryMetric(
+      entries[0],
+      ukm::builders::NewTabPage_HistoryClusters::kDidDisableModuleName, 1);
 }
 
 TEST_F(HistoryClustersPageHandlerTest, RecordLayoutTypeShown) {

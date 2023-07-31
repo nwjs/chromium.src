@@ -119,6 +119,8 @@ struct ShortcutsWidgetEntryView: View {
   }
 
   enum Strings {
+    static let widgetDisplayName = String(
+      localized: "IDS_IOS_WIDGET_KIT_EXTENSION_SHORTCUTS_DISPLAY_NAME")
     static let searchA11yLabel = String(
       localized:
         "IDS_IOS_WIDGET_KIT_EXTENSION_SHORTCUTS_SEARCH_A11Y_LABEL")
@@ -163,12 +165,12 @@ struct ShortcutsWidgetEntryView: View {
       .frame(minWidth: 0, maxWidth: .infinity)
       .padding([.leading, .trailing], Dimensions.stackFramePadding)
     }
-    .accessibilityLabel(Text(Strings.searchA11yLabel))
+    .accessibilityLabel(Strings.searchA11yLabel)
   }
 
   // Shows the widget with 4 shortcuts placeholder in the gallery view to respect user's privacy.
   public var websitesPlaceholder: some View {
-    HStack(spacing: 0.5) {
+    HStack(spacing: 3) {
       WebSitePlaceholder()
       SeparatorVertical()
       WebSitePlaceholder()
@@ -177,29 +179,30 @@ struct ShortcutsWidgetEntryView: View {
       SeparatorVertical()
       WebSitePlaceholder()
     }
-    .padding(.horizontal, Dimensions.placeholdersPadding)
     .frame(minWidth: 0, maxWidth: .infinity)
-    .padding([.leading, .trailing], Dimensions.iconsPadding)
   }
 
   // Shows the "No shortcuts available" text when the user's delete
   // all his most visited websites from Chrome App.
   private var zeroVisitedSitesView: some View {
     WebsiteLabel(websiteTitle: Strings.noShortcutsAvailableTitle).padding(.leading, 10)
+      .accessibilityLabel(Strings.noShortcutsAvailableTitle)
   }
 
   // Shows the shortcut's icon with website's title on the left.
   @ViewBuilder
   private func oneVisitedSitesView(ntpTile: NTPTile) -> some View {
     Link(destination: ntpTile.url) {
-      WebsiteLogo(ntpTile: ntpTile).padding(.leading, 12)
-      WebsiteLabel(
-        websiteTitle: Strings.openShorcutLabelTemplate.replacingOccurrences(
-          of: "WEBSITE_PLACEHOLDER", with: ntpTile.title ?? "")
-      )
-      .padding(.leading, 8)
-
+      HStack {
+        WebsiteLogo(ntpTile: ntpTile).padding(.leading, 12)
+        WebsiteLabel(
+          websiteTitle: Strings.openShorcutLabelTemplate.replacingOccurrences(
+            of: "WEBSITE_PLACEHOLDER", with: ntpTile.title ?? "")
+        )
+        .padding(.leading, 8)
+      }
     }
+    .accessibilityLabel(ntpTile.title)
   }
 
   // Shows the shortcuts containing the most visited websites.
@@ -215,8 +218,10 @@ struct ShortcutsWidgetEntryView: View {
         Link(destination: ntpTiles[index].url) {
           WebsiteLogo(ntpTile: ntpTiles[index])
         }
-      }.frame(minWidth: 0, maxWidth: .infinity)
-        .padding([.leading, .trailing], Dimensions.iconsPadding)
+        .accessibilityLabel(ntpTiles[index].title)
+      }
+      .frame(minWidth: 0, maxWidth: .infinity)
+      .padding([.leading, .trailing], Dimensions.iconsPadding)
       if index < numberOfShortcuts - 1 {
         SeparatorVertical()
       }
@@ -235,6 +240,7 @@ struct ShortcutsWidgetEntryView: View {
         Rectangle()
           .foregroundColor(Colors.widgetMostVisitedSitesRow)
           .frame(minWidth: 0, maxWidth: .infinity)
+          .accessibilityLabel(Strings.widgetDisplayName)
         HStack {
           let ntpTiles = Array(entry.mostVisitedSites.values).sorted()
 
@@ -251,9 +257,10 @@ struct ShortcutsWidgetEntryView: View {
             }
           }
           Spacer()
-        }.frame(minWidth: 0, maxWidth: .infinity)
-          .padding([.leading, .trailing], Dimensions.stackFramePadding)
+        }
+        .frame(minWidth: 0, maxWidth: .infinity)
       }
+      Spacer()
     }.background(Colors.widgetMostVisitedSitesRow)
   }
 }
@@ -269,7 +276,7 @@ extension NTPTile: Comparable {
 // Vertical `|` separator view between two shortcuts in a row of the Shortcuts widget.
 struct SeparatorVertical: View {
   enum Dimensions {
-    static let height: CGFloat = 40
+    static let height: CGFloat = 32
     static let width: CGFloat = 2
     static let cornerRadius: CGFloat = 1
   }
@@ -288,10 +295,13 @@ struct WebSitePlaceholder: View {
   enum Dimensions {
     static let placeholderSize: CGFloat = 28
   }
+  enum Colors {
+    static let placeholderBackgroundColor = Color("widget_text_color")
+  }
   var body: some View {
     Circle()
       .frame(width: Dimensions.placeholderSize, height: Dimensions.placeholderSize)
-      .foregroundColor(Color(.darkGray))
+      .foregroundColor(Colors.placeholderBackgroundColor)
       .opacity(0.2)
       .frame(minWidth: 0, maxWidth: .infinity)
   }
@@ -301,11 +311,13 @@ struct WebSitePlaceholder: View {
 struct WebsiteLogo: View {
   enum Dimensions {
     static let placeholderSize: CGFloat = 28
-    static let cornerRadius: CGFloat = 2
+    static let cornerRadius: CGFloat = 4
     static let fontSize: CGFloat = 15
   }
+
   enum Colors {
-    static let widgetTextColor: Color = Color("widget_text_color")
+    static let shortcutBackgroundColor = Color("widget_background_color")
+    static let shortcutTextColor = Color("widget_text_color")
   }
 
   let ntpTile: NTPTile
@@ -314,7 +326,7 @@ struct WebsiteLogo: View {
     if let backgroundColor = ntpTile.fallbackBackgroundColor {
       return Color(backgroundColor)
     } else {
-      return Color(.darkGray).opacity(0.3)
+      return Colors.shortcutBackgroundColor
     }
   }
   var fallbackMonogram: String {
@@ -324,7 +336,7 @@ struct WebsiteLogo: View {
     if let fallbackTextColor = ntpTile.fallbackTextColor {
       return Color(fallbackTextColor)
     } else {
-      return Colors.widgetTextColor
+      return Colors.shortcutTextColor
     }
   }
   var faviconImage: Image? {
@@ -341,11 +353,9 @@ struct WebsiteLogo: View {
   @ViewBuilder
   private func backgroundWithLogo(faviconImage: Image) -> some View {
     ZStack {
-      RoundedRectangle(cornerRadius: Dimensions.cornerRadius, style: .continuous)
-        .frame(width: Dimensions.placeholderSize, height: Dimensions.placeholderSize)
-        .foregroundColor(Color.white)
       faviconImage.resizable()
         .frame(width: Dimensions.placeholderSize, height: Dimensions.placeholderSize)
+        .cornerRadius(Dimensions.cornerRadius)
     }
   }
 
@@ -354,22 +364,21 @@ struct WebsiteLogo: View {
       RoundedRectangle(cornerRadius: Dimensions.cornerRadius, style: .continuous)
         .frame(width: Dimensions.placeholderSize, height: Dimensions.placeholderSize)
         .foregroundColor(backgroundColor)
-        .frame(minWidth: 0, maxWidth: .infinity)
       monogramText
     }
   }
 
   var monogramText: some View {
     Text(verbatim: fallbackMonogram)
-      .font(.system(size: Dimensions.fontSize, weight: .bold))
-      .foregroundColor(Color.white)
+      .font(.system(size: Dimensions.fontSize))
+      .foregroundColor(fallbackTextColor)
   }
 
   var body: some View {
     if let faviconImage = faviconImage {
-      backgroundWithLogo(faviconImage: faviconImage)
+      backgroundWithLogo(faviconImage: faviconImage).cornerRadius(Dimensions.cornerRadius)
     } else {
-      monogramIcon
+      monogramIcon.cornerRadius(Dimensions.cornerRadius)
     }
   }
 }

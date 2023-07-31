@@ -83,32 +83,43 @@ void WebStateDelegateBrowserAgent::ClearUIProviders() {
   container_view_provider_ = nil;
 }
 
-// WebStateListObserver::
-void WebStateDelegateBrowserAgent::WebStateInsertedAt(
+#pragma mark - WebStateListObserver
+
+void WebStateDelegateBrowserAgent::WebStateListChanged(
     WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index,
-    bool activating) {
-  SetWebStateDelegate(web_state);
+    const WebStateListChange& change,
+    const WebStateSelection& selection) {
+  switch (change.type()) {
+    case WebStateListChange::Type::kSelectionOnly:
+      // Do nothing when a WebState is selected and its status is updated.
+      break;
+    case WebStateListChange::Type::kDetach: {
+      const WebStateListChangeDetach& detach_change =
+          change.As<WebStateListChangeDetach>();
+      ClearWebStateDelegate(detach_change.detached_web_state());
+      break;
+    }
+    case WebStateListChange::Type::kMove:
+      // Do nothing when a WebState is moved.
+      break;
+    case WebStateListChange::Type::kReplace: {
+      const WebStateListChangeReplace& replace_change =
+          change.As<WebStateListChangeReplace>();
+      ClearWebStateDelegate(replace_change.replaced_web_state());
+      SetWebStateDelegate(replace_change.inserted_web_state());
+      break;
+    }
+    case WebStateListChange::Type::kInsert: {
+      const WebStateListChangeInsert& insert_change =
+          change.As<WebStateListChangeInsert>();
+      SetWebStateDelegate(insert_change.inserted_web_state());
+      break;
+    }
+  }
 }
 
-void WebStateDelegateBrowserAgent::WebStateReplacedAt(
-    WebStateList* web_state_list,
-    web::WebState* old_web_state,
-    web::WebState* new_web_state,
-    int index) {
-  ClearWebStateDelegate(old_web_state);
-  SetWebStateDelegate(new_web_state);
-}
+#pragma mark - BrowserObserver
 
-void WebStateDelegateBrowserAgent::WebStateDetachedAt(
-    WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index) {
-  ClearWebStateDelegate(web_state);
-}
-
-// BrowserObserver::
 void WebStateDelegateBrowserAgent::BrowserDestroyed(Browser* browser) {
   DCHECK(browser_observation_.IsObservingSource(browser));
 
@@ -125,7 +136,8 @@ void WebStateDelegateBrowserAgent::BrowserDestroyed(Browser* browser) {
   browser_observation_.Reset();
 }
 
-// WebStateObserver::
+#pragma mark - WebStateObserver
+
 void WebStateDelegateBrowserAgent::WebStateRealized(web::WebState* web_state) {
   SetWebStateDelegate(web_state);
   web_state_observations_.RemoveObservation(web_state);

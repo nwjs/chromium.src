@@ -15,6 +15,7 @@
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_url_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_controller.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_constants.h"
 #import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_delegate.h"
 #import "ios/chrome/browser/ui/passwords/bottom_sheet/password_suggestion_bottom_sheet_handler.h"
 #import "ios/chrome/browser/ui/settings/password/branded_navigation_item_title_view.h"
@@ -45,14 +46,18 @@ CGFloat const kTableViewEstimatedRowHeight = 75;
 // Radius size of the table view.
 CGFloat const kTableViewCornerRadius = 10;
 
-// TableView's width constraint multiplier in portrait mode.
-CGFloat const kPortraitTableViewWidthMultiplier = 0.95;
+// TableView's width constraint multiplier in Portrait mode for iPhone only.
+CGFloat const kPortraitIPhoneTableViewWidthMultiplier = 0.95;
 
-// TableView's width constraint multiplier in landscape mode.
-CGFloat const kLandscapeTableViewWidthMultiplier = 0.65;
+// TableView's width constraint multiplier in all mode (except iPhone Portrait).
+CGFloat const kTableViewWidthMultiplier = 0.65;
 
 // Scroll view's bottom anchor constant.
 CGFloat const kScrollViewBottomAnchorConstant = 10;
+
+// Initial height's extra bottom height padding so it does not crop the cell.
+CGFloat const kInitialHeightPadding = 5;
+
 }  // namespace
 
 @interface PasswordSuggestionBottomSheetViewController () <
@@ -137,6 +142,8 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
   // Assign table view's width anchor now that it is in the same hierarchy as
   // the top view.
   [self createTableViewWidthConstraint:self.view.layoutMarginsGuide];
+
+  [self setUpBottomSheet];
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size
@@ -168,11 +175,29 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
         minimizedTableViewHeight * _suggestions.count;
   }
 
-  [self setUpBottomSheet];
+  // Update the custom detent with the correct initial height for the bottom
+  // sheet. (Initial height is not calculated properly in -viewDidLoad, but we
+  // need to setup the bottom sheet in that method so there is not a delay when
+  // showing the table view and the action buttons.
+  UISheetPresentationController* presentationController =
+      self.sheetPresentationController;
+  if (@available(iOS 16, *)) {
+    CGFloat bottomSheetHeight = [self initialHeight];
+    auto detentBlock = ^CGFloat(
+        id<UISheetPresentationControllerDetentResolutionContext> context) {
+      return bottomSheetHeight;
+    };
+    UISheetPresentationControllerDetent* customDetent =
+        [UISheetPresentationControllerDetent
+            customDetentWithIdentifier:@"customDetent"
+                              resolver:detentBlock];
+    presentationController.detents = @[ customDetent ];
+    presentationController.selectedDetentIdentifier = @"customDetent";
+  }
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
-  [self.delegate refocus];
+  [self.delegate dismiss];
 }
 
 #pragma mark - PasswordSuggestionBottomSheetConsumer
@@ -202,6 +227,9 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
   if (_tableViewIsMinimized) {
     _tableViewIsMinimized = NO;
     [_tableView cellForRowAtIndexPath:indexPath].accessoryView = nil;
+    // Make separator visible on first cell.
+    [_tableView cellForRowAtIndexPath:indexPath].separatorInset =
+        UIEdgeInsetsMake(0.f, kTableViewHorizontalSpacing, 0.f, 0.f);
     [self addSuggestionsToTableView];
 
     // Update table view height.
@@ -286,8 +314,12 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
           : kTableViewHorizontalSpacing;
   cell.separatorInset = UIEdgeInsetsMake(0.f, separatorLeftMargin, 0.f, 0.f);
 
-  [cell setFaviconContainerBackgroundColor:
-            [UIColor colorNamed:kPrimaryBackgroundColor]];
+  [cell
+      setFaviconContainerBackgroundColor:
+          (self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark)
+              ? [UIColor colorNamed:kSeparatorColor]
+              : [UIColor colorNamed:kPrimaryBackgroundColor]];
+  [cell setFaviconContainerBorderColor:UIColor.clearColor];
   cell.titleLabel.textColor = [UIColor colorNamed:kTextPrimaryColor];
   cell.backgroundColor = [UIColor colorNamed:kSecondaryBackgroundColor];
 
@@ -307,7 +339,7 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
 
 - (void)confirmationAlertPrimaryAction {
   // Use password button
-  [self.delegate disableRefocus];
+  [self.delegate willSelectSuggestion:_tableView.indexPathForSelectedRow.row];
   __weak __typeof(self) weakSelf = self;
   [self dismissViewControllerAnimated:NO
                            completion:^{
@@ -362,19 +394,10 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
 
 // Returns the string to display at a given row in the table view.
 - (NSString*)suggestionAtRow:(NSInteger)row {
-  FormSuggestion* formSuggestion = [_suggestions objectAtIndex:row];
-
-  // Removing suffix ' ••••••••' appended to the username in the suggestion.
-  NSString* username = formSuggestion.value;
-  if ([username containsString:kPasswordFormSuggestionSuffix]) {
-    username = [username
-        stringByReplacingOccurrencesOfString:kPasswordFormSuggestionSuffix
-                                  withString:@""];
-  }
-  if (!username || [username length] == 0) {
-    return kPasswordFormSuggestionSuffix;
-  }
-  return username;
+  NSString* username = [self.delegate usernameAtRow:row];
+  return ([username length] == 0)
+             ? l10n_util::GetNSString(IDS_IOS_PASSWORD_BOTTOM_SHEET_NO_USERNAME)
+             : username;
 }
 
 // Creates the password bottom sheet's table view, initially at minimized
@@ -391,6 +414,8 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
   _tableView.delegate = self;
   _tableView.dataSource = self;
   _tableView.userInteractionEnabled = YES;
+  _tableView.accessibilityIdentifier =
+      kPasswordSuggestionBottomSheetTableViewId;
   [_tableView registerClass:TableViewURLCell.class
       forCellReuseIdentifier:@"cell"];
 
@@ -414,12 +439,16 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
 
 // Creates the tableview's width constraints and set their initial active state.
 - (void)createTableViewWidthConstraint:(UILayoutGuide*)margins {
+  UIUserInterfaceIdiom idiom = [[UIDevice currentDevice] userInterfaceIdiom];
   _portraitTableWidthConstraint = [_tableView.widthAnchor
       constraintGreaterThanOrEqualToAnchor:margins.widthAnchor
-                                multiplier:kPortraitTableViewWidthMultiplier];
+                                multiplier:
+                                    (idiom == UIUserInterfaceIdiomPad)
+                                        ? kTableViewWidthMultiplier
+                                        : kPortraitIPhoneTableViewWidthMultiplier];
   _landscapeTableWidthConstraint = [_tableView.widthAnchor
       constraintGreaterThanOrEqualToAnchor:margins.widthAnchor
-                                multiplier:kLandscapeTableViewWidthMultiplier];
+                                multiplier:kTableViewWidthMultiplier];
   [self adjustTableViewWidthConstraint];
 }
 
@@ -477,7 +506,7 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
 - (CGFloat)initialHeight {
   CGFloat bottomSheetHeight = [self bottomSheetHeight];
   if (bottomSheetHeight > 0) {
-    return bottomSheetHeight;
+    return bottomSheetHeight + kInitialHeightPadding;
   }
   // Return an estimated height if we can't calculate the actual height.
   return kEstimatedBaseHeightForBottomSheet + kTableViewEstimatedRowHeight;
@@ -513,8 +542,12 @@ CGFloat const kScrollViewBottomAnchorConstant = 10;
   UISheetPresentationController* presentationController =
       self.sheetPresentationController;
   if (@available(iOS 16, *)) {
-    // Update the bottom anchor constant value.
-    [self changeScrollViewBottomAnchorConstant:kScrollViewBottomAnchorConstant];
+    // Update the bottom anchor constant value only for iPhone.
+    if ([UIDevice currentDevice].userInterfaceIdiom ==
+        UIUserInterfaceIdiomPhone) {
+      [self
+          changeScrollViewBottomAnchorConstant:kScrollViewBottomAnchorConstant];
+    }
 
     // Expand to custom size (only available for iOS 16+).
     CGFloat fullHeight = [self fullHeight];

@@ -37,7 +37,7 @@ V8CrowdsourcedCompileHintsProducer::V8CrowdsourcedCompileHintsProducer(
   static bool compile_hints_enabled =
       base::FeatureList::IsEnabled(features::kProduceCompileHints);
   if (!compile_hints_enabled) {
-    state_ = State::kDisabled;
+    state_ = State::kFinishedOrDisabled;
   }
 }
 
@@ -54,7 +54,6 @@ void V8CrowdsourcedCompileHintsProducer::RecordScript(
   if (data_generated_for_this_process_) {
     // We've already generated data for some other
     // V8CrowdsourcedCompileHintsProducer, so stop collecting data.
-    state_ = State::kDataGenerationFinished;
     ClearData();
     return;
   }
@@ -86,8 +85,12 @@ void V8CrowdsourcedCompileHintsProducer::RecordScript(
   uint32_t script_name_hash =
       base::PersistentHash(name_std_string.c_str(), name_length);
 
-  scripts_.emplace_back(v8::Global<v8::Script>(isolate, script));
+  scripts_.emplace_back(v8::TracedReference<v8::Script>(isolate, script));
   script_name_hashes_.emplace_back(script_name_hash);
+
+  if (scripts_.size() == 1) {
+    ScheduleDataDeletionTask(execution_context);
+  }
 }
 
 void V8CrowdsourcedCompileHintsProducer::GenerateData() {
@@ -95,9 +98,6 @@ void V8CrowdsourcedCompileHintsProducer::GenerateData() {
   if (state_ != State::kCollectingData) {
     return;
   }
-
-  // Stop logging script executions for this page.
-  state_ = State::kDataGenerationFinished;
 
   if (!data_generated_for_this_process_) {
     data_generated_for_this_process_ = SendDataToUkm();
@@ -108,11 +108,35 @@ void V8CrowdsourcedCompileHintsProducer::GenerateData() {
 
 void V8CrowdsourcedCompileHintsProducer::Trace(Visitor* visitor) const {
   visitor->Trace(page_);
+  visitor->Trace(scripts_);
 }
 
 void V8CrowdsourcedCompileHintsProducer::ClearData() {
+  // Stop logging script executions for this page.
+  state_ = State::kFinishedOrDisabled;
   scripts_.clear();
   script_name_hashes_.clear();
+}
+
+namespace {
+
+void ClearDataTask(V8CrowdsourcedCompileHintsProducer* producer) {
+  if (producer != nullptr) {
+    producer->ClearData();
+  }
+}
+
+}  // namespace
+
+void V8CrowdsourcedCompileHintsProducer::ScheduleDataDeletionTask(
+    ExecutionContext* execution_context) {
+  constexpr int kDeletionDelaySeconds = 30;
+  auto delay = base::Seconds(kDeletionDelaySeconds);
+
+  execution_context->GetTaskRunner(TaskType::kIdleTask)
+      ->PostDelayedTask(FROM_HERE,
+                        WTF::BindOnce(&ClearDataTask, WrapWeakPersistent(this)),
+                        delay);
 }
 
 bool V8CrowdsourcedCompileHintsProducer::MightGenerateData() {
@@ -125,7 +149,6 @@ bool V8CrowdsourcedCompileHintsProducer::MightGenerateData() {
   // generate good compile hints, because we cannot retrieve data from other
   // processes.
   if (!main_frame->IsLocalFrame()) {
-    state_ = State::kDisabled;
     ClearData();
     return false;
   }
@@ -136,7 +159,6 @@ bool V8CrowdsourcedCompileHintsProducer::SendDataToUkm() {
   // Re-check the main frame, since it might have changed.
   Frame* main_frame = page_->MainFrame();
   if (!main_frame->IsLocalFrame()) {
-    state_ = State::kDisabled;
     ClearData();
     return false;
   }

@@ -32,13 +32,9 @@ class OTRWebStateObserver::WebStateObserver : public WebStateListObserver {
   }
 
   // WebStateListObserver
-  void WebStateInsertedAt(WebStateList* web_state_list,
-                          web::WebState* web_state,
-                          int index,
-                          bool activating) override;
-  void WebStateDetachedAt(WebStateList* web_state_list,
-                          web::WebState* web_state,
-                          int index) override;
+  void WebStateListChanged(WebStateList* web_state_list,
+                           const WebStateListChange& change,
+                           const WebStateSelection& selection) override;
   void BatchOperationEnded(WebStateList* web_state_list) override;
 
  private:
@@ -52,19 +48,27 @@ class OTRWebStateObserver::WebStateObserver : public WebStateListObserver {
   const raw_ptr<BrowserList> browser_list_;
 };
 
-void OTRWebStateObserver::WebStateObserver::WebStateInsertedAt(
-    WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index,
-    bool activating) {
-  UpdateOtrWebStateCount();
-}
+#pragma mark - WebStateListObserver
 
-void OTRWebStateObserver::WebStateObserver::WebStateDetachedAt(
+void OTRWebStateObserver::WebStateObserver::WebStateListChanged(
     WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index) {
-  UpdateOtrWebStateCount();
+    const WebStateListChange& change,
+    const WebStateSelection& selection) {
+  switch (change.type()) {
+    case WebStateListChange::Type::kSelectionOnly:
+      // Do nothing when a WebState is selected and its status is updated.
+      break;
+    case WebStateListChange::Type::kDetach:
+    case WebStateListChange::Type::kInsert:
+      UpdateOtrWebStateCount();
+      break;
+    case WebStateListChange::Type::kMove:
+      // Do nothing when a WebState is moved.
+      break;
+    case WebStateListChange::Type::kReplace:
+      // Do nothing when a WebState is replaced.
+      break;
+  }
 }
 
 void OTRWebStateObserver::WebStateObserver::BatchOperationEnded(

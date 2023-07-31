@@ -37,7 +37,6 @@
 #include "ui/base/cursor/cursor_factory.h"
 #include "ui/base/cursor/cursor_size.h"
 #include "ui/base/cursor/mojom/cursor_type.mojom-shared.h"
-#include "ui/base/layout.h"
 #include "ui/base/resource/resource_scale_factor.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
@@ -951,7 +950,8 @@ void Pointer::UpdateCursor() {
                                     resource_scale_factor);
     cursor_.SetPlatformCursor(
         ui::CursorFactory::GetInstance()->CreateImageCursor(
-            cursor_.type(), cursor_.custom_bitmap(), cursor_.custom_hotspot()));
+            cursor_.type(), cursor_.custom_bitmap(), cursor_.custom_hotspot(),
+            cursor_.image_scale_factor()));
   }
 
   // When pointer capture is broken, use the standard system cursor instead of

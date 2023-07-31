@@ -63,13 +63,13 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.share.ShareParams;
-import org.chromium.components.browser_ui.widget.animation.Interpolators;
 import org.chromium.components.feed.proto.FeedUiProto;
 import org.chromium.components.signin.metrics.SigninAccessPoint;
 import org.chromium.content_public.browser.LoadUrlParams;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.display.DisplayAndroid;
+import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
 
@@ -484,7 +484,8 @@ public class FeedStream implements Stream {
             mSnackManager.showSnackbar(Snackbar.make(text, controller, Snackbar.TYPE_ACTION,
                                                        Snackbar.UMA_FEED_NTP_STREAM)
                                                .setAction(actionLabel, /*actionData=*/null)
-                                               .setDuration(durationMs));
+                                               .setDuration(durationMs)
+                                               .setSingleLine(false));
         }
 
         @Override
@@ -493,14 +494,6 @@ public class FeedStream implements Stream {
             mShareHelper.share(url, title);
             FeedStreamJni.get().reportOtherUserAction(
                     mNativeFeedStream, FeedStream.this, FeedUserActionType.SHARE);
-        }
-
-        @Override
-        public void openAutoplaySettings() {
-            assert ThreadUtils.runningOnUiThread();
-            FeedStreamJni.get().reportOtherUserAction(mNativeFeedStream, FeedStream.this,
-                    FeedUserActionType.OPENED_AUTOPLAY_SETTINGS);
-            mFeedAutoplaySettingsDelegate.launchAutoplaySettings();
         }
 
         @Override
@@ -570,6 +563,13 @@ public class FeedStream implements Stream {
                         mNativeFeedStream, FeedStream.this, feedKindToInvalidate);
             }
         }
+
+        @Override
+        public void triggerManualRefresh() {
+            FeedStreamJni.get().reportOtherUserAction(mNativeFeedStream, FeedStream.this,
+                    FeedUserActionType.NON_SWIPE_MANUAL_REFRESH);
+            mStreamsMediator.refreshStream();
+        }
     }
 
     private class RotationObserver implements DisplayAndroid.DisplayAndroidObserver {
@@ -599,7 +599,6 @@ public class FeedStream implements Stream {
     private SnackbarManager mSnackManager;
     private HelpAndFeedbackLauncher mHelpAndFeedbackLauncher;
     private WindowAndroid mWindowAndroid;
-    private final FeedAutoplaySettingsDelegate mFeedAutoplaySettingsDelegate;
     private UnreadContentObserver mUnreadContentObserver;
     FeedContentFirstLoadWatcher mFeedContentFirstLoadWatcher;
     private Stream.StreamsMediator mStreamsMediator;
@@ -653,7 +652,6 @@ public class FeedStream implements Stream {
      * @param windowAndroid The {@link WindowAndroid} this is shown on.
      * @param shareDelegateSupplier The supplier for {@link ShareDelegate} for sharing actions.
      * @param streamKind Kind of stream data this feed stream serves.
-     * @param feedAutoplaySettingsDelegate The delegate to invoke autoplay settings.
      * @param actionDelegate Implements some Feed actions.
      * @param helpAndFeedbackLauncher A HelpAndFeedbackLauncher.
      * @param feedContentFirstLoadWatcher a listener for events about feed loading.
@@ -663,8 +661,8 @@ public class FeedStream implements Stream {
     public FeedStream(Activity activity, SnackbarManager snackbarManager,
             BottomSheetController bottomSheetController, boolean isPlaceholderShown,
             WindowAndroid windowAndroid, Supplier<ShareDelegate> shareDelegateSupplier,
-            int streamKind, FeedAutoplaySettingsDelegate feedAutoplaySettingsDelegate,
-            FeedActionDelegate actionDelegate, HelpAndFeedbackLauncher helpAndFeedbackLauncher,
+            int streamKind, FeedActionDelegate actionDelegate,
+            HelpAndFeedbackLauncher helpAndFeedbackLauncher,
             FeedContentFirstLoadWatcher feedContentFirstLoadWatcher,
             Stream.StreamsMediator streamsMediator,
             SingleWebFeedParameters singleWebFeedParameters) {
@@ -686,7 +684,6 @@ public class FeedStream implements Stream {
         mHelpAndFeedbackLauncher = helpAndFeedbackLauncher;
         mIsPlaceholderShown = isPlaceholderShown;
         mWindowAndroid = windowAndroid;
-        mFeedAutoplaySettingsDelegate = feedAutoplaySettingsDelegate;
         mRotationObserver = new RotationObserver();
         mFeedContentFirstLoadWatcher = feedContentFirstLoadWatcher;
         mStreamsMediator = streamsMediator;
@@ -754,8 +751,7 @@ public class FeedStream implements Stream {
     }
 
     @Override
-    @StreamKind
-    public int getStreamKind() {
+    public @StreamKind int getStreamKind() {
         return mStreamKind;
     }
 
@@ -892,7 +888,7 @@ public class FeedStream implements Stream {
         dismissSnackbars();
         mInProgressWorkTracker.postTaskAfterWorkComplete(() -> {
             if (mRenderer != null) {
-                mRenderer.onPullToRefreshStarted();
+                mRenderer.onManualRefreshStarted();
             }
             FeedStreamJni.get().manualRefresh(mNativeFeedStream, FeedStream.this, callback);
         });
@@ -1424,7 +1420,7 @@ public class FeedStream implements Stream {
     }
 
     @NativeMethods
-    @VisibleForTesting
+    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
         long init(FeedStream caller, @StreamKind int streamKind,
                 long nativeFeedReliabilityLoggingBridge);

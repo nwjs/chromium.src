@@ -153,13 +153,11 @@ void AppInstall::FirstTaskRun() {
 
 void AppInstall::GetVersionDone(const base::Version& version) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  VLOG_IF(1, (version.IsValid()))
-      << "Found active version: " << version.GetString();
+  VLOG_IF(1, version.IsValid()) << "Active version: " << version.GetString();
   if (version.IsValid() && version >= base::Version(kUpdaterVersion)) {
     splash_screen_->Dismiss(base::BindOnce(&AppInstall::MaybeInstallApp, this));
     return;
   }
-
   InstallCandidate(
       updater_scope(),
       base::BindOnce(
@@ -186,8 +184,8 @@ void AppInstall::InstallCandidateDone(bool valid_version, int result) {
   }
 
   // It's possible that a previous updater existed but is nonresponsive. In
-  // this case, clear the active version in global prefs so that the system can
-  // recover.
+  // this case, set the active version in global prefs so that this instance
+  // will take over without qualification.
   base::ThreadPool::CreateSequencedTaskRunner(
       {base::MayBlock(), base::WithBaseSyncPrimitives()})
       ->PostTaskAndReply(
@@ -196,7 +194,8 @@ void AppInstall::InstallCandidateDone(bool valid_version, int result) {
               [](UpdaterScope scope) {
                 scoped_refptr<GlobalPrefs> prefs = CreateGlobalPrefs(scope);
                 if (prefs) {
-                  prefs->SetActiveVersion("");
+                  prefs->SetActiveVersion(kUpdaterVersion);
+                  prefs->SetSwapping(true);
                   PrefsCommitPendingWrites(prefs->GetPrefService());
                 }
               },

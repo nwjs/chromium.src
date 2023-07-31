@@ -123,7 +123,7 @@ class BridgedNativeWidgetTestApi {
   }
 
  private:
-  raw_ptr<remote_cocoa::NativeWidgetNSWindowBridge> bridge_;
+  raw_ptr<remote_cocoa::NativeWidgetNSWindowBridge, DanglingUntriaged> bridge_;
 };
 
 // Custom native_widget to create a NativeWidgetMacTestWindow.
@@ -281,7 +281,7 @@ class CustomTooltipView : public View {
 
  private:
   std::u16string tooltip_;
-  raw_ptr<View> tooltip_handler_;  // Weak
+  raw_ptr<View, DanglingUntriaged> tooltip_handler_;  // Weak
 };
 
 // A Widget subclass that exposes counts to calls made to OnMouseEvent().
@@ -298,7 +298,8 @@ class MouseTrackingWidget : public Widget {
 };
 
 // Test visibility states triggered externally.
-TEST_F(NativeWidgetMacTest, HideAndShowExternally) {
+// TODO(crbug.com/1450876): Flaky.
+TEST_F(NativeWidgetMacTest, DISABLED_HideAndShowExternally) {
   Widget* widget = CreateTopLevelPlatformWidget();
   NSWindow* ns_window = widget->GetNativeWindow().GetNativeNSWindow();
   WidgetChangeObserver observer(widget);
@@ -1141,10 +1142,10 @@ TEST_F(NativeWidgetMacTest, CapturedMouseUpClearsDrag) {
 
   // Send a click. Note a click may initiate a drag, so the mouse-up is sent as
   // a captured event.
-  std::pair<NSEvent*, NSEvent*> click =
+  NSArray<NSEvent*>* click =
       cocoa_test_event_utils::MouseClickInView(native_view, 1);
-  [native_view mouseDown:click.first];
-  [native_view processCapturedMouseEvent:click.second];
+  [native_view mouseDown:click[0]];
+  [native_view processCapturedMouseEvent:click[1]];
 
   // After a click, Enter/Exit should still work.
   [native_view mouseEntered:enter_event];
@@ -2055,7 +2056,10 @@ TEST_F(NativeWidgetMacTest, ReparentNativeViewTypes) {
 // Test class for Full Keyboard Access related tests.
 class NativeWidgetMacFullKeyboardAccessTest : public NativeWidgetMacTest {
  public:
-  NativeWidgetMacFullKeyboardAccessTest() = default;
+  NativeWidgetMacFullKeyboardAccessTest()
+      : widget_(nullptr),
+        bridge_(nullptr),
+        fake_full_keyboard_access_(nullptr) {}
 
  protected:
   // testing::Test:
@@ -2077,10 +2081,11 @@ class NativeWidgetMacFullKeyboardAccessTest : public NativeWidgetMacTest {
     NativeWidgetMacTest::TearDown();
   }
 
-  raw_ptr<Widget> widget_ = nullptr;
-  raw_ptr<remote_cocoa::NativeWidgetNSWindowBridge> bridge_ = nullptr;
-  raw_ptr<ui::test::ScopedFakeFullKeyboardAccess> fake_full_keyboard_access_ =
+  raw_ptr<Widget, DanglingUntriaged> widget_ = nullptr;
+  raw_ptr<remote_cocoa::NativeWidgetNSWindowBridge, DanglingUntriaged> bridge_ =
       nullptr;
+  raw_ptr<ui::test::ScopedFakeFullKeyboardAccess, DanglingUntriaged>
+      fake_full_keyboard_access_ = nullptr;
 };
 
 // Ensure that calling SetSize doesn't change the origin.
@@ -2209,7 +2214,8 @@ TEST_F(NativeWidgetMacFullKeyboardAccessTest, Activation) {
 
 class NativeWidgetMacViewsOrderTest : public WidgetTest {
  public:
-  NativeWidgetMacViewsOrderTest() = default;
+  NativeWidgetMacViewsOrderTest()
+      : widget_(nullptr), native_host_parent_(nullptr) {}
 
   NativeWidgetMacViewsOrderTest(const NativeWidgetMacViewsOrderTest&) = delete;
   NativeWidgetMacViewsOrderTest& operator=(
@@ -2236,7 +2242,7 @@ class NativeWidgetMacViewsOrderTest : public WidgetTest {
     explicit NativeHostHolder(NativeViewHost* host)
         : host_(host), view_([[NSView alloc] init]) {}
 
-    const raw_ptr<NativeViewHost> host_;
+    const raw_ptr<NativeViewHost, DanglingUntriaged> host_;
     base::scoped_nsobject<NSView> view_;
   };
 
@@ -2276,8 +2282,8 @@ class NativeWidgetMacViewsOrderTest : public WidgetTest {
 
   NSArray<NSView*>* GetStartingSubviews() { return starting_subviews_; }
 
-  raw_ptr<Widget> widget_ = nullptr;
-  raw_ptr<View> native_host_parent_ = nullptr;
+  raw_ptr<Widget, DanglingUntriaged> widget_ = nullptr;
+  raw_ptr<View, DanglingUntriaged> native_host_parent_ = nullptr;
   std::vector<std::unique_ptr<NativeHostHolder>> hosts_;
   base::scoped_nsobject<NSArray<NSView*>> starting_subviews_;
 };
@@ -2425,16 +2431,15 @@ TEST_F(NativeWidgetMacTest, InitCallback) {
         *observed = native_widget;
       },
       &observed_native_widget);
-  NativeWidgetMac::SetInitNativeWidgetCallback(callback);
+  auto subscription =
+      NativeWidgetMac::RegisterInitNativeWidgetCallback(callback);
 
   Widget* widget_a = CreateTopLevelPlatformWidget();
   EXPECT_EQ(observed_native_widget, widget_a->native_widget());
   Widget* widget_b = CreateTopLevelPlatformWidget();
   EXPECT_EQ(observed_native_widget, widget_b->native_widget());
 
-  auto empty = base::RepeatingCallback<void(NativeWidgetMac*)>();
-  DCHECK(empty.is_null());
-  NativeWidgetMac::SetInitNativeWidgetCallback(empty);
+  subscription = {};
   observed_native_widget = nullptr;
   Widget* widget_c = CreateTopLevelPlatformWidget();
   // The original callback from above should no longer be firing.

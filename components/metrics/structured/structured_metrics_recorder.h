@@ -68,6 +68,10 @@ class StructuredMetricsRecorder : public Recorder::RecorderImpl {
 
   void ProvideUmaEventMetrics(ChromeUserMetricsExtension& uma_proto);
 
+  // Provides event metrics stored in the recorder into |uma_proto|.
+  //
+  // This calls OnIndependentMetrics() to populate |uma_proto| with metadata
+  // fields.
   void ProvideEventMetrics(ChromeUserMetricsExtension& uma_proto);
 
   bool can_provide_metrics() const {
@@ -229,7 +233,8 @@ class StructuredMetricsRecorder : public Recorder::RecorderImpl {
 
   // Interface for providing the SystemProfile to metrics.
   // See chrome/browser/metrics/chrome_metrics_service_client.h
-  base::raw_ptr<metrics::MetricsProvider> system_profile_provider_;
+  base::raw_ptr<metrics::MetricsProvider, DanglingUntriaged>
+      system_profile_provider_;
 
   // A set of projects that are not allowed to be recorded. This is a cache of
   // GetDisabledProjects().

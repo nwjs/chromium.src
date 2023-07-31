@@ -207,6 +207,23 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHPriceInsightsPageActionIconLabelFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    // Show the label once per day, 3 times max in 28 days.
+    config->trigger =
+        EventConfig("price_insights_page_action_icon_label_in_trigger",
+                    Comparator(LESS_THAN, 1), 1, 360);
+    config->used = EventConfig("price_insights_page_action_icon_label_used",
+                               Comparator(EQUAL, 0), 28, 360);
+    config->event_configs.insert(
+        EventConfig("price_insights_page_action_icon_label_in_trigger",
+                    Comparator(LESS_THAN, 3), 28, 360));
+    return config;
+  }
+
   if (kIPHPriceTrackingChipFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -309,21 +326,32 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHPasswordManagerShortcutFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->trigger = EventConfig("iph_password_manager_shortcut_triggered",
+                                  Comparator(EQUAL, 0), 360, 360);
+    config->used = EventConfig("password_manager_shortcut_created",
+                               Comparator(EQUAL, 0), 360, 360);
+    return config;
+  }
+
   if (kIPHDownloadToolbarButtonFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
-    // Don't show if user has already seen an IPH this session.
-    config->session_rate = Comparator(EQUAL, 0);
+    config->session_rate = Comparator(ANY, 0);
+    SessionRateImpact session_rate_impact;
+    session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->session_rate_impact = session_rate_impact;
     // Show the promo max once a year if the user hasn't interacted with the
     // download bubble within the last 21 days.
     config->trigger = EventConfig("download_bubble_iph_trigger",
                                   Comparator(EQUAL, 0), 360, 360);
     config->used = EventConfig("download_bubble_interaction",
                                Comparator(EQUAL, 0), 21, 360);
-    // Allow snoozing for 7 days, up to 3 times.
-    config->snooze_params.snooze_interval = 7;
-    config->snooze_params.max_limit = 3;
     return config;
   }
 
@@ -343,6 +371,30 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
 
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS)
+
+#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  if (kIPHiOSPasswordPromoDesktopFeature.name == feature->name) {
+    // A config for allowing other IPH's to explicitly block the iOS password
+    // promo bubble on desktop if needed. By default it is non-blocking and
+    // non-blocked by other IPH due it being highly contextual, but this FET
+    // config and feature exist to allow some FET control over this promo if
+    // needed.
+
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->blocked_by.type = BlockedBy::Type::NONE;
+    config->blocking.type = Blocking::Type::NONE;
+    config->used =
+        EventConfig("ios_password_promo_bubble_on_desktop_interacted_with",
+                    Comparator(ANY, 0), 0, 0);
+    config->trigger = EventConfig("ios_password_promo_bubble_on_desktop_shown",
+                                  Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+#endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if BUILDFLAG(IS_ANDROID)
 
@@ -1194,6 +1246,24 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHRestoreTabsOnFREFeature.name == feature->name) {
+    // A config that allows the restore tabs on FRE promo to be shown:
+    // * If the user has gone through the FRE workflow.
+    // * If the promo has never been accepted.
+    // * Once per week if continually dismissed for a max of 2 weeks.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(LESS_THAN_OR_EQUAL, 14);
+    config->session_rate = Comparator(ANY, 0);
+    config->trigger =
+        EventConfig("restore_tabs_promo_trigger", Comparator(EQUAL, 0), 7, 7);
+    config->used =
+        EventConfig("restore_tabs_promo_used", Comparator(EQUAL, 0), 14, 14);
+    config->event_configs.insert(EventConfig(
+        "restore_tabs_on_first_run_show_promo", Comparator(EQUAL, 1), 14, 14));
+    return config;
+  }
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -1401,42 +1471,44 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
   }
 
   if (kIPHiOSNewTabToolbarItemFeature.name == feature->name) {
-    // the IPH of the new tab button on the tool bar (at bottom on iPhone or on
-    // top on iPad) is shown if:
-    // * the user has opened the url from omnibox for >= 5 times in a week.
-    // * the user has used the new tab toolbar item <= 2 times in a week.
-    // * the IPH is shown at most 1 time a week, 2 times a year.
+    // The IPH of the new tab button on the tool bar (at bottom on iPhone or on
+    // top on iPad).
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
+    // The user has opened the url from omnibox for >= 2 times in the past week.
     config->used = EventConfig(feature_engagement::events::kOpenUrlFromOmnibox,
-                               Comparator(GREATER_THAN_OR_EQUAL, 5), 7, 30);
+                               Comparator(GREATER_THAN_OR_EQUAL, 2), 7, 7);
+    // The IPH is shown at most 1 time a week.
     config->trigger = EventConfig("iph_new_tab_toolbar_item_trigger",
                                   Comparator(EQUAL, 0), 7, 7);
+    // The user hasn't used the new tab toolbar item in the past day.
+    config->event_configs.insert(
+        EventConfig(feature_engagement::events::kNewTabToolbarItemUsed,
+                    Comparator(EQUAL, 0), 1, 1));
+    // The IPH is shown at most 2 times a year.
     config->event_configs.insert(EventConfig("iph_new_tab_toolbar_item_trigger",
                                              Comparator(LESS_THAN, 2), 365,
                                              365));
-    config->event_configs.insert(
-        EventConfig(feature_engagement::events::kNewTabToolbarItemUsed,
-                    Comparator(LESS_THAN_OR_EQUAL, 2), 7, 30));
     return config;
   }
 
   if (kIPHiOSTabGridToolbarItemFeature.name == feature->name) {
-    // the IPH of the tab grid button on the tool bar (at bottom on iPhone or on
-    // top on iPad) is shown if:
-    // * the user has tapped the new tab toolbar item < 2 times in a week.
-    // * the IPH is shown at most 1 time a week, 2 times a year.
+    // The IPH of the tab grid button on the tool bar (at bottom on iPhone or on
+    // top on iPad).
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
+    // The user has tapped the new tab toolbar item < 2 times in a week.
     config->used =
         EventConfig(feature_engagement::events::kTabGridToolbarItemUsed,
                     Comparator(LESS_THAN, 2), 7, 30);
+    // The IPH is shown at most 1 time a week.
     config->trigger = EventConfig("iph_tab_grid_toolbar_item_trigger",
                                   Comparator(EQUAL, 0), 7, 7);
+    // The IPH is shown at most 2 times a year.
     config->event_configs.insert(
         EventConfig("iph_tab_grid_toolbar_item_trigger",
                     Comparator(LESS_THAN, 2), 365, 365));

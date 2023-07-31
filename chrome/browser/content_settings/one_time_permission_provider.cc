@@ -14,6 +14,8 @@
 #include "chrome/browser/permissions/one_time_permissions_tracker.h"
 #include "chrome/browser/permissions/one_time_permissions_tracker_factory.h"
 #include "components/content_settings/core/browser/content_settings_rule.h"
+#include "components/content_settings/core/common/content_settings_constraints.h"
+#include "components/content_settings/core/common/content_settings_metadata.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
@@ -48,13 +50,14 @@ bool OneTimePermissionProvider::SetWebsiteSetting(
     return false;
   }
 
-  base::AutoLock lock(value_map_.GetLock());
+  value_map_.GetLock().Acquire();
   // This block handles transitions from Allow Once to Ask/Block by clearing
   // the one time grant and letting the pref provider handle the permission as
   // usual.
-  if (constraints.session_model != content_settings::SessionModel::OneTime) {
+  if (constraints.session_model() != content_settings::SessionModel::OneTime) {
     value_map_.DeleteValue(primary_pattern, secondary_pattern,
                            content_settings_type);
+    value_map_.GetLock().Release();
 
     permissions::PermissionUmaUtil::RecordOneTimePermissionEvent(
         content_settings_type,
@@ -62,20 +65,24 @@ bool OneTimePermissionProvider::SetWebsiteSetting(
 
     return false;
   }
+
   DCHECK_EQ(content_settings::ValueToContentSetting(value),
             CONTENT_SETTING_ALLOW);
-  value_map_.SetValue(
-      primary_pattern, secondary_pattern, content_settings_type,
-      std::move(value),
-      {
-          .last_modified = clock_->Now(),
-          .expiration = clock_->Now() + base::Days(1),
-          .session_model = content_settings::SessionModel::OneTime,
-      });
+
+  content_settings::RuleMetaData metadata;
+  base::Time now = clock_->Now();
+  metadata.set_last_modified(now);
+  metadata.SetExpirationAndLifetime(now + base::Days(1), base::Days(1));
+  metadata.set_session_model(content_settings::SessionModel::OneTime);
+
+  value_map_.SetValue(primary_pattern, secondary_pattern, content_settings_type,
+                      std::move(value), metadata);
 
   permissions::PermissionUmaUtil::RecordOneTimePermissionEvent(
       content_settings_type,
       permissions::OneTimePermissionEvent::GRANTED_ONE_TIME);
+  value_map_.GetLock().Release();
+  NotifyObservers(primary_pattern, secondary_pattern, content_settings_type);
 
   // We need to handle transitions from Allow to Allow Once gracefully.
   // In that case we add the Allow Once setting in this provider, but also
@@ -176,7 +183,7 @@ void OneTimePermissionProvider::DeleteValuesMatchingGurl(
         rule->secondary_pattern.Matches(origin_gurl)) {
       patterns_to_delete.insert(
           {rule->primary_pattern, rule->secondary_pattern});
-      if (rule->metadata.expiration >= clock_->Now()) {
+      if (rule->metadata.expiration() >= clock_->Now()) {
         permissions::PermissionUmaUtil::RecordOneTimePermissionEvent(
             content_setting_type, trigger_event);
       }
@@ -184,10 +191,16 @@ void OneTimePermissionProvider::DeleteValuesMatchingGurl(
   }
   rule_iterator.reset();
 
-  base::AutoLock lock(value_map_.GetLock());
+  value_map_.GetLock().Acquire();
   for (const auto& pattern : patterns_to_delete) {
     value_map_.DeleteValue(pattern.primary_pattern, pattern.secondary_pattern,
                            content_setting_type);
+  }
+  value_map_.GetLock().Release();
+
+  for (const auto& pattern : patterns_to_delete) {
+    NotifyObservers(pattern.primary_pattern, pattern.secondary_pattern,
+                    content_setting_type);
   }
 }
 

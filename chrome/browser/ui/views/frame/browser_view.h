@@ -45,6 +45,7 @@
 #include "chrome/browser/ui/views/user_education/browser_feature_promo_controller.h"
 #include "chrome/common/buildflags.h"
 #include "components/infobars/core/infobar_container.h"
+#include "components/segmentation_platform/public/result.h"
 #include "components/user_education/common/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo_handle.h"
 #include "components/webapps/browser/banners/app_banner_manager.h"
@@ -411,6 +412,9 @@ class BrowserView : public BrowserWindow,
   // view of the update.
   void ToggleWindowControlsOverlayEnabled(base::OnceClosure done);
 
+  bool ChildOfAnchorWidgetContainsPoint(
+      const gfx::Point& point_in_browser_view_coords);
+
   bool borderless_mode_enabled_for_testing() const {
     return borderless_mode_enabled_;
   }
@@ -548,6 +552,9 @@ class BrowserView : public BrowserWindow,
   sharing_hub::ScreenshotCapturedBubble* ShowScreenshotCapturedBubble(
       content::WebContents* contents,
       const gfx::Image& image) override;
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  void VerifyUserEligibilityIOSPasswordPromoBubble() override;
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
   qrcode_generator::QRCodeGeneratorBubbleView* ShowQRCodeGeneratorBubble(
       content::WebContents* contents,
       const GURL& url,
@@ -842,6 +849,16 @@ private:
   // type, and there should be a subsequent re-layout to show it.
   // |contents| can be null.
   bool MaybeShowInfoBar(content::WebContents* contents);
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // Decides whether to show the iOS Password Promo Bubble based on segmentation
+  // platform classification results (is passed as a callback to the
+  // segmentation API).
+  void MaybeShowIOSPasswordPromoBubble(
+      const segmentation_platform::ClassificationResult& result);
+  // Shows the iOS Password Promo Bubble.
+  void ShowIOSPasswordPromoBubble();
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
   // Updates devtools window for given contents. This method will show docked
   // devtools window for inspected |web_contents| that has docked devtools

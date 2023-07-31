@@ -16,9 +16,6 @@
 #include "build/build_config.h"
 #include "cc/base/histograms.h"
 #include "cc/trees/layer_tree_frame_sink_client.h"
-#include "components/power_scheduler/power_mode.h"
-#include "components/power_scheduler/power_mode_arbiter.h"
-#include "components/power_scheduler/power_mode_voter.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/begin_frame_args.h"
 #include "components/viz/common/hit_test/hit_test_region_list.h"
@@ -43,7 +40,7 @@ AsyncLayerTreeFrameSink::UnboundMessagePipes::UnboundMessagePipes(
     UnboundMessagePipes&& other) = default;
 
 AsyncLayerTreeFrameSink::AsyncLayerTreeFrameSink(
-    scoped_refptr<viz::ContextProvider> context_provider,
+    scoped_refptr<viz::RasterContextProvider> context_provider,
     scoped_refptr<RasterContextProviderWrapper> worker_context_provider_wrapper,
     std::unique_ptr<gpu::ClientSharedImageInterface> shared_image_interface,
     InitParams* params)
@@ -57,10 +54,11 @@ AsyncLayerTreeFrameSink::AsyncLayerTreeFrameSink(
           std::move(params->synthetic_begin_frame_source)),
 #if BUILDFLAG(IS_ANDROID)
       io_thread_id_(params->io_thread_id),
+      main_thread_id_(params->main_thread_id),
 #endif
       pipes_(std::move(params->pipes)),
-      wants_animate_only_begin_frames_(params->wants_animate_only_begin_frames),
-      power_mode_voter_("PowerModeVoter.Animation") {
+      wants_animate_only_begin_frames_(
+          params->wants_animate_only_begin_frames) {
   DETACH_FROM_THREAD(thread_checker_);
 }
 
@@ -117,6 +115,9 @@ bool AsyncLayerTreeFrameSink::BindToClient(LayerTreeFrameSinkClient* client) {
   thread_ids.push_back(base::PlatformThread::CurrentId());
   if (io_thread_id_ != base::kInvalidThreadId)
     thread_ids.push_back(io_thread_id_);
+  if (main_thread_id_ != base::kInvalidThreadId) {
+    thread_ids.push_back(main_thread_id_);
+  }
   compositor_frame_sink_ptr_->SetThreadIds(thread_ids);
 #endif
 
@@ -220,9 +221,6 @@ void AsyncLayerTreeFrameSink::SubmitCompositorFrame(
                          TRACE_EVENT_FLAG_FLOW_OUT, "step",
                          "SubmitHitTestData");
 
-  power_mode_voter_.OnFrameProduced(frame.render_pass_list.back()->damage_rect,
-                                    frame.device_scale_factor());
-
   compositor_frame_sink_ptr_->SubmitCompositorFrame(
       local_surface_id_, std::move(frame), std::move(hit_test_region_list), 0);
 }
@@ -236,9 +234,6 @@ void AsyncLayerTreeFrameSink::DidNotProduceFrame(const viz::BeginFrameAck& ack,
                          TRACE_ID_GLOBAL(ack.trace_id),
                          TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
                          "step", "DidNotProduceFrame", "reason", reason);
-  bool frame_completed = reason == FrameSkippedReason::kNoDamage;
-  bool waiting_on_main = reason == FrameSkippedReason::kWaitingOnMain;
-  power_mode_voter_.OnFrameSkipped(frame_completed, waiting_on_main);
   compositor_frame_sink_ptr_->DidNotProduceFrame(ack);
 }
 
@@ -267,6 +262,8 @@ void AsyncLayerTreeFrameSink::OnBeginFrame(
     const viz::FrameTimingDetailsMap& timing_details,
     bool frame_ack,
     std::vector<viz::ReturnedResource> resources) {
+  viz::BeginFrameArgs adjusted_args = args;
+  adjusted_args.client_arrival_time = base::TimeTicks::Now();
   if (features::IsOnBeginFrameAcksEnabled()) {
     if (frame_ack) {
       DidReceiveCompositorFrameAck(std::move(resources));
@@ -281,23 +278,24 @@ void AsyncLayerTreeFrameSink::OnBeginFrame(
 
   if (!needs_begin_frames_) {
     TRACE_EVENT_WITH_FLOW1("viz,benchmark", "Graphics.Pipeline",
-                           TRACE_ID_GLOBAL(args.trace_id),
+                           TRACE_ID_GLOBAL(adjusted_args.trace_id),
                            TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
                            "step", "ReceiveBeginFrameDiscard");
     // We had a race with SetNeedsBeginFrame(false) and still need to let the
     // sink know that we didn't use this BeginFrame. OnBeginFrame() can also be
     // called to deliver presentation feedback.
-    DidNotProduceFrame(viz::BeginFrameAck(args, false),
+    DidNotProduceFrame(viz::BeginFrameAck(adjusted_args, false),
                        FrameSkippedReason::kNoDamage);
     return;
   }
-  TRACE_EVENT_WITH_FLOW2(
-      "viz,benchmark", "Graphics.Pipeline", TRACE_ID_GLOBAL(args.trace_id),
-      TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT, "step",
-      "ReceiveBeginFrame", "frame_sequence", args.frame_id.sequence_number);
+  TRACE_EVENT_WITH_FLOW2("viz,benchmark", "Graphics.Pipeline",
+                         TRACE_ID_GLOBAL(adjusted_args.trace_id),
+                         TRACE_EVENT_FLAG_FLOW_IN | TRACE_EVENT_FLAG_FLOW_OUT,
+                         "step", "ReceiveBeginFrame", "frame_sequence",
+                         adjusted_args.frame_id.sequence_number);
 
   if (begin_frame_source_)
-    begin_frame_source_->OnBeginFrame(args);
+    begin_frame_source_->OnBeginFrame(adjusted_args);
 }
 
 void AsyncLayerTreeFrameSink::OnBeginFramePausedChanged(bool paused) {
@@ -326,7 +324,6 @@ void AsyncLayerTreeFrameSink::OnNeedsBeginFrames(bool needs_begin_frames) {
     } else {
       TRACE_EVENT_NESTABLE_ASYNC_END0("cc,benchmark", "NeedsBeginFrames", this);
     }
-    power_mode_voter_.OnNeedsBeginFramesChanged(needs_begin_frames);
   }
   needs_begin_frames_ = needs_begin_frames;
   compositor_frame_sink_ptr_->SetNeedsBeginFrame(needs_begin_frames);

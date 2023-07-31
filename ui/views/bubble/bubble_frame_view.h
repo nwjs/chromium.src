@@ -202,7 +202,8 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
                                    const gfx::Size& client_size,
                                    bool adjust_to_fit_available_bounds);
 
-  Button* GetCloseButtonForTesting() { return close_; }
+  Button* close_button() { return close_; }
+  const Button* close_button() const { return close_; }
 
   View* GetHeaderViewForTesting() const { return header_view_; }
 
@@ -349,18 +350,18 @@ class VIEWS_EXPORT BubbleFrameView : public NonClientFrameView {
 
   raw_ptr<Label> subtitle_ = nullptr;
 
+  // The optional minimize button (the _).
+  raw_ptr<Button> minimize_ = nullptr;
+
   // The optional close button (the X).
   raw_ptr<Button> close_ = nullptr;
-
-  // The optional minimize button.
-  raw_ptr<Button> minimize_ = nullptr;
 
   // The optional progress bar. Used to indicate bubble pending state. By
   // default it is invisible.
   raw_ptr<ProgressBar> progress_indicator_ = nullptr;
 
   // The optional header view.
-  raw_ptr<View> header_view_ = nullptr;
+  raw_ptr<View, DanglingUntriaged> header_view_ = nullptr;
 
   // A view to contain the footnote view, if it exists.
   raw_ptr<FootnoteContainerView, DanglingUntriaged> footnote_container_ =

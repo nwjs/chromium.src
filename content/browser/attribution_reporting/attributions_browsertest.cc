@@ -274,6 +274,27 @@ struct ExpectedDebugReportWaiter {
 
 }  // namespace
 
+class InterestGroupEnabledContentBrowserClient
+    : public ContentBrowserTestContentBrowserClient {
+ public:
+  explicit InterestGroupEnabledContentBrowserClient() = default;
+
+  InterestGroupEnabledContentBrowserClient(
+      const InterestGroupEnabledContentBrowserClient&) = delete;
+  InterestGroupEnabledContentBrowserClient& operator=(
+      const InterestGroupEnabledContentBrowserClient&) = delete;
+
+  // ContentBrowserClient overrides:
+  // This is needed so that the interest group related APIs can run without
+  // failing with the result AuctionResult::kSellerRejected.
+  bool IsPrivacySandboxReportingDestinationAttested(
+      content::BrowserContext* browser_context,
+      const url::Origin& destination_origin,
+      content::PrivacySandboxInvokingAPI invoking_api) override {
+    return true;
+  }
+};
+
 class AttributionsBrowserTest : public ContentBrowserTest {
  public:
   AttributionsBrowserTest() = default;
@@ -311,6 +332,8 @@ class AttributionsBrowserTest : public ContentBrowserTest {
                                       ->GetDefaultStoragePartition();
     wrapper_ = static_cast<ServiceWorkerContextWrapper*>(
         partition->GetServiceWorkerContext());
+    content_browser_client_ =
+        std::make_unique<InterestGroupEnabledContentBrowserClient>();
   }
 
   void TearDownOnMainThread() override {
@@ -429,6 +452,9 @@ class AttributionsBrowserTest : public ContentBrowserTest {
       network_connection_tracker_;
 
   scoped_refptr<ServiceWorkerContextWrapper> wrapper_;
+
+  std::unique_ptr<InterestGroupEnabledContentBrowserClient>
+      content_browser_client_;
 };
 
 // Verifies that storage initialization does not hang when initialized in a
@@ -1278,9 +1304,11 @@ IN_PROC_BROWSER_TEST_F(AttributionsCrossAppWebEnabledBrowserTest,
 
   // Verify the navigation redirects contain the support header.
   register_response1->WaitForRequest();
-  EXPECT_EQ(register_response1->http_request()->headers.at(
-                "Attribution-Reporting-Support"),
-            "web");
+  ExpectValidAttributionReportingSupportHeader(
+      register_response1->http_request()->headers.at(
+          "Attribution-Reporting-Support"),
+      /*web_expected=*/true,
+      /*os_expected=*/false);
 
   auto http_response = std::make_unique<net::test_server::BasicHttpResponse>();
   http_response->set_code(net::HTTP_MOVED_PERMANENTLY);
@@ -1290,9 +1318,11 @@ IN_PROC_BROWSER_TEST_F(AttributionsCrossAppWebEnabledBrowserTest,
 
   // Ensure that redirect requests also contain the header.
   register_response2->WaitForRequest();
-  ASSERT_EQ(register_response2->http_request()->headers.at(
-                "Attribution-Reporting-Support"),
-            "web");
+  ExpectValidAttributionReportingSupportHeader(
+      register_response2->http_request()->headers.at(
+          "Attribution-Reporting-Support"),
+      /*web_expected=*/true,
+      /*os_expected=*/false);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1328,9 +1358,11 @@ IN_PROC_BROWSER_TEST_F(
 
   // Verify the navigation redirects contain the support header.
   register_response1->WaitForRequest();
-  EXPECT_EQ(register_response1->http_request()->headers.at(
-                "Attribution-Reporting-Support"),
-            "os, web");
+  ExpectValidAttributionReportingSupportHeader(
+      register_response1->http_request()->headers.at(
+          "Attribution-Reporting-Support"),
+      /*web_expected=*/true,
+      /*os_expected=*/true);
 
   auto http_response = std::make_unique<net::test_server::BasicHttpResponse>();
   http_response->set_code(net::HTTP_MOVED_PERMANENTLY);
@@ -1340,9 +1372,11 @@ IN_PROC_BROWSER_TEST_F(
 
   // Ensure that redirect requests also contain the header.
   register_response2->WaitForRequest();
-  ASSERT_EQ(register_response2->http_request()->headers.at(
-                "Attribution-Reporting-Support"),
-            "os, web");
+  ExpectValidAttributionReportingSupportHeader(
+      register_response2->http_request()->headers.at(
+          "Attribution-Reporting-Support"),
+      /*web_expected=*/true,
+      /*os_expected=*/true);
 }
 
 class AttributionsFencedFrameBrowserTest : public AttributionsBrowserTest {
@@ -1400,8 +1434,7 @@ class AttributionsFencedFrameBrowserTest : public AttributionsBrowserTest {
             ->GetPrimaryMainFrame()
             ->GetStoragePartition()
             ->GetURLLoaderFactoryForBrowserProcess(),
-        AttributionManager::FromBrowserContext(
-            web_contents()->GetBrowserContext()),
+        web_contents()->GetBrowserContext(),
         /*direct_seller_is_seller=*/false,
         PrivateAggregationManager::GetManager(
             *web_contents()->GetBrowserContext()),

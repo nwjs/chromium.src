@@ -411,9 +411,11 @@ targets.mixin(
     name = "dawn_end2end_gpu_test",
     args = [
         "--use-gpu-in-tests",
+        "--exclusive-device-type-preference=discrete,integrated",
         # Dawn test retries deliberately disabled to prevent flakiness.
         "--test-launcher-retry-limit=0",
-        "--exclusive-device-type-preference=discrete,integrated",
+        # Reduces size of stdout of a batch crbug.com/1456415
+        "--test-launcher-batch-limit=512",
     ],
 )
 
@@ -586,6 +588,18 @@ targets.mixin(
             swarming.cache(
                 name = "runtime_ios_16_4",
                 path = "Runtime-ios-16.4",
+            ),
+        ],
+    ),
+)
+
+targets.mixin(
+    name = "ios_runtime_cache_17_0",
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "runtime_ios_17_0",
+                path = "Runtime-ios-17.0",
             ),
         ],
     ),
@@ -844,37 +858,6 @@ targets.mixin(
 )
 
 targets.mixin(
-    name = "mac_12_or_13_arm64",
-    swarming = targets.swarming(
-        dimensions = {
-            "cpu": "arm64",
-            "os": "Mac-12|Mac-13",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "mac_12_or_13_t2_x64",
-    swarming = targets.swarming(
-        dimensions = {
-            "cpu": "x86-64",
-            "mac_model": "Macmini8,1",
-            "os": "Mac-12|Mac-13",
-        },
-    ),
-)
-
-targets.mixin(
-    name = "mac_12_or_13_x64",
-    swarming = targets.swarming(
-        dimensions = {
-            "cpu": "x86-64",
-            "os": "Mac-12|Mac-13",
-        },
-    ),
-)
-
-targets.mixin(
     name = "mac_12_x64",
     swarming = targets.swarming(
         dimensions = {
@@ -910,7 +893,7 @@ targets.mixin(
         dimensions = {
             "cpu": "arm64",
             "mac_model": "Macmini9,1",
-            "os": "Mac-13.2",
+            "os": "Mac-13.4",
             "pool": "chromium.tests",
             "display_attached": "1",
         },
@@ -923,7 +906,7 @@ targets.mixin(
         dimensions = {
             "cpu": "arm64",
             "mac_model": "Macmini9,1",
-            "os": "Mac-12.5",
+            "os": "Mac-13.4",
             "pool": "chromium.tests",
             "display_attached": "1",
         },
@@ -956,6 +939,26 @@ targets.mixin(
 
 targets.mixin(
     name = "mac_beta_x64",
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "x86-64",
+            "os": "Mac-13",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "mac_default_arm64",
+    swarming = targets.swarming(
+        dimensions = {
+            "cpu": "arm64",
+            "os": "Mac-13",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "mac_default_x64",
     swarming = targets.swarming(
         dimensions = {
             "cpu": "x86-64",
@@ -1069,7 +1072,7 @@ targets.mixin(
             targets.cipd_package(
                 package = "infra/tools/mac_toolchain/${platform}",
                 location = ".",
-                revision = "git_revision:3e597065cb23c1fe03aeb2ebd792d83e0709c5c2",
+                revision = "git_revision:0ecab437ae2532a879b1203efc48f54bc6cadb77",
             ),
         ],
     ),
@@ -1576,6 +1579,7 @@ targets.mixin(
     ),
 )
 
+# Default Xcode 14 beta.
 targets.mixin(
     name = "xcode_14_beta",
     args = [
@@ -1615,6 +1619,22 @@ targets.mixin(
         "--readline-timeout",
         "600",
     ],
+)
+
+targets.mixin(
+    name = "xcode_15_beta",
+    args = [
+        "--xcode-build-version",
+        "15a5160n",
+    ],
+    swarming = targets.swarming(
+        named_caches = [
+            swarming.cache(
+                name = "xcode_ios_15a5160n",
+                path = "Xcode.app",
+            ),
+        ],
+    ),
 )
 
 targets.mixin(

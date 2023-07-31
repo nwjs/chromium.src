@@ -351,7 +351,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.Address.IsEnabled.PageLoad" enum="BooleanEnabled"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>jsaul@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -978,7 +978,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.CardholderNameFixFlowPrompt.Events"
-    enum="AutofillCardholderNameFixFlowPromptEvent" expires_after="2023-07-16">
+    enum="AutofillCardholderNameFixFlowPromptEvent" expires_after="2024-05-01">
   <owner>jsaul@google.com</owner>
   <owner>siyua@chromium.org</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -1074,7 +1074,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.CardUploadEnabled" enum="AutofillCardUploadEnabled"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>jsaul@google.com</owner>
   <owner>aneeshali@google.com</owner>
   <summary>
@@ -1251,6 +1251,8 @@ chromium-metrics-reviews@google.com.
   <token key="FormEventWithMetadata">
     <variant name="FilledWithMetadata"
         summary="A card with issuer id was filled"/>
+    <variant name="FilledWithMetadataOnce"
+        summary="A card with issuer id was filled, logged once per page load"/>
     <variant name="SelectedWithMetadata"
         summary="A card with issuer id was selected"/>
     <variant name="SelectedWithMetadataOnce"
@@ -1659,7 +1661,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Autofill.FastCheckout.CapabilitiesFetcher.CacheStateForIsTriggerFormSupported"
     enum="FastCheckoutCacheStateForIsTriggerFormSupported"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
@@ -1671,7 +1673,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.FastCheckout.CapabilitiesFetcher.HttpResponseAndNetErrorCode"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2023-10-15">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2023-12-17">
   <owner>vizcay@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -1680,7 +1682,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.FastCheckout.CapabilitiesFetcher.ParsingResult"
-    enum="FastCheckoutCapabilitiesParsingResult" expires_after="2023-10-15">
+    enum="FastCheckoutCapabilitiesParsingResult" expires_after="2023-12-17">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
@@ -1690,7 +1692,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.FastCheckout.CapabilitiesFetcher.ResponseTime"
-    units="ms" expires_after="2023-10-15">
+    units="ms" expires_after="2023-12-17">
   <owner>vizcay@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -2575,6 +2577,18 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Autofill.LabelInference.InferredLabelSource.AtSubmission"
+    enum="InferredLabelSource" expires_after="2023-10-22">
+  <owner>fleimgruber@google.com</owner>
+  <owner>chrome-autofill-team@google.com</owner>
+  <summary>
+    Logs how/if the label of an input was derived. Emitted at form submission
+    for every field where the data the user entered matches some stored Autofill
+    data. This is in contrast to Autofill.LabelInference.InferredLabelSource,
+    which is emitted for every extracted field.
+  </summary>
+</histogram>
+
 <histogram
     name="Autofill.Leipzig.Duplication.NumberOfLocalSupersetProfilesOnStartup"
     units="Profiles" expires_after="M120">
@@ -2816,7 +2830,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.NewerStreetAddressWithSameStatusIsChosen"
-    enum="Boolean" expires_after="2023-09-13">
+    enum="Boolean" expires_after="2023-12-04">
   <owner>jihadghanna@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -2961,7 +2975,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.Offer.StoredOfferRelatedCardCount" units="cards"
-    expires_after="2023-10-01">
+    expires_after="2023-12-04">
   <owner>siyua@chromium.org</owner>
   <owner>jsaul@google.com</owner>
   <summary>
@@ -3008,7 +3022,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.Offer.SuggestedCardsHaveOffer"
-    enum="AutofillCreditCardOfferSuggestion" expires_after="2023-10-01">
+    enum="AutofillCreditCardOfferSuggestion" expires_after="2023-12-04">
   <owner>siyua@chromium.org</owner>
   <owner>jsaul@google.com</owner>
   <summary>
@@ -3091,7 +3105,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.Offer.SyncedOfferDataBeingValid" units="offers"
-    expires_after="2023-10-01">
+    expires_after="2023-12-04">
   <owner>siyua@chromium.org</owner>
   <owner>jsaul@google.com</owner>
   <summary>
@@ -3310,6 +3324,35 @@ chromium-metrics-reviews@google.com.
     Tracks whether the visible page language was translated or not upon form
     submission.
   </summary>
+</histogram>
+
+<histogram
+    name="Autofill.PaymentMethods.MandatoryReauth.OptInBubbleOffer.{ShowType}"
+    enum="MandatoryReauthOptInBubbleOffer" expires_after="2024-04-01">
+  <owner>justinleewells@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Tracks events related to offering the mandatory reauth opt-in feature, for
+    instance when it is shown or why it is not shown. This metric is recorded
+    when the mandatory reauth opt-in prompt is or is not displayed. Mandatory
+    reauth requires the user to unlock their device or pass a biometric auth
+    when autofilling payment method information.
+  </summary>
+  <token key="ShowType" variants="Autofill.PaymentBubble.Show"/>
+</histogram>
+
+<histogram
+    name="Autofill.PaymentMethods.MandatoryReauth.OptInBubbleResult.{ShowType}"
+    enum="MandatoryReauthOptInBubbleResult" expires_after="2024-04-01">
+  <owner>justinleewells@google.com</owner>
+  <owner>payments-autofill-team@google.com</owner>
+  <summary>
+    Tracks the reason the mandatory reauth opt-in prompt was closed. This metric
+    is recorded when the user closes the mandatory reauth opt-in prompt.
+    Mandatory reauth requires the user to unlock their device or pass a
+    biometric auth when autofilling payment method information.
+  </summary>
+  <token key="ShowType" variants="Autofill.PaymentBubble.Show"/>
 </histogram>
 
 <histogram name="Autofill.PerfectFilling.{FormType}" enum="Boolean"
@@ -3875,7 +3918,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.Sectioning.FieldsPerSection" units="Fields"
-    expires_after="2023-10-08">
+    expires_after="2023-12-10">
   <owner>fleimgruber@google.com</owner>
   <owner>schwering@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
@@ -3887,7 +3930,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.Sectioning.NumberOfSections" units="Sections"
-    expires_after="2023-10-08">
+    expires_after="2023-12-10">
   <owner>fleimgruber@google.com</owner>
   <owner>schwering@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
@@ -4234,7 +4277,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.StrikeDatabase.CreditCardSaveNotOfferedDueToMaxStrikes"
-    enum="AutofillSaveType" expires_after="2023-07-09">
+    enum="AutofillSaveType" expires_after="2023-12-04">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4258,7 +4301,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.StrikeDatabase.LocalCardMigrationNotOfferedDueToMaxStrikes"
-    enum="AutofillSaveType" expires_after="2023-07-09">
+    enum="AutofillSaveType" expires_after="2023-09-01">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4308,7 +4351,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.StrikeDatabase.StrikesPresentWhenLocalCardMigrationAccepted"
-    units="strikes" expires_after="2023-09-01">
+    units="strikes" expires_after="2023-12-04">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4318,7 +4361,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.StrikeDatabase.StrikesPresentWhenLocalCardSaved"
-    units="strikes" expires_after="2023-09-01">
+    units="strikes" expires_after="2023-12-04">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4328,7 +4371,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.StrikeDatabase.StrikesPresentWhenServerCardSaved"
-    units="strikes" expires_after="2023-11-12">
+    units="strikes" expires_after="2023-12-04">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4353,7 +4396,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.StrikeDatabase.StrikesPresentWhenVirtualCardEnrolled"
-    units="strikes" expires_after="2023-11-12">
+    units="strikes" expires_after="2023-12-04">
   <owner>jsaul@google.com</owner>
   <owner>siyua@chromium.org</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -4377,7 +4420,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.StrikeDatabase.VirtualCardEnrollmentNotOfferedDueToRequiredDelay"
-    enum="AutofillVirtualCardEnrollmentSource" expires_after="2023-12-12">
+    enum="AutofillVirtualCardEnrollmentSource" expires_after="2023-09-01">
   <owner>jsaul@google.com</owner>
   <owner>siyua@chromium.org</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -4388,7 +4431,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.SubmittedCardState" enum="AutofillSubmittedCardState"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4399,7 +4442,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Autofill.SubmittedServerCardExpirationStatus"
     enum="AutofillSubmittedServerCardExpirationStatus"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>jsaul@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
   <summary>
@@ -4479,7 +4522,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.SuggestionShown.OffTheRecord" units="units"
-    expires_after="2023-10-08">
+    expires_after="2023-12-10">
   <owner>rhalavati@chromium.org</owner>
   <owner>chrome-privacy-core@google.com</owner>
   <summary>
@@ -5244,7 +5287,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.WebOTP.PhoneNumberCollection.ParseResult"
-    enum="Boolean" expires_after="2023-08-20">
+    enum="Boolean" expires_after="2023-12-04">
   <owner>yigu@chromium.org</owner>
   <owner>battre@chromium.org</owner>
   <owner>web-identity-eng@google.com</owner>

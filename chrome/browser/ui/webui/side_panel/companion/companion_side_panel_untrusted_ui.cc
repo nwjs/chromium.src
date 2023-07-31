@@ -9,6 +9,7 @@
 #include "chrome/browser/ui/side_panel/companion/companion_side_panel_controller_utils.h"
 #include "chrome/browser/ui/webui/side_panel/companion/companion_page_handler.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/grit/side_panel_companion_resources.h"
 #include "chrome/grit/side_panel_companion_resources_map.h"
 #include "content/public/browser/web_contents.h"
@@ -51,6 +52,16 @@ CompanionSidePanelUntrustedUI::CompanionSidePanelUntrustedUI(
   html_source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::FormAction, formActionDirective);
   html_source->AddString("companion_origin", frameSrcString);
+
+  // Add localized companion strings.
+  html_source->AddLocalizedString(
+      "network_error_page_top_line",
+      IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_FIRST_LINE);
+  html_source->AddLocalizedString(
+      "network_error_page_bottom_line",
+      IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_SECOND_LINE);
+
+  Observe(web_ui->GetWebContents());
 }
 
 CompanionSidePanelUntrustedUI::~CompanionSidePanelUntrustedUI() = default;
@@ -67,6 +78,22 @@ void CompanionSidePanelUntrustedUI::CreateCompanionPageHandler(
     mojo::PendingRemote<side_panel::mojom::CompanionPage> page) {
   companion_page_handler_ = std::make_unique<companion::CompanionPageHandler>(
       std::move(receiver), std::move(page), this);
+}
+
+void CompanionSidePanelUntrustedUI::DidFinishNavigation(
+    content::NavigationHandle* navigation_handle) {
+  // We only care about error pages returning from two frames, the main WebUI
+  // frame and the companion iframe. Ignore navigations from any other subframe
+  // that could be nested within the companion.
+  auto* parent_frame = navigation_handle->GetParentFrame();
+  if (!navigation_handle->IsInPrimaryMainFrame() && parent_frame &&
+      !parent_frame->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  if (navigation_handle->IsErrorPage() && companion_page_handler_) {
+    companion_page_handler_->OnNavigationError();
+  }
 }
 
 base::WeakPtr<CompanionSidePanelUntrustedUI>

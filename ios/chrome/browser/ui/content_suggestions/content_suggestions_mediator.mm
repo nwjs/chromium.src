@@ -32,7 +32,6 @@
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/browser/default_browser/utils.h"
-#import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/set_up_list.h"
@@ -54,6 +53,7 @@
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
@@ -249,6 +249,8 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
       _prefObserverBridge->ObserveChangesForPreference(
           prefs::kIosCredentialProviderPromoLastActionTaken,
           &_prefChangeRegistrar);
+      _prefObserverBridge->ObserveChangesForPreference(
+          set_up_list_prefs::kDisabled, &_prefChangeRegistrar);
       if (CredentialProviderPromoDismissed(_localState)) {
         set_up_list_prefs::MarkItemComplete(_localState,
                                             SetUpListItemType::kAutofill);
@@ -301,6 +303,9 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   if (!self.consumer) {
     return;
   }
+  if (IsMagicStackEnabled()) {
+    [self.consumer setMagicStackOrder:[self magicStackOrder]];
+  }
   if (self.returnToRecentTabItem) {
     [self.consumer
         showReturnToRecentTabTileWithConfig:self.returnToRecentTabItem];
@@ -311,7 +316,14 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   if ([self shouldShowSetUpList]) {
     self.setUpList.delegate = self;
     NSArray<SetUpListItemViewData*>* items = [self setUpListItems];
-    [self.consumer showSetUpListWithItems:items];
+    if (IsMagicStackEnabled() && [self.setUpList allItemsComplete]) {
+      SetUpListItemViewData* allSetItem =
+          [[SetUpListItemViewData alloc] initWithType:SetUpListItemType::kAllSet
+                                             complete:NO];
+      [self.consumer showSetUpListWithItems:@[ allSetItem ]];
+    } else {
+      [self.consumer showSetUpListWithItems:items];
+    }
     [self.contentSuggestionsMetricsRecorder recordSetUpListShown];
     for (SetUpListItemViewData* item in items) {
       [self.contentSuggestionsMetricsRecorder
@@ -325,9 +337,6 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   if (![self shouldHideShortcuts] &&
       (IsMagicStackEnabled() || ![self shouldShowSetUpList])) {
     [self.consumer setShortcutTilesWithConfigs:self.actionButtonItems];
-  }
-  if (IsMagicStackEnabled()) {
-    [self.consumer setMagicStackOrder:[self magicStackOrder]];
   }
 }
 
@@ -393,9 +402,6 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
 
 - (void)disableSetUpList {
   set_up_list_prefs::DisableSetUpList(_localState);
-  [self.consumer hideSetUpListWithAnimations:^{
-    [self.feedDelegate contentSuggestionsWasUpdated];
-  }];
 }
 
 #pragma mark - IdentityManagerObserverBridgeDelegate
@@ -683,8 +689,7 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   [self.contentSuggestionsMetricsRecorder
       recordMostVisitedTileOpened:item
                           atIndex:mostVisitedIndex
-                         webState:self.browser->GetWebStateList()
-                                      ->GetActiveWebState()];
+                         webState:self.webState];
 }
 
 // Shows a snackbar with an action to undo the removal of the most visited item
@@ -719,7 +724,7 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
 }
 
 - (BOOL)shouldShowWhatsNewActionItem {
-  if (!IsWhatsNewEnabled() || WasWhatsNewUsed()) {
+  if (WasWhatsNewUsed()) {
     return NO;
   }
 
@@ -824,9 +829,15 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
       [magicStackModules
           addObject:@(int(ContentSuggestionsModuleType::kCompactedSetUpList))];
     } else {
-      for (SetUpListItem* model in self.setUpList.items) {
+      if ([self.setUpList allItemsComplete]) {
         [magicStackModules
-            addObject:@(int(SetUpListModuleTypeForSetUpListType(model.type)))];
+            addObject:@(int(ContentSuggestionsModuleType::kSetUpListAllSet))];
+      } else {
+        for (SetUpListItem* model in self.setUpList.items) {
+          [magicStackModules
+              addObject:@(int(
+                            SetUpListModuleTypeForSetUpListType(model.type)))];
+        }
       }
     }
   }
@@ -855,6 +866,21 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
   }
 
   return YES;
+}
+
+// Returns an array of all possible items in the Set Up List.
+- (NSArray<SetUpListItemViewData*>*)allSetUpListItems {
+  NSArray<SetUpListItem*>* items = [self.setUpList allItems];
+
+  NSMutableArray<SetUpListItemViewData*>* allItems =
+      [[NSMutableArray alloc] init];
+  for (SetUpListItem* model in items) {
+    SetUpListItemViewData* item =
+        [[SetUpListItemViewData alloc] initWithType:model.type
+                                           complete:model.complete];
+    [allItems addObject:item];
+  }
+  return allItems;
 }
 
 // Returns an array of items to display in the Set Up List.
@@ -903,6 +929,12 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
       }];
 }
 
+// Hides the Set Up List with an animation.
+- (void)hideSetUpList {
+  [self.consumer hideSetUpListWithAnimations:^{
+    [self.feedDelegate contentSuggestionsWasUpdated];
+  }];
+}
 #pragma mark - Properties
 
 - (NSArray<ContentSuggestionsMostVisitedActionItem*>*)actionButtonItems {
@@ -950,11 +982,15 @@ bool CredentialProviderPromoDismissed(PrefService* local_state) {
 #pragma mark - PrefObserverDelegate
 
 - (void)onPreferenceChanged:(const std::string&)preferenceName {
-  if (IsIOSSetUpListEnabled() &&
-      preferenceName == prefs::kIosCredentialProviderPromoLastActionTaken &&
-      CredentialProviderPromoDismissed(_localState)) {
-    set_up_list_prefs::MarkItemComplete(_localState,
-                                        SetUpListItemType::kAutofill);
+  if (IsIOSSetUpListEnabled()) {
+    if (preferenceName == prefs::kIosCredentialProviderPromoLastActionTaken &&
+        CredentialProviderPromoDismissed(_localState)) {
+      set_up_list_prefs::MarkItemComplete(_localState,
+                                          SetUpListItemType::kAutofill);
+    } else if (preferenceName == set_up_list_prefs::kDisabled &&
+               set_up_list_prefs::IsSetUpListDisabled(_localState)) {
+      [self hideSetUpList];
+    }
   }
 }
 

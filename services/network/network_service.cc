@@ -359,6 +359,11 @@ void NetworkService::Initialize(mojom::NetworkServiceParamsPtr params,
 
   initialized_ = true;
 
+#if BUILDFLAG(IS_ANDROID)
+  base::UmaHistogramTimes("NetworkService.InitializedTime",
+                          base::Time::Now().since_origin());
+#endif
+
 #if BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_ARMEL)
   // Make sure OpenSSL is initialized before using it to histogram data.
   crypto::EnsureOpenSSLInit();
@@ -761,8 +766,12 @@ void NetworkService::GetNetworkList(
                      std::move(callback)));
 }
 
-void NetworkService::OnCertDBChanged() {
-  net::CertDatabase::GetInstance()->NotifyObserversCertDBChanged();
+void NetworkService::OnTrustStoreChanged() {
+  net::CertDatabase::GetInstance()->NotifyObserversTrustStoreChanged();
+}
+
+void NetworkService::OnClientCertStoreChanged() {
+  net::CertDatabase::GetInstance()->NotifyObserversClientCertStoreChanged();
 }
 
 void NetworkService::SetEncryptionKey(const std::string& encryption_key) {
@@ -782,8 +791,11 @@ void NetworkService::OnPeerToPeerConnectionsCountChange(uint32_t count) {
 #if BUILDFLAG(IS_ANDROID)
 void NetworkService::OnApplicationStateChange(
     base::android::ApplicationState state) {
-  for (auto* network_context : network_contexts_)
-    network_context->app_status_listener()->Notify(state);
+  for (auto* network_context : network_contexts_) {
+    for (auto const& listener : network_context->app_status_listeners()) {
+      listener->Notify(state);
+    }
+  }
 }
 #endif
 

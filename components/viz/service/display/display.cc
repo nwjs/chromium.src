@@ -465,6 +465,10 @@ void Display::Resize(const gfx::Size& size) {
   damage_tracker_->DisplayResized();
 }
 
+void Display::SetOutputSurfaceClipRect(const gfx::Rect& clip_rect) {
+  renderer_->SetOutputSurfaceClipRect(clip_rect);
+}
+
 void Display::InvalidateCurrentSurfaceId() {
   current_surface_id_ = SurfaceId();
   // Force a gc as the display may not be visible (gc occurs after drawing,
@@ -1503,6 +1507,11 @@ void Display::InitDelegatedInkPointRendererReceiver(
                      /*create_if_necessary=*/true)) {
     ink_renderer->InitMessagePipeline(std::move(pending_receiver));
   }
+}
+
+void Display::ResetDisplayClientForTesting(DisplayClient* old_client) {
+  CHECK_EQ(client_, old_client);
+  client_ = nullptr;
 }
 
 }  // namespace viz

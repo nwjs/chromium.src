@@ -20,10 +20,10 @@
 #import "components/sync/service/sync_service.h"
 #import "ios/chrome/browser/bookmarks/bookmark_model_bridge_observer.h"
 #import "ios/chrome/browser/bookmarks/managed_bookmark_service_factory.h"
-#import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_model.h"
@@ -146,8 +146,10 @@ bool IsABookmarkNodeSectionForIdentifier(
   _syncedBookmarksObserver =
       std::make_unique<sync_bookmarks::SyncedBookmarksObserverBridge>(
           self, browserState);
+  _syncService = SyncServiceFactory::GetForBrowserState(browserState);
   _bookmarkPromoController =
       [[BookmarkPromoController alloc] initWithBrowser:_browser.get()
+                                           syncService:_syncService
                                               delegate:self
                                              presenter:self
                                     baseViewController:_baseViewController];
@@ -161,8 +163,6 @@ bool IsABookmarkNodeSectionForIdentifier(
 
   _prefObserverBridge->ObserveChangesForPreference(
       bookmarks::prefs::kManagedBookmarks, _prefChangeRegistrar.get());
-
-  _syncService = SyncServiceFactory::GetForBrowserState(browserState);
 
   [self computePromoTableViewData];
   [self computeBookmarkTableViewData];
@@ -182,6 +182,10 @@ bool IsABookmarkNodeSectionForIdentifier(
   _accountBookmarkModel.reset();
   _profileBookmarkModelBridge.reset();
   _accountBookmarkModelBridge.reset();
+}
+
+- (void)dealloc {
+  DCHECK(!_bookmarkPromoController);
 }
 
 #pragma mark - Initial Model Setup

@@ -112,8 +112,6 @@ std::string GetConfiguration(SyncAllDataConfig sync_all,
   result.Set("themesSynced", types.Has(syncer::UserSelectableType::kThemes));
   result.Set("typedUrlsSynced",
              types.Has(syncer::UserSelectableType::kHistory));
-  result.Set("wifiConfigurationsSynced",
-             types.Has(syncer::UserSelectableType::kWifiConfigurations));
   result.Set("paymentsIntegrationEnabled", false);
 
   // Reading list doesn't really have a UI and is supported on ios only.
@@ -166,8 +164,6 @@ void CheckConfigDataTypeArguments(const base::Value::Dict& dictionary,
                    types.Has(syncer::UserSelectableType::kThemes));
   ExpectHasBoolKey(dictionary, "typedUrlsSynced",
                    types.Has(syncer::UserSelectableType::kHistory));
-  ExpectHasBoolKey(dictionary, "wifiConfigurationsSynced",
-                   types.Has(syncer::UserSelectableType::kWifiConfigurations));
 }
 
 std::unique_ptr<KeyedService> BuildMockSyncService(
@@ -366,7 +362,7 @@ class PeopleHandlerTest : public ChromeRenderViewHostTestHarness {
 
   testing::NiceMock<base::MockCallback<base::RepeatingClosure>>
       mock_on_setup_in_progress_handle_destroyed_;
-  raw_ptr<syncer::MockSyncService> mock_sync_service_;
+  raw_ptr<syncer::MockSyncService, DanglingUntriaged> mock_sync_service_;
   std::unique_ptr<IdentityTestEnvironmentProfileAdaptor>
       identity_test_env_adaptor_;
   content::TestWebUI web_ui_;
@@ -516,8 +512,10 @@ TEST_F(PeopleHandlerTest,
 TEST_F(PeopleHandlerTest, RestartSyncAfterDashboardClear) {
   SigninUser();
   CreatePeopleHandler();
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   ON_CALL(*mock_sync_service_, IsSyncFeatureDisabledViaDashboard())
       .WillByDefault(Return(true));
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   ON_CALL(*mock_sync_service_, GetTransportState())
       .WillByDefault(Return(syncer::SyncService::TransportState::DISABLED));
 
@@ -528,8 +526,10 @@ TEST_F(PeopleHandlerTest, RestartSyncAfterDashboardClear) {
         // and immediately starts initializing the engine.
         ON_CALL(*mock_sync_service_, GetDisableReasons())
             .WillByDefault(Return(syncer::SyncService::DisableReasonSet()));
+#if BUILDFLAG(IS_CHROMEOS_ASH)
         ON_CALL(*mock_sync_service_, IsSyncFeatureDisabledViaDashboard())
             .WillByDefault(Return(false));
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
         ON_CALL(*mock_sync_service_, GetTransportState())
             .WillByDefault(
                 Return(syncer::SyncService::TransportState::INITIALIZING));
@@ -545,19 +545,25 @@ TEST_F(PeopleHandlerTest,
        RestartSyncAfterDashboardClearWithStandaloneTransport) {
   SigninUser();
   CreatePeopleHandler();
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Clearing sync from the dashboard results in
-  // IsSyncFeatureDisabledViaDashboard() returning true. However, the sync
-  // engine has restarted in standalone transport mode.
+  // IsSyncFeatureDisabledViaDashboard() returning true. Nevertheless,
+  // the sync engine has restarted in standalone transport mode.
   ON_CALL(*mock_sync_service_, IsSyncFeatureDisabledViaDashboard())
       .WillByDefault(Return(true));
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
   ON_CALL(*mock_sync_service_, GetTransportState())
       .WillByDefault(Return(syncer::SyncService::TransportState::ACTIVE));
 
   // Attempting to open the setup UI should re-enable sync-the-feature.
   EXPECT_CALL(*mock_sync_service_, SetSyncFeatureRequested())
       .WillOnce([&]() {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
         ON_CALL(*mock_sync_service_, IsSyncFeatureDisabledViaDashboard())
             .WillByDefault(Return(false));
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
         ON_CALL(*mock_sync_service_, GetTransportState())
             .WillByDefault(
                 Return(syncer::SyncService::TransportState::CONFIGURING));
@@ -1120,12 +1126,14 @@ TEST_F(PeopleHandlerTest, DashboardClearWhileSettingsOpen_ConfirmSoon) {
 
   handler_->HandleShowSyncSetupUI(base::Value::List());
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Now sync gets reset from the dashboard (the user clicked the "Manage synced
   // data" link), which results in the first-setup-complete bit being cleared.
   // While first-setup isn't completed, IsSyncFeatureDisabledViaDashboard() also
   // returns false.
   ON_CALL(*mock_sync_service_, IsSyncFeatureDisabledViaDashboard())
       .WillByDefault(Return(false));
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
           IsInitialSyncFeatureSetupComplete())
       .WillByDefault(Return(false));
@@ -1168,12 +1176,14 @@ TEST_F(PeopleHandlerTest, DashboardClearWhileSettingsOpen_ConfirmLater) {
 
   handler_->HandleShowSyncSetupUI(base::Value::List());
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
   // Now sync gets reset from the dashboard (the user clicked the "Manage synced
   // data" link), which results in the first-setup-complete bit being cleared.
   // While first-setup isn't completed, IsSyncFeatureDisabledViaDashboard() also
   // returns false.
   ON_CALL(*mock_sync_service_, IsSyncFeatureDisabledViaDashboard())
       .WillByDefault(Return(false));
+#endif
   ON_CALL(*mock_sync_service_->GetMockUserSettings(),
           IsInitialSyncFeatureSetupComplete())
       .WillByDefault(Return(false));

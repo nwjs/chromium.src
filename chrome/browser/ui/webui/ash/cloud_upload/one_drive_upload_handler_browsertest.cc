@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/webui/ash/cloud_upload/one_drive_upload_handler.h"
 
 #include "base/files/file_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/threading/thread_restrictions.h"
@@ -173,7 +174,8 @@ class OneDriveUploadHandlerTest : public InProcessBrowserTest {
 
   // The exit point of the test. `WaitForUploadComplete` will not complete until
   // this is called.
-  void OnUploadDone(const storage::FileSystemURL& uploaded_file_url) {
+  void OnUploadDone(const storage::FileSystemURL& uploaded_file_url,
+                    int64_t size) {
     ASSERT_TRUE(uploaded_file_url.is_valid());
     ASSERT_TRUE(run_loop_);
     run_loop_->Quit();
@@ -194,7 +196,7 @@ class OneDriveUploadHandlerTest : public InProcessBrowserTest {
   base::FilePath read_only_dir_;
 
  private:
-  file_system_provider::FakeProvidedFileSystem*
+  raw_ptr<file_system_provider::FakeProvidedFileSystem, ExperimentalAsh>
       provided_file_system_;  // Owned by Service.
   base::test::ScopedFeatureList feature_list_;
   base::ScopedTempDir temp_dir_;

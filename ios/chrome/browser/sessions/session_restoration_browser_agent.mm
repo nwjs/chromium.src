@@ -21,7 +21,6 @@
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/all_web_state_observation_forwarder.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/tabs/inactive_tabs/features.h"
 #import "ios/chrome/browser/web/features.h"
 #import "ios/chrome/browser/web/page_placeholder_tab_helper.h"
 #import "ios/chrome/browser/web/session_state/web_session_state_tab_helper.h"
@@ -257,7 +256,7 @@ void SessionRestorationBrowserAgent::SaveSession(bool immediately) {
   if (!CanSaveSession())
     return;
 
-  if (IsInactiveTabsAvailable() && batch_in_progress_) {
+  if (batch_in_progress_) {
     save_after_batch_ = true;
     save_immediately_ = save_immediately_ || immediately;
     return;
@@ -318,7 +317,8 @@ bool SessionRestorationBrowserAgent::CanSaveSession() {
   return true;
 }
 
-// Browser Observer methods:
+#pragma mark - BrowserObserver
+
 void SessionRestorationBrowserAgent::BrowserDestroyed(Browser* browser) {
   DCHECK_EQ(browser->GetWebStateList(), web_state_list_);
   // Stop observing web states.
@@ -328,7 +328,8 @@ void SessionRestorationBrowserAgent::BrowserDestroyed(Browser* browser) {
   browser->RemoveObserver(this);
 }
 
-// WebStateList Observer methods:
+#pragma mark - WebStateListObserver
+
 void SessionRestorationBrowserAgent::WebStateActivatedAt(
     WebStateList* web_state_list,
     web::WebState* old_web_state,
@@ -343,6 +344,64 @@ void SessionRestorationBrowserAgent::WebStateActivatedAt(
   SaveSession(/*immediately=*/false);
 }
 
+void SessionRestorationBrowserAgent::WebStateListChanged(
+    WebStateList* web_state_list,
+    const WebStateListChange& change,
+    const WebStateSelection& selection) {
+  switch (change.type()) {
+    case WebStateListChange::Type::kSelectionOnly:
+      // TODO(crbug.com/1442546): Move the implementation from
+      // WebStateActivatedAt() to here. Note that here is reachable only when
+      // `reason` == ActiveWebStateChangeReason::Activated.
+      break;
+    case WebStateListChange::Type::kDetach: {
+      if (!web_state_list_->empty()) {
+        return;
+      }
+
+      // Persist the session state after CloseAllWebStates. SaveSession will
+      // discard calls when the web_state_list is not empty and the active
+      // WebState is null, which is the order CloseAllWebStates uses.
+      SaveSession(/*immediately=*/false);
+      break;
+    }
+    case WebStateListChange::Type::kMove: {
+      const WebStateListChangeMove& move_change =
+          change.As<WebStateListChangeMove>();
+      if (move_change.moved_web_state()->IsLoading()) {
+        return;
+      }
+
+      // Persist the session state if the new web state is not loading.
+      SaveSession(/*immediately=*/false);
+      break;
+    }
+    case WebStateListChange::Type::kReplace: {
+      const WebStateListChangeReplace& replace_change =
+          change.As<WebStateListChangeReplace>();
+      if (replace_change.inserted_web_state()->IsLoading()) {
+        return;
+      }
+
+      // Persist the session state if the new web state is not loading.
+      SaveSession(/*immediately=*/false);
+      break;
+    }
+    case WebStateListChange::Type::kInsert: {
+      const WebStateListChangeInsert& insert_change =
+          change.As<WebStateListChangeInsert>();
+      if (selection.activating ||
+          insert_change.inserted_web_state()->IsLoading()) {
+        return;
+      }
+
+      // Persist the session state if the new web state is not loading.
+      SaveSession(/*immediately=*/false);
+      break;
+    }
+  }
+}
+
 void SessionRestorationBrowserAgent::WillDetachWebStateAt(
     WebStateList* web_state_list,
     web::WebState* web_state,
@@ -354,60 +413,8 @@ void SessionRestorationBrowserAgent::WillDetachWebStateAt(
   SaveSession(/*immediately=*/false);
 }
 
-void SessionRestorationBrowserAgent::WebStateDetachedAt(
-    WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index) {
-  if (!web_state_list_->empty())
-    return;
-
-  // Persist the session state after CloseAllWebStates. SaveSession will discard
-  // calls when the web_state_list is not empty and the active WebState is null,
-  // which is the order CloseAllWebStates uses.
-  SaveSession(/*immediately=*/false);
-}
-
-void SessionRestorationBrowserAgent::WebStateInsertedAt(
-    WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index,
-    bool activating) {
-  if (activating || web_state->IsLoading())
-    return;
-
-  // Persist the session state if the new web state is not loading.
-  SaveSession(/*immediately=*/false);
-}
-
-void SessionRestorationBrowserAgent::WebStateReplacedAt(
-    WebStateList* web_state_list,
-    web::WebState* old_web_state,
-    web::WebState* new_web_state,
-    int index) {
-  if (new_web_state->IsLoading())
-    return;
-
-  // Persist the session state if the new web state is not loading.
-  SaveSession(/*immediately=*/false);
-}
-
-void SessionRestorationBrowserAgent::WebStateMoved(WebStateList* web_state_list,
-                                                   web::WebState* web_state,
-                                                   int from_index,
-                                                   int to_index) {
-  if (web_state->IsLoading())
-    return;
-
-  // Persist the session state if the new web state is not loading.
-  SaveSession(/*immediately=*/false);
-}
-
 void SessionRestorationBrowserAgent::WillBeginBatchOperation(
     WebStateList* web_state_list) {
-  // Ignore this if Inactive Tabs is not available via Finch.
-  if (!IsInactiveTabsAvailable()) {
-    return;
-  }
   batch_in_progress_ = true;
   save_after_batch_ = false;
   save_immediately_ = false;
@@ -415,10 +422,6 @@ void SessionRestorationBrowserAgent::WillBeginBatchOperation(
 
 void SessionRestorationBrowserAgent::BatchOperationEnded(
     WebStateList* web_state_list) {
-  // Ignore this if Inactive Tabs is not available via Finch.
-  if (!IsInactiveTabsAvailable()) {
-    return;
-  }
   batch_in_progress_ = false;
   if (save_after_batch_) {
     SaveSession(save_immediately_);
@@ -427,7 +430,8 @@ void SessionRestorationBrowserAgent::BatchOperationEnded(
   }
 }
 
-// WebStateObserver methods
+#pragma mark - WebStateObserver
+
 void SessionRestorationBrowserAgent::DidFinishNavigation(
     web::WebState* web_state,
     web::NavigationContext* navigation_context) {

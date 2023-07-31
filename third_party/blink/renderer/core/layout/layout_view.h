@@ -38,6 +38,7 @@
 namespace blink {
 
 class LayoutQuote;
+class LayoutViewTransitionRoot;
 class LocalFrameView;
 class ViewFragmentationContext;
 
@@ -98,9 +99,15 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
     return kNormalPaintLayer;
   }
 
+  void AddChild(LayoutObject* new_child,
+                LayoutObject* before_child = nullptr) override;
+
   bool IsChildAllowed(LayoutObject*, const ComputedStyle&) const override;
 
-  void UpdateLayout() override;
+  void UpdateLayout() override {
+    NOT_DESTROYED();
+    NOTREACHED_NORETURN();
+  }
   void ComputeLogicalHeight(LayoutUnit logical_height,
                             LayoutUnit logical_top,
                             LogicalExtentComputedValues&) const override;
@@ -199,6 +206,10 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
   void SetPageSize(PhysicalSize size) {
     NOT_DESTROYED();
     page_size_ = size;
+  }
+  PhysicalSize PageSize() const {
+    NOT_DESTROYED();
+    return page_size_;
   }
 
   // TODO(1229581): Make non-virtual.
@@ -336,6 +347,8 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
 
   TrackedDescendantsMap& SvgTextDescendantsMap();
 
+  LayoutViewTransitionRoot* GetViewTransitionRoot() const;
+
  protected:
   void StyleDidChange(StyleDifference, const ComputedStyle* old_style) override;
   int ViewLogicalWidthForBoxSizing() const {
@@ -362,8 +375,7 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
     return false;
   }
 
-  Member<LocalFrameView> frame_view_;
-
+ protected:
   // The page size.
   // This is only used during printing to split the content into pages.
   // Outside of printing, this is 0x0.
@@ -371,6 +383,8 @@ class CORE_EXPORT LayoutView : public LayoutBlockFlow {
 
   Member<ViewFragmentationContext> fragmentation_context_;
 
+ private:
+  Member<LocalFrameView> frame_view_;
   Member<LayoutQuote> layout_quote_head_;
   unsigned layout_counter_count_ = 0;
   unsigned layout_list_item_count_ = 0;

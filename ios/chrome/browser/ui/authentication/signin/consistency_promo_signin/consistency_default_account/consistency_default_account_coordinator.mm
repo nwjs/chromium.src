@@ -46,6 +46,7 @@
 }
 
 - (void)start {
+  [super start];
   ChromeBrowserState* browserState = self.browser->GetBrowserState();
   self.mediator = [[ConsistencyDefaultAccountMediator alloc]
       initWithAccountManagerService:ChromeAccountManagerServiceFactory::
@@ -71,6 +72,13 @@
 - (void)stop {
   [self.mediator disconnect];
   self.mediator = nil;
+  self.defaultAccountViewController = nil;
+  [super stop];
+}
+
+- (void)dealloc {
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(!self.mediator);
 }
 
 #pragma mark - Properties

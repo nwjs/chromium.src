@@ -29,6 +29,7 @@
 #include "components/signin/internal/identity_manager/fake_account_capabilities_fetcher_factory.h"
 #include "components/signin/internal/identity_manager/fake_profile_oauth2_token_service.h"
 #include "components/signin/public/base/avatar_icon_util.h"
+#include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/base/test_signin_client.h"
@@ -422,7 +423,7 @@ class AccountTrackerServiceTest : public testing::Test {
   FakeProfileOAuth2TokenService fake_oauth2_token_service_;
   std::unique_ptr<AccountFetcherService> account_fetcher_;
   std::unique_ptr<AccountTrackerService> account_tracker_;
-  raw_ptr<FakeAccountCapabilitiesFetcherFactory>
+  raw_ptr<FakeAccountCapabilitiesFetcherFactory, DanglingUntriaged>
       fake_account_capabilities_fetcher_factory_ = nullptr;
   std::vector<TrackingEvent> account_tracker_events_;
 };
@@ -1153,6 +1154,8 @@ TEST_F(AccountTrackerServiceTest, SeedAccountInfo) {
   EXPECT_EQ(account_id, infos[0].account_id);
   EXPECT_EQ(gaia_id, infos[0].gaia);
   EXPECT_EQ(email, infos[0].email);
+  EXPECT_EQ(signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN,
+            infos[0].access_point);
   EXPECT_TRUE(CheckAccountTrackerEvents({
       TrackingEvent(UPDATED, account_id, gaia_id, email),
   }));

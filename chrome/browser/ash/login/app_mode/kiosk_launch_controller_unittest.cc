@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/login_accelerators.h"
 #include "base/functional/bind.h"
@@ -44,7 +45,6 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
 #include "chromeos/ash/components/install_attributes/stub_install_attributes.h"
-#include "chromeos/ash/components/standalone_browser/browser_support.h"
 #include "components/account_id/account_id.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/policy/core/browser/browser_policy_connector_base.h"
@@ -774,8 +774,12 @@ class KioskLaunchControllerUsingLacrosTest : public testing::Test {
 
   KioskLaunchControllerUsingLacrosTest()
       : fake_user_manager_(new FakeChromeUserManager()),
-        scoped_user_manager_(base::WrapUnique(fake_user_manager_)) {
-    scoped_feature_list_.InitAndEnableFeature(features::kWebKioskEnableLacros);
+        scoped_user_manager_(base::WrapUnique(fake_user_manager_.get())) {
+    scoped_feature_list_.InitWithFeatures(
+        {::features::kWebKioskEnableLacros, ash::features::kLacrosSupport,
+         ash::features::kLacrosPrimary, ash::features::kLacrosOnly,
+         ash::features::kLacrosProfileMigrationForceOff},
+        {});
   }
 
   void SetUp() override {
@@ -888,8 +892,8 @@ class KioskLaunchControllerUsingLacrosTest : public testing::Test {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   TestingProfileManager testing_profile_manager_{
       TestingBrowserProcess::GetGlobal()};
-  Profile* profile_;
-  FakeChromeUserManager* fake_user_manager_;
+  raw_ptr<Profile, ExperimentalAsh> profile_;
+  raw_ptr<FakeChromeUserManager, ExperimentalAsh> fake_user_manager_;
   user_manager::ScopedUserManager scoped_user_manager_;
   crosapi::FakeBrowserManager browser_manager_;
 
@@ -901,16 +905,13 @@ class KioskLaunchControllerUsingLacrosTest : public testing::Test {
   std::unique_ptr<base::AutoReset<bool>>
       disable_wait_timer_and_login_operations_for_testing_;
   std::unique_ptr<FakeAppLaunchSplashScreenHandler> view_;
-  FakeKioskAppLauncher* app_launcher_ = nullptr;  // owned by `controller_`.
+  raw_ptr<FakeKioskAppLauncher, ExperimentalAsh> app_launcher_ =
+      nullptr;  // owned by `controller_`.
   int app_launchers_created_ = 0;
   base::test::RepeatingTestFuture<bool> launcher_waiter_;
   std::unique_ptr<KioskLaunchController> controller_;
   KioskAppId kiosk_app_id_;
 
-  base::AutoReset<bool> set_lacros_enabled_ =
-      standalone_browser::BrowserSupport::SetLacrosEnabledForTest(true);
-  base::AutoReset<absl::optional<bool>> set_lacros_primary_ =
-      crosapi::browser_util::SetLacrosPrimaryBrowserForTest(true);
   base::test::ScopedFeatureList scoped_feature_list_;
   std::unique_ptr<crosapi::CrosapiManager> crosapi_manager_;
 };

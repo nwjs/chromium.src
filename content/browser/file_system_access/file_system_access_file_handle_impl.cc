@@ -6,6 +6,7 @@
 
 #include "base/files/file_error_or.h"
 #include "base/files/file_util.h"
+#include "base/files/safe_base_name.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/callback_helpers.h"
 #include "base/logging.h"
@@ -515,17 +516,6 @@ void FileSystemAccessFileHandleImpl::DidVerifyHasWritePermissions(
       std::move(callback));
 }
 
-storage::FileSystemURL FileSystemAccessFileHandleImpl::GetSwapURL(
-    const base::FilePath& swap_path) {
-  storage::FileSystemURL swap_url =
-      manager()->context()->CreateCrackedFileSystemURL(
-          url().storage_key(), url().mount_type(), swap_path);
-  if (url().bucket()) {
-    swap_url.SetBucket(url().bucket().value());
-  }
-  return swap_url;
-}
-
 void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
     int count,
     bool keep_existing_data,
@@ -543,13 +533,12 @@ void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
     return;
   }
 
-  auto swap_path =
-      base::FilePath(url().virtual_path()).AddExtensionASCII(".crswap");
+  auto swap_name = url().virtual_path().BaseName().AddExtensionASCII(".crswap");
 
   if (count >= max_swap_files_) {
     DLOG(ERROR) << "Error Creating Swap File, count: " << count
                 << " exceeds max unique files of: " << max_swap_files_
-                << " base path: " << swap_path;
+                << " base path: " << swap_name;
     std::move(callback).Run(file_system_access_error::FromStatus(
                                 FileSystemAccessStatus::kOperationFailed,
                                 "Failed to create swap file."),
@@ -558,14 +547,17 @@ void FileSystemAccessFileHandleImpl::StartCreateSwapFile(
   }
 
   if (count > 0) {
-    swap_path =
-        swap_path.InsertBeforeExtensionASCII(base::StringPrintf(".%d", count));
+    swap_name =
+        swap_name.InsertBeforeExtensionASCII(base::StringPrintf(".%d", count));
   }
 
-  // First attempt to just create the swap file in the same file system as
-  // this file.
-  storage::FileSystemURL swap_url = GetSwapURL(swap_path);
-  DCHECK(swap_url.is_valid());
+  // First attempt to just create the swap file in the same directory (and file
+  // system) as this file.
+  absl::optional<base::SafeBaseName> opt_swap_name =
+      base::SafeBaseName::Create(swap_name);
+  CHECK(opt_swap_name.has_value());
+  storage::FileSystemURL swap_url = url().CreateSibling(*opt_swap_name);
+  CHECK(swap_url.is_valid());
 
   auto swap_lock =
       manager()->TakeWriteLock(swap_url, WriteLockType::kExclusive);
@@ -677,15 +669,13 @@ void FileSystemAccessFileHandleImpl::CreateClonedSwapFile(
   DCHECK(max_swap_files_ >= 0);
   DCHECK(CanUseCowSwapFile());
 
-  did_attempt_swap_file_cloning_for_testing_ = true;
-
   auto after_clone_callback = base::BindOnce(
       &FileSystemAccessFileHandleImpl::DidCloneSwapFile,
       weak_factory_.GetWeakPtr(), count, swap_url, auto_close, std::move(lock),
       std::move(swap_lock), std::move(callback));
 
   if (swap_file_cloning_will_fail_for_testing_) {
-    std::move(after_clone_callback).Run(base::File::Error::FILE_ERROR_FAILED);
+    std::move(after_clone_callback).Run(base::File::Error::FILE_ERROR_ABORT);
     return;
   }
 
@@ -706,6 +696,8 @@ void FileSystemAccessFileHandleImpl::DidCloneSwapFile(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(CanUseCowSwapFile());
 
+  swap_file_clone_result_for_testing_ = result;
+
   if (result == base::File::FILE_ERROR_EXISTS) {
     // Cloning fails if the destination file exists. The file must have been
     // created between the FileExists check and the clone attempt. Attempt to
@@ -724,8 +716,6 @@ void FileSystemAccessFileHandleImpl::DidCloneSwapFile(
                            std::move(swap_lock), std::move(callback));
     return;
   }
-
-  did_create_cloned_swap_file_for_testing_ = true;
 
   std::move(callback).Run(
       file_system_access_error::Ok(),

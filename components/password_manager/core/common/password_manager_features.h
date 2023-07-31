@@ -69,7 +69,6 @@ BASE_DECLARE_FEATURE(kPasswordGenerationExperiment);
 #endif
 BASE_DECLARE_FEATURE(kPasswordsGrouping);
 BASE_DECLARE_FEATURE(kPasswordsImportM2);
-BASE_DECLARE_FEATURE(kPasswordStrengthIndicator);
 BASE_DECLARE_FEATURE(kRecoverFromNeverSaveAndroid);
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
 BASE_DECLARE_FEATURE(kRevampedPasswordManagementBubble);
@@ -81,6 +80,7 @@ BASE_DECLARE_FEATURE(kSkipUndecryptablePasswords);
 BASE_DECLARE_FEATURE(kPasskeyManagementUsingAccountSettingsAndroid);
 BASE_DECLARE_FEATURE(kPasswordEditDialogWithDetails);
 BASE_DECLARE_FEATURE(kPasswordGenerationBottomSheet);
+BASE_DECLARE_FEATURE(kPasswordSuggestionBottomSheetV2);
 BASE_DECLARE_FEATURE(kUnifiedCredentialManagerDryRun);
 BASE_DECLARE_FEATURE(kUnifiedPasswordManagerAndroid);
 BASE_DECLARE_FEATURE(kUnifiedPasswordManagerLocalPasswordsAndroid);
@@ -92,7 +92,9 @@ BASE_DECLARE_FEATURE(kPasswordsInCredMan);
 #endif
 BASE_DECLARE_FEATURE(kUsernameFirstFlowFallbackCrowdsourcing);
 BASE_DECLARE_FEATURE(kUsernameFirstFlowHonorAutocomplete);
-BASE_DECLARE_FEATURE(kPasswordGenerationPreviewOnHover);
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+BASE_DECLARE_FEATURE(kPasswordManagerPasskeys);
+#endif
 
 // All features parameters are in alphabetical order.
 
@@ -111,6 +113,8 @@ enum class PasswordGenerationVariation {
   kTrySomethingNew = 3,
   // Adjusts the language focusing on the convenience of use.
   kConvenience = 4,
+  // Adjusts the language of the help text pointing out the benefits.
+  kCrossDevice = 5,
 };
 
 inline constexpr base::FeatureParam<PasswordGenerationVariation>::Option
@@ -119,6 +123,7 @@ inline constexpr base::FeatureParam<PasswordGenerationVariation>::Option
         {PasswordGenerationVariation::kSafetyFirst, "safety_first"},
         {PasswordGenerationVariation::kTrySomethingNew, "try_something_new"},
         {PasswordGenerationVariation::kConvenience, "convenience"},
+        {PasswordGenerationVariation::kCrossDevice, "cross_device"},
 };
 
 inline constexpr base::FeatureParam<PasswordGenerationVariation>
@@ -128,29 +133,7 @@ inline constexpr base::FeatureParam<PasswordGenerationVariation>
         &kPasswordGenerationExperimentVariationOption};
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
-// If true, then password strength indicator will display a minimized state for
-// passwords with more than 5 characters as long as they are weak. Otherwise,
-// the full dropdown will be displayed as long as the password is weak.
-inline constexpr base::FeatureParam<bool>
-    kPasswordStrengthIndicatorWithMinimizedState = {
-        &kPasswordStrengthIndicator, "strength_indicator_minimized", false};
-
 #if BUILDFLAG(IS_ANDROID)
-
-// Current list of the GMS Core API error codes that should be ignored and not
-// result in user eviction.
-// Errors to ignore: AUTH_ERROR_RESOLVABLE, AUTH_ERROR_UNRESOLVABLE
-inline constexpr base::FeatureParam<std::string> kIgnoredGmsApiErrors = {
-    &kUnifiedPasswordManagerAndroid, "ignored_api_errors", "11005,11006"};
-
-// Current list of the GMS Core API error codes considered retriable.
-// User could still be evicted if retries do not resolve the error.
-// Retriable errors: NETWORK_ERROR, API_NOT_CONNECTED,
-// CONNECTION_SUSPENDED_DURING_CALL, RECONNECTION_TIMED_OUT,
-// BACKEND_GENERIC
-inline constexpr base::FeatureParam<std::string> kRetriableGmsApiErrors = {
-    &kUnifiedPasswordManagerAndroid, "retriable_api_errors",
-    "7,17,20,22,11009"};
 
 inline constexpr base::FeatureParam<UpmExperimentVariation>::Option
     kUpmExperimentVariationOption[] = {
@@ -166,6 +149,12 @@ inline constexpr base::FeatureParam<UpmExperimentVariation>
                                  &kUpmExperimentVariationOption};
 
 extern const base::FeatureParam<int> kSaveUpdatePromptSyncingStringVersion;
+
+// Whether to ignore the 1 month timeout in between migration warning prompts.
+// Used for manual testing.
+inline constexpr base::FeatureParam<bool> kIgnoreMigrationWarningTimeout = {
+    &kUnifiedPasswordManagerLocalPasswordsMigrationWarning,
+    "ignore_migration_warning_timeout", false};
 #endif
 
 // Field trial and corresponding parameters.

@@ -781,13 +781,8 @@ ScriptPromise RTCRtpSender::getStats(ScriptState* script_state) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
-  bool is_track_stats_deprecation_trial_enabled =
-      RuntimeEnabledFeatures::RTCLegacyTrackStatsEnabled(
-          ExecutionContext::From(script_state));
   sender_->GetStats(WTF::BindOnce(WebRTCStatsReportCallbackResolver,
-                                  WrapPersistent(resolver)),
-                    GetExposedGroupIds(script_state),
-                    is_track_stats_deprecation_trial_enabled);
+                                  WrapPersistent(resolver)));
   return promise;
 }
 
@@ -1074,8 +1069,7 @@ void RTCRtpSender::InitializeEncodedAudioStreams(ScriptState* script_state) {
             script_state,
             WTF::CrossThreadBindOnce(
                 &RTCRtpSender::UnregisterEncodedAudioStreamCallback,
-                WrapCrossThreadWeakPersistent(this)),
-            /*is_receiver=*/false);
+                WrapCrossThreadWeakPersistent(this)));
 
     auto set_underlying_source =
         WTF::CrossThreadBindRepeating(&RTCRtpSender::SetAudioUnderlyingSource,
@@ -1123,7 +1117,7 @@ void RTCRtpSender::InitializeEncodedAudioStreams(ScriptState* script_state) {
 }
 
 void RTCRtpSender::OnAudioFrameFromEncoder(
-    std::unique_ptr<webrtc::TransformableFrameInterface> frame) {
+    std::unique_ptr<webrtc::TransformableAudioFrameInterface> frame) {
   base::AutoLock locker(audio_underlying_source_lock_);
   if (audio_from_encoder_underlying_source_) {
     audio_from_encoder_underlying_source_->OnFrameFromSource(std::move(frame));

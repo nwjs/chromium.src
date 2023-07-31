@@ -817,11 +817,14 @@ CoreAccountId AccountTrackerService::PickAccountIdForAccount(
 #endif
 }
 
-CoreAccountId AccountTrackerService::SeedAccountInfo(const std::string& gaia,
-                                                     const std::string& email) {
+CoreAccountId AccountTrackerService::SeedAccountInfo(
+    const std::string& gaia,
+    const std::string& email,
+    signin_metrics::AccessPoint access_point) {
   AccountInfo account_info;
   account_info.gaia = gaia;
   account_info.email = email;
+  account_info.access_point = access_point;
   CoreAccountId account_id = SeedAccountInfo(account_info);
 
   DVLOG(1) << "AccountTrackerService::SeedAccountInfo"
@@ -895,10 +898,5 @@ void AccountTrackerService::SeedAccountsInfo(
   for (const auto& core_account_info : curr_core_account_infos) {
     SeedAccountInfo(core_account_info.gaia, core_account_info.email);
   }
-}
-
-jboolean signin::JNI_AccountTrackerService_IsGaiaIdInAMFEnabled(JNIEnv* env) {
-  return base::FeatureList::IsEnabled(
-      switches::kGaiaIdCacheInAccountManagerFacade);
 }
 #endif

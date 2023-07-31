@@ -17,7 +17,6 @@ import glob
 import itertools
 import json
 import os
-import six
 import string
 import sys
 
@@ -420,6 +419,7 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
       return os.path.join(args.pyl_files_dir, filename)
 
     args.waterfalls_pyl_path = absolute_file_path('waterfalls.pyl')
+    args.mixins_pyl_path = absolute_file_path('mixins.pyl')
     args.test_suites_pyl_path = absolute_file_path('test_suites.pyl')
     args.test_suite_exceptions_pyl_path = absolute_file_path(
         'test_suite_exceptions.pyl')
@@ -427,12 +427,6 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
     args.variants_pyl_path = absolute_file_path('variants.pyl')
     args.autoshard_exceptions_json_path = absolute_file_path(
         'autoshard_exceptions.json')
-
-    if args.pyl_files_dir == THIS_DIR:
-      args.mixins_pyl_path = os.path.join(args.infra_config_dir, 'generated',
-                                          'testing', 'mixins.pyl')
-    else:
-      args.mixins_pyl_path = absolute_file_path('mixins.pyl')
 
     return args
 
@@ -453,9 +447,8 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
     try:
       return ast.literal_eval(self.read_file(pyl_file_path))
     except (SyntaxError, ValueError) as e: # pragma: no cover
-      six.raise_from(
-          BBGenErr('Failed to parse pyl file "%s": %s' %
-                   (pyl_file_path, e)), e)  # pragma: no cover
+      raise BBGenErr('Failed to parse pyl file "%s": %s' %
+                     (pyl_file_path, e)) from e
     # pylint: enable=inconsistent-return-statements
 
   # TOOD(kbr): require that os_type be specified for all bots in waterfalls.pyl.
@@ -644,11 +637,10 @@ class BBJSONGenerator(object):  # pylint: disable=useless-object-inheritance
                                                     path + [str(key), str(idx)],
                                                     update=update)
               except (IndexError, TypeError) as e:
-                six.raise_from(
-                    BBGenErr('Error merging lists by key "%s" from source %s '
-                             'into target %s at index %s. Verify target list '
-                             'length is equal or greater than source' %
-                             (str(key), str(b), str(a), str(idx))), e)
+                raise BBGenErr('Error merging lists by key "%s" from source %s '
+                               'into target %s at index %s. Verify target list '
+                               'length is equal or greater than source' %
+                               (str(key), str(b), str(a), str(idx))) from e
         elif update:
           if b[key] is None:
             del a[key]

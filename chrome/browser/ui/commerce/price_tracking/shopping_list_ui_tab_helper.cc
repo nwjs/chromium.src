@@ -6,21 +6,40 @@
 
 #include "base/check_is_test.h"
 #include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
 #include "base/strings/string_number_conversions.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_registry.h"
+#include "chrome/browser/ui/views/side_panel/side_panel_web_ui_view.h"
+#include "chrome/browser/ui/webui/commerce/shopping_insights_side_panel_ui.h"
 #include "chrome/common/pref_names.h"
 #include "components/bookmarks/browser/bookmark_model.h"
+#include "components/commerce/core/commerce_constants.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/price_tracking_utils.h"
 #include "components/image_fetcher/core/image_fetcher.h"
+#include "components/strings/grit/components_strings.h"
+#include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/image_model.h"
+#include "ui/views/vector_icons.h"
+#include "ui/views/view_class_properties.h"
 #include "url/gurl.h"
 
 namespace commerce {
@@ -58,9 +77,13 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
 
 constexpr char kImageFetcherUmaClient[] = "ShoppingList";
 
-constexpr base::TimeDelta kDelayPriceTrackingchip = base::Seconds(1);
+constexpr base::TimeDelta kDelayIconView = base::Seconds(1);
 
 bool ShouldDelayChipUpdate() {
+  if (base::FeatureList::IsEnabled(commerce::kPriceInsights)) {
+    return commerce::kPriceInsightsDelayChip.Get();
+  }
+
   return static_cast<commerce::PriceTrackingChipExperimentVariation>(
              commerce::kCommercePriceTrackingChipExperimentVariation.Get()) ==
          commerce::PriceTrackingChipExperimentVariation::kDelayChip;
@@ -94,7 +117,6 @@ ShoppingListUiTabHelper::~ShoppingListUiTabHelper() = default;
 void ShoppingListUiTabHelper::RegisterProfilePrefs(
     PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kShouldShowPriceTrackFUEBubble, true);
-  registry->RegisterBooleanPref(prefs::kShouldShowSidePanelBookmarkTab, false);
 }
 
 void ShoppingListUiTabHelper::DidFinishNavigation(
@@ -113,14 +135,20 @@ void ShoppingListUiTabHelper::DidFinishNavigation(
   cluster_id_for_page_.reset();
   pending_tracking_state_.reset();
   is_first_load_for_nav_finished_ = false;
+  price_insights_info_.reset();
 
-  if (!shopping_service_ || !shopping_service_->IsShoppingListEligible())
+  MakeShoppingInsightsSidePanelUnavailable();
+
+  if (!shopping_service_) {
     return;
+  }
 
   // Cancel any pending callbacks by invalidating any weak pointers.
   weak_ptr_factory_.InvalidateWeakPtrs();
 
-  UpdatePriceTrackingIconView();
+  if (shopping_service_->IsShoppingListEligible()) {
+    UpdatePriceTrackingIconView();
+  }
 
   shopping_service_->GetProductInfoForUrl(
       web_contents()->GetLastCommittedURL(),
@@ -151,20 +179,55 @@ void ShoppingListUiTabHelper::DidStopLoading() {
 
 void ShoppingListUiTabHelper::TriggerUpdateForIconView() {
   if (!ShouldDelayChipUpdate()) {
-    UpdatePriceTrackingIconView();
+    if (shopping_service_->IsPriceInsightsEligible()) {
+      UpdatePriceInsightsIconView();
+    } else {
+      UpdatePriceTrackingIconView();
+    }
+  } else {
+    DelayUpdateForIconView();
+  }
+}
+
+void ShoppingListUiTabHelper::DelayUpdateForIconView() {
+  if (!is_first_load_for_nav_finished_) {
     return;
   }
 
-  if (last_fetched_image_.IsEmpty() || !is_first_load_for_nav_finished_) {
+  if (shopping_service_->IsPriceInsightsEligible()) {
+    content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+        ->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(
+                &ShoppingListUiTabHelper::UpdatePriceInsightsIconView,
+                weak_ptr_factory_.GetWeakPtr()),
+            kDelayIconView);
+
+  } else {
+    if (last_fetched_image_.IsEmpty()) {
+      return;
+    }
+
+    content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
+        ->PostDelayedTask(
+            FROM_HERE,
+            base::BindOnce(
+                &ShoppingListUiTabHelper::UpdatePriceTrackingIconView,
+                weak_ptr_factory_.GetWeakPtr()),
+            kDelayIconView);
+  }
+}
+
+void ShoppingListUiTabHelper::UpdatePriceInsightsIconView() {
+  DCHECK(web_contents());
+
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
+
+  if (!browser || !browser->window()) {
     return;
   }
 
-  content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
-      ->PostDelayedTask(
-          FROM_HERE,
-          base::BindOnce(&ShoppingListUiTabHelper::UpdatePriceTrackingIconView,
-                         weak_ptr_factory_.GetWeakPtr()),
-          kDelayPriceTrackingchip);
+  browser->window()->UpdatePageActionIcon(PageActionIconType::kPriceInsights);
 }
 
 void ShoppingListUiTabHelper::OnSubscribe(
@@ -209,27 +272,57 @@ bool ShoppingListUiTabHelper::ShouldShowPriceTrackingIconView() {
              : should_show;
 }
 
+bool ShoppingListUiTabHelper::ShouldShowPriceInsightsIconView() {
+  bool should_show = shopping_service_ &&
+                     shopping_service_->IsPriceInsightsEligible() &&
+                     price_insights_info_.has_value();
+
+  return ShouldDelayChipUpdate()
+             ? should_show && is_first_load_for_nav_finished_
+             : should_show;
+}
+
 void ShoppingListUiTabHelper::HandleProductInfoResponse(
     const GURL& url,
     const absl::optional<ProductInfo>& info) {
-  if (url != web_contents()->GetLastCommittedURL())
-    return;
-
-  if (!CanTrackPrice(info) || !info.has_value() || info->image_url.is_empty()) {
+  if (url != web_contents()->GetLastCommittedURL() || !info.has_value()) {
     return;
   }
 
-  cluster_id_for_page_.emplace(info->product_cluster_id.value());
-  UpdatePriceTrackingStateFromSubscriptions();
+  if (shopping_service_->IsShoppingListEligible() && CanTrackPrice(info) &&
+      !info->image_url.is_empty()) {
+    cluster_id_for_page_.emplace(info->product_cluster_id.value());
+    UpdatePriceTrackingStateFromSubscriptions();
 
-  // TODO(1360850): Delay this fetch by possibly waiting until page load has
-  //                finished.
-  image_fetcher_->FetchImage(
-      info.value().image_url,
-      base::BindOnce(&ShoppingListUiTabHelper::HandleImageFetcherResponse,
-                     weak_ptr_factory_.GetWeakPtr(), info.value().image_url),
-      image_fetcher::ImageFetcherParams(kTrafficAnnotation,
-                                        kImageFetcherUmaClient));
+    // TODO(1360850): Delay this fetch by possibly waiting until page load has
+    //                finished.
+    image_fetcher_->FetchImage(
+        info.value().image_url,
+        base::BindOnce(&ShoppingListUiTabHelper::HandleImageFetcherResponse,
+                       weak_ptr_factory_.GetWeakPtr(), info.value().image_url),
+        image_fetcher::ImageFetcherParams(kTrafficAnnotation,
+                                          kImageFetcherUmaClient));
+  }
+
+  if (shopping_service_->IsPriceInsightsEligible() &&
+      !info->product_cluster_title.empty()) {
+    shopping_service_->GetPriceInsightsInfoForUrl(
+        url, base::BindOnce(
+                 &ShoppingListUiTabHelper::HandlePriceInsightsInfoResponse,
+                 weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
+void ShoppingListUiTabHelper::HandlePriceInsightsInfoResponse(
+    const GURL& url,
+    const absl::optional<PriceInsightsInfo>& info) {
+  if (url != web_contents()->GetLastCommittedURL() || !info.has_value()) {
+    return;
+  }
+
+  price_insights_info_.emplace(info.value());
+  MakeShoppingInsightsSidePanelAvailable();
+  TriggerUpdateForIconView();
 }
 
 void ShoppingListUiTabHelper::SetPriceTrackingState(
@@ -275,15 +368,26 @@ void ShoppingListUiTabHelper::SetPriceTrackingState(
   }
 }
 
+void ShoppingListUiTabHelper::ShowShoppingInsightsSidePanel() {
+  auto* side_panel_ui = GetSidePanelUI();
+  auto* registry = SidePanelRegistry::Get(web_contents());
+  DCHECK(side_panel_ui && registry->GetEntryForKey(SidePanelEntry::Key(
+                              SidePanelEntry::Id::kShoppingInsights)));
+
+  side_panel_ui->Show(SidePanelEntryId::kShoppingInsights);
+  if (price_insights_info_.has_value()) {
+    base::UmaHistogramBoolean(
+        "Commerce.PriceInsights.SidePanelOpenWithMultipleCatalogs",
+        price_insights_info_->has_multiple_catalogs);
+  }
+}
+
 void ShoppingListUiTabHelper::UpdatePriceTrackingStateFromSubscriptions() {
   if (!cluster_id_for_page_.has_value())
     return;
 
-  const bookmarks::BookmarkNode* bookmark_node =
-      bookmark_model_->GetMostRecentlyAddedUserNodeForURL(
-          web_contents()->GetLastCommittedURL());
-  commerce::IsBookmarkPriceTracked(
-      shopping_service_, bookmark_model_, bookmark_node,
+  shopping_service_->IsClusterIdTrackedByUser(
+      cluster_id_for_page_.value(),
       base::BindOnce(
           [](base::WeakPtr<ShoppingListUiTabHelper> helper, bool is_tracked) {
             if (!helper) {
@@ -333,11 +437,73 @@ void ShoppingListUiTabHelper::UpdatePriceTrackingIconView() {
   browser->window()->UpdatePageActionIcon(PageActionIconType::kPriceTracking);
 }
 
+void ShoppingListUiTabHelper::MakeShoppingInsightsSidePanelAvailable() {
+  auto* registry = SidePanelRegistry::Get(web_contents());
+  if (!registry) {
+    return;
+  }
+
+  auto entry = std::make_unique<SidePanelEntry>(
+      SidePanelEntry::Id::kShoppingInsights,
+      l10n_util::GetStringUTF16(IDS_SHOPPING_INSIGHTS_SIDE_PANEL_TITLE),
+      ui::ImageModel::FromVectorIcon(vector_icons::kShoppingBagIcon,
+                                     ui::kColorIcon, /*icon_size=*/16),
+      base::BindRepeating(
+          &ShoppingListUiTabHelper::CreateShoppingInsightsWebView,
+          base::Unretained(this)));
+  registry->Register(std::move(entry));
+}
+
+void ShoppingListUiTabHelper::MakeShoppingInsightsSidePanelUnavailable() {
+  auto* side_panel_ui = GetSidePanelUI();
+  if (side_panel_ui && side_panel_ui->IsSidePanelShowing() &&
+      side_panel_ui->GetCurrentEntryId() ==
+          SidePanelEntry::Id::kShoppingInsights) {
+    side_panel_ui->Close();
+    base::RecordAction(base::UserMetricsAction(
+        "Commerce.PriceInsights.NavigationClosedSidePanel"));
+  }
+
+  auto* registry = SidePanelRegistry::Get(web_contents());
+  if (!registry) {
+    return;
+  }
+  registry->Deregister(
+      SidePanelEntry::Key(SidePanelEntry::Id::kShoppingInsights));
+}
+
+std::unique_ptr<views::View>
+ShoppingListUiTabHelper::CreateShoppingInsightsWebView() {
+  auto shopping_insights_web_view =
+      std::make_unique<SidePanelWebUIViewT<ShoppingInsightsSidePanelUI>>(
+          base::RepeatingClosure(), base::RepeatingClosure(),
+          std::make_unique<BubbleContentsWrapperT<ShoppingInsightsSidePanelUI>>(
+              GURL(kChromeUIShoppingInsightsSidePanelUrl),
+              Profile::FromBrowserContext(web_contents()->GetBrowserContext()),
+              IDS_SHOPPING_INSIGHTS_SIDE_PANEL_TITLE,
+              /*webui_resizes_host=*/false,
+              /*esc_closes_ui=*/false));
+  // Call ShowUI() to make the UI ready, this doesn't really open/switch the
+  // side panel.
+  shopping_insights_web_view->ShowUI();
+
+  return shopping_insights_web_view;
+}
+
+SidePanelUI* ShoppingListUiTabHelper::GetSidePanelUI() const {
+  auto* browser = chrome::FindBrowserWithWebContents(web_contents());
+  return browser ? SidePanelUI::GetSidePanelUIForBrowser(browser) : nullptr;
+}
+
 const absl::optional<bool>&
 ShoppingListUiTabHelper::GetPendingTrackingStateForTesting() {
   return pending_tracking_state_;
 }
 
+const absl::optional<PriceInsightsInfo>&
+ShoppingListUiTabHelper::GetPriceInsightsInfo() {
+  return price_insights_info_;
+}
 WEB_CONTENTS_USER_DATA_KEY_IMPL(ShoppingListUiTabHelper);
 
 }  // namespace commerce

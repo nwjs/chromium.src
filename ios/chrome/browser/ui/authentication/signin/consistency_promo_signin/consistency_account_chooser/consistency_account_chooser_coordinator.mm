@@ -56,8 +56,15 @@
 - (void)stop {
   [super stop];
   [self.mediator disconnect];
+  self.mediator = nil;
+  self.accountChooserViewController = nil;
   base::RecordAction(
       base::UserMetricsAction("Signin_BottomSheet_IdentityChooser_Closed"));
+}
+
+- (void)dealloc {
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(!self.mediator);
 }
 
 #pragma mark - Properties

@@ -43,7 +43,8 @@ PushMessagingServiceImpl* PushMessagingServiceFactory::GetForProfile(
 
 // static
 PushMessagingServiceFactory* PushMessagingServiceFactory::GetInstance() {
-  return base::Singleton<PushMessagingServiceFactory>::get();
+  static base::NoDestructor<PushMessagingServiceFactory> instance;
+  return instance.get();
 }
 
 PushMessagingServiceFactory::PushMessagingServiceFactory()
@@ -67,7 +68,7 @@ PushMessagingServiceFactory::PushMessagingServiceFactory()
 #endif
 }
 
-PushMessagingServiceFactory::~PushMessagingServiceFactory() {}
+PushMessagingServiceFactory::~PushMessagingServiceFactory() = default;
 
 void PushMessagingServiceFactory::RestoreFactoryForTests(
     content::BrowserContext* context) {

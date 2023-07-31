@@ -277,7 +277,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.Errors" enum="CryptohomeError"
-    expires_after="2023-10-08">
+    expires_after="2023-12-10">
   <owner>apronin@chromium.org</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
   <summary>Cryptohome errors.</summary>
@@ -613,7 +613,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.OOPMountOperationResult"
-    enum="CryptohomeOOPMountOperationResult" expires_after="2023-10-15">
+    enum="CryptohomeOOPMountOperationResult" expires_after="2023-12-17">
   <owner>betuls@chromium.org</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
   <summary>
@@ -664,16 +664,6 @@ chromium-metrics-reviews@google.com.
     The amount of time (s) between disk cleanup runs. If there is sufficient
     disk space, nothing is reported. The first cleanup run after boot is not
     reported.
-  </summary>
-</histogram>
-
-<histogram name="Cryptohome.TimeSessionUnlock" units="ms"
-    expires_after="2023-06-04">
-  <owner>hardikgoyal@google.com</owner>
-  <owner>betuls@google.com</owner>
-  <summary>
-    The amount of time (ms) for Chrome OS cryptohome daemon to verify the user's
-    password during an unlock operation.
   </summary>
 </histogram>
 
@@ -737,7 +727,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToGenerateEccAuthValue" units="ms"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>yich@google.com</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
   <summary>
@@ -761,22 +751,12 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToMountEx" units="ms"
-    expires_after="2023-10-08">
+    expires_after="2023-12-10">
   <owner>betuls@chromium.org</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
   <summary>
     The amount of time for Chrome OS cryptohome to mount the encrypted home
     directory.
-  </summary>
-</histogram>
-
-<histogram name="Cryptohome.TimeToMountGuestAsync" units="ms"
-    expires_after="2021-01-01">
-  <owner>apronin@chromium.org</owner>
-  <owner>cros-hwsec+uma@chromium.org</owner>
-  <summary>
-    The amount of time (ms) for Chrome OS cryptohome to mount the encrypted
-    guest home directory asynchronously.
   </summary>
 </histogram>
 
@@ -802,7 +782,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToPerformMount" units="ms"
-    expires_after="2023-10-08">
+    expires_after="2023-12-10">
   <owner>betuls@chromium.org</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
   <summary>
@@ -826,7 +806,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.TimeToUSSPersist" units="ms"
-    expires_after="2023-10-15">
+    expires_after="2023-12-17">
   <owner>thomascedeno@google.com</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
   <summary>
@@ -933,7 +913,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Cryptohome.{AuthBlockType}.CredentialRevocationResult"
-    enum="CryptohomeLECredError" expires_after="2023-07-01">
+    enum="CryptohomeLECredError" expires_after="2024-01-01">
   <owner>anastasiian@chromium.org</owner>
   <owner>cros-lurs@google.com</owner>
   <owner>cros-hwsec+uma@chromium.org</owner>
@@ -972,13 +952,10 @@ chromium-metrics-reviews@google.com.
   <token key="AuthSessionFunction">
     <variant name="TimeToAuthSessionAddAuthFactorUSS"/>
     <variant name="TimeToAuthSessionAddAuthFactorVK"/>
-    <variant name="TimetoAuthSessionAddCredentials"/>
-    <variant name="TimeToAuthSessionAuthenticate"/>
     <variant name="TimeToAuthSessionAuthenticateAuthFactorUSS"/>
     <variant name="TimeToAuthSessionAuthenticateAuthFactorVK"/>
     <variant name="TimeToAuthSessionUpdateAuthFactorUSS"/>
     <variant name="TimeToAuthSessionUpdateAuthFactorVK"/>
-    <variant name="TimeToAuthSessionUpdateCredentials"/>
   </token>
   <token key="AuthBlockType">
     <variant name="ChallengeCredential"/>

@@ -96,9 +96,7 @@
 #include "url/url_constants.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
-#include "chrome/browser/web_applications/web_app_provider.h"
 #include "chromeos/ash/services/multidevice_setup/public/cpp/prefs.h"
 #endif
 
@@ -195,11 +193,6 @@ class SaveCardBubbleViewsFullFormBrowserTest
     embedded_test_server()->StartAcceptingConnections();
 
     ASSERT_TRUE(SetupClients());
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-    // Install the Settings App.
-    ash::SystemWebAppManager::GetForTest(GetProfile(0))
-        ->InstallSystemAppsForTesting();
-#endif
 
     // It's important to use the blank tab here and not some arbitrary page.
     // This causes the RenderFrameHost to stay the same when navigating to the
@@ -699,8 +692,8 @@ class SaveCardBubbleViewsFullFormBrowserTest
   void ClickOnCloseButton() {
     SaveCardBubbleViews* save_card_bubble_views = GetSaveCardBubbleViews();
     CHECK(save_card_bubble_views);
-    ClickOnDialogViewAndWait(save_card_bubble_views->GetBubbleFrameView()
-                                 ->GetCloseButtonForTesting());
+    ClickOnDialogViewAndWait(
+        save_card_bubble_views->GetBubbleFrameView()->close_button());
     CHECK(!GetSaveCardBubbleViews());
   }
 
@@ -1562,9 +1555,10 @@ IN_PROC_BROWSER_TEST_P(
 // Tests the upload save logic. Ensures that Chrome lets Payments decide whether
 // upload save should be offered, even if multiple conflicting names are
 // detected.
+// TODO(crbug.com/1425364): Fix flakiness.
 IN_PROC_BROWSER_TEST_P(
     SaveCardBubbleViewsFullFormBrowserTestWithAutofillUpstream,
-    Logic_ShouldAttemptToOfferToSaveIfNamesConflict) {
+    DISABLED_Logic_ShouldAttemptToOfferToSaveIfNamesConflict) {
   // Start sync.
   ASSERT_TRUE(SetupSync());
 

@@ -37,7 +37,6 @@ class NavigationRequest;
 class Navigator;
 class RenderFrameHostManager;
 class RenderFrameHostImpl;
-class SubresourceWebBundleNavigationInfo;
 
 // An interface for RenderFrameHostImpl to communicate with FrameTreeNode owning
 // it (e.g. to initiate or cancel a navigation in the frame).
@@ -111,8 +110,6 @@ class RenderFrameHostOwner {
       const std::vector<GURL>& redirects,
       const GURL& original_url,
       std::unique_ptr<CrossOriginEmbedderPolicyReporter> coep_reporter,
-      std::unique_ptr<SubresourceWebBundleNavigationInfo>
-          subresource_web_bundle_navigation_info,
       int http_response_code) = 0;
 
   // Cancels the navigation owned by the FrameTreeNode.
@@ -132,7 +129,8 @@ class RenderFrameHostOwner {
       const std::string& event_data,
       const std::vector<blink::FencedFrame::ReportingDestination>& destinations,
       network::AttributionReportingRuntimeFeatures
-          attribution_reporting_runtime_features) = 0;
+          attribution_reporting_runtime_features,
+      bool once) = 0;
 
 #if !BUILDFLAG(IS_ANDROID)
   virtual void GetVirtualAuthenticatorManager(

@@ -365,6 +365,12 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
       int number_of_days_to_report,
       DomainMetricBitmaskType metric_type_bitmask);
 
+  // Gets unique domains (eLTD+1) visited within the time range
+  // [`begin_time`, `end_time`) for local and synced visits sorted in
+  // reverse-chronological order.
+  DomainsVisitedResult GetUniqueDomainsVisited(base::Time begin_time,
+                                               base::Time end_time);
+
   // Gets the last time any webpage on the given host was visited within the
   // time range [`begin_time`, `end_time`). If the given host has not been
   // visited in the given time range, the result will have a null base::Time,
@@ -491,16 +497,19 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
   std::vector<AnnotatedVisit> GetAnnotatedVisits(
       const QueryOptions& options,
+      bool compute_redirect_chain_start_properties,
       bool* limited_by_max_count = nullptr);
 
   // Utility method to Construct `AnnotatedVisit`s.
   std::vector<AnnotatedVisit> ToAnnotatedVisits(
-      const VisitVector& visit_rows) override;
+      const VisitVector& visit_rows,
+      bool compute_redirect_chain_start_properties) override;
 
   // Like above, but will first construct `visit_rows` from each `VisitID`
   // before delegating to the overloaded `ToAnnotatedVisits()` above.
   std::vector<AnnotatedVisit> ToAnnotatedVisits(
-      const std::vector<VisitID>& visit_ids);
+      const std::vector<VisitID>& visit_ids,
+      bool compute_redirect_chain_start_properties);
 
   // Utility method to construct `ClusterVisit`s. Since `duplicate_visits` isn't
   // always useful and requires extra SQL executions, it's only populated if
@@ -667,7 +676,10 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // and foreign.
   void DeleteAllForeignVisitsAndResetIsKnownToSync() override;
 
-  bool RemoveVisits(const VisitVector& visits);
+  // Removes `visits` from local state. `deletion_reason` specifies the reason
+  // for why the removal action was initiated.
+  bool RemoveVisits(const VisitVector& visits,
+                    DeletionInfo::Reason deletion_reason);
 
   // Returns the `VisitSource` associated with each one of the passed visits.
   // If there is no entry in the map for a given visit, that means the visit

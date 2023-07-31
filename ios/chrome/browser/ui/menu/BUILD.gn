@@ -15,7 +15,6 @@ source_set("menu") {
   ]
   configs += [ "//build/config/compiler:enable_arc" ]
   deps = [
-    "resources:move_folder",
     "//base",
     "//components/open_from_clipboard",
     "//components/prefs",
@@ -32,8 +31,10 @@ source_set("menu") {
     "//ios/chrome/browser/shared/ui/symbols",
     "//ios/chrome/browser/shared/ui/util",
     "//ios/chrome/browser/ui/incognito_reauth:incognito_reauth_scene_agent",
+    "//ios/chrome/browser/ui/lens:lens_entrypoint",
     "//ios/chrome/browser/url_loading",
     "//ios/chrome/browser/window_activities",
+    "//ios/public/provider/chrome/browser/lens:lens_api",
     "//net",
     "//ui/base",
     "//url",
@@ -57,7 +58,6 @@ source_set("unit_tests") {
   ]
   deps = [
     ":menu",
-    "resources:move_folder",
     "//base",
     "//base/test:test_support",
     "//components/policy/core/common:common_constants",

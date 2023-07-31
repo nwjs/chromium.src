@@ -67,6 +67,12 @@ ContainerNode* LayoutTreeBuilderTraversal::LayoutParent(const Node& node) {
 }
 
 LayoutObject* LayoutTreeBuilderTraversal::ParentLayoutObject(const Node& node) {
+  if (node.GetPseudoId() == kPseudoIdViewTransition) {
+    // The view-transition pseudo is wrapped by the anonymous
+    // LayoutViewTransitionRoot but that's created by adding the
+    // view-transition to the LayoutView.
+    return node.GetDocument().GetLayoutView();
+  }
   ContainerNode* parent = LayoutTreeBuilderTraversal::LayoutParent(node);
   return parent ? parent->GetLayoutObject() : nullptr;
 }
@@ -344,9 +350,9 @@ LayoutObject* LayoutTreeBuilderTraversal::PreviousSiblingLayoutObject(
 
 LayoutObject* LayoutTreeBuilderTraversal::NextInTopLayer(
     const Element& element) {
-  DCHECK(element.ComputedStyleRef().IsInTopLayer(element))
-      << "This method should only be called with an element in the top layer "
-         "candidate list which is rendered in the top layer";
+  CHECK(element.ComputedStyleRef().IsRenderedInTopLayer(element))
+      << "This method should only be called with an element that is rendered in"
+         " the top layer";
   const HeapVector<Member<Element>>& top_layer_elements =
       element.GetDocument().TopLayerElements();
   wtf_size_t position = top_layer_elements.Find(&element);
@@ -357,7 +363,8 @@ LayoutObject* LayoutTreeBuilderTraversal::NextInTopLayer(
     // not re-attached and not in the top layer yet, thus we can not use it as a
     // sibling LayoutObject.
     if (layout_object &&
-        layout_object->StyleRef().Overlay() == EOverlay::kAuto &&
+        layout_object->StyleRef().IsRenderedInTopLayer(
+            *top_layer_elements[i]) &&
         IsA<LayoutView>(layout_object->Parent())) {
       return layout_object;
     }

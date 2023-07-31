@@ -22,7 +22,7 @@ PermissionPromptBubble::PermissionPromptBubble(
       base::FeatureList::IsEnabled(permissions::features::kConfirmationChip) &&
       delegate->Requests()[0]->IsConfirmationChipSupported()) {
     lbv->chip_controller()->InitializePermissionPrompt(
-        web_contents, delegate->GetWeakPtr(),
+        delegate->GetWeakPtr(),
         base::BindOnce(&PermissionPromptBubble::ShowBubble,
                        weak_factory_.GetWeakPtr()));
   } else {
@@ -70,7 +70,8 @@ void PermissionPromptBubble::OnWidgetActivationChanged(views::Widget* widget,
     // If the widget is active and the primary window wasn't active the last
     // time activation changed, we know that the window just came to the
     // foreground and trigger input protection.
-    prompt_bubble_->AsDialogDelegate()->TriggerInputProtection();
+    prompt_bubble_->AsDialogDelegate()->TriggerInputProtection(
+        /*force_early=*/true);
   }
   parent_was_visible_when_activation_changed_ =
       prompt_bubble_->GetWidget()->GetPrimaryWindowWidget()->IsVisible();
@@ -105,8 +106,7 @@ bool PermissionPromptBubble::UpdateAnchor() {
     if (lbv && lbv->IsDrawn() && !lbv->GetWidget()->IsFullscreen() &&
         !lbv->IsEditingOrEmpty()) {
       auto* chip_controller = lbv->chip_controller();
-      chip_controller->InitializePermissionPrompt(
-          web_contents(), delegate()->GetWeakPtr(), base::DoNothing());
+      chip_controller->InitializePermissionPrompt(delegate()->GetWeakPtr());
     }
   }
 

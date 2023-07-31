@@ -37,25 +37,6 @@ std::unique_ptr<Browser> CreateBrowserWithTestWindowForParams(
 
 // TestBrowserWindow::TestLocationBar -----------------------------------------
 
-GURL TestBrowserWindow::TestLocationBar::GetDestinationURL() const {
-  return GURL();
-}
-
-WindowOpenDisposition
-    TestBrowserWindow::TestLocationBar::GetWindowOpenDisposition() const {
-  return WindowOpenDisposition::CURRENT_TAB;
-}
-
-ui::PageTransition
-    TestBrowserWindow::TestLocationBar::GetPageTransition() const {
-  return ui::PAGE_TRANSITION_LINK;
-}
-
-base::TimeTicks TestBrowserWindow::TestLocationBar::GetMatchSelectionTimestamp()
-    const {
-  return base::TimeTicks();
-}
-
 const OmniboxView* TestBrowserWindow::TestLocationBar::GetOmniboxView() const {
   return nullptr;
 }
@@ -69,12 +50,12 @@ LocationBarTesting*
   return nullptr;
 }
 
-bool TestBrowserWindow::TestLocationBar::IsInputTypedUrlWithoutScheme() const {
-  return false;
+LocationBarModel* TestBrowserWindow::TestLocationBar::GetLocationBarModel() {
+  return nullptr;
 }
 
-bool TestBrowserWindow::TestLocationBar::IsInputTypedUrlWithHttpScheme() const {
-  return false;
+content::WebContents* TestBrowserWindow::TestLocationBar::GetWebContents() {
+  return nullptr;
 }
 
 // TestBrowserWindow ----------------------------------------------------------
@@ -287,6 +268,10 @@ TestBrowserWindow::ShowScreenshotCapturedBubble(content::WebContents* contents,
   return nullptr;
 }
 #endif
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+void TestBrowserWindow::VerifyUserEligibilityIOSPasswordPromoBubble() {}
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 send_tab_to_self::SendTabToSelfBubbleView*
 TestBrowserWindow::ShowSendTabToSelfDevicePickerBubble(

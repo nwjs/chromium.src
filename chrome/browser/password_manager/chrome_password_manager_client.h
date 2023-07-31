@@ -46,6 +46,7 @@
 #include "chrome/browser/password_manager/android/generated_password_saved_message_delegate.h"
 #include "chrome/browser/password_manager/android/password_manager_error_message_delegate.h"
 #include "chrome/browser/password_manager/android/password_manager_error_message_helper_bridge_impl.h"
+#include "chrome/browser/password_manager/android/password_migration_warning_startup_launcher.h"
 #include "chrome/browser/password_manager/android/save_update_password_message_delegate.h"
 #include "components/password_manager/core/browser/credential_cache.h"
 
@@ -63,10 +64,6 @@ class TouchToFillController;
 class PasswordGenerationPopupObserver;
 class PasswordGenerationPopupControllerImpl;
 class Profile;
-
-#if BUILDFLAG(IS_ANDROID)
-class WebAuthnCredManDelegate;
-#endif  // BUILDFLAG(IS_ANDROID)
 
 namespace autofill {
 class LogManager;
@@ -88,7 +85,14 @@ class DeviceAuthenticator;
 
 namespace password_manager {
 class WebAuthnCredentialsDelegate;
+class CredManController;
 }
+
+namespace webauthn {
+#if BUILDFLAG(IS_ANDROID)
+class WebAuthnCredManDelegate;
+#endif  // BUILDFLAG(IS_ANDROID)
+}  // namespace webauthn
 
 // ChromePasswordManagerClient implements the PasswordManagerClient interface.
 class ChromePasswordManagerClient
@@ -139,9 +143,10 @@ class ChromePasswordManagerClient
       password_manager::ErrorMessageFlowType flow_type,
       password_manager::PasswordStoreBackendErrorType error_type) override;
 
-  void ShowTouchToFill(
+  void ShowKeyboardReplacingSurface(
       password_manager::PasswordManagerDriver* driver,
-      autofill::mojom::SubmissionReadinessState submission_readiness) override;
+      autofill::mojom::SubmissionReadinessState submission_readiness,
+      bool is_webauthn_form) override;
 #endif
 
   // Returns a pointer to the DeviceAuthenticator which is created on demand.
@@ -269,7 +274,7 @@ class ChromePasswordManagerClient
   GetWebAuthnCredentialsDelegateForDriver(
       password_manager::PasswordManagerDriver* driver) override;
 #if BUILDFLAG(IS_ANDROID)
-  WebAuthnCredManDelegate* GetWebAuthnCredManDelegateForDriver(
+  webauthn::WebAuthnCredManDelegate* GetWebAuthnCredManDelegateForDriver(
       password_manager::PasswordManagerDriver* driver) override;
 #endif  // BUILDFLAG(IS_ANDROID)
   version_info::Channel GetChannel() const override;
@@ -366,6 +371,13 @@ class ChromePasswordManagerClient
 
 #if BUILDFLAG(IS_ANDROID)
   void ResetErrorMessageDelegate();
+
+  // Called only once on startup. If a migration warning should be shown
+  // it calls the launcher to do so. This results in passwords being fetched
+  // from the store as that is a prerequisite for showing the warning.
+  void TryToShowLocalPasswordMigrationWarning();
+
+  password_manager::CredManController* GetOrCreateCredManController();
 #endif
 
   const raw_ptr<Profile> profile_;
@@ -381,6 +393,9 @@ class ChromePasswordManagerClient
   // Controller for the Touch To Fill sheet. Created on demand during the first
   // call to GetOrCreateTouchToFillController().
   std::unique_ptr<TouchToFillController> touch_to_fill_controller_;
+
+  // Controller for Android Credential Manager API. Created on demand.
+  std::unique_ptr<password_manager::CredManController> cred_man_controller_;
 
   std::unique_ptr<PasswordManagerErrorMessageDelegate>
       password_manager_error_message_delegate_;
@@ -437,6 +452,11 @@ class ChromePasswordManagerClient
   // metrics. TODO(crbug.com/1299394): Remove after the launch.
   absl::optional<std::pair<std::u16string, base::Time>>
       username_filled_by_touch_to_fill_ = absl::nullopt;
+
+  // Launcher used to trigger the password migration warning once passwords
+  // have been fetched. Only invoked once on startup.
+  std::unique_ptr<PasswordMigrationWarningStartupLauncher>
+      password_migration_warning_startup_launcher_;
 #endif  // BUILDFLAG(IS_ANDROID)
 
   WEB_CONTENTS_USER_DATA_KEY_DECL();

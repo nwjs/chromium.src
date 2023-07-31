@@ -8,6 +8,7 @@
 
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
 #include "base/no_destructor.h"
 #include "base/ranges/algorithm.h"
 #include "base/task/thread_pool.h"
@@ -16,7 +17,7 @@
 #include "chrome/browser/screen_ai/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/services/screen_ai/public/cpp/utilities.h"
-#include "ui/accessibility/accessibility_features.h"
+#include "content/public/browser/browser_thread.h"
 
 #if BUILDFLAG(IS_LINUX)
 #include "base/cpu.h"
@@ -25,9 +26,6 @@
 namespace {
 const int kScreenAICleanUpDelayInDays = 30;
 const char kMinExpectedVersion[] = "114.0";
-}  // namespace
-
-namespace {
 
 bool IsDeviceCompatible() {
   // Check if the CPU has the required instruction set to run the Screen AI
@@ -95,11 +93,6 @@ bool ScreenAIInstallState::ShouldInstall(PrefService* local_state) {
   return true;
 }
 
-void ScreenAIInstallState::SetLastUsageTime() {
-  g_browser_process->local_state()->SetTime(
-      prefs::kScreenAILastUsedTimePrefName, base::Time::Now());
-}
-
 void ScreenAIInstallState::AddObserver(
     ScreenAIInstallState::Observer* observer) {
   observers_.push_back(observer);
@@ -162,10 +155,6 @@ void ScreenAIInstallState::SetDownloadProgress(double progress) {
 }
 
 bool ScreenAIInstallState::IsComponentAvailable() {
-  // Make sure the library becomes available only when it's needed.
-  CHECK(get_component_binary_path().empty() ||
-        features::IsScreenAIServiceNeeded());
-
   return !get_component_binary_path().empty();
 }
 

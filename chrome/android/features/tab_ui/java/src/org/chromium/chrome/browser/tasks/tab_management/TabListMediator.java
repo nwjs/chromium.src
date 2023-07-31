@@ -1330,8 +1330,7 @@ class TabListMediator {
                 tabSelectedListener = mTabSelectedListener;
             }
         }
-        boolean selectionStateChanged =
-                mModel.get(index).model.get(TabProperties.IS_SELECTED) != isSelected;
+
         mModel.get(index).model.set(TabProperties.TAB_SELECTED_LISTENER, tabSelectedListener);
         mModel.get(index).model.set(TabProperties.IS_SELECTED, isSelected);
         mModel.get(index).model.set(TabProperties.SHOULD_SHOW_PRICE_DROP_TOOLTIP, false);
@@ -1353,12 +1352,14 @@ class TabListMediator {
         boolean forceUpdate = isSelected && !quickMode;
         boolean forceUpdateLastSelected =
                 mActionsOnAllRelatedTabs && index == mLastSelectedTabListModelIndex && !quickMode;
-        boolean forceUpdateColorForSelectableGroup = selectionStateChanged
-                && PseudoTab.getRelatedTabs(mContext, pseudoTab, mTabModelSelector).size() > 1;
+        // TODO(crbug.com/1457653): Fetching thumbnail for group is expansive, we should consider to
+        // improve it.
+        boolean forceUpdateGroupTab =
+                PseudoTab.getRelatedTabs(mContext, pseudoTab, mTabModelSelector).size() > 1;
         if (mThumbnailProvider != null && mVisible
                 && (mModel.get(index).model.get(TabProperties.THUMBNAIL_FETCHER) == null
                         || forceUpdate || isUpdatingId || forceUpdateLastSelected
-                        || forceUpdateColorForSelectableGroup)) {
+                        || forceUpdateGroupTab)) {
             boolean isSelectable = mUiType == UiType.SELECTABLE;
             ThumbnailFetcher callback = new ThumbnailFetcher(mThumbnailProvider, pseudoTab.getId(),
                     (forceUpdate || forceUpdateLastSelected) && !isSelectable,
@@ -1844,7 +1845,8 @@ class TabListMediator {
         };
 
         if (mActionsOnAllRelatedTabs && relatedTabList.size() > 1) {
-            if (!TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(mContext)) {
+            if (mMode != TabListMode.LIST
+                    || !TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(mContext)) {
                 // For tab group card in grid tab switcher, the favicon is set to be null.
                 mModel.get(modelIndex).model.set(TabProperties.FAVICON, null);
                 mModel.get(modelIndex).model.set(TabProperties.FAVICON_FETCHER, null);
@@ -1859,7 +1861,7 @@ class TabListMediator {
                 urls.add(relatedTabList.get(i).getUrl());
             }
 
-            // For tab group card in grid tab switcher, the favicon is the composed favicon.
+            // For tab group card in list tab switcher, the favicon is the composed favicon.
             mModel.get(modelIndex)
                     .model.set(TabProperties.FAVICON_FETCHER,
                             mTabListFaviconProvider.getComposedFaviconImageFetcher(

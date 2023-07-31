@@ -54,6 +54,7 @@
 #include "chrome/browser/page_info/page_info_features.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
+#include "chrome/browser/performance_manager/public/user_tuning/user_performance_tuning_manager.h"
 #include "chrome/browser/permissions/one_time_permissions_tracker_helper.h"
 #include "chrome/browser/permissions/unused_site_permissions_service_factory.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
@@ -72,14 +73,18 @@
 #include "chrome/browser/safe_browsing/trigger_creator.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/sessions/session_tab_helper_factory.h"
+#include "chrome/browser/signin/signin_features.h"
 #include "chrome/browser/ssl/chrome_security_blocking_page_factory.h"
 #include "chrome/browser/ssl/connection_help_tab_helper.h"
 #include "chrome/browser/ssl/https_only_mode_tab_helper.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
+#include "chrome/browser/storage_access_api/storage_access_api_service_factory.h"
+#include "chrome/browser/storage_access_api/storage_access_api_service_impl.h"
+#include "chrome/browser/storage_access_api/storage_access_api_tab_helper.h"
 #include "chrome/browser/subresource_filter/chrome_content_subresource_filter_web_contents_helper_factory.h"
 #include "chrome/browser/sync/sessions/sync_sessions_router_tab_helper.h"
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
-#include "chrome/browser/sync/sync_encryption_keys_tab_helper.h"
+#include "chrome/browser/sync/trusted_vault_encryption_keys_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
@@ -97,6 +102,7 @@
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/thumbnails/thumbnail_tab_helper.h"
+#include "chrome/browser/ui/waffle/waffle_tab_helper.h"
 #include "chrome/browser/user_notes/user_notes_tab_helper.h"
 #include "chrome/browser/vr/vr_tab_helper.h"
 #include "chrome/common/buildflags.h"
@@ -362,7 +368,6 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   HistoryClustersTabHelper::CreateForWebContents(web_contents);
   HttpsOnlyModeTabHelper::CreateForWebContents(web_contents);
   webapps::InstallableManager::CreateForWebContents(web_contents);
-  webapps::MLInstallabilityPromoter::CreateForWebContents(web_contents);
   login_detection::LoginDetectionTabHelper::MaybeCreateForWebContents(
       web_contents);
   if (MediaEngagementService::IsEnabled())
@@ -448,7 +453,9 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
             profile));
   }
   SoundContentSettingObserver::CreateForWebContents(web_contents);
-  SyncEncryptionKeysTabHelper::CreateForWebContents(web_contents);
+  StorageAccessAPITabHelper::CreateForWebContents(
+      web_contents, StorageAccessAPIServiceFactory::GetForBrowserContext(
+                        web_contents->GetBrowserContext()));
 #if 0
   sync_sessions::SyncSessionsRouterTabHelper::CreateForWebContents(
       web_contents,
@@ -457,6 +464,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
 #endif
   TabUIHelper::CreateForWebContents(web_contents);
   tasks::TaskTabHelper::CreateForWebContents(web_contents);
+  TrustedVaultEncryptionKeysTabHelper::CreateForWebContents(web_contents);
   ukm::InitializeSourceUrlRecorderForWebContents(web_contents);
   vr::VrTabHelper::CreateForWebContents(web_contents);
 
@@ -466,6 +474,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   // --- Section 2: Platform-specific tab helpers ---
 
 #if BUILDFLAG(IS_ANDROID)
+  webapps::MLInstallabilityPromoter::CreateForWebContents(web_contents);
   {
     // Remove after fixing https://crbug/905919
     TRACE_EVENT0("browser", "AppBannerManagerAndroid::CreateForWebContents");
@@ -485,8 +494,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   PolicyAuditorBridge::CreateForWebContents(web_contents);
   PluginObserverAndroid::CreateForWebContents(web_contents);
 #else
-  if (web_app::AreWebAppsUserInstallable(profile))
+  if (web_app::AreWebAppsUserInstallable(profile)) {
+    webapps::MLInstallabilityPromoter::CreateForWebContents(web_contents);
     webapps::AppBannerManagerDesktop::CreateForWebContents(web_contents);
+  }
   BookmarkTabHelper::CreateForWebContents(web_contents);
   BrowserSyncedTabDelegate::CreateForWebContents(web_contents);
   FocusTabAfterNavigationHelper::CreateForWebContents(web_contents);
@@ -503,11 +514,24 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   ManagePasswordsUIController::CreateForWebContents(web_contents);
   if (PrivacySandboxPromptHelper::ProfileRequiresPrompt(profile))
     PrivacySandboxPromptHelper::CreateForWebContents(web_contents);
+
+#if BUILDFLAG(ENABLE_WAFFLE_DESKTOP)
+  if (base::FeatureList::IsEnabled(kWaffle)) {
+    WaffleTabHelper::CreateForWebContents(web_contents);
+  }
+#endif
+
   SadTabHelper::CreateForWebContents(web_contents);
   SearchTabHelper::CreateForWebContents(web_contents);
   TabDialogs::CreateForWebContents(web_contents);
   HighEfficiencyChipTabHelper::CreateForWebContents(web_contents);
+  if (base::FeatureList::IsEnabled(
+          performance_manager::features::kMemoryUsageInHovercards)) {
+    performance_manager::user_tuning::UserPerformanceTuningManager::
+        ResourceUsageTabHelper::CreateForWebContents(web_contents);
+  }
   if (base::FeatureList::IsEnabled(features::kTabHoverCardImages) ||
+      base::FeatureList::IsEnabled(features::kTabHoverCardImageSettings) ||
       base::FeatureList::IsEnabled(features::kWebUITabStrip)) {
     ThumbnailTabHelper::CreateForWebContents(web_contents);
   }

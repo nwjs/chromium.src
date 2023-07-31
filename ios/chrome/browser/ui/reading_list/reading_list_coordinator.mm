@@ -116,15 +116,8 @@
   PrefService* _prefService;
   // Manager for user's Google identities.
   signin::IdentityManager* _identityManager;
-}
-
-- (NSString*)description {
-  return [NSString
-      stringWithFormat:
-          @"<%@: %p, isStarted: %d, _delegate: %p, _shouldShowSignInPromo: %d,"
-          @"isPresented: %d>",
-          self.class.description, self, self.isStarted, _delegate,
-          _shouldShowSignInPromo, [self.tableViewController isBeingPresented]];
+  // Sync service.
+  syncer::SyncService* _syncService;
 }
 
 #pragma mark - ChromeCoordinator
@@ -141,11 +134,13 @@
   // Create the mediator.
   ReadingListModel* model =
       ReadingListModelFactory::GetInstance()->GetForBrowserState(browserState);
+  _syncService = SyncServiceFactory::GetForBrowserState(browserState);
   ReadingListListItemFactory* itemFactory =
       [[ReadingListListItemFactory alloc] init];
   FaviconLoader* faviconLoader =
       IOSChromeFaviconLoaderFactory::GetForBrowserState(browserState);
   self.mediator = [[ReadingListMediator alloc] initWithModel:model
+                                                 syncService:_syncService
                                                faviconLoader:faviconLoader
                                              listItemFactory:itemFactory];
   // Initialize services.
@@ -210,12 +205,15 @@
       accountManagerService:accountManagerService
                 authService:_authService
                 prefService:_prefService
+                syncService:_syncService
                 accessPoint:signin_metrics::AccessPoint::
                                 ACCESS_POINT_READING_LIST
                   presenter:self
          baseViewController:self.tableViewController];
   _signinPromoViewMediator.signInOnly = YES;
   _signinPromoViewMediator.consumer = self;
+  [_signinPromoViewMediator
+      setDataTypeToWaitForInitialSync:syncer::ModelType::READING_LIST];
   [self updateSignInPromoVisibility];
 
   [super start];
@@ -235,6 +233,14 @@
       dismissViewControllerAnimated:YES
                          completion:nil];
   self.tableViewController = nil;
+  // It is possible that the user opens the reading list when there's already
+  // a reading list view (with tap on the NTP icons for instance when the
+  // previous reading list is dismissing).
+  // In this case, `closeReadingList` (thus this `stop` method) is called
+  // immediately, and `presentationController.delegate` needs be set to nil to
+  // avoid receiving `presentationControllerDidDismiss` which calls
+  // `closeReadingList` again.
+  // See https://crbug.com/1449105.
   self.navigationController.presentationController.delegate = nil;
   self.navigationController = nil;
 
@@ -250,10 +256,15 @@
   _authService = nullptr;
   _prefService = nullptr;
   _identityManager = nullptr;
+  _syncService = nullptr;
   _identityManagerObserverBridge.reset();
 
   [super stop];
   self.started = NO;
+}
+
+- (void)dealloc {
+  DCHECK(!self.mediator);
 }
 
 #pragma mark - ReadingListListViewControllerAudience
@@ -567,6 +578,10 @@
                            identityChanged:identityChanged];
 }
 
+- (void)promoProgressStateDidChange {
+  [self updateSignInPromoVisibility];
+}
+
 - (void)signinDidFinish {
   [self updateSignInPromoVisibility];
 }
@@ -621,8 +636,12 @@
     self.shouldShowSignInPromo = NO;
     return;
   }
+
   if (_identityManager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
-    self.shouldShowSignInPromo = NO;
+    // If the user is signed-in with the promo (thus opted-in for Reading List
+    // account storage), the promo should stay visible during the initial sync
+    // and a spinner should be shown on it.
+    self.shouldShowSignInPromo = _signinPromoViewMediator.signinInProgress;
   } else {
     const std::string lastSignedInGaiaId =
         _prefService->GetString(prefs::kGoogleServicesLastGaiaId);
@@ -672,12 +691,10 @@
 
 // Returns YES if the user cannot turn on sync for enterprise policy reasons.
 - (BOOL)isSyncDisabledByAdministrator {
-  syncer::SyncService* syncService = SyncServiceFactory::GetForBrowserState(
-      self.browser->GetBrowserState()->GetOriginalChromeBrowserState());
-  const bool syncDisabledPolicy = syncService->HasDisableReason(
+  const bool syncDisabledPolicy = _syncService->HasDisableReason(
       syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
   const bool syncTypesDisabledPolicy = IsManagedSyncDataType(
-      syncService, syncer::UserSelectableType::kReadingList);
+      _syncService, syncer::UserSelectableType::kReadingList);
   return syncDisabledPolicy || syncTypesDisabledPolicy;
 }
 

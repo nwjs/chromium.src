@@ -12,6 +12,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/cloud_upload_resources.h"
 #include "chrome/grit/cloud_upload_resources_map.h"
+#include "chrome/grit/generated_resources.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_ui.h"
@@ -33,7 +34,27 @@ CloudUploadUI::CloudUploadUI(content::WebUI* web_ui)
 
   static constexpr webui::LocalizedString kStrings[] = {
       {"cancel", IDS_CANCEL},
-  };
+      {"close", IDS_CLOSE},
+      {"open", IDS_OFFICE_FILE_HANDLER_OPEN_BUTTON},
+      {"connectToOneDriveTitle", IDS_CONNECT_TO_ONEDRIVE_TITLE},
+      {"connectToOneDriveBodyText", IDS_CONNECT_TO_ONEDRIVE_BODY_TEXT},
+      {"cantConnectOneDrive", IDS_CANT_CONNECT_ONEDRIVE},
+      {"connectOneDrive", IDS_CONNECT_ONEDRIVE},
+      {"oneDriveConnectedTitle", IDS_ONEDRIVE_CONNECTED_TITLE},
+      {"oneDriveConnectedBodyText", IDS_ONEDRIVE_CONNECTED_BODY_TEXT},
+      {"animationPlayText", IDS_OOBE_PLAY_ANIMATION_MESSAGE},
+      {"animationPauseText", IDS_OOBE_PAUSE_ANIMATION_MESSAGE},
+      {"fileHandlerTitle", IDS_OFFICE_FILE_HANDLER_TITLE},
+      {"word", IDS_OFFICE_FILE_HANDLER_FILE_TYPE_WORD},
+      {"excel", IDS_OFFICE_FILE_HANDLER_FILE_TYPE_EXCEL},
+      {"powerPoint", IDS_OFFICE_FILE_HANDLER_FILE_TYPE_POWERPOINT},
+      {"googleDocs", IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_DOCS},
+      {"googleSheets", IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_SHEETS},
+      {"googleSlides", IDS_OFFICE_FILE_HANDLER_APP_GOOGLE_SLIDES},
+      {"microsoft365", IDS_OFFICE_FILE_HANDLER_APP_MICROSOFT},
+      {"otherApps", IDS_OFFICE_FILE_HANDLER_APP_OTHERS},
+      {"googleDriveStorage", IDS_OFFICE_FILE_HANDLER_STORAGE_GOOGLE},
+      {"oneDriveStorage", IDS_OFFICE_FILE_HANDLER_STORAGE_MICROSOFT}};
   source->AddLocalizedStrings(kStrings);
   source->AddBoolean("isJellyEnabled", chromeos::features::IsJellyEnabled());
   webui::SetupWebUIDataSource(

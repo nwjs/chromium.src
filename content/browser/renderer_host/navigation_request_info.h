@@ -49,7 +49,9 @@ struct CONTENT_EXPORT NavigationRequestInfo {
       bool is_pdf,
       WeakDocumentPtr initiator_document,
       const GlobalRenderFrameHostId& previous_render_frame_host_id,
-      bool allow_cookies_from_browser, bool nw_trust = false);
+      bool allow_cookies_from_browser,
+      int64_t navigation_id,
+      bool nw_trust = false);
   NavigationRequestInfo(const NavigationRequestInfo& other) = delete;
   ~NavigationRequestInfo();
 
@@ -142,6 +144,8 @@ struct CONTENT_EXPORT NavigationRequestInfo {
   // the network service.
   const bool allow_cookies_from_browser;
 
+  // Unique id that identifies the navigation.
+  const int64_t navigation_id;
   bool nw_trusted;
 };
 

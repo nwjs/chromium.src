@@ -38,18 +38,19 @@ import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.autofill.AutofillTestHelper;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.browser.autofill.Source;
-import org.chromium.chrome.browser.autofill.prefeditor.EditorDialog;
+import org.chromium.chrome.browser.autofill.editors.EditorDialogView;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
-import org.chromium.chrome.browser.sync.SyncService;
+import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.components.signin.base.CoreAccountInfo;
 import org.chromium.components.signin.identitymanager.ConsentLevel;
 import org.chromium.components.signin.identitymanager.IdentityManager;
+import org.chromium.components.sync.SyncService;
 import org.chromium.components.sync.UserSelectableType;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.ui.KeyboardVisibilityDelegate;
@@ -66,6 +67,9 @@ import java.util.concurrent.TimeoutException;
 
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
+@Features.EnableFeatures({ChromeFeatureList.AUTOFILL_ACCOUNT_PROFILE_STORAGE,
+        ChromeFeatureList.SYNC_ENABLE_CONTACT_INFO_DATA_TYPE,
+        ChromeFeatureList.SYNC_ENABLE_CONTACT_INFO_DATA_TYPE_IN_TRANSPORT_MODE})
 public class AutofillProfilesFragmentTest {
     private static final AutofillProfile sLocalOrSyncProfile =
             AutofillProfile.builder()
@@ -274,7 +278,7 @@ public class AutofillProfilesFragmentTest {
 
         // Delete the profile, but cancel on confirmation.
         TestThreadUtils.runOnUiThreadBlocking(sebProfile::performClick);
-        EditorDialog editorDialog = autofillProfileFragment.getEditorDialogForTest();
+        EditorDialogView editorDialog = autofillProfileFragment.getEditorDialogForTest();
         rule.setEditorDialogAndWait(editorDialog);
         rule.clickInEditorAndWaitForConfirmationDialog(R.id.delete_menu_id);
 
@@ -331,7 +335,7 @@ public class AutofillProfilesFragmentTest {
 
         // Delete Artik's account profile.
         TestThreadUtils.runOnUiThreadBlocking(artikProfile::performClick);
-        EditorDialog editorDialog = autofillProfileFragment.getEditorDialogForTest();
+        EditorDialogView editorDialog = autofillProfileFragment.getEditorDialogForTest();
         rule.setEditorDialogAndWait(editorDialog);
         rule.clickInEditorAndWaitForConfirmationDialog(R.id.delete_menu_id);
 
@@ -372,7 +376,7 @@ public class AutofillProfilesFragmentTest {
 
         // Edit a profile.
         TestThreadUtils.runOnUiThreadBlocking(johnProfile::performClick);
-        EditorDialog editorDialog = autofillProfileFragment.getEditorDialogForTest();
+        EditorDialogView editorDialog = autofillProfileFragment.getEditorDialogForTest();
         rule.setEditorDialogAndWait(editorDialog);
         rule.setTextInEditorAndWait(new String[] {"Dr.", "Emily Doe", "Google", "111 Edited St",
                 "Los Angeles", "CA", "90291", "650-253-0000", "edit@profile.com"});
@@ -429,7 +433,7 @@ public class AutofillProfilesFragmentTest {
         Assert.assertNotNull(johnProfile);
 
         TestThreadUtils.runOnUiThreadBlocking(johnProfile::performClick);
-        EditorDialog editorDialog = autofillProfileFragment.getEditorDialogForTest();
+        EditorDialogView editorDialog = autofillProfileFragment.getEditorDialogForTest();
         rule.setEditorDialogAndWait(editorDialog);
 
         // Verify the profile source notice.
@@ -610,6 +614,32 @@ public class AutofillProfilesFragmentTest {
                         .getWidgetLayoutResource());
     }
 
+    /**
+     * Cloud off icons are shown conditionally depending on the 3 feature flags
+     * being turned on.
+     */
+    @Test
+    @MediumTest
+    @Feature({"Preferences"})
+    @Features.DisableFeatures({ChromeFeatureList.AUTOFILL_ACCOUNT_PROFILE_STORAGE,
+            ChromeFeatureList.SYNC_ENABLE_CONTACT_INFO_DATA_TYPE,
+            ChromeFeatureList.SYNC_ENABLE_CONTACT_INFO_DATA_TYPE_IN_TRANSPORT_MODE})
+    public void
+    testLocalProfiles_NoRequiredFeatureFlags() throws Exception {
+        setUpMockPrimaryAccount("test@account.com");
+        setUpMockSyncService(false, new HashSet());
+        AutofillProfilesFragment autofillProfileFragment = sSettingsActivityTestRule.getFragment();
+
+        // Trigger address profile list rebuild.
+        mHelper.setProfile(sAccountProfile);
+        Assert.assertEquals(0,
+                autofillProfileFragment.findPreference(sAccountProfile.getFullName())
+                        .getWidgetLayoutResource());
+        Assert.assertEquals(0,
+                autofillProfileFragment.findPreference(sLocalOrSyncProfile.getFullName())
+                        .getWidgetLayoutResource());
+    }
+
     @Test
     @MediumTest
     @Feature({"Preferences"})
@@ -700,7 +730,8 @@ public class AutofillProfilesFragmentTest {
     }
 
     private void setUpMockSyncService(boolean enabled, Set<Integer> selectedTypes) {
-        TestThreadUtils.runOnUiThreadBlocking(() -> SyncService.overrideForTests(mSyncService));
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> SyncServiceFactory.overrideForTests(mSyncService));
         when(mSyncService.isSyncFeatureEnabled()).thenReturn(enabled);
         when(mSyncService.getSelectedTypes()).thenReturn(selectedTypes);
     }

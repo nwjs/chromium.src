@@ -356,6 +356,7 @@
       "chrome://bookmarks/*",
       "chrome://bookmarks-side-panel.top-chrome/*",
       "chrome://customize-chrome-side-panel.top-chrome/*",
+      "chrome://shopping-insights-side-panel.top-chrome/*",
       "chrome://download-shelf.top-chrome/*",
       "chrome://eche-app/*",
       "chrome://extensions/*",
@@ -560,7 +561,6 @@
   "runtime.getContexts": {
     "min_manifest_version": 3,
     "contexts": ["blessed_extension"],
-    "channel": "dev",
     "feature_flag": "ApiRuntimeGetContexts"
   },
   "runtime.getURL": {

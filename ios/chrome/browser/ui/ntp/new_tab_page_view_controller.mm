@@ -395,6 +395,7 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
 
   [self.headerViewController updateConstraints];
   [self updateOverscrollActionsState];
+  [self updateHeightAboveFeed];
 }
 
 #pragma mark - Public
@@ -496,6 +497,8 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
     self.feedWrapperViewController.contentCollectionView.delegate = self;
     [self setMinimumHeight];
   }
+
+  [self updateAccessibilityElements];
 }
 
 - (void)willUpdateSnapshot {
@@ -525,15 +528,15 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
   [self updateFakeOmniboxForScrollPosition];
 }
 
-- (void)updateHeightAboveFeedAndScrollToTopIfNeeded {
-  if (self.viewDidFinishLoading &&
-      !self.hasSavedOffsetFromPreviousScrollState) {
-    // Do not scroll to the top if there is a saved scroll state. Also,
-    // `-setContentOffsetToTop` potentially updates constaints, and if
-    // viewDidLoad has not finished, some views may not in the view hierarchy
-    // yet.
+- (void)updateHeightAboveFeed {
+  if (self.viewDidFinishLoading) {
+    CGFloat oldHeightAboveFeed = self.collectionView.contentInset.top;
+    CGFloat oldOffset = self.collectionView.contentOffset.y;
     [self updateFeedInsetsForContentAbove];
-    [self setContentOffsetToTop];
+    CGFloat change = self.collectionView.contentInset.top - oldHeightAboveFeed;
+    // Offset the change by subtracting it from the content offset, in order to
+    // visually keep the same scroll position.
+    [self setContentOffset:oldOffset - change];
   }
 }
 
@@ -1398,6 +1401,38 @@ const CGFloat kShiftTilesUpAnimationDuration = 0.1;
 - (void)updateModularHomeBackgroundColorForUserInterfaceStyle:
     (UIUserInterfaceStyle)style {
   _backgroundGradientView.hidden = style == UIUserInterfaceStyleLight;
+}
+
+// Signal to the ViewController that the height above the feed needs to be
+// recalculated and thus also likely needs to be scrolled up to accommodate for
+// the new height. Nothing may happen if the ViewController determines that the
+// current scroll state should not change.
+- (void)updateHeightAboveFeedAndScrollToTopIfNeeded {
+  if (self.viewDidFinishLoading &&
+      !self.hasSavedOffsetFromPreviousScrollState) {
+    // Do not scroll to the top if there is a saved scroll state. Also,
+    // `-setContentOffsetToTop` potentially updates constaints, and if
+    // viewDidLoad has not finished, some views may not in the view hierarchy
+    // yet.
+    [self updateFeedInsetsForContentAbove];
+    [self setContentOffsetToTop];
+  }
+}
+
+// Updates the accessibilityElements used by VoiceOver / Switch Control to
+// iterate through on-screen elements. The feed collectionView does not seem to
+// include non-feed items in its `accessibilityElements` so they are added here.
+- (void)updateAccessibilityElements {
+  NSMutableArray* elements = [[NSMutableArray alloc] init];
+  // viewControllersAboveFeed elements are added from bottom to top, so we
+  // iterate in reverse to get the correct order.
+  NSEnumerator<UIViewController*>* enumerator =
+      [self.viewControllersAboveFeed reverseObjectEnumerator];
+  for (UIViewController* viewController in enumerator) {
+    [elements addObject:viewController.view];
+  }
+  [elements addObject:self.collectionView];
+  self.accessibilityElements = elements;
 }
 
 #pragma mark - Helpers

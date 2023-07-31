@@ -13,7 +13,8 @@
 
 // static
 SigninManagerFactory* SigninManagerFactory::GetInstance() {
-  return base::Singleton<SigninManagerFactory>::get();
+  static base::NoDestructor<SigninManagerFactory> instance;
+  return instance.get();
 }
 
 // static
@@ -34,9 +35,9 @@ SigninManagerFactory::~SigninManagerFactory() = default;
 KeyedService* SigninManagerFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
-  return new SigninManager(profile->GetPrefs(),
-                           IdentityManagerFactory::GetForProfile(profile),
-                           ChromeSigninClientFactory::GetForProfile(profile));
+  return new SigninManager(*profile->GetPrefs(),
+                           *IdentityManagerFactory::GetForProfile(profile),
+                           *ChromeSigninClientFactory::GetForProfile(profile));
 }
 
 bool SigninManagerFactory::ServiceIsCreatedWithBrowserContext() const {

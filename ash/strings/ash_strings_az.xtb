@@ -49,6 +49,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="1190609913194133056">Bildiriş Mərkəzi</translation>
 <translation id="1190678134285018527">Cihaz əvvəlki versiyaya qaytarılmalıdır</translation>
 <translation id="1195412055398077112">overskan</translation>
+<translation id="1195667586424773550">Linki ünvan panelinə çəkin</translation>
 <translation id="119944043368869598">Hamısını silin</translation>
 <translation id="1199716647557067911">Dəyişdirici ilə Girişi deaktiv etmək istədiyinizə əminsiniz?</translation>
 <translation id="1201402288615127009">Növbəti</translation>
@@ -68,11 +69,11 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="1247519845643687288">Son tətbiqlər</translation>
 <translation id="1252999807265626933"><ph name="POWER_SOURCE" /> mənbəsindən qidalanır</translation>
 <translation id="1255033239764210633">Hava necədir?</translation>
-<translation id="1267032506238418139">Qısayol dəyişikliyi</translation>
 <translation id="1269405891096105529">Əlavə cihaz Qonaq rejimində dəstəklənmir</translation>
 <translation id="1270290102613614947">Ekranüstü klaviatura deaktiv edildi</translation>
 <translation id="1272079795634619415">Dayandırın</translation>
 <translation id="1275285675049378717"><ph name="POWER_SOURCE" /> cihazını qidalandırır</translation>
+<translation id="1276975447697633661">Faylı seçib, <ph name="KEY" /> düyməsini basın</translation>
 <translation id="1279938420744323401"><ph name="DISPLAY_NAME" /> (<ph name="ANNOTATION" />)</translation>
 <translation id="1285992161347843613">Telefonun məkanını təyin edin</translation>
 <translation id="1287002645302686982"><ph name="DESK_TEMPLATE_NAME" /> adlı yadda saxlanmış masa artıq mövcuddur</translation>
@@ -138,13 +139,13 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="1550406609415860283">Əlçatan cihazlar</translation>
 <translation id="1550523713251050646">Əlavə seçimlər üçün klikləyin</translation>
 <translation id="1555130319947370107">Mavi</translation>
+<translation id="1557622599341396706">İş masasının adını göstərin</translation>
 <translation id="1576623706766186887">Böyüdücü aktiv olduqda uzaqlaşdırın</translation>
 <translation id="1586324912145647027">1-8 sayl; masaya keçin</translation>
 <translation id="1589090746204042747">Sessiyadakı bütün fəaliyyətlərə daxil olun</translation>
 <translation id="1604857178818051494">Mediaya pauza verin</translation>
 <translation id="1610778689852195798">"Ləğv edin"</translation>
 <translation id="1611993646327628135">Aktiv</translation>
-<translation id="1618835956950524778">Rəfdə başladıcı düyməsini vurğulayın</translation>
 <translation id="1620510694547887537">Kamera</translation>
 <translation id="1632985212731562677">Dəyişdirici Girişini Ayarlar &gt; Əlçatımlıq bölməsində deaktiv edə bilərsiniz.</translation>
 <translation id="163517899691012366">"Narahat Etməyin" rejimi aktiv olduqda bildirişlər susdurulur</translation>
@@ -215,7 +216,6 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="1908992311423394684">Yeni quraşdırma</translation>
 <translation id="1915307458270490472">Dəstəyi qoyun</translation>
 <translation id="1918022425394817322">Kamera yuxarı sağ küncə çəkildi</translation>
-<translation id="1919743966458266018">Task menecerini açmaq üçün qısayol dəyişilib. <ph name="OLD_SHORTCUT" /> əvəzinə <ph name="NEW_SHORTCUT" /> istifadə edin.</translation>
 <translation id="1923539912171292317">Avtomatik kliklər</translation>
 <translation id="1928739107511554905">Güncəlləməni əldə etmək məqsədilə əlavə edilən klavatura ilə Chromebook'u yenidən başlatmaq üçün toxunuş ekranından istifadə edin.</translation>
 <translation id="1948405482892809935">Növbəti istifadəçiyə dəyişin</translation>
@@ -241,6 +241,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="1998100899771863792">Cari masa</translation>
 <translation id="2001444736072756133"><ph name="CATEGORY" />, fayllar, tətbiqlər və s. axtarın.</translation>
 <translation id="2016340657076538683">Mesaj yazın</translation>
+<translation id="2017998995161831444">Araşdırma tətbiqində "Kömək" bölməsini açın</translation>
 <translation id="2018630726571919839">Gülməli əhvalat danış</translation>
 <translation id="2021864487439853900">Kiliddən çıxarmaq üçün toxunun</translation>
 <translation id="2023558322300866873">İstənilən vaxt şəbəkə paketini dayandıra bilərsiniz</translation>
@@ -297,6 +298,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="2318576281648121272">Bu gün <ph name="TODAY_DATE" /></translation>
 <translation id="2322065293366551060"><ph name="CATEGORY" />, axtarış nəticəsi kateqoriyası</translation>
 <translation id="2322173485024759474">Hərf üzrə geri qayıdın</translation>
+<translation id="2335091074961603075">Chromebook və ya Bluetooth cihazının Bluetooth versiyası köhnədir. Yaxşı audio keyfiyyəti üçün daxili mikrofon istifadə edin.</translation>
 <translation id="2339073806695260576">Qeyd götürmək, skrinşot çəkmək assistent, lazer göstəricisi və ya lupadan istifadə etmək üçün fırça düyməsinə klikləyin.</translation>
 <translation id="2341729377289034582">Şaquli formada kilidləndi</translation>
 <translation id="2345226652884463045">Redaktə ediləcək mətni seçmək üçün enter və ya axtarış + boşluq düyməsini basın.</translation>
@@ -345,6 +347,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="2528111225373402384">Hotspot ayarları</translation>
 <translation id="2530896289327917474">Klaviatura ilə baxışı aktiv və ya deaktiv edin</translation>
 <translation id="2531025035050312891">cihaz astadır</translation>
+<translation id="2531107890083353124">Tabı sürüşdürərkən <ph name="KEY_ONE" /> düyməsini basın</translation>
 <translation id="254900897760075745">Seçilmiş kontenti mübadilə buferinə kopyalayın</translation>
 <translation id="2549711466868162843">İşıqlandırmanı təkmilləşdirin</translation>
 <translation id="2549985041256363841">Çəkməyə başlayın</translation>
@@ -352,6 +355,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="256712445991462162">iç böyüdücü</translation>
 <translation id="2573588302192866788"><ph name="NAME" /> qoşulmadı</translation>
 <translation id="2575685495496069081">Çoxsaylı giriş deaktivdir</translation>
+<translation id="2579264398927991698">Mikroproqram güncəllənmələri</translation>
 <translation id="2582112259361606227">Güncəlləmək üçün yenidən başladın</translation>
 <translation id="2586561057878260610"><ph name="DESK_NAME" /> ilə birləşdirmək üçün Ctrl + W düymələrini basın. Masa və pəncərələri bağlamaq üçün Ctrl + Shift + W düymələrini basın.</translation>
 <translation id="2595239820337756193">5000 mil</translation>
@@ -390,12 +394,13 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="2750932254614666392">"Silin"</translation>
 <translation id="2750941250130734256">Aktiv pəncərə çıxarılıb.</translation>
 <translation id="2761723519669354964">Rəfdə vurğulanan elementi açın</translation>
+<translation id="2774348302533424868"><ph name="MODIFIER" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> - <ph name="KEY_TWO" /></translation>
+<translation id="2778197796481941784">ctrl+axtarış+s</translation>
 <translation id="2778650143428714839"><ph name="DEVICE_TYPE" /> <ph name="MANAGER" /> tərəfindən idarə edilir</translation>
 <translation id="2782591952652094792">Çəkim rejimindən çıxın</translation>
 <translation id="2785499565474703580">1 cihaz qoşulub</translation>
 <translation id="2791421900609674576">Qalan yerdən davam edə bilmək üçün tövsiyələri görəcəksiniz. Tövsiyələri silmək üçün toxunub saxlaya bilərsiniz.</translation>
 <translation id="2792498699870441125">Alt+Axtarış</translation>
-<translation id="2797741504905337289">Shelf Party</translation>
 <translation id="2802938996245446490"><ph name="BUTTON_LABEL" /> seçilib</translation>
 <translation id="2805756323405976993">Tətbiq</translation>
 <translation id="2814448776515246190">Qismən çəkim</translation>
@@ -424,6 +429,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="2942350706960889382">Daxili Miqyas</translation>
 <translation id="2942516765047364088">Bufer mövqeyi</translation>
 <translation id="2946119680249604491">Bağlantı əlavə edin</translation>
+<translation id="2949420361496057765"><ph name="MODIFIER" /> üzərinə basıb, keçidə klikləyin</translation>
 <translation id="295852781144570696">Cihaz audiosu</translation>
 <translation id="2960314608273155470">Çəkim Rejimi, defolt: <ph name="SOURCE" /> <ph name="TYPE" />. Klaviatura naviqasiyası üçün tab düyməsini basın.</translation>
 <translation id="2961963223658824723">Xəta baş verdi. Bir neçə dəqiqə sonra yenidən cəhd edin.</translation>
@@ -433,7 +439,6 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="2970920913501714344">Tətbiq, artırma və temaları quraşdırın</translation>
 <translation id="2977598380246111477">Növbəti nömrə</translation>
 <translation id="2985148236010982088">Bütün tətbiqlərə baxın</translation>
-<translation id="29859347674873492">Araşdırma tətbiqində Kömək bölməsini açın</translation>
 <translation id="2992327365391326550">Cihazın mikrofon düyməsi deaktivdir.</translation>
 <translation id="2996462380875591307">Yüksək Kontrast Rejimi aktiv edildi. Rejimi deaktiv etmək üçün Ctrl+Search+D düymələrini basın.</translation>
 <translation id="3000461861112256445">Mono audio</translation>
@@ -447,12 +452,14 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="3036649622769666520">Faylları Açın</translation>
 <translation id="3038571455154067151">Daxil olmaq üçün Family Link valideyn giriş kodunuzu daxil edin</translation>
 <translation id="3039939407102840004">Qələmin enerjisi <ph name="PERCENTAGE" /> faizdir.</translation>
+<translation id="304097922505898963">Düymə qısayolları tətbiqini açın</translation>
 <translation id="3045488863354895414">Günortanız xeyir,</translation>
 <translation id="3047761520276763270">Deməyə cəhd edin:</translation>
 <translation id="3055162170959710888">Bugün <ph name="USED_TIME" /> bu cihazdan istifadə etdiniz</translation>
 <translation id="3062298103034426069">Dəstəklənmir</translation>
 <translation id="3068622547379332530">Versiya <ph name="VERSION_NAME" /> (<ph name="OFFICIAL_STATUS" />) <ph name="CHANNEL_NAME" /> <ph name="PROCESSOR_VARIATION" /></translation>
 <translation id="3068711042108640621">Rəf soldadır</translation>
+<translation id="3070639127620815135">axtarış+esc</translation>
 <translation id="3077734595579995578">shift</translation>
 <translation id="3081696990447829002">Menyunu genişləndirin</translation>
 <translation id="3087734570205094154">Alt</translation>
@@ -466,6 +473,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="3120421559657122717">Cihaz söndürülsün?</translation>
 <translation id="3126026824346185272">Ctrl</translation>
 <translation id="3126069444801937830">Güncəlləşmək üçün yenidən başladın</translation>
+<translation id="3139188263101386725">Yenilənmiş qısayoldan istifadə edin</translation>
 <translation id="3139942575505304791">Masa 1</translation>
 <translation id="315116470104423982">Mobil data</translation>
 <translation id="3151786313568798007">Oriyentasiya</translation>
@@ -529,7 +537,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="3410336247007142655">Tünd tema ayarlarını göstərin</translation>
 <translation id="3413817803639110246">Göstərmək üçün bildiriş yoxdur</translation>
 <translation id="3417835166382867856">Tabları axtarın</translation>
-<translation id="3423744722495840645">Başladıcını açın/bağlayın</translation>
+<translation id="3426253816581969877"><ph name="MODIFIER_1" /> <ph name="MODIFIER_2" /> üzərinə basıb saxlayın, <ph name="KEY" /> üzərinə toxunub, açmaq istədiyiniz pəncərədə buraxın</translation>
 <translation id="3428447136709161042"><ph name="NETWORK_NAME" /> ilə bağlantı kəsilsin</translation>
 <translation id="3430396595145920809">Geri qayıtmaq üçün sağdan sürüşdürün</translation>
 <translation id="3431517721463707585">Masa 14</translation>
@@ -544,6 +552,7 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="346243998268439747">Miqyas səviyyəsini sıfırlayın</translation>
 <translation id="3465223694362104965">Ən son girişdən etibarən bu cihaza başqa klaviatura qoşulub. Klaviatura işlətməzdən öncə təhlükəsizliyinə əmin olun.</translation>
 <translation id="3465356146291925647">Administratorunuz tərəfindən idarə olunur</translation>
+<translation id="347117769229524881"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" />, sonra <ph name="KEY_TWO" /> və ya <ph name="KEY_THREE" /></translation>
 <translation id="3477079411857374384">Control-Shift-Space</translation>
 <translation id="3485319357743610354"><ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, Siqnal Gücü <ph name="SIGNAL_STRENGTH" /></translation>
 <translation id="348799646910989694">Rəf avtomatik olaraq gizlədilib</translation>
@@ -558,7 +567,6 @@ Başlamaq üçün aşağıdakıları yoxlaya bilərsiniz.</translation>
 <translation id="3533126039236445965">Rəfdəki tətbiqlər</translation>
 <translation id="3539957339480430241"><ph name="DEVICE_NAME" /> hotspotu</translation>
 <translation id="3542066395059568317">Qalan yerdən davam edə bilmək üçün tövsiyələri görəcəksiniz. Tövsiyələri silmək üçün sağ düymə ilə klikləyə bilərsiniz.</translation>
-<translation id="3546121235777416274">Şəkildə şəkil pəncərəsini fokuslayın</translation>
 <translation id="3552189655002856821">Wi-Fi deaktiv edilib</translation>
 <translation id="3554215588514239132">Developer Alətləri panelini göstərin və ya gizlədin</translation>
 <translation id="3554637740840164787"><ph name="ITEM_TITLE" /> bərkidildi</translation>
@@ -609,6 +617,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="3677931086890821290">Məkan icazəsi olan tətbiq və veb-saytlara, habelə ChromeOS-a Wi-Fi və mobil şəbəkə məkanından istifadə icazəsi verilir.</translation>
 <translation id="3679827876008292680">Pəncərədə sonuncu taba keçin</translation>
 <translation id="36813544980941320">Wi-Fi şəbəkələri telefonunuz ilə <ph name="DEVICE_NAME" /> arasında paylaşılacaq</translation>
+<translation id="3682279812299376603"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" />, sonra <ph name="KEY_TWO" /></translation>
 <translation id="3694122362646626770">Veb Saytlar</translation>
 <translation id="3702809606464356667">Cari masanın pəncərələri göstərilir, bütün masaların pəncərələrini göstərmək üçün Yuxarı ox düyməsini basın</translation>
 <translation id="3702846122927433391">Nigeriyanın əhalisi</translation>
@@ -624,6 +633,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="3765841986579723851">Bugün redaktə edilib</translation>
 <translation id="3773700760453577392">Administrator <ph name="USER_EMAIL" /> üçün çoxsaylı girişə icazə verməyib. Bütün istifadəçilər davam etmək üçün çıxış etməlidir.</translation>
 <translation id="3779139509281456663"><ph name="NAME" /> qoşulur</translation>
+<translation id="3781910048497807059">Fokusu əvvəlki panelə köçürün</translation>
 <translation id="3783640748446814672">alt</translation>
 <translation id="3784455785234192852">Kilidləyin</translation>
 <translation id="3796198851576711985">batareya vəziyyəti</translation>
@@ -636,6 +646,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="383058930331066723">Enerjiyə qənaət rejimi aktivdir</translation>
 <translation id="383629559565718788">Klaviatura ayarlarını göstərin</translation>
 <translation id="384082539148746321">Şablon silinsin?</translation>
+<translation id="3844627820291068572"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" />, sonra <ph name="KEY_ONE" /> və ya <ph name="KEY_TWO" />, yaxud <ph name="KEY_THREE" />, ya da <ph name="KEY_FOUR" /></translation>
 <translation id="3846575436967432996">Heç bir şəbəkə məlumatı yoxdur</translation>
 <translation id="385051799172605136">Geri</translation>
 <translation id="385300504083504382">Başlanğıc</translation>
@@ -679,6 +690,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="4028481283645788203">Əlavə təhlükəsizlik üçün parol tələb olunur</translation>
 <translation id="4032485810211612751"><ph name="HOURS" />:<ph name="MINUTES" />:<ph name="SECONDS" /></translation>
 <translation id="4042660782729322247">Ekranı paylaşırsınız</translation>
+<translation id="404437169852192935">Güncəllənmələr başa çatıb</translation>
 <translation id="4049230407053723315">Cəld ayarlar</translation>
 <translation id="4057003836560082631">Brauzer tabı <ph name="INDEX" />/<ph name="TOTAL_COUNT" />. <ph name="SITE_TITLE" />, <ph name="SITE_URL" /></translation>
 <translation id="4065525899979931964">{NUM_APPS,plural, =1{Tətbiqdə deaktivdir}other{# tətbiqdə deaktivdir}}</translation>
@@ -729,6 +741,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="4261870227682513959">Bildiriş ayarlarını göstərin. Bildirişlər deaktivdir</translation>
 <translation id="4269883910223712419">Bu cihazın admini edə bilər:</translation>
 <translation id="4274537685965975248">Ctrl + Alt + Aşağı Ox klaviatura qısayolu dəyişib. Son düyməsindən istifadə etmək üçün <ph name="LAUNCHER_KEY_NAME" /> + Sağa Ox düyməsini basın.</translation>
+<translation id="4275283744500212192">Pəncərə düzəni seçimlərini açın</translation>
 <translation id="4279490309300973883">Əks etdirilir</translation>
 <translation id="4280601795273309128">Təhlükəsizlik güncəllənmələri başa çatdı. Cihazı təkmilləşdirin.</translation>
 <translation id="4283888303416325161">Əlavə təhlükəsizlik üçün parol daxil edin</translation>
@@ -761,6 +774,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="4406883609789734330">Avtomatik subtitrlər</translation>
 <translation id="4412944820643904175"><ph name="FEATURE_NAME" /> deaktivdir.</translation>
 <translation id="4424159417645388645">Masa 5</translation>
+<translation id="4427695046139341014">Oyun Paneli</translation>
 <translation id="4430019312045809116">Həcm</translation>
 <translation id="4435022394553622295"><ph name="DEVICE_TYPE" /> cihazında telefonunuzun bildirişlərinə və tətbiqlərinə baxın</translation>
 <translation id="4441283832827406317">Tətbiqlər ada görə sıralanıb</translation>
@@ -793,6 +807,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="4541706525461326392">Profil silinir. Bu, bir neçə dəqiqə çəkə bilər.</translation>
 <translation id="4544483149666270818">Çəkmək üçün pəncərə seçin</translation>
 <translation id="454541942614298893">cihazım</translation>
+<translation id="4545950850562423083">Cari səhifəni əlfəcin kimi saxlayın</translation>
 <translation id="4548482551627849548">Aktiv pəncərəni soldakı masaya doğru hərəkət etdirin</translation>
 <translation id="4560576029703263363">Aktiv</translation>
 <translation id="4561267230861221837">3G</translation>
@@ -849,8 +864,10 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="4789348252524569426">Nitq fayllarını quraşdırmaq olmur. Cihazınız güncəllənməlidir. Cihazı yenidən başladıb təkrar cəhd edin.</translation>
 <translation id="478959186716341421">Yayım</translation>
 <translation id="4798622944000246716">Mobil şəbəkəniz hotspotu dəstəkləmir</translation>
+<translation id="4798888871844665150">Kopyalanan element mübadilə buferindədir. <ph name="SHORTCUT_KEY_NAME" /> + V basmaqla baxın.</translation>
 <translation id="479989351350248267">axtarın</translation>
 <translation id="4804818685124855865">Ayırın</translation>
+<translation id="4813311884204119883">Keçidi tab zolağında boş hissəyə sürüşdürün</translation>
 <translation id="4814539958450445987">Giriş ekranı</translation>
 <translation id="481455355267255546">Növbəti</translation>
 <translation id="4831034276697007977">Avtomatik klikləri deaktiv etmək istədiyinizə əminsiniz?</translation>
@@ -858,6 +875,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="485592688953820832">Əməliyyat yoxdur (fasilə)</translation>
 <translation id="485634149294284819">Klaviatura menyusuna daxil olun</translation>
 <translation id="485806788160414322">Medianı oxudun və ya ona pauza verin</translation>
+<translation id="4858764087721901597"><ph name="MODIFIER_ONE" />, sonra <ph name="KEY_ONE" /> və ya <ph name="KEY_TWO" />, yaxud <ph name="KEY_THREE" />, ya da <ph name="KEY_FOUR" /></translation>
 <translation id="4860284199500934869"><ph name="FILENAME" /> faylını endirmək üçün şəbəkə bağlantısını yoxlayın</translation>
 <translation id="4864369630010738180">Daxil olunur...</translation>
 <translation id="4864648187878336334">Masa 15</translation>
@@ -913,6 +931,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="504465286040788597">Əvvəlki paraqraf</translation>
 <translation id="5045550434625856497">Yanlış parol</translation>
 <translation id="5062496344832867502">ram</translation>
+<translation id="5068762093486106012">Susdurulduqda danışsanız, bildiriş alacaqsınız. Audio cihazdan ötürülmür.</translation>
 <translation id="5078796286268621944">Yanlış PIN</translation>
 <translation id="5083553833479578423">Daha çox Assistent funksiyalarını kiliddən çıxarın.</translation>
 <translation id="5092436659250499817">Klaviatura arxa işığını aktiv/deaktiv edin</translation>
@@ -943,10 +962,12 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="5207949376430453814">Mətn karetini vurğulayın</translation>
 <translation id="5208059991603368177">Aktiv</translation>
 <translation id="5216991270656129561">Bu vaxtadək deaktiv olacaq: <ph name="TIME" /></translation>
+<translation id="5221423477036820198">Telefon Mərkəzi ilə telefon mesajlarını cəld göndərin və ya cavablandırın.</translation>
 <translation id="5222676887888702881">Hesabdan çıxın</translation>
 <translation id="5229343007215035173">Məxfilik ekranını aktiv/deaktiv edin</translation>
 <translation id="5234764350956374838">Kənarlaşdırın</translation>
 <translation id="523505283826916779">Əlçatımlılıq ayarları</translation>
+<translation id="5238719049014159442">Başladıcını açın/bağlayın</translation>
 <translation id="5245201184978705914">Transkript yaratmaq olmur</translation>
 <translation id="5253783950165989294"><ph name="DEVICE_NAME" /> adlı cihaza qoşulub, enerji: <ph name="BATTERY_PERCENTAGE" />%</translation>
 <translation id="5258528442992323769">Yadda saxlanmış masa yoxdur</translation>
@@ -965,10 +986,12 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="5308380583665731573">Qoşun</translation>
 <translation id="5313326810920013265">Bluetooth ayarları</translation>
 <translation id="5314219114274263156">Ekran çəkilişi tamamlanıb</translation>
+<translation id="5314489738835854379">Pəncərələr arasında geri keçin</translation>
 <translation id="5316716239522500219">Güzgü monitorlar</translation>
 <translation id="5317780077021120954">Yadda saxlayın</translation>
 <translation id="5319712128756744240">Yeni cihaz birləşdirin</translation>
 <translation id="5322611492012084517">Telefonunuzu tapmaq olmur</translation>
+<translation id="5323994101633366939">İş masasının adını gizlədin</translation>
 <translation id="5327248766486351172">Ad</translation>
 <translation id="5329548388331921293">Qoşulur…</translation>
 <translation id="5331975486040154427">USB-C cihazı (arxa sol port)</translation>
@@ -1000,13 +1023,16 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="5463129623250377817">Seçilmiş kontenti kəsərək mübadilə buferinə əlavə edin</translation>
 <translation id="5465662442746197494">Kömək lazımdır?</translation>
 <translation id="547979256943495781">Rəf sağdadır</translation>
+<translation id="5482205457807971887"><ph name="MODIFIER_ONE" /><ph name="KEY_ONE" /> və ya <ph name="MODIFIER_TWO" /><ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /></translation>
 <translation id="5491186829646618080">Proqram güncəlləmələri əlçatandır</translation>
 <translation id="5503884284981862082">Google assistenti açın/bağlayın</translation>
+<translation id="550391772491508736">Yayımı bərpa edin</translation>
 <translation id="5506975627792768506">Böyüdücünü aktiv və ya deaktiv edin</translation>
 <translation id="5512042095225963688">Əvvəlki sözü silin</translation>
 <translation id="5519195206574732858">LTE</translation>
 <translation id="5520229639206813572">Administratorunuz bütün eSIM profillərini silib. Ətraflı məlumat üçün administratorunuzla əlaqə saxlayın.</translation>
 <translation id="5523434445161341166"><ph name="FEATURE_NAME" /> qoşulur.</translation>
+<translation id="5529587891732734495">Yayımı durdurun</translation>
 <translation id="5532994612895037630">Tam ekranı çəkmək üçün istənilən yerə toxunun</translation>
 <translation id="5536723544185013515">Son Tətbiqlər, bütün son tətbiqlərə giriş üçün sola və ya sağa ox ilə hərəkət edin</translation>
 <translation id="553675580533261935">Mövcud sessiya</translation>
@@ -1064,7 +1090,6 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="5760866832697883462"><ph name="NAME" /> cihazınızı qoşun</translation>
 <translation id="5762420912707163638">Markeri dəyişin. <ph name="STATE_TEXT" /> Ekranda çəkmək üçün trekped, sensor ekran və ya qələmdən istifadə edin.</translation>
 <translation id="576341972084747908"><ph name="FILENAME" /> endirilməsi təhlükəlidir</translation>
-<translation id="5763928712329149804">Shelf Party rejimi deaktivdir.</translation>
 <translation id="576453121877257266">Gecə İşığı aktivdir.</translation>
 <translation id="5764569119212455782">Seçilmiş son dilə dəyişin</translation>
 <translation id="5769373120130404283">Məxfilik ekranı</translation>
@@ -1101,7 +1126,6 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="5911909173233110115"><ph name="USERNAME" /> (<ph name="MAIL" />)</translation>
 <translation id="5916664084637901428">Aktiv</translation>
 <translation id="5920710855273935292">Mikrofon səssiz edilib.</translation>
-<translation id="5922962980596822074">Ən son istifadə edilən pəncərədən başlayaraq pəncərələr arasında keçid edin</translation>
 <translation id="5924855612669061715">Hotspot aktivdir</translation>
 <translation id="5946788582095584774"><ph name="FEATURE_NAME" /> aktivdir.</translation>
 <translation id="5947494881799873997">Geri dönün</translation>
@@ -1110,6 +1134,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="5958529069007801266">Nəzarət olunan istifadəçi</translation>
 <translation id="5961960957587052807">Az</translation>
 <translation id="5965524703725988602">Tünd temanı dəyişdirin. <ph name="STATE_TEXT" />.</translation>
+<translation id="5975235751479998104">Pəncərələr arasında irəli keçin</translation>
 <translation id="5976112937189445008">Pəncərəni qeydə almaq üçün enter düyməsini basın</translation>
 <translation id="5978382165065462689">Uzaq Yardım vasitəsilə ekranınızın kontrolunu paylaşır.</translation>
 <translation id="5980301590375426705">Qonaq hesabından çıxın</translation>
@@ -1119,6 +1144,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6012623610530968780"><ph name="TOTAL_PAGE_NUM" /> səhifədən <ph name="SELECTED_PAGE" /> səhifə</translation>
 <translation id="601304062528754300">Rəfdə növbəti elementi vurğulayın</translation>
 <translation id="6018164090099858612">Güzgü rejimindən çıxır</translation>
+<translation id="6019566113895157499">Düymə qısayolları</translation>
 <translation id="602001110135236999">Sola sürüşdürün</translation>
 <translation id="6022924867608035986">Axtarış qutusundakı mətni silin</translation>
 <translation id="602472752137106327">Bütün masalardan pəncərələri göstərin, radio düyməsi seçilib</translation>
@@ -1138,6 +1164,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6059276912018042191">Son Chrome tabları</translation>
 <translation id="6062360702481658777"><ph name="LOGOUT_TIME_LEFT" /> ərzində avtomatik çıxış edəcəksiniz.</translation>
 <translation id="6064463340679478396">Fayldan istifadə bitib</translation>
+<translation id="6068258534237496331">Videozəng nizamlayıcıları</translation>
 <translation id="6073451960410192870">Çəkməyi dayandırın</translation>
 <translation id="6074087755403037157">Beta Kanalı</translation>
 <translation id="6093867385179428431">Admin tərəfindən deaktiv edildi</translation>
@@ -1147,11 +1174,13 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6103838137565245112">sistem</translation>
 <translation id="6114505516289286752"><ph name="LANGUAGE" /> dilində danışıq faylları endirilib</translation>
 <translation id="6119360623251949462"><ph name="CHARGING_STATE" />. <ph name="BATTERY_SAVER_STATE" /></translation>
+<translation id="6119972796024789243">Rəng korreksiyası</translation>
 <translation id="6121838516699723042"><ph name="FILENAME" /> endirilməsini təsdiq edin</translation>
 <translation id="612734058257491180">Google Assistent qonaq sessiyasında əlçatan deyil.</translation>
 <translation id="6129953537138746214">Boşluq</translation>
 <translation id="6137566720514957455"><ph name="USER_EMAIL_ADDRESS" /> üçün silinmə dialoqunu açın</translation>
 <translation id="6141988275892716286">Endirməni təsdiq edin</translation>
+<translation id="6143578372829139382">YouTube-da paylaşın</translation>
 <translation id="6154006699632741460">Əlavə cihaz dəstəklənmir</translation>
 <translation id="6156960295318603523">Dil Ayarları</translation>
 <translation id="615957422585914272">Ekrandakı klaviaturanı göstərin</translation>
@@ -1175,6 +1204,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6231419273573514727">Periferik cihaz performansı məhdud ola bilər</translation>
 <translation id="6232891689835436217"><ph name="APP_NAME" /> hazırda kameranızdan və mikrofonunuzdan istifadə edir</translation>
 <translation id="6237231532760393653">1X</translation>
+<translation id="6244986124527896815">Tapşırıq meneceri tətbiqini "<ph name="NEW_SHORTCUT" />" ilə açın.</translation>
 <translation id="6247728804802644171">Bildirişləri açın</translation>
 <translation id="6254629735336163724">Horizontal formada kilidləndi</translation>
 <translation id="6259254695169772643">Seçmək üçün fırçadan istifadə edin</translation>
@@ -1190,6 +1220,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6330012934079202188">Bütün masaların pəncərələri göstərilir, cari masanın pəncərələrini göstərmək üçün Yuxarı ox düyməsini basın</translation>
 <translation id="6338485349199627913"><ph name="DISPLAY_NAME" /> sessiyası <ph name="MANAGER" /> tərəfindən idarə olunur</translation>
 <translation id="6344138931392227467"><ph name="DEVICE_NAME" /> qoşulub</translation>
+<translation id="6348449481487610270"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="KEY_ONE" />, sonra <ph name="MODIFIER_THREE" /><ph name="KEY_TWO" /> və ya <ph name="KEY_THREE" /></translation>
 <translation id="6351032674660237738">TƏTBİQ TƏKLİFLƏRİ</translation>
 <translation id="6352082849089527770">Naməlum şəbəkələr</translation>
 <translation id="6359587239691116345">Ən son funksiyaları və təhlükəsizlik təkmilləşdirmələrini əldə edin. Bu güncəlləməni rədd etsəniz, cihazınız artıq düzgün işləməyə bilər və təhlükəsizlik və performans problemləri ilə üzləşə bilərsiniz.</translation>
@@ -1216,7 +1247,6 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6469104339369989396">Hotspotu aktiv/deaktiv edin</translation>
 <translation id="6477681113376365978">Faylı endirmək mümkün deyil</translation>
 <translation id="6482559668224714696">Tam ekran böyüdücüsü</translation>
-<translation id="6483727822843292440">Ən az istifadə olunan pəncərədən başlayaraq pəncərələr arasında keçid edin</translation>
 <translation id="6490471652906364588">USB-C cihazı (sağ port)</translation>
 <translation id="6491071886865974820"><ph name="MANAGER" /> son tarixdən əvvəl <ph name="DEVICE_TYPE" /> cihazını güncəlləməyinizi tələb edir</translation>
 <translation id="649452524636452238">Smart kart PIN-i</translation>
@@ -1225,6 +1255,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6497418457565568043">"Narahat etməyin" rejimi aktivdir</translation>
 <translation id="6500896621837555595">Güncəlləyin</translation>
 <translation id="6501401484702599040">Ekran <ph name="RECEIVER_NAME" /> üzərinə yayımlanır</translation>
+<translation id="6507042703812908515">Düymə qısayolları tətbiqini "<ph name="NEW_SHORTCUT" />" ilə açın.</translation>
 <translation id="6507618042428827377">Növbəti əlçatan daxiletmə metoduna dəyişin</translation>
 <translation id="6508923215158854599">Chromebook'unuzun Chromecast cihazınızla eyni Wi-Fi şəbəkəsində olduğuna əmin olun.</translation>
 <translation id="6515727200518652613">Kamera itdi, yenidən qoşulmağa çalışır.</translation>
@@ -1235,6 +1266,7 @@ Cihazınızı enerji mənbəyinə qoşun.</translation>
 <translation id="6537924328260219877">Siqnal Gücü <ph name="SIGNAL_STRENGTH" />, Telefonun Batareyası <ph name="BATTERY_STATUS" /></translation>
 <translation id="6539852571005954999"><ph name="FILENAME" /> endirməsi skanlanır</translation>
 <translation id="6542521951477560771"><ph name="RECEIVER_NAME" /> ilə paylaşılır</translation>
+<translation id="6555373427270923730">Ünvan panelində veb-ünvanı yazıb, <ph name="MODIFIER" /><ph name="KEY" /> düyməsini basın</translation>
 <translation id="655633303491376835"><ph name="APP_NAME" />
 Yeni quraşdırma</translation>
 <translation id="6559976592393364813">Administrator ilə Əlaqə</translation>
@@ -1252,6 +1284,7 @@ Yeni quraşdırma</translation>
 <translation id="6614169507485700968">Məxfilik ekranı aktivdir</translation>
 <translation id="6625718907317144388">Baxış qoruması aktiv olduğuna görə <ph name="APP_1_TITLE" />, <ph name="APP_2_TITLE" /> və digər bildirişlər gizlədilib</translation>
 <translation id="6627638273713273709">Axtarış+Shift+K</translation>
+<translation id="662830937908749204">Fokusu növbəti panelə köçürün</translation>
 <translation id="6637729079642709226">Vaxtı dəyişin</translation>
 <translation id="6641720045729354415">Canlı Altyazını keçirin. <ph name="STATE_TEXT" /></translation>
 <translation id="6643169293433369663">Ad üzrə çeşidləmə sırasını ləğv edin</translation>
@@ -1272,7 +1305,6 @@ Yeni quraşdırma</translation>
 <translation id="6707693040195709527">Cihazın əvvəlki versiyaya dəyişdirilməsi vaxtı keçib</translation>
 <translation id="6710213216561001401">Əvvəlki</translation>
 <translation id="6723839937902243910">Enerji</translation>
-<translation id="6727005317916125192">Öncəki panel</translation>
 <translation id="6727969043791803658">Qoşuludur, <ph name="BATTERY_PERCENTAGE" />% batareya</translation>
 <translation id="6732087373923685049">kamera</translation>
 <translation id="6732800389263199929">+<ph name="COUNT" /></translation>
@@ -1290,7 +1322,6 @@ Yeni quraşdırma</translation>
 <translation id="6782182743534150858">Masa 13</translation>
 <translation id="6782919488259222803">Cari səhifəni axtarın</translation>
 <translation id="6786750046913594791">Qovluğu qapadın</translation>
-<translation id="6787839852456839824">Klaviatura qısayolları</translation>
 <translation id="6790428901817661496">Oxudun</translation>
 <translation id="679368458793552943">Böyüdücü aktiv olduqda yaxınlaşdırın</translation>
 <translation id="6801878137098616817">Bu yaxınlarda redaktə edilib</translation>
@@ -1317,10 +1348,10 @@ Yeni quraşdırma</translation>
 <translation id="6891721121089053234"><ph name="DEVICE_TYPE" /> cihazında telefonunuzun son fotolarına, media və tətbiqlərinə baxın</translation>
 <translation id="6896758677409633944">Kopyalayın</translation>
 <translation id="6901883536534621389">Naviqasiya etmək üçün jestləri sınayın</translation>
+<translation id="6912841030378044227">Ünvan panelini fokuslayın</translation>
 <translation id="6919251195245069855">Smart kartınız tanınmadı. Yenidən sınayın.</translation>
 <translation id="6920245099716267363">Hotspotu aktiv/deaktiv edin. Hotspot aktivdir. 1 cihaz qoşulub.</translation>
 <translation id="6931576957638141829">Burada saxlayın:</translation>
-<translation id="6941333068993625698">Rəy göndərin</translation>
 <translation id="6942518653766415536">Yazı formatı menyusu</translation>
 <translation id="6945221475159498467">Seçin</translation>
 <translation id="6945922087561257829">Telefon mobil şəbəkədən istifadə edir. Telefon və Chromebook eyni Wi-Fi şəbəkəsində olduqda yenidən cəhd edin. <ph name="LEARN_MORE" /></translation>
@@ -1328,7 +1359,6 @@ Yeni quraşdırma</translation>
 <translation id="6961121602502368900">İş profilində telefonun səssiz edilməsi əlçatan deyil</translation>
 <translation id="6961840794482373852">Alt + Yuxarı Ox klaviatura qısayolu dəyişib. Səhifənin Yuxarısına Keç düyməsindən istifadə etmək üçün <ph name="LAUNCHER_KEY_NAME" /> + Yuxarı Ox düyməsini basın.</translation>
 <translation id="696267987219125751">Kamera çərçivəsi deaktivdir.</translation>
-<translation id="6964690557625666701">Bütün əlavə edilmiş elementlər göstərilmir</translation>
 <translation id="6965382102122355670">OK</translation>
 <translation id="6972754398087986839">Başlayın</translation>
 <translation id="6979158407327259162">Google Disk</translation>
@@ -1340,7 +1370,6 @@ Yeni quraşdırma</translation>
 <translation id="7014684956566476813"><ph name="DEVICE_NAME" /> adlı cihaza qoşulub</translation>
 <translation id="7015766095477679451"><ph name="COME_BACK_TIME" /> olduqda yenidən davam edin.</translation>
 <translation id="70168403932084660">Masa 6</translation>
-<translation id="7025325401470358758">Növbəti panel</translation>
 <translation id="7025533177575372252"><ph name="DEVICE_NAME" /> cihazını telefonla əlaqələndirin</translation>
 <translation id="7026338066939101231">Azalma</translation>
 <translation id="7029814467594812963">Sessiyadan çıxın</translation>
@@ -1369,7 +1398,6 @@ Yeni quraşdırma</translation>
 <translation id="7126996685418858413">Keçən həftə açılıb</translation>
 <translation id="7130207228079676353">ƏN ÇOX BAXILAN TƏTBİQLƏR</translation>
 <translation id="7131634465328662194">Avtomatik hesabdan çıxacaqsınız.</translation>
-<translation id="7138316363520807689">Cari tabı əlfəcin kimi saxlayın</translation>
 <translation id="7143207342074048698">Qoşulur</translation>
 <translation id="7144942256906679589">Batareyanın statusu</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
@@ -1394,7 +1422,6 @@ Yeni quraşdırma</translation>
 <translation id="7305884605064981971">EDGE</translation>
 <translation id="7312210124139670355">Administratorunuz eSIM-inizi sıfırlayır. Bir neçə dəqiqə çəkə bilər.</translation>
 <translation id="7313193732017069507">Kameranı genişləndirin</translation>
-<translation id="731589979057211264">Shelf Party rejimi aktivdir.</translation>
 <translation id="7340731148882810149">Avtomatik klik menyusu</translation>
 <translation id="7346909386216857016">Ok, anladım</translation>
 <translation id="7348093485538360975">Ekran klaviaturası</translation>
@@ -1416,6 +1443,7 @@ Yeni quraşdırma</translation>
 <translation id="7401222354741467707">Tam skrinşot və ya ekran yazısı çəkin</translation>
 <translation id="7405710164030118432">Cihazı kiliddən çıxarmaq üçün Family Link ailə giriş kodunu daxil edin</translation>
 <translation id="7406608787870898861">Mobil şəbəkənizin ayarlanmasını bitirin</translation>
+<translation id="7406854842098869085"><ph name="MODIFIER_1" /> üzərinə basıb saxlayın, <ph name="KEY" /> üzərinə toxunub, açmaq istədiyiniz pəncərədə buraxın</translation>
 <translation id="740790383907119240">Tətbiq Qısayolları</translation>
 <translation id="7413851974711031813">Bağlamaq üçün "escape" düyməsinə basın</translation>
 <translation id="7416471219712049036">Cari səhifəni saxlayın</translation>
@@ -1459,11 +1487,10 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="7579778809502851308">Ekran çəkimi</translation>
 <translation id="7593891976182323525">Axtarın və ya Dəyişin</translation>
 <translation id="7600875258240007829">Bütün bildirişlərə baxın</translation>
-<translation id="7601417191446344542">Xatırlatma bildirişinin susdurulması aktiv edilsin?</translation>
+<translation id="7601417191446344542">Qapalı mikrofon xəbərdarlığının susdurulması aktiv edilsin?</translation>
 <translation id="7607002721634913082">Durduruldu</translation>
 <translation id="7609951632080598826">Təqvim baxışı, <ph name="DATE" />, <ph name="TIME" /></translation>
 <translation id="7611213136657090146">Kamera yenidən qoşuldu.</translation>
-<translation id="7611271430932669992">Fokusu popap və dialoqlara köçürün</translation>
 <translation id="761736749114493194">Kamera çərçivəsini keçirin. <ph name="STATE_TEXT" /></translation>
 <translation id="7624117708979618027"><ph name="TEMPERATURE_F" />° F</translation>
 <translation id="7634648064048557203">Kamera aşağı sağ küncə çəkildi</translation>
@@ -1496,6 +1523,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="7727952505535211425">Veb-saytı yeni tabdakı ünvan panelində açın</translation>
 <translation id="77365090426890123">yaddaş istifadəsi</translation>
 <translation id="7742327441377685481">Bildiriş yoxdur</translation>
+<translation id="7748275671948949022">Rəfdə Başladıcı düyməsini vurğulayın</translation>
 <translation id="7749443890790263709">Maksimum masa sayına çatmısınız.</translation>
 <translation id="776344839111254542">Güncəlləmə detallarını görmək üçün klikləyin</translation>
 <translation id="7768784765476638775">Seçib səsləndirmə</translation>
@@ -1505,6 +1533,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="7780159184141939021">Ekranı fırladın</translation>
 <translation id="7796735576426975947">Yeni bildiriş gizlədilib</translation>
 <translation id="7798302898096527229">Ləğv etmək üçün Search və ya Shift düyməsini basın.</translation>
+<translation id="780301667611848630">Yox, çox sağ olun</translation>
 <translation id="7807067443225230855">Axtarış və Assistent</translation>
 <translation id="7814236020522506259"><ph name="HOUR" /> və <ph name="MINUTE" /></translation>
 <translation id="7829386189513694949">Güclü siqnal</translation>
@@ -1512,6 +1541,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="7842569679327885685">Xəbərdarlıq: Eksperimental funksiya</translation>
 <translation id="7846634333498149051">Klaviatura</translation>
 <translation id="7848989271541991537">Buraya köçürüldü: Səhifə <ph name="PAGE_NUMBER" />, sıra <ph name="ROW_NUMBER" />, sütun <ph name="COLUMN_NUMBER" />.</translation>
+<translation id="7851039877802112575">Fokusu popap və dialoqlara köçürün</translation>
 <translation id="7851768487828137624">Canary</translation>
 <translation id="7860671499921112077">İcmala daxil olmaq üçün üç barmaq ilə yuxarı çəkin</translation>
 <translation id="7862292329216937261">Cihazı qonaq kimi istifadə etmək üçün çıxış etməli, sonra ekranın aşağısında "Qonaq kimi baxın" seçməlisiniz.</translation>
@@ -1608,7 +1638,6 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8214996719228530800">Kanarya Kanalı</translation>
 <translation id="8219451629189078428">Bu müddət ərzində Chromebook cihazınız yanılı və şəbəkəyə qoşulu vəziyətdə olmalıdır. Doldurma qurğusu və ya adapter naqillərinin həm Chromebook cihazınıza, həm də elektrik yuvasına tam şəkildə taxılı olduğundan əmin olun. Chromebook cihazını söndürməyin.</translation>
 <translation id="8230305195727960608">Rəng İnversiyası Rejimi</translation>
-<translation id="8233140502441622270">Klaviatura qısayolları tətbiqini açın</translation>
 <translation id="8236042855478648955">Fasilə vaxtı</translation>
 <translation id="8239034820133090126">Sağdakı masanı aktivləşdirin</translation>
 <translation id="8246282815785366524">Təkrar xoş gəldiniz, <ph name="GIVEN_NAME" /></translation>
@@ -1616,6 +1645,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8247998213073982446"><ph name="APP_NAME" />, Tətbiq</translation>
 <translation id="8255234195843591763">Güncəlləmək üçün sıfırlayın</translation>
 <translation id="8261506727792406068">Silin</translation>
+<translation id="8262312463845990408">Oxutmanı aktiv/deaktiv edin</translation>
 <translation id="8270450402312105425">{0,plural, =1{Bir saat ərzində cihazı əvvəlki versiyaya dəyişdirin}other{# saat ərzində cihazı əvvəlki versiyaya dəyişdirin}}</translation>
 <translation id="8277261673056602147">Ekranınızdakı mətni vurğulayın</translation>
 <translation id="8284362522226889623">Əvvəlki masaya keçmək üçün dörd barmaqla sola çəkin</translation>
@@ -1628,7 +1658,6 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8345019317483336363"><ph name="WINDOW_TITLE" /> pəncərəsi seçilib</translation>
 <translation id="8349964124165471584">Linki yeni pəncərədə açın</translation>
 <translation id="8351131234907093545">Qeyd yaradın</translation>
-<translation id="8364673525741149932">Shelf Party rejimini keçirin. <ph name="STATE_TEXT" /></translation>
 <translation id="8367948981300340152"><ph name="CAPTURE_MEDIUM" /> istifadə edilir.</translation>
 <translation id="8369166482916924789">Yadda saxlanmış masa, <ph name="SAVE_AND_RECALL_DESK_NAME" /></translation>
 <translation id="8371779926711439835">Hərf üzrə irəli keçin</translation>
@@ -1648,8 +1677,10 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8425213833346101688">Dəyişin</translation>
 <translation id="8426708595819210923">Axşamınız xeyir, <ph name="GIVEN_NAME" />,</translation>
 <translation id="8428213095426709021">Ayarlar</translation>
+<translation id="8428810263141909179"><ph name="MODIFIER_ONE" /><ph name="MODIFIER_TWO" /><ph name="DELIMITER" /><ph name="KEY_ONE" /> - <ph name="KEY_TWO" /></translation>
 <translation id="8433186206711564395">Şəbəkə ayarları</translation>
 <translation id="8433977262951327081">Daxiletmə seçimləri menyu qutusunu rəfdə göstərmək üçün qısayol dəyişilib. <ph name="OLD_SHORTCUT" /> əvəzinə <ph name="NEW_SHORTCUT" /> qısayolunu istifadə edin.</translation>
+<translation id="8437311513256731931">İstifadəçi rəyi alətini açın</translation>
 <translation id="8443879455002739353">"Kopyalayın"</translation>
 <translation id="8444246603146515890">Masa <ph name="DESK_TITILE" /> aktiv edildi</translation>
 <translation id="8446884382197647889">Ətraflı Məlumat</translation>
@@ -1668,6 +1699,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8513108775083588393">Avtodönüş</translation>
 <translation id="851458219935658693">Mövcud masadan pəncərələri göstərin, radio düyməsi seçilib</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> cihazınız aktiv olan zaman elektrik yığmaya bilər.</translation>
+<translation id="852060496139946719">{NUM_APPS,plural, =1{<ph name="APP_NAME" /> mikrofon daxiletməsini idarə edir}other{# tətbiq mikrofon daxiletməsini idarə edir}}</translation>
 <translation id="8535393432370007982">Rəng üzrə çeşidləmə sırasını ləğv edin</translation>
 <translation id="8541078764854166027">Kamera çərçivəsi</translation>
 <translation id="8542053257095774575">Yadda saxlanmış masa və ya şablon yoxdur</translation>
@@ -1678,6 +1710,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="856298576161209842"><ph name="MANAGER" /> <ph name="DEVICE_TYPE" /> cihazını güncəlləməyinizi tövsiyə edir</translation>
 <translation id="8563862697512465947">Bildiriş Ayarları</translation>
 <translation id="857201607579416096">Menyu ekranın aşağı sağ küncünə köçürülüb.</translation>
+<translation id="8581946341807941670"><ph name="MODIFIER_1" /><ph name="MODIFIER_2" /> üzərinə basıb, keçidə klikləyin</translation>
 <translation id="8594115950068821369">-<ph name="FORMATTED_TIME" /></translation>
 <translation id="8598235756057743477">Tətbiqləri ada və ya rəngə görə sıralayın</translation>
 <translation id="8609384513243082612">Yeni tab açın</translation>
@@ -1700,6 +1733,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8676770494376880701">Enerjiyə qənaət edən şarjer qoşuldu</translation>
 <translation id="8683506306463609433">Performansın izlənməsi aktivdir</translation>
 <translation id="8703634754197148428">Yazmanı başladın. Yazma başladıqda Alt + Shift + L düymələri ilə rəfə keçin və yazmanın dayandırılması düyməsini tapın</translation>
+<translation id="8704155109538237473">Şəkildə şəkil pəncərəsini fokuslayın</translation>
 <translation id="870917907284186124">Diktəni (səsiniz ilə yazmaq) aktiv/deaktiv edin</translation>
 <translation id="8717459106217102612">Əvvəlki söz və ya hərfi seçin</translation>
 <translation id="8721053961083920564">Səsi aktiv edin. <ph name="STATE_TEXT" /></translation>
@@ -1729,7 +1763,6 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="8834539327799336565">Hazırda qoşulub</translation>
 <translation id="8841375032071747811">"Geri" düyməsi</translation>
 <translation id="8843682306134542540">Fırlanma kilidini aktiv edin. <ph name="STATE_TEXT" /></translation>
-<translation id="8850991929411075241">Search+Esc</translation>
 <translation id="8853703225951107899">PIN və ya parolunuzu yenə doğrulamaq mümkün olmadı. Qeyd: Bu yaxınlarda parolunuzu dəyişmisinizsə, köhnə parolunuzu istifadə edin. Çıxdıqdan sonra yeni parolunuz tətbiq ediləcək.</translation>
 <translation id="8855885154700222542">Tam ekran açarı</translation>
 <translation id="8858369206579825206">Məxfilik kontrolları</translation>
@@ -1820,6 +1853,7 @@ Cihazı söndürmək üçün cihazda enerji düyməsinə yenidən basıb saxlay�
 <translation id="925832987464884575">Önbaxışları gizlədin</translation>
 <translation id="937214777182567951"><ph name="MANAGER" /> <ph name="DEVICE_TYPE" /> cihazını dərhal güncəlləməyinizi tələb edir</translation>
 <translation id="938963181863597773">Təqvimdə nə var?</translation>
+<translation id="945383118875625837">Linki əlfəcin panelinə çəkin</translation>
 <translation id="945522503751344254">Geri əlaqə göndərin</translation>
 <translation id="951991426597076286">Kənarlaşdırın</translation>
 <translation id="953431725143473984">Cihaz söndürülsün?</translation>

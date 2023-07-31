@@ -64,6 +64,12 @@
 - (void)stop {
   self.delegate = nil;
   self.viewController = nil;
+  [super stop];
+}
+
+- (void)dealloc {
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(!self.viewController);
 }
 
 #pragma mark - PromoStyleViewControllerDelegate

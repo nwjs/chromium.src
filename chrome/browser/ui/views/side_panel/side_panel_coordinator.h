@@ -17,7 +17,6 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_registry_observer.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_util.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_view_state_observer.h"
-#include "content/public/browser/web_contents_observer.h"
 #include "extensions/common/extension_id.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/views/view_observer.h"
@@ -47,8 +46,7 @@ class View;
 class SidePanelCoordinator final : public SidePanelRegistryObserver,
                                    public TabStripModelObserver,
                                    public views::ViewObserver,
-                                   public SidePanelUI,
-                                   public content::WebContentsObserver {
+                                   public SidePanelUI {
  public:
   explicit SidePanelCoordinator(BrowserView* browser_view);
   SidePanelCoordinator(const SidePanelCoordinator&) = delete;
@@ -187,6 +185,10 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
   // delays as the side panel content when there are delays for loading content.
   bool OnComboboxChangeTriggered(size_t index);
 
+  // Called before the combobox dropdown menu is about to show. Used to record
+  // the combobox shown metric.
+  void OnComboboxMenuWillShow();
+
   // Sets the entry corresponding to `entry_key` as selected in the combobox.
   void SetSelectedEntryInCombobox(const SidePanelEntry::Key& entry_key);
 
@@ -223,14 +225,6 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
       TabStripModel* tab_strip_model,
       const TabStripModelChange& change,
       const TabStripSelectionChange& selection) override;
-
-  // content::WebContentsObserver:
-  void DidStopLoading() override;
-
-  content::WebContents* GetActiveWebContents() const;
-
-  // Attempts to show in product help for reading mode.
-  void MaybeShowReadingModeSidePanelIPH();
 
   // When true, prevent loading delays when switching between side panel
   // entries.
@@ -270,7 +264,8 @@ class SidePanelCoordinator final : public SidePanelRegistryObserver,
 
   base::ObserverList<SidePanelViewStateObserver> view_state_observers_;
 
-  const base::flat_set<std::string> distillable_urls_;
+  // Combobox menu subscription.
+  base::CallbackListSubscription on_menu_will_show_subscription_;
 
   base::ScopedMultiSourceObservation<SidePanelRegistry,
                                      SidePanelRegistryObserver>

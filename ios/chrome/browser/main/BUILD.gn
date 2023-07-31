@@ -21,7 +21,7 @@ source_set("main") {
 
   deps = [
     "//base",
-    "//components/breadcrumbs/core:feature_flags",
+    "//components/breadcrumbs/core:status",
     "//components/keyed_service/ios",
     "//ios/chrome/browser/app_launcher",
     "//ios/chrome/browser/crash_report/breadcrumbs",
@@ -45,6 +45,7 @@ source_set("main") {
     "//ios/chrome/browser/sync:sync_error_browser_agent",
     "//ios/chrome/browser/tabs",
     "//ios/chrome/browser/tabs:features",
+    "//ios/chrome/browser/tabs/tab_pickup",
     "//ios/chrome/browser/ui/start_surface",
     "//ios/chrome/browser/upgrade",
     "//ios/chrome/browser/url_loading",

@@ -135,6 +135,7 @@ class CORE_EXPORT ComputedStyleUtils {
   static CSSIdentifierValue* ValueForFontOpticalSizing(const ComputedStyle&);
   static CSSValue* ValueForFontFeatureSettings(const ComputedStyle&);
   static CSSValue* ValueForFontVariationSettings(const ComputedStyle&);
+  static CSSValue* ValueForFontPalette(const ComputedStyle&);
   static CSSValue* SpecifiedValueForGridTrackSize(const GridTrackSize&,
                                                   const ComputedStyle&);
   static CSSValue* ValueForGridAutoTrackList(GridTrackSizingDirection,
@@ -188,8 +189,7 @@ class CORE_EXPORT ComputedStyleUtils {
   static CSSValue* ValueForAnimationTimelineList(const CSSAnimationData*);
 
   static CSSValue* SingleValueForTimelineShorthand(const ScopedCSSName* name,
-                                                   TimelineAxis,
-                                                   TimelineAttachment);
+                                                   TimelineAxis);
   static CSSValueList* ValuesForBorderRadiusCorner(const LengthSize&,
                                                    const ComputedStyle&);
   static CSSValue* ValueForBorderRadiusCorner(const LengthSize&,
@@ -311,9 +311,8 @@ class CORE_EXPORT ComputedStyleUtils {
   static const CSSValue* ValueForStyleAutoColor(const ComputedStyle&,
                                                 const StyleAutoColor&,
                                                 CSSValuePhase);
-  static CSSValue* ValueForIntrinsicLength(
-      const ComputedStyle&,
-      const absl::optional<StyleIntrinsicLength>&);
+  static CSSValue* ValueForIntrinsicLength(const ComputedStyle&,
+                                           const StyleIntrinsicLength&);
   static CSSValue* ValueForScrollStart(const ComputedStyle&,
                                        const ScrollStartData&);
   static std::unique_ptr<CrossThreadStyleValue>

@@ -384,8 +384,9 @@ CreateParsedPermissionsPolicyDeclaration(
   declaration.matches_opaque_src = match_all_origins;
 
   for (const auto& origin : origins)
-    declaration.allowed_origins.emplace_back(url::Origin::Create(origin),
-                                             /*has_subdomain_wildcard=*/false);
+    declaration.allowed_origins.emplace_back(
+        *blink::OriginWithPossibleWildcards::FromOrigin(
+            url::Origin::Create(origin)));
 
   std::sort(declaration.allowed_origins.begin(),
             declaration.allowed_origins.end());
@@ -9248,7 +9249,7 @@ class TouchSelectionControllerClientTestWrapper
   ui::SelectionEventType expected_event_;
   std::unique_ptr<base::RunLoop> run_loop_;
   // Not owned.
-  raw_ptr<ui::TouchSelectionControllerClient> client_;
+  raw_ptr<ui::TouchSelectionControllerClient, DanglingUntriaged> client_;
 };
 
 class TouchSelectionControllerClientAndroidSiteIsolationTest
@@ -9451,11 +9452,11 @@ class TouchSelectionControllerClientAndroidSiteIsolationTest
     view->OnTouchEvent(touch);
   }
 
-  raw_ptr<RenderWidgetHostViewAndroid> root_rwhv_;
-  raw_ptr<RenderWidgetHostViewChildFrame> child_rwhv_;
-  raw_ptr<FrameTreeNode> child_frame_tree_node_;
+  raw_ptr<RenderWidgetHostViewAndroid, DanglingUntriaged> root_rwhv_;
+  raw_ptr<RenderWidgetHostViewChildFrame, DanglingUntriaged> child_rwhv_;
+  raw_ptr<FrameTreeNode, DanglingUntriaged> child_frame_tree_node_;
   std::unique_ptr<RenderFrameSubmissionObserver> frame_observer_;
-  raw_ptr<TouchSelectionControllerClientTestWrapper>
+  raw_ptr<TouchSelectionControllerClientTestWrapper, DanglingUntriaged>
       selection_controller_client_;
 
   std::unique_ptr<base::RunLoop> gesture_run_loop_;

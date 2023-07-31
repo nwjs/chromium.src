@@ -60,7 +60,6 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
-#include "chromeos/ash/components/login/auth/auth_events_recorder.h"
 #include "chromeos/ash/components/login/auth/auth_performer.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/strings/grit/components_strings.h"
@@ -204,9 +203,6 @@ LoginDisplayHostCommon::LoginDisplayHostCommon()
       browser_shutdown::AddAppTerminatingCallback(base::BindOnce(
           &LoginDisplayHostCommon::OnAppTerminating, base::Unretained(this)));
   BrowserList::AddObserver(this);
-  AuthEventsRecorder::Get()->ResetLoginData();
-  AuthEventsRecorder::Get()->OnAuthenticationSurfaceChange(
-      AuthEventsRecorder::AuthenticationSurface::kLogin);
 }
 
 LoginDisplayHostCommon::~LoginDisplayHostCommon() {
@@ -312,11 +308,27 @@ void LoginDisplayHostCommon::StartKiosk(const KioskAppId& kiosk_app_id,
     return;
   }
 
+  // Prevent a race condition when user launches a kiosk app from the apps
+  // menu while another login is in progress. E.g. UI shelf is not disabled on
+  // slower devices.
+  // A race can happen between manual launch kiosk and one of guest session,
+  // MGS (manual or autolaunched) or autolaunched kiosk.
+  // Currently needs to use both ExistingUserController and UserManager because
+  // these sessions aren't consistent with setting various login states in time.
+  // TODO(b/291293540): Check why ExistingUserController is not updated by
+  // autolaunch kiosk.
   const auto& existing_user_controller =
       CHECK_DEREF(GetExistingUserController());
-  if (existing_user_controller.IsSigninInProgress() ||
-      existing_user_controller.IsUserSigninCompleted()) {
-    LOG(ERROR) << "Cancel kiosk launch. Another user signin detected.";
+  const bool is_login_detected_existing_user_controller =
+      existing_user_controller.IsSigninInProgress() ||
+      existing_user_controller.IsUserSigninCompleted();
+  const bool is_login_detected_user_manager =
+      user_manager::UserManager::IsInitialized() &&
+      user_manager::UserManager::Get()->IsUserLoggedIn();
+  if (is_login_detected_existing_user_controller ||
+      is_login_detected_user_manager) {
+    LOG(ERROR) << "Cancel kiosk launch. Another user login is completed or in "
+                  "progress.";
     return;
   }
 

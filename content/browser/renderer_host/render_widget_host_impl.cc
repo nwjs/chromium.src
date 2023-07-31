@@ -45,9 +45,6 @@
 #include "cc/base/switches.h"
 #include "cc/trees/browser_controls_params.h"
 #include "cc/trees/render_frame_metadata.h"
-#include "components/power_scheduler/power_mode.h"
-#include "components/power_scheduler/power_mode_arbiter.h"
-#include "components/power_scheduler/power_mode_voter.h"
 #include "components/viz/common/features.h"
 #include "components/viz/host/host_frame_sink_manager.h"
 #include "content/browser/accessibility/browser_accessibility_manager.h"
@@ -453,13 +450,7 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(
           frame_token_message_queue_.get()),
       frame_sink_id_(base::checked_cast<uint32_t>(
                          agent_scheduling_group_->GetProcess()->GetID()),
-                     base::checked_cast<uint32_t>(routing_id_)),
-      power_mode_input_voter_(
-          power_scheduler::PowerModeArbiter::GetInstance()->NewVoter(
-              "PowerModeVoter.Input")),
-      power_mode_loading_voter_(
-          power_scheduler::PowerModeArbiter::GetInstance()->NewVoter(
-              "PowerModeVoter.Loading")) {
+                     base::checked_cast<uint32_t>(routing_id_)) {
   DCHECK(frame_token_message_queue_);
   frame_token_message_queue_->Init(this);
 
@@ -801,9 +792,6 @@ void RenderWidgetHostImpl::ShutdownAndDestroyWidget(bool also_delete) {
 }
 
 void RenderWidgetHostImpl::SetIsLoading(bool is_loading) {
-  power_mode_loading_voter_->VoteFor(is_loading
-                                         ? power_scheduler::PowerMode::kLoading
-                                         : power_scheduler::PowerMode::kIdle);
   if (view_) {
     view_->SetIsLoading(is_loading);
   }
@@ -3220,7 +3208,6 @@ blink::mojom::InputEventResultState RenderWidgetHostImpl::FilterInputEvent(
 void RenderWidgetHostImpl::IncrementInFlightEventCount() {
   ++in_flight_event_count_;
   if (in_flight_event_count_ == 1) {
-    power_mode_input_voter_->VoteFor(power_scheduler::PowerMode::kResponse);
     user_input_active_handle_ = BrowserTaskExecutor::OnUserInputStart();
   }
 
@@ -3240,8 +3227,6 @@ void RenderWidgetHostImpl::DecrementInFlightEventCount(
   if (in_flight_event_count_ <= 0) {
     // Cancel pending hung renderer checks since the renderer is responsive.
     StopInputEventAckTimeout();
-    power_mode_input_voter_->ResetVoteAfterTimeout(
-        power_scheduler::PowerModeVoter::kResponseTimeout);
     user_input_active_handle_.reset();
   } else {
     // Only restart the hang monitor timer if we got a response from the

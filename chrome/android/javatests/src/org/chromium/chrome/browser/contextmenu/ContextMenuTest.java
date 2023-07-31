@@ -906,7 +906,7 @@ public class ContextMenuTest implements DownloadTestRule.CustomMainActivityStart
         ContextMenuParams params = new ContextMenuParams(0, 0, new GURL("http://example.com/"),
                 GURL.emptyGURL(), "", GURL.emptyGURL(), GURL.emptyGURL(), "", null, false, 0, 0,
                 MenuSourceType.MENU_SOURCE_TOUCH, /*getOpenedFromHighlight=*/true,
-                /*impression=*/null);
+                /*additionalNavigationParams=*/null);
         ContextMenuPopulatorFactory populatorFactory = new ChromeContextMenuPopulatorFactory(
                 mItemDelegate,
                 ()
@@ -1066,7 +1066,7 @@ public class ContextMenuTest implements DownloadTestRule.CustomMainActivityStart
 
         // Wait for the download to complete and see if we got the right file
         Assert.assertTrue(mDownloadTestRule.waitForChromeDownloadToFinish(callCount));
-        mDownloadTestRule.checkLastDownload(expectedFilename);
+        Assert.assertTrue(mDownloadTestRule.hasDownloaded(expectedFilename, null));
     }
 
     private String getClipboardText() throws Throwable {

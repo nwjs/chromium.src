@@ -794,6 +794,10 @@ EventMetrics::List CompositorFrameReporter::TakeMainBlockedEventsMetrics() {
   return result;
 }
 
+void CompositorFrameReporter::DidSuccessfullyPresentFrame() {
+  ReportScrollJankMetrics();
+}
+
 void CompositorFrameReporter::TerminateReporter() {
   if (frame_termination_status_ == FrameTerminationStatus::kUnknown)
     TerminateFrame(FrameTerminationStatus::kUnknown, Now());
@@ -855,7 +859,6 @@ void CompositorFrameReporter::TerminateReporter() {
     // Only report event latency metrics if the frame was presented.
     if (TestReportType(FrameReportType::kNonDroppedFrame)) {
       ReportEventLatencyMetrics();
-      ReportScrollJankMetrics();
     }
   }
 
@@ -983,6 +986,50 @@ void CompositorFrameReporter::ReportCompositorLatencyMetrics() const {
                                 report_type);
     }
   }
+
+  // Only report the IPC and Thread latency when we have valid timestamps.
+  if (args_.frame_time.is_null() || args_.dispatch_time.is_null() ||
+      args_.client_arrival_time.is_null()) {
+    return;
+  }
+  // Only report if `frame_time` is earlier than `dispatch_time` to avoid cases
+  // where we are dispatching is advance of the expected frame start.
+  base::TimeDelta vsync_viz_delta;
+  if (args_.dispatch_time > args_.frame_time) {
+    vsync_viz_delta = args_.dispatch_time - args_.frame_time;
+    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+        "CompositorLatency.IpcThread.FrameTimeToDispatch", vsync_viz_delta,
+        kCompositorLatencyHistogramMin, kCompositorLatencyHistogramMax,
+        kCompositorLatencyHistogramBucketCount);
+  }
+  const base::TimeDelta viz_cc_delta =
+      args_.client_arrival_time - args_.dispatch_time;
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "CompositorLatency.IpcThread.DispatchToRenderer", viz_cc_delta,
+      kCompositorLatencyHistogramMin, kCompositorLatencyHistogramMax,
+      kCompositorLatencyHistogramBucketCount);
+
+  // If we don't have Main thread work, report just Impl-thread total latency.
+  if (begin_main_frame_start_.is_null() || blink_start_time_.is_null()) {
+    const base::TimeDelta impl_total_latency = vsync_viz_delta + viz_cc_delta;
+    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+        "CompositorLatency.IpcThread.ImplThreadTotalLatency",
+        impl_total_latency, kCompositorLatencyHistogramMin,
+        kCompositorLatencyHistogramMax, kCompositorLatencyHistogramBucketCount);
+    return;
+  }
+  const base::TimeDelta impl_main_delta =
+      begin_main_frame_start_ - blink_start_time_;
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "CompositorLatency.IpcThread.BeginMainFrameQueuing", impl_main_delta,
+      kCompositorLatencyHistogramMin, kCompositorLatencyHistogramMax,
+      kCompositorLatencyHistogramBucketCount);
+  const base::TimeDelta main_total_latency =
+      vsync_viz_delta + viz_cc_delta + impl_main_delta;
+  UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+      "CompositorLatency.IpcThread.MainThreadTotalLatency", main_total_latency,
+      kCompositorLatencyHistogramMin, kCompositorLatencyHistogramMax,
+      kCompositorLatencyHistogramBucketCount);
 }
 
 void CompositorFrameReporter::ReportStageHistogramWithBreakdown(
@@ -1358,6 +1405,7 @@ void CompositorFrameReporter::ReportScrollJankMetrics() const {
   int32_t normal_input_count = 0;
   float total_predicted_delta = 0;
   bool had_gesture_scrolls = false;
+  bool is_scroll_start = false;
 
   // This handles cases when we have multiple scroll events. Events for dropped
   // frames are reported by the reporter for next presented frame which could
@@ -1381,10 +1429,7 @@ void CompositorFrameReporter::ReportScrollJankMetrics() const {
 
     switch (event->type()) {
       case EventMetrics::EventType::kFirstGestureScrollUpdate:
-        if (global_trackers_.predictor_jank_tracker) {
-          global_trackers_.predictor_jank_tracker
-              ->ResetCurrentScrollReporting();
-        }
+        is_scroll_start = true;
         ABSL_FALLTHROUGH_INTENDED;
       case EventMetrics::EventType::kGestureScrollUpdate:
         normal_input_count += scroll_update->coalesced_event_count();
@@ -1397,16 +1442,24 @@ void CompositorFrameReporter::ReportScrollJankMetrics() const {
     }
   }
 
+  if (!had_gesture_scrolls) {
+    return;
+  }
+  if (is_scroll_start) {
+    if (global_trackers_.predictor_jank_tracker) {
+      global_trackers_.predictor_jank_tracker->ResetCurrentScrollReporting();
+    }
+    if (global_trackers_.scroll_jank_dropped_frame_tracker) {
+      global_trackers_.scroll_jank_dropped_frame_tracker->OnScrollStarted();
+    }
+  }
+
   TRACE_EVENT("input,input.scrolling", "PresentedFrameInformation",
               [events_metrics = std::cref(events_metrics_), fling_input_count,
                normal_input_count](perfetto::EventContext& ctx) {
                 TraceScrollJankMetrics(events_metrics, fling_input_count,
                                        normal_input_count, ctx);
               });
-
-  if (!had_gesture_scrolls) {
-    return;
-  }
 
   const auto end_timestamp = viz_breakdown_.presentation_feedback.timestamp;
   if (global_trackers_.predictor_jank_tracker) {
@@ -1836,6 +1889,7 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
   info.smooth_thread = smooth_thread;
   info.scroll_thread = scrolling_thread;
   info.has_missing_content = has_missing_content_;
+  info.sequence_number = args_.frame_id.sequence_number;
 
   if (frame_skip_reason_.has_value() &&
       frame_skip_reason() == FrameSkippedReason::kNoDamage) {
@@ -1858,15 +1912,7 @@ FrameInfo CompositorFrameReporter::GenerateFrameInfo() const {
     info.main_thread_response = FrameInfo::MainThreadResponse::kIncluded;
   }
 
-  if (!stage_history_.empty()) {
-    const auto& stage = stage_history_.back();
-    if (stage.stage_type == StageType::kTotalLatency) {
-      DCHECK_EQ(frame_termination_time_ - args_.frame_time,
-                stage.end_time - stage.start_time);
-      info.total_latency = frame_termination_time_ - args_.frame_time;
-    }
-  }
-
+  info.termination_time = frame_termination_time_;
   return info;
 }
 

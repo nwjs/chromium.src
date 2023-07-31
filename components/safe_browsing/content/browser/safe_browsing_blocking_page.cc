@@ -10,6 +10,7 @@
 
 #include "base/feature_list.h"
 #include "base/lazy_instance.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer_manager.h"
@@ -67,6 +68,7 @@ SafeBrowsingBlockingPage::SafeBrowsingBlockingPage(
                        display_options),
       threat_details_in_progress_(false),
       threat_source_(unsafe_resources[0].threat_source),
+      is_subresource_(unsafe_resources[0].is_subresource),
       history_service_(history_service),
       navigation_observer_manager_(navigation_observer_manager),
       metrics_collector_(metrics_collector),
@@ -116,11 +118,27 @@ SafeBrowsingBlockingPage::GetTypeForTesting() {
 }
 
 void SafeBrowsingBlockingPage::OnInterstitialClosing() {
+  if (base::FeatureList::IsEnabled(safe_browsing::kAntiPhishingTelemetry)) {
+    interstitial_interactions_ =
+        sb_error_ui()->get_interstitial_interaction_data();
+  }
+
   // If this is a phishing interstitial and the user did not make a decision
   // through the UI, record that interaction in UMA
   if (!sb_error_ui()->did_user_make_decision()) {
     controller()->metrics_helper()->RecordUserInteraction(
         security_interstitials::MetricsHelper::CLOSE_INTERSTITIAL_WITHOUT_UI);
+
+    // If kAntiPhishingTelemetry is enabled, add
+    // CMD_CLOSE_INTERSTITIAL_WITHOUT_UI interaction to interactions.
+    if (base::FeatureList::IsEnabled(safe_browsing::kAntiPhishingTelemetry)) {
+      interstitial_interactions_->insert_or_assign(
+          security_interstitials::SecurityInterstitialCommand::
+              CMD_CLOSE_INTERSTITIAL_WITHOUT_UI,
+          security_interstitials::InterstitialInteractionDetails(
+              1, base::Time::Now().ToJavaTime(),
+              base::Time::Now().ToJavaTime()));
+    }
   }
   // With committed interstitials OnProceed and OnDontProceed don't get
   // called, so call FinishThreatDetails from here.
@@ -141,6 +159,10 @@ void SafeBrowsingBlockingPage::OnInterstitialClosing() {
 void SafeBrowsingBlockingPage::FinishThreatDetails(const base::TimeDelta& delay,
                                                    bool did_proceed,
                                                    int num_visits) {
+  base::UmaHistogramBoolean(
+      "SafeBrowsing.ClientSafeBrowsingReport.HasThreatDetailsAtFinish" +
+          std::string(is_subresource_ ? ".Subresource" : ".Mainframe"),
+      threat_details_in_progress_);
   // Not all interstitials collect threat details (eg., incognito mode).
   if (!threat_details_in_progress_)
     return;
@@ -150,6 +172,10 @@ void SafeBrowsingBlockingPage::FinishThreatDetails(const base::TimeDelta& delay,
 
   // Finish computing threat details. TriggerManager will decide if its safe to
   // send the report.
+  if (base::FeatureList::IsEnabled(safe_browsing::kAntiPhishingTelemetry)) {
+    trigger_manager_->SetInterstitialInteractions(
+        std::move(interstitial_interactions_));
+  }
   bool report_sent = trigger_manager_->FinishCollectingThreatDetails(
       TriggerType::SECURITY_INTERSTITIAL, GetWebContentsKey(web_contents()),
       delay, did_proceed, num_visits,

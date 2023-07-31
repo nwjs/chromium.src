@@ -12,6 +12,7 @@
 #include "components/autofill/core/browser/metrics/payments/iban_metrics.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/single_field_form_filler.h"
+#include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/webdata/common/web_data_service_consumer.h"
 
@@ -40,7 +41,7 @@ class IBANManager : public SingleFieldFormFiller,
 
   // SingleFieldFormFiller overrides:
   [[nodiscard]] bool OnGetSingleFieldSuggestions(
-      AutoselectFirstSuggestion autoselect_first_suggestion,
+      AutofillSuggestionTriggerSource trigger_source,
       const FormFieldData& field,
       const AutofillClient& client,
       base::WeakPtr<SuggestionsHandler> handler,
@@ -51,10 +52,9 @@ class IBANManager : public SingleFieldFormFiller,
   void OnRemoveCurrentSingleFieldSuggestion(
       const std::u16string& field_name,
       const std::u16string& value,
-      Suggestion::FrontendId frontend_id) override {}
-  void OnSingleFieldSuggestionSelected(
-      const std::u16string& value,
-      Suggestion::FrontendId frontend_id) override;
+      PopupItemId popup_item_id) override {}
+  void OnSingleFieldSuggestionSelected(const std::u16string& value,
+                                       PopupItemId popup_item_id) override;
 
   base::WeakPtr<IBANManager> GetWeakPtr();
 

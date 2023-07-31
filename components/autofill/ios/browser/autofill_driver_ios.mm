@@ -71,11 +71,6 @@ bool AutofillDriverIOS::IsInAnyMainFrame() const {
   return frame ? frame->IsMainFrame() : true;
 }
 
-// iOS has no fenced frames.
-bool AutofillDriverIOS::IsInFencedFrameRoot() const {
-  return false;
-}
-
 bool AutofillDriverIOS::IsPrerendering() const {
   return false;
 }
@@ -151,12 +146,12 @@ void AutofillDriverIOS::SetShouldSuppressKeyboard(bool suppress) {
   NOTIMPLEMENTED();
 }
 
-void AutofillDriverIOS::TriggerReparse() {
+void AutofillDriverIOS::TriggerFormExtraction() {
   NOTIMPLEMENTED();  // TODO(crbug.com/1441921) implement.
 }
 
-void AutofillDriverIOS::TriggerReparseInAllFrames(
-    base::OnceCallback<void(bool)> trigger_reparse_finished_callback) {
+void AutofillDriverIOS::TriggerFormExtractionInAllFrames(
+    base::OnceCallback<void(bool)> form_extraction_finished_callback) {
   NOTIMPLEMENTED();
 }
 
@@ -170,6 +165,14 @@ void AutofillDriverIOS::GetFourDigitCombinationsFromDOM(
 void AutofillDriverIOS::RendererShouldClearFilledSection() {}
 
 void AutofillDriverIOS::RendererShouldClearPreviewedForm() {
+}
+
+void AutofillDriverIOS::RendererShouldTriggerSuggestions(
+    const FieldGlobalId& field_id,
+    AutofillSuggestionTriggerSource trigger_source) {
+  // Triggering suggestions from the browser process is currently only used for
+  // manual fallbacks on Desktop. It is not implemented on iOS.
+  NOTIMPLEMENTED();
 }
 
 void AutofillDriverIOS::RendererShouldFillFieldWithValue(

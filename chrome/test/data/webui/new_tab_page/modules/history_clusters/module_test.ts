@@ -218,6 +218,25 @@ suite('NewTabPageModulesHistoryClustersModuleTest', () => {
           await waitForUsageEvent;
         });
 
+    test('Backend is notified when module is disabled', async () => {
+      // Arrange.
+      const sampleClusterLabel = '"Sample Journey"';
+      const sampleCluster = createSampleCluster(
+          undefined, undefined, {label: sampleClusterLabel});
+      const moduleElement = await initializeModule([sampleCluster]);
+      assertTrue(!!moduleElement);
+
+      // Act.
+      const disableButton =
+          moduleElement.shadowRoot!.querySelector('ntp-module-header')!
+              .shadowRoot!.querySelector<HTMLElement>('#disableButton')!;
+      disableButton.click();
+
+      // Assert.
+      const clusterId = await handler.whenCalled('recordDisabled');
+      assertEquals(BigInt(111), clusterId);
+    });
+
     test('Backend is notified when module is dismissed', async () => {
       // Arrange.
       const sampleClusterLabel = '"Sample Journey"';
@@ -238,11 +257,12 @@ suite('NewTabPageModulesHistoryClustersModuleTest', () => {
       const dismissEvent: DismissModuleEvent = await waitForDismissEvent;
       assertEquals(
           `${sampleCluster.label!} hidden`, dismissEvent.detail.message);
-      const visits = await handler.whenCalled('dismissCluster');
+      const [visits, clusterId] = await handler.whenCalled('dismissCluster');
       assertEquals(3, visits.length);
       visits.forEach((visit: URLVisit, index: number) => {
         assertEquals(index, Number(visit.visitId));
       });
+      assertEquals(BigInt(111), clusterId);
     });
   });
 

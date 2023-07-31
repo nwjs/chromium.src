@@ -66,13 +66,22 @@
 }
 
 - (void)start {
+  [super start];
   [self.unifiedConsentMediator start];
 }
 
 - (void)stop {
   [self.identityChooserCoordinator stop];
+  self.identityChooserCoordinator = nil;
   [self.unifiedConsentMediator disconnect];
   self.unifiedConsentMediator = nil;
+  self.unifiedConsentViewController = nil;
+  [super stop];
+}
+
+- (void)dealloc {
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(!self.unifiedConsentMediator);
 }
 
 - (void)scrollToBottom {

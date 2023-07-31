@@ -32,6 +32,7 @@ import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ChromeInactivityTracker;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.ChromeActivity;
+import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.feed.FeedFeatures;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.IntCachedFieldTrialParameter;
@@ -84,8 +85,6 @@ import java.lang.annotation.RetentionPolicy;
  * Chrome for a while.
  */
 public final class ReturnToChromeUtil {
-    private static final String TAG = "TabSwitcherOnReturn";
-
     /**
      * The reasons of failing to show the home surface UI on a NTP.
      *
@@ -124,7 +123,6 @@ public final class ReturnToChromeUtil {
     public static final String FAIL_TO_SHOW_HOME_SURFACE_UI_UMA =
             "NewTabPage.FailToShowHomeSurfaceUI";
 
-    private static final String START_SEGMENTATION_PLATFORM_KEY = "chrome_start_android";
     private static final String START_V2_SEGMENTATION_PLATFORM_KEY = "chrome_start_android_v2";
 
     private static boolean sIsHomepagePolicyManagerInitializedRecorded;
@@ -181,8 +179,10 @@ public final class ReturnToChromeUtil {
                 assert false
                     : String.format("tab %s; control tab %s; back press state %s; layout %s", tab,
                               controlTab, tab != null && tab.canGoBack(), layoutType);
+                if (BackPressManager.correctTabNavigationOnFallback()) {
+                    return BackPressResult.FAILURE;
+                }
             }
-
             mOnBackPressedCallback.run();
             return res ? BackPressResult.SUCCESS : BackPressResult.FAILURE;
         }

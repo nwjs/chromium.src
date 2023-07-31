@@ -157,7 +157,11 @@ FetchManifestAndInstallCommand::FetchManifestAndInstallCommand(
       use_fallback_(use_fallback),
       data_retriever_(std::move(data_retriever)),
       install_error_log_entry_(/*background_installation=*/false,
-                               install_surface_) {}
+                               install_surface_) {
+  debug_log_.Set("visible_url", web_contents_->GetVisibleURL().spec());
+  debug_log_.Set("last_committed_url",
+                 web_contents_->GetLastCommittedURL().spec());
+}
 
 FetchManifestAndInstallCommand::~FetchManifestAndInstallCommand() = default;
 
@@ -260,8 +264,8 @@ void FetchManifestAndInstallCommand::OnGetWebAppInstallInfo(
     Abort(webapps::InstallResultCode::kGetWebAppInstallInfoFailed);
     return;
   }
-
   web_app_info_ = std::move(fallback_web_app_info);
+  CHECK(web_app_info_->manifest_id.is_valid());
   LogInstallInfo();
 
   FetchManifest();

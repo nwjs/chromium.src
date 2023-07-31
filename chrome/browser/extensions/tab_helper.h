@@ -22,6 +22,7 @@
 #include "extensions/browser/extension_function_dispatcher.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_registry_observer.h"
+#include "extensions/browser/permissions_manager.h"
 #include "extensions/browser/script_executor.h"
 #include "extensions/common/extension_id.h"
 #include "extensions/common/stack_frame.h"
@@ -81,7 +82,25 @@ class TabHelper : public content::WebContentsObserver,
   // extension_misc::EXTENSION_ICON_SMALLISH).
   SkBitmap* GetExtensionAppIcon();
 
-  ScriptExecutor* script_executor() { return script_executor_.get(); }
+  // Sets whether the tab will require a page reload for applying
+  // `site_setting`.
+  void SetReloadRequired(PermissionsManager::UserSiteSetting site_setting);
+
+  // Returns whether a page reload is required to apply the user site settings
+  // in the tab.
+  bool IsReloadRequired();
+
+  // Returns whether `extension_id` has dismissed site access requests on this
+  // tab.
+  bool HasExtensionDismissedRequests(const ExtensionId& extension_id);
+
+  // Adds `extension_id` to the set of extensions that cannot show site access
+  // requests on this tab.
+  void DismissExtensionRequests(const ExtensionId& extension_id);
+
+  ScriptExecutor* script_executor() {
+    return script_executor_.get();
+  }
 
   ExtensionActionRunner* extension_action_runner() {
     return extension_action_runner_.get();
@@ -102,6 +121,9 @@ class TabHelper : public content::WebContentsObserver,
   explicit TabHelper(content::WebContents* web_contents);
 
   friend class content::WebContentsUserData<TabHelper>;
+
+  // Removes all the entries in `dismissed_extensions_`.
+  void ClearDismissedExtensions();
 
   // content::WebContentsObserver overrides.
   void RenderFrameCreated(content::RenderFrameHost* host) override;
@@ -160,6 +182,12 @@ class TabHelper : public content::WebContentsObserver,
   declarative_net_request::WebContentsHelper declarative_net_request_helper_;
 
   std::unique_ptr<ActiveTabPermissionGranter> active_tab_permission_granter_;
+
+  // Whether the tab needs a page reload to apply the user site settings.
+  bool reload_required_ = false;
+
+  // Extensions that have dismissed site access requests for this tab's origin.
+  std::set<ExtensionId> dismissed_extensions_;
 
   base::ScopedObservation<ExtensionRegistry, ExtensionRegistryObserver>
       registry_observation_{this};

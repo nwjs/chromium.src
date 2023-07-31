@@ -448,11 +448,8 @@ java_group("android_webview_java") {
 group("empty_group") {
 }
 
-generate_jni("common_jni_headers") {
-  sources = [
-    "java/src/org/chromium/android_webview/common/AwResource.java",
-    "java/src/org/chromium/android_webview/common/crash/AwCrashReporterClient.java",
-  ]
+generate_jni("common_jni") {
+  sources = [ "java/src/org/chromium/android_webview/common/AwResource.java" ]
 }
 
 generate_jni("browser_jni_headers") {
@@ -472,7 +469,6 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/AwDevToolsServer.java",
     "java/src/org/chromium/android_webview/AwFeatureMap.java",
     "java/src/org/chromium/android_webview/AwHttpAuthHandler.java",
-    "java/src/org/chromium/android_webview/AwOriginVerificationSchedulerBridge.java",
     "java/src/org/chromium/android_webview/AwPacProcessor.java",
     "java/src/org/chromium/android_webview/AwPdfExporter.java",
     "java/src/org/chromium/android_webview/AwProxyController.java",
@@ -484,6 +480,7 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/AwWebResourceInterceptResponse.java",
     "java/src/org/chromium/android_webview/JsReplyProxy.java",
     "java/src/org/chromium/android_webview/PopupTouchHandleDrawable.java",
+    "java/src/org/chromium/android_webview/SystemStateUtil.java",
     "java/src/org/chromium/android_webview/WebMessageListenerHolder.java",
     "java/src/org/chromium/android_webview/WebMessageListenerInfo.java",
     "java/src/org/chromium/android_webview/gfx/AwDrawFnImpl.java",
@@ -497,12 +494,6 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/safe_browsing/AwSafeBrowsingSafeModeAction.java",
     "java/src/org/chromium/android_webview/variations/VariationsSeedLoader.java",
   ]
-
-  deps = [ ":cancellation_signal_android_jar_jni_headers" ]
-}
-
-generate_jar_jni("cancellation_signal_android_jar_jni_headers") {
-  classes = [ "android/os/CancellationSignal.class" ]
 }
 
 android_library("browser_java") {
@@ -536,9 +527,6 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/AwKeyboardShortcuts.java",
     "java/src/org/chromium/android_webview/AwLayoutSizer.java",
     "java/src/org/chromium/android_webview/AwNetworkChangeNotifierRegistrationPolicy.java",
-    "java/src/org/chromium/android_webview/AwOriginVerificationScheduler.java",
-    "java/src/org/chromium/android_webview/AwOriginVerificationSchedulerBridge.java",
-    "java/src/org/chromium/android_webview/AwOriginVerifier.java",
     "java/src/org/chromium/android_webview/AwPacProcessor.java",
     "java/src/org/chromium/android_webview/AwPdfExporter.java",
     "java/src/org/chromium/android_webview/AwPrintDocumentAdapter.java",
@@ -554,7 +542,6 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/AwSupportLibIsomorphic.java",
     "java/src/org/chromium/android_webview/AwThreadUtils.java",
     "java/src/org/chromium/android_webview/AwTracingController.java",
-    "java/src/org/chromium/android_webview/AwVerificationResultStore.java",
     "java/src/org/chromium/android_webview/AwViewAndroidDelegate.java",
     "java/src/org/chromium/android_webview/AwViewMethods.java",
     "java/src/org/chromium/android_webview/AwWebContentsDelegate.java",
@@ -585,6 +572,7 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/ScriptHandler.java",
     "java/src/org/chromium/android_webview/ScrollAccessibilityHelper.java",
     "java/src/org/chromium/android_webview/SslUtil.java",
+    "java/src/org/chromium/android_webview/SystemStateUtil.java",
     "java/src/org/chromium/android_webview/ViewPositionObserver.java",
     "java/src/org/chromium/android_webview/WebAddressParser.java",
     "java/src/org/chromium/android_webview/WebMessageListener.java",
@@ -634,7 +622,6 @@ android_library("browser_java") {
     "//components/background_task_scheduler:background_task_scheduler_task_ids_java",
     "//components/component_updater/android:embedded_component_loader_java",
     "//components/content_capture/android:java",
-    "//components/content_relationship_verification/android:java",
     "//components/crash/android:handler_java",
     "//components/crash/android:java",
     "//components/embedder_support/android:util_java",
@@ -657,7 +644,6 @@ android_library("browser_java") {
     "//mojo/public/java:system_java",
     "//mojo/public/java/system:system_impl_java",
     "//net/android:net_java",
-    "//services/data_decoder/public/cpp/android:safe_json_java",
     "//services/network/public/mojom:mojom_java",
     "//services/network/public/mojom:url_loader_base_java",
     "//third_party/android_deps:protobuf_lite_runtime_java",
@@ -668,13 +654,13 @@ android_library("browser_java") {
     "//ui/android:ui_no_recycler_view_java",
     "//url:gurl_java",
   ]
-  annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
 
   if (enable_spellcheck) {
     deps += [ "//components/spellcheck/browser/android:java" ]
   }
 
   srcjar_deps = [
+    ":browser_jni_headers",
     "//android_webview/browser:browser_enums",
     "//components/safe_browsing/core/browser/db:sb_threat_values",
   ]
@@ -724,15 +710,19 @@ android_library("platform_service_bridge_upstream_implementation_java") {
   deps = [ ":common_platform_services_java" ]
 }
 
+generate_jni("crash_client_jni") {
+  sources = [ "java/src/org/chromium/android_webview/common/crash/AwCrashReporterClient.java" ]
+}
+
 android_library("crash_client_java") {
   sources = [ "java/src/org/chromium/android_webview/common/crash/AwCrashReporterClient.java" ]
+  srcjar_deps = [ ":crash_client_jni" ]
 
   deps = [
     "//base:base_java",
     "//base:jni_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
   ]
-  annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
 }
 
 java_cpp_strings("common_java_switches_srcjar") {
@@ -752,7 +742,6 @@ java_cpp_features("common_java_features_srcjar") {
 android_library("common_java") {
   sources = [
     "java/src/org/chromium/android_webview/common/AwResource.java",
-    "java/src/org/chromium/android_webview/common/BadRequestRecorder.java",
     "java/src/org/chromium/android_webview/common/CommandLineUtil.java",
     "java/src/org/chromium/android_webview/common/DeveloperModeUtils.java",
     "java/src/org/chromium/android_webview/common/Flag.java",
@@ -794,6 +783,7 @@ android_library("common_java") {
   srcjar_deps = [
     ":common_java_features_srcjar",
     ":common_java_switches_srcjar",
+    ":common_jni",
   ]
 }
 
@@ -1076,11 +1066,9 @@ grit("generate_components_resources") {
 
   deps = [
     ":concatenate_resources_allowlists",
-    "//components/flags_ui/resources:build_ts",
     "//components/resources:about_credits",
     "//components/resources/ssl/ssl_error_assistant:make_ssl_error_assistant_protobuf",
     "//components/security_interstitials/content/resources:build_ts",
-    "//components/version_ui/resources:build_ts",
   ]
 
   if (safe_browsing_mode != 0) {

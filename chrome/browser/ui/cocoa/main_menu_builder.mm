@@ -22,6 +22,10 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 #include "ui/strings/grit/ui_strings.h"
 
+#if !defined(__has_feature) || !__has_feature(objc_arc)
+#error "This file requires ARC support."
+#endif
+
 #pragma clang diagnostic ignored "-Wunused-function"
 
 namespace chrome {
@@ -29,12 +33,11 @@ namespace {
 
 using Item = internal::MenuItemBuilder;
 
-base::scoped_nsobject<NSMenuItem> BuildAppMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item =
+NSMenuItem* BuildAppMenu(NSApplication* nsapp,
+                         id app_delegate,
+                         const std::u16string& product_name,
+                         bool is_pwa) {
+  NSMenuItem* item =
       // NB: The IDS_APP_MENU_PRODUCT_NAME string is not actually used to
       // determine what is displayed in bold in the menu bar as the app menu
       // title. The Info.plist's CFBundleName value is what is actually used.
@@ -91,20 +94,19 @@ base::scoped_nsobject<NSMenuItem> BuildAppMenu(
           })
           .Build();
 
-  NSMenuItem* services_item = [[item submenu] itemWithTag:-1];
+  NSMenuItem* services_item = [item.submenu itemWithTag:-1];
   [services_item setTag:0];
 
-  [nsapp setServicesMenu:[services_item submenu]];
+  nsapp.servicesMenu = services_item.submenu;
 
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildFileMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item =
+NSMenuItem* BuildFileMenu(NSApplication* nsapp,
+                          id app_delegate,
+                          const std::u16string& product_name,
+                          bool is_pwa) {
+  NSMenuItem* item =
       Item(IDS_FILE_MENU_MAC)
           .tag(IDC_FILE_MENU)
           .submenu({
@@ -145,12 +147,11 @@ base::scoped_nsobject<NSMenuItem> BuildFileMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildEditMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item =
+NSMenuItem* BuildEditMenu(NSApplication* nsapp,
+                          id app_delegate,
+                          const std::u16string& product_name,
+                          bool is_pwa) {
+  NSMenuItem* item =
       Item(IDS_EDIT_MENU_MAC)
           .tag(IDC_EDIT_MENU)
           .submenu({
@@ -248,12 +249,11 @@ base::scoped_nsobject<NSMenuItem> BuildEditMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildViewMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item =
+NSMenuItem* BuildViewMenu(NSApplication* nsapp,
+                          id app_delegate,
+                          const std::u16string& product_name,
+                          bool is_pwa) {
+  NSMenuItem* item =
       Item(IDS_VIEW_MENU_MAC)
           .tag(IDC_VIEW_MENU)
           .submenu({
@@ -315,12 +315,11 @@ base::scoped_nsobject<NSMenuItem> BuildViewMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildHistoryMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item =
+NSMenuItem* BuildHistoryMenu(NSApplication* nsapp,
+                             id app_delegate,
+                             const std::u16string& product_name,
+                             bool is_pwa) {
+  NSMenuItem* item =
       Item(IDS_HISTORY_MENU_MAC)
           .tag(IDC_HISTORY_MENU)
           .submenu({
@@ -353,15 +352,14 @@ base::scoped_nsobject<NSMenuItem> BuildHistoryMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildBookmarksMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
+NSMenuItem* BuildBookmarksMenu(NSApplication* nsapp,
+                               id app_delegate,
+                               const std::u16string& product_name,
+                               bool is_pwa) {
   if (is_pwa)
-    return base::scoped_nsobject<NSMenuItem>();
+    return nil;
 
-  base::scoped_nsobject<NSMenuItem> item =
+  NSMenuItem* item =
       Item(IDS_BOOKMARKS_MENU)
           .tag(IDC_BOOKMARKS_MENU)
           .submenu({
@@ -375,24 +373,22 @@ base::scoped_nsobject<NSMenuItem> BuildBookmarksMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildPeopleMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item = Item(IDS_PROFILES_MENU_NAME)
-                                               .tag(IDC_PROFILE_MAIN_MENU)
-                                               .submenu({})
-                                               .Build();
+NSMenuItem* BuildPeopleMenu(NSApplication* nsapp,
+                            id app_delegate,
+                            const std::u16string& product_name,
+                            bool is_pwa) {
+  NSMenuItem* item = Item(IDS_PROFILES_MENU_NAME)
+                         .tag(IDC_PROFILE_MAIN_MENU)
+                         .submenu({})
+                         .Build();
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildWindowMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
-  base::scoped_nsobject<NSMenuItem> item =
+NSMenuItem* BuildWindowMenu(NSApplication* nsapp,
+                            id app_delegate,
+                            const std::u16string& product_name,
+                            bool is_pwa) {
+  NSMenuItem* item =
       Item(IDS_WINDOW_MENU_MAC)
           .tag(IDC_WINDOW_MENU)
           .submenu({
@@ -430,15 +426,14 @@ base::scoped_nsobject<NSMenuItem> BuildWindowMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildTabMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
+NSMenuItem* BuildTabMenu(NSApplication* nsapp,
+                         id app_delegate,
+                         const std::u16string& product_name,
+                         bool is_pwa) {
   if (is_pwa)
-    return base::scoped_nsobject<NSMenuItem>();
+    return nil;
 
-  base::scoped_nsobject<NSMenuItem> item =
+  NSMenuItem* item =
       Item(IDS_TAB_MENU_MAC)
           .tag(IDC_TAB_MENU)
           .submenu({
@@ -479,15 +474,14 @@ base::scoped_nsobject<NSMenuItem> BuildTabMenu(
   return item;
 }
 
-base::scoped_nsobject<NSMenuItem> BuildHelpMenu(
-    NSApplication* nsapp,
-    id app_delegate,
-    const std::u16string& product_name,
-    bool is_pwa) {
+NSMenuItem* BuildHelpMenu(NSApplication* nsapp,
+                          id app_delegate,
+                          const std::u16string& product_name,
+                          bool is_pwa) {
   if (is_pwa)
-    return base::scoped_nsobject<NSMenuItem>();
+    return nil;
 
-  base::scoped_nsobject<NSMenuItem> item =
+  NSMenuItem* item =
       Item(IDS_HELP_MENU_MAC)
           .submenu({
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -508,16 +502,12 @@ void BuildMainMenu(NSApplication* nsapp,
                    id<NSApplicationDelegate> app_delegate,
                    const std::u16string& product_name,
                    bool is_pwa) {
-  base::scoped_nsobject<NSMenu> main_menu([[NSMenu alloc] initWithTitle:@""]);
-
-  using Builder = base::scoped_nsobject<NSMenuItem> (*)(
-      NSApplication*, id, const std::u16string&, bool);
-  static const Builder kBuilderFuncs[] = {
-      &BuildAppMenu,     /*&BuildFileMenu,*/      &BuildEditMenu,  /* &BuildViewMenu,
-      &BuildHistoryMenu, &BuildBookmarksMenu, &BuildPeopleMenu, &BuildTabMenu,*/
-      &BuildWindowMenu,  /*&BuildHelpMenu,*/
-  };
-  for (auto* builder : kBuilderFuncs) {
+  NSMenu* main_menu = [[NSMenu alloc] initWithTitle:@""];
+  for (auto* builder : {
+           &BuildAppMenu,
+           &BuildEditMenu,
+           &BuildWindowMenu,
+       }) {
     auto item = builder(nsapp, app_delegate, product_name, is_pwa);
     if (item)
       [main_menu addItem:item];
@@ -536,12 +526,12 @@ MenuItemBuilder& MenuItemBuilder::operator=(const MenuItemBuilder&) = default;
 
 MenuItemBuilder::~MenuItemBuilder() = default;
 
-base::scoped_nsobject<NSMenuItem> MenuItemBuilder::Build() const {
+NSMenuItem* MenuItemBuilder::Build() const {
   if (is_removed_)
-    return base::scoped_nsobject<NSMenuItem>();
+    return nil;
 
   if (is_separator_) {
-    base::scoped_nsobject<NSMenuItem> item([[NSMenuItem separatorItem] retain]);
+    NSMenuItem* item = [NSMenuItem separatorItem];
     if (tag_) {
       [item setTag:tag_];
     }
@@ -572,20 +562,19 @@ base::scoped_nsobject<NSMenuItem> MenuItemBuilder::Build() const {
 
   SEL action = !submenu_.has_value() ? action_ : nil;
 
-  base::scoped_nsobject<NSMenuItem> item([[NSMenuItem alloc]
-      initWithTitle:title
-             action:action
-      keyEquivalent:key_equivalent]);
-  [item setTarget:target_];
-  [item setTag:tag_];
-  [item setKeyEquivalentModifierMask:key_equivalent_flags];
-  [item setAlternate:is_alternate_];
-  [item setHidden:is_hidden_];
+  NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:title
+                                                action:action
+                                         keyEquivalent:key_equivalent];
+  item.target = target_;
+  item.tag = tag_;
+  item.keyEquivalentModifierMask = key_equivalent_flags;
+  item.alternate = is_alternate_;
+  item.hidden = is_hidden_;
 
   if (submenu_.has_value()) {
-    base::scoped_nsobject<NSMenu> menu([[NSMenu alloc] initWithTitle:title]);
+    NSMenu* menu = [[NSMenu alloc] initWithTitle:title];
     for (const auto& subitem : submenu_.value()) {
-      base::scoped_nsobject<NSMenuItem> ns_subitem = subitem.Build();
+      NSMenuItem* ns_subitem = subitem.Build();
       if (ns_subitem)
         [menu addItem:ns_subitem];
     }

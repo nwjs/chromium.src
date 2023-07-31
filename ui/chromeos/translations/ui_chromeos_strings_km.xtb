@@ -59,7 +59,6 @@
 <translation id="1499943022354839699">ភាសា​អង់គ្លេស (សហរដ្ឋអាមេរិក) ដែលប្រើ​ក្ដារចុច Dvorak</translation>
 <translation id="1515909359182093592"><ph name="INPUT_LABEL" /> - ម៉ាស៊ីន</translation>
 <translation id="1521655867290435174">Google បញ្ជី</translation>
-<translation id="1538729222189715449">កំពុងបើក​ឯកសារ Linux...</translation>
 <translation id="1547964879613821194">ភាសាអង់គ្លេសកាណាដា</translation>
 <translation id="1556189134700913550">អនុវត្តទៅទាំងអស់</translation>
 <translation id="1561842594491319104">ឧបករណ៍ Chrome</translation>
@@ -333,7 +332,6 @@
 <translation id="3727148787322499904">ការផ្លាស់​ប្តូរការ​កំណត់នេះ​នឹង​ប៉ះពាល់​ដល់​បណ្តាញ​ដែល​បានចែករំលែក​ទាំងអស់</translation>
 <translation id="3737576078404241332">លុបចេញពី​របារចំហៀង</translation>
 <translation id="3749289110408117711">ឈ្មោះឯកសារ</translation>
-<translation id="3780536599611287598">អ្នក​មិនត្រូវបាន​អនុញ្ញាតឱ្យ​ផ្លាស់ទី​ឯកសារ​ទៅ '<ph name="FOLDER_NAME" />' ទេ។</translation>
 <translation id="3786301125658655746">អ្នកនៅក្រៅបណ្តាញ។</translation>
 <translation id="3789841737615482174">តំឡើង</translation>
 <translation id="3793469551756281394">នៅសល់ប្រហែល <ph name="REMAINING_TIME_HOUR" /> <ph name="REMAINING_TIME_MINUTE" /> ទៀត</translation>
@@ -360,6 +358,7 @@
 <translation id="3943857333388298514">បិទភ្ជាប់</translation>
 <translation id="3952872973865944257">សូរសព្ទ​ជាភាសា​តេលូហ្គូ</translation>
 <translation id="3958548648197196644">គីវី</translation>
+<translation id="397105322502079400">កំពុងគណនា...</translation>
 <translation id="3971140002794351170">ទាញយក​កម្រងព័ត៌មាន​ឧបករណ៍​ចល័ត បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="NETWORK_PROVIDER_NAME" /></translation>
 <translation id="3973925058222872294">ភាសា​អង់គ្លេស (ចក្រភព​អង់គ្លេស)</translation>
 <translation id="3975895378829046965">សូរសព្ទជា​ភាសា​បេងហ្គាល់</translation>
@@ -472,7 +471,6 @@
 <translation id="4804827417948292437">ផ្លែបឺរ</translation>
 <translation id="4805966553127040832">កំពុងស្ដារធាតុ <ph name="COUNT" /></translation>
 <translation id="4816695657735045067">{COUNT,plural, =1{ដើម្បីប្រើមុខងារឯកជន ស្ថាប័នរបស់អ្នកតម្រូវឱ្យប្រើកម្មវិធីបន្ថែម}other{ដើម្បីប្រើមុខងារឯកជន ស្ថាប័នរបស់អ្នកតម្រូវឱ្យប្រើកម្មវិធីបន្ថែម​មួយចំនួន}}</translation>
-<translation id="4823651846660089135">ឧបករណ៍គឺសម្រាប់តែអានប៉ុណ្ណោះ</translation>
 <translation id="4826849268470072925">ភាសាតាមិល ITRANS</translation>
 <translation id="482932175346970750">វាយបញ្ចូល <ph name="BEGIN_BOLD" />chrome://extensions<ph name="END_BOLD" /> ទៅក្នុងកម្មវិធីរុករកតាមអ៊ីនធឺណិតរបស់អ្នក</translation>
 <translation id="4843566743023903107">Chromebase</translation>
@@ -681,7 +679,6 @@
 <translation id="6327785803543103246">ការស្វែងរកប្រូកស៊ីបណ្តាញដោយស្វ័យប្រវត្តិ</translation>
 <translation id="6337014272874260727">ដកខ្ទាស់ចេញពីឯកសាររហ័ស</translation>
 <translation id="6339145975392024142">អាមេរិក​អន្តរជាតិ (PC)</translation>
-<translation id="6346310558342052870">បាន​រឹតបន្តឹង​ការ​ចូលប្រើ​</translation>
 <translation id="6356685157277930264">វិនដូមតិកែលម្អ​របស់ឯកសារ</translation>
 <translation id="6358884629796491903">នាគ</translation>
 <translation id="636254897931573416">តម្លៃនៃ​ភាពត្រូវគ្នានៃកន្ទុយដែន​មិនត្រឹមត្រូវ</translation>
@@ -1015,6 +1012,7 @@
 <translation id="8919081441417203123">ភាសាដាណឺម៉ាក</translation>
 <translation id="8949925099261528566">បាន​ភ្ជាប់ ប៉ុន្តែ​គ្មាន​អ៊ីនធឺណិត​</translation>
 <translation id="8965697826696209160">គ្មានចន្លោះផ្ទុកគ្រប់គ្រាន់ទេ។</translation>
+<translation id="8971742885766657349">កំពុង​ធ្វើសមកាលកម្ម - <ph name="PERCENT" />%</translation>
 <translation id="8997962250644902079">ភាសាចិន (អក្សរពេញ) ភីងអ៊ីង</translation>
 <translation id="8998871447376656508">មិនមានទំហំផ្ទុកទំនេរគ្រប់គ្រាន់នៅក្នុង Google ថាសរបស់អ្នក ដើម្បីបញ្ចប់ការបង្ហោះទេ។</translation>
 <translation id="9003940392834790328">បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, កម្លាំងរលកសញ្ញា <ph name="SIGNAL_STRENGTH" />%, គ្រប់គ្រងដោយ​អ្នកគ្រប់គ្រង​របស់អ្នក, ព័ត៌មាន​លម្អិត</translation>

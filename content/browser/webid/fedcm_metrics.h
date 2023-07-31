@@ -166,7 +166,7 @@ class CONTENT_EXPORT FedCmMetrics {
 
   // This enum is used in histograms. Do not remove or modify existing entries.
   // You may add entries at the end, and update |kMaxValue|.
-  enum class NumReturningAccounts {
+  enum class NumAccounts {
     kZero = 0,
     kOne = 1,
     kMultiple = 2,
@@ -224,6 +224,9 @@ void RecordApprovedClientsSize(int size);
 // SignIn status is set to SignedOut due to no accounts received.
 void RecordIdpSignOutNetError(int response_code);
 
+// Records why there's no valid account in the response.
+void RecordAccountsResponseInvalidReason(
+    IdpNetworkRequestManager::AccountsResponseInvalidReason reason);
 }  // namespace content
 
 #endif  // CONTENT_BROWSER_WEBID_FEDCM_METRICS_H_

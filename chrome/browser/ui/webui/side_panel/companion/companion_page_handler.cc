@@ -12,6 +12,8 @@
 #include "chrome/browser/companion/core/promo_handler.h"
 #include "chrome/browser/companion/text_finder/text_finder_manager.h"
 #include "chrome/browser/companion/text_finder/text_highlighter_manager.h"
+#include "chrome/browser/companion/visual_search/features.h"
+#include "chrome/browser/companion/visual_search/visual_search_suggestions_service_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
@@ -30,6 +32,7 @@
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/feature_engagement/public/tracker.h"
 #include "components/lens/buildflags.h"
+#include "components/lens/lens_url_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/unified_consent/pref_names.h"
 #include "components/unified_consent/unified_consent_service.h"
@@ -63,6 +66,13 @@ CompanionPageHandler::CompanionPageHandler(
   identity_manager_observation_.Observe(
       IdentityManagerFactory::GetForProfile(GetProfile()));
   consent_helper_observation_.Observe(consent_helper_.get());
+  if (base::FeatureList::IsEnabled(
+          visual_search::features::kVisualSearchSuggestions)) {
+    visual_search_host_ =
+        std::make_unique<visual_search::VisualSearchClassifierHost>(
+            visual_search::VisualSearchSuggestionsServiceFactory::GetForProfile(
+                GetProfile()));
+  }
 }
 
 CompanionPageHandler::~CompanionPageHandler() {
@@ -136,6 +146,38 @@ void CompanionPageHandler::DidFinishNavigation(
   NotifyURLChanged(/*is_full_reload=*/false);
 }
 
+void CompanionPageHandler::DidFinishLoad(
+    content::RenderFrameHost* render_frame_host,
+    const GURL& validated_url) {
+  // We only want to classify images in the main frame.
+  if (!render_frame_host->IsInPrimaryMainFrame()) {
+    return;
+  }
+
+  // TODO(b/284640445) - Add browser test to verify side effect of feature
+  // on/off, use histogram check to determine whether or not classification was
+  // called.
+  if (visual_search_host_) {
+    visual_search::VisualSearchClassifierHost::ResultCallback callback =
+        base::BindOnce(&CompanionPageHandler::HandleVisualSearchResult,
+                       weak_ptr_factory_.GetWeakPtr());
+    visual_search_host_->StartClassification(render_frame_host, validated_url,
+                                             std::move(callback));
+  }
+}
+
+void CompanionPageHandler::HandleVisualSearchResult(
+    std::vector<std::string> results) {
+  std::vector<side_panel::mojom::VisualSearchResultPtr> final_results;
+  for (const auto& result : results) {
+    final_results.emplace_back(
+        side_panel::mojom::VisualSearchResult::New(result));
+  }
+  if (!final_results.empty()) {
+    page_->OnDeviceVisualClassificationResult(std::move(final_results));
+  }
+}
+
 void CompanionPageHandler::ShowUI() {
   if (auto embedder = companion_untrusted_ui_->embedder()) {
     embedder->ShowUI();
@@ -178,6 +220,14 @@ void CompanionPageHandler::ShowUI() {
     }
 
     NotifyURLChanged(/*is_full_reload=*/true);
+    if (visual_search_host_) {
+      visual_search::VisualSearchClassifierHost::ResultCallback callback =
+          base::BindOnce(&CompanionPageHandler::HandleVisualSearchResult,
+                         weak_ptr_factory_.GetWeakPtr());
+      visual_search_host_->StartClassification(
+          web_contents()->GetPrimaryMainFrame(), web_contents()->GetURL(),
+          std::move(callback));
+    }
   }
 }
 
@@ -214,6 +264,9 @@ void CompanionPageHandler::NotifyURLChanged(bool is_full_reload) {
     reload_start_time_ = base::TimeTicks::Now();
     page_->UpdateCompanionPage(companion_update_proto);
   }
+  if (visual_search_host_) {
+    visual_search_host_->CancelClassification(web_contents()->GetVisibleURL());
+  }
 }
 
 void CompanionPageHandler::NotifyLinkOpened(
@@ -227,6 +280,13 @@ void CompanionPageHandler::OnImageQuery(
   GURL modified_upload_url = url_builder_->AppendCompanionParamsToURL(
       image_query.upload_url, web_contents()->GetVisibleURL(),
       /*text_query=*/"");
+  // Image queries should have the viewport size set in the url params.
+  modified_upload_url = lens::AppendOrReplaceViewportSizeForRequest(
+      modified_upload_url, companion_untrusted_ui_->web_ui()
+                               ->GetWebContents()
+                               ->GetViewBounds()
+                               .size());
+
   image_query.upload_url = modified_upload_url;
   page_->OnImageQuery(image_query.Clone());
 }
@@ -331,6 +391,10 @@ void CompanionPageHandler::OpenUrlInBrowser(
   }
 
   signin_delegate_->OpenUrlInBrowser(url_to_open.value(), use_new_tab);
+}
+
+void CompanionPageHandler::OnNavigationError() {
+  page_->OnNavigationError();
 }
 
 Browser* CompanionPageHandler::GetBrowser() {

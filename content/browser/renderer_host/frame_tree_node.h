@@ -580,7 +580,13 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
       const std::string& event_data,
       const std::vector<blink::FencedFrame::ReportingDestination>& destinations,
       network::AttributionReportingRuntimeFeatures
-          attribution_reporting_runtime_features) override;
+          attribution_reporting_runtime_features,
+      bool once) override;
+
+  // Helper function to clear out automatic beacon data after one automatic
+  // beacon if `once` was set to true when calling
+  // `setReportEventDataForAutomaticBeacons()`.
+  void MaybeResetFencedFrameAutomaticBeaconReportEventData();
 
   // Returns the number of fenced frame boundaries above this frame. The
   // outermost main frame's frame tree has fenced frame depth 0, a topmost
@@ -688,8 +694,6 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
       const std::vector<GURL>& redirects,
       const GURL& original_url,
       std::unique_ptr<CrossOriginEmbedderPolicyReporter> coep_reporter,
-      std::unique_ptr<SubresourceWebBundleNavigationInfo>
-          subresource_web_bundle_navigation_info,
       int http_response_code) override;
   void CancelNavigation() override;
   bool Credentialless() const override;

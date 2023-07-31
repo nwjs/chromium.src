@@ -47,6 +47,9 @@
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/strings/grit/components_locale_settings.h"
+#import "components/supervised_user/core/browser/supervised_user_metrics_service.h"
+#import "components/supervised_user/core/browser/supervised_user_service.h"
+#import "components/supervised_user/core/common/buildflags.h"
 #import "components/sync/base/sync_prefs.h"
 #import "components/sync/service/glue/sync_transport_data_prefs.h"
 #import "components/sync_device_info/device_info_prefs.h"
@@ -75,7 +78,6 @@
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_mediator.h"
 #import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/ui/ntp/new_tab_page_field_trial.h"
-#import "ios/chrome/browser/ui/ntp/synced_segments_field_trial.h"
 #import "ios/chrome/browser/voice/voice_search_prefs_registration.h"
 #import "ios/chrome/browser/web/font_size/font_size_tab_helper.h"
 #import "ios/web/common/features.h"
@@ -147,7 +149,6 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   update_client::RegisterPrefs(registry);
   variations::VariationsService::RegisterPrefs(registry);
   new_tab_page_field_trial::RegisterLocalStatePrefs(registry);
-  synced_segments_field_trial::RegisterLocalStatePrefs(registry);
   component_updater::RegisterComponentUpdateServicePrefs(registry);
   component_updater::AutofillStatesComponentInstallerPolicy::RegisterPrefs(
       registry);
@@ -220,7 +221,11 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   // animation should perform. Defaults to 2, which is the maximum number of
   // times a user should see autofill branding animation after installation.
   registry->RegisterIntegerPref(
-      prefs::kAutofillBrandingIconAnimationRemainingCountPrefName, 2);
+      prefs::kAutofillBrandingIconAnimationRemainingCount, 2);
+  // Register other autofill branding prefs.
+  registry->RegisterIntegerPref(prefs::kAutofillBrandingIconDisplayCount, 0);
+  registry->RegisterBooleanPref(
+      prefs::kAutofillBrandingKeyboardAccessoriesTapped, false);
 
   registry->RegisterDictionaryPref(kLocalConsentsDictionary);
 
@@ -274,6 +279,10 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
       registry);
   segmentation_platform::DeviceSwitcherResultDispatcher::RegisterProfilePrefs(
       registry);
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+  supervised_user::SupervisedUserService::RegisterProfilePrefs(registry);
+  supervised_user::SupervisedUserMetricsService::RegisterProfilePrefs(registry);
+#endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
   sync_sessions::SessionSyncPrefs::RegisterProfilePrefs(registry);
   syncer::DeviceInfoPrefs::RegisterProfilePrefs(registry);
   syncer::SyncPrefs::RegisterProfilePrefs(registry);
@@ -292,6 +301,8 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
   [SigninPromoViewMediator registerBrowserStatePrefs:registry];
 
   registry->RegisterBooleanPref(prefs::kBottomOmnibox, true);
+  registry->RegisterBooleanPref(policy::policy_prefs::kPolicyTestPageEnabled,
+                                true);
   registry->RegisterBooleanPref(kDataSaverEnabled, false);
   registry->RegisterBooleanPref(
       prefs::kEnableDoNotTrack, false,
@@ -379,7 +390,12 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
   registry->RegisterDictionaryPref(kPrefPromoObject);
 
   // Register pref storing whether Web Inspector support is enabled.
+#if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
+  // Enable it by default on debug builds
+  registry->RegisterBooleanPref(prefs::kWebInspectorEnabled, true);
+#else
   registry->RegisterBooleanPref(prefs::kWebInspectorEnabled, false);
+#endif
 
   // Register prerender network prediction preferences.
   registry->RegisterIntegerPref(
@@ -397,6 +413,9 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
 
   // Register pref used to determine if Browser Lockdown Mode is enabled.
   registry->RegisterBooleanPref(prefs::kBrowserLockdownModeEnabled, false);
+
+  // Register pref used to determine if OS Lockdown Mode is enabled.
+  registry->RegisterBooleanPref(prefs::kOSLockdownModeEnabled, false);
 
   ntp_snippets::prefs::RegisterProfilePrefsForMigrationApril2023(registry);
 
@@ -453,9 +472,6 @@ void MigrateObsoleteBrowserStatePrefs(PrefService* prefs) {
 
   // Added 09/2022
   prefs->ClearPref(kPrefPromoObject);
-
-  // Added 06/2022.
-  syncer::SyncPrefs::MigrateSyncRequestedPrefPostMice(prefs);
 
   // Added 09/2022
   prefs->ClearPref(kDataSaverEnabled);

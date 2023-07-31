@@ -88,9 +88,6 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
     private final ContextMenuParams mParams;
     private @Nullable UkmRecorder.Bridge mUkmRecorderBridge;
     private ContextMenuNativeDelegate mNativeDelegate;
-    private static final String LENS_SEARCH_MENU_ITEM_KEY = "searchWithGoogleLensMenuItem";
-    private static final String LENS_SHOP_MENU_ITEM_KEY = "shopWithGoogleLensMenuItem";
-    private static final String SEARCH_BY_IMAGE_MENU_ITEM_KEY = "searchByImageMenuItem";
     private static final String LENS_SUPPORT_STATUS_HISTOGRAM_NAME =
             "ContextMenu.LensSupportStatus";
 
@@ -460,7 +457,7 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         if (itemId == R.id.contextmenu_open_in_new_tab) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IN_NEW_TAB);
             mItemDelegate.onOpenInNewTab(mParams.getUrl(), mParams.getReferrer(),
-                    /*navigateToTab=*/false, mParams.getImpression());
+                    /*navigateToTab=*/false, mParams.getAdditionalNavigationParams());
         } else if (itemId == R.id.contextmenu_open_in_new_tab_in_group) {
             recordContextMenuSelection(ContextMenuUma.Action.OPEN_IN_NEW_TAB_IN_GROUP);
             mItemDelegate.onOpenInNewTabInGroup(mParams.getUrl(), mParams.getReferrer());
@@ -617,7 +614,8 @@ public class ChromeContextMenuPopulator implements ContextMenuPopulator {
         } else if (itemId == R.id.contextmenu_learn_more) {
             recordContextMenuSelection(ContextMenuUma.Action.LEARN_MORE);
             mItemDelegate.onOpenInNewTab(new GURL(LinkToTextHelper.SHARED_HIGHLIGHTING_SUPPORT_URL),
-                    mParams.getReferrer(), /*navigateToTab=*/true, /*attributionSrcToken*/ null);
+                    mParams.getReferrer(), /*navigateToTab=*/true,
+                    /*additionalNavigationParams=*/null);
         } else {
             assert false;
         }

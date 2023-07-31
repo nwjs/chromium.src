@@ -7,6 +7,7 @@ import("//build/config/android/rules.gni")
 import("//chrome/browser/buildflags.gni")
 
 android_library("java") {
+  srcjar_deps = [ ":jni_headers" ]
   sources = [
     "java/src/org/chromium/chrome/browser/omnibox/AutocompleteEditText.java",
     "java/src/org/chromium/chrome/browser/omnibox/AutocompleteEditTextModelBase.java",
@@ -220,7 +221,7 @@ android_library("java") {
     "//ui/base/mojom:mojom_java",
     "//url:gurl_java",
   ]
-  annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
+
   resources_package = "org.chromium.chrome.browser.omnibox"
 }
 
@@ -372,6 +373,7 @@ android_library("unit_device_javatests") {
     ":java_resources",
     "//base:base_java_test_support",
     "//chrome/android:chrome_app_java_resources",
+    "//chrome/browser/flags:java",
     "//chrome/browser/ui/android/toolbar:java",
     "//chrome/test/android:chrome_java_test_support_common",
     "//components/browser_ui/site_settings/android:java",
@@ -451,6 +453,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/omnibox/suggestions/header/HeaderViewBinderUnitTest.java",
     "java/src/org/chromium/chrome/browser/omnibox/suggestions/mostvisited/MostVisitedTilesProcessorUnitTest.java",
     "java/src/org/chromium/chrome/browser/omnibox/suggestions/tail/AlignmentManagerUnitTest.java",
+    "java/src/org/chromium/chrome/browser/omnibox/suggestions/tail/TailSuggestionProcessorUnitTest.java",
     "java/src/org/chromium/chrome/browser/omnibox/suggestions/tail/TailSuggestionViewBinderUnitTest.java",
     "java/src/org/chromium/chrome/browser/omnibox/voice/RecognitionTestHelper.java",
     "java/src/org/chromium/chrome/browser/omnibox/voice/VoiceRecognitionHandlerUnitTest.java",
@@ -527,6 +530,5 @@ robolectric_library("junit") {
     "//url:gurl_junit_shadows",
     "//url:gurl_junit_test_support",
   ]
-  annotation_processor_deps = [ "//base/android/jni_generator:jni_processor" ]
   resources_package = "org.chromium.chrome.browser.omnibox.test"
 }

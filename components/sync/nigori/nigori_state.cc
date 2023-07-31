@@ -10,6 +10,7 @@
 #include "base/notreached.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/time.h"
+#include "components/sync/engine/nigori/cross_user_sharing_public_key.h"
 #include "components/sync/engine/nigori/key_derivation_params.h"
 #include "components/sync/engine/sync_encryption_handler.h"
 #include "components/sync/nigori/cryptographer_impl.h"
@@ -103,6 +104,23 @@ void UpdateSpecificsFromKeyDerivationParams(
   }
 }
 
+absl::optional<CrossUserSharingPublicKey> PublicKeyFromProto(
+    const sync_pb::CrossUserSharingPublicKey& public_key) {
+  std::vector<uint8_t> key(public_key.x25519_public_key().begin(),
+                           public_key.x25519_public_key().end());
+  return CrossUserSharingPublicKey::CreateByImport(key);
+}
+
+sync_pb::CrossUserSharingPublicKey PublicKeyToProto(
+    const CrossUserSharingPublicKey& public_key,
+    uint32_t key_pair_version) {
+  sync_pb::CrossUserSharingPublicKey output;
+  const auto key = public_key.GetRawPublicKey();
+  output.set_x25519_public_key(std::string(key.begin(), key.end()));
+  output.set_version(key_pair_version);
+  return output;
+}
+
 }  // namespace
 
 // static
@@ -154,6 +172,12 @@ NigoriState NigoriState::CreateFromLocalProto(
 
   state.trusted_vault_debug_info = proto.trusted_vault_debug_info();
 
+  if (proto.has_cross_user_sharing_public_key()) {
+    state.cross_user_sharing_public_key =
+        PublicKeyFromProto(proto.cross_user_sharing_public_key());
+    state.cross_user_sharing_key_pair_version =
+        proto.cross_user_sharing_public_key().version();
+  }
   return state;
 }
 
@@ -217,6 +241,12 @@ sync_pb::NigoriModel NigoriState::ToLocalProto() const {
         *last_default_trusted_vault_key_name);
   }
   *proto.mutable_trusted_vault_debug_info() = trusted_vault_debug_info;
+  if (cross_user_sharing_public_key.has_value() &&
+      cross_user_sharing_key_pair_version.has_value()) {
+    *proto.mutable_cross_user_sharing_public_key() =
+        PublicKeyToProto(cross_user_sharing_public_key.value(),
+                         cross_user_sharing_key_pair_version.value());
+  }
   return proto;
 }
 
@@ -266,6 +296,14 @@ sync_pb::NigoriSpecifics NigoriState::ToSpecificsProto() const {
         TimeToProtoTime(custom_passphrase_time));
   }
   *specifics.mutable_trusted_vault_debug_info() = trusted_vault_debug_info;
+
+  if (cross_user_sharing_public_key.has_value() &&
+      cross_user_sharing_key_pair_version.has_value()) {
+    *specifics.mutable_cross_user_sharing_public_key() =
+        PublicKeyToProto(cross_user_sharing_public_key.value(),
+                         cross_user_sharing_key_pair_version.value());
+  }
+
   return specifics;
 }
 
@@ -284,6 +322,12 @@ NigoriState NigoriState::Clone() const {
   result.last_default_trusted_vault_key_name =
       last_default_trusted_vault_key_name;
   result.trusted_vault_debug_info = trusted_vault_debug_info;
+  if (cross_user_sharing_public_key.has_value()) {
+    result.cross_user_sharing_public_key =
+        cross_user_sharing_public_key->Clone();
+  }
+  result.cross_user_sharing_key_pair_version =
+      cross_user_sharing_key_pair_version;
   return result;
 }
 

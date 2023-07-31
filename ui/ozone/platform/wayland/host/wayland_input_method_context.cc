@@ -92,6 +92,26 @@ bool IsImeEnabled() {
   return false;
 }
 
+// Whether the input method requires fixes for b/268467697
+// (kWaylandCancelComposition and kWaylandKeepSelectionFix). If so, then we need
+// to keep the fixes enabled for b/268467697 in Lacros even if the flag for the
+// fixes are disabled. This avoids breakages due to version skew between Ash and
+// Lacros. Only ever true for Lacros.
+bool ImeRequiresFixesFor268467697() {
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  // On Lacros chrome, we check whether ash-chrome supports IME, then
+  // enable IME if so. This allows us to control IME enabling state in
+  // Lacros-chrome side, which helps us on releasing.
+  // TODO(crbug.com/1159237): In the future, we may want to unify the behavior
+  // of ozone/wayland across platforms.
+  auto capabilities = chromeos::BrowserParamsProxy::Get()->AshCapabilities();
+  if (capabilities && base::Contains(*capabilities, "b/265853952")) {
+    return true;
+  }
+#endif
+  return false;
+}
+
 // Returns ImeTextSpan style to be assigned. Maybe nullopt if it is not
 // supported.
 absl::optional<std::pair<ImeTextSpan::Type, ImeTextSpan::Thickness>>
@@ -313,7 +333,8 @@ void WaylandInputMethodContext::UpdatePreeditText(
 
 void WaylandInputMethodContext::Reset() {
   character_composer_.Reset();
-  if (base::FeatureList::IsEnabled(features::kWaylandCancelComposition)) {
+  if (base::FeatureList::IsEnabled(features::kWaylandCancelComposition) ||
+      ImeRequiresFixesFor268467697()) {
     // TODO(b/269964109): In ChromeOS, 'reset' means to reset the composition
     // only, excluding surrounding text etc. In Wayland, text-input-v1 doesn't
     // define what state is reset in a 'reset' call. However, based on the
@@ -338,9 +359,12 @@ void WaylandInputMethodContext::WillUpdateFocus(TextInputClient* old_client,
 void WaylandInputMethodContext::UpdateFocus(
     bool has_client,
     TextInputType old_type,
-    TextInputType new_type,
+    const TextInputClientAttributes& new_client_attributes,
     TextInputClient::FocusReason reason) {
+  attributes_ = new_client_attributes;
+
   // This prevents unnecessarily hiding/showing the virtual keyboard.
+  TextInputType new_type = new_client_attributes.input_type;
   bool skip_vk_update =
       old_type != TEXT_INPUT_TYPE_NONE && new_type != TEXT_INPUT_TYPE_NONE;
 
@@ -412,7 +436,7 @@ void WaylandInputMethodContext::SetSurroundingText(
       static_cast<uint32_t>(offsets_for_adjustment[1])};
 
   auto trimmed =
-      text_input_->HasOffsetSupport()
+      text_input_->HasAdvancedSurroundingTextSupport()
           ? TrimSurroundingTextForExtension(text_utf8, offsets_for_adjustment)
           : TrimSurroundingTextForStandard(text_utf8, selection_range_utf8);
   if (!trimmed.has_value()) {
@@ -447,7 +471,7 @@ void WaylandInputMethodContext::SetSurroundingText(
     // as surrounding text changes may trigger the IME to ask for the
     // autocorrect information.
     gfx::Range autocorrect_range = autocorrect->range;
-    if (text_input_->HasOffsetSupport()) {
+    if (text_input_->HasAdvancedSurroundingTextSupport()) {
       // The old implementation sent the original UTF-16 range as is, and
       // the compositor also assumed it.
       autocorrect_range =
@@ -465,17 +489,6 @@ void WaylandInputMethodContext::SetSurroundingText(
       selection_range_utf8.start() - surrounding_text_offset_,
       selection_range_utf8.end() - surrounding_text_offset_);
   text_input_->SetSurroundingText(text_utf8, relocated_selection_range);
-}
-
-void WaylandInputMethodContext::SetContentType(TextInputType type,
-                                               TextInputMode mode,
-                                               uint32_t flags,
-                                               bool should_do_learning,
-                                               bool can_compose_inline) {
-  if (!text_input_)
-    return;
-  text_input_->SetContentType(type, mode, flags, should_do_learning,
-                              can_compose_inline);
 }
 
 VirtualKeyboardController*
@@ -598,7 +611,8 @@ void WaylandInputMethodContext::OnCursorPosition(int32_t index,
   }
 
   const gfx::Range new_selection_range =
-      base::FeatureList::IsEnabled(features::kWaylandKeepSelectionFix)
+      base::FeatureList::IsEnabled(features::kWaylandKeepSelectionFix) ||
+              ImeRequiresFixesFor268467697()
           ? gfx::Range(offsets[1] + utf16_offset, offsets[0] + utf16_offset)
           : gfx::Range(offsets[0] + utf16_offset, offsets[1] + utf16_offset);
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -844,6 +858,11 @@ void WaylandInputMethodContext::OnSetVirtualKeyboardOccludedBounds(
     past_clients_.clear();
 }
 
+void WaylandInputMethodContext::OnConfirmPreedit(bool keep_selection) {
+  surrounding_text_tracker_.OnConfirmCompositionText(keep_selection);
+  ime_delegate_->OnConfirmCompositionText(keep_selection);
+}
+
 void WaylandInputMethodContext::OnInputPanelState(uint32_t state) {
   virtual_keyboard_visible_ = (state & 1) != 0;
   // Note: Currently there's no support of VirtualKeyboardControllerObserver.
@@ -883,6 +902,9 @@ void WaylandInputMethodContext::MaybeUpdateActivated(
   activated_ = activated;
   if (activated) {
     text_input_->Activate(window, reason);
+    text_input_->SetContentType(
+        attributes_.input_type, attributes_.input_mode, attributes_.flags,
+        attributes_.should_do_learning, attributes_.can_compose_inline);
     if (!skip_virtual_keyboard_update)
       DisplayVirtualKeyboard();
   } else {

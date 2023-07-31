@@ -48,7 +48,6 @@ class AutofillDriverIOS : public AutofillDriver,
   absl::optional<LocalFrameToken> Resolve(FrameToken query) override;
   bool IsInActiveFrame() const override;
   bool IsInAnyMainFrame() const override;
-  bool IsInFencedFrameRoot() const override;
   bool IsPrerendering() const override;
   bool HasSharedAutofillPermission() const override;
   bool CanShowAutofillUi() const override;
@@ -65,15 +64,18 @@ class AutofillDriverIOS : public AutofillDriver,
       const std::vector<FormStructure*>& forms) override;
   void RendererShouldClearFilledSection() override;
   void RendererShouldClearPreviewedForm() override;
+  void RendererShouldTriggerSuggestions(
+      const FieldGlobalId& field_id,
+      AutofillSuggestionTriggerSource trigger_source) override;
   void RendererShouldAcceptDataListSuggestion(
       const FieldGlobalId& field,
       const std::u16string& value) override;
   void SendFieldsEligibleForManualFillingToRenderer(
       const std::vector<FieldGlobalId>& fields) override;
   void SetShouldSuppressKeyboard(bool suppress) override;
-  void TriggerReparse() override;
-  void TriggerReparseInAllFrames(
-      base::OnceCallback<void(bool)> trigger_reparse_finished_callback)
+  void TriggerFormExtraction() override;
+  void TriggerFormExtractionInAllFrames(
+      base::OnceCallback<void(bool)> form_extraction_finished_callback)
       override;
   void GetFourDigitCombinationsFromDOM(
       base::OnceCallback<void(const std::vector<std::string>&)>

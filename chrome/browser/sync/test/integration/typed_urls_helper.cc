@@ -166,7 +166,8 @@ class GetAnnotatedVisitsTask : public history::HistoryDBTask {
     // Fetch the visits.
     history::VisitVector basic_visits;
     backend->GetVisitsForURL(id_, &basic_visits);
-    *annotated_visits_ = backend->ToAnnotatedVisits(basic_visits);
+    *annotated_visits_ = backend->ToAnnotatedVisits(
+        basic_visits, /*compute_redirect_chain_start_properties=*/false);
     wait_event_->Signal();
     return true;
   }
@@ -215,7 +216,7 @@ class RemoveVisitsTask : public history::HistoryDBTask {
   bool RunOnDBThread(history::HistoryBackend* backend,
                      history::HistoryDatabase* db) override {
     // Fetch the visits.
-    backend->RemoveVisits(*visits_);
+    backend->RemoveVisits(*visits_, history::DeletionInfo::Reason::kOther);
     wait_event_->Signal();
     return true;
   }

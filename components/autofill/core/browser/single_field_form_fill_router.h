@@ -46,7 +46,7 @@ class SingleFieldFormFillRouter : public SingleFieldFormFiller {
 
   // SingleFieldFormFiller overrides:
   [[nodiscard]] bool OnGetSingleFieldSuggestions(
-      AutoselectFirstSuggestion autoselect_first_suggestion,
+      AutofillSuggestionTriggerSource trigger_source,
       const FormFieldData& field,
       const AutofillClient& client,
       base::WeakPtr<SingleFieldFormFiller::SuggestionsHandler> handler,
@@ -55,13 +55,11 @@ class SingleFieldFormFillRouter : public SingleFieldFormFiller {
                                   bool is_autocomplete_enabled) override;
   void CancelPendingQueries(
       const SingleFieldFormFiller::SuggestionsHandler* handler) override;
-  void OnRemoveCurrentSingleFieldSuggestion(
-      const std::u16string& field_name,
-      const std::u16string& value,
-      Suggestion::FrontendId frontend_id) override;
-  void OnSingleFieldSuggestionSelected(
-      const std::u16string& value,
-      Suggestion::FrontendId frontend_id) override;
+  void OnRemoveCurrentSingleFieldSuggestion(const std::u16string& field_name,
+                                            const std::u16string& value,
+                                            PopupItemId popup_item_id) override;
+  void OnSingleFieldSuggestionSelected(const std::u16string& value,
+                                       PopupItemId popup_item_id) override;
 
  private:
   // Handles autocompleting single fields.

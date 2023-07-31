@@ -19,7 +19,6 @@
 #include "base/time/time.h"
 #include "cc/trees/layer_tree_frame_sink.h"
 #include "cc/trees/managed_memory_policy.h"
-#include "components/power_scheduler/power_mode_voter.h"
 #include "components/viz/common/display/renderer_settings.h"
 #include "components/viz/common/frame_sinks/begin_frame_source.h"
 #include "components/viz/common/frame_timing_details_map.h"
@@ -42,10 +41,10 @@ class SkCanvas;
 namespace viz {
 class BeginFrameSource;
 class CompositorFrameSinkSupport;
-class ContextProvider;
 class Display;
 class FrameSinkManagerImpl;
 class ParentLocalSurfaceIdAllocator;
+class RasterContextProvider;
 }  // namespace viz
 
 namespace blink {
@@ -82,7 +81,7 @@ class SynchronousLayerTreeFrameSink
       public viz::ExternalBeginFrameSourceClient {
  public:
   SynchronousLayerTreeFrameSink(
-      scoped_refptr<viz::ContextProvider> context_provider,
+      scoped_refptr<viz::RasterContextProvider> context_provider,
       scoped_refptr<cc::RasterContextProviderWrapper>
           worker_context_provider_wrapper,
       scoped_refptr<base::SingleThreadTaskRunner> compositor_task_runner,
@@ -236,13 +235,6 @@ class SynchronousLayerTreeFrameSink
   bool begin_frames_paused_ = false;
   bool needs_begin_frames_ = false;
   const bool use_zero_copy_sw_draw_;
-
-  // Marks the beginning of the period between BeginFrame() and
-  // SubmitCompositorFrame(). Used for detecting no-op animations when this time
-  // period exceeds a given timeout.
-  base::TimeTicks nop_animation_timeout_start_;
-
-  power_scheduler::FrameProductionPowerModeVoter power_mode_voter_;
 };
 
 }  // namespace blink

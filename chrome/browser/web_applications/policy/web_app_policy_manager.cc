@@ -111,8 +111,8 @@ const char WebAppPolicyManager::kInstallResultHistogramName[];
 WebAppPolicyManager::WebAppPolicyManager(Profile* profile)
     : profile_(profile),
       pref_service_(profile_->GetPrefs()),
-      default_settings_(std::make_unique<WebAppPolicyManager::WebAppSetting>()),
-      externally_installed_app_prefs_(profile_->GetPrefs()) {}
+      default_settings_(
+          std::make_unique<WebAppPolicyManager::WebAppSetting>()) {}
 
 WebAppPolicyManager::~WebAppPolicyManager() = default;
 
@@ -665,6 +665,10 @@ bool WebAppPolicyManager::IsPreventCloseEnabled(const AppId& app_id) const {
 #else
   return false;
 #endif  // BUILDFLAG(IS_CHROMEOS)
+}
+
+void WebAppPolicyManager::RefreshPolicyInstalledAppsForTesting() {
+  RefreshPolicyInstalledApps();
 }
 
 void WebAppPolicyManager::OnAppsSynchronized(

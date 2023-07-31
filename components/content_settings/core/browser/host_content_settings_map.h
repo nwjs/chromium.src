@@ -117,12 +117,15 @@ class HostContentSettingsMap : public content_settings::Observer,
   // that certain internal schemes are allowlisted. For |CONTENT_TYPE_COOKIES|,
   // |CookieSettings| should be used instead. For content types that can't be
   // converted to a |ContentSetting|, |GetContentSettingValue| should be called.
-  // If there is no content setting, returns CONTENT_SETTING_DEFAULT.
+  // If there is no content setting, returns CONTENT_SETTING_DEFAULT. |info| is
+  // populated as explained in |GetWebsiteSetting()|.
   //
   // May be called on any thread.
-  ContentSetting GetContentSetting(const GURL& primary_url,
-                                   const GURL& secondary_url,
-                                   ContentSettingsType content_type) const;
+  ContentSetting GetContentSetting(
+      const GURL& primary_url,
+      const GURL& secondary_url,
+      ContentSettingsType content_type,
+      content_settings::SettingInfo* info = nullptr) const;
 
   // This is the same as GetContentSetting() but ignores providers which are not
   // user-controllable (e.g. policy and extensions).
@@ -288,6 +291,12 @@ class HostContentSettingsMap : public content_settings::Observer,
       base::Time begin_time,
       base::Time end_time,
       PatternSourcePredicate pattern_predicate);
+
+  // Clears all host-specific settings for one content type which also satisfy a
+  // predicate.
+  void ClearSettingsForOneTypeWithPredicate(
+      ContentSettingsType content_type,
+      base::FunctionRef<bool(const ContentSettingPatternSource&)> predicate);
 
   // RefcountedKeyedService implementation.
   void ShutdownOnUIThread() override;
@@ -463,7 +472,8 @@ class HostContentSettingsMap : public content_settings::Observer,
       user_modifiable_providers_;
 
   // content_settings_providers_[PREF_PROVIDER] but specialized.
-  raw_ptr<content_settings::PrefProvider> pref_provider_ = nullptr;
+  raw_ptr<content_settings::PrefProvider, DanglingUntriaged> pref_provider_ =
+      nullptr;
 
   base::ThreadChecker thread_checker_;
 

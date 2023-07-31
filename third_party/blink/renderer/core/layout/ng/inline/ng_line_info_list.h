@@ -10,26 +10,32 @@
 
 namespace blink {
 
+//
 // A `Vector` or `Deque`-like class for `NGLineInfo`, with a fixed maximum
-// capacity `kCapacity`.
+// capacity.
+//
+// Use `NGLineInfoListOf` to instantiate. Algorithms can use this class to
+// handle different capacities.
+//
 class NGLineInfoList {
   STACK_ALLOCATED();
 
  public:
   wtf_size_t Size() const { return size_; }
   bool IsEmpty() const { return !size_; }
+  wtf_size_t MaxLines() const { return max_lines_; }
 
   // Out-of-bounds `index` will hit `DCHECK` and returns the value at `index %
-  // kCapacity`.
+  // max_lines_`.
   NGLineInfo& operator[](wtf_size_t index) {
     DCHECK_LT(index, Size());
-    return line_infos_[(start_index_ + index) % kCapacity];
+    return line_infos_[(start_index_ + index) % max_lines_];
   }
   // Out-of-bounds `index` will hit `DCHECK` and returns the value at `index %
-  // kCapacity`.
+  // max_lines_`.
   const NGLineInfo& operator[](wtf_size_t index) const {
     DCHECK_LT(index, Size());
-    return line_infos_[(start_index_ + index) % kCapacity];
+    return line_infos_[(start_index_ + index) % max_lines_];
   }
   // If empty, this will hit `DCHECK`.
   NGLineInfo& Front() { return (*this)[0]; }
@@ -47,9 +53,15 @@ class NGLineInfoList {
   void Clear() { size_ = start_index_ = 0; }
 
   NGLineInfo& Append() {
-    DCHECK_LT(size_, kCapacity);
+    DCHECK_LT(size_, max_lines_);
     ++size_;
     return Back();
+  }
+
+  void RemoveFront() {
+    DCHECK_GT(size_, 0u);
+    --size_;
+    start_index_ = (start_index_ + 1) % max_lines_;
   }
 
   // Get the cached `NGLineInfo` for the `break_token`, remove it from this
@@ -58,22 +70,22 @@ class NGLineInfoList {
   // instance. Callsites are expected to call `NGLineInfo::Reset()`.
   NGLineInfo& Get(const NGInlineBreakToken* break_token, bool& is_cached_out);
 
-  static constexpr wtf_size_t kCapacity = 4;
+ protected:
+  NGLineInfoList(NGLineInfo* line_infos_instance, wtf_size_t max_lines)
+      : max_lines_(max_lines) {
+    CHECK_EQ(line_infos_instance, line_infos_);
+  }
 
  private:
   NGLineInfo& UnusedInstance() {
     DCHECK(IsEmpty());
     return line_infos_[0];
   }
-  void RemoveFront() {
-    DCHECK_GT(size_, 0u);
-    --size_;
-    start_index_ = (start_index_ + 1) % kCapacity;
-  }
 
   wtf_size_t size_ = 0;
   wtf_size_t start_index_ = 0;
-  NGLineInfo line_infos_[kCapacity];
+  const wtf_size_t max_lines_;
+  NGLineInfo line_infos_[0];
 };
 
 inline NGLineInfo& NGLineInfoList::Get(const NGInlineBreakToken* break_token,
@@ -94,6 +106,18 @@ inline NGLineInfo& NGLineInfoList::Get(const NGInlineBreakToken* break_token,
   Clear();
   return UnusedInstance();
 }
+
+//
+// Instantiate `NGLineInfo` with the given `capacity`.
+//
+template <wtf_size_t max_lines>
+class NGLineInfoListOf : public NGLineInfoList {
+ public:
+  NGLineInfoListOf() : NGLineInfoList(line_infos_instance_, max_lines) {}
+
+ private:
+  NGLineInfo line_infos_instance_[max_lines];
+};
 
 }  // namespace blink
 

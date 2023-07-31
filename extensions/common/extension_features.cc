@@ -19,7 +19,7 @@ BASE_FEATURE(kApiRuntimeGetContexts,
 // Controls the availability of the sidePanel.open() API.
 BASE_FEATURE(kApiSidePanelOpen,
              "ApiSidePanelOpen",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Other Features
@@ -173,6 +173,13 @@ BASE_FEATURE(kTelemetryExtensionPendingApprovalApi,
 // for details.
 BASE_FEATURE(kWebviewTagMPArchBehavior,
              "WebviewTagMPArchBehavior",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, extensions installed from .zip files (from dev mode) are changed
+// from installing in base::TEMP_DIR to .../<profile_dir>/UnpackedExtensions and
+// persist until removed by the user.
+BASE_FEATURE(kExtensionsZipFileInstalledInProfileDir,
+             "ExtensionsZipFileInstalledInProfileDir",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace extensions_features

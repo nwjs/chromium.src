@@ -160,7 +160,6 @@ class ContentAutofillDriver : public AutofillDriver,
   ContentAutofillDriver* GetParent() override;
   bool IsInActiveFrame() const override;
   bool IsInAnyMainFrame() const override;
-  bool IsInFencedFrameRoot() const override;
   bool IsPrerendering() const override;
   bool HasSharedAutofillPermission() const override;
   bool CanShowAutofillUi() const override;
@@ -228,6 +227,9 @@ class ContentAutofillDriver : public AutofillDriver,
       const std::u16string& value) override;
   void RendererShouldClearFilledSection() override;
   void RendererShouldClearPreviewedForm() override;
+  void RendererShouldTriggerSuggestions(
+      const FieldGlobalId& field_id,
+      AutofillSuggestionTriggerSource trigger_source) override;
   void RendererShouldFillFieldWithValue(const FieldGlobalId& field_id,
                                         const std::u16string& value) override;
   void RendererShouldPreviewFieldWithValue(
@@ -238,9 +240,9 @@ class ContentAutofillDriver : public AutofillDriver,
       const mojom::AutofillState state) override;
   void SendFieldsEligibleForManualFillingToRenderer(
       const std::vector<FieldGlobalId>& fields) override;
-  void TriggerReparse() override;
-  void TriggerReparseInAllFrames(
-      base::OnceCallback<void(bool success)> trigger_reparse_finished_callback)
+  void TriggerFormExtraction() override;
+  void TriggerFormExtractionInAllFrames(
+      base::OnceCallback<void(bool success)> form_extraction_finished_callback)
       override;
   void GetFourDigitCombinationsFromDOM(
       base::OnceCallback<void(const std::vector<std::string>&)>
@@ -278,8 +280,7 @@ class ContentAutofillDriver : public AutofillDriver,
       const FormData& form,
       const FormFieldData& field,
       const gfx::RectF& bounding_box,
-      AutoselectFirstSuggestion autoselect_first_suggestion,
-      FormElementWasClicked form_element_was_clicked) override;
+      AutofillSuggestionTriggerSource trigger_source) override;
   void HidePopup() override;
   void FocusNoLongerOnForm(bool had_interacted_form) override;
   void FocusOnFormField(const FormData& form,

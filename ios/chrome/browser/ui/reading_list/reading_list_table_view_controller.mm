@@ -240,6 +240,7 @@ ReadingListSelectionState GetSelectionStateForSelectedCounts(
 - (void)viewWillTransitionToSize:(CGSize)size
        withTransitionCoordinator:
            (id<UIViewControllerTransitionCoordinator>)coordinator {
+  [super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
   if (self.editingWithSwipe)
     [self exitEditingModeAnimated:YES];
 }
@@ -704,8 +705,7 @@ ReadingListSelectionState GetSelectionStateForSelectedCounts(
             (SigninPromoViewConfigurator*)promoConfigurator
                              identityChanged:(BOOL)identityChanged {
   if (![self.tableViewModel
-          hasSectionForSectionIdentifier:kSectionIdentifierSignInPromo] ||
-      !identityChanged) {
+          hasSectionForSectionIdentifier:kSectionIdentifierSignInPromo]) {
     return;
   }
 

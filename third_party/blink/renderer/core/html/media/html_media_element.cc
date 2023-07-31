@@ -946,20 +946,19 @@ HTMLMediaElement::NetworkState HTMLMediaElement::getNetworkState() const {
   return network_state_;
 }
 
-String HTMLMediaElement::canPlayType(ExecutionContext* context,
-                                     const String& mime_type) const {
+String HTMLMediaElement::canPlayType(const String& mime_type) const {
   MIMETypeRegistry::SupportsType support =
       GetSupportsType(ContentType(mime_type));
 
   if (IdentifiabilityStudySettings::Get()->ShouldSampleType(
           blink::IdentifiableSurface::Type::kHTMLMediaElement_CanPlayType)) {
-    blink::IdentifiabilityMetricBuilder(context->UkmSourceID())
+    blink::IdentifiabilityMetricBuilder(GetDocument().UkmSourceID())
         .Add(
             blink::IdentifiableSurface::FromTypeAndToken(
                 blink::IdentifiableSurface::Type::kHTMLMediaElement_CanPlayType,
                 IdentifiabilityBenignStringToken(mime_type)),
             static_cast<uint64_t>(support))
-        .Record(context->UkmRecorder());
+        .Record(GetDocument().UkmRecorder());
   }
   String can_play;
 
@@ -1498,9 +1497,7 @@ void HTMLMediaElement::StartPlayerLoad() {
   }
 
   LocalFrame* frame = LocalFrameForPlayer();
-  // TODO(srirama.m): Figure out how frame can be null when
-  // coming from executeDeferredLoad()
-  if (!frame) {
+  if (!frame || !GetExecutionContext()) {
     MediaLoadingFailed(
         WebMediaPlayer::kNetworkStateFormatError,
         BuildElementErrorMessage("Player load failure: document has no frame"));
@@ -1982,7 +1979,6 @@ void HTMLMediaElement::SetNetworkState(WebMediaPlayer::NetworkState state) {
   if (state == WebMediaPlayer::kNetworkStateIdle) {
     if (network_state_ > kNetworkIdle) {
       ChangeNetworkStateFromLoadingToIdle();
-      SetShouldDelayLoadEvent(false);
     } else {
       SetNetworkState(kNetworkIdle);
     }
@@ -2464,6 +2460,10 @@ bool HTMLMediaElement::HasVideo() const {
 
 bool HTMLMediaElement::HasAudio() const {
   return web_media_player_ && web_media_player_->HasAudio();
+}
+
+bool HTMLMediaElement::IsEncrypted() const {
+  return is_encrypted_media_;
 }
 
 bool HTMLMediaElement::seeking() const {

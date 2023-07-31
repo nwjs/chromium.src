@@ -266,8 +266,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
     private BrowserStateBrowserControlsVisibilityDelegate mControlsVisibilityDelegate;
     private int mFullscreenFocusToken = TokenHolder.INVALID_TOKEN;
     private int mFullscreenFindInPageToken = TokenHolder.INVALID_TOKEN;
-    private int mFullscreenMenuToken = TokenHolder.INVALID_TOKEN;
-    private int mFullscreenHighlightToken = TokenHolder.INVALID_TOKEN;
 
     private boolean mTabRestoreCompleted;
 
@@ -712,15 +710,6 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
                 maybeTriggerCacheRefreshForZeroSuggest(tab.getUrl());
             }
 
-            @Override
-            public void onPageLoadFinished(Tab tab, GURL url) {
-                // Part of scroll jank investigation http://crbug.com/1311003. Will remove
-                // TraceEvent after the investigation is complete.
-                try (TraceEvent te = TraceEvent.scoped("ToolbarManager::onPageLoadFinished")) {
-                    maybeTriggerCacheRefreshForZeroSuggest(url);
-                }
-            }
-
             /**
              * Trigger ZeroSuggest cache refresh in case user is accessing a new tab page.
              * Avoid issuing multiple concurrent server requests for the same event to
@@ -734,12 +723,12 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
             @Override
             public void onSSLStateUpdated(Tab tab) {
+                onBackPressStateChanged();
                 if (mLocationBarModel.getTab() == null) return;
 
                 assert tab == mLocationBarModel.getTab();
                 mLocationBarModel.notifySecurityStateChanged();
                 mLocationBarModel.notifyUrlChanged();
-                onBackPressStateChanged();
             }
 
             @Override
@@ -762,6 +751,7 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
             @Override
             public void onShown(Tab tab, @TabSelectionType int type) {
+                onBackPressStateChanged();
                 if (tab.getUrl().isEmpty()) return;
                 mControlContainer.setReadyForBitmapCapture(true);
             }
@@ -775,12 +765,14 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
             @Override
             public void onLoadStarted(Tab tab, boolean toDifferentDocument) {
+                onBackPressStateChanged();
                 if (!toDifferentDocument) return;
                 updateTabLoadingState(true);
             }
 
             @Override
             public void onLoadStopped(Tab tab, boolean toDifferentDocument) {
+                onBackPressStateChanged();
                 if (!toDifferentDocument) return;
                 updateTabLoadingState(true);
             }
@@ -798,15 +790,16 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
             @Override
             public void onWebContentsSwapped(Tab tab, boolean didStartLoad, boolean didFinishLoad) {
+                onBackPressStateChanged();
                 if (!didStartLoad) return;
                 mLocationBarModel.notifyWebContentsSwapped();
                 mLocationBarModel.notifyUrlChanged();
-                onBackPressStateChanged();
                 mLocationBarModel.notifySecurityStateChanged();
             }
 
             @Override
             public void onLoadUrl(Tab tab, LoadUrlParams params, int loadType) {
+                onBackPressStateChanged();
                 NewTabPage ntp = getNewTabPageForCurrentTab();
                 if (ntp == null) return;
                 if (!UrlUtilities.isNTPUrl(params.getUrl())
@@ -832,8 +825,10 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
             @Override
             public void onDidFinishNavigationInPrimaryMainFrame(
                     Tab tab, NavigationHandle navigation) {
+                onBackPressStateChanged();
                 if (navigation.hasCommitted() && !navigation.isSameDocument()) {
                     mToolbar.onNavigatedToDifferentPage();
+                    maybeTriggerCacheRefreshForZeroSuggest(navigation.getUrl());
                 }
 
                 // If the load failed due to a different navigation, there is no need to reset the
@@ -849,12 +844,14 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
 
             @Override
             public void onDidFinishNavigationEnd() {
+                onBackPressStateChanged();
                 mLocationBarModel.notifyDidFinishNavigationEnd();
             }
 
             @Override
             public void onDidStartNavigationInPrimaryMainFrame(
                     Tab tab, NavigationHandle navigationHandle) {
+                onBackPressStateChanged();
                 mLocationBarModel.notifyDidStartNavigation(navigationHandle.isSameDocument());
             }
 
@@ -863,6 +860,12 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
                 if (tab == mLocationBarModel.getTab()) {
                     updateButtonStatus();
                 }
+                onBackPressStateChanged();
+            }
+
+            @Override
+            public void onNavigationStateChanged() {
+                onBackPressStateChanged();
             }
         };
 
@@ -2114,14 +2117,12 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
     /**
      * @return The {@link OmniboxStub}.
      */
-    @Nullable
-    public OmniboxStub getOmniboxStub() {
+    public @Nullable OmniboxStub getOmniboxStub() {
         // TODO(crbug.com/1000295): Split fakebox component out of ntp package.
         return mLocationBar.getOmniboxStub();
     }
 
-    @Nullable
-    public VoiceRecognitionHandler getVoiceRecognitionHandler() {
+    public @Nullable VoiceRecognitionHandler getVoiceRecognitionHandler() {
         return mLocationBar.getVoiceRecognitionHandler();
     }
 
@@ -2183,10 +2184,10 @@ public class ToolbarManager implements UrlFocusChangeListener, ThemeColorObserve
             var layout = mLayoutStateProviderSupplier.hasValue()
                     ? mLayoutStateProviderSupplier.get().getActiveLayoutType()
                     : LayoutType.NONE;
-            var msg = String.format("BottomCtrl %s %s; actTab %s, urlBarTab %s, sTab %s, layout %s",
-                    bc,
+            var msg = String.format(
+                    "BottomCtrl %s %s; actTab %s %s; urlBarTab %s, sTab %s, layout %s", bc,
                     bc != null && Boolean.TRUE.equals(bc.getHandleBackPressChangedSupplier().get()),
-                    tab, mLocationBarModel.getTab(), t2, layout);
+                    tab, tab.getWebContents(), mLocationBarModel.getTab(), t2, layout);
             assert false : msg;
         }
         onBackPressStateChanged();

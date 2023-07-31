@@ -34,7 +34,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/system/sys_info.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/values.h"
@@ -50,7 +49,6 @@
 #include "chrome/browser/ash/login/users/chrome_user_manager_util.h"
 #include "chrome/browser/ash/login/users/default_user_image/default_user_images.h"
 #include "chrome/browser/ash/login/users/multi_profile_user_controller.h"
-#include "chrome/browser/ash/login/users/supervised_user_manager_impl.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/core/device_local_account.h"
 #include "chrome/browser/ash/policy/external_data/handlers/crostini_ansible_playbook_external_data_handler.h"
@@ -94,7 +92,6 @@
 #include "components/account_id/account_id.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/policy/core/common/cloud/affiliation.h"
-#include "components/policy/core/common/device_local_account_type.h"
 #include "components/policy/core/common/policy_details.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -225,6 +222,11 @@ user_manager::UserManager::EphemeralModeConfig CreateEphemeralModeConfig(
   DCHECK(cros_settings);
 
   bool ephemeral_users_enabled = false;
+  // Only `ChromeUserManagerImpl` is allowed to directly use this setting. All
+  // other clients have to use `UserManager::IsEphemeralAccountId()` function to
+  // get ephemeral mode for account ID. Such rule is needed because there are
+  // new policies(e.g.kiosk ephemeral mode) that overrides behaviour of
+  // the current setting for some accounts.
   cros_settings->GetBoolean(ash::kAccountsPrefEphemeralUsersEnabled,
                             &ephemeral_users_enabled);
 
@@ -262,7 +264,6 @@ void ChromeUserManagerImpl::RegisterPrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(kDeviceLocalAccountPendingDataRemoval,
                                std::string());
 
-  SupervisedUserManager::RegisterLocalStatePrefs(registry);
   SessionLengthLimiter::RegisterPrefs(registry);
   enterprise_user_session_metrics::RegisterPrefs(registry);
 }
@@ -280,7 +281,6 @@ ChromeUserManagerImpl::ChromeUserManagerImpl()
       cros_settings_(CrosSettings::Get()),
       device_local_account_policy_service_(nullptr),
       user_image_manager_registry_(this),
-      supervised_user_manager_(new SupervisedUserManagerImpl(this)),
       mount_performer_(std::make_unique<MountPerformer>()) {
   UpdateNumberOfUsers();
 
@@ -432,10 +432,6 @@ ChromeUserManagerImpl::GetMultiProfileUserController() {
 UserImageManager* ChromeUserManagerImpl::GetUserImageManager(
     const AccountId& account_id) {
   return user_image_manager_registry_.GetManager(account_id);
-}
-
-SupervisedUserManager* ChromeUserManagerImpl::GetSupervisedUserManager() {
-  return supervised_user_manager_.get();
 }
 
 user_manager::UserList ChromeUserManagerImpl::GetUsersAllowedForMultiProfile()
@@ -611,53 +607,6 @@ bool ChromeUserManagerImpl::CanCurrentUserLock() const {
   return can_lock;
 }
 
-bool ChromeUserManagerImpl::IsUserNonCryptohomeDataEphemeral(
-    const AccountId& account_id) const {
-  // Data belonging to the obsolete device local accounts whose data has not
-  // been removed yet is not ephemeral.
-  const bool is_obsolete_device_local_account =
-      IsDeviceLocalAccountMarkedForRemoval(account_id);
-
-  return !is_obsolete_device_local_account &&
-         ChromeUserManager::IsUserNonCryptohomeDataEphemeral(account_id);
-}
-
-bool ChromeUserManagerImpl::IsEphemeralAccountId(
-    const AccountId& account_id) const {
-  // Data belonging to the device owner is never ephemeral.
-  if (account_id == GetOwnerAccountId()) {
-    return false;
-  }
-
-  // Data belonging to the stub users is never ephemeral.
-  if (IsStubAccountId(account_id)) {
-    return false;
-  }
-
-  // Data belonging to the guest user is always ephemeral.
-  if (IsGuestAccountId(account_id)) {
-    return true;
-  }
-
-  // Data belonging to the public accounts (e.g. managed guest sessions) is
-  // always ephemeral.
-  if (const auto type =
-          policy::GetDeviceLocalAccountType(account_id.GetUserEmail());
-      type.has_value() &&
-      (type.value() == policy::DeviceLocalAccountType::kPublicSession ||
-       type.value() == policy::DeviceLocalAccountType::kSamlPublicSession)) {
-    return true;
-  }
-
-  policy::BrowserPolicyConnectorAsh* connector =
-      g_browser_process->platform_part()->browser_policy_connector_ash();
-  const bool device_is_owned =
-      connector->IsDeviceEnterpriseManaged() || GetOwnerAccountId().is_valid();
-
-  return device_is_owned &&
-         GetEphemeralModeConfig().IsAccountIdIncluded(account_id);
-}
-
 const std::string& ChromeUserManagerImpl::GetApplicationLocale() const {
   return g_browser_process->GetApplicationLocale();
 }
@@ -707,13 +656,16 @@ void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
     return;
 
   SetEphemeralModeConfig(EphemeralModeConfig());
-  ResetOwnerId();
+
+  auto trusted_values = cros_settings_->PrepareTrustedValues(
+      base::BindOnce(&ChromeUserManagerImpl::RetrieveTrustedDevicePolicies,
+                     weak_factory_.GetWeakPtr()));
 
   // Schedule a callback if device policy has not yet been verified.
-  if (CrosSettingsProvider::TRUSTED !=
-      cros_settings_->PrepareTrustedValues(
-          base::BindOnce(&ChromeUserManagerImpl::RetrieveTrustedDevicePolicies,
-                         weak_factory_.GetWeakPtr()))) {
+  if (CrosSettingsProvider::TRUSTED != trusted_values) {
+    // TODO(crbug.com/1461981): Remove the log once it's fixed.
+    LOG(WARNING) << "Trusted values is not TRUSTED but instead: "
+                 << static_cast<int>(trusted_values);
     return;
   }
 
@@ -725,6 +677,10 @@ void ChromeUserManagerImpl::RetrieveTrustedDevicePolicies() {
   const AccountId owner_account_id = known_user.GetAccountId(
       owner_email, std::string() /* id */, AccountType::UNKNOWN);
   SetOwnerId(owner_account_id);
+
+  // TODO(crbug.com/1461981): Remove the log once it's fixed.
+  LOG(WARNING) << "Retrived trusted device policies. Setting Owner ID to "
+               << owner_account_id;
 
   EnsureUsersLoaded();
 
@@ -809,6 +765,17 @@ void ChromeUserManagerImpl::RegularUserLoggedInAsEphemeral(
     observer.OnUserLoggedIn(*active_user_);
   }
   WallpaperControllerClientImpl::Get()->ShowUserWallpaper(account_id);
+}
+
+bool ChromeUserManagerImpl::IsEphemeralAccountIdByPolicy(
+    const AccountId& account_id) const {
+  policy::BrowserPolicyConnectorAsh* connector =
+      g_browser_process->platform_part()->browser_policy_connector_ash();
+  const bool device_is_owned =
+      connector->IsDeviceEnterpriseManaged() || GetOwnerAccountId().is_valid();
+
+  return device_is_owned &&
+         GetEphemeralModeConfig().IsAccountIdIncluded(account_id);
 }
 
 void ChromeUserManagerImpl::PublicAccountUserLoggedIn(
@@ -921,8 +888,6 @@ void ChromeUserManagerImpl::RemoveNonCryptohomeDataPostExternalDataRemoval(
     update->Remove(account_id.HasAccountIdKey() ? account_id.GetAccountIdKey()
                                                 : account_id.GetUserEmail());
   }
-
-  supervised_user_manager_->RemoveNonCryptohomeData(account_id.GetUserEmail());
 
   multi_profile_user_controller_->RemoveCachedValues(account_id.GetUserEmail());
 
@@ -1214,11 +1179,6 @@ const AccountId& ChromeUserManagerImpl::GetGuestAccountId() const {
   return user_manager::GuestAccountId();
 }
 
-bool ChromeUserManagerImpl::IsFirstExecAfterBoot() const {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kFirstExecAfterBoot);
-}
-
 void ChromeUserManagerImpl::AsyncRemoveCryptohome(
     const AccountId& account_id) const {
   cryptohome::AccountIdentifier identifier =
@@ -1241,12 +1201,6 @@ bool ChromeUserManagerImpl::IsDeprecatedSupervisedAccountId(
     const AccountId& account_id) const {
   return gaia::ExtractDomainName(account_id.GetUserEmail()) ==
          user_manager::kSupervisedUserDomain;
-}
-
-bool ChromeUserManagerImpl::HasBrowserRestarted() const {
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-  return base::SysInfo::IsRunningOnChromeOS() &&
-         command_line->HasSwitch(switches::kLoginUser);
 }
 
 const gfx::ImageSkia& ChromeUserManagerImpl::GetResourceImagekiaNamed(

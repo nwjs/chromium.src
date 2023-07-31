@@ -13,6 +13,7 @@
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/content_settings/core/test/content_settings_mock_provider.h"
 #include "components/content_settings/core/test/content_settings_test_utils.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
@@ -78,6 +79,7 @@ void ApplyTestState(
     MockPrivacySandboxSettingsDelegate* mock_delegate,
     PrivacySandboxServiceTestInterface* privacy_sandbox_service,
     browsing_topics::MockBrowsingTopicsService* mock_browsing_topics_service,
+    privacy_sandbox::PrivacySandboxSettings* privacy_sandbox_settings,
     content_settings::MockProvider* user_content_setting_provider,
     content_settings::MockProvider* managed_content_setting_provider) {
   switch (key) {
@@ -284,6 +286,14 @@ void ApplyTestState(
           GetItemValue<bool>(value));
       return;
     }
+    case (StateKey::kAttestationsMap): {
+      SCOPED_TRACE("State Setup: Attestations Map");
+      privacy_sandbox::PrivacySandboxAttestations::GetInstance()
+          ->SetAttestationsForTesting(
+              GetItemValue<absl::optional<
+                  privacy_sandbox::PrivacySandboxAttestationsMap>>(value));
+      return;
+    }
     default:
       NOTREACHED();
   }
@@ -344,6 +354,33 @@ void CheckOutput(
       ASSERT_EQ(return_value,
                 privacy_sandbox_settings->IsFledgeAllowed(
                     top_frame_origin, fledge_auction_party_origin));
+      return;
+    }
+    case (OutputKey::kIsEventReportingDestinationAttestedForFledge): {
+      SCOPED_TRACE(
+          "Check Output: IsEventReportingDestinationAttestedForFledge()");
+      auto event_reporting_origin = GetItemValueForKey<url::Origin>(
+          InputKey::kEventReportingDestinationOrigin, input);
+      auto return_value = GetItemValue<bool>(output_value);
+      ASSERT_EQ(return_value,
+                privacy_sandbox_settings->IsEventReportingDestinationAttested(
+                    event_reporting_origin,
+                    privacy_sandbox::PrivacySandboxAttestationsGatedAPI::
+                        kProtectedAudience));
+      return;
+    }
+    case (OutputKey::kIsEventReportingDestinationAttestedForSharedStorage): {
+      SCOPED_TRACE(
+          "Check Output: "
+          "IsEventReportingDestinationAttestedForSharedStorage()");
+      auto event_reporting_origin = GetItemValueForKey<url::Origin>(
+          InputKey::kEventReportingDestinationOrigin, input);
+      auto return_value = GetItemValue<bool>(output_value);
+      ASSERT_EQ(return_value,
+                privacy_sandbox_settings->IsEventReportingDestinationAttested(
+                    event_reporting_origin,
+                    privacy_sandbox::PrivacySandboxAttestationsGatedAPI::
+                        kSharedStorage));
       return;
     }
     case (OutputKey::kIsAttributionReportingAllowed): {
@@ -768,7 +805,7 @@ void RunTestCase(
     ApplyTestState(key, value, task_environment, testing_pref_service,
                    host_content_settings_map, mock_delegate,
                    privacy_sandbox_service, mock_browsing_topics_service_,
-                   user_content_setting_provider,
+                   privacy_sandbox_settings, user_content_setting_provider,
                    managed_content_setting_provider);
   }
 

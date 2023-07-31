@@ -17,6 +17,7 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/location.h"
 #include "base/message_loop/message_pump_type.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
@@ -27,6 +28,7 @@
 #include "base/synchronization/waitable_event.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/sequence_local_storage_slot.h"
 #include "base/threading/thread.h"
@@ -44,10 +46,10 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/network_service_instance.h"
+#include "content/public/browser/network_service_util.h"
 #include "content/public/browser/service_process_host.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
-#include "content/public/common/network_service_util.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
@@ -89,6 +91,10 @@
 #include "services/network/public/mojom/network_interface_change_listener.mojom.h"
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+#include "content/public/common/content_switches.h"
+#endif
+
 namespace content {
 
 namespace {
@@ -115,6 +121,8 @@ mojo::Remote<network::mojom::EmptyNetworkService>*
     g_empty_network_service_remote = nullptr;
 bool IsEmptyNetworkServiceEnabledForUMA() {
   return IsInProcessNetworkService() &&
+         !base::CommandLine::ForCurrentProcess()->HasSwitch(
+             switches::kSingleProcess) &&
          base::FeatureList::IsEnabled(
              network::features::kNetworkServiceEmptyOutOfProcess);
 }
@@ -320,6 +328,9 @@ void CreateNetworkContextInternal(
     if (params->http_cache_directory) {
       params->http_cache_directory->OpenForTransfer();
     }
+    if (params->shared_dictionary_directory) {
+      params->shared_dictionary_directory->OpenForTransfer();
+    }
   }
 
   // This might recreate g_client if the network service needed to be restarted.
@@ -387,7 +398,11 @@ void CreateInProcessNetworkService(
       FROM_HERE, base::BindOnce(&CreateInProcessNetworkServiceOnThread,
                                 std::move(receiver)));
 #if BUILDFLAG(IS_ANDROID)
-  if (IsEmptyNetworkServiceEnabledForUMA()) {
+  if (IsEmptyNetworkServiceEnabledForUMA() &&
+      // DownloadManagerService.java calls this in ServiceManagerOnlyMode, where
+      // this is called before the browser threads are initialized and UI thread
+      // is not named Chrome_UIThread at that point. We avoid such rare case.
+      BrowserThread::CurrentlyOn(BrowserThread::UI)) {
     if (!g_empty_network_service_remote) {
       g_empty_network_service_remote =
           new mojo::Remote<network::mojom::EmptyNetworkService>;
@@ -395,13 +410,26 @@ void CreateInProcessNetworkService(
     g_empty_network_service_remote->reset();
     mojo::PendingReceiver<network::mojom::EmptyNetworkService> empty_receiver =
         g_empty_network_service_remote->BindNewPipeAndPassReceiver();
-    ServiceProcessHost::Launch(std::move(empty_receiver),
-                               ServiceProcessHost::Options()
-                                   .WithDisplayName(u"Empty Network Service")
-                                   .Pass());
+    ServiceProcessHost::Options options;
+    options.WithDisplayName(u"Empty Network Service");
+    options.WithExtraCommandLineSwitches(
+        {network::switches::kRegisterEmptyNetworkService});
+    ServiceProcessHost::Launch(std::move(empty_receiver), std::move(options));
   }
 #endif
 }
+
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
+// Runs a self-owned SystemDnsResolverMojoImpl. This is meant to run on a
+// high-priority thread pool.
+void RunSystemDnsResolverOnThreadPool(
+    mojo::PendingReceiver<network::mojom::SystemDnsResolver> dns_receiver) {
+  mojo::MakeSelfOwnedReceiver(
+      std::make_unique<content::SystemDnsResolverMojoImpl>(),
+      std::move(dns_receiver));
+}
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) ||
+        // BUILDFLAG(IS_CHROMEOS)
 
 network::mojom::NetworkServiceParamsPtr CreateNetworkServiceParams() {
   network::mojom::NetworkServiceParamsPtr network_service_params =
@@ -458,18 +486,21 @@ network::mojom::NetworkServiceParamsPtr CreateNetworkServiceParams() {
   }
 #endif  // BUILDFLAG(IS_POSIX)
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
   if (GetContentClient()
           ->browser()
           ->ShouldRunOutOfProcessSystemDnsResolution() &&
       IsOutOfProcessNetworkService()) {
     mojo::PendingRemote<network::mojom::SystemDnsResolver> dns_remote;
-    mojo::MakeSelfOwnedReceiver(
-        std::make_unique<content::SystemDnsResolverMojoImpl>(),
-        dns_remote.InitWithNewPipeAndPassReceiver());
+    scoped_refptr<base::SequencedTaskRunner> thread_pool_task_runner =
+        base::ThreadPool::CreateSequencedTaskRunner(
+            {base::TaskPriority::USER_BLOCKING});
+    thread_pool_task_runner->PostTask(
+        FROM_HERE, base::BindOnce(RunSystemDnsResolverOnThreadPool,
+                                  dns_remote.InitWithNewPipeAndPassReceiver()));
     network_service_params->system_dns_resolver = std::move(dns_remote);
   }
-#endif
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_LINUX)
 
   return network_service_params;
 }
@@ -780,7 +811,7 @@ const scoped_refptr<base::SequencedTaskRunner>& GetNetworkTaskRunner() {
 }
 
 void ForceCreateNetworkServiceDirectlyForTesting() {
-  ForceInProcessNetworkService(true);
+  ForceInProcessNetworkService();
   g_force_create_network_service_directly = true;
 }
 

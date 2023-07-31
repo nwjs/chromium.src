@@ -24,10 +24,13 @@
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
+#include "chromeos/ash/components/dbus/spaced/spaced_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
 #include "chromeos/ash/components/drivefs/drivefs_host_observer.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
 #include "chromeos/ash/components/drivefs/mojom/pin_manager_types.mojom.h"
+#include "chromeos/ash/components/file_manager/speedometer.h"
+#include "chromeos/dbus/power/power_manager_client.h"
 #include "components/drive/file_errors.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -90,6 +93,11 @@ struct COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) Progress {
   // Number of skipped items (files, directories and shortcuts).
   int skipped_items = 0;
 
+  // Number of broken shortcuts (ie shortcuts to deleted or inaccessible files)
+  // found by search queries during the kListingFiles stage. This does not count
+  // shortcuts to directories.
+  int broken_shortcuts = 0;
+
   // Numbers of items, directories, files, hosted documents and shortcuts found
   // by search queries during the kListingFiles stage.
   int listed_items = 0;
@@ -113,6 +121,9 @@ struct COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) Progress {
 
   // High watermark of the number of active queries.
   int max_active_queries = 0;
+
+  // Estimated number of seconds remaining to pin all `bytes_to_pin`.
+  double remaining_seconds = 0;
 
   // Stage of the setup process.
   Stage stage = Stage::kStopped;
@@ -142,11 +153,13 @@ struct COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) Progress {
 //    bulk pinning event).
 class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
     : public DriveFsHostObserver,
-      public ash::UserDataAuthClient::Observer {
+      ash::UserDataAuthClient::Observer,
+      ash::SpacedClient::Observer,
+      chromeos::PowerManagerClient::Observer {
  public:
   using Path = base::FilePath;
 
-  PinManager(Path profile_path, mojom::DriveFs* drivefs);
+  PinManager(Path profile_path, Path mount_path, mojom::DriveFs* drivefs);
 
   PinManager(const PinManager&) = delete;
   PinManager& operator=(const PinManager&) = delete;
@@ -213,6 +226,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   void OnUnmounted() override;
   void OnFilesChanged(const std::vector<mojom::FileChange>& changes) override;
   void OnError(const mojom::DriveError& error) override;
+  void OnItemProgress(const mojom::ProgressEvent& event) override;
 
   base::WeakPtr<PinManager> GetWeakPtr() {
     return weak_ptr_factory_.GetWeakPtr();
@@ -247,9 +261,12 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   // manager accordingly.
   void SetOnline(bool online);
 
-  // Periodically check for free space.
-  // Used in testing to override the 60s delay in space checks.
+  // Check for free space.
   void CheckFreeSpace();
+
+  // Whether `path` is parented at a path that is untracked (e.g. a shortcut
+  // directory residing outside of My drive).
+  bool IsUntrackedPath(const Path& path);
 
  private:
   // Progress of a file being synced or to be synced.
@@ -304,6 +321,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
               const Path& path,
               int64_t transferred,
               int64_t total);
+  bool Update(Id id, const Path& path, int8_t progress_percent);
 
   void OnFileCreated(const mojom::FileChange& event);
   void OnFileDeleted(const mojom::FileChange& event);
@@ -376,6 +394,22 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   // ash::UserDataAuthClient::Observer
   void LowDiskSpace(const ::user_data_auth::LowDiskSpace& status) override;
 
+  // ash::SpacedClient::Observer
+  void OnSpaceUpdate(const SpaceEvent& event) override;
+
+  // chromeos::PowerManagerClient::Observer
+  void BatterySaverModeStateChanged(
+      const power_manager::BatterySaverModeState& state) override;
+
+  // Callback used to query battery saver state from PowerManagerClient on
+  // startup.
+  void OnGotBatterySaverState(
+      absl::optional<power_manager::BatterySaverModeState> state);
+
+  // Starts and stops monitoring space using the SpacedClient::Observer.
+  bool StartMonitoringSpace();
+  void StopMonitoringSpace();
+
   // Counts the files that have been marked as pinned and that are still being
   // tracked. Should always be equal to progress_.syncing_files. For debugging
   // only.
@@ -393,6 +427,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   SEQUENCE_CHECKER(sequence_checker_);
 
   const Path profile_path_ GUARDED_BY_CONTEXT(sequence_checker_);
+  const Path mount_path_ GUARDED_BY_CONTEXT(sequence_checker_);
   const raw_ptr<mojom::DriveFs, DanglingUntriaged> drivefs_
       GUARDED_BY_CONTEXT(sequence_checker_);
 
@@ -400,13 +435,24 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   // tests.
   bool is_online_ GUARDED_BY_CONTEXT(sequence_checker_) = true;
 
+  // Is the device battery ok for doing sync (e.g. not in battery saver mode).
+  bool is_battery_ok_ GUARDED_BY_CONTEXT(sequence_checker_) = true;
+
   // Should the feature actually pin files, or should it stop after checking the
   // space requirements?
   bool should_pin_ GUARDED_BY_CONTEXT(sequence_checker_) = true;
 
-  // Interval at which the free space is periodically checked.
-  base::TimeDelta space_check_interval_ GUARDED_BY_CONTEXT(sequence_checker_) =
-      base::Seconds(60);
+  // Is this the first full sync after the size estimation?
+  bool is_first_sync_ GUARDED_BY_CONTEXT(sequence_checker_) = false;
+
+  // Should the feature use `OnItemProgress`, if false it will fall back to
+  // `OnSyncingStatusUpdate`.
+  bool should_use_on_item_progress_ GUARDED_BY_CONTEXT(sequence_checker_) =
+      true;
+
+  // `spaced` daemon client.
+  raw_ptr<ash::SpacedClient, ExperimentalAsh> spaced_
+      GUARDED_BY_CONTEXT(sequence_checker_) = nullptr;
 
   SpaceGetter space_getter_ GUARDED_BY_CONTEXT(sequence_checker_);
   CompletionCallback completion_callback_ GUARDED_BY_CONTEXT(sequence_checker_);
@@ -431,6 +477,14 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   // cached yet.
   Files files_to_track_ GUARDED_BY_CONTEXT(sequence_checker_);
 
+  // Tracks the remaining seconds for the current syncing operation to complete.
+  std::unique_ptr<file_manager::Speedometer> speedometer_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // Shortcut paths where the target path resides outside the users My drive.
+  std::unordered_set<Path> untracked_shortcut_paths_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
   base::WeakPtrFactory<PinManager> weak_ptr_factory_{this};
 
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, Add);
@@ -438,6 +492,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, Remove);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnSyncingEvent);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnSyncingStatusUpdate);
+  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnItemProgress);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, CanPin);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnFileCreated);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnFileModified);
@@ -450,9 +505,9 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, CannotGetFreeSpace2);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, NotEnoughSpace2);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, NotEnoughSpace3);
-  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnFreeSpaceRetrieved2);
-  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, PeriodicSpaceCheck);
-  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, SetOnline);
+  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnSpaceUpdate);
+  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, StartMonitoringSpace);
+  FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, SetOnlineAndBatteryOk);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnTransientError);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, OnError);
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, StartWhenInProgress);

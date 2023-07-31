@@ -34,7 +34,7 @@ class OneDriveUploadHandler
       public base::RefCounted<OneDriveUploadHandler> {
  public:
   using UploadCallback =
-      base::OnceCallback<void(const storage::FileSystemURL&)>;
+      base::OnceCallback<void(const storage::FileSystemURL&, int64_t)>;
 
   // Starts the upload workflow for the file specified at construct time.
   static void Upload(Profile* profile,
@@ -62,11 +62,10 @@ class OneDriveUploadHandler
   void OnIOTaskStatus(
       const ::file_manager::io_task::ProgressStatus& status) override;
 
-  // End upload with error and run Upload callback. Show correct error
-  // notification via |OnGetActionsResult|.
-  void ShowReauthenticationOrMoveUploadError(
-      OfficeFilesUploadResult generic_upload_result,
-      std::string generic_move_error_message);
+  // Find the base::File::Error error returned by the IO Task and convert it to
+  // an appropriate error notification.
+  void ShowIOTaskError(const file_manager::io_task::ProgressStatus& status);
+
   // OnGetActions callback which checks the |result| to see if reauthentication
   // is required. If reauthentication is required, show the reauthentication
   // required error. Otherwise show a generic move upload error.
@@ -84,6 +83,8 @@ class OneDriveUploadHandler
   const storage::FileSystemURL source_url_;
   ::file_manager::io_task::IOTaskId observed_task_id_;
   UploadCallback callback_;
+  // Total size (in bytes) required to upload.
+  int64_t upload_size_ = 0;
   base::WeakPtrFactory<OneDriveUploadHandler> weak_ptr_factory_{this};
 };
 

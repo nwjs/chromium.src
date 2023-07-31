@@ -429,6 +429,11 @@ void ShellSurfaceBase::SetSystemModal(bool system_modal) {
   non_system_modal_window_was_active_ = non_system_modal_window_was_active;
 }
 
+void ShellSurfaceBase::SetTopInset(int height) {
+  TRACE_EVENT1("exo", "ShellSurfaceBase::SetTopInset", "height", height);
+  pending_top_inset_height_ = height;
+}
+
 void ShellSurfaceBase::SetBoundsForShadows(
     const absl::optional<gfx::Rect>& shadow_bounds) {
   if (shadow_bounds_ != shadow_bounds) {
@@ -544,8 +549,10 @@ void ShellSurfaceBase::SetSnapSecondary(float snap_ratio) {
 }
 
 void ShellSurfaceBase::UnsetSnap() {
-  CommitSnap(widget_->GetNativeWindow(), chromeos::SnapDirection::kNone,
-             chromeos::kDefaultSnapRatio);
+  if (widget_ && widget_->GetNativeWindow()) {
+    CommitSnap(widget_->GetNativeWindow(), chromeos::SnapDirection::kNone,
+               chromeos::kDefaultSnapRatio);
+  }
 }
 
 void ShellSurfaceBase::SetCanGoBack() {
@@ -647,6 +654,21 @@ void ShellSurfaceBase::UpdatePinned() {
     }
 
     current_pinned_state_ = pending_pinned_state_;
+  }
+}
+
+void ShellSurfaceBase::UpdateTopInset() {
+  if (!widget_) {
+    // It is possible to get here before the widget has actually been created.
+    // The state will be set once the widget gets created.
+    return;
+  }
+
+  // Apply new top inset height.
+  if (pending_top_inset_height_ != top_inset_height_) {
+    widget_->GetNativeWindow()->SetProperty(aura::client::kTopViewInset,
+                                            pending_top_inset_height_);
+    top_inset_height_ = pending_top_inset_height_;
   }
 }
 
@@ -1092,9 +1114,6 @@ void ShellSurfaceBase::OnSurfaceDestroying(Surface* surface) {
   SetRootSurface(nullptr);
 
   overlay_widget_.reset();
-
-  if (widget_)
-    SetShellRootSurface(widget_->GetNativeWindow(), nullptr);
 
   // Hide widget before surface is destroyed. This allows hide animations to
   // run using the current surface contents.
@@ -1586,13 +1605,15 @@ void ShellSurfaceBase::CreateShellSurfaceWidget(
   // As setting the pinned mode may have come in earlier we apply it now.
   UpdatePinned();
 
+  UpdateTopInset();
+
   aura::Window* window = widget_->GetNativeWindow();
   window->SetName(base::StringPrintf("ExoShellSurface-%d", shell_id++));
   window->AddChild(host_window());
   window->SetEventTargetingPolicy(
       aura::EventTargetingPolicy::kTargetAndDescendants);
   if (is_menu_) {
-    // Sets menu config id to kGroupintPropertyKey if the window is menu.
+    // Sets menu config id to kGroupingPropertyKey if the window is menu.
     window->SetNativeWindowProperty(
         views::TooltipManager::kGroupingPropertyKey,
         reinterpret_cast<void*>(views::MenuConfig::kMenuControllerGroupingId));
@@ -1915,6 +1936,8 @@ void ShellSurfaceBase::OnPostWidgetCommit() {
   // in a single commit process, we need to ensure that it's not reset halfway
   // in the current commit by resetting it here.
   shadow_bounds_changed_ = false;
+
+  UpdateTopInset();
 }
 
 void ShellSurfaceBase::SetContainerInternal(int container) {
@@ -2029,9 +2052,10 @@ void ShellSurfaceBase::CommitWidget() {
     auto* window = widget_->GetNativeWindow();
     auto* window_state = ash::WindowState::Get(window);
 
-    // TODO(crbug.com/1261321): correct the initial origin once lacros can
-    // communicate it instead of centering.
-    if (window_state && window_state->IsMaximizedOrFullscreenOrPinned()) {
+    // TODO(oshima): This should be set to the
+    // `views::Widget::InitParams.bounds`
+    if (window_state && window_state->IsMaximizedOrFullscreenOrPinned() &&
+        (!initial_bounds_ || initial_bounds_->IsEmpty())) {
       gfx::Size current_content_size = CalculatePreferredSize();
       gfx::Rect restore_bounds = display::Screen::GetScreen()
                                      ->GetDisplayNearestWindow(window)
@@ -2062,6 +2086,7 @@ void ShellSurfaceBase::CommitWidget() {
     }
 
     if (initially_activated_) {
+      // Widget will minimize itself if the initial state is minimized.
       widget_->Show();
     } else {
       widget_->ShowInactive();

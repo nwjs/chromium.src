@@ -288,7 +288,7 @@ class CancelMenuOnMousePressView : public View {
   gfx::Size CalculatePreferredSize() const override { return size(); }
 
  private:
-  raw_ptr<MenuController> controller_;
+  raw_ptr<MenuController, DanglingUntriaged> controller_;
 };
 
 }  // namespace
@@ -497,9 +497,10 @@ class MenuControllerTest : public ViewsTestBase,
 
   void TestMenuFitsOnScreen(MenuAnchorPosition menu_anchor_position,
                             const gfx::Rect& monitor_bounds) {
-    SCOPED_TRACE(base::StringPrintf(
-        "MenuAnchorPosition: %d, monitor_bounds: @%s\n", menu_anchor_position,
-        monitor_bounds.ToString().c_str()));
+    SCOPED_TRACE(
+        base::StringPrintf("MenuAnchorPosition: %d, monitor_bounds: @%s\n",
+                           static_cast<int>(menu_anchor_position),
+                           monitor_bounds.ToString().c_str()));
     MenuBoundsOptions options;
     options.menu_anchor = menu_anchor_position;
     options.monitor_bounds = monitor_bounds;
@@ -546,9 +547,10 @@ class MenuControllerTest : public ViewsTestBase,
 
   void TestMenuFitsOnScreenSmallAnchor(MenuAnchorPosition menu_anchor_position,
                                        const gfx::Rect& monitor_bounds) {
-    SCOPED_TRACE(base::StringPrintf(
-        "MenuAnchorPosition: %d, monitor_bounds: @%s\n", menu_anchor_position,
-        monitor_bounds.ToString().c_str()));
+    SCOPED_TRACE(
+        base::StringPrintf("MenuAnchorPosition: %d, monitor_bounds: @%s\n",
+                           static_cast<int>(menu_anchor_position),
+                           monitor_bounds.ToString().c_str()));
     MenuBoundsOptions options;
     options.menu_anchor = menu_anchor_position;
     options.monitor_bounds = monitor_bounds;
@@ -598,9 +600,10 @@ class MenuControllerTest : public ViewsTestBase,
 
   void TestMenuFitsOnSmallScreen(MenuAnchorPosition menu_anchor_position,
                                  const gfx::Rect& monitor_bounds) {
-    SCOPED_TRACE(base::StringPrintf(
-        "MenuAnchorPosition: %d, monitor_bounds: @%s\n", menu_anchor_position,
-        monitor_bounds.ToString().c_str()));
+    SCOPED_TRACE(
+        base::StringPrintf("MenuAnchorPosition: %d, monitor_bounds: @%s\n",
+                           static_cast<int>(menu_anchor_position),
+                           monitor_bounds.ToString().c_str()));
     MenuBoundsOptions options;
     options.menu_anchor = menu_anchor_position;
     options.monitor_bounds = monitor_bounds;
@@ -789,10 +792,11 @@ class MenuControllerTest : public ViewsTestBase,
   // Causes the |menu_controller_| to begin dragging. Use TestDragDropClient to
   // avoid nesting message loops.
   void StartDrag() {
-    const gfx::Point location;
-    menu_controller_->state_.item = menu_item()->GetSubmenu()->GetMenuItemAt(0);
-    menu_controller_->StartDrag(
-        menu_item()->GetSubmenu()->GetMenuItemAt(0)->CreateSubmenu(), location);
+    MenuItemView* const dragged_item =
+        menu_item()->GetSubmenu()->GetMenuItemAt(0);
+    menu_controller_->state_.item = dragged_item;
+    menu_controller_->StartDrag(menu_item()->GetSubmenu(),
+                                dragged_item->bounds().CenterPoint());
   }
 
   void SetUpMenuControllerForCalculateBounds(const MenuBoundsOptions& options) {
@@ -929,14 +933,15 @@ class MenuControllerTest : public ViewsTestBase,
   }
 
   // Not owned.
-  raw_ptr<ReleaseRefTestViewsDelegate> test_views_delegate_ = nullptr;
+  raw_ptr<ReleaseRefTestViewsDelegate, DanglingUntriaged> test_views_delegate_ =
+      nullptr;
 
   std::unique_ptr<GestureTestWidget> owner_;
   std::unique_ptr<ui::test::EventGenerator> event_generator_;
   std::unique_ptr<TestMenuItemViewShown> menu_item_;
   std::unique_ptr<TestMenuControllerDelegate> menu_controller_delegate_;
   std::unique_ptr<TestMenuDelegate> menu_delegate_;
-  raw_ptr<MenuController> menu_controller_ = nullptr;
+  raw_ptr<MenuController, DanglingUntriaged> menu_controller_ = nullptr;
 };
 
 INSTANTIATE_TEST_SUITE_P(All, MenuControllerTest, testing::Bool());

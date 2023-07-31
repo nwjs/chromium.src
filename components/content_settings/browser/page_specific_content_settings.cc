@@ -27,6 +27,9 @@
 #include "components/content_settings/core/browser/content_settings_info.h"
 #include "components/content_settings/core/browser/content_settings_registry.h"
 #include "components/content_settings/core/browser/content_settings_utils.h"
+#include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/content_settings_pattern_parser.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/canonical_topic.h"
@@ -441,12 +444,12 @@ AccessDetails::AccessDetails(SiteDataType site_data_type,
                              AccessType access_type,
                              GURL url,
                              bool blocked_by_policy,
-                             content::RenderFrameHost* render_frame_host)
+                             bool is_from_primary_page)
     : site_data_type(site_data_type),
       access_type(access_type),
       url(url),
       blocked_by_policy(blocked_by_policy),
-      render_frame_host(render_frame_host) {}
+      is_from_primary_page(is_from_primary_page) {}
 
 AccessDetails::~AccessDetails() = default;
 
@@ -571,7 +574,7 @@ void PageSpecificContentSettings::StorageAccessed(StorageType storage_type,
     return;
   PageSpecificContentSettings* settings = GetForFrame(rfh);
   if (settings)
-    settings->OnStorageAccessed(storage_type, url, blocked_by_policy, rfh);
+    settings->OnStorageAccessed(storage_type, url, blocked_by_policy);
 }
 
 // static
@@ -706,11 +709,7 @@ bool PageSpecificContentSettings::IsContentAllowed(
 std::map<net::SchemefulSite, /*is_allowed*/ bool>
 PageSpecificContentSettings::GetTwoSiteRequests(
     ContentSettingsType content_type) {
-  std::map<net::SchemefulSite, /*is_allowed*/ bool> result;
-  for (const auto& entry : content_settings_two_site_requests_[content_type]) {
-    result[entry.first] = entry.second.allowed;
-  }
-  return result;
+  return content_settings_two_site_requests_[content_type];
 }
 
 void PageSpecificContentSettings::OnContentBlocked(ContentSettingsType type) {
@@ -790,19 +789,39 @@ void PageSpecificContentSettings::OnContentAllowed(ContentSettingsType type) {
   }
 }
 
-void PageSpecificContentSettings::OnTwoSitePermissionRequested(
+void PageSpecificContentSettings::OnTwoSitePermissionChanged(
     ContentSettingsType type,
     net::SchemefulSite requesting_site,
-    bool is_allowed) {
-  ContentSettingsStatus& status =
-      content_settings_two_site_requests_[type][requesting_site];
-  if (is_allowed) {
-    status.allowed = true;
-  } else {
-    status.blocked = true;
+    ContentSetting content_setting) {
+  bool access_changed = false;
+
+  auto& site_map = content_settings_two_site_requests_[type];
+
+  switch (content_setting) {
+    case CONTENT_SETTING_ASK:
+    case CONTENT_SETTING_DEFAULT:
+      if (site_map.contains(requesting_site)) {
+        site_map.erase(requesting_site);
+        access_changed = true;
+      }
+      break;
+    case CONTENT_SETTING_ALLOW:
+    case CONTENT_SETTING_BLOCK: {
+      bool is_allowed = content_setting == CONTENT_SETTING_ALLOW;
+      if (!site_map.contains(requesting_site) ||
+          site_map[requesting_site] != is_allowed) {
+        site_map[requesting_site] = is_allowed;
+        access_changed = true;
+      }
+      break;
+    }
+    default:
+      NOTREACHED() << content_setting;
   }
 
-  MaybeUpdateLocationBar();
+  if (access_changed) {
+    MaybeUpdateLocationBar();
+  }
 }
 
 namespace {
@@ -849,7 +868,6 @@ void PageSpecificContentSettings::OnStorageAccessed(
     StorageType storage_type,
     const GURL& url,
     bool blocked_by_policy,
-    content::RenderFrameHost* rfh,
     content::Page* originating_page) {
   originating_page = originating_page ? originating_page : &page();
   if (blocked_by_policy) {
@@ -857,17 +875,15 @@ void PageSpecificContentSettings::OnStorageAccessed(
     OnContentBlocked(ContentSettingsType::COOKIES);
   } else {
     AddToContainer(allowed_local_shared_objects_, storage_type, url);
-    NotifyDelegate(&Delegate::OnStorageAccessAllowed, storage_type,
-                   url::Origin::Create(url), std::ref(*originating_page));
     OnContentAllowed(ContentSettingsType::COOKIES);
   }
 
   MaybeUpdateParent(&PageSpecificContentSettings::OnStorageAccessed,
-                    storage_type, url, blocked_by_policy, rfh,
-                    originating_page);
+                    storage_type, url, blocked_by_policy, originating_page);
 
   AccessDetails access_details{SiteDataType::kStorage, AccessType::kUnknown,
-                               url, blocked_by_policy, rfh};
+                               url, blocked_by_policy,
+                               originating_page->IsPrimary()};
 
   MaybeNotifySiteDataObservers(access_details);
 }
@@ -884,8 +900,6 @@ void PageSpecificContentSettings::OnCookiesAccessed(
   } else {
     allowed_local_shared_objects_.cookies()->AddCookies(details);
     OnContentAllowed(ContentSettingsType::COOKIES);
-    NotifyDelegate(&Delegate::OnCookieAccessAllowed, details.cookie_list,
-                   std::ref(*originating_page));
   }
 
   MaybeUpdateParent(&PageSpecificContentSettings::OnCookiesAccessed, details,
@@ -896,7 +910,7 @@ void PageSpecificContentSettings::OnCookiesAccessed(
       details.type == network::mojom::CookieAccessDetails::Type::kChange
           ? AccessType::kWrite
           : AccessType::kRead,
-      details.url, details.blocked_by_policy, nullptr};
+      details.url, details.blocked_by_policy, originating_page->IsPrimary()};
 
   MaybeNotifySiteDataObservers(access_details);
 }
@@ -910,8 +924,6 @@ void PageSpecificContentSettings::OnServiceWorkerAccessed(
   if (allowed) {
     allowed_local_shared_objects_.service_workers()->Add(
         url::Origin::Create(scope));
-    NotifyDelegate(&Delegate::OnServiceWorkerAccessAllowed,
-                   url::Origin::Create(scope), std::ref(*originating_page));
   } else {
     blocked_local_shared_objects_.service_workers()->Add(
         url::Origin::Create(scope));
@@ -967,7 +979,8 @@ void PageSpecificContentSettings::OnInterestGroupJoined(
   // Joining an interest is by default modifying data so this is considered an
   // `AccessType::kWrite`.
   AccessDetails access_details{SiteDataType::kInterestGroup, AccessType::kWrite,
-                               api_origin.GetURL(), blocked_by_policy, nullptr};
+                               api_origin.GetURL(), blocked_by_policy,
+                               /*is_from_primary_page=*/false};
   MaybeNotifySiteDataObservers(access_details);
 }
 
@@ -1000,7 +1013,8 @@ void PageSpecificContentSettings::OnTrustTokenAccessed(
                     api_origin, blocked);
 
   AccessDetails access_details{SiteDataType::kTrustToken, AccessType::kUnknown,
-                               api_origin.GetURL(), blocked, nullptr};
+                               api_origin.GetURL(), blocked,
+                               /*is_from_primary_page=*/false};
 
   MaybeNotifySiteDataObservers(access_details);
 }
@@ -1025,7 +1039,7 @@ void PageSpecificContentSettings::OnBrowsingDataAccessed(
   // TODO(njeunje): Look into populating an actual url for this access details.
   // Could be obtained from the `data_key`.
   AccessDetails access_details{SiteDataType::kUnknown, AccessType::kUnknown,
-                               GURL(), blocked, nullptr};
+                               GURL(), blocked, /*is_from_primary_page=*/false};
   MaybeNotifySiteDataObservers(access_details);
 }
 
@@ -1150,8 +1164,14 @@ void PageSpecificContentSettings::OnContentSettingChanged(
     return;
 
   const GURL current_url = page().GetMainDocument().GetLastCommittedURL();
-  if (!primary_pattern.Matches(current_url)) {
-    return;
+  if (content_type == ContentSettingsType::STORAGE_ACCESS) {
+    if (!secondary_pattern.Matches(current_url)) {
+      return;
+    }
+  } else {
+    if (!primary_pattern.Matches(current_url)) {
+      return;
+    }
   }
 
   ContentSettingsStatus& status = content_settings_status_[content_type];
@@ -1206,6 +1226,23 @@ void PageSpecificContentSettings::OnContentSettingChanged(
         status.allowed = false;
         OnContentAllowed(content_type);
       }
+      break;
+    }
+    case ContentSettingsType::STORAGE_ACCESS: {
+      GURL requesting_url = primary_pattern.ToRepresentativeUrl();
+      if (!requesting_url.is_valid()) {
+        return;
+      }
+      // Only forward updates for sites which we are already tracking.
+      net::SchemefulSite requesting_site(requesting_url);
+      if (!content_settings_two_site_requests_[content_type].contains(
+              requesting_site)) {
+        return;
+      }
+
+      ContentSetting setting =
+          map_->GetContentSetting(requesting_url, current_url, content_type);
+      OnTwoSitePermissionChanged(content_type, requesting_site, setting);
       break;
     }
     default:
@@ -1299,6 +1336,8 @@ void PageSpecificContentSettings::OnPrerenderingPageActivation() {
   }
 
   if (updates_queued_during_prerender_->site_data_accessed) {
+    // TODO(crbug.com/1447929): Re-attribute the
+    // `access_details.is_from_primary_page`.
     WebContentsHandler::FromWebContents(GetWebContents())
         ->NotifySiteDataObservers(
             updates_queued_during_prerender_->access_details);

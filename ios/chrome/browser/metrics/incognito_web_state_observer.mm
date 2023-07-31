@@ -39,26 +39,29 @@ IncognitoWebStateObserver::Observer::Observer(
     : incognito_tracker_(incognito_tracker) {}
 IncognitoWebStateObserver::Observer::~Observer() {}
 
-void IncognitoWebStateObserver::Observer::WebStateInsertedAt(
-    WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index,
-    bool activating) {
-  incognito_tracker_->OnIncognitoWebStateAdded();
-}
+#pragma mark - WebStateListObserver
 
-void IncognitoWebStateObserver::Observer::WebStateDetachedAt(
+void IncognitoWebStateObserver::Observer::WebStateListChanged(
     WebStateList* web_state_list,
-    web::WebState* web_state,
-    int index) {
-  incognito_tracker_->OnIncognitoWebStateRemoved();
-}
-
-void IncognitoWebStateObserver::Observer::WebStateReplacedAt(
-    WebStateList* web_state_list,
-    web::WebState* old_web_state,
-    web::WebState* new_web_state,
-    int index) {
-  // This is invoked when a Tab is replaced by another Tab without any visible
-  // UI change. There is nothing to do since the number of Tabs haven't changed.
+    const WebStateListChange& change,
+    const WebStateSelection& selection) {
+  switch (change.type()) {
+    case WebStateListChange::Type::kSelectionOnly:
+      // Do nothing when a WebState is selected and its status is updated.
+      break;
+    case WebStateListChange::Type::kDetach:
+      incognito_tracker_->OnIncognitoWebStateRemoved();
+      break;
+    case WebStateListChange::Type::kMove:
+      // Do nothing when a WebState is moved.
+      break;
+    case WebStateListChange::Type::kReplace:
+      // This is invoked when a Tab is replaced by another Tab without any
+      // visible UI change. There is nothing to do since the number of Tabs
+      // haven't changed.
+      break;
+    case WebStateListChange::Type::kInsert:
+      incognito_tracker_->OnIncognitoWebStateAdded();
+      break;
+  }
 }

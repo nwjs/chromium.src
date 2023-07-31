@@ -15,6 +15,7 @@
 #include "base/containers/flat_map.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -219,6 +220,19 @@ bool ShouldCollectFineGrainedExceptionHistograms(ContentSettingsType type) {
     case ContentSettingsType::COOKIES:
     case ContentSettingsType::POPUPS:
     case ContentSettingsType::ADS:
+    case ContentSettingsType::STORAGE_ACCESS:
+      return true;
+    default:
+      return false;
+  }
+}
+
+// Returns whether information about the maximum number of exceptions per
+// embedder/requester should be recorded. Only relevant for setting types that
+// are keyed to both requester and embedder.
+bool ShouldCollectRequesterAndEmbedderHistograms(ContentSettingsType type) {
+  switch (type) {
+    case ContentSettingsType::STORAGE_ACCESS:
       return true;
     default:
       return false;
@@ -384,11 +398,12 @@ ContentSetting HostContentSettingsMap::GetDefaultContentSetting(
 ContentSetting HostContentSettingsMap::GetContentSetting(
     const GURL& primary_url,
     const GURL& secondary_url,
-    ContentSettingsType content_type) const {
+    ContentSettingsType content_type,
+    content_settings::SettingInfo* info) const {
   DCHECK(content_settings::ContentSettingsRegistry::GetInstance()->Get(
       content_type));
   const base::Value value =
-      GetWebsiteSetting(primary_url, secondary_url, content_type, nullptr);
+      GetWebsiteSetting(primary_url, secondary_url, content_type, info);
   return content_settings::ValueToContentSetting(value);
 }
 
@@ -668,6 +683,30 @@ void HostContentSettingsMap::RecordExceptionMetrics() {
             1, 1000, 30);
       }
     }
+    if (ShouldCollectRequesterAndEmbedderHistograms(content_type)) {
+      std::map<ContentSettingsPattern, int> num_requester;
+      std::map<ContentSettingsPattern, int> num_toplevel;
+      for (const ContentSettingPatternSource& setting : settings) {
+        if (setting.primary_pattern == ContentSettingsPattern::Wildcard() &&
+            setting.secondary_pattern == ContentSettingsPattern::Wildcard()) {
+          continue;
+        }
+        num_requester[setting.primary_pattern]++;
+        num_toplevel[setting.secondary_pattern]++;
+      }
+      auto get_value = [](const std::pair<ContentSettingsPattern, int>& p) {
+        return p.second;
+      };
+      bool empty = num_requester.empty();
+      int max_requester =
+          empty ? 0 : base::ranges::max(num_requester, {}, get_value).second;
+      base::UmaHistogramCounts1000(histogram_name + ".MaxRequester",
+                                   max_requester);
+      int max_toplevel =
+          empty ? 0 : base::ranges::max(num_toplevel, {}, get_value).second;
+      base::UmaHistogramCounts1000(histogram_name + ".MaxTopLevel",
+                                   max_toplevel);
+    }
     if (content_type == ContentSettingsType::COOKIES) {
       base::UmaHistogramCustomCounts(
           "ContentSettings.RegularProfile.Exceptions.cookies.AllowThirdParty",
@@ -725,21 +764,31 @@ void HostContentSettingsMap::ClearSettingsForOneTypeWithPredicate(
     ClearSettingsForOneType(content_type);
     return;
   }
+  ClearSettingsForOneTypeWithPredicate(
+      content_type, [&](const ContentSettingPatternSource& setting) -> bool {
+        if (!pattern_predicate.is_null() &&
+            !pattern_predicate.Run(setting.primary_pattern,
+                                   setting.secondary_pattern)) {
+          return false;
+        }
+        base::Time last_modified = setting.metadata.last_modified();
+        return last_modified >= begin_time &&
+               (last_modified < end_time || end_time.is_null());
+      });
+}
+
+void HostContentSettingsMap::ClearSettingsForOneTypeWithPredicate(
+    ContentSettingsType content_type,
+    base::FunctionRef<bool(const ContentSettingPatternSource&)> predicate) {
   UsedContentSettingsProviders();
   ContentSettingsForOneType settings;
   GetSettingsForOneType(content_type, &settings);
   for (const ContentSettingPatternSource& setting : settings) {
-    if (pattern_predicate.is_null() ||
-        pattern_predicate.Run(setting.primary_pattern,
-                              setting.secondary_pattern)) {
-      base::Time last_modified = setting.metadata.last_modified;
-      if (last_modified >= begin_time &&
-          (last_modified < end_time || end_time.is_null())) {
-        for (auto* provider : user_modifiable_providers_) {
-          provider->SetWebsiteSetting(setting.primary_pattern,
-                                      setting.secondary_pattern, content_type,
-                                      base::Value(), {});
-        }
+    if (predicate(setting)) {
+      for (auto* provider : user_modifiable_providers_) {
+        provider->SetWebsiteSetting(setting.primary_pattern,
+                                    setting.secondary_pattern, content_type,
+                                    base::Value(), {});
       }
     }
   }
@@ -791,9 +840,9 @@ void HostContentSettingsMap::AddSettingsForOneType(
     // We may be adding settings for only specific rule types. If that's the
     // case and this setting isn't a match, don't add it. We will also avoid
     // adding any expired rules since they are no longer valid.
-    if ((!rule->metadata.expiration.is_null() &&
-         (rule->metadata.expiration < clock_->Now())) ||
-        (session_model && (session_model != rule->metadata.session_model))) {
+    if ((!rule->metadata.expiration().is_null() &&
+         (rule->metadata.expiration() < clock_->Now())) ||
+        (session_model && (session_model != rule->metadata.session_model()))) {
       continue;
     }
 
@@ -972,8 +1021,8 @@ base::Value HostContentSettingsMap::GetContentSettingValueAndPatterns(
       std::unique_ptr<content_settings::Rule> rule = rule_iterator->Next();
       if (rule->primary_pattern.Matches(primary_url) &&
           rule->secondary_pattern.Matches(secondary_url) &&
-          (rule->metadata.expiration.is_null() ||
-           (rule->metadata.expiration > clock->Now()))) {
+          (rule->metadata.expiration().is_null() ||
+           (rule->metadata.expiration() > clock->Now()))) {
         if (primary_pattern)
           *primary_pattern = rule->primary_pattern;
         if (secondary_pattern)

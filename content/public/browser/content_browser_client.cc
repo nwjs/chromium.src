@@ -534,6 +534,13 @@ bool ContentBrowserClient::IsInterestGroupAPIAllowed(
   return false;
 }
 
+bool ContentBrowserClient::IsPrivacySandboxReportingDestinationAttested(
+    content::BrowserContext* browser_context,
+    const url::Origin& destination_origin,
+    content::PrivacySandboxInvokingAPI invoking_api) {
+  return false;
+}
+
 void ContentBrowserClient::OnAuctionComplete(
     RenderFrameHost* render_frame_host,
     InterestGroupManager::InterestGroupDataKey data_key) {}
@@ -712,6 +719,10 @@ base::FilePath ContentBrowserClient::GetShaderDiskCacheDirectory() {
 }
 
 base::FilePath ContentBrowserClient::GetGrShaderDiskCacheDirectory() {
+  return base::FilePath();
+}
+
+base::FilePath ContentBrowserClient::GetGraphiteDawnDiskCacheDirectory() {
   return base::FilePath();
 }
 
@@ -904,6 +915,15 @@ ContentBrowserClient::CreateURLLoaderThrottles(
   return std::vector<std::unique_ptr<blink::URLLoaderThrottle>>();
 }
 
+std::vector<std::unique_ptr<blink::URLLoaderThrottle>>
+ContentBrowserClient::CreateURLLoaderThrottlesForKeepAlive(
+    const network::ResourceRequest& request,
+    BrowserContext* browser_context,
+    const base::RepeatingCallback<WebContents*()>& wc_getter,
+    int frame_tree_node_id) {
+  return std::vector<std::unique_ptr<blink::URLLoaderThrottle>>();
+}
+
 void ContentBrowserClient::RegisterNonNetworkNavigationURLLoaderFactories(
     int frame_tree_node_id,
     ukm::SourceIdObj ukm_source_id,
@@ -938,7 +958,8 @@ bool ContentBrowserClient::WillCreateURLLoaderFactory(
         header_client,
     bool* bypass_redirect_checks,
     bool* disable_secure_dns,
-    network::mojom::URLLoaderFactoryOverridePtr* factory_override) {
+    network::mojom::URLLoaderFactoryOverridePtr* factory_override,
+    scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
   DCHECK(browser_context);
   return false;
 }
@@ -989,7 +1010,9 @@ bool ContentBrowserClient::WillCreateRestrictedCookieManager(
 std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>
 ContentBrowserClient::WillCreateURLLoaderRequestInterceptors(
     content::NavigationUIData* navigation_ui_data,
-    int frame_tree_node_id) {
+    int frame_tree_node_id,
+    int64_t navigation_id,
+    scoped_refptr<base::SequencedTaskRunner> navigation_response_task_runner) {
   return std::vector<std::unique_ptr<URLLoaderRequestInterceptor>>();
 }
 
@@ -1203,14 +1226,6 @@ std::string ContentBrowserClient::GetUserAgentBasedOnPolicy(
   return GetUserAgent();
 }
 
-std::string ContentBrowserClient::GetFullUserAgent() {
-  return GetUserAgent();
-}
-
-std::string ContentBrowserClient::GetReducedUserAgent() {
-  return GetUserAgent();
-}
-
 blink::UserAgentMetadata ContentBrowserClient::GetUserAgentMetadata() {
   return blink::UserAgentMetadata();
 }
@@ -1308,6 +1323,14 @@ base::OnceClosure ContentBrowserClient::FetchRemoteSms(
         callback) {
   return base::NullCallback();
 }
+
+void ContentBrowserClient::ReportLegacyTechEvent(
+    content::RenderFrameHost* render_frame_host,
+    const std::string type,
+    const GURL& url,
+    const std::string& filename,
+    uint64_t line,
+    uint64_t column) {}
 
 bool ContentBrowserClient::IsClipboardPasteAllowed(
     content::RenderFrameHost* render_frame_host) {
@@ -1460,8 +1483,7 @@ ContentBrowserClient::GetAlternativeErrorPageOverrideInfo(
   return nullptr;
 }
 
-bool ContentBrowserClient::OpenExternally(RenderFrameHost* opener,
-                                          const GURL& url,
+bool ContentBrowserClient::OpenExternally(const GURL& url,
                                           WindowOpenDisposition disposition) {
   return false;
 }
@@ -1511,6 +1533,15 @@ bool ContentBrowserClient::ShouldUseFirstPartyStorageKey(
 std::unique_ptr<ResponsivenessCalculatorDelegate>
 ContentBrowserClient::CreateResponsivenessCalculatorDelegate() {
   return nullptr;
+}
+
+bool ContentBrowserClient::CanBackForwardCachedPageReceiveCookieChanges(
+    content::BrowserContext& browser_context,
+    const GURL& url,
+    const net::SiteForCookies& site_for_cookies,
+    const absl::optional<url::Origin>& top_frame_origin,
+    const net::CookieSettingOverrides overrides) {
+  return true;
 }
 
 }  // namespace content

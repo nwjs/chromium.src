@@ -54,6 +54,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
+#include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
@@ -1619,6 +1620,16 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoDefault:
       return element.MatchesDefaultPseudoClass();
     case CSSSelector::kPseudoDisabled:
+      if (auto* fieldset = DynamicTo<HTMLFieldSetElement>(element)) {
+        if (RuntimeEnabledFeatures::
+                SendMouseEventsDisabledFormControlsEnabled()) {
+          // <fieldset> should never be considered disabled, but should still
+          // match the :enabled or :disabled pseudo-classes according to whether
+          // the attribute is set or not. See here for context:
+          // https://github.com/whatwg/html/issues/5886#issuecomment-1582410112
+          return fieldset->IsActuallyDisabled();
+        }
+      }
       return element.IsDisabledFormControl();
     case CSSSelector::kPseudoReadOnly:
       return element.MatchesReadOnlyPseudoClass();
@@ -1690,6 +1701,26 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       }
       break;
     }
+    case CSSSelector::kPseudoPopoverInTopLayer:
+      if (auto* html_element = DynamicTo<HTMLElement>(element);
+          html_element && html_element->HasPopoverAttribute()) {
+        // When the popover is open and is not transitioning to closed,
+        // popoverOpen will return true.
+        if (html_element->popoverOpen()) {
+          DCHECK(html_element->GetDocument().TopLayerElements().Contains(
+              html_element));
+          return true;
+        }
+        // When the popover is transitioning to closed, popoverOpen won't return
+        // true and we have to check the elements which are in the top layer but
+        // are pending removal to see if this element used to be popoverOpen.
+        absl::optional<Document::TopLayerReason> top_layer_reason =
+            html_element->GetDocument().IsScheduledForTopLayerRemoval(
+                html_element);
+        return top_layer_reason &&
+               *top_layer_reason == Document::TopLayerReason::kPopover;
+      }
+      return false;
     case CSSSelector::kPseudoPopoverOpen:
       if (auto* html_element = DynamicTo<HTMLElement>(element);
           html_element && html_element->HasPopoverAttribute()) {

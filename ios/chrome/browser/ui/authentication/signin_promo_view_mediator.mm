@@ -14,16 +14,17 @@
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "ios/chrome/browser/discover_feed/feed_constants.h"
-#import "ios/chrome/browser/flags/system_flags.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_browser_agent.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
+#import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/system_identity.h"
+#import "ios/chrome/browser/sync/sync_observer_bridge.h"
 #import "ios/chrome/browser/ui/authentication/authentication_flow.h"
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_configurator.h"
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_consumer.h"
@@ -78,7 +79,6 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER:
     case signin_metrics::AccessPoint::ACCESS_POINT_DEVICES_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_CLOUD_PRINT:
-    case signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA:
     case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO:
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
@@ -109,6 +109,8 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_CONSISTENCY_SERVICE:
     case signin_metrics::AccessPoint::ACCESS_POINT_SEARCH_COMPANION:
     case signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return false;
   }
@@ -155,7 +157,6 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER:
     case signin_metrics::AccessPoint::ACCESS_POINT_DEVICES_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_CLOUD_PRINT:
-    case signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA:
     case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO:
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
@@ -189,6 +190,8 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_CONSISTENCY_SERVICE:
     case signin_metrics::AccessPoint::ACCESS_POINT_SEARCH_COMPANION:
     case signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
       break;
@@ -236,7 +239,6 @@ void RecordImpressionsTilDismissHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER:
     case signin_metrics::AccessPoint::ACCESS_POINT_DEVICES_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_CLOUD_PRINT:
-    case signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA:
     case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO:
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
@@ -270,6 +272,8 @@ void RecordImpressionsTilDismissHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_CONSISTENCY_SERVICE:
     case signin_metrics::AccessPoint::ACCESS_POINT_SEARCH_COMPANION:
     case signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
       break;
@@ -317,7 +321,6 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER:
     case signin_metrics::AccessPoint::ACCESS_POINT_DEVICES_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_CLOUD_PRINT:
-    case signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA:
     case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO:
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
@@ -350,6 +353,8 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_CONSISTENCY_SERVICE:
     case signin_metrics::AccessPoint::ACCESS_POINT_SEARCH_COMPANION:
     case signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -382,7 +387,6 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER:
     case signin_metrics::AccessPoint::ACCESS_POINT_DEVICES_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_CLOUD_PRINT:
-    case signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA:
     case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO:
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
@@ -418,6 +422,8 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_CONSISTENCY_SERVICE:
     case signin_metrics::AccessPoint::ACCESS_POINT_SEARCH_COMPANION:
     case signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
       return nullptr;
   }
 }
@@ -447,7 +453,6 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_USER_MANAGER:
     case signin_metrics::AccessPoint::ACCESS_POINT_DEVICES_PAGE:
     case signin_metrics::AccessPoint::ACCESS_POINT_CLOUD_PRINT:
-    case signin_metrics::AccessPoint::ACCESS_POINT_CONTENT_AREA:
     case signin_metrics::AccessPoint::ACCESS_POINT_SIGNIN_PROMO:
     case signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN:
     case signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE:
@@ -483,6 +488,8 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::ACCESS_POINT_ACCOUNT_CONSISTENCY_SERVICE:
     case signin_metrics::AccessPoint::ACCESS_POINT_SEARCH_COMPANION:
     case signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
       return nullptr;
   }
 }
@@ -490,7 +497,8 @@ const char* AlreadySeenSigninViewPreferenceKey(
 }  // namespace
 
 @interface SigninPromoViewMediator () <ChromeAccountManagerServiceObserver,
-                                       IdentityChooserCoordinatorDelegate>
+                                       IdentityChooserCoordinatorDelegate,
+                                       SyncObserverModelBridge>
 
 // Redefined to be readwrite.
 @property(nonatomic, strong, readwrite) id<SystemIdentity> identity;
@@ -533,6 +541,10 @@ const char* AlreadySeenSigninViewPreferenceKey(
   UIViewController* _baseViewController;
   // Sign-in flow, used only when `self.signInOnly` is `YES`.
   AuthenticationFlow* _authenticationFlow;
+  // Sync service.
+  syncer::SyncService* _syncService;
+  // Observer for changes to the sync state.
+  std::unique_ptr<SyncObserverBridge> _syncObserverBridge;
   // Coordinator for the user to select an account.
   IdentityChooserCoordinator* _identityChooserCoordinator;
   // Coordinator to add an account.
@@ -540,6 +552,8 @@ const char* AlreadySeenSigninViewPreferenceKey(
   // TODO(crbug.com/1448830): This class should not need to block the UI.
   // The UI blocker is only used in sign-in only cases.
   std::unique_ptr<ScopedUIBlocker> _uiBlocker;
+  // The type of data that should be synced before the sign-in completes.
+  syncer::ModelType _dataTypeToWaitForInitialSync;
 }
 
 + (void)registerBrowserStatePrefs:(user_prefs::PrefRegistrySyncable*)registry {
@@ -628,6 +642,7 @@ const char* AlreadySeenSigninViewPreferenceKey(
               (ChromeAccountManagerService*)accountManagerService
                     authService:(AuthenticationService*)authService
                     prefService:(PrefService*)prefService
+                    syncService:(syncer::SyncService*)syncService
                     accessPoint:(signin_metrics::AccessPoint)accessPoint
                       presenter:(id<SigninPresenter>)presenter
              baseViewController:(UIViewController*)baseViewController {
@@ -639,12 +654,20 @@ const char* AlreadySeenSigninViewPreferenceKey(
     _accountManagerService = accountManagerService;
     _authService = authService;
     _prefService = prefService;
+    _syncService = syncService;
     _accessPoint = accessPoint;
+    _dataTypeToWaitForInitialSync = syncer::ModelType::UNSPECIFIED;
     _presenter = presenter;
     _baseViewController = baseViewController;
     _accountManagerServiceObserver =
         std::make_unique<ChromeAccountManagerServiceObserverBridge>(
             self, _accountManagerService);
+    // Starting the sync state observation enables the sign-in progress to be
+    // set to YES even if the user hasn't interacted with the promo. It is
+    // intentional to keep UX consistency, given the initial sync cancellation
+    // which should end the sign-in progress is tricky to detect.
+    _syncObserverBridge =
+        std::make_unique<SyncObserverBridge>(self, _syncService);
 
     id<SystemIdentity> defaultIdentity = [self defaultIdentity];
     if (defaultIdentity) {
@@ -752,12 +775,19 @@ const char* AlreadySeenSigninViewPreferenceKey(
   self.signinPromoViewVisible = NO;
 }
 
+- (void)setDataTypeToWaitForInitialSync:(syncer::ModelType)dataType {
+  _dataTypeToWaitForInitialSync = dataType;
+  [self updateSignInProgressWithSyncState];
+}
+
 - (void)disconnect {
   [self signinPromoViewIsRemoved];
   self.consumer = nil;
   self.accountManagerService = nullptr;
   self.authService = nullptr;
+  _syncService = nullptr;
   _accountManagerServiceObserver.reset();
+  _syncObserverBridge.reset();
 }
 
 #pragma mark - Public properties
@@ -818,6 +848,20 @@ const char* AlreadySeenSigninViewPreferenceKey(
     return;
   }
   _signinInProgress = signinInProgress;
+  SigninPromoViewConfigurator* configurator = [self createConfigurator];
+  if ([self.consumer
+          respondsToSelector:@selector(promoProgressStateDidChange)]) {
+    [self.consumer promoProgressStateDidChange];
+  }
+  [self.consumer configureSigninPromoWithConfigurator:configurator
+                                      identityChanged:NO];
+}
+
+- (void)setSignInInOnly:(BOOL)signInOnly {
+  if (_signInOnly == signInOnly) {
+    return;
+  }
+  _signInOnly = signInOnly;
   SigninPromoViewConfigurator* configurator = [self createConfigurator];
   [self.consumer configureSigninPromoWithConfigurator:configurator
                                       identityChanged:NO];
@@ -929,6 +973,10 @@ const char* AlreadySeenSigninViewPreferenceKey(
   __weak __typeof(self) weakSelf = self;
   [_authenticationFlow startSignInWithCompletion:^(BOOL success) {
     [weakSelf signInFlowCompletedForSignInOnly];
+    if ([weakSelf shouldWaitForInitialSync]) {
+      return;
+    }
+    weakSelf.signinInProgress = NO;
     if ([weakConsumer respondsToSelector:@selector(signinDidFinish)]) {
       [weakConsumer signinDidFinish];
     }
@@ -940,7 +988,6 @@ const char* AlreadySeenSigninViewPreferenceKey(
 - (void)signInFlowCompletedForSignInOnly {
   DCHECK(self.signInOnly) << base::SysNSStringToUTF8([self description]);
   _uiBlocker.reset();
-  self.signinInProgress = NO;
 }
 
 - (void)startAddAccountForSignInOnly {
@@ -1011,6 +1058,29 @@ const char* AlreadySeenSigninViewPreferenceKey(
       self.prefService->GetInteger(displayedCountPreferenceKey);
   RecordImpressionsTilDismissHistogramForAccessPoint(self.accessPoint,
                                                      displayedCount);
+}
+
+// Whether the sign-in needs to wait for the end of the initial sync to
+// complete.
+- (BOOL)shouldWaitForInitialSync {
+  return _dataTypeToWaitForInitialSync != syncer::ModelType::UNSPECIFIED;
+}
+
+// If initial sync is needed before the sign-in completes, set the
+// `signinInProgress` according to the initial sync state.
+- (void)updateSignInProgressWithSyncState {
+  if (![self shouldWaitForInitialSync]) {
+    return;
+  }
+  self.signinInProgress = [self isPerformingInitialSync];
+}
+
+// Whether the initial sync of the ModelType given by
+// `_dataTypeToWaitForInitialSync` is in progress.
+- (BOOL)isPerformingInitialSync {
+  CHECK(_dataTypeToWaitForInitialSync != syncer::ModelType::UNSPECIFIED);
+  return _syncService->GetTypesWithPendingDownloadForInitialSync().Has(
+      _dataTypeToWaitForInitialSync);
 }
 
 #pragma mark - ChromeAccountManagerServiceObserver
@@ -1157,6 +1227,29 @@ const char* AlreadySeenSigninViewPreferenceKey(
   [_identityChooserCoordinator stop];
   _identityChooserCoordinator = nil;
   [self startSignInOnlyFlow];
+}
+
+#pragma mark - SyncObserverModelBridge
+
+// If additional data sync is needed during sign-in, update `signinInProgress`
+// to match the sync progress state when the sync state changes. This is needed
+// especially when the sign-in is undone during initial sync and
+// `onSyncConfigurationCompleted` is not called.
+- (void)onSyncStateChanged {
+  [self updateSignInProgressWithSyncState];
+}
+
+// If additional data sync is needed during sign-in, set `signinInProgress`
+// to NO when the initial sync finishes for the data type.
+- (void)onSyncConfigurationCompleted {
+  if (![self shouldWaitForInitialSync] || [self isPerformingInitialSync]) {
+    return;
+  }
+  // Handle sign-in completion.
+  self.signinInProgress = NO;
+  if ([self.consumer respondsToSelector:@selector(signinDidFinish)]) {
+    [self.consumer signinDidFinish];
+  }
 }
 
 #pragma mark - NSObject

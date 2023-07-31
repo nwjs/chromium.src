@@ -46,10 +46,6 @@ class IPCMessageSender {
       bool* success = nullptr, ::base::Value::List* response = nullptr,
       std::string* error = nullptr) = 0;
 
-  // Handles sending any additional messages required after receiving a response
-  // to a request.
-  virtual void SendOnRequestResponseReceivedIPC(int request_id) = 0;
-
   // Sends a message to add/remove an unfiltered listener.
   virtual void SendAddUnfilteredEventListenerIPC(
       ScriptContext* context,

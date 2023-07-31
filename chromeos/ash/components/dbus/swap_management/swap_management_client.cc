@@ -4,6 +4,7 @@
 
 #include "chromeos/ash/components/dbus/swap_management/swap_management_client.h"
 
+#include "base/memory/raw_ptr.h"
 #include "chromeos/ash/components/dbus/swap_management/fake_swap_management_client.h"
 #include "dbus/bus.h"
 #include "dbus/message.h"
@@ -83,13 +84,25 @@ class SwapManagementClientImpl : public SwapManagementClient {
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
   }
 
+  void MGLRUSetEnable(uint8_t value,
+                      chromeos::VoidDBusMethodCallback callback) override {
+    dbus::MethodCall method_call(swap_management::kSwapManagementInterface,
+                                 swap_management::kMGLRUSetEnable);
+    dbus::MessageWriter writer(&method_call);
+    writer.AppendByte(value);
+    swap_management_proxy_->CallMethod(
+        &method_call, dbus::ObjectProxy::TIMEOUT_USE_DEFAULT,
+        base::BindOnce(&SwapManagementClientImpl::OnResponse,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
  private:
   void OnResponse(chromeos::VoidDBusMethodCallback callback,
                   dbus::Response* response) {
     std::move(callback).Run(response != nullptr);
   }
 
-  dbus::ObjectProxy* swap_management_proxy_ = nullptr;
+  raw_ptr<dbus::ObjectProxy, ExperimentalAsh> swap_management_proxy_ = nullptr;
   base::WeakPtrFactory<SwapManagementClientImpl> weak_ptr_factory_{this};
 };
 

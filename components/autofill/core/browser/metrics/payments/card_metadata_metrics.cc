@@ -60,11 +60,8 @@ std::string GetCardIssuerIdSuffix(const std::string& card_issuer_id) {
 // image.
 bool HasRichCardArtImageFromMetadata(const CreditCard& card) {
   return card.card_art_url().is_valid() &&
-         card.card_art_url().spec() !=
-             (base::FeatureList::IsEnabled(
-                  features::kAutofillEnableNewCardArtAndNetworkImages)
-                  ? kCapitalOneLargeCardArtUrl
-                  : kCapitalOneCardArtUrl);
+         card.card_art_url().spec() != kCapitalOneLargeCardArtUrl &&
+         card.card_art_url().spec() != kCapitalOneCardArtUrl;
 }
 
 }  // namespace
@@ -152,6 +149,12 @@ void LogCardWithMetadataFormEventMetric(
                                       GetCardIssuerIdSuffix(issuer) +
                                       ".FilledWithMetadata",
                                   has_metadata);
+        if (!has_been_logged.value()) {
+          base::UmaHistogramBoolean("Autofill.CreditCard." +
+                                        GetCardIssuerIdSuffix(issuer) +
+                                        ".FilledWithMetadataOnce",
+                                    has_metadata);
+        }
         break;
       case CardMetadataLoggingEvent::kWillSubmit:
         base::UmaHistogramBoolean("Autofill.CreditCard." +
