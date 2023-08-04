@@ -16,6 +16,9 @@
 
 #include "base/logging.h"
 #include "base/mac/scoped_cftyperef.h"
+#include "base/mac/scoped_nsautorelease_pool.h"
+#include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_policy.h"
 #include "base/message_loop/timer_slack.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
@@ -162,20 +165,20 @@ void UvNoOp(void* handle) {
 
 }  // namespace
 
-// A scoper for autorelease pools created from message pump run loops.
-// Avoids dirtying up the ScopedNSAutoreleasePool interface for the rare
-// case where an autorelease pool needs to be passed in.
-class MessagePumpScopedAutoreleasePool {
+// A scoper for an optional autorelease pool.
+class OptionalAutoreleasePool {
  public:
-  explicit MessagePumpScopedAutoreleasePool(MessagePumpCFRunLoopBase* pump) :
-      pool_(pump->CreateAutoreleasePool()) {
-  }
-   ~MessagePumpScopedAutoreleasePool() {
-    [pool_ drain];
+  explicit OptionalAutoreleasePool(MessagePumpCFRunLoopBase* pump) {
+    if (pump->ShouldCreateAutoreleasePool()) {
+      pool_.emplace();
+    }
   }
 
+  OptionalAutoreleasePool(const OptionalAutoreleasePool&) = delete;
+  OptionalAutoreleasePool& operator=(const OptionalAutoreleasePool&) = delete;
+
  private:
-  NSAutoreleasePool* pool_;
+  absl::optional<base::mac::ScopedNSAutoreleasePool> pool_;
 };
 
 bool MessagePumpUVNSRunLoop::RunWork() {
@@ -192,7 +195,7 @@ bool MessagePumpUVNSRunLoop::RunWork() {
   // CFRunLoopSource target that's run.  Use a local pool for any autoreleased
   // objects if the app is not currently handling a UI event to ensure they're
   // released promptly even in the absence of UI events.
-  MessagePumpScopedAutoreleasePool autorelease_pool(this);
+  OptionalAutoreleasePool autorelease_pool(this);
 
   PopWorkItemScope();
   Delegate::NextWorkInfo next_work_info = delegate_->DoWork();
@@ -221,7 +224,7 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
   // CFRunLoopSource target that's run.  Use a local pool for any autoreleased
   // objects if the app is not currently handling a UI event to ensure they're
   // released promptly even in the absence of UI events.
-  MessagePumpScopedAutoreleasePool autorelease_pool(this);
+  OptionalAutoreleasePool autorelease_pool(this);
 
   // Call DoIdleWork once, and if something was done, arrange to come back here
   // again as long as the loop is still running.
