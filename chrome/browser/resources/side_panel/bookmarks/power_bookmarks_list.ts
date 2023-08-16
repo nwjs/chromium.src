@@ -267,8 +267,8 @@ export class PowerBookmarksListElement extends PolymerElement {
             (product: BookmarkProductInfo) =>
                 this.onBookmarkPriceTracked_(product)),
         callbackRouter.priceUntrackedForBookmark.addListener(
-            (bookmarkId: bigint) =>
-                this.onBookmarkPriceUntracked_(bookmarkId.toString())),
+            (product: BookmarkProductInfo) =>
+                this.onBookmarkPriceUntracked_(product)),
     );
 
     if (document.documentElement.hasAttribute('chrome-refresh-2023')) {
@@ -419,6 +419,17 @@ export class PowerBookmarksListElement extends PolymerElement {
     }, {once: true});
   }
 
+  setRenamingIdForTests(id: string) {
+    const event = new CustomEvent('rename', {
+      bubbles: true,
+      composed: true,
+      detail: {
+        id: id,
+      },
+    });
+    this.setRenamingId_(event);
+  }
+
   private canDrag_() {
     return !this.editing_ && !this.renamingId_ && !this.searchQuery_ &&
         !this.hasActiveLabels_();
@@ -441,8 +452,8 @@ export class PowerBookmarksListElement extends PolymerElement {
     this.set(`trackedProductInfos_.${product.bookmarkId.toString()}`, product);
   }
 
-  private onBookmarkPriceUntracked_(bookmarkId: string) {
-    this.set(`trackedProductInfos_.${bookmarkId}`, null);
+  private onBookmarkPriceUntracked_(product: BookmarkProductInfo) {
+    this.set(`trackedProductInfos_.${product.bookmarkId.toString()}`, null);
   }
 
   // TODO(emshack): Once there is more than one bookmark power, remove this
@@ -780,9 +791,11 @@ export class PowerBookmarksListElement extends PolymerElement {
 
   private onRename_(
       event: CustomEvent<
-          {bookmark: chrome.bookmarks.BookmarkTreeNode, value: string}>) {
-    this.bookmarksApi_.renameBookmark(
-        event.detail.bookmark.id, event.detail.value);
+          {bookmark: chrome.bookmarks.BookmarkTreeNode, value: string|null}>) {
+    const newName = event.detail.value;
+    if (newName != null) {
+      this.bookmarksApi_.renameBookmark(event.detail.bookmark.id, newName);
+    }
     this.renamingId_ = '';
   }
 

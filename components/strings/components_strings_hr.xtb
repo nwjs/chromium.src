@@ -1345,7 +1345,6 @@ To će u suprotnom biti onemogućeno na temelju vaših postavki privatnosti. To 
 <translation id="3987940399970879459">Manje od 1 MB</translation>
 <translation id="3990250421422698716">Pomak u načinu rada Jog</translation>
 <translation id="3992684624889376114">Informacije o ovoj stranici</translation>
-<translation id="399952081411886534">Ostale značajke koje oglase čine privatnijima</translation>
 <translation id="4000598935132966791">Saznajte više o ograničenjima web-lokacija u upravljanim preglednicima</translation>
 <translation id="4006465311664329701">Načini plaćanja, ponude i adrese s Google Paya</translation>
 <translation id="4010758435855888356">Želite li dopustiti pristup pohrani?</translation>
@@ -1429,7 +1428,7 @@ To će u suprotnom biti onemogućeno na temelju vaših postavki privatnosti. To 
 <translation id="4186035307311647330">Poništi praćenje cijene</translation>
 <translation id="4194250254487269611">Vaša se kartica trenutačno ne može spremiti</translation>
 <translation id="4195459680867822611">Gumb Prikaz savjeta o Chromeu, aktivirajte ga da biste saznali više o Chromeovim značajkama</translation>
-<translation id="4195643157523330669">Otvori na novoj kartici</translation>
+<translation id="4195643157523330669">Otvori u novoj kartici</translation>
 <translation id="4196861286325780578">&amp;Ponovi premještanje</translation>
 <translation id="4199637363739172710">Ručni satovi</translation>
 <translation id="4202218894997543208">Teme koje ste blokirali</translation>
@@ -3301,6 +3300,7 @@ Dodatne pojedinosti:
 <translation id="827820107214076967">Osvježi zapisnike</translation>
 <translation id="8279611986089885641">Obavijesti u Chromeu moraju biti uključene. Možete ih uključiti u odjeljku <ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />.</translation>
 <translation id="8280630997017109758">Ladica 11</translation>
+<translation id="8281730697546299650">Sada su dostupne ostale značajke zaštite privatnosti u online oglašavanju</translation>
 <translation id="8281886186245836920">Preskoči</translation>
 <translation id="8282409409360764263">Održavanje dvorišta</translation>
 <translation id="8282947398454257691">znati vaš jedinstveni identifikator uređaja</translation>
@@ -3535,7 +3535,7 @@ Dodatne pojedinosti:
 <translation id="8813277370772331957">Podsjeti me kasnije</translation>
 <translation id="8814707942599948500">Omotnica C8</translation>
 <translation id="8816395686387277279"><ph name="UPDATE_CHROME_FOCUSED_FRIENDLY_MATCH_TEXT" />, pritisnite Tab, a zatim Enter da biste ažurirali Chrome iz postavki Chromea</translation>
-<translation id="8820817407110198400">Knjižne oznake</translation>
+<translation id="8820817407110198400">Oznake</translation>
 <translation id="882338992931677877">Utor za ručno umetanje</translation>
 <translation id="8830320733681313421">Hagaki dopisnica</translation>
 <translation id="8833007469711500369">Perilice i sušilice rublja</translation>

@@ -2485,6 +2485,10 @@ static_library("browser") {
     "//ui/webui",
   ]
 
+  if (!is_android) {
+    deps += [ "//chrome/browser/companion/visual_search:flags" ]
+  }
+
   if (enable_screen_ai_service) {
     sources += [
       "accessibility/ax_screen_ai_annotator.cc",
@@ -2964,7 +2968,6 @@ static_library("browser") {
       "fast_checkout/fast_checkout_client_impl.h",
       "fast_checkout/fast_checkout_delegate_impl.cc",
       "fast_checkout/fast_checkout_delegate_impl.h",
-      "fast_checkout/fast_checkout_enums.h",
       "fast_checkout/fast_checkout_personal_data_helper.h",
       "fast_checkout/fast_checkout_personal_data_helper_impl.cc",
       "fast_checkout/fast_checkout_personal_data_helper_impl.h",

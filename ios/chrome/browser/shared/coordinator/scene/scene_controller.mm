@@ -1219,11 +1219,6 @@ void InjectNTP(Browser* browser) {
   [self.sceneState.appState removeObserver:self];
 }
 
-- (void)dealloc {
-  // TODO(crbug.com/1454777)
-  DUMP_WILL_BE_CHECK(!self.sceneState.UIEnabled);
-}
-
 // Formats string for display on iPadOS application switcher with the
 // domain of the foreground tab and the tab count. Assumes the scene is
 // visible. Will return nil if there are no tabs.
@@ -1814,9 +1809,10 @@ void InjectNTP(Browser* browser) {
   // Copy the URL so it can be safely captured in the block.
   GURL copiedURL = url;
 
-  [self startSigninCoordinatorWithCompletion:^(BOOL success) {
+  [self startSigninCoordinatorWithCompletion:^(SigninCoordinatorResult result) {
     // If the sign-in is not successful or the scene controller is shut down do
     // not load the continuation URL.
+    BOOL success = result == SigninCoordinatorResultSuccess;
     if (!success || !weakSelf) {
       return;
     }
@@ -3080,7 +3076,7 @@ void InjectNTP(Browser* browser) {
 
 // Starts the sign-in coordinator with a default cleanup completion.
 - (void)startSigninCoordinatorWithCompletion:
-    (signin_ui::CompletionCallback)completion {
+    (ShowSigninCommandCompletionCallback)completion {
   DCHECK(self.signinCoordinator);
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForBrowserState(
@@ -3090,7 +3086,7 @@ void InjectNTP(Browser* browser) {
   switch (statusService) {
     case AuthenticationService::ServiceStatus::SigninDisabledByPolicy: {
       if (completion) {
-        completion(/*success=*/NO);
+        completion(SigninCoordinatorResultDisabled);
       }
       [self.signinCoordinator stop];
       id<PolicyChangeCommands> handler = HandlerForProtocol(
@@ -3128,7 +3124,7 @@ void InjectNTP(Browser* browser) {
         uiBlocker.reset();
 
         if (completion) {
-          completion(result == SigninCoordinatorResultSuccess);
+          completion(result);
         }
 
         if (!weakSelf.dismissingSigninPromptFromExternalTrigger) {

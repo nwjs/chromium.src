@@ -10,8 +10,12 @@
 
 @protocol BubblePresenterDelegate;
 @class BubbleViewControllerPresenter;
+@class CommandDispatcher;
 class HostContentSettingsMap;
 @class LayoutGuideCenter;
+@class SceneState;
+@protocol TabStripCommands;
+@protocol ToolbarCommands;
 class UrlLoadingNotifierBrowserAgent;
 class WebStateList;
 
@@ -30,14 +34,19 @@ class DeviceSwitcherResultDispatcher;
 
 // Initializes a BubblePresenter whose bubbles are presented on the
 // `rootViewController`.
-- (instancetype)initWithTracker:(feature_engagement::Tracker*)engagementTracker
-            hostContentSettingsMap:(HostContentSettingsMap*)settingsMap
-                      webStateList:(WebStateList*)webStateList
-    deviceSwitcherResultDispatcher:
+- (instancetype)
+    initWithDeviceSwitcherResultDispatcher:
         (segmentation_platform::DeviceSwitcherResultDispatcher*)
             deviceSwitcherResultDispatcher
-                   loadingNotifier:
-                       (UrlLoadingNotifierBrowserAgent*)urlLoadingNotifier
+                    hostContentSettingsMap:(HostContentSettingsMap*)settingsMap
+                           loadingNotifier:(UrlLoadingNotifierBrowserAgent*)
+                                               urlLoadingNotifier
+                                sceneState:(SceneState*)sceneState
+                   tabStripCommandsHandler:
+                       (id<TabStripCommands>)tabStripCommandsHandler
+                                   tracker:(feature_engagement::Tracker*)
+                                               engagementTracker
+                              webStateList:(WebStateList*)webStateList
     NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
@@ -49,6 +58,7 @@ class DeviceSwitcherResultDispatcher;
 @property(nonatomic, weak) id<BubblePresenterDelegate> delegate;
 @property(nonatomic, weak) UIViewController* rootViewController;
 @property(nonatomic, strong) LayoutGuideCenter* layoutGuideCenter;
+@property(nonatomic, weak) id<ToolbarCommands> toolbarCommandsHandler;
 
 // Stops this presenter.
 - (void)stop;

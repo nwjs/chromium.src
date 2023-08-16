@@ -78,6 +78,7 @@
 #import "ios/chrome/browser/shared/public/commands/share_highlight_command.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
+#import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/web_content_commands.h"
 #import "ios/chrome/browser/shared/public/commands/whats_new_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -785,12 +786,35 @@ enum class ToolbarKind {
         segmentation_platform::SegmentationPlatformServiceFactory::
             GetDispatcherForBrowserState(browserState);
   }
-  _bubblePresenter =
-      [[BubblePresenter alloc] initWithTracker:engagementTracker
-                        hostContentSettingsMap:settingsMap
-                                  webStateList:self.browser->GetWebStateList()
-                deviceSwitcherResultDispatcher:deviceSwitcherResultDispatcher
-                               loadingNotifier:_urlLoadingNotifierBrowserAgent];
+
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    if (base::FeatureList::IsEnabled(kModernTabStrip)) {
+      _tabStripCoordinator =
+          [[TabStripCoordinator alloc] initWithBrowser:self.browser];
+    } else {
+      _legacyTabStripCoordinator =
+          [[TabStripLegacyCoordinator alloc] initWithBrowser:self.browser];
+      _legacyTabStripCoordinator.animationWaitDuration =
+          kLegacyFullscreenControllerToolbarAnimationDuration.InSecondsF();
+    }
+  }
+
+  id<TabStripCommands> tabStripCommandsHandler = nil;
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
+    // The -startDispatching for TabStripCommands will be called at a later
+    // point for tablet only, so cannot use `HandlerForProtocol`.
+    tabStripCommandsHandler = static_cast<id<TabStripCommands>>(_dispatcher);
+  }
+  _bubblePresenter = [[BubblePresenter alloc]
+      initWithDeviceSwitcherResultDispatcher:deviceSwitcherResultDispatcher
+                      hostContentSettingsMap:settingsMap
+                             loadingNotifier:_urlLoadingNotifierBrowserAgent
+                                  sceneState:SceneStateBrowserAgent::
+                                                 FromBrowser(self.browser)
+                                                     ->GetSceneState()
+                     tabStripCommandsHandler:tabStripCommandsHandler
+                                     tracker:engagementTracker
+                                webStateList:self.browser->GetWebStateList()];
   _bubblePresenter.layoutGuideCenter = _layoutGuideCenter;
   _bubblePresenter.delegate = self;
   [_dispatcher startDispatchingToTarget:_bubblePresenter
@@ -813,6 +837,11 @@ enum class ToolbarKind {
       _toolbarCoordinator.primaryToolbarSnapshotProvider;
   _sideSwipeMediator.secondaryToolbarSnapshotProvider =
       _toolbarCoordinator.secondaryToolbarSnapshotProvider;
+
+  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET &&
+      !base::FeatureList::IsEnabled(kModernTabStrip)) {
+    [_sideSwipeMediator setTabStripDelegate:_legacyTabStripCoordinator];
+  }
 
   _bookmarksCoordinator =
       [[BookmarksCoordinator alloc] initWithBrowser:self.browser];
@@ -841,20 +870,6 @@ enum class ToolbarKind {
   // It is done intentionally, since this does not affecting the coordinator's
   // behavior but helps command handler setup below.
   [self.popupMenuCoordinator start];
-
-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
-    if (base::FeatureList::IsEnabled(kModernTabStrip)) {
-      _tabStripCoordinator =
-          [[TabStripCoordinator alloc] initWithBrowser:self.browser];
-    } else {
-      _legacyTabStripCoordinator =
-          [[TabStripLegacyCoordinator alloc] initWithBrowser:self.browser];
-      _legacyTabStripCoordinator.animationWaitDuration =
-          kLegacyFullscreenControllerToolbarAnimationDuration.InSecondsF();
-
-      [_sideSwipeMediator setTabStripDelegate:_legacyTabStripCoordinator];
-    }
-  }
 
   _NTPCoordinator = [[NewTabPageCoordinator alloc]
        initWithBrowser:self.browser
@@ -939,6 +954,9 @@ enum class ToolbarKind {
 
   _legacyTabStripCoordinator.baseViewController = self.viewController;
   _NTPCoordinator.baseViewController = self.viewController;
+
+  _bubblePresenter.toolbarCommandsHandler =
+      HandlerForProtocol(_dispatcher, ToolbarCommands);
 
   [_dispatcher startDispatchingToTarget:self.viewController
                             forProtocol:@protocol(BrowserCommands)];

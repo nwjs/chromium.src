@@ -193,6 +193,7 @@
 <translation id="1153636665119721804">Google 高级保护计划</translation>
 <translation id="1155545602507378023">否，仅限此设备</translation>
 <translation id="1155816283571436363">正在连接到您的手机</translation>
+<translation id="1157952955648710254">关闭 Google 搜索侧边栏</translation>
 <translation id="1158080958325422608">转换为大写</translation>
 <translation id="1158238185437008462">查看回忆</translation>
 <translation id="1159879754517035595">管理扩展程序设置</translation>
@@ -3090,7 +3091,7 @@
 <translation id="3602870520245633055">打印和扫描</translation>
 <translation id="3602894439067790744">将数值读为</translation>
 <translation id="3603622770190368340">获取网络证书</translation>
-<translation id="3605156246402033687">{COUNT,plural, =1{{COUNT} 个帐号在使用同一密码}other{{COUNT} 个帐号在使用同一密码}}</translation>
+<translation id="3605156246402033687">{COUNT,plural, =1{{COUNT} 个账号在使用同一密码}other{{COUNT} 个账号在使用同一密码}}</translation>
 <translation id="3605780360466892872">男性商务人士</translation>
 <translation id="3609277884604412258">快速搜索</translation>
 <translation id="3610241585790874201">不得将数据保存在设备上</translation>
@@ -4000,7 +4001,7 @@
 <translation id="4377058670119819762">如果您启用此实验，标签栏可以在填满后左右滚动。</translation>
 <translation id="4377363674125277448">服务器的证书存在问题。</translation>
 <translation id="437809255587011096">播报文本样式</translation>
-<translation id="4378154925671717803">电话机</translation>
+<translation id="4378154925671717803">电话</translation>
 <translation id="4378308539633073595">向前滚动</translation>
 <translation id="4378551569595875038">正在连接…</translation>
 <translation id="4378556263712303865">设备申请</translation>
@@ -6489,6 +6490,7 @@
 <translation id="6547854317475115430"><ph name="BEGIN_PARAGRAPH1" />Google 的位置信息服务会使用 WLAN、移动网络和传感器等来源协助估测您设备所在的位置。<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />您随时可在此设备上关闭 Android 位置信息，方法是依次转到“设置”&gt;“应用”&gt;“Google Play 商店”&gt;“管理 Android 偏好设置”&gt;“安全性和位置信息”&gt;“位置信息”。您还可在同一菜单中关闭“Google 位置信息精确度”，以禁止使用 WLAN、移动网络和传感器获取 Android 位置信息。<ph name="END_PARAGRAPH2" /></translation>
 <translation id="654871471440386944">要开启光标浏览模式吗？</translation>
+<translation id="6548945820758901244">打开 Google 搜索侧边栏</translation>
 <translation id="6549038875972762904">重新设置</translation>
 <translation id="6550675742724504774">选项</translation>
 <translation id="65513682072153627">如果某项设置或功能由您的管理员管理，您将会看到此“受管”图标。</translation>
@@ -9478,7 +9480,7 @@
 <translation id="9076523132036239772">抱歉，您的电子邮件地址或密码无法进行验证。请先尝试连接到网络。</translation>
 <translation id="9076821103818989526">侧边栏</translation>
 <translation id="9076977315710973122">SMB 共享</translation>
-<translation id="907779190626433918">请为每个网站或应用分别使用专用密码。如果有人发现了您重复使用的密码，就能利用此密码访问您的其他帐号。</translation>
+<translation id="907779190626433918">请为每个网站或应用分别使用专用密码。如果有人发现了您重复使用的密码，就能利用此密码访问您的其他账号。</translation>
 <translation id="9078193189520575214">正在应用更改…</translation>
 <translation id="9078316009970372699">停用“即时网络共享”</translation>
 <translation id="9078546160009814724">用户名：<ph name="USERNAME" /></translation>

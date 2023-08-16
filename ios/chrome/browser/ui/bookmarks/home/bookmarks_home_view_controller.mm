@@ -263,12 +263,8 @@ std::vector<GURL> GetUrlsToOpen(const std::vector<const BookmarkNode*>& nodes) {
   return self;
 }
 
-- (void)dealloc {
-  // TODO(crbug.com/1454777)
-  DUMP_WILL_BE_CHECK(!_browser);
-}
-
 - (void)shutdown {
+  [self.editingFolderCell stopEdit];
   [self stopFolderChooserCoordinator];
   [self.bookmarksCoordinator stop];
   self.bookmarksCoordinator = nil;

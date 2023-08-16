@@ -90,7 +90,7 @@
 <translation id="1178821169867863726">12 x 16 дюймов</translation>
 <translation id="1181037720776840403">Удалить</translation>
 <translation id="1186201132766001848">Проверить пароли</translation>
-<translation id="1195073053842921378">Этот адрес будет удален с устройства.</translation>
+<translation id="1195073053842921378">Адрес будет удален с этого устройства.</translation>
 <translation id="1195558154361252544">Уведомления от всех сайтов блокируются автоматически – кроме тех, которым вы дали разрешение.</translation>
 <translation id="1197088940767939838">Оранжевый</translation>
 <translation id="1201402288615127009">Далее</translation>
@@ -1345,7 +1345,6 @@
 <translation id="3987940399970879459">Менее 1 МБ</translation>
 <translation id="3990250421422698716">Смещение</translation>
 <translation id="3992684624889376114">Об этой странице</translation>
-<translation id="399952081411886534">Другие функции, повышающие конфиденциальность в рекламе</translation>
 <translation id="4000598935132966791">Подробнее о доступе к сайтам в управляемых браузерах</translation>
 <translation id="4006465311664329701">Способы оплаты, адреса и специальные предложения из Google Pay</translation>
 <translation id="4010758435855888356">Предоставить доступ к хранилищу?</translation>
@@ -2379,7 +2378,7 @@
 <translation id="6301104306974789820">Получать уведомления об изменении цены</translation>
 <translation id="6304398603974202180">Мультимедийное ПО</translation>
 <translation id="6305205051461490394">Сайт <ph name="URL" /> недоступен.</translation>
-<translation id="6306713302480826305">Адрес будет удален с этого и других устройств, на которых выполнен вход в аккаунт</translation>
+<translation id="6306713302480826305">Адрес будет удален с этого и других устройств, на которых вы вошли в аккаунт.</translation>
 <translation id="6312113039770857350">Не удалось открыть веб-страницу</translation>
 <translation id="6316226860534107313">Мотороллеры и мопеды</translation>
 <translation id="6316723751983724988">Внимание! На этом сайте действуют ограничения Family Link для Chrome</translation>
@@ -3301,6 +3300,7 @@
 <translation id="827820107214076967">Обновить журналы</translation>
 <translation id="8279611986089885641">Необходимо включить уведомления в Chrome. Чтобы сделать это, откройте <ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />.</translation>
 <translation id="8280630997017109758">Лоток 11</translation>
+<translation id="8281730697546299650">Доступны другие функции конфиденциальности в рекламе</translation>
 <translation id="8281886186245836920">Пропустить</translation>
 <translation id="8282409409360764263">Уход за придомовой территорией</translation>
 <translation id="8282947398454257691">доступ к уникальному идентификатору устройства</translation>

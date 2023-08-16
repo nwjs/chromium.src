@@ -10,6 +10,7 @@
 #include "chrome/browser/companion/core/companion_url_builder.h"
 #include "chrome/browser/companion/core/features.h"
 #include "chrome/browser/companion/core/promo_handler.h"
+#include "chrome/browser/companion/core/utils.h"
 #include "chrome/browser/companion/text_finder/text_finder_manager.h"
 #include "chrome/browser/companion/text_finder/text_highlighter_manager.h"
 #include "chrome/browser/companion/visual_search/features.h"
@@ -166,15 +167,35 @@ void CompanionPageHandler::DidFinishLoad(
   }
 }
 
-void CompanionPageHandler::HandleVisualSearchResult(
+void CompanionPageHandler::SendVisualSearchResult(
     std::vector<std::string> results) {
   std::vector<side_panel::mojom::VisualSearchResultPtr> final_results;
   for (const auto& result : results) {
     final_results.emplace_back(
         side_panel::mojom::VisualSearchResult::New(result));
   }
-  if (!final_results.empty()) {
-    page_->OnDeviceVisualClassificationResult(std::move(final_results));
+  page_->OnDeviceVisualClassificationResult(std::move(final_results));
+}
+
+void CompanionPageHandler::HandleVisualSearchResult(
+    std::vector<std::string> results,
+    const VisualSuggestionsMetrics& metrics) {
+  SendVisualSearchResult(results);
+  metrics_logger_->OnVisualSuggestionsResult(metrics);
+}
+
+void CompanionPageHandler::OnLoadingState(
+    side_panel::mojom::LoadingState loading_state) {
+  // We mainly use the OnLoadingState function to re-send the last result to
+  // the WebUI to handle cases where we obtain the |VisualSearchResult| before
+  // the UI is ready to render it.
+  if (visual_search_host_ &&
+      loading_state == side_panel::mojom::LoadingState::kStartedLoading) {
+    const auto& visual_result =
+        visual_search_host_->GetVisualResult(web_contents()->GetURL());
+    if (visual_result) {
+      SendVisualSearchResult(visual_result.value().second);
+    }
   }
 }
 
@@ -335,9 +356,9 @@ void CompanionPageHandler::OnOpenInNewTabButtonURLChanged(
 
 void CompanionPageHandler::RecordUiSurfaceShown(
     side_panel::mojom::UiSurface ui_surface,
-    uint32_t ui_surface_position,
-    uint32_t child_element_available_count,
-    uint32_t child_element_shown_count) {
+    int32_t ui_surface_position,
+    int32_t child_element_available_count,
+    int32_t child_element_shown_count) {
   if (full_load_start_time_) {
     base::UmaHistogramTimes("Companion.FullLoad.Latency",
                             base::TimeTicks::Now() - *full_load_start_time_);
@@ -390,6 +411,10 @@ void CompanionPageHandler::OpenUrlInBrowser(
     return;
   }
 
+  // Verify the string coming from the server is safe to open.
+  if (!IsSafeURLFromCompanion(url_to_open.value())) {
+    return;
+  }
   signin_delegate_->OpenUrlInBrowser(url_to_open.value(), use_new_tab);
 }
 

@@ -193,6 +193,7 @@ Puedes revisar las contraseñas en cualquier momento, en <ph name="GOOGLE_PASSWO
 <translation id="1153636665119721804">Programa de Protección Avanzada de Google</translation>
 <translation id="1155545602507378023">No, solo en este dispositivo</translation>
 <translation id="1155816283571436363">Se está estableciendo conexión con tu teléfono</translation>
+<translation id="1157952955648710254">Cerrar el panel lateral de la Búsqueda de Google</translation>
 <translation id="1158080958325422608">Convertir a mayúsculas</translation>
 <translation id="1158238185437008462">Ver recuerdos</translation>
 <translation id="1159879754517035595">Administrar la configuración de extensiones</translation>
@@ -382,7 +383,7 @@ Puedes revisar las contraseñas en cualquier momento, en <ph name="GOOGLE_PASSWO
 <translation id="131112695174432497">Se borran los datos que afectan la personalización de anuncios.</translation>
 <translation id="1311294419381837540">Estás transmitiendo una pestaña. Puedes pausar o detener la transmisión en cualquier momento.</translation>
 <translation id="1312811472299082263">Crear a partir de un archivo de copia de seguridad de Crostini o de playbook de Ansible</translation>
-<translation id="13130607084115184">Las contraseñas guardadas aparecerán aquí. Para importar contraseñas a <ph name="BRAND" /> en este dispositivo, <ph name="BEGIN_LINK" />selecciona un archivo CSV.<ph name="END_LINK" /></translation>
+<translation id="13130607084115184">Las contraseñas guardadas aparecerán aquí. Para importar contraseñas al <ph name="BRAND" /> en este dispositivo, <ph name="BEGIN_LINK" />selecciona un archivo CSV.<ph name="END_LINK" /></translation>
 <translation id="1313264149528821971">Se quitaron <ph name="PERMISSION_1" />, <ph name="PERMISSION_2" />, <ph name="PERMISSION_3" /></translation>
 <translation id="1313405956111467313">Configuración automática de proxy</translation>
 <translation id="131364520783682672">Bloq Mayús</translation>
@@ -1283,7 +1284,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2061366302742593739">No hay elementos para mostrar</translation>
 <translation id="2062354623176996748">Con una ventana de incógnito, podrás usar la Web sin que se guarde tu historial de navegación</translation>
 <translation id="206308717637808771">Borrar los datos cuando cierras todas las ventanas; los parámetros de configuración del sitio que estás viendo se aplican a los datos</translation>
-<translation id="2063623149012168328">Agrega un atajo para <ph name="BRAND" /></translation>
+<translation id="2063623149012168328">Agrega un acceso directo al <ph name="BRAND" /></translation>
 <translation id="2065405795449409761">Un software de prueba automatizado está controlando Chrome.</translation>
 <translation id="2071393345806050157">No hay ningún archivo de registro local.</translation>
 <translation id="2071692954027939183">Se bloquearon las notificaciones de forma automática porque no sueles permitirlas.</translation>
@@ -2255,7 +2256,7 @@ Para administrar la configuración de esta cuenta, instala la app de Family Lin
 <translation id="2844809857160214557">Ver y administrar trabajos de impresión</translation>
 <translation id="2845382757467349449">Mostrar siempre la barra de favoritos</translation>
 <translation id="2845751331501453107">Mientras navegas, la personalización de un anuncio que ves depende de este parámetro de configuración, los <ph name="BEGIN_LINK1" />anuncios sugeridos por sitios<ph name="LINK_END1" />, tu <ph name="BEGIN_LINK2" />configuración de cookies<ph name="LINK_END2" /> y si el sitio que estás viendo personaliza los anuncios.</translation>
-<translation id="284581348330507117">Crea contraseñas únicas.</translation>
+<translation id="284581348330507117">Crea contraseñas únicas</translation>
 <translation id="284805635805850872">¿Deseas quitar software dañino?</translation>
 <translation id="2849035674501872372">Buscar</translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
@@ -5607,7 +5608,7 @@ Puedes enviarlo a Google para comprobar que sea seguro. Los análisis suelen tar
 <translation id="5787146423283493983">Acuerdo de claves</translation>
 <translation id="5787420647064736989">Nombre del dispositivo</translation>
 <translation id="5788367137662787332">Lo sentimos, al menos una partición en el dispositivo <ph name="DEVICE_LABEL" /> no se pudo montar.</translation>
-<translation id="5789581866075720267">Si quieres importar contraseñas a <ph name="BRAND" /> en este dispositivo, selecciona un archivo CSV.</translation>
+<translation id="5789581866075720267">Si quieres importar contraseñas al <ph name="BRAND" /> en este dispositivo, selecciona un archivo CSV.</translation>
 <translation id="5789643057113097023">.</translation>
 <translation id="5790085346892983794">Completado correctamente</translation>
 <translation id="5790651917470750848">Ya se está redireccionado ese puerto</translation>
@@ -6414,7 +6415,7 @@ Puedes enviarlo a Google para comprobar que sea seguro. Los análisis suelen tar
 <translation id="6469702164109431067">Contraseñas y llaves de acceso</translation>
 <translation id="6470823736074966819">Silenciar notificaciones</translation>
 <translation id="6472893788822429178">Mostrar el botón de la Página principal</translation>
-<translation id="6474352027343282094">{COUNT,plural, =1{{COUNT} contraseña se guarda solo en este dispositivo. Para usarla en otros dispositivos, &lt;a target='_blank' href='chrome://password-manager/'&gt;guárdala en tu Cuenta de Google&lt;/a&gt;.}other{{COUNT} contraseñas se guardan solo en este dispositivo. Para usarlas en otros dispositivos, &lt;a target='_blank' href='chrome://password-manager/'&gt;guárdalas en tu Cuenta de Google&lt;/a&gt;.}}</translation>
+<translation id="6474352027343282094">{COUNT,plural, =1{{COUNT} contraseña está guardada solo en este dispositivo. Para usarla en otros dispositivos, &lt;a target='_blank' href='chrome://password-manager/'&gt;guárdala en tu Cuenta de Google&lt;/a&gt;.}other{{COUNT} contraseñas están guardadas solo en este dispositivo. Para usarlas en otros dispositivos, &lt;a target='_blank' href='chrome://password-manager/'&gt;guárdalas en tu Cuenta de Google&lt;/a&gt;.}}</translation>
 <translation id="6474498546677193336">No se puede dejar de compartir esta carpeta porque una app la está usando. Dejará de compartirse la próxima vez que se cierre Linux.</translation>
 <translation id="6474884162850599008">Desconectar la cuenta de Google Drive</translation>
 <translation id="6475294023568239942">Libera espacio en el disco o cambia el tamaño del disco de Linux en Configuración.</translation>
@@ -6500,6 +6501,7 @@ Puedes enviarlo a Google para comprobar que sea seguro. Los análisis suelen tar
 <translation id="6547854317475115430"><ph name="BEGIN_PARAGRAPH1" />El servicio de ubicación de Google usa fuentes como Wi-Fi, redes móviles y sensores para ayudar a determinar la ubicación de tu dispositivo.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Puedes desactivar la ubicación de tu dispositivo Android en cualquier momento a través de Configuración &gt; Apps &gt; Google Play Store &gt; Administrar las preferencias de Android &gt; Seguridad y ubicación &gt; Ubicación. Además, si quieres desactivar el uso de Wi-Fi, redes móviles y sensores para la ubicación de este dispositivo Android, desactiva "Precisión de la ubicación de Google" en el mismo menú.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="654871471440386944">¿Deseas activar la navegación por cursor de texto?</translation>
+<translation id="6548945820758901244">Abrir el panel lateral de la Búsqueda de Google</translation>
 <translation id="6549038875972762904">Rehacer la configuración</translation>
 <translation id="6550675742724504774">Opciones</translation>
 <translation id="65513682072153627">Verás este ícono de Administrado cuando un parámetro de configuración o una función esté gestionado por el administrador.</translation>
@@ -9315,7 +9317,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8940381019874223173">De tu Google Fotos</translation>
 <translation id="8941173171815156065">Revocar el permiso "<ph name="PERMISSION" />"</translation>
 <translation id="8941688920560496412">Se desactivó el dispositivo <ph name="DEVICE_NAME" />.</translation>
-<translation id="894191600409472540">Crea contraseñas seguras.</translation>
+<translation id="894191600409472540">Crea contraseñas seguras</translation>
 <translation id="894360074127026135">Suplemento especial internacional de Netscape</translation>
 <translation id="8944099748578356325">Usa la batería de forma más rápida (nivel actual: <ph name="BATTERY_PERCENTAGE" />%).</translation>
 <translation id="8944725102565796255">Si quieres usar esta cuenta solo una vez, puedes <ph name="GUEST_LINK_BEGIN" />usar el dispositivo como invitado<ph name="GUEST_LINK_END" />. Si quieres agregar una cuenta para alguien más, <ph name="LINK_BEGIN" />agrega una nueva persona<ph name="LINK_END" /> a tu <ph name="DEVICE_TYPE" />.

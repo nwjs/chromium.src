@@ -12,7 +12,7 @@
 <translation id="1006873397406093306">Cette extension peut lire et modifier vos données sur les sites. Vous pouvez contrôler les sites auxquels elle a accès.</translation>
 <translation id="1007057452468855774">Activer le Google Play Store</translation>
 <translation id="1008186147501209563">Exporter les favoris</translation>
-<translation id="1008261151167010035"><ph name="BRAND" /> mémorise votre mode de connexion et vous connecte automatiquement quand c'est possible. Lorsque la connexion automatique est désactivée, vous êtes invité à confirmer votre choix à chaque fois.</translation>
+<translation id="1008261151167010035">Le <ph name="BRAND" /> mémorise votre mode de connexion et vous connecte automatiquement quand c'est possible. Lorsque la connexion automatique est désactivée, vous êtes invité à confirmer votre choix à chaque fois.</translation>
 <translation id="1008557486741366299">Pas maintenant</translation>
 <translation id="1009454959501038262">{NUM_SITES,plural, =1{Pour protéger vos données, des autorisations ont été supprimées pour un site que vous n'avez pas consulté depuis deux mois}one{Pour protéger vos données, des autorisations ont été supprimées pour un site que vous n'avez pas consulté depuis deux mois}other{Pour protéger vos données, des autorisations ont été supprimées pour des sites que vous n'avez pas consultés depuis deux mois}}</translation>
 <translation id="1009663062402466586">Commandes de jeu désormais disponibles</translation>
@@ -193,6 +193,7 @@ Vérifiez vos mots de passe à tout moment dans le <ph name="GOOGLE_PASSWORD_MAN
 <translation id="1153636665119721804">Programme Protection Avancée de Google</translation>
 <translation id="1155545602507378023">Non, cet appareil uniquement</translation>
 <translation id="1155816283571436363">Connexion à votre téléphone</translation>
+<translation id="1157952955648710254">Fermer le panneau latéral de la recherche Google</translation>
 <translation id="1158080958325422608">Mettre en majuscules</translation>
 <translation id="1158238185437008462">Voir vos souvenirs</translation>
 <translation id="1159879754517035595">Gérer les paramètres des extensions</translation>
@@ -1921,7 +1922,7 @@ Vous pouvez gérer les paramètres de ce compte en installant l'application Fami
 <translation id="25568951186001797">Cadre cloisonné : <ph name="FENCEDFRAME_SITE" /></translation>
 <translation id="2558569818338050235">Votre historique de navigation influe sur les annonces que vous voyez</translation>
 <translation id="2559889124253841528">Enregistrer sur l'appareil</translation>
-<translation id="2561211427862644160">Voir tous vos favoris ici</translation>
+<translation id="2561211427862644160">Retrouvez tous vos favoris ici</translation>
 <translation id="2564520396658920462">L'exécution de JavaScript via AppleScript est désactivée. Pour l'activer, dans la barre de menu, accédez à Affichage &gt; Développeur &gt; Autoriser JavaScript dans les événements AppleScript. Pour en savoir plus, consultez la page https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2564653188463346023">Correcteur orthographique amélioré</translation>
 <translation id="2568694057933302218">Lorsque vous êtes en navigation privée, les sites ne peuvent pas utiliser vos cookies pour voir votre activité de navigation sur l'ensemble des sites. Votre activité de navigation n'est pas utilisée pour personnaliser les annonces, par exemple. Il est possible que les fonctionnalités de certains sites ne fonctionnent pas.</translation>
@@ -5612,7 +5613,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="5787146423283493983">Accord de la clé</translation>
 <translation id="5787420647064736989">Nom de l'appareil</translation>
 <translation id="5788367137662787332">Désolé, impossible d'installer au moins une partition du périphérique <ph name="DEVICE_LABEL" />.</translation>
-<translation id="5789581866075720267">Pour importer des mots de passe dans <ph name="BRAND" /> sur cet appareil, sélectionnez un fichier CSV.</translation>
+<translation id="5789581866075720267">Pour importer des mots de passe dans le <ph name="BRAND" /> sur cet appareil, sélectionnez un fichier CSV.</translation>
 <translation id="5789643057113097023">.</translation>
 <translation id="5790085346892983794">Succès</translation>
 <translation id="5790651917470750848">Ce port existe déjà</translation>
@@ -6505,6 +6506,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6547854317475115430"><ph name="BEGIN_PARAGRAPH1" />Le service de localisation de Google utilise des sources comme le Wi-Fi, les réseaux mobiles et des capteurs pour estimer la position de votre appareil.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Vous pouvez désactiver la localisation Android sur votre appareil à tout moment dans Paramètres &gt; Applications &gt; Google Play Store &gt; Gérer les préférences Android &gt; Sécurité et localisation &gt; Localisation. Vous pouvez aussi empêcher l'utilisation du Wi-Fi, des réseaux mobiles et des capteurs en désactivant "Précision de la localisation Google" dans le même menu.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="654871471440386944">Activer la navigation au clavier ?</translation>
+<translation id="6548945820758901244">Ouvrir le panneau latéral de la recherche Google</translation>
 <translation id="6549038875972762904">Reconfigurer</translation>
 <translation id="6550675742724504774">Options</translation>
 <translation id="65513682072153627">Cette icône signalant un appareil géré s'affiche lorsqu'une fonctionnalité ou un paramètre sont gérés par votre administrateur.</translation>
@@ -8377,7 +8379,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8113476325385351118">Continuer à bloquer le contrôle total des appareils MIDI pour ce site</translation>
 <translation id="8115139559594092084">De votre Google Drive</translation>
 <translation id="8116972784401310538">&amp;Gestionnaire de favoris</translation>
-<translation id="8118276691321086429"><ph name="PASSWORD_MANAGER_BRAND" /> mémorise votre mode de connexion et vous connecte automatiquement quand c'est possible. Lorsque la connexion automatique est désactivée, vous êtes invité à confirmer votre choix à chaque fois.</translation>
+<translation id="8118276691321086429">Le <ph name="PASSWORD_MANAGER_BRAND" /> mémorise votre mode de connexion et vous connecte automatiquement quand c'est possible. Lorsque la connexion automatique est désactivée, vous êtes invité à confirmer votre choix à chaque fois.</translation>
 <translation id="8118362518458010043">Désactivée par Chrome. Cette extension est peut-être dangereuse.</translation>
 <translation id="8118488170956489476">Votre <ph name="BEGIN_LINK" />navigateur est géré<ph name="END_LINK" /> par votre organisation</translation>
 <translation id="8118515372935001629">Fréquence d'actualisation de l'affichage</translation>

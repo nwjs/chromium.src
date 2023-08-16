@@ -193,10 +193,11 @@
 <translation id="1153636665119721804">Google の高度な保護機能プログラム</translation>
 <translation id="1155545602507378023">いいえ、このデバイスのみ</translation>
 <translation id="1155816283571436363">スマートフォンに接続しています</translation>
+<translation id="1157952955648710254">Google 検索のサイドパネルを閉じる</translation>
 <translation id="1158080958325422608">大文字にする</translation>
 <translation id="1158238185437008462">思い出の写真を表示</translation>
 <translation id="1159879754517035595">拡張機能の設定を管理する</translation>
-<translation id="1160842321113409343">ユーザーのプライバシーを保護するために、4 週間以上経過したサイトはリストから自動削除されます。再度アクセスしたサイトが、またリストに表示される場合があります。ユーザーの興味 / 関心を定義させたくないサイトを完全に削除することもできます。</translation>
+<translation id="1160842321113409343">ユーザーのプライバシーを保護するため、4 週間以上経過したウェブサイトはリストから自動削除されます。ウェブサイトにもう一度アクセスすると、リストに再度表示される場合もあります。ユーザーの興味 / 関心を定義させたくないウェブサイトを完全に削除することもできます。</translation>
 <translation id="1161575384898972166">クライアント証明書をエクスポートするには <ph name="TOKEN_NAME" /> にログインしてください。</translation>
 <translation id="116173250649946226">デフォルトのテーマは管理者が設定しており、変更できません。</translation>
 <translation id="1162213688509394031">タイトルバーを非表示</translation>
@@ -805,7 +806,7 @@
 <translation id="1651008383952180276">同じパスフレーズを 2 回入力する必要があります</translation>
 <translation id="1651609627703324721">このタブはヘッドセットに VR コンテンツを配信しています</translation>
 <translation id="1652326691684645429">ニアバイシェアを有効にする</translation>
-<translation id="1654580009054503925">リクエストの表示を許可しないサイト</translation>
+<translation id="1654580009054503925">リクエストの表示を許可しないウェブサイト</translation>
 <translation id="1656528038316521561">背景の透明度</translation>
 <translation id="1657406563541664238">使用統計データや障害レポートを Google に自動送信して <ph name="PRODUCT_NAME" /> の機能向上に役立てる</translation>
 <translation id="1657937299377480641">教育リソースにアクセスするために再度ログインするには、保護者の方に許可してもらってください</translation>
@@ -1883,7 +1884,7 @@
 <translation id="2532589005999780174">ハイコントラスト モード</translation>
 <translation id="2533649878691950253">通常、正確な位置情報の共有が許可されていないため、このサイトでも許可されていません</translation>
 <translation id="253434972992662860">一時停止(&amp;P)</translation>
-<translation id="253498598929009420">サイトは画面上のコンテンツを読み取ることができます</translation>
+<translation id="253498598929009420">ウェブサイトは画面上のコンテンツを読み取ることができます</translation>
 <translation id="253557089021624350">キープアライブ カウント</translation>
 <translation id="2535799430745250929">モバイル ネットワークがありません</translation>
 <translation id="2537395079978992874"><ph name="ORIGIN" /> は次のファイルとフォルダを表示、編集できます</translation>
@@ -3221,7 +3222,7 @@
 <translation id="3708295717182051206">字幕</translation>
 <translation id="3708684582558000260">閉じたサイトにデータの送受信の完了を許可しない</translation>
 <translation id="3709244229496787112">ダウンロードの完了前に、ブラウザがシャットダウンされました。</translation>
-<translation id="371174301504454251">ユーザーのプライバシーを保護するために、4 週間以上経過したサイトはリストから自動削除されます。再度アクセスしたサイトが、またリストに表示される場合があります。ユーザーの興味 / 関心を定義させたくないサイトを完全に削除することもできます。</translation>
+<translation id="371174301504454251">ユーザーのプライバシーを保護するため、4 週間以上経過したウェブサイトはリストから自動削除されます。ウェブサイトにもう一度アクセスすると、リストに再度表示される場合もあります。ユーザーの興味 / 関心を定義させたくないウェブサイトを完全に削除することもできます。</translation>
 <translation id="3711931198657368127">貼り付けて <ph name="URL" /> に移動</translation>
 <translation id="3711945201266135623">プリント サーバーで <ph name="NUM_PRINTERS" /> 個のプリンタが見つかりました</translation>
 <translation id="3712050472459130149">アカウントの更新が必要です</translation>
@@ -3539,7 +3540,7 @@
 <translation id="3957079323242030166">バックアップ データは、ドライブの保存容量にはカウントされません。</translation>
 <translation id="3957844511978444971">[同意する] をタップすると、この Google サービスの設定の選択内容を確認したことになります。</translation>
 <translation id="3958088479270651626">ブックマークと設定のインポート</translation>
-<translation id="3958110062351175311">ツールバーでのリクエストの表示を許可するサイト</translation>
+<translation id="3958110062351175311">ツールバーでのリクエストの表示を許可するウェブサイト</translation>
 <translation id="3959747296451923142">登録の削除を確認</translation>
 <translation id="3960566196862329469">ONC</translation>
 <translation id="3961005895395968120"><ph name="IBAN_DESCRIPTION" /> に対するその他の操作</translation>
@@ -3812,7 +3813,7 @@
 <translation id="4205157409548006256">Linux の設定中にエラーが発生しました。</translation>
 <translation id="4206144641569145248">エイリアン</translation>
 <translation id="4206323443866416204">ご意見の報告</translation>
-<translation id="4206585797409671301">リクエストの表示を許可するサイト</translation>
+<translation id="4206585797409671301">リクエストの表示を許可するウェブサイト</translation>
 <translation id="4207932031282227921">権限がリクエストされました。対応するには、F6 キーを押してください</translation>
 <translation id="4208390505124702064"><ph name="SITE_NAME" /> を検索</translation>
 <translation id="4209092469652827314">大</translation>
@@ -5354,7 +5355,7 @@
 <translation id="5555639311269196631">アクセス ポイントをオフにする</translation>
 <translation id="5556459405103347317">再読み込み</translation>
 <translation id="5558129378926964177">拡大(&amp;I)</translation>
-<translation id="5559311991468302423">アドレスを削除</translation>
+<translation id="5559311991468302423">住所を削除</translation>
 <translation id="5559768063688681413">保存済みのプリンタはありません</translation>
 <translation id="55601339223879446">ディスプレイ内のデスクトップの境界線を調整します</translation>
 <translation id="5561162485081632007">危険なイベントの発生を検出して警告します</translation>
@@ -5499,7 +5500,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="5684661240348539843">アセット ID</translation>
 <translation id="5684950556880280580">パスワードが更新されました</translation>
 <translation id="5687326903064479980">タイムゾーン</translation>
-<translation id="5687606994963670306">Chrome では、30 日以上経過したサイトは自動削除されます。サイトにもう一度アクセスすると、リストに再度表示される場合もあります。広告の提案を行わないようサイトをブロックすることもできます。詳しくは、<ph name="BEGIN_LINK" />Chrome で広告のプライバシーを管理する<ph name="END_LINK" />をご覧ください。</translation>
+<translation id="5687606994963670306">Chrome では、30 日以上経過したウェブサイトは自動削除されます。ウェブサイトにもう一度アクセスすると、リストに再度表示される場合もあります。広告の提案を行わないようウェブサイトをブロックすることもできます。詳しくは、<ph name="BEGIN_LINK" />Chrome で広告のプライバシーを管理する<ph name="END_LINK" />をご確認ください。</translation>
 <translation id="5687935527303996204">デバイスが電源に接続されていることを確認してください。電源をオフにしないでください。インストールには 20 分ほどかかる場合があります。インストールが完了するとデバイスは自動的にシャットダウンします。</translation>
 <translation id="5689516760719285838">位置情報</translation>
 <translation id="5689531695336322499">アシスタントの Voice Match は、<ph name="SUPERVISED_USER_NAME" /> さんがすでに別のデバイスで設定済みのようです。このデバイスの音声モデルは、登録済みの音声を使って作成されています。</translation>
@@ -6086,7 +6087,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="6184099524311454384">タブを検索</translation>
 <translation id="6185132558746749656">デバイスの位置情報</translation>
 <translation id="6190953336330058278">スマートフォン ハブ アプリ</translation>
-<translation id="6192333916571137726">ダウンロード ファイル</translation>
+<translation id="6192333916571137726">ファイルをダウンロード</translation>
 <translation id="6192413564913825901">すべてのブックマークに移動</translation>
 <translation id="6194333736420234626">お支払い方法(&amp;P)</translation>
 <translation id="6195005504600220730">ブラウザ、OS、デバイスに関する情報の読み取り</translation>
@@ -6492,6 +6493,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="6547354035488017500">デバイスの空き領域を 512 MB 以上確保してください。空き領域がこれより少なくなると、デバイスは応答しなくなります。空き領域を確保するために、デバイスのストレージからファイルを削除してください。</translation>
 <translation id="6547854317475115430"><ph name="BEGIN_PARAGRAPH1" />Google の位置情報サービスでは、デバイスの現在地を推定するために、Wi-Fi、モバイル ネットワーク、センサーなどの情報源が使用されます。<ph name="END_PARAGRAPH1" /><ph name="BEGIN_PARAGRAPH2" />[設定] &gt; [アプリ] &gt; [Google Play ストア] &gt; [Android 設定を管理] &gt; [セキュリティと現在地情報] &gt; [現在地情報] から随時、デバイスの Android 位置情報機能をオフにできます。また、同じメニューで [Google 位置情報の精度] をオフにすると、Android の位置情報機能に対して Wi-Fi、モバイル ネットワーク、センサーの使用をオフにすることもできます。<ph name="END_PARAGRAPH2" /></translation>
 <translation id="654871471440386944">カーソル ブラウジングをオンにしますか？</translation>
+<translation id="6548945820758901244">Google 検索のサイドパネルを開く</translation>
 <translation id="6549038875972762904">設定をやり直す</translation>
 <translation id="6550675742724504774">オプション</translation>
 <translation id="65513682072153627">設定や機能が管理者に管理されていると、この管理対象アイコンが表示されます。</translation>
@@ -7332,7 +7334,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="7273110280511444812">前回接続した日: <ph name="DATE" /></translation>
 <translation id="727441411541283857"><ph name="PERCENTAGE" />% - あと <ph name="TIME" />で充電完了</translation>
 <translation id="727595954130325265">今すぐ購入</translation>
-<translation id="7276100255011548441">Chrome では、4 週間以上経過したトピックは自動削除されます。ブラウジングを続けていると、トピックがリストに再度表示される場合もあります。サイトと共有したくないトピックはブロックできます。詳しくは、<ph name="BEGIN_LINK" />Chrome で広告のプライバシーを管理する<ph name="END_LINK" />をご覧ください。</translation>
+<translation id="7276100255011548441">Chrome では、4 週間以上経過したトピックは自動削除されます。閲覧を続けていると、トピックがリストに再度表示される場合もあります。ウェブサイトと共有したくないトピックはブロックできます。詳しくは、<ph name="BEGIN_LINK" />Chrome で広告のプライバシーを管理する<ph name="END_LINK" />をご確認ください。</translation>
 <translation id="727952162645687754">ダウンロード エラー</translation>
 <translation id="7280649757394340890">テキスト読み上げの音声の設定</translation>
 <translation id="7280877790564589615">許可の要求</translation>
@@ -8126,7 +8128,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="7925285046818567682"><ph name="HOST_NAME" /> を待機しています...</translation>
 <translation id="7926423016278357561">これは私ではありません。</translation>
 <translation id="7926975587469166629">カードのニックネーム</translation>
-<translation id="7928175190925744466">このパスワードを変更しましたか？</translation>
+<translation id="7928175190925744466">このパスワードをすでに変更した場合</translation>
 <translation id="7929962904089429003">メニューを開く</translation>
 <translation id="7930294771522048157">保存したお支払い方法がここに表示されます</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> が画面と音声を共有しています。</translation>
@@ -8388,7 +8390,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="8141725884565838206">パスワードを管理する</translation>
 <translation id="814204052173971714">{COUNT,plural, =1{動画}other{# 件の動画}}</translation>
 <translation id="8143442547342702591">無効なアプリケーション</translation>
-<translation id="8143609395536282994">データを管理する方法:</translation>
+<translation id="8143609395536282994">データの管理方法:</translation>
 <translation id="8145170459658034418">メモリセーバー</translation>
 <translation id="8146177459103116374">このデバイスでの登録が済んでいる場合は<ph name="LINK2_START" />既存のユーザー<ph name="LINK2_END" />としてログインできます。</translation>
 <translation id="8146287226035613638">使用する言語とその順序を設定できます。ウェブサイトは指定した言語で表示されるようになります（可能な場合）。これらの設定はブラウザの設定と同期されています。<ph name="BEGIN_LINK_LEARN_MORE" />詳細<ph name="END_LINK_LEARN_MORE" /></translation>
@@ -8932,7 +8934,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="8634348081024879304">Google Pay で仮想カードを使用できなくなります。<ph name="BEGIN_LINK" />仮想カードについて<ph name="END_LINK" /></translation>
 <translation id="8635628933471165173">再読み込みしています...</translation>
 <translation id="8636284842992792762">拡張機能を初期化しています…</translation>
-<translation id="8636323803535540285">すばやくアクセスするには、<ph name="BRAND" /> にショートカットを追加します</translation>
+<translation id="8636323803535540285">すばやくアクセスできるよう、<ph name="BRAND" /> へのショートカットを追加できます</translation>
 <translation id="8636500887554457830">サイトにポップアップの送信やリダイレクトの使用を許可しない</translation>
 <translation id="8637688295594795546">システムのアップデートが見つかりました。ダウンロードの準備をしています...</translation>
 <translation id="8639635302972078117">使用状況データや診断データを送信します。このデバイスは現在、診断データやデバイスとアプリの使用状況データを Google に自動送信するように設定されています。この情報を使ってお子様個人が特定されることはありません。この情報は、システムとアプリの安定性の向上やその他の機能の改善に役立てられます。また、Google のアプリやパートナー（Android デベロッパーなど）も、集計データとしてこの情報を活用します。お子様の [その他のウェブとアプリのアクティビティ] の設定がオンになっている場合、このデータはお子様の Google アカウントに保存されます。</translation>
@@ -9250,7 +9252,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="8881020143150461183">もう一度お試しください。技術的なサポートについては、<ph name="CARRIER_NAME" /> にお問い合わせください。</translation>
 <translation id="888256071122006425">マウスとタッチパッドの設定</translation>
 <translation id="8883273463630735858">タッチパッド アクセラレーションを有効にする</translation>
-<translation id="8884023684057697730"><ph name="BEGIN_BOLD" />データを管理する方法:<ph name="END_BOLD" /> ユーザーのプライバシーを保護するために、4 週間以上経過したサイトはリストから自動削除されます。再度アクセスしたサイトが、またリストに表示される場合があります。ユーザーの興味 / 関心を定義させたくないサイトを完全に削除することもできます。</translation>
+<translation id="8884023684057697730"><ph name="BEGIN_BOLD" />データの管理方法:<ph name="END_BOLD" /> ユーザーのプライバシーを保護するため、4 週間以上経過したウェブサイトはリストから自動削除されます。ウェブサイトにもう一度アクセスすると、リストに再度表示される場合もあります。ユーザーの興味 / 関心を定義させたくないウェブサイトを完全に削除することもできます。</translation>
 <translation id="8884570509232205463">デバイスは <ph name="UNLOCK_TIME" /> にロックされるようになりました。</translation>
 <translation id="8888253246822647887">アップグレードが完了するとアプリが起動します。アップグレードには数分かかることがあります。</translation>
 <translation id="8889294078294184559">それ以降にアクセスしたサイトは、あなたが実在のユーザーであることを、前にアクセスしたサイトから Chrome を介して確認できます。</translation>
@@ -9322,7 +9324,7 @@ Google に送信して、安全でないかどうかを確認できます。通�
 <translation id="8953476467359856141">充電時</translation>
 <translation id="895347679606913382">開始しています...</translation>
 <translation id="8957757410289731985">プロフィールをカスタマイズ</translation>
-<translation id="8959144235813727886">サイトとアプリ</translation>
+<translation id="8959144235813727886">ウェブサイトとアプリ</translation>
 <translation id="895944840846194039">JavaScript メモリ</translation>
 <translation id="8960208913905765425">クイック アンサーの単位変換</translation>
 <translation id="8960638196855923532">スマートフォンの通知とアプリを表示できるようになりました</translation>

@@ -195,6 +195,7 @@ Bạn có thể kiểm tra mật khẩu bất cứ lúc nào trong <ph name="GOO
 <translation id="1153636665119721804">Chương trình Bảo vệ nâng cao của Google</translation>
 <translation id="1155545602507378023">Không, chỉ thiết bị này</translation>
 <translation id="1155816283571436363">Đang kết nối với điện thoại của bạn</translation>
+<translation id="1157952955648710254">Đóng bảng điều khiển bên của Google Tìm kiếm</translation>
 <translation id="1158080958325422608">Viết hoa toàn bộ</translation>
 <translation id="1158238185437008462">Xem kỷ niệm</translation>
 <translation id="1159879754517035595">Quản lý cài đặt tiện ích</translation>
@@ -2273,7 +2274,7 @@ Bạn có thể quản lý các tùy chọn cài đặt của tài khoản này 
 <translation id="2844809857160214557">Xem và quản lý các lệnh in</translation>
 <translation id="2845382757467349449">Luôn Hiển thị Thanh Dấu trang</translation>
 <translation id="2845751331501453107">Khi bạn duyệt web, thì chế độ cài đặt này, <ph name="BEGIN_LINK1" />Quảng cáo do trang web đề xuất<ph name="LINK_END1" />, <ph name="BEGIN_LINK2" />chế độ cài đặt cookie<ph name="LINK_END2" /> và khả năng cá nhân hoá quảng cáo của trang web bạn đang xem sẽ quyết định liệu quảng cáo bạn thấy có được cá nhân hoá không</translation>
-<translation id="284581348330507117">Tạo mật khẩu không trùng lặp</translation>
+<translation id="284581348330507117">Tạo mật khẩu khác biệt</translation>
 <translation id="284805635805850872">Xóa phần mềm độc hại?</translation>
 <translation id="2849035674501872372">Tra cứu</translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
@@ -6108,7 +6109,7 @@ Bạn có thể gửi tệp này cho Google để kiểm tra xem tệp có an to
 <translation id="6178682841350631965">Dữ liệu đăng nhập của bạn đã được cập nhật</translation>
 <translation id="6180510783007738939">Công cụ đường thẳng</translation>
 <translation id="6180550893222597997">Bạn muốn sử dụng khoá đăng nhập nào cho <ph name="APP_NAME" />?</translation>
-<translation id="6181431612547969857">Tải xuống bị chặn</translation>
+<translation id="6181431612547969857">Thao tác tải xuống đã bị chặn</translation>
 <translation id="6184099524311454384">Tìm kiếm thẻ</translation>
 <translation id="6185132558746749656">Vị trí thiết bị</translation>
 <translation id="6190953336330058278">Ứng dụng của Trung tâm điều khiển điện thoại</translation>
@@ -6519,6 +6520,7 @@ Bạn có thể gửi tệp này cho Google để kiểm tra xem tệp có an to
 <translation id="6547854317475115430"><ph name="BEGIN_PARAGRAPH1" />Dịch vụ vị trí của Google sử dụng các nguồn như mạng di động, Wi-Fi và các cảm biến để giúp ước tính vị trí thiết bị của bạn.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Bạn có thể tắt tính năng vị trí trên thiết bị Android của mình bất cứ lúc nào bằng cách chuyển tới phần Cài đặt &gt; Ứng dụng &gt; Cửa hàng Google Play &gt; Quản lý tuỳ chọn Android &gt; Bảo mật và vị trí &gt; Vị trí. Bạn cũng có thể không cho phép tính năng vị trí của Android sử dụng Wi-Fi, mạng di động và các cảm biến bằng cách tắt lựa chọn “Độ chính xác của vị trí trên Google” trong cùng một trình đơn.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="654871471440386944">Bật tính năng duyệt web có con nháy?</translation>
+<translation id="6548945820758901244">Mở bảng điều khiển bên của Google Tìm kiếm</translation>
 <translation id="6549038875972762904">Thiết lập lại</translation>
 <translation id="6550675742724504774">Tùy chọn</translation>
 <translation id="65513682072153627">Bạn sẽ thấy biểu tượng Được quản lý khi một chế độ cài đặt hay tính năng là do quản trị viên của bạn quản lý.</translation>
@@ -8156,7 +8158,7 @@ Nhấn một công tắc hoặc phím đã gán để xóa.</translation>
 <translation id="7925285046818567682">Đang chờ <ph name="HOST_NAME" />...</translation>
 <translation id="7926423016278357561">Đây không phải là tôi.</translation>
 <translation id="7926975587469166629">Biệt hiệu của thẻ</translation>
-<translation id="7928175190925744466">Bạn đã thay đổi mật khẩu này?</translation>
+<translation id="7928175190925744466">Bạn đã đổi mật khẩu này?</translation>
 <translation id="7929962904089429003">Mở menu</translation>
 <translation id="7930294771522048157">Các phương thức thanh toán đã lưu sẽ xuất hiện ở đây</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> đang chia sẻ màn hình và âm thanh của bạn.</translation>

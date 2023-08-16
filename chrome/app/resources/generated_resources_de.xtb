@@ -193,6 +193,7 @@ Du kannst deine Passwörter jederzeit im <ph name="GOOGLE_PASSWORD_MANAGER" /> p
 <translation id="1153636665119721804">Erweitertes Sicherheitsprogramm von Google</translation>
 <translation id="1155545602507378023">Nein, nur auf diesem Gerät</translation>
 <translation id="1155816283571436363">Verbindung zu deinem Smartphone wird hergestellt</translation>
+<translation id="1157952955648710254">Seitenleiste der Google Suche schließen</translation>
 <translation id="1158080958325422608">Großschreibung verwenden</translation>
 <translation id="1158238185437008462">Erinnerungen ansehen</translation>
 <translation id="1159879754517035595">Erweiterungseinstellungen verwalten</translation>
@@ -344,6 +345,7 @@ Du kannst deine Passwörter jederzeit im <ph name="GOOGLE_PASSWORD_MANAGER" /> p
 <translation id="1275718070701477396">Ausgewählt</translation>
 <translation id="1276994519141842946"><ph name="APP_NAME" /> konnte nicht deinstalliert werden</translation>
 <translation id="1277020343994096713">Lege eine neue PIN fest, die sich von deiner aktuellen PIN unterscheidet</translation>
+<translation id="1277597051786235230">Auf neuem Tab bei <ph name="SEARCH_ENGINE" /> nach „<ph name="SEARCH_TERMS" />“ &amp;suchen</translation>
 <translation id="1278859221870828664">Google Play-Apps und -Dienste überprüfen</translation>
 <translation id="127946606521051357">Gerät in der Nähe möchte Inhalte teilen</translation>
 <translation id="1280965841156951489">Dateien bearbeiten</translation>
@@ -381,7 +383,7 @@ Du kannst deine Passwörter jederzeit im <ph name="GOOGLE_PASSWORD_MANAGER" /> p
 <translation id="131112695174432497">Daten, die sich auf personalisierte Werbung auswirken, werden gelöscht</translation>
 <translation id="1311294419381837540">Du streamst gerade einen Tab. Du kannst den Stream jederzeit pausieren oder beenden.</translation>
 <translation id="1312811472299082263">Aus einem Ansible-Playbook oder einer Crostini-Sicherungsdatei erstellen</translation>
-<translation id="13130607084115184">Gespeicherte Passwörter erscheinen hier. Um Passwörter auf dieses Gerät in <ph name="BRAND" /> zu importieren, <ph name="BEGIN_LINK" />wähle eine CSV-Datei aus<ph name="END_LINK" />.</translation>
+<translation id="13130607084115184">Deine gespeicherten Passwörter kannst du hier sehen. Um Passwörter auf dieses Gerät in <ph name="BRAND" /> zu importieren, <ph name="BEGIN_LINK" />wähle eine CSV-Datei aus<ph name="END_LINK" />.</translation>
 <translation id="1313264149528821971">„<ph name="PERMISSION_1" />“, „<ph name="PERMISSION_2" />“ und „<ph name="PERMISSION_3" />“ wurden entzogen</translation>
 <translation id="1313405956111467313">Automatische Proxy-Konfiguration</translation>
 <translation id="131364520783682672">Feststelltaste</translation>
@@ -714,7 +716,7 @@ Berechtigungen, die du Apps bereits gewährt hast, gelten möglicherweise für d
 <translation id="1593594475886691512">Formatierung wird ausgeführt...</translation>
 <translation id="159359590073980872">Bilder-Cache</translation>
 <translation id="1593926297800505364">Zahlungsmethode speichern</translation>
-<translation id="1594703455918849716">Zur Seite „Überprüfung“</translation>
+<translation id="1594703455918849716">Zur Seite „Passwortcheck“</translation>
 <translation id="1595492813686795610">Linux wird aktualisiert</translation>
 <translation id="1596286373007273895">Verfügbar</translation>
 <translation id="1596709061955594992">Bluetooth ist deaktiviert. Schalte es ein, um verfügbare Geräte zu sehen.</translation>
@@ -1613,7 +1615,7 @@ Wenn du die Family Link App auf deinem Gerät installierst, kannst du die Einste
 <translation id="2312219318583366810">Seiten-URL</translation>
 <translation id="2314165183524574721">Die aktuelle Sichtbarkeitseinstellung ist "Verborgen"</translation>
 <translation id="2314774579020744484">Sprache, in die Seiten übersetzt werden sollen</translation>
-<translation id="2316129865977710310">Kein Interesse</translation>
+<translation id="2316129865977710310">Nein, danke</translation>
 <translation id="2317842250900878657"><ph name="PROGRESS_PERCENT" /> % abgeschlossen</translation>
 <translation id="2318143611928805047">Papierformat</translation>
 <translation id="2318817390901984578">Um Android-Apps zu nutzen, musst du dein <ph name="DEVICE_TYPE" /> aufladen und aktualisieren.</translation>
@@ -2657,6 +2659,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <translation id="32101887417650595">Keine Verbindung zum Drucker möglich</translation>
 <translation id="3210736980143419785">Download konnte nicht abgeschlossen werden</translation>
 <translation id="321084946921799184">Gelb und Weiß</translation>
+<translation id="3211126692872351610">Auf neuem Tab bei <ph name="SEARCH_ENGINE" /> nach „<ph name="SEARCH_TERMS" />“ &amp;suchen</translation>
 <translation id="321356136776075234">Gerät OU (z. B. OU=Chromebooks,DC=example,DC=com)</translation>
 <translation id="321367297115597343">Diesem Ordner ein Lesezeichen hinzufügen</translation>
 <translation id="3214531106883826119"><ph name="BEGIN_BOLD" />Hinweis<ph name="END_BOLD" />: Eine Person mit einer ähnlichen Stimme wie <ph name="SUPERVISED_USER_NAME" /> oder einer Aufnahme der Stimme kann möglicherweise auf die persönlichen Ergebnisse deines Kindes zugreifen.</translation>
@@ -5629,7 +5632,7 @@ Du kannst sie an Google senden, um zu überprüfen, ob sie unsicher ist. Der Sca
 <translation id="5800703268655655701">Helles oder dunkles Design auswählen</translation>
 <translation id="5801051031414037185">Smartphone einrichten</translation>
 <translation id="5801568494490449797">Einstellungen</translation>
-<translation id="5803689677801500549">Gespeicherte Passwörter erscheinen hier. Um Passwörter für <ph name="USER_EMAIL" /> in <ph name="BRAND" /> zu importieren, <ph name="BEGIN_LINK" />wähle eine CSV-Datei aus<ph name="END_LINK" />.</translation>
+<translation id="5803689677801500549">Deine gespeicherten Passwörter kannst du hier sehen. Um Passwörter für <ph name="USER_EMAIL" /> in <ph name="BRAND" /> zu importieren, <ph name="BEGIN_LINK" />wähle eine CSV-Datei aus<ph name="END_LINK" />.</translation>
 <translation id="5804241973901381774">Berechtigungen</translation>
 <translation id="5804259315582798390">Fehler beim Aktivieren der lokalen Datenwiederherstellung</translation>
 <translation id="5805268472388605531">Drücke und halte die Tasten gedrückt, um Akzentzeichen und Sonderzeichen zu sehen</translation>
@@ -6495,6 +6498,7 @@ Du kannst sie an Google senden, um zu überprüfen, ob sie unsicher ist. Der Sca
 <translation id="6547854317475115430"><ph name="BEGIN_PARAGRAPH1" />Der Standortdienst von Google greift auf Quellen wie WLANs, Mobilfunknetze und Sensoren zurück, um den Gerätestandort besser einschätzen zu können.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Du kannst die Standortermittlung dieses Android-Geräts jederzeit deaktivieren. Wähle dazu „Einstellungen“ &gt; „Apps“ &gt; „Google Play Store“ &gt; „Android-Einstellungen verwalten“ &gt; „Sicherheit &amp; Standort“ &gt; „Standort“ aus. Außerdem hast du die Möglichkeit, die Nutzung von WLANs, Mobilfunknetzen und Sensoren zur Android-Standortermittlung zu deaktivieren, indem du „Google-Standortgenauigkeit“ im selben Menü abwählst.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="654871471440386944">Tastaturnavigation aktivieren?</translation>
+<translation id="6548945820758901244">Seitenleiste der Google Suche öffnen</translation>
 <translation id="6549038875972762904">Einrichtung wiederholen</translation>
 <translation id="6550675742724504774">Optionen</translation>
 <translation id="65513682072153627">Das Symbol „Verwaltet“ wird angezeigt, wenn eine Einstellung oder Funktion von deinem Administrator verwaltet wird.</translation>
@@ -6751,7 +6755,7 @@ Du hast # weitere gehackte Passwörter. Der Google Passwortmanager empfiehlt, d
 <translation id="6779447100905857289">deine Einkaufswagen</translation>
 <translation id="677965093459947883">Sehr klein</translation>
 <translation id="6781005693196527806">Suchmaschinen &amp;verwalten…</translation>
-<translation id="6781012982807899368">Gespeicherte Passwörter erscheinen hier. <ph name="BEGIN_LINK" /> Passwörter importieren<ph name="END_LINK" /></translation>
+<translation id="6781012982807899368">Deine gespeicherten Passwörter kannst du hier sehen. <ph name="BEGIN_LINK" /> Passwörter importieren<ph name="END_LINK" /></translation>
 <translation id="6781284683813954823">Doodle-Link</translation>
 <translation id="6781658011335120230"><ph name="BEGIN_PARAGRAPH1" />App-Daten können alle Daten sein, die eine App aufgrund der Einstellungen des Entwicklers gespeichert hat, z. B. Kontakte, Nachrichten und Fotos. Sicherungsdaten werden nicht auf das Google Drive-Speicherkontingent deines Kindes angerechnet.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Du kannst diesen Dienst in den Einstellungen deaktivieren.<ph name="END_PARAGRAPH2" /></translation>
@@ -7191,7 +7195,7 @@ Du hast # weitere gehackte Passwörter. Der Google Passwortmanager empfiehlt, d
 <translation id="7138678301420049075">Sonstiges</translation>
 <translation id="7139627972753429585"><ph name="APP_NAME" /> verwendet dein Mikrofon</translation>
 <translation id="7141105143012495934">Du konntest nicht angemeldet werden, weil deine Kontodetails nicht abgerufen werden konnten. Bitte wende dich an deinen Administrator oder versuche es noch einmal.</translation>
-<translation id="7141844554192012199">Überprüfung</translation>
+<translation id="7141844554192012199">Passwortcheck</translation>
 <translation id="7143207342074048698">Verbindung...</translation>
 <translation id="7143409552554575716">ChromeOS-Flags</translation>
 <translation id="714447804011008506">Downloads befinden sich jetzt in der Symbolleiste</translation>
@@ -7657,7 +7661,7 @@ Du hast # weitere gehackte Passwörter. Der Google Passwortmanager empfiehlt, d
 <translation id="7545466883021407599">Keine Verbindung mit dem Server möglich. Prüfe deine Netzwerkverbindung und versuche es noch einmal. Falls weiterhin Probleme auftreten, versuche, dein Chromebook neu zu starten. Fehlercode: <ph name="ERROR_CODE" />.</translation>
 <translation id="7547317915858803630">Warnung: Deine <ph name="PRODUCT_NAME" />-Einstellungen werden auf einem Netzlaufwerk gespeichert. Dies kann zu einer Verlangsamung, zu Abstürzen oder sogar zu Datenverlust führen.</translation>
 <translation id="7548856833046333824">Cocktail</translation>
-<translation id="7549250950481368089">Gespeicherte Passwörter erscheinen hier. Passwörter in <ph name="BRAND" /> <ph name="BEGIN_LINK" />importieren<ph name="END_LINK" />.</translation>
+<translation id="7549250950481368089">Deine gespeicherten Passwörter kannst du hier sehen. Passwörter in <ph name="BRAND" /> <ph name="BEGIN_LINK" />importieren<ph name="END_LINK" />.</translation>
 <translation id="7549434883223124329">Gerätesprache ändern?</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Fehler beim Download von <ph name="FILE_NAME" /></translation>
@@ -7988,7 +7992,7 @@ Drücke zum Entfernen der Zuweisung einen bereits zugewiesenen Schalter oder ein
 <translation id="7798844538707273832"><ph name="PERMISSION" /> automatisch blockiert</translation>
 <translation id="7800518121066352902">&amp;Gegen den Uhrzeigersinn drehen</translation>
 <translation id="7801679634091975683">Änderungen, die du hier vornimmst, werden nur auf den Lacros Chrome-Browser angewendet. Wenn du deine Einstellungen für den Chrome-Browser ändern möchtest, öffne den Chrome-Browser und rufe die Einstellungen auf.</translation>
-<translation id="780301667611848630">Kein Interesse</translation>
+<translation id="780301667611848630">Nein, danke</translation>
 <translation id="7803657407897251194">Wenn du die Einrichtung mit deinem Android-Gerät fortsetzen möchtest, verbinde dein <ph name="DEVICE_TYPE" /> mit einem Netzwerk</translation>
 <translation id="7804072833593604762">Tab geschlossen</translation>
 <translation id="7805768142964895445">Status</translation>
@@ -8776,7 +8780,7 @@ Speichere deine Schlüsseldatei an einem sicheren Ort. Du benötigst die Datei, 
 <translation id="8472623782143987204">Hardwaregestützt</translation>
 <translation id="8473540203671727883">Text unter dem Mauszeiger vorlesen</translation>
 <translation id="8473863474539038330">Adressen</translation>
-<translation id="8474733733775441349">Passwörter aus Ihrem Google-Konto anzeigen</translation>
+<translation id="8474733733775441349">Passwörter aus deinem Google-Konto anzeigen</translation>
 <translation id="8475313423285172237">Ein anderes Programm auf deinem Computer hat eine Erweiterung hinzugefügt, die sich möglicherweise auf die Funktionsweise von Chrome auswirkt.</translation>
 <translation id="8476408756881832830">Wiedergabe pausieren, wenn eine Sprachausgabe durch ChromeVox stattfindet</translation>
 <translation id="8476491056950015181"><ph name="BEGIN_PARAGRAPH1" />Wenn du zulässt, dass ChromeOS-Geräte automatisch erstellte Berichte an Google senden, hilfst du uns dabei, Probleme in ChromeOS zu beheben und das Betriebssystem zu verbessern. Diese Berichte können Diagnose- und Nutzungsdaten von Android-Apps enthalten – außerdem Informationen über ChromeOS-Abstürze und Angaben dazu, welche Funktionen verwendet wurden und wie viel Speicher in der Regel genutzt wurde. Bestimmte aggregierte Daten sind auch für Apps und Partner von Google, beispielsweise Android-Entwickler, nützlich.<ph name="END_PARAGRAPH1" />
@@ -8938,7 +8942,7 @@ Speichere deine Schlüsseldatei an einem sicheren Ort. Du benötigst die Datei, 
 <translation id="8634348081024879304">Du kannst deine virtuelle Karte dann nicht mehr mit Google Pay verwenden. <ph name="BEGIN_LINK" />Informationen zu virtuellen Karten<ph name="END_LINK" /></translation>
 <translation id="8635628933471165173">Wird neu geladen…</translation>
 <translation id="8636284842992792762">Erweiterungen werden initialisiert…</translation>
-<translation id="8636323803535540285">Du kannst eine Verknüpfung zu <ph name="BRAND" /> hinzufügen, um schneller hierher zurückzukehren</translation>
+<translation id="8636323803535540285">Du kannst eine Verknüpfung zu <ph name="BRAND" /> hinzufügen, um schneller hierher zurückzukehren.</translation>
 <translation id="8636500887554457830">Websites dürfen keine Pop-up-Fenster senden oder Weiterleitungen verwenden</translation>
 <translation id="8637688295594795546">Systemupdate verfügbar. Download wird vorbereitet...</translation>
 <translation id="8639635302972078117">Du hast die Möglichkeit, Nutzungsdaten &amp; Fehlerberichte zu senden. Dieses Gerät sendet momentan automatisch Diagnose- und Gerätedaten sowie App-Nutzungsdaten an Google. Dein Kind wird mithilfe dieser Daten nicht identifiziert, sie helfen jedoch beispielsweise dabei, die Stabilität des Systems und der Apps zu verbessern. Einige aggregierte Daten sind auch für Apps und Partner von Google, beispielsweise Android-Entwickler, nützlich. Wenn die Einstellung „Zusätzliche Web- &amp; App-Aktivitäten“ für dein Kind aktiviert ist, werden diese Daten möglicherweise in seinem Google-Konto gespeichert.</translation>

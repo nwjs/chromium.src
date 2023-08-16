@@ -344,7 +344,7 @@
 <translation id="168693727862418163">このポリシーの値は、スキーマの検証でエラーとなったため無視されます。</translation>
 <translation id="168841957122794586">サーバー証明書に脆弱な暗号鍵が含まれています。</translation>
 <translation id="1689333818294560261">ニックネーム</translation>
-<translation id="1697430960030447570"><ph name="BEGIN_BOLD" />データを管理する方法:<ph name="END_BOLD" /> Chrome では、4 週間以上経過したトピックが自動削除されます。サイトを引き続きブラウジングしていると、トピックがリストに再度表示される場合もあります。また、Chrome の設定では、サイトと共有しないトピックをブロックしたり、広告のトピックを無効にしたりすることがいつでも可能です。</translation>
+<translation id="1697430960030447570"><ph name="BEGIN_BOLD" />データの管理方法:<ph name="END_BOLD" /> Chrome では、4 週間以上経過したトピックは自動削除されます。ウェブサイトを引き続き閲覧していると、トピックがリストに再度表示される場合もあります。また、Chrome の設定で、いつでもウェブサイトと共有しないトピックをブロックしたり、広告のトピックを無効にしたりすることができます。</translation>
 <translation id="1697532407822776718">設定が完了しました。</translation>
 <translation id="1699651774646344471">Google アカウントに保存した住所を使用できるようになりました</translation>
 <translation id="1702815194757674443">ROC 16K</translation>
@@ -701,7 +701,7 @@
 <translation id="2521736961081452453">フォームを作成</translation>
 <translation id="2523886232349826891">カードはこのデバイスのみに保存されます</translation>
 <translation id="2524461107774643265">その他の情報の追加</translation>
-<translation id="2526280916094749336">保存した住所は Google サービス全体で使用できます。この住所は Google アカウント（<ph name="ACCOUNT" />）に保存されます。</translation>
+<translation id="2526280916094749336">この住所は Google アカウント（<ph name="ACCOUNT" />）に保存され、Google サービス全体で使用できます。</translation>
 <translation id="2527451058878391043">CVC コードはカードの表面に記載されています。カード番号の右上にある 4 桁のコードです。</translation>
 <translation id="2529899080962247600">このフィールドで指定できるエントリは <ph name="MAX_ITEMS_LIMIT" /> 件までです。それ以降のエントリはすべて無視されます。</translation>
 <translation id="253493526287553278">プロモーション コードの詳細を確認</translation>
@@ -921,7 +921,7 @@
 <translation id="3041612393474885105">証明書情報</translation>
 <translation id="305162504811187366">Chrome リモート デスクトップの履歴（タイムスタンプ、ホスト、クライアント セッション ID を含む）</translation>
 <translation id="3052964831964880138"><ph name="PRODUCT_NAME" /> が <ph name="PRICE_DROP" /> 値下げ</translation>
-<translation id="3054512251683174387">Chrome では、4 週間以上経過したトピックは自動削除されます。ブラウジングを続けていると、トピックがリストに再度表示される場合もあります。サイトと共有したくないトピックはブロックできます。詳しくは、Chrome で広告のプライバシーを管理する方法についての説明をご覧ください。</translation>
+<translation id="3054512251683174387">Chrome では、4 週間以上経過したトピックは自動削除されます。閲覧を続けていると、トピックがリストに再度表示される場合もあります。ウェブサイトと共有したくないトピックはブロックできます。詳しくは、Chrome で広告のプライバシーを管理する方法に関する説明をご確認ください。</translation>
 <translation id="3061707000357573562">サービスへのパッチの適用</translation>
 <translation id="306573536155379004">ゲームを開始しました。</translation>
 <translation id="3067505415088964188">低価格</translation>
@@ -1312,7 +1312,7 @@
 <translation id="3906954721959377182">タブレット</translation>
 <translation id="3909695131102177774"><ph name="LABEL" /> <ph name="ERROR" /></translation>
 <translation id="3911401144270344103">この設定は Chrome の設定でいつでも変更できます</translation>
-<translation id="3919748199683685809"><ph name="BEGIN_BOLD" />データを管理する方法:<ph name="END_BOLD" /> 30 日以上経過したサイトは自動削除されます。サイトにもう一度アクセスすると、リストに再度表示される場合もあります。また、Chrome の設定でいつでも、ウェブサイトによる広告の提案をブロックしたり、サイト提案広告を無効にしたりできます。</translation>
+<translation id="3919748199683685809"><ph name="BEGIN_BOLD" />データの管理方法:<ph name="END_BOLD" /> 30 日以上経過したウェブサイトは自動削除されます。ウェブサイトにもう一度アクセスすると、リストに再度表示される場合もあります。また、Chrome の設定でいつでも、ウェブサイトによる広告の提案をブロックしたり、無効にしたりすることができます。</translation>
 <translation id="3921869355029467742">セキュリティ コードを入力する</translation>
 <translation id="3927932062596804919">拒否</translation>
 <translation id="3930260846839546333">ハンドバッグ、財布</translation>
@@ -1346,7 +1346,6 @@
 <translation id="3987940399970879459">1 MB 未満</translation>
 <translation id="3990250421422698716">ジョグ オフセット</translation>
 <translation id="3992684624889376114">このページについて</translation>
-<translation id="399952081411886534">広告のプライバシーを強化するその他の機能</translation>
 <translation id="4000598935132966791">管理対象ブラウザのサイト制限の詳細</translation>
 <translation id="4006465311664329701">Google Pay を使用したお支払方法、クーポン、住所</translation>
 <translation id="4010758435855888356">ストレージへのアクセスを許可しますか？</translation>
@@ -1823,7 +1822,7 @@
 <translation id="5018422839182700155">このページを開けません</translation>
 <translation id="5018802455907704660">16x20 インチ</translation>
 <translation id="5019198164206649151">代替ストアの状態が不適切です</translation>
-<translation id="5019293549442035120">保存した住所は Google サービス全体で使用できます。この住所は Google アカウント（<ph name="USER_EMAIL" />）に保存されます。</translation>
+<translation id="5019293549442035120">この住所は Google アカウント（<ph name="USER_EMAIL" />）に保存され、Google サービス全体で使用できます。</translation>
 <translation id="5020776957610079374">ワールド ミュージック</translation>
 <translation id="5021557570875267742">Chrome で価格をトラッキング</translation>
 <translation id="5023310440958281426">管理者のポリシーを確認してください</translation>
@@ -2064,7 +2063,7 @@
 <translation id="5556459405103347317">再読み込み</translation>
 <translation id="5558083606899411167">エアコン</translation>
 <translation id="5558125320634132440">このサイトは成人向けコンテンツを含んでいる可能性があるためブロックされました</translation>
-<translation id="5559311991468302423">アドレスを削除</translation>
+<translation id="5559311991468302423">住所を削除</translation>
 <translation id="5560088892362098740">有効期限</translation>
 <translation id="55635442646131152">ドキュメントの概要</translation>
 <translation id="5565613213060953222">シークレット タブを開く</translation>
@@ -2281,7 +2280,7 @@
 <translation id="6051221802930200923"><ph name="SITE" /> では証明書ピンニングが使用されているため、現在アクセスできません。通常、ネットワーク エラーやネットワークへの攻撃は一時的なものです。しばらくするとページにアクセスできるようになります。</translation>
 <translation id="6051898664905071243">ページ数:</translation>
 <translation id="6052284303005792909">•</translation>
-<translation id="6053584886670442526">保存した住所は Google サービス全体で使用できます。この住所は Google アカウント（<ph name="ACCOUNT" />）に保存されます。</translation>
+<translation id="6053584886670442526">この住所は Google アカウント（<ph name="ACCOUNT" />）に保存され、Google サービス全体で使用できます。</translation>
 <translation id="6053735090575989697">Google によるユーザーデータの保護について、詳しくはプライバシー ポリシーをご覧ください。</translation>
 <translation id="6055888660316801977">保護されたお支払い認証情報（認証情報の一致なし）シート</translation>
 <translation id="6058977677006700226">お使いのどのデバイスでも同じカードを使用できるようにしますか？</translation>
@@ -3302,6 +3301,7 @@
 <translation id="827820107214076967">ログを更新</translation>
 <translation id="8279611986089885641">Chrome の通知をオンにする必要があります。[<ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />] でオンにできます。</translation>
 <translation id="8280630997017109758">トレイ 11</translation>
+<translation id="8281730697546299650">その他の広告のプライバシー機能がリリースされました</translation>
 <translation id="8281886186245836920">スキップ</translation>
 <translation id="8282409409360764263">庭のメンテナンス</translation>
 <translation id="8282947398454257691">デバイス固有の ID の認識</translation>

@@ -1345,7 +1345,6 @@ Jika tidak, ini akan diblokir oleh setelan privasi Anda. Ini akan memungkinkan k
 <translation id="3987940399970879459">Kurang dari 1 MB</translation>
 <translation id="3990250421422698716">Jog offset</translation>
 <translation id="3992684624889376114">Tentang halaman ini</translation>
-<translation id="399952081411886534">Fitur lain yang membuat iklan bersifat lebih pribadi</translation>
 <translation id="4000598935132966791">Pelajari lebih lanjut batasan situs di browser terkelola</translation>
 <translation id="4006465311664329701">Metode Pembayaran, Penawaran, dan Alamat yang Menggunakan Google Pay</translation>
 <translation id="4010758435855888356">Izinkan akses penyimpanan?</translation>
@@ -1690,7 +1689,7 @@ Jika tidak, ini akan diblokir oleh setelan privasi Anda. Ini akan memungkinkan k
 <translation id="4736491186715342415">Kendaraan bermotor</translation>
 <translation id="4736825316280949806">Buka Ulang Chromium</translation>
 <translation id="4736934858538408121">Kartu virtual</translation>
-<translation id="473775607612524610">Perbarui</translation>
+<translation id="473775607612524610">Update</translation>
 <translation id="4738601419177586157">Saran penelusuran <ph name="TEXT" /></translation>
 <translation id="4742407542027196863">Kelola sandi...</translation>
 <translation id="4743275772928623722">Sistem Anda telah diupdate, tetapi beberapa aplikasi dan file Anda tidak dapat dipulihkan. Aplikasi Anda akan didownload lagi secara otomatis.</translation>
@@ -3299,6 +3298,7 @@ Jika tidak, ini akan diblokir oleh setelan privasi Anda. Ini akan memungkinkan k
 <translation id="827820107214076967">Muat Ulang Log</translation>
 <translation id="8279611986089885641">Notifikasi Chrome harus aktif. Anda dapat mengaktifkannya di <ph name="BEGIN_LINK" /><ph name="NOTIFICATION_SETTINGS" /><ph name="END_LINK" />.</translation>
 <translation id="8280630997017109758">Baki 11</translation>
+<translation id="8281730697546299650">Fitur privasi iklan lainnya kini tersedia</translation>
 <translation id="8281886186245836920">Lewati</translation>
 <translation id="8282409409360764263">Perawatan Halaman</translation>
 <translation id="8282947398454257691">Mengetahui pengenal perangkat unik Anda</translation>
