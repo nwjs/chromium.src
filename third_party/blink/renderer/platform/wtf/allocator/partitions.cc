@@ -232,8 +232,9 @@ void Partitions::StartPeriodicReclaim(
     scoped_refptr<base::SequencedTaskRunner> task_runner) {
   CHECK(IsMainThread());
   DCHECK(initialized_);
-
+#if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   base::allocator::StartMemoryReclaimer(task_runner);
+#endif
 }
 
 // static
