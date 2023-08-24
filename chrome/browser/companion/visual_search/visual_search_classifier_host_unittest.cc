@@ -20,6 +20,7 @@
 #include "chrome/browser/companion/core/companion_metrics_logger.h"
 #include "chrome/browser/companion/visual_search/features.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/companion/visual_search.mojom.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/optimization_guide/core/test_model_info_builder.h"
 #include "components/optimization_guide/core/test_optimization_guide_model_provider.h"

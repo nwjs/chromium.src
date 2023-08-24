@@ -12,8 +12,8 @@
 #include "base/barrier_closure.h"
 #include "base/task/sequenced_task_runner.h"
 #include "components/password_manager/core/browser/affiliation/affiliation_service.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
-#include "components/password_manager/core/common/password_manager_features.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
 namespace password_manager {
@@ -41,15 +41,16 @@ std::vector<std::string> GetRealmsFromFacets(const FacetURI& original_facet_uri,
     if (affiliated_facet.uri.IsValidAndroidFacetURI()) {
       // Facet URIs have no trailing slash, whereas realms do.
       realms.push_back(affiliated_facet.uri.canonical_spec() + "/");
-    } else if ((base::FeatureList::IsEnabled(
-                    features::kFillingAcrossAffiliatedWebsites) ||
-                base::FeatureList::IsEnabled(
-                    features::kFillingAcrossGroupedSites)) &&
-               affiliated_facet.uri.IsValidWebFacetURI()) {
+    }
+
+#if !BUILDFLAG(IS_ANDROID)
+    // All platforms except Android supports filling across affiliated websites.
+    if (affiliated_facet.uri.IsValidWebFacetURI()) {
       CHECK(!base::EndsWith(affiliated_facet.uri.canonical_spec(), "/"));
       // Facet URIs have no trailing slash, whereas realms do.
       realms.push_back(affiliated_facet.uri.canonical_spec() + "/");
     }
+#endif
   }
   return realms;
 }
@@ -166,6 +167,24 @@ void AffiliatedMatchHelper::InjectAffiliationAndBrandingInformation(
   }
 }
 
+void AffiliatedMatchHelper::GetPSLExtensions(
+    base::OnceCallback<void(const base::flat_set<std::string>&)> callback) {
+  if (psl_extensions_.has_value()) {
+    std::move(callback).Run(psl_extensions_.value());
+    return;
+  }
+
+  psl_extensions_callbacks_.push_back(std::move(callback));
+
+  if (psl_extensions_callbacks_.size() > 1) {
+    return;
+  }
+
+  affiliation_service_->GetPSLExtensions(
+      base::BindOnce(&AffiliatedMatchHelper::OnPSLExtensionsReceived,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
 // static
 bool AffiliatedMatchHelper::IsValidWebCredential(
     const PasswordFormDigest& form) {
@@ -208,6 +227,17 @@ void AffiliatedMatchHelper::CompleteInjectAffiliationAndBrandingInformation(
   }
 
   std::move(barrier_closure).Run();
+}
+
+void AffiliatedMatchHelper::OnPSLExtensionsReceived(
+    std::vector<std::string> psl_extensions) {
+  psl_extensions_ = base::flat_set<std::string>(
+      std::make_move_iterator(psl_extensions.begin()),
+      std::make_move_iterator(psl_extensions.end()));
+
+  for (auto& callback : std::exchange(psl_extensions_callbacks_, {})) {
+    std::move(callback).Run(psl_extensions_.value());
+  }
 }
 
 }  // namespace password_manager

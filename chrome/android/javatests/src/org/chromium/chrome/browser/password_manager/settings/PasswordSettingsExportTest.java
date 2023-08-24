@@ -31,6 +31,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.UNIFIED_PASSWORD_MANAGER_LOCAL_PWD_MIGRATION_WARNING;
+import static org.chromium.chrome.browser.password_manager.PasswordMetricsUtil.PASSWORD_SETTINGS_EXPORT_METRICS_ID;
 import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.app.Activity;
@@ -61,16 +62,18 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.Feature;
-import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.Matchers;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.password_check.PasswordCheck;
 import org.chromium.chrome.browser.password_check.PasswordCheckFactory;
+import org.chromium.chrome.browser.password_manager.PasswordMetricsUtil;
+import org.chromium.chrome.browser.password_manager.PasswordMetricsUtil.HistogramExportResult;
 import org.chromium.chrome.browser.settings.SettingsActivity;
 import org.chromium.chrome.browser.settings.SettingsActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.R;
+import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
@@ -251,6 +254,36 @@ public class PasswordSettingsExportTest {
 
         // Check that the export menu item is enabled, because the current export was cancelled.
         checkExportMenuItemState(true);
+    }
+
+    /**
+     * Check that metrics are recorded when export flow is aborted because the screen lock is not
+     * set up.
+     */
+    @Test
+    @SmallTest
+    @Feature({"Preferences"})
+    public void testExportFlowWithNoScreenLockRecordsMetrics() {
+        mTestHelper.setPasswordSource(
+                new SavedPasswordEntry("https://example.com", "test user", "password"));
+
+        ReauthenticationManager.setApiOverride(ReauthenticationManager.OverrideState.AVAILABLE);
+        ReauthenticationManager.setScreenLockSetUpOverride(
+                ReauthenticationManager.OverrideState.UNAVAILABLE);
+
+        final SettingsActivity settingsActivity =
+                mTestHelper.startPasswordSettingsFromMainSettings(mSettingsActivityTestRule);
+
+        var exportResultHistogram =
+                HistogramWatcher.newBuilder()
+                        .expectIntRecords(PASSWORD_SETTINGS_EXPORT_METRICS_ID
+                                        + PasswordMetricsUtil.EXPORT_RESULT_HISTOGRAM_SUFFIX,
+                                PasswordMetricsUtil.HistogramExportResult.NO_SCREEN_LOCK_SET_UP)
+                        .build();
+
+        reauthenticateAndRequestExport(settingsActivity);
+
+        exportResultHistogram.assertExpected();
     }
 
     /**
@@ -497,6 +530,7 @@ public class PasswordSettingsExportTest {
      */
     @Test
     @SmallTest
+    @DisableFeatures({UNIFIED_PASSWORD_MANAGER_LOCAL_PWD_MIGRATION_WARNING})
     @Feature({"Preferences"})
     public void testExportIntentPaused() throws Exception {
         mTestHelper.setPasswordSource(
@@ -704,8 +738,8 @@ public class PasswordSettingsExportTest {
      */
     @Test
     @SmallTest
+    @DisableFeatures({UNIFIED_PASSWORD_MANAGER_LOCAL_PWD_MIGRATION_WARNING})
     @Feature({"Preferences"})
-    @DisabledTest(message = "crbug.com/1223405")
     public void testExportProgressMinimalTime() throws Exception {
         mTestHelper.setPasswordSource(
                 new SavedPasswordEntry("https://example.com", "test user", "password"));
@@ -1116,7 +1150,7 @@ public class PasswordSettingsExportTest {
             // HistogramExportResult.NO_CONSUMER is passed as an arbitrarily chosen value.
             fragment.getExportFlowForTesting().showExportErrorAndAbort(
                     R.string.password_settings_export_no_app, null, positiveButtonLabelId,
-                    ExportFlow.HistogramExportResult.NO_CONSUMER);
+                    HistogramExportResult.NO_CONSUMER);
         });
     }
 

@@ -44,7 +44,7 @@ function pagePrefs() {
   };
 }
 
-suite('SecurityPage', function() {
+suite('Main', function() {
   let testMetricsBrowserProxy: TestMetricsBrowserProxy;
   let testPrivacyBrowserProxy: TestPrivacyPageBrowserProxy;
   let page: SettingsSecurityPageElement;
@@ -55,8 +55,8 @@ suite('SecurityPage', function() {
   suiteSetup(function() {
     loadTimeData.overrideValues({
       enableSecurityKeysSubpage: true,
-      showHttpsOnlyModeSetting: true,
       showChromeRootStoreCertificates: true,
+      enableFriendlierSafeBrowsingSettingsStandardProtection: true,
     });
   });
 
@@ -155,15 +155,30 @@ suite('SecurityPage', function() {
     assertEquals(lockedSubLabel, toggle.subLabel);
   });
 
+  test('UpdatedStandardProtectionDropdown', function() {
+    const standardProtection = page.$.safeBrowsingStandard;
+    const updatedSpSubLabel =
+        loadTimeData.getString('safeBrowsingStandardDescUpdated');
+    assertEquals(updatedSpSubLabel, standardProtection.subLabel);
+
+    const passwordsLeakToggle = page.$.passwordsLeakToggle;
+    const updatedPasswordLeakLabel =
+        loadTimeData.getString('passwordsLeakDetectionLabelUpdated');
+    assertEquals(updatedPasswordLeakLabel, passwordsLeakToggle.label);
+
+    const updatedPasswordLeakSubLabel = loadTimeData.getString(
+        'passwordsLeakDetectionGeneralDescriptionUpdated');
+    assertEquals(updatedPasswordLeakSubLabel, passwordsLeakToggle.subLabel);
+  });
 });
 
-suite('SecurityPage_FlagsDisabled', function() {
+suite('FlagsDisabled', function() {
   let page: SettingsSecurityPageElement;
 
   suiteSetup(function() {
     loadTimeData.overrideValues({
       enableSecurityKeysSubpage: false,
-      showHttpsOnlyModeSetting: false,
+      enableFriendlierSafeBrowsingSettingsStandardProtection: false,
     });
   });
 
@@ -198,13 +213,26 @@ suite('SecurityPage_FlagsDisabled', function() {
   });
   // </if>
 
-  test('HttpsOnlyModeSettingHidden', function() {
-    assertFalse(isChildVisible(page, '#httpsOnlyModeToggle'));
+  // TODO(crbug.com/1466292): Remove once friendlier safe browsing settings
+  // standard protection is launched.
+  test('NotUpdatedStandardProtectionDropdown', function() {
+    const standardProtection = page.$.safeBrowsingStandard;
+    const spSubLabel = loadTimeData.getString('safeBrowsingStandardDesc');
+    assertEquals(spSubLabel, standardProtection.subLabel);
+
+    const passwordsLeakToggle = page.$.passwordsLeakToggle;
+    const passwordLeakLabel =
+        loadTimeData.getString('passwordsLeakDetectionLabel');
+    assertEquals(passwordLeakLabel, passwordsLeakToggle.label);
+
+    const passwordLeakSubLabel =
+        loadTimeData.getString('passwordsLeakDetectionGeneralDescription');
+    assertEquals(passwordLeakSubLabel, passwordsLeakToggle.subLabel);
   });
 });
 
 // Separate test suite for tests specifically related to Safe Browsing controls.
-suite('SecurityPage_SafeBrowsing', function() {
+suite('SafeBrowsing', function() {
   let testMetricsBrowserProxy: TestMetricsBrowserProxy;
   let testPrivacyBrowserProxy: TestPrivacyPageBrowserProxy;
   let page: SettingsSecurityPageElement;
@@ -720,5 +748,4 @@ suite('SecurityPage_SafeBrowsing', function() {
     assertFalse(page.$.safeBrowsingEnhanced.expanded);
     assertFalse(page.$.safeBrowsingStandard.expanded);
   });
-
 });

@@ -20,10 +20,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // List of sections.
@@ -45,7 +41,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 CGFloat kSectionHeaderHeight = 8.;
 CGFloat kSectionFooterHeight = 8.;
 
-}  // naemspace
+}  // namespace
 
 @interface ConsistencyAccountChooserTableViewController () <
     TableViewLinkHeaderFooterItemDelegate>

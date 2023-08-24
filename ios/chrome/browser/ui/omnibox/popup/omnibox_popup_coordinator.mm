@@ -52,10 +52,6 @@
 #import "services/network/public/cpp/shared_url_loader_factory.h"
 #import "ui/base/device_form_factor.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface OmniboxPopupCoordinator () <OmniboxPopupMediatorProtocolProvider,
                                        OmniboxPopupMediatorSharingDelegate> {
   std::unique_ptr<OmniboxPopupViewIOS> _popupView;
@@ -170,6 +166,7 @@
                  popupViewController:self.popupViewController
                    layoutGuideCenter:LayoutGuideCenterForBrowser(self.browser)
                            incognito:isIncognito];
+  self.mediator.prefService = self.browser->GetBrowserState()->GetPrefs();
 
   _popupView->SetMediator(self.mediator);
 
@@ -185,6 +182,10 @@
 
 - (BOOL)isOpen {
   return self.mediator.isOpen;
+}
+
+- (id<ToolbarOmniboxConsumer>)toolbarOmniboxConsumer {
+  return self.mediator.presenter;
 }
 
 #pragma mark - Property accessor

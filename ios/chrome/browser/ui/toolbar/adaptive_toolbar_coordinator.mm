@@ -34,10 +34,6 @@
 #import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
 #import "ios/chrome/browser/web/web_navigation_browser_agent.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface AdaptiveToolbarCoordinator () <AdaptiveToolbarViewControllerDelegate>
 
 // Whether this coordinator has been started.
@@ -112,24 +108,28 @@
   self.viewController.locationBarViewController = locationBarViewController;
 }
 
+- (void)updateToolbarForSideSwipeSnapshot:(web::WebState*)webState {
+  BOOL isNonIncognitoNTP = !self.browser->GetBrowserState()->IsOffTheRecord() &&
+                           IsVisibleURLNewTabPage(webState);
+
+  [self.mediator updateConsumerForWebState:webState];
+  [self.viewController updateForSideSwipeSnapshot:isNonIncognitoNTP];
+}
+
+- (void)resetToolbarAfterSideSwipeSnapshot {
+  [self.mediator updateConsumerForWebState:self.browser->GetWebStateList()
+                                               ->GetActiveWebState()];
+  [self.viewController resetAfterSideSwipeSnapshot];
+}
+
+- (void)showPrerenderingAnimation {
+  [self.viewController showPrerenderingAnimation];
+}
+
 #pragma mark - AdaptiveToolbarViewControllerDelegate
 
 - (void)exitFullscreen {
   FullscreenController::FromBrowser(self.browser)->ExitFullscreen();
-}
-
-#pragma mark - SideSwipeToolbarSnapshotProviding
-
-- (UIImage*)toolbarSideSwipeSnapshotForWebState:(web::WebState*)webState {
-  [self updateToolbarForSideSwipeSnapshot:webState];
-
-  UIImage* toolbarSnapshot = CaptureViewWithOption(
-      [self.viewController view], [[UIScreen mainScreen] scale],
-      kClientSideRendering);
-
-  [self resetToolbarAfterSideSwipeSnapshot];
-
-  return toolbarSnapshot;
 }
 
 #pragma mark - NewTabPageControllerDelegate
@@ -141,6 +141,10 @@
 - (UIResponder<UITextInput>*)fakeboxScribbleForwardingTarget {
   // Implemented in `ToolbarCoordinator`.
   return nil;
+}
+
+- (void)didNavigateToNTPOnActiveWebState {
+  // Implemented in `ToolbarCoordinator`.
 }
 
 #pragma mark - ToolbarCommands
@@ -199,19 +203,6 @@
       [[ToolbarButtonVisibilityConfiguration alloc] initWithType:type];
 
   return buttonFactory;
-}
-
-- (void)updateToolbarForSideSwipeSnapshot:(web::WebState*)webState {
-  BOOL isNTP = IsVisibleURLNewTabPage(webState);
-
-  [self.mediator updateConsumerForWebState:webState];
-  [self.viewController updateForSideSwipeSnapshotOnNTP:isNTP];
-}
-
-- (void)resetToolbarAfterSideSwipeSnapshot {
-  [self.mediator updateConsumerForWebState:self.browser->GetWebStateList()
-                                               ->GetActiveWebState()];
-  [self.viewController resetAfterSideSwipeSnapshot];
 }
 
 @end

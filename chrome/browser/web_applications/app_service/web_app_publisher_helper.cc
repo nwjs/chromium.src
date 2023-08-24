@@ -57,7 +57,6 @@
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/web_applications/web_app_dialog_manager.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_manager_impl.h"
 #include "chrome/browser/web_applications/locks/app_lock.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
@@ -73,6 +72,7 @@
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
+#include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
 #include "components/content_settings/core/browser/content_settings_type_set.h"
@@ -108,6 +108,7 @@
 #include "chrome/browser/apps/app_service/browser_app_instance_tracker.h"
 #include "chrome/browser/apps/app_service/metrics/app_service_metrics.h"
 #include "chrome/browser/badging/badge_manager_factory.h"
+#include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/notifications/notification_display_service_factory.h"
 #include "chrome/browser/web_applications/chromeos_web_app_experiments.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -235,8 +236,9 @@ apps::InstallReason GetHighestPriorityInstallReason(const WebApp* web_app) {
 
 apps::InstallSource GetInstallSource(
     absl::optional<webapps::WebappInstallSource> source) {
-  if (!source)
+  if (!source) {
     return apps::InstallSource::kUnknown;
+  }
 
   switch (*source) {
     case webapps::WebappInstallSource::MENU_BROWSER_TAB:
@@ -302,6 +304,7 @@ apps::Readiness ConvertWebappUninstallSourceToReadiness(
     case webapps::WebappUninstallSource::kSystemPreinstalled:
     case webapps::WebappUninstallSource::kExternalLockScreen:
     case webapps::WebappUninstallSource::kInstallUrlDeduping:
+    case webapps::WebappUninstallSource::kHealthcareUserInstallCleanup:
       return apps::Readiness::kUninstalledByNonUser;
   }
 }
@@ -311,8 +314,9 @@ bool IsNoteTakingWebApp(const WebApp& web_app) {
 }
 
 bool IsLockScreenCapable(const WebApp& web_app) {
-  if (!base::FeatureList::IsEnabled(features::kWebLockScreenApi))
+  if (!base::FeatureList::IsEnabled(features::kWebLockScreenApi)) {
     return false;
+  }
   return web_app.lock_screen_start_url().is_valid();
 }
 
@@ -407,13 +411,11 @@ void UninstallImpl(WebAppProvider* provider,
   }
 
   if (provider->registrar_unsafe().CanUserUninstallWebApp(app_id)) {
-    WebAppDialogManager& web_app_dialog_manager =
-        web_app_ui_manager->dialog_manager();
     webapps::WebappUninstallSource webapp_uninstall_source =
         WebAppPublisherHelper::ConvertUninstallSourceToWebAppUninstallSource(
             uninstall_source);
-    web_app_dialog_manager.UninstallWebApp(app_id, webapp_uninstall_source,
-                                           parent_window, base::DoNothing());
+    web_app_ui_manager->PresentUserUninstallDialog(
+        app_id, webapp_uninstall_source, parent_window, base::DoNothing());
   }
 }
 
@@ -584,8 +586,7 @@ apps::Permissions WebAppPublisherHelper::CreatePermissions(
     host_content_settings_map->GetWebsiteSetting(url, url, type, &setting_info);
 
     permissions.push_back(std::make_unique<apps::Permission>(
-        GetPermissionType(type),
-        std::make_unique<apps::PermissionValue>(setting_val),
+        GetPermissionType(type), setting_val,
         /*is_managed=*/setting_info.source ==
             content_settings::SETTING_SOURCE_POLICY));
   }
@@ -593,8 +594,7 @@ apps::Permissions WebAppPublisherHelper::CreatePermissions(
   // File handling permission.
   permissions.push_back(std::make_unique<apps::Permission>(
       apps::PermissionType::kFileHandling,
-      std::make_unique<apps::PermissionValue>(
-          !registrar().IsAppFileHandlerPermissionBlocked(web_app->app_id())),
+      !registrar().IsAppFileHandlerPermissionBlocked(web_app->app_id()),
       /*is_managed=*/false));
 
   return permissions;
@@ -633,8 +633,7 @@ apps::IntentFilters WebAppPublisherHelper::CreateIntentFiltersForWebApp(
   }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (ash::features::IsProjectorEnabled() &&
-      app_id == ash::kChromeUIUntrustedProjectorSwaAppId) {
+  if (app_id == ash::kChromeUIUntrustedProjectorSwaAppId) {
     filters.push_back(apps_util::MakeIntentFilterForUrlScope(
         GURL(ash::kChromeUIUntrustedProjectorPwaUrl)));
   }
@@ -653,8 +652,9 @@ apps::AppPtr WebAppPublisherHelper::CreateWebApp(const WebApp* web_app) {
           : apps::Readiness::kDisabledByUser;
 #if BUILDFLAG(IS_CHROMEOS)
   DCHECK(web_app->chromeos_data().has_value());
-  if (web_app->chromeos_data()->is_disabled)
+  if (web_app->chromeos_data()->is_disabled) {
     readiness = apps::Readiness::kDisabledByPolicy;
+  }
 #endif
 
   auto app = apps::AppPublisher::MakeApp(
@@ -688,8 +688,9 @@ apps::AppPtr WebAppPublisherHelper::CreateWebApp(const WebApp* web_app) {
   SetWebAppShowInFields(web_app, *app);
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (readiness != apps::Readiness::kReady)
+  if (readiness != apps::Readiness::kReady) {
     UpdateAppDisabledMode(*app);
+  }
 
   app->has_badge = ShouldShowBadge(
       web_app->app_id(), app_notifications_.HasNotification(web_app->app_id()));
@@ -725,11 +726,13 @@ apps::AppPtr WebAppPublisherHelper::CreateWebApp(const WebApp* web_app) {
         {extensions_set.begin(), extensions_set.end()}));
   }
 
-  if (IsNoteTakingWebApp(*web_app))
+  if (IsNoteTakingWebApp(*web_app)) {
     app->intent_filters.push_back(apps_util::CreateNoteTakingFilter());
+  }
 
-  if (IsLockScreenCapable(*web_app))
+  if (IsLockScreenCapable(*web_app)) {
     app->intent_filters.push_back(apps_util::CreateLockScreenFilter());
+  }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   if (web_app->app_id() == guest_os::kTerminalSystemAppId) {
@@ -789,7 +792,7 @@ void WebAppPublisherHelper::UninstallWebApp(
       provider_->registrar_unsafe().CanUserUninstallWebApp(web_app->app_id()));
   webapps::WebappUninstallSource webapp_uninstall_source =
       ConvertUninstallSourceToWebAppUninstallSource(uninstall_source);
-  provider_->install_finalizer().UninstallWebApp(
+  provider_->scheduler().UninstallWebApp(
       web_app->app_id(), webapp_uninstall_source, base::DoNothing());
   web_app = nullptr;
 
@@ -797,19 +800,14 @@ void WebAppPublisherHelper::UninstallWebApp(
     return;
   }
 
-  constexpr bool kClearCookies = true;
-  constexpr bool kClearStorage = true;
-  constexpr bool kClearCache = true;
-  constexpr bool kAvoidClosingConnections = false;
-
   content::ClearSiteData(
       base::BindRepeating(
           [](content::BrowserContext* browser_context) {
             return browser_context;
           },
           base::Unretained(profile())),
-      origin, kClearCookies, kClearStorage, kClearCache,
-      /*storage_buckets_to_remove=*/{}, kAvoidClosingConnections,
+      origin, content::ClearSiteDataTypeSet::All(),
+      /*storage_buckets_to_remove=*/{}, /*avoid_closing_connections=*/false,
       /*cookie_partition_key=*/absl::nullopt,
       /*storage_key=*/absl::nullopt,
       /*partitioned_state_allowed_only=*/false, base::DoNothing());
@@ -1102,10 +1100,9 @@ void WebAppPublisherHelper::SetPermission(const std::string& app_id,
   }
 
   if (permission->permission_type == apps::PermissionType::kFileHandling) {
-    if (permission->value &&
-        absl::holds_alternative<bool>(permission->value->value)) {
+    if (absl::holds_alternative<bool>(permission->value)) {
       provider_->scheduler().PersistFileHandlersUserChoice(
-          app_id, absl::get<bool>(permission->value->value), base::DoNothing());
+          app_id, absl::get<bool>(permission->value), base::DoNothing());
     }
     return;
   }
@@ -1122,10 +1119,9 @@ void WebAppPublisherHelper::SetPermission(const std::string& app_id,
     return;
   }
 
-  DCHECK(permission->value);
-  DCHECK(absl::holds_alternative<apps::TriState>(permission->value->value));
+  DCHECK(absl::holds_alternative<apps::TriState>(permission->value));
   ContentSetting permission_value = CONTENT_SETTING_DEFAULT;
-  switch (absl::get<apps::TriState>(permission->value->value)) {
+  switch (absl::get<apps::TriState>(permission->value)) {
     case apps::TriState::kAllow:
       permission_value = CONTENT_SETTING_ALLOW;
       break;
@@ -1177,8 +1173,9 @@ void WebAppPublisherHelper::OpenNativeSettings(const std::string& app_id) {
 apps::WindowMode WebAppPublisherHelper::GetWindowMode(
     const std::string& app_id) {
   const WebApp* web_app = GetWebApp(app_id);
-  if (!web_app)
+  if (!web_app) {
     return apps::WindowMode::kUnknown;
+  }
 
   auto display_mode = registrar().GetAppEffectiveDisplayMode(web_app->app_id());
   return ConvertDisplayModeToWindowMode(display_mode);
@@ -1486,61 +1483,31 @@ void WebAppPublisherHelper::OnNotificationDisplayServiceDestroyed(
   notification_display_service_.Reset();
 }
 
-void WebAppPublisherHelper::OnRequestUpdate(
-    int render_process_id,
-    int render_frame_id,
-    blink::mojom::MediaStreamType stream_type,
-    const content::MediaRequestState state) {
-  content::WebContents* web_contents =
-      content::WebContents::FromRenderFrameHost(
-          content::RenderFrameHost::FromID(render_process_id, render_frame_id));
-
-  if (!web_contents) {
+void WebAppPublisherHelper::OnIsCapturingVideoChanged(
+    content::WebContents* web_contents,
+    bool is_capturing_video) {
+  const AppId* app_id = WebAppTabHelper::GetAppId(web_contents);
+  if (!app_id) {
     return;
   }
 
-  absl::optional<AppId> app_id =
-      FindInstalledAppWithUrlInScope(profile(), web_contents->GetVisibleURL(),
-                                     /*window_only=*/false);
-  if (!app_id.has_value()) {
-    return;
-  }
-
-  const WebApp* web_app = GetWebApp(app_id.value());
-  if (!web_app) {
-    return;
-  }
-
-  if (media_requests_.IsNewRequest(app_id.value(), web_contents, state)) {
-    content::WebContentsUserData<
-        apps::AppWebContentsData>::CreateForWebContents(web_contents, this);
-  }
-
-  auto result = media_requests_.UpdateRequests(app_id.value(), web_contents,
-                                               stream_type, state);
-  delegate_->ModifyWebAppCapabilityAccess(app_id.value(), result.camera,
+  auto result = media_requests_.UpdateCameraState(*app_id, web_contents,
+                                                  is_capturing_video);
+  delegate_->ModifyWebAppCapabilityAccess(*app_id, result.camera,
                                           result.microphone);
 }
 
-void WebAppPublisherHelper::OnWebContentsDestroyed(
-    content::WebContents* web_contents) {
-  DCHECK(web_contents);
-
-  absl::optional<AppId> app_id = FindInstalledAppWithUrlInScope(
-      profile(), web_contents->GetLastCommittedURL(),
-      /*window_only=*/false);
-  if (!app_id.has_value()) {
+void WebAppPublisherHelper::OnIsCapturingAudioChanged(
+    content::WebContents* web_contents,
+    bool is_capturing_audio) {
+  const AppId* app_id = WebAppTabHelper::GetAppId(web_contents);
+  if (!app_id) {
     return;
   }
 
-  const WebApp* web_app = GetWebApp(app_id.value());
-  if (!web_app) {
-    return;
-  }
-
-  auto result =
-      media_requests_.OnWebContentsDestroyed(app_id.value(), web_contents);
-  delegate_->ModifyWebAppCapabilityAccess(app_id.value(), result.camera,
+  auto result = media_requests_.UpdateMicrophoneState(*app_id, web_contents,
+                                                      is_capturing_audio);
+  delegate_->ModifyWebAppCapabilityAccess(*app_id, result.camera,
                                           result.microphone);
 }
 #endif
@@ -1606,7 +1573,10 @@ void WebAppPublisherHelper::Init() {
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-  media_dispatcher_.Observe(MediaCaptureDevicesDispatcher::GetInstance());
+  media_indicator_observation_.Observe(
+      MediaCaptureDevicesDispatcher::GetInstance()
+          ->GetMediaStreamCaptureIndicator()
+          .get());
 #endif
 }
 
@@ -1746,8 +1716,9 @@ void WebAppPublisherHelper::UpdateAppDisabledMode(apps::App& app) {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   auto* swa_manager = ash::SystemWebAppManager::Get(profile());
-  if (!swa_manager)
+  if (!swa_manager) {
     return;
+  }
   auto system_app_type = swa_manager->GetSystemAppTypeForAppId(app.app_id);
   if (system_app_type.has_value()) {
     auto* system_app = swa_manager->GetSystemApp(*system_app_type);
@@ -1813,8 +1784,9 @@ bool WebAppPublisherHelper::ShouldShowBadge(const std::string& app_id,
   // We show a badge if either the Web Badging API recently has a badge set, or
   // the Badging API has not been recently used by the app and a notification is
   // showing.
-  if (!badge_manager_ || !badge_manager_->HasRecentApiUsage(app_id))
+  if (!badge_manager_ || !badge_manager_->HasRecentApiUsage(app_id)) {
     return has_notification;
+  }
 
   return badge_manager_->GetBadgeValue(app_id).has_value();
 }

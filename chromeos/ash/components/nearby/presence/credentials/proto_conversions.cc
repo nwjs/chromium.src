@@ -6,7 +6,7 @@
 
 #include "chromeos/ash/services/nearby/public/mojom/nearby_presence.mojom.h"
 
-namespace ash::nearby::presence {
+namespace ash::nearby::presence::proto {
 
 ::nearby::internal::Metadata BuildMetadata(
     ::nearby::internal::DeviceType device_type,
@@ -30,7 +30,7 @@ mojom::PresenceDeviceType DeviceTypeToMojom(
     ::nearby::internal::DeviceType device_type) {
   switch (device_type) {
     case ::nearby::internal::DeviceType::DEVICE_TYPE_UNKNOWN:
-      return mojom::PresenceDeviceType::kUnspecified;
+      return mojom::PresenceDeviceType::kUnknown;
     case ::nearby::internal::DeviceType::DEVICE_TYPE_PHONE:
       return mojom::PresenceDeviceType::kPhone;
     case ::nearby::internal::DeviceType::DEVICE_TYPE_TABLET:
@@ -44,7 +44,7 @@ mojom::PresenceDeviceType DeviceTypeToMojom(
     case ::nearby::internal::DeviceType::DEVICE_TYPE_CHROMEOS:
       return mojom::PresenceDeviceType::kChromeos;
     default:
-      return mojom::PresenceDeviceType::kUnspecified;
+      return mojom::PresenceDeviceType::kUnknown;
   }
 }
 
@@ -101,6 +101,50 @@ mojom::MetadataPtr MetadataToMojom(::nearby::internal::Metadata metadata) {
   proto.set_version(std::string(shared_credential->version.begin(),
                                 shared_credential->version.end()));
   return proto;
+}
+
+mojom::SharedCredentialPtr SharedCredentialToMojom(
+    ::nearby::internal::SharedCredential shared_credential) {
+  return mojom::SharedCredential::New(
+      std::vector<uint8_t>(shared_credential.secret_id().begin(),
+                           shared_credential.secret_id().end()),
+      std::vector<uint8_t>(shared_credential.key_seed().begin(),
+                           shared_credential.key_seed().end()),
+      shared_credential.start_time_millis(),
+      shared_credential.end_time_millis(),
+      std::vector<uint8_t>(
+          shared_credential.encrypted_metadata_bytes_v0().begin(),
+          shared_credential.encrypted_metadata_bytes_v0().end()),
+      std::vector<uint8_t>(
+          shared_credential.metadata_encryption_key_unsigned_adv_tag().begin(),
+          shared_credential.metadata_encryption_key_unsigned_adv_tag().end()),
+      std::vector<uint8_t>(
+          shared_credential.connection_signature_verification_key().begin(),
+          shared_credential.connection_signature_verification_key().end()),
+      std::vector<uint8_t>(
+          shared_credential.advertisement_signature_verification_key().begin(),
+          shared_credential.advertisement_signature_verification_key().end()),
+      IdentityTypeToMojom(shared_credential.identity_type()),
+      std::vector<uint8_t>(shared_credential.version().begin(),
+                           shared_credential.version().end()));
+}
+
+mojom::IdentityType IdentityTypeToMojom(
+    ::nearby::internal::IdentityType identity_type) {
+  switch (identity_type) {
+    case ::nearby::internal::IdentityType::IDENTITY_TYPE_UNSPECIFIED:
+      return mojom::IdentityType::kIdentityTypeUnspecified;
+    case ::nearby::internal::IdentityType::IDENTITY_TYPE_PRIVATE:
+      return mojom::IdentityType::kIdentityTypePrivate;
+    case ::nearby::internal::IdentityType::IDENTITY_TYPE_TRUSTED:
+      return mojom::IdentityType::kIdentityTypeTrusted;
+    case ::nearby::internal::IdentityType::IDENTITY_TYPE_PUBLIC:
+      return mojom::IdentityType::kIdentityTypePublic;
+    case ::nearby::internal::IdentityType::IDENTITY_TYPE_PROVISIONED:
+      return mojom::IdentityType::kIdentityTypeProvisioned;
+    default:
+      return mojom::IdentityType::kIdentityTypeUnspecified;
+  }
 }
 
 ash::nearby::proto::PublicCertificate PublicCertificateFromSharedCredential(
@@ -179,4 +223,4 @@ int64_t SecondsToMilliseconds(int64_t seconds) {
   return seconds * 1000.0;
 }
 
-}  // namespace ash::nearby::presence
+}  // namespace ash::nearby::presence::proto

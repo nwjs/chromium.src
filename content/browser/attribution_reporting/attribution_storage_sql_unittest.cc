@@ -27,12 +27,14 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "base/uuid.h"
 #include "components/aggregation_service/features.h"
 #include "components/attribution_reporting/destination_set.h"
 #include "components/attribution_reporting/filters.h"
 #include "components/attribution_reporting/source_registration.h"
 #include "components/attribution_reporting/source_type.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
+#include "components/attribution_reporting/test_utils.h"
 #include "content/browser/attribution_reporting/aggregatable_histogram_contribution.h"
 #include "content/browser/attribution_reporting/attribution_constants.h"
 #include "content/browser/attribution_reporting/attribution_features.h"
@@ -390,11 +392,10 @@ TEST_P(AttributionStorageSqlTest,
     // [impression_origin_idx], [sources_by_source_time],
     // [reports_by_report_time], [reports_by_source_id_report_type],
     // [reports_by_trigger_time], [reports_by_reporting_origin],
-    // [rate_limit_source_site_reporting_site_idx],
     // [rate_limit_reporting_origin_idx], [rate_limit_time_idx],
     // [rate_limit_impression_id_idx], [sources_by_destination_site], and the
     // meta table index.
-    EXPECT_EQ(14u, sql::test::CountSQLIndices(&raw_db));
+    EXPECT_EQ(13u, sql::test::CountSQLIndices(&raw_db));
   }
 }
 
@@ -474,7 +475,7 @@ TEST_P(AttributionStorageSqlTest,
 
   auto trigger_verification = network::TriggerVerification::Create(
       /*token=*/"verification-token", /*aggregatable_report_id=*/
-      "55865da3-fb0e-4b71-965e-64fc4bf0a323");
+      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
   AttributionTrigger trigger =
       DefaultAggregatableTriggerBuilder()
           .SetVerifications({trigger_verification.value()})
@@ -550,7 +551,7 @@ TEST_P(AttributionStorageSqlTest, NullReportWithVerification_FeatureEnabled) {
   });
   auto trigger_verification = network::TriggerVerification::Create(
       /*token=*/"verification-token", /*aggregatable_report_id=*/
-      "55865da3-fb0e-4b71-965e-64fc4bf0a323");
+      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
   auto result = storage()->MaybeCreateAndStoreReport(
       DefaultAggregatableTriggerBuilder()
           .SetVerifications({trigger_verification.value()})
@@ -595,7 +596,7 @@ TEST_P(AttributionStorageSqlTest,
   });
   auto trigger_verification = network::TriggerVerification::Create(
       /*token=*/"verification-token", /*aggregatable_report_id=*/
-      "55865da3-fb0e-4b71-965e-64fc4bf0a323");
+      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
   auto result = storage()->MaybeCreateAndStoreReport(
       DefaultAggregatableTriggerBuilder()
           .SetVerifications({trigger_verification.value()})
@@ -645,7 +646,7 @@ TEST_P(AttributionStorageSqlTest,
   delegate()->set_reverse_reports_on_shuffle(true);
   auto trigger_verification = network::TriggerVerification::Create(
       /*token=*/"verification-token", /*aggregatable_report_id=*/
-      "55865da3-fb0e-4b71-965e-64fc4bf0a323");
+      base::Uuid::ParseLowercase("55865da3-fb0e-4b71-965e-64fc4bf0a323"));
   auto result = storage()->MaybeCreateAndStoreReport(
       DefaultAggregatableTriggerBuilder()
           .SetVerifications({trigger_verification.value()})
@@ -697,13 +698,13 @@ TEST_P(AttributionStorageSqlTest,
   std::vector<network::TriggerVerification> verifications = {
       *network::TriggerVerification::Create(
           /*token=*/"verification-token-1", /*aggregatable_report_id=*/
-          "11865da3-fb0e-4b71-965e-64fc4bf0a323"),
+          base::Uuid::ParseLowercase("11865da3-fb0e-4b71-965e-64fc4bf0a323")),
       *network::TriggerVerification::Create(
           /*token=*/"verification-token-2", /*aggregatable_report_id=*/
-          "22865da3-fb0e-4b71-965e-64fc4bf0a323"),
+          base::Uuid::ParseLowercase("22865da3-fb0e-4b71-965e-64fc4bf0a323")),
       *network::TriggerVerification::Create(
           /*token=*/"verification-token-3", /*aggregatable_report_id=*/
-          "33865da3-fb0e-4b71-965e-64fc4bf0a323")};
+          base::Uuid::ParseLowercase("33865da3-fb0e-4b71-965e-64fc4bf0a323"))};
 
   auto result = storage()->MaybeCreateAndStoreReport(
       DefaultAggregatableTriggerBuilder()
@@ -1454,6 +1455,35 @@ TEST_P(AttributionStorageSqlTest,
               ElementsAre(Pair("x", ElementsAre("y"))));
 }
 
+// Tests that a "_lookback_window" filter present in the serialized data is
+// removed.
+TEST_P(AttributionStorageSqlTest,
+       DeserializeFilterData_RemovesLookbackWindowFilter) {
+  {
+    OpenDatabase();
+    storage()->StoreSource(SourceBuilder().Build());
+    CloseDatabase();
+  }
+
+  {
+    sql::Database raw_db;
+    ASSERT_TRUE(raw_db.Open(db_path()));
+
+    static constexpr char kUpdateSql[] = "UPDATE sources SET filter_data=?";
+    sql::Statement statement(raw_db.GetUniqueStatement(kUpdateSql));
+    statement.BindBlob(0, CreateSerializedFilterData(
+                              {{"_lookback_window", {"abc"}}, {"x", {"y"}}}));
+    ASSERT_TRUE(statement.Run());
+  }
+
+  OpenDatabase();
+
+  std::vector<StoredSource> sources = storage()->GetActiveSources();
+  ASSERT_EQ(sources.size(), 1u);
+  ASSERT_THAT(sources.front().filter_data().filter_values(),
+              ElementsAre(Pair("x", ElementsAre("y"))));
+}
+
 TEST_P(AttributionStorageSqlTest, ReportTablesStoreDestinationOrigin) {
   constexpr char kDestinationOriginA[] = "https://a.d.test";
   constexpr char kDestinationOriginB[] = "https://b.d.test";
@@ -1541,14 +1571,16 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
     absl::optional<base::TimeDelta> event_report_window;
     absl::optional<base::TimeDelta> aggregatable_report_window;
     base::Time expected_expiry_time;
-    base::Time expected_event_report_window_time;
+    attribution_reporting::EventReportWindows expected_event_report_windows;
     base::Time expected_aggregatable_report_window_time;
   } kTestCases[] = {
       {
           .desc = "expiry",
           .expiry = base::Days(4),
           .expected_expiry_time = kSourceTime + base::Days(4),
-          .expected_event_report_window_time = kSourceTime + base::Days(4),
+          .expected_event_report_windows =
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Days(0), {base::Days(4)}),
           .expected_aggregatable_report_window_time =
               kSourceTime + base::Days(4),
       },
@@ -1556,7 +1588,9 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
           .desc = "event-report-window",
           .event_report_window = base::Days(4),
           .expected_expiry_time = kSourceTime + base::Days(30),
-          .expected_event_report_window_time = kSourceTime + base::Days(4),
+          .expected_event_report_windows =
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Days(0), {base::Days(4)}),
           .expected_aggregatable_report_window_time =
               kSourceTime + base::Days(30),
       },
@@ -1565,7 +1599,9 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
           .expiry = base::Days(4),
           .event_report_window = base::Days(30),
           .expected_expiry_time = kSourceTime + base::Days(4),
-          .expected_event_report_window_time = kSourceTime + base::Days(4),
+          .expected_event_report_windows =
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Days(0), {base::Days(4)}),
           .expected_aggregatable_report_window_time =
               kSourceTime + base::Days(4),
       },
@@ -1573,7 +1609,9 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
           .desc = "aggregatable-report-window",
           .aggregatable_report_window = base::Days(4),
           .expected_expiry_time = kSourceTime + base::Days(30),
-          .expected_event_report_window_time = kSourceTime + base::Days(30),
+          .expected_event_report_windows =
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Days(0), {base::Days(30)}),
           .expected_aggregatable_report_window_time =
               kSourceTime + base::Days(4),
       },
@@ -1582,7 +1620,9 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
           .expiry = base::Days(4),
           .aggregatable_report_window = base::Days(30),
           .expected_expiry_time = kSourceTime + base::Days(4),
-          .expected_event_report_window_time = kSourceTime + base::Days(4),
+          .expected_event_report_windows =
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Days(0), {base::Days(4)}),
           .expected_aggregatable_report_window_time =
               kSourceTime + base::Days(4),
       },
@@ -1592,7 +1632,9 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
           .event_report_window = base::Days(7),
           .aggregatable_report_window = base::Days(5),
           .expected_expiry_time = kSourceTime + base::Days(9),
-          .expected_event_report_window_time = kSourceTime + base::Days(7),
+          .expected_event_report_windows =
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Days(0), {base::Days(7)}),
           .expected_aggregatable_report_window_time =
               kSourceTime + base::Days(5),
       },
@@ -1617,8 +1659,8 @@ TEST_P(AttributionStorageSqlTest, ReportTimes) {
     EXPECT_EQ(actual.expiry_time(), test_case.expected_expiry_time)
         << test_case.desc;
 
-    EXPECT_EQ(actual.event_report_window_time(),
-              test_case.expected_event_report_window_time)
+    EXPECT_EQ(actual.event_report_windows(),
+              test_case.expected_event_report_windows)
         << test_case.desc;
 
     EXPECT_EQ(actual.aggregatable_report_window_time(),
@@ -1637,7 +1679,6 @@ TEST_P(AttributionStorageSqlTest,
        InvalidExpiryOrReportTime_FailsDeserialization) {
   static constexpr const char* kUpdateSqls[] = {
       "UPDATE sources SET expiry_time=?",
-      "UPDATE sources SET event_report_window_time=?",
       "UPDATE sources SET aggregatable_report_window_time=?",
   };
 

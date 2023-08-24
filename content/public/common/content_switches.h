@@ -134,7 +134,6 @@ CONTENT_EXPORT extern const char kEnableSmoothScrolling[];
 CONTENT_EXPORT extern const char kEnableSpatialNavigation[];
 CONTENT_EXPORT extern const char kEnableStrictMixedContentChecking[];
 CONTENT_EXPORT extern const char kEnableStrictPowerfulFeatureRestrictions[];
-CONTENT_EXPORT extern const char kEnableThreadedCompositing[];
 CONTENT_EXPORT extern const char kEnableTracingFraction[];
 CONTENT_EXPORT extern const char kEnableUserMediaScreenCapturing[];
 CONTENT_EXPORT extern const char kEnableViewport[];
@@ -187,6 +186,7 @@ CONTENT_EXPORT extern const char kPrivateAggregationDeveloperMode[];
 CONTENT_EXPORT extern const char kProcessPerSite[];
 CONTENT_EXPORT extern const char kProcessPerTab[];
 CONTENT_EXPORT extern const char kProcessType[];
+CONTENT_EXPORT extern const char kProtectedAudiencesConsentedDebugToken[];
 CONTENT_EXPORT extern const char kProxyServer[];
 CONTENT_EXPORT extern const char kPullToRefresh[];
 CONTENT_EXPORT extern const char kQuotaChangeEventInterval[];
@@ -295,6 +295,8 @@ CONTENT_EXPORT extern const char kPpapiSubpixelRenderingSetting[];
 CONTENT_EXPORT extern const char kRaiseTimerFrequency[];
 CONTENT_EXPORT extern const char kGpu2StartupDialog[];
 CONTENT_EXPORT extern const char kAudioProcessHighPriority[];
+// Pipe names for the incoming and outbound messages.
+CONTENT_EXPORT extern const char kRemoteDebuggingIoPipes[];
 #endif
 
 #if defined(ENABLE_IPC_FUZZER)

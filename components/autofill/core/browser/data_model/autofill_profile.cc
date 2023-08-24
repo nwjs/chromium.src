@@ -10,6 +10,7 @@
 #include <memory>
 #include <ostream>
 #include <set>
+#include <vector>
 
 #include "base/hash/sha1.h"
 #include "base/i18n/case_conversion.h"
@@ -37,6 +38,7 @@
 #include "components/autofill/core/browser/geo/phone_number_i18n.h"
 #include "components/autofill/core/browser/geo/state_names.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/profile_token_quality.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -219,7 +221,8 @@ AutofillProfile::AutofillProfile(const std::string& guid, Source source)
       has_converted_(false),
       source_(source),
       initial_creator_id_(kInitialCreatorOrModifierChrome),
-      last_modifier_id_(kInitialCreatorOrModifierChrome) {}
+      last_modifier_id_(kInitialCreatorOrModifierChrome),
+      token_quality_(this) {}
 
 AutofillProfile::AutofillProfile(Source source)
     : AutofillProfile(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -232,12 +235,15 @@ AutofillProfile::AutofillProfile(RecordType type, const std::string& server_id)
       server_id_(server_id),
       record_type_(type),
       has_converted_(false),
-      source_(Source::kLocalOrSyncable) {
+      source_(Source::kLocalOrSyncable),
+      token_quality_(this) {
   DCHECK(type == SERVER_PROFILE);
 }
 
 AutofillProfile::AutofillProfile(const AutofillProfile& profile)
-    : AutofillDataModel(/*guid=*/""), phone_number_(this) {
+    : AutofillDataModel(/*guid=*/""),
+      phone_number_(this),
+      token_quality_(this) {
   operator=(profile);
 }
 
@@ -249,7 +255,6 @@ AutofillProfile& AutofillProfile::operator=(const AutofillProfile& profile) {
 
   set_use_count(profile.use_count());
   set_use_date(profile.use_date());
-  set_previous_use_date(profile.previous_use_date());
   set_modification_date(profile.modification_date());
 
   set_guid(profile.guid());
@@ -274,6 +279,9 @@ AutofillProfile& AutofillProfile::operator=(const AutofillProfile& profile) {
   source_ = profile.source_;
   initial_creator_id_ = profile.initial_creator_id_;
   last_modifier_id_ = profile.last_modifier_id_;
+
+  token_quality_ = profile.token_quality_;
+  token_quality_.set_profile(this);
 
   return *this;
 }
@@ -515,9 +523,9 @@ bool AutofillProfile::IsSubsetOfForFieldSet(
       continue;
     } else if (type == NAME_FULL) {
       if (!comparator.IsNameVariantOf(
-              comparator.NormalizeForComparison(
+              AutofillProfileComparator::NormalizeForComparison(
                   profile.GetInfo(NAME_FULL, app_locale)),
-              comparator.NormalizeForComparison(value))) {
+              AutofillProfileComparator::NormalizeForComparison(value))) {
         // Check whether the full name of |this| can be derived from the full
         // name of |profile| if the form contains a full name field.
         //
@@ -525,7 +533,7 @@ bool AutofillProfile::IsSubsetOfForFieldSet(
         // is Mia L Park. Mia Park can be derived from Mia L Park, so |this|
         // could be a subset of |profile|.
         //
-        // If the form contains fields for a name's constiuent parts, e.g.
+        // If the form contains fields for a name's constituent parts, e.g.
         // NAME_FIRST, then these values are compared according to the
         // conditions that follow.
         return false;
@@ -638,36 +646,77 @@ bool AutofillProfile::MergeDataFrom(const AutofillProfile& profile,
   bool modified = false;
 
   if (name_ != name) {
+    MergeFormGroupTokenQuality(name, profile);
     name_ = name;
     modified = true;
   }
 
   if (email_ != email) {
+    MergeFormGroupTokenQuality(email, profile);
     email_ = email;
     modified = true;
   }
 
   if (company_ != company) {
+    MergeFormGroupTokenQuality(company, profile);
     company_ = company;
     modified = true;
   }
 
   if (phone_number_ != phone_number) {
+    MergeFormGroupTokenQuality(phone_number, profile);
     phone_number_ = phone_number;
     modified = true;
   }
 
   if (address_ != address) {
+    MergeFormGroupTokenQuality(address, profile);
     address_ = address;
     modified = true;
   }
 
   if (birthdate_ != birthdate) {
+    MergeFormGroupTokenQuality(birthdate, profile);
     birthdate_ = birthdate;
     modified = true;
   }
 
   return modified;
+}
+
+void AutofillProfile::MergeFormGroupTokenQuality(
+    const FormGroup& merged_group,
+    const AutofillProfile& other_profile) {
+  if (!base::FeatureList::IsEnabled(
+          features::kAutofillTrackProfileTokenQuality)) {
+    return;
+  }
+  ServerFieldTypeSet supported_types;
+  merged_group.GetSupportedTypes(&supported_types);
+  for (ServerFieldType type : supported_types) {
+    const std::u16string& merged_value = merged_group.GetRawInfo(type);
+    if (!ProfileTokenQuality::IsStoredType(type) ||
+        merged_value == GetRawInfo(type)) {
+      // Quality information is only tracked for stored types. If the merged
+      // value matches the existing value, its token quality is kept.
+      continue;
+    }
+    if (merged_value == other_profile.GetRawInfo(type)) {
+      // The merged value comes from the `other_profile`, so its token quality
+      // is carried over.
+      token_quality_.CopyObservationsForStoredType(
+          type, other_profile.token_quality_);
+    } else {
+      // The `merged_value` matches neither `*this` nor the `other_profile`'s
+      // value, because the values were combined in some way. This generally
+      // doesn't happen, because the merging logic only merges values if one is
+      // a subset/substring of the other. However, in some cases, formatting
+      // differences can make this case reachable. For example, merging the
+      // phone numbers "5550199" and "555.0199" gives "555-0199".
+      // Since observations cannot be merged, reset the token quality.
+      token_quality_.ResetObservationsForStoredType(type);
+    }
+  }
 }
 
 bool AutofillProfile::SaveAdditionalInfo(const AutofillProfile& profile,
@@ -694,22 +743,27 @@ void AutofillProfile::CreateDifferentiatingLabels(
     const std::string& app_locale,
     std::vector<std::u16string>* labels) {
   const size_t kMinimalFieldsShown = 2;
-  CreateInferredLabels(profiles, nullptr, UNKNOWN_TYPE, kMinimalFieldsShown,
-                       app_locale, labels);
+  CreateInferredLabels(profiles, absl::nullopt, UNKNOWN_TYPE,
+                       kMinimalFieldsShown, app_locale, labels);
   DCHECK_EQ(profiles.size(), labels->size());
 }
 
 // static
 void AutofillProfile::CreateInferredLabels(
     const std::vector<AutofillProfile*>& profiles,
-    const std::vector<ServerFieldType>* suggested_fields,
+    const absl::optional<ServerFieldTypeSet>& suggested_fields,
     ServerFieldType excluded_field,
     size_t minimal_fields_shown,
     const std::string& app_locale,
     std::vector<std::u16string>* labels) {
   std::vector<ServerFieldType> fields_to_use;
-  GetFieldsForDistinguishingProfiles(suggested_fields, excluded_field,
-                                     &fields_to_use);
+  std::vector<ServerFieldType> suggested_fields_types =
+      suggested_fields
+          ? std::vector(suggested_fields->begin(), suggested_fields->end())
+          : std::vector<ServerFieldType>();
+  GetFieldsForDistinguishingProfiles(
+      suggested_fields ? &suggested_fields_types : nullptr, excluded_field,
+      &fields_to_use);
 
   // Construct the default label for each profile. Also construct a map that
   // associates each label with the profiles that have this label. This map is
@@ -762,10 +816,8 @@ std::u16string AutofillProfile::ConstructInferredLabel(
 
   std::vector<ServerFieldType> remaining_fields;
   for (size_t i = 0; i < included_fields_size && num_fields_to_use > 0; ++i) {
-    ::i18n::addressinput::AddressField address_field;
-    if (!i18n::FieldForType(included_fields[i], &address_field) ||
-        !country.IsAddressFieldSettingAccessible(address_field) ||
-        address_field == ::i18n::addressinput::COUNTRY) {
+    if (!country.IsAddressFieldSettingAccessible(included_fields[i]) ||
+        included_fields[i] == ADDRESS_HOME_COUNTRY) {
       remaining_fields.push_back(included_fields[i]);
       continue;
     }
@@ -835,10 +887,19 @@ void AutofillProfile::GenerateServerProfileIdentifier() {
 }
 
 void AutofillProfile::RecordAndLogUse() {
-  set_previous_use_date(use_date());
-  UMA_HISTOGRAM_COUNTS_1000("Autofill.DaysSinceLastUse.Profile",
-                            (AutofillClock::Now() - use_date()).InDays());
-  RecordUse();
+  const base::Time now = AutofillClock::Now();
+  const base::TimeDelta time_since_last_used = now - use_date();
+  set_use_date(now);
+  // Ensure that use counts are not skewed by multiple filling operations of the
+  // form. This is especially important for forms fully annotated with
+  // autocomplete=unrecognized. For such forms, keyboard accessory chips only
+  // fill a single field at a time as per
+  // `AutofillSuggestionsForAutocompleteUnrecognizedFieldsOnMobile`.
+  if (time_since_last_used.InSeconds() >= 60) {
+    set_use_count(use_count() + 1);
+    UMA_HISTOGRAM_COUNTS_1000("Autofill.DaysSinceLastUse.Profile",
+                              time_since_last_used.InDays());
+  }
   LogVerificationStatuses();
 }
 
@@ -1117,7 +1178,7 @@ ServerFieldTypeSet AutofillProfile::FindInaccessibleProfileValues() const {
         AddressField::SORTING_CODE}) {
     ServerFieldType server_field_type = i18n::TypeForField(field_type);
     if (HasRawInfo(server_field_type) &&
-        !country.IsAddressFieldSettingAccessible(field_type)) {
+        !country.IsAddressFieldSettingAccessible(server_field_type)) {
       inaccessible_fields.insert(server_field_type);
     }
   }

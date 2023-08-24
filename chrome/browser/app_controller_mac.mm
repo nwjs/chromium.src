@@ -123,13 +123,11 @@
 #import "ui/base/cocoa/nsmenu_additions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
+#include "ui/color/color_provider.h"
+#include "ui/color/color_provider_manager.h"
 #include "ui/native_theme/native_theme_mac.h"
 #include "ui/native_theme/native_theme_observer.h"
 #include "url/gurl.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 #include "content/nw/src/nw_content.h"
 
@@ -144,7 +142,7 @@ bool g_is_opening_new_window = false;
 // Stores the pending web auth requests (typically while the profile is being
 // loaded) until they are passed to the AuthSessionRequest class.
 NSMutableDictionary<NSUUID*, ASWebAuthenticationSessionRequest*>*
-GetPendingWebAuthRequests() API_AVAILABLE(macos(10.15)) {
+GetPendingWebAuthRequests() {
   static NSMutableDictionary* g_pending_requests =
       [[NSMutableDictionary alloc] init];
   return g_pending_requests;
@@ -160,7 +158,7 @@ bool IsProfileSignedOut(const base::FilePath& profile_path);
 // Starts a web authentication session request.
 void BeginHandlingWebAuthenticationSessionRequestWithProfile(
     ASWebAuthenticationSessionRequest* request,
-    Profile* profile) API_AVAILABLE(macos(10.15)) {
+    Profile* profile) {
   NSUUID* key = request.UUID;
   if (![GetPendingWebAuthRequests() objectForKey:key])
     return;  // The request has been canceled, do not start the session.
@@ -1082,10 +1080,8 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
   _handoffObserver = std::make_unique<HandoffObserver>(self);
 
-  if (@available(macOS 10.15, *)) {
-    ASWebAuthenticationSessionWebBrowserSessionManager.sharedManager
-        .sessionHandler = self;
-  }
+  ASWebAuthenticationSessionWebBrowserSessionManager.sharedManager
+      .sessionHandler = self;
 }
 
 // Helper function for populating and displaying the in progress downloads at
@@ -2071,7 +2067,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 // worker thread, so it's important to hop to the main thread.
 
 - (void)beginHandlingWebAuthenticationSessionRequest:
-    (ASWebAuthenticationSessionRequest*)request API_AVAILABLE(macos(10.15)) {
+    (ASWebAuthenticationSessionRequest*)request {
   dispatch_async(dispatch_get_main_queue(), ^(void) {
     // Start tracking the pending request, so it's possible to cancel it before
     // the session actually starts.
@@ -2088,7 +2084,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 }
 
 - (void)cancelWebAuthenticationSessionRequest:
-    (ASWebAuthenticationSessionRequest*)request API_AVAILABLE(macos(10.15)) {
+    (ASWebAuthenticationSessionRequest*)request {
   dispatch_async(dispatch_get_main_queue(), ^(void) {
     NSUUID* key = request.UUID;
     if ([GetPendingWebAuthRequests() objectForKey:key]) {

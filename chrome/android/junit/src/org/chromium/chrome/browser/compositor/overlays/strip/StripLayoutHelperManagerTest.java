@@ -5,8 +5,11 @@
 package org.chromium.chrome.browser.compositor.overlays.strip;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.graphics.RectF;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 
@@ -42,6 +45,10 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelFilterProvider;
+import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabManagementFieldTrial;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.test.util.browser.Features;
@@ -60,6 +67,8 @@ public class StripLayoutHelperManagerTest {
     @Mock
     private TabStripSceneLayer.Natives mTabStripSceneMock;
     @Mock
+    private TabStripSceneLayer mTabStripTreeProvider;
+    @Mock
     private LayoutManagerHost mManagerHost;
     @Mock
     private LayoutUpdateHost mUpdateHost;
@@ -73,6 +82,18 @@ public class StripLayoutHelperManagerTest {
     private MultiInstanceManager mMultiInstanceManager;
     @Mock
     private View mToolbarContainerView;
+    @Mock
+    private TabModelSelector mTabModelSelector;
+    @Mock
+    private TabCreatorManager mTabCreatorManager;
+    @Mock
+    private TabModelFilterProvider mTabModelFilterProvider;
+    @Mock
+    private TabModel mTabModel;
+    @Mock
+    private Tab mSelectedTab;
+    @Mock
+    private StripLayoutTab mHoveredStripTab;
 
     private StripLayoutHelperManager mStripLayoutHelperManager;
     private Context mContext;
@@ -96,14 +117,16 @@ public class StripLayoutHelperManagerTest {
     @After
     public void tearDown() {
         TabStripSceneLayer.setTestFlag(false);
-        LocalizationUtils.setRtlForTesting(false);
     }
 
     private void initializeTest() {
+        when(mTabModelSelector.getTabModelFilterProvider()).thenReturn(mTabModelFilterProvider);
+
         mTabModelStartupInfoSupplier = new ObservableSupplierImpl<>();
         mStripLayoutHelperManager = new StripLayoutHelperManager(mContext, mManagerHost,
                 mUpdateHost, mRenderHost, mLayerTitleCacheSupplier, mTabModelStartupInfoSupplier,
                 mLifecycleDispatcher, mMultiInstanceManager, mToolbarContainerView);
+        mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
     }
 
     private void initializeTestWithTsrArm(BooleanCachedFieldTrialParameter param) {
@@ -130,6 +153,33 @@ public class StripLayoutHelperManagerTest {
         mStripLayoutHelperManager.onContextChanged(mContext);
         assertEquals(ChromeColors.getSurfaceColor(mContext, R.dimen.default_elevation_3),
                 mStripLayoutHelperManager.getBackgroundColor());
+    }
+
+    @Test
+    @Features.DisableFeatures(ChromeFeatureList.TAB_STRIP_REDESIGN)
+    public void testModelSelectorButtonXPosition() {
+        // Set model selector button position.
+        mStripLayoutHelperManager.onSizeChanged(
+                SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
+
+        // Verify model selector button x-position.
+        // stripWidth(800) - buttonEndPadding(12) - MsbWidth(24) = 764
+        assertEquals("Model selector button x-position is not as expected", 764.f,
+                mStripLayoutHelperManager.getModelSelectorButton().getX(), 0.0);
+    }
+
+    @Test
+    @Features.DisableFeatures(ChromeFeatureList.TAB_STRIP_REDESIGN)
+    public void testModelSelectorButtonXPosition_Rtl() {
+        // Set model selector button position.
+        LocalizationUtils.setRtlForTesting(true);
+        mStripLayoutHelperManager.onSizeChanged(
+                SCREEN_WIDTH, SCREEN_HEIGHT, VISIBLE_VIEWPORT_Y, ORIENTATION);
+
+        // Verify model selector button x-position.
+        // msbEndPadding(12)
+        assertEquals("Model selector button x-position is not as expected", 12.f,
+                mStripLayoutHelperManager.getModelSelectorButton().getX(), 0.0);
     }
 
     @Test
@@ -319,22 +369,59 @@ public class StripLayoutHelperManagerTest {
         int expectedIncognitoCount = 0;
         int expectedStandardActiveTabIndex = 2;
         int expectedIncognitoActiveTabIndex = Tab.INVALID_TAB_ID;
+        boolean expectedStandardCreatedTabOnStartup = false;
+        boolean expectedIncognitoCreatedTabOnStartup = false;
         TabModelStartupInfo startupInfo =
                 new TabModelStartupInfo(expectedStandardCount, expectedIncognitoCount,
-                        expectedStandardActiveTabIndex, expectedIncognitoActiveTabIndex);
+                        expectedStandardActiveTabIndex, expectedIncognitoActiveTabIndex,
+                        expectedStandardCreatedTabOnStartup, expectedIncognitoCreatedTabOnStartup);
         mTabModelStartupInfoSupplier.set(startupInfo);
 
         // Verify
         StripLayoutHelper standardHelper = mStripLayoutHelperManager.getStripLayoutHelper(false);
         assertEquals("Unexpected standard tab count.", expectedStandardCount,
                 standardHelper.getTabCountOnStartupForTesting());
-        assertEquals("Unexpected standard active tab index", expectedStandardActiveTabIndex,
+        assertEquals("Unexpected standard active tab index.", expectedStandardActiveTabIndex,
                 standardHelper.getActiveTabIndexOnStartupForTesting());
+        assertEquals("Unexpected standard tab created on startup value",
+                expectedStandardCreatedTabOnStartup,
+                standardHelper.getCreatedTabOnStartupForTesting());
 
         StripLayoutHelper incognitoHelper = mStripLayoutHelperManager.getStripLayoutHelper(true);
-        assertEquals("Unexpected incognito tab count", expectedIncognitoCount,
+        assertEquals("Unexpected incognito tab count.", expectedIncognitoCount,
                 incognitoHelper.getTabCountOnStartupForTesting());
-        assertEquals("Unexpected incognito active tab index", expectedIncognitoActiveTabIndex,
+        assertEquals("Unexpected incognito active tab index.", expectedIncognitoActiveTabIndex,
                 incognitoHelper.getActiveTabIndexOnStartupForTesting());
+        assertEquals("Unexpected incognito tab created on startup value",
+                expectedIncognitoCreatedTabOnStartup,
+                standardHelper.getCreatedTabOnStartupForTesting());
+    }
+
+    @Test
+    public void testGetUpdatedSceneOverlayTree() {
+        // Setup and stub required mocks.
+        int hoveredTabId = 1;
+        int selectedTabId = 2;
+        mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
+
+        when(mTabModelSelector.getCurrentModel()).thenReturn(mTabModel);
+        when(mTabModel.index()).thenReturn(selectedTabId);
+        when(mTabModel.getTabAt(selectedTabId)).thenReturn(mSelectedTab);
+        when(mSelectedTab.getId()).thenReturn(selectedTabId);
+
+        when(mHoveredStripTab.getId()).thenReturn(hoveredTabId);
+        var activeLayoutHelper = mStripLayoutHelperManager.getActiveStripLayoutHelper();
+        activeLayoutHelper.setLastHoveredTabForTesting(mHoveredStripTab);
+
+        // Invoke the method.
+        mStripLayoutHelperManager.getUpdatedSceneOverlayTree(
+                new RectF(), new RectF(), mRenderHost.getResourceManager(), 0f);
+
+        // Verify the call to #pushAndUpdateStrip.
+        verify(mTabStripTreeProvider)
+                .pushAndUpdateStrip(mStripLayoutHelperManager, mLayerTitleCacheSupplier.get(),
+                        mRenderHost.getResourceManager(),
+                        activeLayoutHelper.getStripLayoutTabsToRender(), 0f, selectedTabId,
+                        hoveredTabId);
     }
 }

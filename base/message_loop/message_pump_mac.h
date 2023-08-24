@@ -39,7 +39,6 @@
 #include "base/containers/stack.h"
 #include "base/mac/scoped_cftyperef.h"
 #include "base/memory/raw_ptr.h"
-#include "base/message_loop/timer_slack.h"
 #include "base/run_loop.h"
 #include "build/build_config.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -76,7 +75,6 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   void ScheduleWork() override;
   void ScheduleDelayedWork(
       const Delegate::NextWorkInfo& next_work_info) override;
-  void SetTimerSlack(TimerSlack timer_slack) override;
 
 #if BUILDFLAG(IS_IOS)
   // Some iOS message pumps do not support calling |Run()| to spin the main
@@ -139,6 +137,8 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
 
   // Get the current mode mask from |enabled_modes_|.
   int GetModeMask() const;
+
+  raw_ptr<Delegate> delegate() { return delegate_; }
 
  protected:
   class ScopedModeEnabler;
@@ -234,8 +234,6 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
 
   // (weak) Delegate passed as an argument to the innermost Run call.
   raw_ptr<Delegate> delegate_ = nullptr;
-
-  base::TimerSlack timer_slack_ = base::TIMER_SLACK_NONE;
 
   // Time at which `delayed_work_timer_` is set to fire.
   base::TimeTicks delayed_work_scheduled_at_ = base::TimeTicks::Max();

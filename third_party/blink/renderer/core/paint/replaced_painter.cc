@@ -285,7 +285,7 @@ void ReplacedPainter::MeasureOverflowMetrics() const {
   auto overflow_area = overflow_size.width * overflow_size.height;
 
   auto content_size = layout_replaced_.Size();
-  auto content_area = content_size.Width() * content_size.Height();
+  auto content_area = content_size.width * content_size.height;
 
   DCHECK_GE(overflow_area, content_area);
   if (overflow_area == content_area)
@@ -331,7 +331,7 @@ void ReplacedPainter::PaintBoxDecorationBackground(
     // The background painting code assumes that the borders are part of the
     // paint_rect so we expand the paint_rect by the border size when painting
     // the background into the scrolling contents layer.
-    paint_rect.Expand(layout_replaced_.BorderBoxOutsets());
+    paint_rect.Expand(layout_replaced_.BorderOutsets());
 
     background_client = &layout_replaced_.GetScrollableArea()
                              ->GetScrollingBackgroundDisplayItemClient();

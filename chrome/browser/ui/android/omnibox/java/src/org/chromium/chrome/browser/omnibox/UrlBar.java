@@ -32,6 +32,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.text.BidiFormatter;
+import androidx.core.text.TextDirectionHeuristicsCompat;
 import androidx.core.view.inputmethod.EditorInfoCompat;
 
 import org.chromium.base.ApiCompatibilityUtils;
@@ -268,6 +269,9 @@ public abstract class UrlBar extends AutocompleteEditText {
         });
 
         ApiCompatibilityUtils.disableSmartSelectionTextClassifier(this);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            setIsHandwritingDelegate(true);
+        }
     }
 
     public void destroy() {
@@ -331,7 +335,6 @@ public abstract class UrlBar extends AutocompleteEditText {
     public void onFinishInflate() {
         super.onFinishInflate();
         setPrivateImeOptions(IME_OPTION_RESTRICT_STYLUS_WRITING_AREA);
-        ApiCompatibilityUtils.clearHandwritingBoundsOffsetBottom(this);
     }
 
     /**
@@ -413,6 +416,8 @@ public abstract class UrlBar extends AutocompleteEditText {
             // https://cs.android.com/android/platform/superproject/+/5d123b67756dffcfdebdb936ab2de2b29c799321:frameworks/base/core/java/android/widget/TextView.java;l=10618;drc=master;bpv=0
             ApiHelperForO.notifyValueChangedForAutofill(this);
         }
+
+        limitDisplayableLength();
     }
 
     @Override
@@ -788,6 +793,23 @@ public abstract class UrlBar extends AutocompleteEditText {
         scrollTo((int) scrollPos, getScrollY());
     }
 
+    // TODO(crbug.com/1465967): remove after getting enough data to diagnose
+    // failed assert
+    private String getWrongIndexErrorMessage(int incorrectIndex) {
+        Editable url = getText();
+        int measuredWidth = getVisibleMeasuredViewportWidth();
+        int urlTextLength = url.length();
+        int finalVisibleCharIndexSlow = getLayout().getOffsetForHorizontal(0, measuredWidth);
+        String errorMessage = "scrollToTLD incorrect optimized"
+                + " finalVisibleCharIndex. old index: " + String.valueOf(finalVisibleCharIndexSlow)
+                + " optimized index: " + String.valueOf(incorrectIndex)
+                + " viewport: " + String.valueOf(measuredWidth)
+                + " prefix: " + url.subSequence(0, Math.max(mOriginEndIndex - 4, 0))
+                + " suffix: " + url.subSequence(mOriginEndIndex, urlTextLength)
+                + " url length: " + String.valueOf(urlTextLength);
+        return errorMessage;
+    }
+
     /**
      * Scrolls the omnibox text to bring the TLD into view.
      */
@@ -847,27 +869,37 @@ public abstract class UrlBar extends AutocompleteEditText {
                         // getOffsetForHorizontal is very slow. getOffsetForAdvance is much faster.
                         finalVisibleCharIndex = textLayout.getPaint().getOffsetForAdvance(
                                 url, 0, urlTextLength, 0, urlTextLength, false, measuredWidth);
-
-                        // TODO(crbug.com/1456189) If the indexes differ, then that means we have
-                        // bidirectional text, so we clear the visible hint because it cannot be
-                        // correctly calculated.
-                        int finalVisibleCharIndexSlow =
-                                textLayout.getOffsetForHorizontal(0, measuredWidth);
-                        if (finalVisibleCharIndex != finalVisibleCharIndexSlow) {
-                            mVisibleTextPrefixHint = null;
-                        }
                     } else {
                         finalVisibleCharIndex = textLayout.getOffsetForHorizontal(0, measuredWidth);
                     }
 
-                    // To avoid issues where a small portion of the character following
-                    // finalVisibleCharIndex is visible on screen, be more conservative and extend
-                    // the visual hint by an additional character. In testing,
-                    // getOffsetForHorizontal returns the last fully visible character on screen.
-                    // By extending the offset by an additional character, the risk is of having
-                    // visual artifacts from the subsequence character on screen is mitigated.
-                    mVisibleTextPrefixHint =
-                            url.subSequence(0, Math.min(finalVisibleCharIndex + 1, urlTextLength));
+                    BidiFormatter bidi = new BidiFormatter.Builder()
+                                                 .setTextDirectionHeuristic(
+                                                         TextDirectionHeuristicsCompat.ANYRTL_LTR)
+                                                 .build();
+                    boolean visibleUrlContainsRtl = bidi.isRtl(
+                            url.subSequence(0, Math.min(finalVisibleCharIndex + 1, urlTextLength)));
+                    if (visibleUrlContainsRtl) {
+                        // getOffsetForAdvance does not calculate the correct index if there is RTL
+                        // text before finalVisibleCharIndex, so clear the visible text hint. If RTL
+                        // or Bi-Di URLs become more prevalant, update this to correctly calculate
+                        // the hint.
+                        mVisibleTextPrefixHint = null;
+                    } else {
+                        assert finalVisibleCharIndex
+                                == textLayout.getOffsetForHorizontal(0, measuredWidth)
+                            : getWrongIndexErrorMessage(finalVisibleCharIndex);
+
+                        // To avoid issues where a small portion of the character following
+                        // finalVisibleCharIndex is visible on screen, be more conservative and
+                        // extend the visual hint by an additional character. In testing,
+                        // getOffsetForHorizontal returns the last fully visible character on
+                        // screen. By extending the offset by an additional character, the risk is
+                        // of having visual artifacts from the subsequence character on screen is
+                        // mitigated.
+                        mVisibleTextPrefixHint = url.subSequence(
+                                0, Math.min(finalVisibleCharIndex + 1, urlTextLength));
+                    }
                 }
             }
         } else {
@@ -1015,7 +1047,6 @@ public abstract class UrlBar extends AutocompleteEditText {
             Log.i(TAG, "onAutocompleteTextStateChanged: DIS[%b]", updateDisplay);
         }
         if (mUrlTextChangeListener == null) return;
-        if (updateDisplay) limitDisplayableLength();
         // crbug.com/764749
         Log.w(TAG, "Text change observed, triggering autocomplete.");
 

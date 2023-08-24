@@ -79,25 +79,6 @@ std::string GetExpsRegistrationSuccessPageURLs() {
       "exps-registration-success-page-urls");
 }
 
-// Checks to see if the page url is safe to open in Chrome.
-bool IsSafeURLFromCompanion(const GURL& url) {
-  if (!url.is_valid()) {
-    return false;
-  }
-
-  static constexpr auto chrome_domain_allowlists =
-      base::MakeFixedFlatSet<base::StringPiece>(
-          {"chrome://settings/syncSetup"});
-  base::StringPiece url_string(url.spec());
-
-  if (!url.SchemeIsHTTPOrHTTPS() &&
-      !chrome_domain_allowlists.contains(url_string)) {
-    return false;
-  }
-
-  return true;
-}
-
 std::string GetCompanionIPHBlocklistedPageURLs() {
   return base::GetFieldTrialParamValueByFeature(
       features::internal::kCompanionEnabledByObservingExpsNavigations,
@@ -125,6 +106,25 @@ bool IsValidPageURLForCompanion(const GURL& url) {
   if (url.has_username() || url.has_password()) {
     return false;
   }
+  return true;
+}
+
+// Checks to see if the page url is safe to open in Chrome.
+bool IsSafeURLFromCompanion(const GURL& url) {
+  if (!url.is_valid()) {
+    return false;
+  }
+
+  static constexpr auto chrome_domain_allowlists =
+      base::MakeFixedFlatSet<base::StringPiece>(
+          {"chrome://settings/syncSetup"});
+  base::StringPiece url_string(url.spec());
+
+  if (!url.SchemeIsHTTPOrHTTPS() &&
+      !chrome_domain_allowlists.contains(url_string)) {
+    return false;
+  }
+
   return true;
 }
 

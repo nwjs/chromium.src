@@ -30,12 +30,15 @@
 #include "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #include "components/policy/core/common/command_line_policy_provider.h"
 #include "components/policy/core/common/configuration_policy_provider.h"
+#include "components/policy/core/common/local_test_policy_provider.h"
 #include "components/policy/core/common/policy_logger.h"
 #include "components/policy/core/common/policy_map.h"
 #include "components/policy/core/common/policy_namespace.h"
+#include "components/policy/core/common/policy_pref_names.h"
 #include "components/policy/core/common/policy_proto_decoders.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/policy/policy_constants.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/common/content_switches.h"
 #include "extensions/buildflags/buildflags.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -184,6 +187,29 @@ ChromeBrowserPolicyConnector::GetPlatformProvider() {
   return platform_provider_.get();
 }
 
+void ChromeBrowserPolicyConnector::SetLocalTestPolicyProviderForTesting(
+    ConfigurationPolicyProvider* provider) {
+  local_test_provider_ = provider;
+}
+
+void ChromeBrowserPolicyConnector::MaybeApplyLocalTestPolicies(
+    PrefService* local_state) {
+  std::string policies_to_apply = local_state->GetString(
+      policy::policy_prefs::kLocalTestPoliciesForNextStartup);
+  if (policies_to_apply.empty()) {
+    return;
+  }
+  for (policy::ConfigurationPolicyProvider* provider : GetPolicyProviders()) {
+    provider->set_active(false);
+  }
+  policy::LocalTestPolicyProvider* local_test_policy_provider =
+      static_cast<policy::LocalTestPolicyProvider*>(local_test_provider_);
+  local_test_policy_provider->set_active(true);
+  local_test_policy_provider->LoadJsonPolicies(policies_to_apply);
+  local_state->ClearPref(
+      policy::policy_prefs::kLocalTestPoliciesForNextStartup);
+}
+
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 void ChromeBrowserPolicyConnector::InitCloudManagementController(
     PrefService* local_state,
@@ -257,6 +283,14 @@ ChromeBrowserPolicyConnector::CreatePolicyProviders() {
   if (command_line_provider) {
     command_line_provider_ = command_line_provider.get();
     providers.push_back(std::move(command_line_provider));
+  }
+
+  std::unique_ptr<LocalTestPolicyProvider> local_test_provider =
+      LocalTestPolicyProvider::CreateIfAllowed(chrome::GetChannel());
+
+  if (local_test_provider) {
+    local_test_provider_ = local_test_provider.get();
+    providers.push_back(std::move(local_test_provider));
   }
 
   return providers;

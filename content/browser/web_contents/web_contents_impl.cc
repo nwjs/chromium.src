@@ -49,6 +49,7 @@
 #include "build/chromeos_buildflags.h"
 #include "components/download/public/common/download_stats.h"
 #include "components/url_formatter/url_formatter.h"
+#include "components/viz/common/features.h"
 #include "content/browser/accessibility/browser_accessibility.h"
 #include "content/browser/accessibility/browser_accessibility_state_impl.h"
 #include "content/browser/attribution_reporting/attribution_host.h"
@@ -125,7 +126,6 @@
 #include "content/public/browser/invalidate_type.h"
 #include "content/public/browser/javascript_dialog_manager.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
-#include "content/public/browser/load_notification_details.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/notification_details.h"
 #include "content/public/browser/notification_service.h"
@@ -176,6 +176,7 @@
 #include "ui/base/ime/mojom/virtual_keyboard_types.mojom.h"
 #include "ui/base/pointer/pointer_device.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/color/color_provider_key.h"
 #include "ui/color/color_provider_manager.h"
 #include "ui/display/screen.h"
 #include "ui/display/types/display_constants.h"
@@ -189,7 +190,6 @@
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
-#include "content/browser/android/date_time_chooser_android.h"
 #include "content/browser/android/java_interfaces_impl.h"
 #include "content/browser/android/nfc_host.h"
 #include "content/browser/web_contents/web_contents_android.h"
@@ -199,12 +199,17 @@
 #include "ui/base/device_form_factor.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+#include "content/browser/date_time_chooser/date_time_chooser.h"
+#endif
+
 #if BUILDFLAG(ENABLE_PPAPI)
 #include "content/browser/media/session/pepper_playback_observer.h"
 #endif
 
 #if defined(USE_AURA)
 #include "ui/aura/window.h"
+#include "ui/wm/core/window_util.h"
 #endif
 
 #if BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC) && BUILDFLAG(USE_STARSCAN)
@@ -215,6 +220,25 @@
 namespace content {
 
 namespace {
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class AllPointerTypes {
+  kNone = 0,
+  kCoarse = 1,
+  kFine = 2,
+  kBoth = 3,
+  kMaxValue = kBoth
+};
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class PrimaryPointerType {
+  kNone = 0,
+  kCoarse = 1,
+  kFine = 2,
+  kMaxValue = kFine
+};
 
 // The window which we dobounce load info updates in.
 constexpr auto kUpdateLoadStatesInterval = base::Milliseconds(250);
@@ -498,7 +522,7 @@ class DefaultColorProviderSource : public ui::ColorProviderSource,
 
  protected:
   // ui::ColorProviderSource:
-  ui::ColorProviderManager::Key GetColorProviderKey() const override {
+  ui::ColorProviderKey GetColorProviderKey() const override {
     return ui::NativeTheme::GetInstanceForWeb()->GetColorProviderKey(nullptr);
   }
 
@@ -713,7 +737,7 @@ class WebContentsImpl::WebContentsDestructionObserver
   raw_ptr<WebContentsImpl> owner_;
 };
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
 // TODO(sreejakshetty): Make |WebContentsImpl::ColorChooserHolder| per-frame
 // instead of WebContents-owned.
 // WebContentsImpl::ColorChooserHolder -----------------------------------------
@@ -762,7 +786,7 @@ class WebContentsImpl::ColorChooserHolder : public blink::mojom::ColorChooser {
   // mojo renderer client.
   mojo::Remote<blink::mojom::ColorChooserClient> client_;
 };
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
 
 // WebContentsImpl::WebContentsTreeNode ----------------------------------------
 WebContentsImpl::WebContentsTreeNode::WebContentsTreeNode(
@@ -1050,6 +1074,8 @@ WebContentsImpl::WebContentsImpl(BrowserContext* browser_context)
   using_dark_colors_ = native_theme->ShouldUseDarkColors();
   preferred_color_scheme_ = native_theme->GetPreferredColorScheme();
   preferred_contrast_ = native_theme->GetPreferredContrast();
+  prefers_reduced_transparency_ = native_theme->GetPrefersReducedTransparency();
+  inverted_colors_ = native_theme->GetInvertedColors();
 
   screen_change_monitor_ =
       std::make_unique<ScreenChangeMonitor>(base::BindRepeating(
@@ -1129,9 +1155,9 @@ WebContentsImpl::~WebContentsImpl() {
     dialog_manager_->CancelDialogs(this, /*reset_state=*/true);
   }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
   color_chooser_holder_.reset();
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#endif
   find_request_manager_.reset();
 
   // Shutdown the primary FrameTree.
@@ -1719,7 +1745,7 @@ void WebContentsImpl::SetColorProviderSource(ui::ColorProviderSource* source) {
   ColorProviderSourceObserver::Observe(source);
 }
 
-ui::ColorProviderManager::ColorMode WebContentsImpl::GetColorMode() const {
+ui::ColorProviderKey::ColorMode WebContentsImpl::GetColorMode() const {
   // A ColorProviderSource should always be set.
   auto* source = GetColorProviderSource();
   CHECK(source);
@@ -2901,6 +2927,8 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences() {
        gfx::Animation::ScrollAnimationsEnabledBySystem());
 
   prefs.prefers_reduced_motion = gfx::Animation::PrefersReducedMotion();
+  prefs.prefers_reduced_transparency = prefers_reduced_transparency_;
+  prefs.inverted_colors = inverted_colors_;
 
   if (ChildProcessSecurityPolicyImpl::GetInstance()->HasWebUIBindings(
           GetRenderViewHost()->GetProcess()->GetID())) {
@@ -2919,12 +2947,15 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences() {
   // externally connected displays. Get the display where Chrome is opened
   // instead.
   display::Display display = display::Screen::GetScreen()->GetPrimaryDisplay();
-  float screen_width_in_dp =
-      display.GetSizeInPixel().width() / display.device_scale_factor();
+  gfx::Size size = display.GetSizeInPixel();
+  int min_width = size.width() < size.height() ? size.width() : size.height();
+  int min_width_in_dp =
+      static_cast<int>(min_width / display.device_scale_factor());
   if (prefs.viewport_enabled &&
       base::FeatureList::IsEnabled(
           blink::features::kDefaultViewportIsDeviceWidth) &&
-      screen_width_in_dp >= kTabletWidthThreshold) {
+      min_width_in_dp >= kTabletWidthThreshold &&
+      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TV) {
     prefs.viewport_style = blink::mojom::ViewportStyle::kDefault;
   }
 #endif
@@ -2986,10 +3017,7 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences() {
     prefs.media_controls_enabled = false;
 
 #if BUILDFLAG(IS_ANDROID)
-  gfx::Size size = display.GetSizeInPixel();
-  int min_width = size.width() < size.height() ? size.width() : size.height();
-  prefs.device_scale_adjustment = GetDeviceScaleAdjustment(
-      static_cast<int>(min_width / display.device_scale_factor()));
+  prefs.device_scale_adjustment = GetDeviceScaleAdjustment(min_width_in_dp);
 
   if (base::FeatureList::IsEnabled(features::kForceOffTextAutosizing)) {
     prefs.text_autosizing_enabled = false;
@@ -3063,6 +3091,26 @@ void WebContentsImpl::SetSlowWebPreferences(
     prefs->pointer_events_max_touch_points = ui::MaxTouchPoints();
 
     prefs->number_of_cpu_cores = base::SysInfo::NumberOfProcessors();
+
+    AllPointerTypes all_pointer_types = AllPointerTypes::kNone;
+    if (prefs->available_pointer_types & ui::POINTER_TYPE_COARSE &&
+        prefs->available_pointer_types & ui::POINTER_TYPE_FINE) {
+      all_pointer_types = AllPointerTypes::kBoth;
+    } else if (prefs->available_pointer_types & ui::POINTER_TYPE_COARSE) {
+      all_pointer_types = AllPointerTypes::kCoarse;
+    } else if (prefs->available_pointer_types & ui::POINTER_TYPE_FINE) {
+      all_pointer_types = AllPointerTypes::kFine;
+    }
+    PrimaryPointerType primary_pointer = PrimaryPointerType::kNone;
+    if (prefs->primary_pointer_type ==
+        blink::mojom::PointerType::kPointerCoarseType) {
+      primary_pointer = PrimaryPointerType::kCoarse;
+    } else if (prefs->primary_pointer_type ==
+               blink::mojom::PointerType::kPointerFineType) {
+      primary_pointer = PrimaryPointerType::kFine;
+    }
+    base::UmaHistogramEnumeration("Input.PointerTypesAll", all_pointer_types);
+    base::UmaHistogramEnumeration("Input.PointerTypePrimary", primary_pointer);
 
 #if BUILDFLAG(IS_ANDROID)
     const bool device_is_phone =
@@ -3160,6 +3208,32 @@ void WebContentsImpl::OnTrustTokensAccessed(
   void (WebContentsObserver::*func)(RenderFrameHost*,
                                     const TrustTokenAccessDetails&) =
       &WebContentsObserver::OnTrustTokensAccessed;
+  observers_.NotifyObservers(func, rfh, details);
+}
+
+void WebContentsImpl::OnSharedDictionaryAccessed(
+    NavigationHandle* navigation,
+    const network::mojom::SharedDictionaryAccessDetails& details) {
+  OPTIONAL_TRACE_EVENT1("content",
+                        "WebContentsImpl::OnSharedDictionaryAccessed",
+                        "navigation_handle", navigation);
+  // Use a variable to select between overloads.
+  void (WebContentsObserver::*func)(
+      NavigationHandle*, const network::mojom::SharedDictionaryAccessDetails&) =
+      &WebContentsObserver::OnSharedDictionaryAccessed;
+  observers_.NotifyObservers(func, navigation, details);
+}
+
+void WebContentsImpl::OnSharedDictionaryAccessed(
+    RenderFrameHostImpl* rfh,
+    const network::mojom::SharedDictionaryAccessDetails& details) {
+  OPTIONAL_TRACE_EVENT1("content",
+                        "WebContentsImpl::OnSharedDictionaryAccessed",
+                        "render_frame_host", rfh);
+  // Use a variable to select between overloads.
+  void (WebContentsObserver::*func)(
+      RenderFrameHost*, const network::mojom::SharedDictionaryAccessDetails&) =
+      &WebContentsObserver::OnSharedDictionaryAccessed;
   observers_.NotifyObservers(func, rfh, details);
 }
 
@@ -3268,8 +3342,8 @@ void WebContentsImpl::Init(const WebContents::CreateParams& params,
   screen_orientation_provider_ =
       std::make_unique<ScreenOrientationProvider>(this);
 
-#if BUILDFLAG(IS_ANDROID)
-  DateTimeChooserAndroid::CreateForWebContents(this);
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  DateTimeChooser::CreateDateTimeChooser(this);
 #endif
 
   // AttributionHost must be created after `view_->CreateView()` is called as it
@@ -3739,6 +3813,29 @@ void WebContentsImpl::FullscreenStateChanged(
   if (size_before_deletion != fullscreen_frames_.size())
     FullscreenFrameSetUpdated();
 }
+
+#if defined(USE_AURA)
+void WebContentsImpl::Maximize() {
+  aura::Window* window = GetTopLevelNativeWindow();
+  // TODO(isandrk, b/289028460): This API function currently works only on Aura
+  // platforms (Win/Lin/CrOS/Fuchsia), make it also work on Mac.
+  wm::SetWindowState(window, ui::SHOW_STATE_MAXIMIZED);
+}
+
+void WebContentsImpl::Minimize() {
+  aura::Window* window = GetTopLevelNativeWindow();
+  // TODO(isandrk, b/289028460): This API function currently works only on Aura
+  // platforms (Win/Lin/CrOS/Fuchsia), make it also work on Mac.
+  wm::SetWindowState(window, ui::SHOW_STATE_MINIMIZED);
+}
+
+void WebContentsImpl::Restore() {
+  aura::Window* window = GetTopLevelNativeWindow();
+  // TODO(isandrk, b/289028460): This API function currently works only on Aura
+  // platforms (Win/Lin/CrOS/Fuchsia), make it also work on Mac.
+  wm::SetWindowState(window, ui::SHOW_STATE_NORMAL);
+}
+#endif
 
 void WebContentsImpl::FullscreenFrameSetUpdated() {
   OPTIONAL_TRACE_EVENT0("content",
@@ -4493,10 +4590,19 @@ void WebContentsImpl::ShowCreatedWidget(int process_id,
                   bottom_right.y() - origin.y());
   }
 
+  RenderWidgetHostImpl* render_widget_host_impl = widget_host_view->host();
+  auto permission_exclusion_area_bounds =
+      PermissionControllerImpl::FromBrowserContext(GetBrowserContext())
+          ->GetExclusionAreaBoundsInScreen(outermost_web_contents);
+  if (permission_exclusion_area_bounds &&
+      permission_exclusion_area_bounds->Intersects(transformed_rect)) {
+    render_widget_host_impl->ShutdownAndDestroyWidget(true);
+    return;
+  }
+
   widget_host_view->InitAsPopup(view, transformed_rect,
                                 transformed_anchor_rect);
 
-  RenderWidgetHostImpl* render_widget_host_impl = widget_host_view->host();
   // Renderer-owned popup widgets wait for the renderer to request for them
   // to be shown. We signal that this condition is satisfied by calling Init().
   render_widget_host_impl->Init();
@@ -5275,8 +5381,6 @@ void WebContentsImpl::OnSavePage() {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::OnSavePage");
   // If we can not save the page, try to download it.
   if (!IsSavable()) {
-    download::RecordSavePackageEvent(
-        download::SAVE_PACKAGE_DOWNLOAD_ON_NON_HTML);
     SaveFrame(GetLastCommittedURL(), Referrer(), GetPrimaryMainFrame());
     return;
   }
@@ -5625,7 +5729,7 @@ WebContents* WebContentsImpl::GetFirstWebContentsInLiveOriginalOpenerChain() {
                     : nullptr;
 }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
 void WebContentsImpl::DidChooseColorInColorChooser(SkColor color) {
   OPTIONAL_TRACE_EVENT1("content",
                         "WebContentsImpl::DidChooseColorInColorChooser",
@@ -5638,7 +5742,7 @@ void WebContentsImpl::DidEndColorChooser() {
   OPTIONAL_TRACE_EVENT0("content", "WebContentsImpl::DidEndColorChooser");
   color_chooser_holder_.reset();
 }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#endif
 
 int WebContentsImpl::DownloadImage(
     const GURL& url,
@@ -6108,6 +6212,15 @@ void WebContentsImpl::DidNavigateMainFramePreCommit(
     ExitFullscreen(false);
   DCHECK(!IsFullscreen());
 
+  if (base::FeatureList::IsEnabled(
+          features::kInvalidateLocalSurfaceIdPreCommit)) {
+    auto* rwhvb = static_cast<RenderWidgetHostViewBase*>(
+        frame_tree_node->current_frame_host()->GetView());
+    if (rwhvb) {
+      rwhvb->DidNavigateMainFramePreCommit();
+    }
+  }
+
   // Clean up keyboard lock state when navigating.
   CancelKeyboardLock(keyboard_lock_widget_);
 }
@@ -6133,10 +6246,14 @@ void WebContentsImpl::DidNavigateMainFramePostCommit(
       ClearTargetURL();
     }
 
-    RenderWidgetHostViewBase* rwhvb = static_cast<RenderWidgetHostViewBase*>(
-        render_frame_host->GetMainFrame()->GetView());
-    if (rwhvb)
-      rwhvb->OnDidNavigateMainFrameToNewPage();
+    if (!base::FeatureList::IsEnabled(
+            features::kInvalidateLocalSurfaceIdPreCommit)) {
+      RenderWidgetHostViewBase* rwhvb = static_cast<RenderWidgetHostViewBase*>(
+          render_frame_host->GetMainFrame()->GetView());
+      if (rwhvb) {
+        rwhvb->DidNavigateMainFramePreCommit();
+      }
+    }
   }
 
   PageImpl& page = render_frame_host->GetPage();
@@ -6246,8 +6363,8 @@ void WebContentsImpl::DidInferColorScheme(PageImpl& page) {
                   blink::mojom::PreferredColorScheme::kDark;
       base::UmaHistogramBoolean("Power.DarkMode.InferredDarkPageColorScheme",
                                 dark);
-      if (web_preferences_->preferred_color_scheme ==
-          blink::mojom::PreferredColorScheme::kDark) {
+      if (web_preferences_ && web_preferences_->preferred_color_scheme ==
+                                  blink::mojom::PreferredColorScheme::kDark) {
         base::UmaHistogramBoolean(
             "Power.DarkMode.DarkColorScheme.InferredDarkPageColorScheme", dark);
       }
@@ -6684,7 +6801,7 @@ void WebContentsImpl::OnColorChooserFactoryReceiver(
   color_chooser_factory_receivers_.Add(this, std::move(receiver));
 }
 
-#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
 void WebContentsImpl::OpenColorChooser(
     mojo::PendingReceiver<blink::mojom::ColorChooser> chooser_receiver,
     mojo::PendingRemote<blink::mojom::ColorChooserClient> client,
@@ -6711,7 +6828,7 @@ void WebContentsImpl::OpenColorChooser(
     color_chooser_holder_.reset();
   }
 }
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(ENABLE_PPAPI)
 void WebContentsImpl::OnPepperInstanceCreated(RenderFrameHostImpl* source,
@@ -7735,34 +7852,24 @@ void WebContentsImpl::DidStopLoading() {
   if (IsBeingDestroyed()) {
     return;
   }
-  std::unique_ptr<LoadNotificationDetails> details;
 
   // Use the last committed entry rather than the active one, in case a
   // pending entry has been created.
-  NavigationEntry* entry = GetController().GetLastCommittedEntry();
-
   // An entry may not exist for a stop when loading an initial blank page or
   // if an iframe injected by script into a blank page finishes loading.
-  if (entry) {
-    details = std::make_unique<LoadNotificationDetails>(
-        entry->GetVirtualURL(), &GetController(),
-        GetController().GetCurrentEntryIndex());
-  }
+  NavigationEntry* entry = GetController().GetLastCommittedEntry();
+  std::string url =
+      (entry ? entry->GetVirtualURL().possibly_invalid_spec() : "NULL");
 
-  std::string url = (details ? details->url.possibly_invalid_spec() : "NULL");
   TRACE_EVENT_NESTABLE_ASYNC_END1("browser,navigation",
                                   "WebContentsImpl Loading", this, "URL", url);
   SCOPED_UMA_HISTOGRAM_TIMER("WebContentsObserver.DidStopLoading");
   observers_.NotifyObservers(&WebContentsObserver::DidStopLoading);
 
   // TODO(avi): Remove. http://crbug.com/170921
-  NotificationDetails det = NotificationService::NoDetails();
-  if (details) {
-    det = Details<LoadNotificationDetails>(details.get());
-  }
   NotificationService::current()->Notify(
       NOTIFICATION_LOAD_STOP, Source<NavigationController>(&GetController()),
-      det);
+      NotificationService::NoDetails());
 }
 
 void WebContentsImpl::DidChangeLoadProgressForPrimaryMainFrame() {
@@ -9490,6 +9597,9 @@ void WebContentsImpl::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
       observed_theme->GetPreferredColorScheme();
   ui::NativeTheme::PreferredContrast preferred_contrast =
       observed_theme->GetPreferredContrast();
+  bool prefers_reduced_transparency =
+      observed_theme->GetPrefersReducedTransparency();
+  bool inverted_colors = observed_theme->GetInvertedColors();
   bool preferences_changed = false;
 
   if (using_dark_colors_ != using_dark_colors) {
@@ -9504,6 +9614,14 @@ void WebContentsImpl::OnNativeThemeUpdated(ui::NativeTheme* observed_theme) {
     preferred_contrast_ = preferred_contrast;
     preferences_changed = true;
   }
+  if (prefers_reduced_transparency_ != prefers_reduced_transparency) {
+    prefers_reduced_transparency_ = prefers_reduced_transparency;
+    preferences_changed = true;
+  }
+  if (inverted_colors_ != inverted_colors) {
+    inverted_colors_ = inverted_colors;
+    preferences_changed = true;
+  }
 
   if (preferences_changed)
     NotifyPreferencesChanged();
@@ -9514,12 +9632,6 @@ void WebContentsImpl::OnCaptionStyleUpdated() {
 }
 
 void WebContentsImpl::OnColorProviderChanged() {
-  // TODO(tluk): Currently changes to theme related web prefs are being
-  // propagated in OnNativeThemeUpdated(). This logic should be moved here since
-  // there are instances where the system theme may not change but clients
-  // manually change the ColorProviderSource currently being observed by this
-  // WebContents.
-
   // OnColorProviderChanged() might have been triggered as the result of the
   // observed source being reset. If this is the case fallback to the default
   // source.
@@ -9528,6 +9640,20 @@ void WebContentsImpl::OnColorProviderChanged() {
     return;
   }
   observers_.NotifyObservers(&WebContentsObserver::OnColorProviderChanged);
+
+  // Web preferences may change in response to events such as
+  // OnNativeThemeUpdated(). However web preferences may also depend on
+  // ColorProvider state and the associated ColorProvider may change
+  // independently of the native theme. Ensure we propagate web preferences here
+  // to cover this case.
+  // OnColorProviderChanged() can be emitted during the WebContentsImpl's
+  // constructor in response to setting the ColorProviderSource. In this case
+  // Init() will not yet have been called and the current frame host will not be
+  // defined, so we must guard against this here.
+  // TODO(tluk): There may be a more appropriate way to identify this condition.
+  if (GetRenderManager()->current_frame_host()) {
+    NotifyPreferencesChanged();
+  }
 }
 
 const ui::ColorProvider& WebContentsImpl::GetColorProvider() const {
@@ -9740,16 +9866,20 @@ std::unique_ptr<PrerenderHandle> WebContentsImpl::StartPrerendering(
     PrerenderTriggerType trigger_type,
     const std::string& embedder_histogram_suffix,
     ui::PageTransition page_transition,
+    PreloadingHoldbackStatus holdback_status_override,
     PreloadingAttempt* preloading_attempt,
     absl::optional<base::RepeatingCallback<bool(const GURL&)>>
         url_match_predicate) {
   PrerenderAttributes attributes(
       prerendering_url, trigger_type, embedder_histogram_suffix,
-      content::Referrer(), /*initiator_origin=*/absl::nullopt,
+      content::Referrer(), /*eagerness=*/absl::nullopt,
+      /*initiator_origin=*/absl::nullopt,
       content::ChildProcessHost::kInvalidUniqueID, GetWeakPtr(),
       /*initiator_frame_token=*/absl::nullopt,
       /*initiator_frame_tree_node_id=*/RenderFrameHost::kNoFrameTreeNodeId,
       ukm::kInvalidSourceId, page_transition, url_match_predicate);
+  attributes.holdback_status_override = holdback_status_override;
+
   int frame_tree_node_id = GetPrerenderHostRegistry()->CreateAndStartHost(
       attributes, preloading_attempt);
 

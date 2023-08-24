@@ -117,6 +117,8 @@ class FailedCameraHalServerCallbacks final
   void CameraSWPrivacySwitchStateChange(
       cros::mojom::CameraPrivacySwitchState state) override;
 
+  void Reset();
+
   mojo::Receiver<cros::mojom::CameraHalServerCallbacks> callbacks_;
 };
 
@@ -402,10 +404,6 @@ class CAPTURE_EXPORT CameraHalDispatcherImpl final
   std::string GetDeviceIdFromCameraId(int32_t camera_id);
   base::flat_set<std::string> GetDeviceIdsFromCameraIds(
       base::flat_set<int32_t> camera_ids);
-
-  void BindToMojoServiceManagerOnUIThread(
-      const std::string service_name,
-      mojo::ScopedMessagePipeHandle receiver);
 
   void StopOnProxyThread();
 

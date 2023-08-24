@@ -4,11 +4,9 @@
 
 #include "ui/views/view.h"
 
-#include "base/memory/raw_ptr.h"
-
 #import <Cocoa/Cocoa.h>
 
-#import "base/mac/scoped_nsobject.h"
+#include "base/memory/raw_ptr.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/events/gesture_event_details.h"
 #include "ui/views/test/widget_test.h"
@@ -98,17 +96,16 @@ class ViewMacTest : public test::WidgetTest {
   ViewMacTest& operator=(const ViewMacTest&) = delete;
 
   absl::optional<gfx::Point> SwipeGestureVector(int dx, int dy) {
-    base::scoped_nsobject<FakeSwipeEvent> swipe_event(
-        [[FakeSwipeEvent alloc] init]);
-    [swipe_event setDeltaX:dx];
-    [swipe_event setDeltaY:dy];
-    [swipe_event setWindow:widget_->GetNativeWindow().GetNativeNSWindow()];
-    [swipe_event setLocationInWindow:NSMakePoint(50, 50)];
-    [swipe_event setTimestamp:[[NSProcessInfo processInfo] systemUptime]];
+    FakeSwipeEvent* swipe_event = [[FakeSwipeEvent alloc] init];
+    swipe_event.deltaX = dx;
+    swipe_event.deltaY = dy;
+    swipe_event.window = widget_->GetNativeWindow().GetNativeNSWindow();
+    swipe_event.locationInWindow = NSMakePoint(50, 50);
+    swipe_event.timestamp = NSProcessInfo.processInfo.systemUptime;
 
     // BridgedContentView should create an appropriate ui::GestureEvent and pass
     // it to the Widget.
-    [[widget_->GetNativeWindow().GetNativeNSWindow() contentView]
+    [widget_->GetNativeWindow().GetNativeNSWindow().contentView
         swipeWithEvent:swipe_event];
     return view_->last_swipe_gesture();
   }

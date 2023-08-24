@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ash/login/reporting/lock_unlock_reporter.h"
 
+#include <string_view>
+
 #include "base/memory/raw_ptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/simple_test_clock.h"
@@ -68,7 +70,6 @@ class LockUnlockTestHelper {
     TestingProfile::Builder profile_builder;
     profile_builder.SetProfileName(user->GetAccountId().GetUserEmail());
     auto profile = profile_builder.Build();
-    ProfileHelper::Get()->SetProfileToUserMappingForTesting(user);
     ProfileHelper::Get()->SetUserToProfileMappingForTesting(user,
                                                             profile.get());
     user_manager_->LoginUser(user->GetAccountId(), true);
@@ -89,7 +90,7 @@ class LockUnlockTestHelper {
 
     ON_CALL(*mock_queue, AddRecord(_, ::reporting::Priority::SECURITY, _))
         .WillByDefault(
-            [this, status](base::StringPiece record_string,
+            [this, status](std::string_view record_string,
                            ::reporting::Priority event_priority,
                            ::reporting::ReportQueue::EnqueueCallback cb) {
               ++report_count_;

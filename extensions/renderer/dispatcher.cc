@@ -13,6 +13,7 @@
 #include "base/command_line.h"
 
 #include "base/debug/alias.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
@@ -283,7 +284,13 @@ scoped_refptr<Extension> ConvertToExtension(
 }
 
 int nw_uv_run(void* loop, int mode) {
-  v8::MicrotasksScope microtasks(v8::Isolate::GetCurrent(), v8::MicrotasksScope::kDoNotRunMicrotasks);
+  v8::Isolate* isolate = v8::Isolate::GetCurrent();
+  v8::HandleScope handle_scope(isolate);
+  v8::Local<v8::Context> context = isolate->GetCurrentContext();
+  if (context.IsEmpty())
+    return g_uv_run_fn(loop, mode);
+  v8::MicrotasksScope microtasks(context,
+				 v8::MicrotasksScope::kDoNotRunMicrotasks);
 
   return g_uv_run_fn(loop, mode);
 }
@@ -1130,18 +1137,18 @@ void Dispatcher::ActivateExtension(const std::string& extension_id) {
   const Extension* extension =
       RendererExtensionRegistry::Get()->GetByID(extension_id);
   if (!extension) {
-    NOTREACHED();
     // Extension was activated but was never loaded. This probably means that
     // the renderer failed to load it (or the browser failed to tell us when it
     // did). Failures shouldn't happen, but instead of crashing there (which
-    // executes on all renderers) be conservative and only crash in the renderer
-    // of the extension which failed to load; this one.
+    // executes on all renderers) just log an error and dump without crashing.
     std::string& error = extension_load_errors_[extension_id];
     char minidump[256];
     base::debug::Alias(&minidump);
     base::snprintf(minidump, std::size(minidump), "e::dispatcher:%s:%s",
                    extension_id.c_str(), error.c_str());
-    LOG(FATAL) << extension_id << " was never loaded: " << error;
+    LOG(ERROR) << extension_id << " was never loaded: " << error;
+    base::debug::DumpWithoutCrashing();
+    return;
   }
 
   // It's possible that the same extension might generate multiple activation

@@ -108,7 +108,7 @@ remote_cocoa::NativeWidgetNSWindowBridge* FindBridgeForSender(
   FindBridgeForSender(sender, window)
       ->host()
       ->ExecuteCommand(command, WindowOpenDisposition::CURRENT_TAB,
-                       false /* is_before_first_responder */, &was_executed);
+                       /*is_before_first_responder=*/false, &was_executed);
   DCHECK(was_executed);
 }
 
@@ -143,7 +143,7 @@ remote_cocoa::NativeWidgetNSWindowBridge* FindBridgeForSender(
       ->ExecuteCommand(command,
                        ui::WindowOpenDispositionFromNSEventWithFlags(
                            [NSApp currentEvent], modifierFlags),
-                       false /* is_before_first_responder */, &was_executed);
+                       /*is_before_first_responder=*/false, &was_executed);
   DCHECK(was_executed);
 }
 

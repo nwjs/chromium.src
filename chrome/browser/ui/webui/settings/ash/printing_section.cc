@@ -127,10 +127,7 @@ void PrintingSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"removePrinter", IDS_SETTINGS_PRINTING_CUPS_PRINTERS_REMOVE},
       {"cupsPrintersViewPpd", IDS_SETTINGS_PRINTING_CUPS_PRINTERS_VIEW_PPD},
       {"setupPrinter", IDS_SETTINGS_PRINTING_CUPS_PRINTER_SETUP_BUTTON},
-      {"setupPrinterAria",
-       IDS_SETTINGS_PRINTING_CUPS_PRINTER_SETUP_BUTTON_ARIA},
       {"savePrinter", IDS_SETTINGS_PRINTING_CUPS_PRINTER_SAVE_BUTTON},
-      {"savePrinterAria", IDS_SETTINGS_PRINTING_CUPS_PRINTER_SAVE_BUTTON_ARIA},
       {"searchLabel", IDS_SETTINGS_PRINTING_CUPS_SEARCH_LABEL},
       {"noSearchResults", IDS_SEARCH_NO_RESULTS},
       {"printJobsTitle",
@@ -309,6 +306,7 @@ void PrintingSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"printerStatusStopped", IDS_SETTINGS_PRINTING_PRINTER_STATUS_STOPPED},
       {"printerStatusTrayMissing",
        IDS_SETTINGS_PRINTING_PRINTER_STATUS_TRAY_MISSING},
+      {"printerEntryAriaLabel", IDS_SETTINGS_PRINTING_PRINTER_ENTRY_ARIA_LABEL},
   };
   html_source->AddLocalizedStrings(kLocalizedStrings);
 
@@ -321,6 +319,8 @@ void PrintingSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
                           features::IsPrinterSettingsRevampEnabled());
   html_source->AddBoolean("isPrinterSettingsPrinterStatusEnabled",
                           features::IsPrinterSettingsPrinterStatusEnabled());
+  html_source->AddBoolean("isPrintPreviewDiscoveredPrintersEnabled",
+                          features::IsPrintPreviewDiscoveredPrintersEnabled());
 }
 
 void PrintingSection::AddHandlers(content::WebUI* web_ui) {
@@ -340,7 +340,7 @@ mojom::SearchResultIcon PrintingSection::GetSectionIcon() const {
   return mojom::SearchResultIcon::kPrinter;
 }
 
-std::string PrintingSection::GetSectionPath() const {
+const char* PrintingSection::GetSectionPath() const {
   return mojom::kPrintingSectionPath;
 }
 

@@ -93,8 +93,13 @@ NGGridRangeBuilder::NGGridRangeBuilder(
     const wtf_size_t repeater_track_count =
         explicit_tracks_.RepeatCount(i, auto_repetitions_) *
         explicit_tracks_.RepeatSize(i);
-    DCHECK_NE(repeater_track_count, 0u);
 
+    // Subgrids can have zero auto repetitions.
+    if (explicit_tracks_.IsSubgriddedAxis() && repeater_track_count == 0) {
+      continue;
+    }
+
+    DCHECK_NE(repeater_track_count, 0u);
     start_lines_.emplace_back(current_repeater_start_line);
     current_repeater_start_line += repeater_track_count;
     end_lines_.emplace_back(current_repeater_start_line);
@@ -654,8 +659,8 @@ NGGridLayoutTrackCollection::CreateSubgridTrackCollection(
     for (wtf_size_t i = 0; i <= range_count; ++i) {
       // Opposite direction subgrids need to iterate backwards.
       const wtf_size_t current_index = is_opposite_direction_in_root_grid
-                                           ? begin_range_index + i
-                                           : end_range_index - i;
+                                           ? end_range_index - i
+                                           : begin_range_index + i;
 
       auto& subgrid_translated_range =
           subgrid_ranges.emplace_back(ranges_[current_index]);
@@ -1000,14 +1005,17 @@ void NGGridSizingTrackCollection::SetMinorBaseline(
 }
 
 void NGGridSizingTrackCollection::BuildSets(const ComputedStyle& grid_style,
-                                            LayoutUnit grid_available_size) {
+                                            LayoutUnit grid_available_size,
+                                            LayoutUnit gutter_size) {
   const bool is_for_columns = track_direction_ == kForColumns;
+  gutter_size_ = gutter_size;
 
   BuildSets(
       is_for_columns ? grid_style.GridTemplateColumns().track_list
                      : grid_style.GridTemplateRows().track_list,
       is_for_columns ? grid_style.GridAutoColumns() : grid_style.GridAutoRows(),
       grid_available_size == kIndefiniteSize);
+  InitializeSets(grid_available_size);
 }
 
 void NGGridSizingTrackCollection::BuildSets(
@@ -1119,9 +1127,8 @@ void NGGridSizingTrackCollection::BuildSets(
 }
 
 // https://drafts.csswg.org/css-grid-2/#algo-init
-void NGGridSizingTrackCollection::InitializeSets(LayoutUnit grid_available_size,
-                                                 LayoutUnit gutter_size) {
-  gutter_size_ = gutter_size;
+void NGGridSizingTrackCollection::InitializeSets(
+    LayoutUnit grid_available_size) {
   for (auto& set : sets_) {
     const auto& track_size = set.track_size;
 

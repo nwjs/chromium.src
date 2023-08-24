@@ -16,10 +16,6 @@
 #import "ios/chrome/browser/shared/model/paths/paths.h"
 #import "ios/chrome/browser/ui/appearance/appearance_customization.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // Set the breadcrumbs log in PreviousSessionInfo.
@@ -46,6 +42,9 @@ void SyncBreadcrumbsLog() {
 NSString* const kOriginDetectedKey = @"OriginDetectedKey";
 
 @implementation SceneDelegate
+
+@synthesize sceneState = _sceneState;
+@synthesize sceneController = _sceneController;
 
 - (SceneState*)sceneState {
   if (!_sceneState) {
@@ -89,7 +88,7 @@ NSString* const kOriginDetectedKey = @"OriginDetectedKey";
   return _window;
 }
 
-#pragma mark Connecting and Disconnecting the Scene
+#pragma mark - UISceneDelegate
 
 - (void)scene:(UIScene*)scene
     willConnectToSession:(UISceneSession*)session
@@ -103,6 +102,17 @@ NSString* const kOriginDetectedKey = @"OriginDetectedKey";
     self.sceneState.startupHadExternalIntent = YES;
   }
 }
+
+- (void)sceneDidDisconnect:(UIScene*)scene {
+  CHECK(_sceneState);
+  self.sceneState.activationLevel = SceneActivationLevelDisconnected;
+  _sceneState = nil;
+  // Setting the level to Disconnected had the side effect of tearing down the
+  // controller’s UI.
+  _sceneController = nil;
+}
+
+#pragma mark - private
 
 - (WindowActivityOrigin)originFromSession:(UISceneSession*)session
                                   options:(UISceneConnectionOptions*)options {
@@ -131,10 +141,6 @@ NSString* const kOriginDetectedKey = @"OriginDetectedKey";
   }
 
   return origin;
-}
-
-- (void)sceneDidDisconnect:(UIScene*)scene {
-  self.sceneState.activationLevel = SceneActivationLevelUnattached;
 }
 
 #pragma mark Transitioning to the Foreground

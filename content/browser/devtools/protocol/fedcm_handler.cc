@@ -12,6 +12,23 @@
 #include "content/public/browser/identity_request_dialog_controller.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
+namespace {
+namespace FedCm = content::protocol::FedCm;
+
+FedCm::DialogType ConvertDialogType(
+    content::FederatedAuthRequestImpl::DialogType type) {
+  switch (type) {
+    case content::FederatedAuthRequestImpl::kNone:
+      NOTREACHED_NORETURN()
+          << "This should only be called if there is a dialog";
+    case content::FederatedAuthRequestImpl::kSelectAccount:
+      return FedCm::DialogTypeEnum::AccountChooser;
+    case content::FederatedAuthRequestImpl::kAutoReauth:
+      return FedCm::DialogTypeEnum::AutoReauthn;
+  }
+}
+}  // namespace
+
 namespace content::protocol {
 
 FedCmHandler::FedCmHandler()
@@ -39,7 +56,7 @@ DispatchResponse FedCmHandler::Enable(Maybe<bool> in_disableRejectionDelay) {
   auto* auth_request = GetFederatedAuthRequest();
   bool was_enabled = enabled_;
   enabled_ = true;
-  disable_delay_ = in_disableRejectionDelay.fromMaybe(false);
+  disable_delay_ = in_disableRejectionDelay.value_or(false);
 
   // OnDialogShown should have been called previously if was_enabled is true.
   // This could happen if FedCmHandler::Enable was called to enable/disable the
@@ -123,9 +140,8 @@ void FedCmHandler::OnDialogShown() {
   IdentityRequestDialogController* dialog = auth_request->GetDialogController();
   CHECK(dialog);
 
-  FedCm::DialogType dialog_type = auth_request->IsAutoReauthn()
-                                      ? FedCm::DialogTypeEnum::AutoReauthn
-                                      : FedCm::DialogTypeEnum::AccountChooser;
+  FedCm::DialogType dialog_type =
+      ConvertDialogType(auth_request->GetDialogType());
   Maybe<String> maybe_subtitle;
   absl::optional<std::string> subtitle = dialog->GetSubtitle();
   if (subtitle) {
@@ -177,7 +193,7 @@ DispatchResponse FedCmHandler::DismissDialog(const String& in_dialogId,
   }
 
   auth_request->DismissAccountsDialogForDevtools(
-      in_triggerCooldown.fromMaybe(false));
+      in_triggerCooldown.value_or(false));
   return DispatchResponse::Success();
 }
 

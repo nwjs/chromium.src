@@ -34,8 +34,9 @@ class COMPONENT_EXPORT(GEOLOCATION) GeolocationManager {
   // Sets the global instance of the Geolocation Manager.
   static void SetInstance(std::unique_ptr<GeolocationManager> manager);
 
-  void TrackGeolocationAttempted(const std::string& app_name = "");
-  void TrackGeolocationRelinquished(const std::string& app_name = "");
+  void TrackGeolocationAttempted();
+  void TrackGeolocationRelinquished();
+  void RequestSystemPermission();
 
 #if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_CHROMEOS)
 // Default empty implementation of Geolocation Manager. It is used on operation

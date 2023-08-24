@@ -905,19 +905,26 @@ bool Internals::isLoadingFromMemoryCache(const String& url) {
 
 ScriptPromise Internals::getInitialResourcePriority(ScriptState* script_state,
                                                     const String& url,
-                                                    Document* document) {
+                                                    Document* document,
+                                                    bool new_load_only) {
   ScriptPromiseResolver* resolver =
       MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
   KURL resource_url = url_test_helpers::ToKURL(url.Utf8());
-  DCHECK(document);
 
   auto callback = WTF::BindOnce(&Internals::ResolveResourcePriority,
                                 WrapPersistent(this), WrapPersistent(resolver));
-  ResourceFetcher::AddPriorityObserverForTesting(resource_url,
-                                                 std::move(callback));
+  document->Fetcher()->AddPriorityObserverForTesting(
+      resource_url, std::move(callback), new_load_only);
 
   return promise;
+}
+
+ScriptPromise Internals::getInitialResourcePriorityOfNewLoad(
+    ScriptState* script_state,
+    const String& url,
+    Document* document) {
+  return getInitialResourcePriority(script_state, url, document, true);
 }
 
 bool Internals::doesWindowHaveUrlFragment(DOMWindow* window) {
@@ -2538,7 +2545,12 @@ unsigned Internals::numberOfScrollableAreas(Document* document) {
 
 bool Internals::isPageBoxVisible(Document* document, int page_number) {
   DCHECK(document);
-  return document->IsPageBoxVisible(page_number);
+  // Named pages aren't supported here, because this function may be called
+  // without laying out first.
+  scoped_refptr<const ComputedStyle> style =
+      document->StyleForPage(page_number, /* page_name */ AtomicString());
+  return style->Visibility() !=
+         EVisibility::kHidden;  // display property doesn't apply to @page.
 }
 
 String Internals::layerTreeAsText(Document* document,
@@ -3404,6 +3416,8 @@ void Internals::setForcedColorsAndDarkPreferredColorScheme(Document* document) {
   color_scheme_helper.SetPreferredColorScheme(
       mojom::blink::PreferredColorScheme::kDark);
   color_scheme_helper.SetForcedColors(*document, ForcedColors::kActive);
+  color_scheme_helper.SetEmulatedForcedColors(*document,
+                                              /*is_dark_theme=*/false);
   document->GetFrame()->View()->UpdateAllLifecyclePhasesForTest();
 }
 

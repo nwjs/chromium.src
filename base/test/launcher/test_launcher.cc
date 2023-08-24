@@ -1195,6 +1195,10 @@ void TestLauncher::LaunchChildGTestProcess(
   LaunchOptions options;
   options.flags = launcher_delegate_->GetLaunchOptions();
 
+  if (BotModeEnabled(CommandLine::ForCurrentProcess())) {
+    LOG(INFO) << "Starting [" << base::JoinString(test_names, ", ") << "]";
+  }
+
   ChildProcessResults process_results = DoLaunchChildTestProcess(
       new_command_line, child_temp_dir, result_file,
       launcher_delegate_->GetTimeout(), test_names.size(), options,
@@ -1800,6 +1804,23 @@ bool TestLauncher::InitTests() {
     LOG(ERROR) << "Failed to get list of tests.";
     return false;
   }
+
+  // Check for duplicate test names. These can cause difficult-to-diagnose
+  // crashes in the test runner as well as confusion about exactly what test is
+  // failing. See https://crbug.com/1463355 for details.
+  std::unordered_set<std::string> full_test_names;
+  bool dups_found = false;
+  for (auto& test : tests) {
+    const std::string full_test_name =
+        test.test_case_name + "." + test.test_name;
+    auto [it, inserted] = full_test_names.insert(full_test_name);
+    if (!inserted) {
+      LOG(WARNING) << "Duplicate test name found: " << full_test_name;
+      dups_found = true;
+    }
+  }
+  CHECK(!dups_found);
+
   std::vector<std::string> uninstantiated_tests;
   for (const TestIdentifier& test_id : tests) {
     TestInfo test_info(test_id);

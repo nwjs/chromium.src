@@ -166,7 +166,7 @@
       bool was_executed = false;
       bridge->host()->ExecuteCommand(
           result.chrome_command, WindowOpenDisposition::CURRENT_TAB,
-          false /* is_before_first_responder */, &was_executed);
+          /*is_before_first_responder=*/false, &was_executed);
       DCHECK(was_executed);
       return ui::PerformKeyEquivalentResult::kHandled;
     }

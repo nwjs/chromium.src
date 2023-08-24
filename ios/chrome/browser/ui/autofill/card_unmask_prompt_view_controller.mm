@@ -23,10 +23,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 NSString* const kCardUnmaskPromptTableViewAccessibilityID =
     @"CardUnmaskPromptTableViewAccessibilityID";
 
@@ -231,6 +227,14 @@ const char kFooterDummyLinkTarget[] = "about:blank";
 
 - (void)onVerifyTapped {
   if (_bridge == nullptr) {
+    return;
+  }
+
+  // Guard against the rare case where the user was able to tap on verify after
+  // setting an invalid date and before the button is disabled. The UIPickerView
+  // notifies its delegate about picker changes but with a sligh delay, which
+  // leads to this case.
+  if (![self isExpirationInputValid]) {
     return;
   }
 

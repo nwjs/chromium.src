@@ -48,10 +48,6 @@
 #import "services/network/public/cpp/simple_url_loader.h"
 #import "testing/platform_test.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 const char kSafePage[] = "https://example.test/safe.html";
@@ -127,7 +123,7 @@ class TestUrlCheckerClient {
           slow_check_notifier,
       bool proceed,
       bool showed_interstitial,
-      bool did_perform_url_real_time_check,
+      safe_browsing::SafeBrowsingUrlCheckerImpl::PerformedCheck performed_check,
       bool did_check_url_real_time_allowlist) {
     if (slow_check_notifier) {
       *slow_check_notifier =

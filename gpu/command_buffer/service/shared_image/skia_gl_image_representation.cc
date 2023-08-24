@@ -6,7 +6,6 @@
 
 #include "base/check_op.h"
 #include "base/memory/ptr_util.h"
-#include "components/viz/common/resources/resource_format_utils.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
 #include "gpu/command_buffer/service/shared_image/shared_image_format_service_utils.h"
@@ -50,11 +49,16 @@ std::unique_ptr<SkiaGLImageRepresentation> SkiaGLImageRepresentation::Create(
 
   if (format.is_single_plane() || format.PrefersExternalSampler()) {
     GrBackendTexture backend_texture;
+    GLFormatDesc gl_format_desc =
+        format.PrefersExternalSampler()
+            ? ToGLFormatDescExternalSampler(format)
+            : ToGLFormatDesc(format, /*plane_index=*/0,
+                             angle_rgbx_internal_format);
     if (!GetGrBackendTexture(
             context_state->feature_info(),
             gl_representation->GetTextureBase()->target(), backing->size(),
             gl_representation->GetTextureBase()->service_id(),
-            TextureStorageFormat(format, angle_rgbx_internal_format),
+            gl_format_desc.storage_internal_format,
             context_state->gr_context()->threadSafeProxy(), &backend_texture)) {
       return nullptr;
     }

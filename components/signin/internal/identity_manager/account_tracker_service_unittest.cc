@@ -298,13 +298,13 @@ class AccountTrackerServiceTest : public testing::Test {
   void ClearAccountTrackerEvents() { account_tracker_events_.clear(); }
 
   void OnAccountUpdated(const AccountInfo& ids) {
-    account_tracker_events_.push_back(
-        TrackingEvent(UPDATED, ids.account_id, ids.gaia, ids.email));
+    account_tracker_events_.emplace_back(UPDATED, ids.account_id, ids.gaia,
+                                         ids.email);
   }
 
   void OnAccountRemoved(const AccountInfo& ids) {
-    account_tracker_events_.push_back(
-        TrackingEvent(REMOVED, ids.account_id, ids.gaia, ids.email));
+    account_tracker_events_.emplace_back(REMOVED, ids.account_id, ids.gaia,
+                                         ids.email);
   }
 
   // Helpers to fake access token and user info fetching
@@ -367,6 +367,10 @@ class AccountTrackerServiceTest : public testing::Test {
 
   network::TestURLLoaderFactory* GetTestURLLoaderFactory() {
     return signin_client_.GetTestURLLoaderFactory();
+  }
+
+  void SaveToPrefs(const AccountInfo& account) {
+    account_tracker()->SaveToPrefs(account);
   }
 
  protected:
@@ -509,10 +513,10 @@ void AccountTrackerServiceTest::
   base::test::ScopedFeatureList scoped_feature_list;
   if (enable_supervision_on_desktop) {
     scoped_feature_list.InitAndEnableFeature(
-        supervised_user::kEnableSupervisionOnDesktopAndIOS);
+        supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
   } else {
     scoped_feature_list.InitAndDisableFeature(
-        supervised_user::kEnableSupervisionOnDesktopAndIOS);
+        supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
   }
 
   SimulateTokenAvailable(kAccountKeyChild);
@@ -716,7 +720,7 @@ TEST_F(AccountTrackerServiceTest,
   // Now enable the flag, and repeat the fetch.
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      supervised_user::kEnableSupervisionOnDesktopAndIOS);
+      supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
 
   ResetAccountTracker();
 
@@ -1139,6 +1143,38 @@ TEST_F(AccountTrackerServiceTest, ChildStatusMigration) {
   EXPECT_EQ(static_cast<int>(signin::Tribool::kTrue), new_key.value());
 }
 
+TEST_F(AccountTrackerServiceTest, Persistence_DeleteEmpty) {
+  // Define a user data directory for the account image storage.
+  base::ScopedTempDir scoped_user_data_dir;
+  ASSERT_TRUE(scoped_user_data_dir.CreateUniqueTempDir());
+
+  // Create a tracker and save to prefs a valid account and an empty one.
+  ResetAccountTrackerWithPersistence(scoped_user_data_dir.GetPath());
+  AccountInfo a;
+  a.account_id = AccountKeyToAccountId(kAccountKeyAlpha);
+  a.gaia = AccountKeyToGaiaId(kAccountKeyAlpha);
+  a.email = AccountKeyToEmail(kAccountKeyAlpha);
+  SaveToPrefs(a);
+
+  AccountInfo empty_account;
+  SaveToPrefs(empty_account);
+
+  // Create a new tracker and make sure it loads the accounts.
+  ClearAccountTrackerEvents();
+  ResetAccountTrackerWithPersistence(scoped_user_data_dir.GetPath());
+
+  // Verify that the account with an empty account id was removed when loading
+  // the accounts from prefs.
+  std::vector<AccountInfo> infos = account_tracker()->GetAccounts();
+  ASSERT_EQ(1u, infos.size());
+  EXPECT_EQ(a.account_id, infos[0].account_id);
+
+  // Delete the account tracker before cleaning up |scoped_user_data_dir| so
+  // that all in-use files are closed.
+  ResetAccountTracker();
+  ASSERT_TRUE(scoped_user_data_dir.Delete());
+}
+
 TEST_F(AccountTrackerServiceTest, SeedAccountInfo) {
   EXPECT_TRUE(account_tracker()->GetAccounts().empty());
 
@@ -1322,17 +1358,15 @@ TEST_F(AccountTrackerServiceTest, MigrateAccountIdToGaiaId) {
 
   ScopedListPrefUpdate update(prefs(), prefs::kAccountInfo);
 
-  base::Value::Dict dict;
-  dict.Set("account_id", email_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
-  dict = base::Value::Dict();
-  dict.Set("account_id", email_beta);
-  dict.Set("email", email_beta);
-  dict.Set("gaia", gaia_beta);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_beta)
+                     .Set("email", email_beta)
+                     .Set("gaia", gaia_beta));
 
   base::HistogramTester tester;
   ResetAccountTracker();
@@ -1366,17 +1400,15 @@ TEST_F(AccountTrackerServiceTest, CanNotMigrateAccountIdToGaiaId) {
 
   ScopedListPrefUpdate update(prefs(), prefs::kAccountInfo);
 
-  base::Value::Dict dict;
-  dict.Set("account_id", email_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
-  dict = base::Value::Dict();
-  dict.Set("account_id", email_beta);
-  dict.Set("email", email_beta);
-  dict.Set("gaia", "");
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_beta)
+                     .Set("email", email_beta)
+                     .Set("gaia", ""));
 
   base::HistogramTester tester;
   ResetAccountTracker();
@@ -1410,24 +1442,21 @@ TEST_F(AccountTrackerServiceTest, GaiaIdMigrationCrashInTheMiddle) {
 
   ScopedListPrefUpdate update(prefs(), prefs::kAccountInfo);
 
-  base::Value::Dict dict;
-  dict.Set("account_id", email_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
-  dict = base::Value::Dict();
-  dict.Set("account_id", email_beta);
-  dict.Set("email", email_beta);
-  dict.Set("gaia", gaia_beta);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_beta)
+                     .Set("email", email_beta)
+                     .Set("gaia", gaia_beta));
 
   // Succeed miggrated account.
-  dict = base::Value::Dict();
-  dict.Set("account_id", gaia_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", gaia_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
   base::HistogramTester tester;
   ResetAccountTracker();
@@ -1764,17 +1793,15 @@ TEST_F(AccountTrackerServiceTest, CountOfLoadedAccounts_TwoAccounts) {
 
   ScopedListPrefUpdate update(prefs(), prefs::kAccountInfo);
 
-  base::Value::Dict dict;
-  dict.Set("account_id", gaia_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", gaia_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
-  dict = base::Value::Dict();
-  dict.Set("account_id", gaia_beta);
-  dict.Set("email", email_beta);
-  dict.Set("gaia", gaia_beta);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", gaia_beta)
+                     .Set("email", email_beta)
+                     .Set("gaia", gaia_beta));
 
   base::HistogramTester tester;
   ResetAccountTracker();
@@ -1793,17 +1820,15 @@ TEST_F(AccountTrackerServiceTest, Migrate_CountOfLoadedAccounts_TwoAccounts) {
 
   ScopedListPrefUpdate update(prefs(), prefs::kAccountInfo);
 
-  base::Value::Dict dict;
-  dict.Set("account_id", email_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
-  dict = base::Value::Dict();
-  dict.Set("account_id", email_beta);
-  dict.Set("email", email_beta);
-  dict.Set("gaia", gaia_beta);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_beta)
+                     .Set("email", email_beta)
+                     .Set("gaia", gaia_beta));
 
   base::HistogramTester tester;
   ResetAccountTracker();
@@ -1822,19 +1847,17 @@ TEST_F(AccountTrackerServiceTest,
 
   ScopedListPrefUpdate update(prefs(), prefs::kAccountInfo);
 
-  base::Value::Dict dict;
-  dict.Set("account_id", email_alpha);
-  dict.Set("email", email_alpha);
-  dict.Set("gaia", gaia_alpha);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_alpha)
+                     .Set("email", email_alpha)
+                     .Set("gaia", gaia_alpha));
 
   // This account is invalid because the account_id is a non-canonicalized
   // version of the email.
-  dict = base::Value::Dict();
-  dict.Set("account_id", email_foobar);
-  dict.Set("email", email_foobar);
-  dict.Set("gaia", gaia_foobar);
-  update->Append(std::move(dict));
+  update->Append(base::Value::Dict()
+                     .Set("account_id", email_foobar)
+                     .Set("email", email_foobar)
+                     .Set("gaia", gaia_foobar));
 
   base::HistogramTester tester;
   ResetAccountTracker();

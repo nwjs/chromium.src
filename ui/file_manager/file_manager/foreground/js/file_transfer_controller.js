@@ -3,10 +3,12 @@
 // found in the LICENSE file.
 
 import {assert, assertNotReached} from 'chrome://resources/ash/common/assert.js';
+import {sanitizeInnerHtml} from 'chrome://resources/js/parse_html_subset.js';
 
 import {getDisallowedTransfers, startIOTask} from '../../common/js/api.js';
-import {getFocusedTreeItem, isDirectoryTree, isDirectoryTreeItem, queryRequiredElement} from '../../common/js/dom_utils.js';
+import {getFocusedTreeItem, htmlEscape, isDirectoryTree, isDirectoryTreeItem, queryRequiredElement} from '../../common/js/dom_utils.js';
 import {FileType} from '../../common/js/file_type.js';
+import {getFileTypeForName} from '../../common/js/file_types_base.js';
 import {ProgressCenterItem, ProgressItemState, ProgressItemType} from '../../common/js/progress_center_common.js';
 import {getEnabledTrashVolumeURLs, isAllTrashEntries, TrashEntry} from '../../common/js/trash.js';
 import {str, strf, util} from '../../common/js/util.js';
@@ -250,20 +252,14 @@ export class FileTransferController {
   /**
    * @param {!List} list List itself and its directory items will could
    *                          be drop target.
-   * @param {boolean=} opt_onlyIntoDirectories If true only directory list
-   *     items could be drop targets. Otherwise any other place of the list
-   *     accetps files (putting it into the current directory).
    * @private
    */
-  attachFileListDropTarget_(list, opt_onlyIntoDirectories) {
-    list.addEventListener(
-        'dragover',
-        this.onDragOver_.bind(this, !!opt_onlyIntoDirectories, list));
+  attachFileListDropTarget_(list) {
+    list.addEventListener('dragover', this.onDragOver_.bind(this, false, list));
     list.addEventListener(
         'dragenter', this.onDragEnterFileList_.bind(this, list));
     list.addEventListener('dragleave', this.onDragLeave_.bind(this, list));
-    list.addEventListener(
-        'drop', this.onDrop_.bind(this, !!opt_onlyIntoDirectories));
+    list.addEventListener('drop', this.onDrop_.bind(this, false));
   }
 
   /**
@@ -330,8 +326,7 @@ export class FileTransferController {
         clipboardData, effectAllowed, volumeInfo,
         this.selectionHandler_.selection.entries,
         !this.selectionHandler_.isAvailable());
-    this.appendUriList_(
-        clipboardData, this.selectionHandler_.selection.entries);
+    this.appendFiles_(clipboardData, this.selectionHandler_.selection.entries);
   }
 
   /**
@@ -379,14 +374,12 @@ export class FileTransferController {
   }
 
   /**
-   * Appends uri-list of |entries| to |clipboardData|.
+   * Appends files of |entries| to |clipboardData|.
    * @param {DataTransfer} clipboardData ClipboardData from the event.
    * @param {!Array<!Entry>} entries
    * @private
    */
-  appendUriList_(clipboardData, entries) {
-    let externalFileUrl;
-
+  appendFiles_(clipboardData, entries) {
     for (let i = 0; i < entries.length; i++) {
       const url = entries[i].toURL();
       if (!this.selectedAsyncData_[url]) {
@@ -395,13 +388,6 @@ export class FileTransferController {
       if (this.selectedAsyncData_[url].file) {
         clipboardData.items.add(assert(this.selectedAsyncData_[url].file));
       }
-      if (!externalFileUrl) {
-        externalFileUrl = this.selectedAsyncData_[url].externalFileUrl;
-      }
-    }
-
-    if (externalFileUrl) {
-      clipboardData.setData('text/uri-list', externalFileUrl);
     }
   }
 
@@ -689,13 +675,15 @@ export class FileTransferController {
     const container = /** @type {!HTMLElement} */ (
         this.document_.body.querySelector('#drag-container'));
     const multiple = items > 1 ? 'block' : 'none';
-    container.innerHTML = `
-      <div class='drag-box drag-multiple' style='display:${multiple}'></div>
+    const html = `
+      ${items > 1 ? `<div class='drag-box drag-multiple'></div>` : ''}
       <div class='drag-box drag-contents'>
-        <div class='detail-icon'></div><div class='label'>${entry.name}</div>
+        <div class='detail-icon'></div>
+        <div class='label'>${htmlEscape(entry.name)}</div>
       </div>
-      <div class='drag-bubble' style='display:${multiple}'>${items}</div>
+      ${items > 1 ? `<div class='drag-bubble'>${items}</div>` : ''}
     `;
+    container.innerHTML = sanitizeInnerHtml(html, {attrs: ['class']});
 
     const icon = container.querySelector('.detail-icon');
     const thumbnail = this.listContainer_.currentView.getThumbnail(index);
@@ -1346,7 +1334,7 @@ export class FileTransferController {
       // person who tries to open it. It also blocks copying hosted files to
       // other profiles, as the files would need to be shared in Drive first.
       if (sourceUrls.some(
-              source => FileType.getTypeForName(source).type === 'hosted')) {
+              source => getFileTypeForName(source).type === 'hosted')) {
         return false;
       }
     }

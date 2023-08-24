@@ -181,6 +181,7 @@ public class TabSuggestionMessageCardTest {
 
     @Test
     @MediumTest
+    @DisabledTest(message = "https://crbug.com/1458843")
     @CommandLineFlags.Add({BASE_PARAMS + ENABLE_CLOSE_SUGGESTION_PARAM})
     public void closeTabSuggestionReviewedAndDismissed() {
         CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
@@ -195,6 +196,7 @@ public class TabSuggestionMessageCardTest {
     @Test
     @MediumTest
     @CommandLineFlags.Add({BASE_PARAMS + ENABLE_GROUP_SUGGESTION_PARAM})
+    @DisabledTest(message = "Flaky, see crbug.com/1469393")
     public void groupTabSuggestionReviewedAndAccepted() {
         CriteriaHelper.pollUiThread(TabSuggestionMessageService::isSuggestionAvailableForTesting);
 

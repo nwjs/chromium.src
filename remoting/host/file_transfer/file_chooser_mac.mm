@@ -10,17 +10,12 @@
 
 #include "base/functional/bind.h"
 #include "base/mac/foundation_util.h"
-#include "base/mac/scoped_nsobject.h"
 #include "base/memory/weak_ptr.h"
 #import "base/task/sequenced_task_runner.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/threading/sequence_bound.h"
 #include "remoting/base/string_resources.h"
 #include "ui/base/l10n/l10n_util_mac.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 @interface FileTransferOpenPanelDelegate : NSObject <NSOpenSavePanelDelegate> {
 }

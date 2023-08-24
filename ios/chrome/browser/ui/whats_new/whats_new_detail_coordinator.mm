@@ -20,10 +20,6 @@
 #import "ios/chrome/browser/ui/whats_new/whats_new_util.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface WhatsNewDetailCoordinator () <
     UIAdaptivePresentationControllerDelegate,
     ConfirmationAlertActionHandler>
@@ -79,10 +75,8 @@
                     subtitle:item.subtitle
           primaryActionTitle:item.primaryActionTitle
             instructionSteps:item.instructionSteps
-            hasPrimaryAction:item.hasPrimaryAction
                         type:item.type
-                learnMoreURL:item.learnMoreURL
-          hasLearnMoreAction:item.learnMoreURL.is_valid()];
+                learnMoreURL:item.learnMoreURL];
       self.whatsNewDetailViewController.actionHandler = self.actionHandler;
       self.whatsNewDetailViewController.delegate = self;
     }

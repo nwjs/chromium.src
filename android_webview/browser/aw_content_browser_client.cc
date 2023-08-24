@@ -103,6 +103,7 @@
 #include "net/net_buildflags.h"
 #include "net/ssl/ssl_cert_request_info.h"
 #include "net/ssl/ssl_info.h"
+#include "services/cert_verifier/public/mojom/cert_verifier_service_factory.mojom.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/network_service.h"
 #include "services/network/public/cpp/resource_request.h"
@@ -238,6 +239,12 @@ AwContentBrowserClient::~AwContentBrowserClient() {}
 
 void AwContentBrowserClient::OnNetworkServiceCreated(
     network::mojom::NetworkService* network_service) {
+  // TODO(https://crbug.com/1085233): If CertVerifierServiceFactory is moved to
+  // a separate process, this will likely need to be set somewhere else instead
+  // of here.
+  content::GetCertVerifierServiceFactory()->SetUseChromeRootStore(
+      false, base::DoNothing());
+
   content::GetNetworkService()->SetUpHttpAuth(
       network::mojom::HttpAuthStaticParams::New());
   content::GetNetworkService()->ConfigureHttpAuthPrefs(
@@ -365,7 +372,7 @@ void AwContentBrowserClient::AppendExtraCommandLineSwitches(
     };
 
     command_line->CopySwitchesFrom(*base::CommandLine::ForCurrentProcess(),
-                                   kSwitchNames, std::size(kSwitchNames));
+                                   kSwitchNames);
   }
 }
 
@@ -424,12 +431,14 @@ void AwContentBrowserClient::AllowCertificateError(
 }
 
 base::OnceClosure AwContentBrowserClient::SelectClientCertificate(
+    content::BrowserContext* browser_context,
     content::WebContents* web_contents,
     net::SSLCertRequestInfo* cert_request_info,
     net::ClientCertIdentityList client_certs,
     std::unique_ptr<content::ClientCertificateDelegate> delegate) {
   AwContentsClientBridge* client =
-      AwContentsClientBridge::FromWebContents(web_contents);
+      web_contents ? AwContentsClientBridge::FromWebContents(web_contents)
+                   : nullptr;
   if (client) {
     client->SelectClientCertificate(cert_request_info, std::move(delegate));
   }
@@ -1069,11 +1078,11 @@ void AwContentBrowserClient::LogWebFeatureForCurrentPage(
       render_frame_host, feature);
 }
 
-bool AwContentBrowserClient::ShouldAllowInsecureLocalNetworkRequests(
+bool AwContentBrowserClient::ShouldAllowInsecurePrivateNetworkRequests(
     content::BrowserContext* browser_context,
     const url::Origin& origin) {
   // Webview does not implement support for deprecation trials, so webview apps
-  // broken by Local Network Access restrictions cannot help themselves by
+  // broken by Private Network Access restrictions cannot help themselves by
   // registering for the trial.
   // See crbug.com/1255675.
   return true;

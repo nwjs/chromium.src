@@ -85,18 +85,11 @@ const char kTestSignature[] = "VGhpcyBpcyBhIHRlc3Qgc2lnbmF0dXJl";
 const char kTestAuthToken[] = "dummy_card_authorization_token";
 
 std::vector<uint8_t> Base64ToBytes(std::string base64) {
-  std::string bytes;
-  bool did_succeed = base::Base64Decode(base::StringPiece(base64), &bytes);
-  if (did_succeed) {
-    return std::vector<uint8_t>(bytes.begin(), bytes.end());
-  }
-  return std::vector<uint8_t>{};
+  return base::Base64Decode(base64).value_or(std::vector<uint8_t>());
 }
 
 std::string BytesToBase64(const std::vector<uint8_t> bytes) {
-  std::string base64;
-  base::Base64Encode(std::string(bytes.begin(), bytes.end()), &base64);
-  return base64;
+  return base::Base64Encode(bytes);
 }
 }  // namespace
 
@@ -114,8 +107,7 @@ class CreditCardFidoAuthenticatorTest : public testing::Test {
                                 /*history_service=*/nullptr,
                                 /*sync_service=*/nullptr,
                                 /*strike_database=*/nullptr,
-                                /*image_fetcher=*/nullptr,
-                                /*is_off_the_record=*/false);
+                                /*image_fetcher=*/nullptr);
     personal_data_manager_.SetPrefService(autofill_client_.GetPrefs());
 
     requester_ = std::make_unique<TestAuthenticationRequester>();

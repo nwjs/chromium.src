@@ -168,6 +168,25 @@ class SiteSettingsHandler
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
                            ResetCategoryPermissionForInvalidOrigins);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, Origins);
+  FRIEND_TEST_ALL_PREFIXES(StorageAccessSiteSettingsHandlerTest,
+                           StorageAccessExceptions_Origins);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_DiffType);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_AutoGranted);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_SamePrimaryPattern);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_DiffPatterns);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_Incognito);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_NormalAndIncognito);
+  FRIEND_TEST_ALL_PREFIXES(
+      SiteSettingsHandlerTest,
+      StorageAccessExceptions_NormalAndIncognito_SamePatterns);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_Extension);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, Patterns);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, PatternsAndContentType);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, SessionOnlyException);
@@ -190,6 +209,11 @@ class SiteSettingsHandler
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, HandleGetUsageInfo);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
                            HandleGetFpsMembershipLabel);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           IsolatedWebAppClearSiteGroupDataAndCookies);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           IsolatedWebAppClearUnpartitionedUsage);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, IsolatedWebAppUsageInfo);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, NonTreeModelDeletion);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, FirstPartySetsMembership);
   FRIEND_TEST_ALL_PREFIXES(
@@ -198,7 +222,30 @@ class SiteSettingsHandler
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, HandleGetExtensionName);
 #endif
-  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, IsolatedWebAppUsageInfo);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, StorageAccessExceptions);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_DiffType);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_SamePrimaryPattern);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_DiffPatterns);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_Incognito);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_NormalAndIncognito);
+  FRIEND_TEST_ALL_PREFIXES(
+      SiteSettingsHandlerTest,
+      StorageAccessExceptions_NormalAndIncognito_SamePatterns);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_Description_Embargoed);
+  FRIEND_TEST_ALL_PREFIXES(
+      SiteSettingsHandlerTest,
+      StorageAccessExceptions_Description_EmbargoedTwoProfiles);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest,
+                           StorageAccessExceptions_Description_All);
+  FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerTest, TemporaryCookieExceptions);
+  FRIEND_TEST_ALL_PREFIXES(StorageAccessSiteSettingsHandlerLifetimeTest,
+                           StorageAccessExceptions_Description);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerIsolatedWebAppTest, ZoomLevel);
   FRIEND_TEST_ALL_PREFIXES(SiteSettingsHandlerIsolatedWebAppTest,
                            ZoomLevelsSortedByAppName);
@@ -280,6 +327,10 @@ class SiteSettingsHandler
   // Returns the list of site exceptions for a given content settings type.
   void HandleGetExceptionList(const base::Value::List& args);
 
+  // Returns the list of storage access site exceptions for a given content
+  // setting (such as enabled or blocked).
+  void HandleGetStorageAccessExceptionList(const base::Value::List& args);
+
   // Returns the list of chooser exceptions for a given chooser type.
   void HandleGetChooserExceptionList(const base::Value::List& args);
 
@@ -302,6 +353,7 @@ class SiteSettingsHandler
 
   // Handles setting and resetting an origin permission.
   void HandleResetCategoryPermissionForPattern(const base::Value::List& args);
+  // TODO(1466127): Add tests for HandleSetCategoryPermissionForPattern.
   void HandleSetCategoryPermissionForPattern(const base::Value::List& args);
 
   // TODO(andypaicu, crbug.com/880684): Update to only expect a list of three

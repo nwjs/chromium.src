@@ -302,7 +302,7 @@ bool PasswordGenerationAgent::IsPrerendering() const {
 
 void PasswordGenerationAgent::PreviewGenerationSuggestion(
     const std::u16string& password) {
-  DCHECK(current_generation_item_);
+  CHECK(current_generation_item_);
 
   for (auto& password_field : current_generation_item_->password_elements_) {
     PreviewGeneratedValue(password_field,
@@ -331,13 +331,12 @@ bool PasswordGenerationAgent::DidClearGenerationSuggestion(
 
 void PasswordGenerationAgent::GeneratedPasswordAccepted(
     const std::u16string& password) {
-  // static cast is workaround for linker error.
-  DCHECK_LE(static_cast<size_t>(kMinimumLengthForEditedPassword),
-            password.size());
   // Check that the navigation in between didn't reset the state.
   if (!current_generation_item_) {
     return;
   }
+  CHECK(!password.empty());
+  CHECK_LE(kMinimumLengthForEditedPassword, password.size());
   current_generation_item_->password_is_generated_ = true;
   current_generation_item_->password_edited_ = false;
   password_generation::LogPasswordGenerationEvent(
@@ -349,16 +348,25 @@ void PasswordGenerationAgent::GeneratedPasswordAccepted(
     password_element.SetAutofillValue(blink::WebString::FromUTF16(password));
     // setAutofillValue() above may have resulted in JavaScript closing the
     // frame.
-    if (!render_frame())
+    if (!render_frame()) {
       return;
+    }
+    // crbug.com/1467893: JS can clear the generated password. In this case
+    // consider filling unsuccessful and don't presave the password.
+    if (password_element.Value().IsEmpty()) {
+      return;
+    }
     password_agent_->TrackAutofilledElement(password_element);
+
     // Advance focus to the next input field. We assume password fields in
     // an account creation form are always adjacent.
     render_frame()->GetWebView()->AdvanceFocus(false);
   }
+  CHECK(base::Contains(current_generation_item_->password_elements_,
+                       current_generation_item_->generation_element_));
 
   std::unique_ptr<FormData> presaved_form_data(CreateFormDataToPresave());
-  std::u16string generated_password =
+  const std::u16string generated_password =
       current_generation_item_->generation_element_.Value().Utf16();
   if (presaved_form_data) {
     CHECK(!generated_password.empty());

@@ -29,7 +29,7 @@
 #import "ios/chrome/browser/shared/public/commands/tab_strip_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
-#import "ios/chrome/browser/shared/ui/util/named_guide.h"
+#import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/ui/bubble/bubble_presenter_delegate.h"
@@ -45,10 +45,6 @@
 #import "ios/web/public/web_state.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace {
 const CGFloat kBubblePresentationDelay = 1;
@@ -466,7 +462,7 @@ const CGFloat kBubblePresentationDelay = 1;
                 anchorPoint:(CGPoint)anchorPoint {
   return [self presentBubbleForFeature:feature
                              direction:direction
-                             alignment:BubbleAlignmentTrailing
+                             alignment:BubbleAlignmentBottomOrTrailing
                                   text:text
                  voiceOverAnnouncement:voiceOverAnnouncement
                            anchorPoint:anchorPoint
@@ -598,7 +594,7 @@ const CGFloat kBubblePresentationDelay = 1;
       [self presentBubbleForFeature:feature_engagement::
                                         kIPHiOSNewTabToolbarItemFeature
                           direction:arrowDirection
-                          alignment:BubbleAlignmentTrailing
+                          alignment:BubbleAlignmentBottomOrTrailing
                                text:text
               voiceOverAnnouncement:text
                         anchorPoint:newTabButtonAnchor
@@ -655,7 +651,7 @@ const CGFloat kBubblePresentationDelay = 1;
       [self presentBubbleForFeature:feature_engagement::
                                         kIPHiOSTabGridToolbarItemFeature
                           direction:arrowDirection
-                          alignment:BubbleAlignmentTrailing
+                          alignment:BubbleAlignmentBottomOrTrailing
                                text:text
               voiceOverAnnouncement:text
                         anchorPoint:tabGridButtonAnchor

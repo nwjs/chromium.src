@@ -17,6 +17,7 @@
 #include "base/memory/ptr_util.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/field_trial_params.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/path_service.h"
 #include "base/rand_util.h"
@@ -603,7 +604,20 @@ bool ChromeDownloadManagerDelegate::ShouldAutomaticallyOpenFile(
   if (path.MatchesExtension(extensions::kExtensionFileExtension))
     return false;
 #endif
-  return download_prefs_->IsAutoOpenEnabled(url, path);
+
+  bool should_open = download_prefs_->IsAutoOpenEnabled(url, path);
+#if 0
+  int64_t file_type_uma_value =
+      safe_browsing::FileTypePolicies::GetInstance()->UmaValueForFile(path);
+  if (should_open) {
+    base::UmaHistogramSparse("SBClientDownload.AutoOpenEnabledFileType",
+                             file_type_uma_value);
+  } else {
+    base::UmaHistogramSparse("SBClientDownload.AutoOpenDisabledFileType",
+                             file_type_uma_value);
+  }
+#endif
+  return should_open;
 }
 
 bool ChromeDownloadManagerDelegate::ShouldAutomaticallyOpenFileByPolicy(
@@ -1105,15 +1119,13 @@ void ChromeDownloadManagerDelegate::RequestConfirmation(
         return;
       }
 
-      gfx::NativeWindow native_window = web_contents->GetTopLevelNativeWindow();
       DownloadPathReservationTracker::GetReservedPath(
           download, suggested_path, download_dir,
           base::FilePath() /* fallback_directory */, true,
           DownloadPathReservationTracker::UNIQUIFY,
           base::BindOnce(
               &ChromeDownloadManagerDelegate::GenerateUniqueFileNameDone,
-              weak_ptr_factory_.GetWeakPtr(),
-              base::UnsafeDanglingUntriaged(native_window),
+              weak_ptr_factory_.GetWeakPtr(), download->GetGuid(),
               std::move(callback)));
       return;
     }
@@ -1203,7 +1215,7 @@ void ChromeDownloadManagerDelegate::ShowFilePickerForDownload(
 
 #if BUILDFLAG(IS_ANDROID)
 void ChromeDownloadManagerDelegate::GenerateUniqueFileNameDone(
-    gfx::NativeWindow native_window,
+    const std::string& download_guid,
     DownloadTargetDeterminerDelegate::ConfirmationCallback callback,
     PathValidationResult result,
     const base::FilePath& target_path) {
@@ -1212,11 +1224,19 @@ void ChromeDownloadManagerDelegate::GenerateUniqueFileNameDone(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (download::IsPathValidationSuccessful(result)) {
     if (download_prefs_->PromptForDownload()) {
-      ShowDownloadDialog(
-          native_window, 0 /* total_bytes */,
-          DownloadLocationDialogType::NAME_CONFLICT, target_path,
-          base::BindOnce(&OnDownloadDialogClosed, std::move(callback)));
-      return;
+        download::DownloadItem* download =
+            download_manager_->GetDownloadByGuid(download_guid);
+        content::WebContents* web_contents =
+            download ? content::DownloadItemUtils::GetWebContents(download)
+                     : nullptr;
+        gfx::NativeWindow native_window =
+            web_contents ? web_contents->GetTopLevelNativeWindow() : nullptr;
+        // Null native window will be handled by ShowDownloadDialog().
+        ShowDownloadDialog(
+            native_window, 0 /* total_bytes */,
+            DownloadLocationDialogType::NAME_CONFLICT, target_path,
+            base::BindOnce(&OnDownloadDialogClosed, std::move(callback)));
+        return;
     }
 
     // If user chose not to show download location dialog, uses current unique
@@ -1366,6 +1386,9 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       case safe_browsing::DownloadCheckResult::DANGEROUS_ACCOUNT_COMPROMISE:
         danger_type =
             download::DOWNLOAD_DANGER_TYPE_DANGEROUS_ACCOUNT_COMPROMISE;
+        break;
+      case safe_browsing::DownloadCheckResult::DEEP_SCANNED_FAILED:
+        danger_type = download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_FAILED;
         break;
     }
     DCHECK_NE(danger_type,

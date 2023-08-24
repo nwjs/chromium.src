@@ -66,7 +66,7 @@ std::unique_ptr<views::View> CreateButtonContainer(
       l10n_util::GetStringUTF16(label_message_id)));
   label->SetFontList(gfx::FontList({"Roboto"}, gfx::Font::NORMAL,
                                    kLabelFontSize, gfx::Font::Weight::NORMAL));
-  label->SetEnabledColor(gfx::kGoogleGrey900);
+  label->SetEnabledColorId(ui::kColorSysOnSurface);
   label->SetHorizontalAlignment(gfx::ALIGN_CENTER);
   return container;
 }
@@ -341,6 +341,7 @@ void MultitaskMenuView::AddedToWidget() {
 bool MultitaskMenuView::AcceleratorPressed(const ui::Accelerator& accelerator) {
   CHECK_EQ(ui::VKEY_MENU, accelerator.key_code());
   is_reversed_ = !is_reversed_;
+
   if (partial_button_) {
     // Update the visual appearance of the split buttons. The callbacks will be
     // updated in `PartialButtonPressed()`.
@@ -350,6 +351,13 @@ bool MultitaskMenuView::AcceleratorPressed(const ui::Accelerator& accelerator) {
                                            ->GetDisplayNearestWindow(window_)),
                                    is_reversed_);
   }
+
+  if (float_button_) {
+    // The callback will be updated in `FloatButtonPressed()`.
+    float_button_->SetMirrored(is_reversed_);
+    float_button_->SchedulePaint();
+  }
+
   return true;
 }
 
@@ -423,7 +431,14 @@ void MultitaskMenuView::FullScreenButtonPressed() {
 }
 
 void MultitaskMenuView::FloatButtonPressed() {
-  FloatControllerBase::Get()->ToggleFloat(window_);
+  if (window_->GetProperty(kWindowStateTypeKey) == WindowStateType::kFloated) {
+    FloatControllerBase::Get()->UnsetFloat(window_);
+  } else {
+    FloatControllerBase::Get()->SetFloat(
+        window_, is_reversed_ ? FloatStartLocation::kBottomLeft
+                              : FloatStartLocation::kBottomRight);
+  }
+
   close_callback_.Run();
   RecordMultitaskMenuActionType(MultitaskMenuActionType::kFloatButton);
 }

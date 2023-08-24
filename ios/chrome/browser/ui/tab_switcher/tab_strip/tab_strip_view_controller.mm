@@ -17,10 +17,6 @@
 #import "ios/chrome/common/button_configuration_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 static NSString* const kReuseIdentifier = @"TabView";
@@ -75,24 +71,41 @@ const CGFloat kSymbolSize = 18;
 
   self.buttonNewTab = [[UIButton alloc] init];
   self.buttonNewTab.translatesAutoresizingMaskIntoConstraints = NO;
-  self.buttonNewTab.imageView.contentMode = UIViewContentModeCenter;
   UIImage* buttonNewTabImage =
       DefaultSymbolWithPointSize(kPlusSymbol, kSymbolSize);
-  [self.buttonNewTab setImage:buttonNewTabImage forState:UIControlStateNormal];
-  [self.buttonNewTab.imageView setTintColor:[UIColor colorNamed:kGrey500Color]];
 
-  // TODO(crbug.com/1418068): Simplify after minimum version required is >=
-  // iOS 15.
-  if (base::ios::IsRunningOnIOS15OrLater() &&
-      IsUIButtonConfigurationEnabled()) {
-    if (@available(iOS 15, *)) {
-      UIButtonConfiguration* buttonConfiguration =
-          [UIButtonConfiguration plainButtonConfiguration];
-      buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(
-          0, kNewTabButtonLeadingImageInset, kNewTabButtonBottomImageInset, 0);
-      self.buttonNewTab.configuration = buttonConfiguration;
-    }
+  if (IsUIButtonConfigurationEnabled()) {
+    UIButtonConfiguration* buttonConfiguration =
+        [UIButtonConfiguration plainButtonConfiguration];
+    buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(
+        0, kNewTabButtonLeadingImageInset, kNewTabButtonBottomImageInset, 0);
+    buttonConfiguration.image = buttonNewTabImage;
+    buttonConfiguration.baseForegroundColor =
+        [UIColor colorNamed:kGrey500Color];
+    self.buttonNewTab.configuration = buttonConfiguration;
+    self.buttonNewTab.configurationUpdateHandler = ^(UIButton* incomingButton) {
+      UIButtonConfiguration* updatedConfig = incomingButton.configuration;
+      switch (incomingButton.state) {
+        case UIControlStateHighlighted: {
+          updatedConfig.baseForegroundColor =
+              [UIColor colorNamed:kGrey900Color];
+          break;
+        }
+        case UIControlStateNormal:
+          updatedConfig.baseForegroundColor =
+              [UIColor colorNamed:kGrey500Color];
+          break;
+        default:
+          break;
+      }
+      incomingButton.configuration = updatedConfig;
+    };
   } else {
+    self.buttonNewTab.imageView.contentMode = UIViewContentModeCenter;
+    [self.buttonNewTab setImage:buttonNewTabImage
+                       forState:UIControlStateNormal];
+    [self.buttonNewTab.imageView
+        setTintColor:[UIColor colorNamed:kGrey500Color]];
     UIEdgeInsets imageInsets = UIEdgeInsetsMake(
         0, kNewTabButtonLeadingImageInset, kNewTabButtonBottomImageInset, 0);
     SetImageEdgeInsets(self.buttonNewTab, imageInsets);

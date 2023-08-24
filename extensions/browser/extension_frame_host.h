@@ -29,7 +29,7 @@ class ExtensionFrameHost : public mojom::LocalFrameHost {
 
   void BindLocalFrameHost(
       mojo::PendingAssociatedReceiver<mojom::LocalFrameHost> receiver,
-      content::RenderFrameHost* rfh);
+      content::RenderFrameHost* render_frame_host);
 
   content::RenderFrameHostReceiverSet<mojom::LocalFrameHost>&
   receivers_for_testing() {
@@ -46,6 +46,7 @@ class ExtensionFrameHost : public mojom::LocalFrameHost {
                           GetAppInstallStateCallback callback) override;
   void Request(mojom::RequestParamsPtr params,
                RequestCallback callback) override;
+  void ResponseAck(const base::Uuid& request_uuid) override;
   void RequestSync(mojom::RequestParamsPtr params,
                    RequestSyncCallback callback) override;
   bool RequestSync(mojom::RequestParamsPtr params,

@@ -27,6 +27,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/password_manager_resources.h"
 #include "chrome/grit/password_manager_resources_map.h"
+#include "chrome/grit/theme_resources.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/grit/components_scaled_resources.h"
 #include "components/password_manager/content/common/web_ui_constants.h"
@@ -157,6 +158,7 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
     {"deletePasswordDialogAccount",
      IDS_PASSWORD_MANAGER_UI_DELETE_DIALOG_FROM_ACCOUNT_CHECKBOX_LABEL},
     {"deletePasswordDialogTitle", IDS_PASSWORD_MANAGER_UI_DELETE_DIALOG_TITLE},
+    {"done", IDS_DONE},
     {"disable", IDS_DISABLE},
     {"displayNameCopiedToClipboard",
      IDS_PASSWORD_MANAGER_UI_DISPLAY_NAME_COPIED_TO_CLIPBOARD},
@@ -269,6 +271,12 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
     {"passwordLabel", IDS_PASSWORD_MANAGER_UI_PASSWORD_LABEL},
     {"passwordManager",
      IDS_PASSWORD_BUBBLES_PASSWORD_MANAGER_LINK_TEXT_SYNCED_TO_ACCOUNT},
+    // Header for the page, always "Password Manager".
+    {"passwordManagerString", IDS_PASSWORD_MANAGER_UI_TITLE},
+    // Page title, branded. "Google Password Manager" or "Password Manager"
+    // depending on the build.
+    {"passwordManagerTitle",
+     IDS_PASSWORD_BUBBLES_PASSWORD_MANAGER_LINK_TEXT_SAVING_ON_DEVICE},
     {"passwordNoteCharacterCount",
      IDS_PASSWORD_MANAGER_UI_NOTE_CHARACTER_COUNT},
     {"passwordNoteCharacterCountWarning",
@@ -289,6 +297,27 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
     {"save", IDS_SAVE},
     {"savePasswordsLabel", IDS_PASSWORD_MANAGER_UI_SAVE_PASSWORDS_TOGGLE_LABEL},
     {"share", IDS_PASSWORD_MANAGER_UI_SHARE},
+    {"shareDialogTitle", IDS_PASSWORD_MANAGER_UI_SHARE_DIALOG_TITLE},
+    {"shareDialogLoadingTitle",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_LOADING_TITLE},
+    {"shareDialogSuccessTitle",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_SUCCESS_TITLE},
+    {"shareDialogCanceledTitle",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_CANCELED_TITLE},
+    {"sharePasswordFamilyPickerDescription",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_FAMILY_PICKER_DESCRIPTION},
+    {"sharePasswordManageFamily",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_MANAGE_FAMILY},
+    {"sharePasswordMemeberUnavailable",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_MEMBER_UNAVAILABLE},
+    {"sharePasswordNotAvailable",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_NOT_AVAILABLE},
+    {"sharePasswordErrorDescription",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_ERROR_DESCRIPTION},
+    {"sharePasswordErrorTitle",
+     IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_ERROR_TITLE},
+    {"sharePasswordGotIt", IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_GOT_IT},
+    {"sharePasswordTryAgain", IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_TRY_AGAIN},
     {"searchPrompt", IDS_PASSWORD_MANAGER_UI_SEARCH_PROMPT},
     {"selectFile", IDS_PASSWORD_MANAGER_UI_SELECT_FILE},
     {"settings", IDS_PASSWORD_MANAGER_UI_SETTINGS},
@@ -297,7 +326,6 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
     {"showPasswordA11yLabel", IDS_PASSWORD_MANAGER_UI_SHOW_PASSWORD_A11Y},
     {"sitesAndAppsLabel", IDS_PASSWORD_MANAGER_UI_SITES_AND_APPS_LABEL},
     {"sitesLabel", IDS_PASSWORD_MANAGER_UI_SITES_LABEL},
-    {"title", IDS_PASSWORD_MANAGER_UI_TITLE},
     {"trustedVaultBannerLabelOfferOptIn",
      IDS_PASSWORD_MANAGER_UI_TRUSTED_VAULT_OPT_IN_TITLE},
     {"trustedVaultBannerSubLabelOfferOptIn",
@@ -345,6 +373,14 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       l10n_util::GetStringFUTF16(
           IDS_PASSWORD_MANAGER_UI_PASSWORDS_DESCRIPTION,
           base::ASCIIToUTF16(chrome::kPasswordManagerLearnMoreURL)));
+
+  source->AddString(
+      "sharePasswordNoMembersDescription",
+      l10n_util::GetStringFUTF16(
+          IDS_PASSWORD_MANAGER_UI_SHARE_PASSWORD_NO_MEMBERS_DESCRIPTION,
+          base::ASCIIToUTF16(chrome::kFamilyGroupSiteURL)));
+
+  source->AddString("familyGroupSiteURL", chrome::kFamilyGroupSiteURL);
 
   source->AddString(
       "checkupUrl",
@@ -449,6 +485,7 @@ content::WebUIDataSource* CreateAndAddPasswordsUIHTMLSource(
       profile, std::make_unique<FaviconSource>(
                    profile, chrome::FaviconUrlFormat::kFavicon2));
 
+  webui::SetupChromeRefresh2023(source);
   return source;
 }
 

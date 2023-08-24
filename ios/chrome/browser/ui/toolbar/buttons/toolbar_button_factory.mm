@@ -23,10 +23,6 @@
 #import "ios/chrome/grit/ios_theme_resources.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // The size of the symbol image.
@@ -162,16 +158,15 @@ const CGFloat kSymbolToolbarPointSize = 24;
 }
 
 - (ToolbarButton*)openNewTabButton {
-  NSString* symbolName = base::FeatureList::IsEnabled(kSFSymbolsFollowUp)
-                             ? kPlusCircleFillSymbol
-                             : kLegacyPlusCircleFillSymbol;
   UIImage* image = SymbolWithPalette(
-      CustomSymbolWithPointSize(symbolName, kSymbolToolbarPointSize), @[
+      CustomSymbolWithPointSize(kPlusCircleFillSymbol, kSymbolToolbarPointSize),
+      @[
         [UIColor colorNamed:kGrey600Color],
         [self.toolbarConfiguration locationBarBackgroundColorWithVisibility:1]
       ]);
   UIImage* IPHHighlightedImage = SymbolWithPalette(
-      CustomSymbolWithPointSize(symbolName, kSymbolToolbarPointSize), @[
+      CustomSymbolWithPointSize(kPlusCircleFillSymbol, kSymbolToolbarPointSize),
+      @[
         // The color of the 'plus'.
         _toolbarConfiguration.buttonsTintColorIPHHighlighted,
         // The filling color of the circle.
@@ -201,28 +196,31 @@ const CGFloat kSymbolToolbarPointSize = 24;
 
 - (UIButton*)cancelButton {
   UIButton* cancelButton = [UIButton buttonWithType:UIButtonTypeSystem];
-  cancelButton.titleLabel.font = [UIFont systemFontOfSize:kLocationBarFontSize];
   cancelButton.tintColor = [UIColor colorNamed:kBlueColor];
-  [cancelButton setTitle:l10n_util::GetNSString(IDS_CANCEL)
-                forState:UIControlStateNormal];
   [cancelButton setContentHuggingPriority:UILayoutPriorityRequired
                                   forAxis:UILayoutConstraintAxisHorizontal];
   [cancelButton
       setContentCompressionResistancePriority:UILayoutPriorityRequired
                                       forAxis:UILayoutConstraintAxisHorizontal];
 
-  // TODO(crbug.com/1418068): Simplify after minimum version required is >=
-  // iOS 15.
-  if (base::ios::IsRunningOnIOS15OrLater() &&
-      IsUIButtonConfigurationEnabled()) {
-    if (@available(iOS 15, *)) {
-      UIButtonConfiguration* buttonConfiguration =
-          [UIButtonConfiguration plainButtonConfiguration];
-      buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(
-          0, kCancelButtonHorizontalInset, 0, kCancelButtonHorizontalInset);
-      cancelButton.configuration = buttonConfiguration;
-    }
+  if (IsUIButtonConfigurationEnabled()) {
+    UIButtonConfiguration* buttonConfiguration =
+        [UIButtonConfiguration plainButtonConfiguration];
+    buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(
+        0, kCancelButtonHorizontalInset, 0, kCancelButtonHorizontalInset);
+    UIFont* font = [UIFont systemFontOfSize:kLocationBarFontSize];
+    NSDictionary* attributes = @{NSFontAttributeName : font};
+    NSMutableAttributedString* attributedString =
+        [[NSMutableAttributedString alloc]
+            initWithString:l10n_util::GetNSString(IDS_CANCEL)
+                attributes:attributes];
+    buttonConfiguration.attributedTitle = attributedString;
+    cancelButton.configuration = buttonConfiguration;
   } else {
+    cancelButton.titleLabel.font =
+        [UIFont systemFontOfSize:kLocationBarFontSize];
+    [cancelButton setTitle:l10n_util::GetNSString(IDS_CANCEL)
+                  forState:UIControlStateNormal];
     UIEdgeInsets contentInsets = UIEdgeInsetsMake(
         0, kCancelButtonHorizontalInset, 0, kCancelButtonHorizontalInset);
     SetContentEdgeInsets(cancelButton, contentInsets);

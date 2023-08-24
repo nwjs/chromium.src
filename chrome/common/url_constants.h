@@ -152,12 +152,18 @@ extern const char kDownloadInterruptedLearnMoreURL[];
 // The URL for the "Learn more" page for download scanning.
 extern const char kDownloadScanningLearnMoreURL[];
 
+// The URL for the "Learn more" page for blocked downloads.
+extern const char kDownloadBlockedLearnMoreURL[];
+
 // "Learn more" URL for the Settings API, NTP bubble and other settings bubbles
 // showing which extension is controlling them.
 extern const char kExtensionControlledSettingLearnMoreURL[];
 
 // URL used to indicate that an extension resource load request was invalid.
 extern const char kExtensionInvalidRequestURL[];
+
+// Link for creating family group with Google Families.
+extern const char kFamilyGroupSiteURL[];
 
 // "Learn more" URL for first party sets.
 extern const char kFirstPartySetsLearnMoreURL[];
@@ -402,6 +408,9 @@ extern const char kLinuxAppsLearnMoreURL[];
 // The URL for the "Learn more" link for natural scrolling on ChromeOS.
 extern const char kNaturalScrollHelpURL[];
 
+// The URL for the "Learn more" link for scrolling acceleration on ChromeOS.
+extern const char kScrollAccelerationHelpURL[];
+
 // The URL for the "Learn more" link for touchpad haptic feedback on Chrome OS.
 extern const char kHapticFeedbackHelpURL[];
 
@@ -448,6 +457,12 @@ extern const char kSmartPrivacySettingsLearnMoreURL[];
 
 // The URL for the "Learn more" page for the network file shares settings page.
 extern const char kSmbSharesLearnMoreURL[];
+
+// The URL for the "Learn more" page when the user tries to clean up their
+// Google Drive offline storage in the OS settings page.
+extern const char kGoogleDriveCleanUpStorageLearnMoreURL[];
+
+extern const char kGoogleDriveOfflineLearnMoreURL[];
 
 // The URL for the "Learn more" page for Speak-on-mute Detection in the privacy
 // hub page.

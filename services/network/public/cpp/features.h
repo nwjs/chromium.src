@@ -34,8 +34,13 @@ BASE_DECLARE_FEATURE(kSplitAuthCacheByNetworkIsolationKey);
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kDnsOverHttpsUpgrade);
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kMaskedDomainList);
 COMPONENT_EXPORT(NETWORK_CPP)
+extern const base::FeatureParam<std::string>
+    kMaskedDomainListExperimentalVersion;
+COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kMdnsResponderGeneratedNameListing);
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kOpaqueResponseBlockingV02);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kOpaqueResponseBlockingErrorsForAllFetches);
 
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kAttributionReportingReportVerification);
@@ -103,8 +108,6 @@ extern const base::FeatureParam<base::TimeDelta>
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kReduceAcceptLanguageOriginTrial);
 
-COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kDisableResourceScheduler);
-
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kPrivateNetworkAccessPreflightShortTimeout);
 
@@ -138,15 +141,29 @@ BASE_DECLARE_FEATURE(kPrefetchNoVarySearch);
 // interacts poorly with this metric that is recorded every 30s.
 COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kGetCookiesStringUma);
 
-// Decrease Mojo calls from network service to browser.
-COMPONENT_EXPORT(NETWORK_CPP) BASE_DECLARE_FEATURE(kLessChattyNetworkService);
-
 #if BUILDFLAG(IS_ANDROID)
 // Create empty network service out of process only if canonical network service
 // is in process to see process overhead on Android.
 COMPONENT_EXPORT(NETWORK_CPP)
 BASE_DECLARE_FEATURE(kNetworkServiceEmptyOutOfProcess);
 #endif
+
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kCompressionDictionaryTransportBackend);
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kCompressionDictionaryTransport);
+
+// Enables visibility aware network service resource scheduler. When enabled,
+// request may be prioritized or de-prioritized based on the visibility of
+// requestors.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kVisibilityAwareResourceScheduler);
+
+// When enabled, the Clear-Site-Data HTTP Response header supports clearing the
+// client hints cache. When disabled, this header cannot clear the cache.
+COMPONENT_EXPORT(NETWORK_CPP)
+BASE_DECLARE_FEATURE(kClearSiteDataClientHintsSupport);
+
 }  // namespace features
 }  // namespace network
 

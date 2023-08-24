@@ -4,6 +4,7 @@
 
 #include "chrome/browser/webauthn/chrome_authenticator_request_delegate.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
@@ -35,6 +36,7 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
 #include "chrome/browser/webauthn/cablev2_devices.h"
+#include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/browser/webauthn/webauthn_switches.h"
 #include "chrome/common/chrome_switches.h"
@@ -46,7 +48,10 @@
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/security_state/core/security_state.h"
+#include "components/sync/base/features.h"
+#include "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #include "components/user_prefs/user_prefs.h"
+#include "components/webauthn/core/browser/passkey_model.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/device_service.h"
@@ -54,9 +59,11 @@
 #include "content/public/browser/web_contents.h"
 #include "crypto/random.h"
 #include "device/fido/cable/v2_handshake.h"
+#include "device/fido/discoverable_credential_metadata.h"
 #include "device/fido/features.h"
 #include "device/fido/fido_authenticator.h"
 #include "device/fido/fido_discovery_factory.h"
+#include "device/fido/fido_types.h"
 #include "device/fido/public_key_credential_descriptor.h"
 #include "device/fido/public_key_credential_user_entity.h"
 #include "extensions/common/constants.h"
@@ -115,6 +122,7 @@ bool IsOriginListedInEnterpriseAttestationSwitch(
 #if BUILDFLAG(IS_MAC)
 const char kWebAuthnTouchIdMetadataSecretPrefName[] =
     "webauthn.touchid.metadata_secret";
+const char kWebAuthnTouchIdLastUsed[] = "webauthn.touchid.last_used";
 #endif
 
 // CableLinkingEventHandler handles linking information sent by caBLEv2
@@ -391,6 +399,7 @@ void ChromeAuthenticatorRequestDelegate::RegisterProfilePrefs(
 #if BUILDFLAG(IS_MAC)
   registry->RegisterStringPref(kWebAuthnTouchIdMetadataSecretPrefName,
                                std::string());
+  registry->RegisterStringPref(kWebAuthnTouchIdLastUsed, std::string());
 #endif
   cablev2::RegisterProfilePrefs(registry);
 }
@@ -489,6 +498,28 @@ bool ChromeAuthenticatorRequestDelegate::DoesBlockRequestOnFailure(
   return true;
 }
 
+void ChromeAuthenticatorRequestDelegate::OnTransactionSuccessful(
+    RequestSource request_source,
+    device::FidoRequestType request_type,
+    device::AuthenticatorType authenticator_type) {
+#if BUILDFLAG(IS_MAC)
+  if (request_source != RequestSource::kWebAuthentication ||
+      authenticator_type != device::AuthenticatorType::kTouchID) {
+    return;
+  }
+
+  base::Time::Exploded exploded;
+  base::Time::Now().UTCExplode(&exploded);
+  Profile::FromBrowserContext(GetBrowserContext())
+      ->GetPrefs()
+      ->SetString(kWebAuthnTouchIdLastUsed,
+                  base::StringPrintf("%04d-%02d-%02d", exploded.year,
+                                     exploded.month, exploded.day_of_month));
+
+  dialog_model_->RecordMacOsSuccessHistogram(request_type, authenticator_type);
+#endif
+}
+
 void ChromeAuthenticatorRequestDelegate::RegisterActionCallbacks(
     base::OnceClosure cancel_callback,
     base::RepeatingClosure start_over_callback,
@@ -546,17 +577,16 @@ void ChromeAuthenticatorRequestDelegate::ShouldReturnAttestation(
                                               std::move(callback));
 }
 
-void ChromeAuthenticatorRequestDelegate::ConfigureCable(
+void ChromeAuthenticatorRequestDelegate::ConfigureDiscoveries(
     const url::Origin& origin,
+    const std::string& rp_id,
+    RequestSource request_source,
     device::FidoRequestType request_type,
     absl::optional<device::ResidentKeyRequirement> resident_key_requirement,
     base::span<const device::CableDiscoveryData> pairings_from_extension,
     device::FidoDiscoveryFactory* discovery_factory) {
   DCHECK(request_type == device::FidoRequestType::kGetAssertion ||
          resident_key_requirement.has_value());
-
-  phone_names_.clear();
-  phone_public_keys_.clear();
 
   const bool cable_extension_permitted = ShouldPermitCableExtension(origin);
   const bool cable_extension_provided =
@@ -590,16 +620,15 @@ void ChromeAuthenticatorRequestDelegate::ConfigureCable(
   const bool cablev2_extension_provided =
       base::Contains(pairings, device::CableDiscoveryData::Version::V2,
                      &device::CableDiscoveryData::version);
+  const bool ignore_linked_cable_devices =
+      origin.DomainIs("google.com") && discovery_factory->no_cable_linking;
 
   std::vector<std::unique_ptr<device::cablev2::Pairing>> paired_phones;
-  std::vector<AuthenticatorRequestDialogModel::PairedPhone>
-      paired_phone_entries;
-  base::RepeatingCallback<void(size_t)> contact_phone_callback;
-  if (!cable_extension_provided ||
-      base::FeatureList::IsEnabled(device::kWebAuthCableExtensionAnywhere)) {
-    DCHECK(phone_names_.empty());
-    DCHECK(phone_public_keys_.empty());
-
+  base::RepeatingCallback<void(std::unique_ptr<device::cablev2::Pairing>)>
+      contact_phone_callback;
+  if (!ignore_linked_cable_devices &&
+      (!cable_extension_provided ||
+       base::FeatureList::IsEnabled(device::kWebAuthCableExtensionAnywhere))) {
     std::unique_ptr<cablev2::KnownDevices> known_devices =
         cablev2::KnownDevices::FromProfile(
             Profile::FromBrowserContext(GetBrowserContext()));
@@ -607,6 +636,7 @@ void ChromeAuthenticatorRequestDelegate::ConfigureCable(
       known_devices->synced_devices =
           g_observer->GetCablePairingsFromSyncedDevices();
     }
+    can_use_synced_phone_passkeys_ = !known_devices->synced_devices.empty();
     paired_phones = cablev2::MergeDevices(std::move(known_devices),
                                           &icu::Locale::getDefault());
 
@@ -619,14 +649,6 @@ void ChromeAuthenticatorRequestDelegate::ConfigureCable(
     FIDO_LOG(DEBUG) << "Found " << paired_phones.size() << " caBLEv2 devices";
 
     if (!paired_phones.empty()) {
-      for (size_t i = 0; i < paired_phones.size(); i++) {
-        const auto& phone = paired_phones[i];
-        paired_phone_entries.emplace_back(phone->name, i,
-                                          phone->peer_public_key_x962);
-        phone_names_.push_back(phone->name);
-        phone_public_keys_.push_back(phone->peer_public_key_x962);
-      }
-
       contact_phone_callback = discovery_factory->get_cable_contact_callback();
     }
   }
@@ -694,11 +716,10 @@ void ChromeAuthenticatorRequestDelegate::ConfigureCable(
       extension_is_v2 = cablev2_extension_provided;
     }
     dialog_model_->set_cable_transport_info(
-        extension_is_v2, std::move(paired_phone_entries),
+        extension_is_v2, std::move(paired_phones),
         std::move(contact_phone_callback), qr_string);
     discovery_factory->set_cable_data(request_type, std::move(pairings),
-                                      qr_generator_key,
-                                      std::move(paired_phones));
+                                      qr_generator_key);
   }
 
 #if BUILDFLAG(IS_MAC)
@@ -711,6 +732,16 @@ void ChromeAuthenticatorRequestDelegate::ConfigureCable(
         browser_window->GetNativeWindow().GetNativeNSWindow()));
   }
 #endif
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  if (base::FeatureList::IsEnabled(device::kWebAuthnEnclaveAuthenticator) &&
+      request_type == device::FidoRequestType::kGetAssertion) {
+    ConfigureEnclaveDiscovery(rp_id, discovery_factory);
+  }
+#endif
+
+  dialog_model_->set_is_non_webauthn_request(request_source !=
+                                             RequestSource::kWebAuthentication);
 }
 
 void ChromeAuthenticatorRequestDelegate::SelectAccount(
@@ -769,10 +800,14 @@ void ChromeAuthenticatorRequestDelegate::SetUserEntityForMakeCredentialRequest(
 
 void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
     device::FidoRequestHandlerBase::TransportAvailabilityInfo data) {
-  if (is_conditional_ && !credential_filter_.empty()) {
+  if (base::FeatureList::IsEnabled(device::kWebAuthnListSyncedPasskeys) &&
+      base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials) &&
+      !IsVirtualEnvironmentEnabled() && can_use_synced_phone_passkeys_) {
+    GetPhoneContactableGpmPasskeysForRpId(&data.recognized_credentials);
+  }
+  if (!credential_filter_.empty()) {
     std::vector<device::DiscoverableCredentialMetadata> filtered_list;
-    for (auto& platform_credential :
-         data.recognized_platform_authenticator_credentials) {
+    for (auto& platform_credential : data.recognized_credentials) {
       for (auto& filter_credential : credential_filter_) {
         if (platform_credential.cred_id == filter_credential.id) {
           filtered_list.push_back(platform_credential);
@@ -780,8 +815,7 @@ void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
         }
       }
     }
-    data.recognized_platform_authenticator_credentials =
-        std::move(filtered_list);
+    data.recognized_credentials = std::move(filtered_list);
   }
 
   if (g_observer) {
@@ -951,18 +985,18 @@ bool ChromeAuthenticatorRequestDelegate::ShouldPermitCableExtension(
 }
 
 void ChromeAuthenticatorRequestDelegate::OnInvalidatedCablePairing(
-    size_t failed_contact_index) {
+    std::unique_ptr<device::cablev2::Pairing> failed_pairing) {
   PrefService* const prefs =
       Profile::FromBrowserContext(GetBrowserContext())->GetPrefs();
 
   // A pairing was reported to be invalid. Delete it unless it came from Sync,
   // in which case there's nothing to be done.
-  cablev2::DeletePairingByPublicKey(
-      prefs, phone_public_keys_.at(failed_contact_index));
+  cablev2::DeletePairingByPublicKey(prefs,
+                                    failed_pairing->peer_public_key_x962);
 
   // Contact the next phone with the same name, if any, given that no
   // notification has been sent.
-  dialog_model_->OnPhoneContactFailed(phone_names_.at(failed_contact_index));
+  dialog_model_->OnPhoneContactFailed(failed_pairing->name);
 }
 
 void ChromeAuthenticatorRequestDelegate::OnCableEvent(
@@ -977,3 +1011,40 @@ void ChromeAuthenticatorRequestDelegate::OnCableEvent(
 
   dialog_model_->OnCableEvent(event);
 }
+
+void ChromeAuthenticatorRequestDelegate::GetPhoneContactableGpmPasskeysForRpId(
+    std::vector<device::DiscoverableCredentialMetadata>* passkeys) {
+  // TODO(crbug.com/1456847): Introduce
+  // PasskeyModel::GetPasskeysForRelyingPartyId() and move this logic there.
+  webauthn::PasskeyModel* passkey_model =
+      PasskeyModelFactory::GetInstance()->GetForProfile(
+          Profile::FromBrowserContext(GetBrowserContext()));
+  CHECK(passkey_model);
+  for (const sync_pb::WebauthnCredentialSpecifics& passkey :
+       passkey_model->GetPasskeysForRelyingPartyId(
+           dialog_model_->relying_party_id())) {
+    passkeys->emplace_back(
+        device::AuthenticatorType::kPhone, passkey.rp_id(),
+        std::vector<uint8_t>(passkey.credential_id().begin(),
+                             passkey.credential_id().end()),
+        device::PublicKeyCredentialUserEntity(
+            std::vector<uint8_t>(passkey.user_id().begin(),
+                                 passkey.user_id().end()),
+            passkey.user_name(), passkey.user_display_name()));
+  }
+}
+
+#if !BUILDFLAG(IS_CHROMEOS)
+void ChromeAuthenticatorRequestDelegate::ConfigureEnclaveDiscovery(
+    const std::string& rp_id,
+    device::FidoDiscoveryFactory* discovery_factory) {
+  webauthn::PasskeyModel* passkey_model =
+      PasskeyModelFactory::GetInstance()->GetForProfile(
+          Profile::FromBrowserContext(GetBrowserContext()));
+  CHECK(passkey_model);
+
+  std::vector<sync_pb::WebauthnCredentialSpecifics> passkeys =
+      passkey_model->GetPasskeysForRelyingPartyId(rp_id);
+  discovery_factory->SetEnclavePasskeys(std::move(passkeys));
+}
+#endif

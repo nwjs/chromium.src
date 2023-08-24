@@ -183,7 +183,7 @@ class FirstPartySetsPolicyServiceTest
   }
 
   void TearDown() override {
-    DCHECK(service_);
+    CHECK(service_);
     // Even though we reassign this in SetUp, service may be persisted between
     // tests if the factory has already created a service for the testing
     // profile being used.
@@ -596,7 +596,6 @@ TEST_F(FirstPartySetsPolicyServiceTest,
 
   base::test::TestFuture<net::FirstPartySetMetadata> future;
   service()->ComputeFirstPartySetMetadata(test_primary, &test_primary,
-                                          /*party_context=*/{},
                                           future.GetCallback());
   EXPECT_FALSE(future.IsReady());
 
@@ -621,7 +620,6 @@ TEST_F(FirstPartySetsPolicyServiceTest,
 
   base::test::TestFuture<net::FirstPartySetMetadata> future;
   service()->ComputeFirstPartySetMetadata(test_primary, &test_primary,
-                                          /*party_context=*/{},
                                           future.GetCallback());
   EXPECT_NE(future.Take(), net::FirstPartySetMetadata());
 }
@@ -640,7 +638,6 @@ TEST_F(FirstPartySetsPolicyServiceTest,
 
   base::test::TestFuture<net::FirstPartySetMetadata> future;
   service()->ComputeFirstPartySetMetadata(test_primary, &test_primary,
-                                          /*party_context=*/{},
                                           future.GetCallback());
   EXPECT_TRUE(future.IsReady());
   EXPECT_NE(future.Take(), net::FirstPartySetMetadata());
@@ -662,7 +659,6 @@ TEST_F(FirstPartySetsPolicyServiceTest,
 
   base::test::TestFuture<net::FirstPartySetMetadata> future;
   service()->ComputeFirstPartySetMetadata(test_primary, &test_primary,
-                                          /*party_context=*/{},
                                           future.GetCallback());
   EXPECT_TRUE(future.IsReady());
   EXPECT_EQ(future.Take(), net::FirstPartySetMetadata());

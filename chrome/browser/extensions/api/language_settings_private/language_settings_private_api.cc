@@ -347,11 +347,6 @@ LanguageSettingsPrivateEnableLanguageFunction::Run() {
   std::string chrome_language = language_code;
   language::ToChromeLanguageSynonym(&chrome_language);
 
-  if (base::Contains(languages, chrome_language)) {
-    LOG(ERROR) << "Language " << chrome_language << " already enabled";
-    return RespondNow(NoArguments());
-  }
-
   translate_prefs->AddToLanguageList(language_code, /*force_blocked=*/false);
 
 #endif
@@ -380,15 +375,7 @@ LanguageSettingsPrivateDisableLanguageFunction::Run() {
   std::string chrome_language = language_code;
   language::ToChromeLanguageSynonym(&chrome_language);
 
-  if (!base::Contains(languages, chrome_language)) {
-    LOG(ERROR) << "Language " << chrome_language << " not enabled";
-    return RespondNow(NoArguments());
-  }
-
   translate_prefs->RemoveFromLanguageList(language_code);
-  if (language_code == translate_prefs->GetRecentTargetLanguage()) {
-    translate_prefs->ResetRecentTargetLanguage();
-  }
 
 #endif
   return RespondNow(NoArguments());

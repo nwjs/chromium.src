@@ -5,6 +5,7 @@
 #include "ash/webui/file_manager/file_manager_ui.h"
 
 #include "ash/shell.h"
+#include "ash/webui/common/trusted_types_util.h"
 #include "ash/webui/file_manager/file_manager_page_handler.h"
 #include "ash/webui/file_manager/resource_loader.h"
 #include "ash/webui/file_manager/resources/grit/file_manager_swa_resources.h"
@@ -128,8 +129,7 @@ void FileManagerUI::CreateAndAddTrustedAppDataSource(content::WebUI* web_ui,
       "frame-src chrome-untrusted://file-manager "
       "'self';");
 
-  // TODO(crbug.com/1098685): Trusted Type remaining WebUI.
-  source->DisableTrustedTypesCSP();
+  ash::EnableTrustedTypesCSP(source);
 }
 
 int FileManagerUI::GetNumInstances() {
@@ -148,6 +148,9 @@ FileManagerUI::~FileManagerUI() {
   if (!instance_count_) {
     delegate_->ProgressPausedTasks();
     delegate_->ShouldPollDriveHostedPinStates(false);
+    // There might be some tasks blocked by policy that already completed, but
+    // still have a notification so notify FPNM to show them if necessary.
+    delegate_->ShowPolicyNotifications();
   }
 }
 

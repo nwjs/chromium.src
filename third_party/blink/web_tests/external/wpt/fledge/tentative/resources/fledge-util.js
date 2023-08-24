@@ -99,7 +99,11 @@ async function waitForObservedRequests(uuid, expectedRequests) {
     // all expected requests and exit.
     let trackedRequests = trackerData.trackedRequests;
     if (trackedRequests.length == expectedRequests.length) {
-      assert_array_equals(trackedRequests.sort(), expectedRequests);
+      // Hide the uuid content in order to have a static expected file.
+      assert_array_equals(trackedRequests.sort().map((url) =>
+                            url.replace(uuid, '<uuid>')),
+                            expectedRequests.map((url) =>
+                            url.replace(uuid, '<uuid>')));
       break;
     }
 
@@ -107,7 +111,9 @@ async function waitForObservedRequests(uuid, expectedRequests) {
     // compare what's been received so far, to have a greater chance to fail
     // rather than hang on error.
     for (const trackedRequest of trackedRequests) {
-      assert_in_array(trackedRequest, expectedRequests);
+      assert_in_array(trackedRequest.replace(uuid, '<uuid>'),
+                      expectedRequests.sort().map((url) =>
+                      url.replace(uuid, '<uuid>')));
     }
   }
 }
@@ -171,9 +177,8 @@ function createRenderUrl(uuid, script) {
 //
 // `interestGroupOverrides` may be used to override fields in the joined
 // interest group.
-async function joinInterestGroup(test, uuid, interestGroupOverrides = {}) {
-  const INTEREST_GROUP_LIFETIME_SECS = 60;
-
+async function joinInterestGroup(test, uuid, interestGroupOverrides = {},
+                                 durationSeconds = 60) {
   let interestGroup = {
     owner: window.location.origin,
     name: DEFAULT_INTEREST_GROUP_NAME,
@@ -183,8 +188,7 @@ async function joinInterestGroup(test, uuid, interestGroupOverrides = {}) {
     ...interestGroupOverrides
   };
 
-  await navigator.joinAdInterestGroup(interestGroup,
-                                      INTEREST_GROUP_LIFETIME_SECS);
+  await navigator.joinAdInterestGroup(interestGroup, durationSeconds);
   test.add_cleanup(
       async () => {await navigator.leaveAdInterestGroup(interestGroup)});
 }
@@ -271,14 +275,35 @@ async function runBasicFledgeTestExpectingNoWinner(test, testConfig = {}) {
 // the corresponding reporting method, the report is sent to an error URL.
 // Otherwise, the corresponding 'reportResult' / 'reportWin' values are run.
 //
+// `codeToInsert` is a JS object that contains the following fields to control
+// the code generated for the auction worklet:
+// scoreAd - function body for scoreAd() seller worklet function
+// reportResult - function body for reportResult() seller worklet function
+// generateBid - function body for generateBid() buyer worklet function
+// reportWin - function body for reportWin() buyer worklet function
+//
+// Additionally the following fields can be added to check for errors during the
+// execution of the corresponding worklets:
+// reportWinSuccessCondition - boolean condition added to reportWin() in the
+// buyer worklet that triggers a sendReportTo() to an 'error' URL if not met.
+// reportResultSuccessCondition - boolean condition added to reportResult() in
+// the seller worklet that triggers a sendReportTo() to an 'error' URL if not
+// met.
+//
 // `renderUrlOverride` allows the ad URL of the joined InterestGroup to
 // to be set by the caller.
 //
 // Requesting error report URLs causes waitForObservedRequests() to throw
 // rather than hang.
-async function runReportTest(test, uuid, reportResultSuccessCondition,
-                             reportResult, reportWinSuccessCondition, reportWin,
-                             expectedReportUrls, renderUrlOverride) {
+async function runReportTest(test, uuid, codeToInsert, expectedReportUrls,
+                             renderUrlOverride) {
+  let scoreAd = codeToInsert.scoreAd;
+  let reportResultSuccessCondition = codeToInsert.reportResultSuccessCondition;
+  let reportResult = codeToInsert.reportResult;
+  let generateBid = codeToInsert.generateBid;
+  let reportWinSuccessCondition = codeToInsert.reportWinSuccessCondition;
+  let reportWin = codeToInsert.reportWin;
+
   if (reportResultSuccessCondition) {
     reportResult = `if (!(${reportResultSuccessCondition})) {
                       sendReportTo('${createSellerReportUrl(uuid, 'error')}');
@@ -287,6 +312,11 @@ async function runReportTest(test, uuid, reportResultSuccessCondition,
                     ${reportResult}`;
   }
   let decisionScriptUrlParams = {};
+
+  if (scoreAd !== undefined) {
+    decisionScriptUrlParams.scoreAd = scoreAd;
+  }
+
   if (reportResult !== null)
     decisionScriptUrlParams.reportResult = reportResult;
   else
@@ -300,6 +330,11 @@ async function runReportTest(test, uuid, reportResultSuccessCondition,
                  ${reportWin}`;
   }
   let biddingScriptUrlParams = {};
+
+  if (generateBid !== undefined) {
+    biddingScriptUrlParams.generateBid = generateBid;
+  }
+
   if (reportWin !== null)
     biddingScriptUrlParams.reportWin = reportWin;
   else

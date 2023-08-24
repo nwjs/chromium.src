@@ -16,6 +16,7 @@ import android.content.pm.InstrumentationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.Build;
+import android.os.Build.VERSION;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -47,6 +48,7 @@ import org.chromium.base.multidex.ChromiumMultiDexInstaller;
 import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.InMemorySharedPreferences;
 import org.chromium.base.test.util.InMemorySharedPreferencesContext;
+import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.ScalableTimeout;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.MainDex;
@@ -474,7 +476,16 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
         @Override
         public Class<?> loadClass(String name) throws ClassNotFoundException {
             try {
-                return mDelegateLoader.loadClass(name);
+                var ret = mDelegateLoader.loadClass(name);
+                // Prevent loading classes that should be skipped due to @MinAndroidSdkLevelon.
+                // Loading them can cause NoClassDefFoundError to be thrown by junit when listing
+                // methods (if methods contain types from higher sdk version).
+                // E.g.: https://chromium-review.googlesource.com/c/chromium/src/+/4738415/1
+                MinAndroidSdkLevel annotation = ret.getAnnotation(MinAndroidSdkLevel.class);
+                if (annotation != null && annotation.value() > VERSION.SDK_INT) {
+                    throw new ClassNotFoundException();
+                }
+                return ret;
             } catch (NoClassDefFoundError e) {
                 throw new ClassNotFoundException(name, e);
             }
@@ -747,6 +758,36 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
         }
     }
 
+    private static boolean isSharedPrefFileAllowed(File f) {
+        // Multidex support library prefs need to stay or else multidex extraction will occur
+        // needlessly.
+        if (f.getName().endsWith("multidex.version.xml")) {
+            return true;
+        }
+
+        // WebView prefs need to stay because webview tests have no (good) way of hooking
+        // SharedPreferences for instantiated WebViews.
+        String[] allowlist = new String[] {
+                "WebViewChromiumPrefs.xml",
+                "org.chromium.android_webview.devui.MainActivity.xml",
+                "AwComponentUpdateServicePreferences.xml",
+                "ComponentsProviderServicePreferences.xml",
+                "org.chromium.webengine.test.instrumentation_test_apk_preferences.xml",
+        };
+        for (String name : allowlist) {
+            // SharedPreferences may also access a ".bak" backup file from a previous run. See
+            // https://crbug.com/1462105#c4 and
+            // https://cs.android.com/android/platform/superproject/main/+/main:frameworks/base/core/java/android/app/SharedPreferencesImpl.java;l=213;drc=6f7c5e0914a18e6adafaa319e670363772e51691
+            // for details.
+            String backupName = name + ".bak";
+
+            if (f.getName().equals(name) || f.getName().equals(backupName)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void checkOrDeleteOnDiskSharedPreferences(boolean check) {
         File dataDir = ContextCompat.getDataDir(InstrumentationRegistry.getTargetContext());
         File prefsDir = new File(dataDir, "shared_prefs");
@@ -756,22 +797,13 @@ public class BaseChromiumAndroidJUnitRunner extends AndroidJUnitRunner {
         }
         ArrayList<File> badFiles = new ArrayList<>();
         for (File f : files) {
-            // Multidex support library prefs need to stay or else multidex extraction will occur
-            // needlessly.
-            // WebView prefs need to stay because webview tests have no (good) way of hooking
-            // SharedPreferences for instantiated WebViews.
-            if (!f.getName().endsWith("multidex.version.xml")
-                    && !f.getName().equals("WebViewChromiumPrefs.xml")
-                    && !f.getName().equals("org.chromium.android_webview.devui.MainActivity.xml")
-                    && !f.getName().equals("AwComponentUpdateServicePreferences.xml")
-                    && !f.getName().equals("ComponentsProviderServicePreferences.xml")
-                    && !f.getName().equals("org.chromium.webengine.test."
-                            + "instrumentation_test_apk_preferences.xml")) {
-                if (check) {
-                    badFiles.add(f);
-                } else {
-                    f.delete();
-                }
+            if (isSharedPrefFileAllowed(f)) {
+                continue;
+            }
+            if (check) {
+                badFiles.add(f);
+            } else {
+                f.delete();
             }
         }
         if (!badFiles.isEmpty()) {

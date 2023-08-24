@@ -14,10 +14,6 @@
 #import "ios/web/public/web_client.h"
 #import "net/base/mac/url_conversions.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace web {
 
 // Keys used to serialize navigation properties.
@@ -73,9 +69,17 @@ const char kNavigationItemSerializedRequestHeadersSizeHistogram[] =
   storage.set_title(base::UTF16ToUTF8(_title));
   web::SerializeTimeToProto(_timestamp, *storage.mutable_timestamp());
   storage.set_user_agent(web::UserAgentTypeToProto(_userAgentType));
-  web::SerializeReferrerToProto(_referrer, *storage.mutable_referrer());
-  web::SerializeHttpRequestHeadersToProto(
-      _HTTPRequestHeaders, *storage.mutable_http_request_headers());
+  // To reduce disk usage, NavigationItemImpl does not serialize invalid
+  // referrer or empty HTTP header map. The helper function responsible
+  // for the serialisation enforces this with assertion, so skip items
+  // that should not be serialised.
+  if (_referrer.url.is_valid()) {
+    web::SerializeReferrerToProto(_referrer, *storage.mutable_referrer());
+  }
+  if (_HTTPRequestHeaders.count) {
+    web::SerializeHttpRequestHeadersToProto(
+        _HTTPRequestHeaders, *storage.mutable_http_request_headers());
+  }
 }
 
 #pragma mark - NSObject

@@ -70,11 +70,11 @@ PixelTest::PixelTest(GraphicsBackend backend)
     scoped_feature_list_.InitAndEnableFeature(features::kSkiaGraphite);
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     init_vulkan = true;
-#elif BUILDFLAG(IS_WIN)
-    // TODO(rivr): Initialize D3D12 for Windows.
-#else
-    NOTREACHED();
 #endif
+  } else {
+    // Ensure that we don't accidentally have vulkan or graphite enabled.
+    scoped_feature_list_.InitWithFeatures(
+        {}, {features::kVulkan, features::kSkiaGraphite});
   }
 
   if (init_vulkan) {

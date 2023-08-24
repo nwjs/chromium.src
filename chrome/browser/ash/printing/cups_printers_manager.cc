@@ -7,6 +7,7 @@
 #include <map>
 #include <utility>
 
+#include "ash/constants/ash_features.h"
 #include "ash/public/cpp/network_config_service.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
@@ -51,6 +52,7 @@
 #include "components/prefs/pref_service.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
+#include "printer_configurer.h"
 #include "printing/printer_query_result.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -431,7 +433,7 @@ class CupsPrintersManagerImpl
 
     // Behavior for querying a non-IPP uri is undefined and disallowed.
     if (!IsIppUri(printer->uri())) {
-      PRINTER_LOG(ERROR) << "Unable to complete printer status request. "
+      PRINTER_LOG(DEBUG) << "Unable to complete printer status request. "
                          << "Printer uri is invalid. Printer id: "
                          << printer_id;
       CupsPrinterStatus printer_status(printer_id);
@@ -547,6 +549,41 @@ class CupsPrintersManagerImpl
     }
   }
 
+  void QueryPrinterForAutoConf(
+      const Printer& printer,
+      base::OnceCallback<void(bool)> callback) override {
+    CHECK(ash::features::IsPrintPreviewDiscoveredPrintersEnabled());
+
+    if (!IsIppUri(printer.uri())) {
+      std::move(callback).Run(false);
+      return;
+    }
+
+    QueryIppPrinter(
+        printer.uri().GetHostEncoded(), printer.uri().GetPort(),
+        printer.uri().GetPathEncodedAsString(),
+        printer.uri().GetScheme() == chromeos::kIppsScheme,
+        base::BindOnce(&CupsPrintersManagerImpl::OnQueryPrinterForAutoConf,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+  }
+
+  // Callback for QueryPrinterForAutoConf
+  void OnQueryPrinterForAutoConf(
+      base::OnceCallback<void(bool)> callback,
+      PrinterQueryResult result,
+      const ::printing::PrinterStatus& printer_status,
+      const std::string& make_and_model,
+      const std::vector<std::string>& document_formats,
+      bool ipp_everywhere,
+      const chromeos::PrinterAuthenticationInfo& auth_info) {
+    if (result != PrinterQueryResult::kSuccess) {
+      std::move(callback).Run(false);
+      return;
+    }
+
+    std::move(callback).Run(ipp_everywhere);
+  }
+
  private:
   absl::optional<Printer> GetEnterprisePrinter(const std::string& id) const {
     return printers_.Get(PrinterClass::kEnterprise, id);
@@ -645,10 +682,42 @@ class CupsPrintersManagerImpl
       // Sometimes the detector can flag a printer as IPP-everywhere compatible;
       // those printers can go directly into the automatic class without further
       // processing.
-      if (detected.printer.IsIppEverywhere()) {
-        printers_.Insert(PrinterClass::kAutomatic, detected.printer);
+      auto printer = detected.printer;
+      if (printer.IsIppEverywhere()) {
+        printers_.Insert(PrinterClass::kAutomatic, printer);
         continue;
       }
+
+      if (printer.GetProtocol() == Printer::PrinterProtocol::kUsb &&
+          printer.RequiresDriverlessUsb()) {
+        if (ppd_resolution_tracker_.IsMarkedAsNotAutoconfigurable(
+                detected_printer_id)) {
+          LOG(ERROR) << "Printer " << detected_printer_id
+                     << " requires autoconfiguration but has previously failed"
+                     << " setup.";
+          printers_.Insert(PrinterClass::kDiscovered, printer);
+        } else {
+          // This model should attempt autoconfiguration with IPP-USB instead of
+          // looking up a PPD for the USB printer class.
+          printer.SetUri(chromeos::Uri(
+              base::StringPrintf("ippusb://%04x_%04x/ipp/print",
+                                 detected.ppd_search_data.usb_vendor_id,
+                                 detected.ppd_search_data.usb_product_id)));
+          printer.mutable_ppd_reference()->autoconf = true;
+          printers_.Insert(PrinterClass::kAutomatic, printer);
+
+          // Mark PPD resolution as a failure so that it doesn't get retried
+          // later if something goes wrong with driverless setup.
+          if (!ppd_resolution_tracker_.IsResolutionComplete(
+                  detected_printer_id)) {
+            ppd_resolution_tracker_.MarkResolutionPending(detected_printer_id);
+            ppd_resolution_tracker_.MarkResolutionFailed(detected_printer_id);
+          }
+        }
+
+        continue;
+      }
+
       if (!ppd_resolution_tracker_.IsResolutionComplete(detected_printer_id)) {
         // Didn't find an entry for this printer in the PpdReferences cache.  We
         // need to ask PpdProvider whether or not it can determine a
@@ -665,7 +734,6 @@ class CupsPrintersManagerImpl
         }
         continue;
       }
-      auto printer = detected.printer;
       if (ppd_resolution_tracker_.WasResolutionSuccessful(
               detected_printer_id)) {
         // We have a ppd reference, so we think we can set this up

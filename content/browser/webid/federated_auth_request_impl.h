@@ -141,7 +141,8 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
     return idp_data_for_display_;
   }
 
-  bool IsAutoReauthn() { return auto_reauthn_; }
+  enum DialogType { kNone, kSelectAccount, kAutoReauth };
+  DialogType GetDialogType() const { return dialog_type_; }
 
   void AcceptAccountsDialogForDevtools(const GURL& config_url,
                                        const IdentityRequestAccount& account);
@@ -395,12 +396,22 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // the navigator.credentials.get call.
   std::vector<GURL> idp_order_;
 
-  // Auto re-authentication.
-  bool auto_reauthn_{false};
+  DialogType dialog_type_ = kNone;
   MediationRequirement mediation_requirement_;
 
   std::unique_ptr<MDocProvider> mdoc_provider_;
   RequestTokenCallback mdoc_request_callback_;
+
+  // Time when the accounts dialog is last shown for metrics purposes.
+  absl::optional<base::TimeTicks> accounts_dialog_shown_time_;
+
+  // Time when the mismatch dialog is last shown for metrics purposes.
+  absl::optional<base::TimeTicks> mismatch_dialog_shown_time_;
+
+  // Number of navigator.credentials.get() requests made for metrics purposes.
+  // Requests made when there is a pending FedCM request or for the purpose of
+  // MDocs or multi-IDP are not counted.
+  int num_requests_{0};
 
   base::WeakPtrFactory<FederatedAuthRequestImpl> weak_ptr_factory_{this};
 };

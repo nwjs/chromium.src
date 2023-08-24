@@ -23,10 +23,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/strings/grit/ui_strings.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 // Test fixture for BrowserContainerCoordinator.
 class BrowserContainerCoordinatorTest : public PlatformTest {
  public:
@@ -109,4 +105,5 @@ TEST_F(BrowserContainerCoordinatorTest,
   EXPECT_TRUE([l10n_util::GetNSString(IDS_IOS_SHARE_PAGE_BUTTON_LABEL)
       isEqualToString:share_action.title]);
   EXPECT_EQ(UIAlertActionStyleDefault, share_action.style);
+  [coordinator stop];
 }

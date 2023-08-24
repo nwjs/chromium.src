@@ -24,7 +24,7 @@
 #include "cc/test/pixel_test_utils.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_test_util.h"
-#include "chrome/browser/apps/app_service/app_icon/app_icon_util.h"
+#include "chrome/browser/apps/app_service/app_icon/icon_effects.h"
 #include "chrome/browser/apps/icon_standardizer.h"
 #include "chrome/browser/extensions/chrome_app_icon.h"
 #include "chrome/browser/web_applications/test/test_file_utils.h"
@@ -62,6 +62,7 @@
 #include "chrome/browser/ash/arc/icon_decode_request.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
+#include "chromeos/ash/components/standalone_browser/feature_refs.h"
 #include "components/services/app_service/public/cpp/icon_loader.h"
 #include "components/services/app_service/public/cpp/icon_types.h"
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
@@ -73,9 +74,10 @@ namespace apps {
 class WebAppIconFactoryTest : public testing::Test {
  public:
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+  // TODO(crbug.com/1462253): Also test with Lacros flags enabled.
   WebAppIconFactoryTest() {
     scoped_feature_list_.InitWithFeatures(
-        {}, {features::kWebAppsCrosapi, ash::features::kLacrosPrimary});
+        {}, ash::standalone_browser::GetFeatureRefs());
   }
 #else
   WebAppIconFactoryTest() = default;
@@ -107,10 +109,8 @@ class WebAppIconFactoryTest : public testing::Test {
   }
 
   void RegisterApp(std::unique_ptr<web_app::WebApp> web_app) {
-    std::unique_ptr<web_app::WebAppRegistryUpdate> update =
-        sync_bridge().BeginUpdate();
+    web_app::ScopedRegistryUpdate update = sync_bridge().BeginUpdate();
     update->CreateApp(std::move(web_app));
-    sync_bridge().CommitUpdate(std::move(update), base::DoNothing());
   }
 
   void WriteIcons(const std::string& app_id,

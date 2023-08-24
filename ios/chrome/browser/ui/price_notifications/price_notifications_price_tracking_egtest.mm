@@ -13,10 +13,6 @@
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface PriceNotificationsPriceTrackingTestCase : ChromeTestCase
 @end
 
@@ -51,6 +47,8 @@
       assertWithMatcher:grey_notNil()];
 }
 
+// Confirms the Price Tracking carousel destination is not visible when the user
+// is in Incognito.
 - (void)testPriceTrackingIsNotVisibleInIncognito {
   CGFloat const kMenuScrollDisplacement = 150;
   id<GREYAction> scrollRight =

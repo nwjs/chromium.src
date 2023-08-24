@@ -37,6 +37,8 @@ namespace features {
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kAcceleratedStaticBitmapImageSerialization);
 
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAdAuctionReportingWithMacroApi);
+
 // Runtime flag that changes default Permissions Policy for features
 // join-ad-interest-group and run-ad-auction to a more restricted EnableForSelf.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
@@ -120,6 +122,11 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<
     AutomaticLazyFrameLoadingToEmbedLoadingStrategy>
     kAutomaticLazyFrameLoadingToEmbedLoadingStrategyParam;
 
+// Switch to enabling rendering of gainmap-based AVIF HDR images.
+// For this feature to work, kGainmapHdrImages must also be enabled.
+// Tracker: https://crbug.com/1451889
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kAvifGainmapHdrImages);
+
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kBackForwardCacheDWCOnJavaScriptExecution);
 
@@ -189,11 +196,6 @@ constexpr int kBrowsingTopicsTaxonomyVersionDefault = 1;
 // inspector issue anyway.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCORSErrorsIssueOnly);
 
-// Permissions Policies support subdomain wildcards when the non-wildcard
-// portion of the domain is at least eTLD+1. If this flag is on, the eTLD+1
-// restriction is lifted and wildcards are supported in the port and scheme.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCSPWildcardsInPermissionsPolicies);
-
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCacheStorageCodeCacheHintHeader);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<std::string>
     kCacheStorageCodeCacheHintHeaderName;
@@ -207,6 +209,8 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCanvas2DHibernation);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCanvasCompressHibernatedImage);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCanvasFreeMemoryWhenHidden);
+
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCanChangeToUrlForHistoryApiUpdate);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCheckOfflineCapability);
 enum class CheckOfflineCapabilityMode {
@@ -225,6 +229,7 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsDeviceMemory);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsDeviceMemory_DEPRECATED);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsDPR);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsDPR_DEPRECATED);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsFormFactor);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsResourceWidth);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsResourceWidth_DEPRECATED);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsSaveData);
@@ -236,6 +241,8 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClientHintsViewportWidth_DEPRECATED);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kClipboardUnsanitizedContent);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kCompressParkableStrings);
+BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
+    kMaxDiskDataAllocatorCapacityMB;
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kConsumeCodeCacheOffThread);
 
@@ -368,6 +375,16 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnablePenetratingImageSelection);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kEstablishGpuChannelAsync);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kEventTimingMatchPresentationIndex);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDeprecateUnload);
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDeprecateUnloadByUserAndOrigin);
+BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
+    kDeprecateUnloadPercent;
+BLINK_COMMON_EXPORT extern const base::FeatureParam<int> kDeprecateUnloadBucket;
+
+// This feature (EventTimingReportAllEarlyEntriesOnPaintedPresentation) is
+// having an effect only when EventTimingMatchPresentationIndex is turned on.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
+    kEventTimingReportAllEarlyEntriesOnPaintedPresentation);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kExcludeLowEntropyImagesFromLCP);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<double>
@@ -376,10 +393,6 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<double>
 // Extend ScriptResource's lifetime to match its payload's lifetime.
 // See https://crbug.com/1393246.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kExtendScriptResourceLifetime);
-
-// If enabled, some paint property updates (e.g., transform changes) will be
-// applied directly instead of using the property tree builder.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFastPathPaintPropertyUpdates);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFencedFrames);
 
@@ -412,6 +425,7 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<std::string>
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFledgeConsiderKAnonymity);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFledgeEnforceKAnonymity);
 
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFledgePassKAnonStatusToReportWin);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFledgePassRecencyToGenerateBid);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kForceWebContentsDarkMode);
@@ -466,6 +480,10 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kHiddenSelectionBounds);
 // If enabled, a fix for image loading prioritization based on visibility is
 // applied. See https://crbug.com/1369823.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kImageLoadingPrioritizationFix);
+
+// Use Snappy to compress values for IndexedDB before wiring them to the
+// browser.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kIndexedDBCompressValuesWithSnappy);
 
 // This flag is used to set field parameters to choose predictor we use when
 // kResamplingInputEvents is disabled. It's used for gathering accuracy metrics
@@ -525,9 +543,26 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLCPAnimatedImagesReporting);
 // to websites using performance hints collected in the past page loads.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLCPCriticalPathPredictor);
 
+// If true, LCP critical path predictor mechanism doesn't change the fetch
+// priority but still the rest will work.
+BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
+    kLCPCriticalPathPredictorDryRun;
+
+// The maximum element locator length for LCPP.
+BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
+    kLCPCriticalPathPredictorMaxElementLocatorLength;
+
+// If enabled, script execution is observed to determine script dependencies of
+// the LCP element.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLCPScriptObserver);
+
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLCPVideoFirstFrame);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLightweightNoStatePrefetch);
+
+// Enables the Link Preview.
+// Tracking bug: go/launch/4269184
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLinkPreview);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kLoadingTasksUnfreezable);
 
@@ -613,6 +648,13 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPath2DPaintCache);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPaintHolding);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPaintHoldingCrossOrigin);
+
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kParkableImagesToDisk);
+
+#if BUILDFLAG(IS_ANDROID)
+BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
+    kPartialLowEndModeExcludeCanvasFontCache;
+#endif
 
 // Whether the pending beacon API is enabled or not.
 // https://github.com/WICG/pending-beacon/blob/main/README.md
@@ -723,9 +765,9 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kPrivateAggregationApi);
 BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
     kPrivateAggregationApiEnabledInSharedStorage;
 BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
-    kPrivateAggregationApiEnabledInFledge;
+    kPrivateAggregationApiEnabledInProtectedAudience;
 BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
-    kPrivateAggregationApiFledgeExtensionsEnabled;
+    kPrivateAggregationApiProtectedAudienceExtensionsEnabled;
 
 // If set, HTMLDocumentParser processes data immediately rather than after a
 // delay. This is further controlled by the feature params starting with the
@@ -799,6 +841,9 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
     kMaxFCPDelayMsForRenderBlockingFonts;
 
+// Report rectangles around lines of text in the currently focused editable
+// element.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kReportVisibleLineBounds);
 // Enables resampling input events on main thread.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kResamplingInputEvents);
 // Enables resampling GestureScroll events on compositor thread.
@@ -823,6 +868,12 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRunTextInputUpdatePostLifecycle);
 // process.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kRuntimeFeatureStateControllerApplyFeatureDiff);
+
+// When enabled, it adds FTP / FTPS / SFTP to the safe list for
+// registerProtocolHandler. This feature is enabled by default and meant to
+// be used as a killswitch.
+// https://html.spec.whatwg.org/multipage/system-state.html#safelisted-scheme
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kSafelistFTPToRegisterProtocolHandler);
 
 // These control a major serialization change to include information about
 // exposed interfaces in trailer data, to allow emergency fixes.
@@ -946,6 +997,11 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
 BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
     kSharedStorageSelectURLBitBudgetPerOriginPerPageLoad;
 
+// Additional Shared Storage API features shipped in M118.
+// TODO(crbug.com/1218540): Merge this flag with `kSharedStorageAPI` once
+// shipped.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kSharedStorageAPIM118);
+
 // TODO(accessibility): This flag is set to accommodate JAWS on Windows so they
 // can adjust to us not simulating click events on a focus action. It is in the
 // process of being removed completely and is currently disabled by default on
@@ -1010,6 +1066,8 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<int>
 BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
     kSpeculativeServiceWorkerWarmUpOnVisible;
 BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
+    kSpeculativeServiceWorkerWarmUpOnInsertedIntoDom;
+BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
     kSpeculativeServiceWorkerWarmUpOnPointerover;
 BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
     kSpeculativeServiceWorkerWarmUpOnPointerdown;
@@ -1048,6 +1106,14 @@ BLINK_COMMON_EXPORT extern const base::FeatureParam<bool>
 // empty duration (e.g. "0s"), then no top-level user interaction is required.
 BLINK_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
     kStorageAccessAPITopLevelUserInteractionBound;
+// How long an implicit Storage Access API permission grant/denial should last
+// (not taking renewals into account).
+BLINK_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
+    kStorageAccessAPIImplicitPermissionLifetime;
+// How long an explicit Storage Access API permission grant/denial should last
+// (not taking renewals into account).
+BLINK_COMMON_EXPORT extern const base::FeatureParam<base::TimeDelta>
+    kStorageAccessAPIExplicitPermissionLifetime;
 
 // Stylus gestures for editable web content.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kStylusRichGestures);
@@ -1119,7 +1185,11 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kUserLevelMemoryPressureSignal);
 
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kV8OptimizeWorkersForPerformance);
+// If enabled, file backed blobs are registered by using the
+// FileBackedBlobFactory interface. This interface allows to capture the URL
+// from which these blobs are accessed. Access from certain URLs may be disabled
+// for managed users according to Data Leak Prevention policies.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kEnableFileBackedBlobFactory);
 
 // Feature flag for driving the Metronome by VSyncs instead of by timer.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kVSyncDecoding);
@@ -1199,6 +1269,8 @@ BLINK_COMMON_EXPORT bool IsMaxUnthrottledTimeoutNestingLevelEnabled();
 BLINK_COMMON_EXPORT bool IsNewBaseUrlInheritanceBehaviorEnabled();
 
 BLINK_COMMON_EXPORT bool IsParkableStringsToDiskEnabled();
+
+BLINK_COMMON_EXPORT bool IsParkableImagesToDiskEnabled();
 
 BLINK_COMMON_EXPORT bool IsPlzDedicatedWorkerEnabled();
 

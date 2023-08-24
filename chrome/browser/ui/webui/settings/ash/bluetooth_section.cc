@@ -12,8 +12,8 @@
 #include "chrome/browser/ui/webui/ash/bluetooth_shared_load_time_data_provider.h"
 #include "chrome/browser/ui/webui/settings/ash/bluetooth_handler.h"
 #include "chrome/browser/ui/webui/settings/ash/fast_pair_saved_devices_handler.h"
-#include "chrome/browser/ui/webui/settings/ash/search/search.mojom.h"
-#include "chrome/browser/ui/webui/settings/ash/search/search_result_icon.mojom.h"
+#include "chrome/browser/ui/webui/settings/ash/search/mojom/search.mojom.h"
+#include "chrome/browser/ui/webui/settings/ash/search/mojom/search_result_icon.mojom.h"
 #include "chrome/browser/ui/webui/settings/ash/search/search_tag_registry.h"
 #include "chrome/browser/ui/webui/settings/chromeos/constants/routes.mojom.h"
 #include "chrome/browser/ui/webui/settings/chromeos/constants/setting.mojom.h"
@@ -358,7 +358,7 @@ mojom::SearchResultIcon BluetoothSection::GetSectionIcon() const {
   return mojom::SearchResultIcon::kBluetooth;
 }
 
-std::string BluetoothSection::GetSectionPath() const {
+const char* BluetoothSection::GetSectionPath() const {
   return mojom::kBluetoothSectionPath;
 }
 

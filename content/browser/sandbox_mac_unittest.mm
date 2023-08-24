@@ -41,10 +41,6 @@
 #include "third_party/boringssl/src/include/openssl/rand.h"
 #import "ui/base/clipboard/clipboard_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace content {
 namespace {
 
@@ -217,10 +213,10 @@ TEST_F(SandboxMacTest, SSLInitTest) {
 MULTIPROCESS_TEST_MAIN(BuiltinAvailable) {
   CheckCreateSeatbeltServer();
 
-  if (__builtin_available(macOS 10.13, *)) {
+  if (__builtin_available(macOS 10.15, *)) {
     // Can't negate a __builtin_available condition. But success!
   } else {
-    return 13;
+    return 15;
   }
 
   return 0;

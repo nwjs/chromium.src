@@ -29,17 +29,6 @@ BASE_FEATURE(kAutofillGivePrecedenceToNumericQuantities,
              "AutofillGivePrecedenceToNumericQuantities",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls if `kAccount` profiles are loaded from AutofillTable and
-// consequently suggested for filling.
-// TODO(crbug.com/1348294): Remove once launched.
-BASE_FEATURE(kAutofillAccountProfilesUnionView,
-             "AutofillAccountProfilesUnionView",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// Account profiles are not considered for regular updates on import, but if
-// this parameter is enabled, they are considered for silent updates.
-const base::FeatureParam<bool> kAutofillEnableSilentUpdatesForAccountProfiles{
-    &kAutofillAccountProfilesUnionView, "enable_silent_updates", true};
-
 // When enabled, creating new kAccount profiles becomes possible for eligible
 // users. Moreover, users are prompted to migrate existing kLocalOrSyncable
 // profiles to the kAccount storage.
@@ -125,6 +114,20 @@ BASE_FEATURE(kAutofillPredictionsForAutocompleteUnrecognized,
 const base::FeatureParam<bool> kAutofillImportFromAutocompleteUnrecognized{
     &kAutofillPredictionsForAutocompleteUnrecognized,
     "import_from_autocomplete_unrecognized", false};
+
+// When enabled, an entry is added to the context menu of ac=unrecognized fields
+// which allows triggering Autofill suggestions. Selecting such a suggestion
+// fills all address fields in the field's section, independently of the
+// autocomplete attribute.
+// TODO(crbug.com/1446318): Remove when launched.
+BASE_FEATURE(kAutofillFallbackForAutocompleteUnrecognized,
+             "AutofillFallbackForAutocompleteUnrecognized",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+// If true, the context menu entry is shown for all address fields.
+const base::FeatureParam<bool>
+    kAutofillFallForAutocompleteUnrecognizedOnAllAddressField{
+        &kAutofillFallbackForAutocompleteUnrecognized,
+        "show_on_all_address_fields", false};
 
 // Kill switch for Autofill filling.
 BASE_FEATURE(kAutofillDisableFilling,
@@ -282,16 +285,6 @@ BASE_FEATURE(kAutofillEnableSupportForPhoneNumberTrunkTypes,
              "AutofillEnableSupportForPhoneNumberTrunkTypes",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables autofill to function within a FencedFrame, and is enabled by
-// default as part of FencedFramesAPIChanges blink experiment.
-// This flag can be used via Finch to disable Autofill in the
-// FencedFramesAPIChanges blink experiment without affecting the other
-// features included in the experiment.
-// TODO(crbug.com/1294378): Remove once launched.
-BASE_FEATURE(kAutofillEnableWithinFencedFrame,
-             "AutofillEnableWithinFencedFrame",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Controls whether or not all datalist shall be extracted into FormFieldData.
 // This feature is enabled in both WebView and WebLayer where all datalists
 // instead of only the focused one shall be extracted and sent to Android
@@ -304,6 +297,16 @@ BASE_FEATURE(kAutofillExtractAllDatalists,
 BASE_FEATURE(kAutofillFeedback,
              "AutofillFeedback",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables using the newer i18n address model, overriding the legacy one.
+// This includes:
+// - Using newer i18n address format strings.
+BASE_FEATURE(kAutofillUseI18nAddressModel,
+             "AutofillUseI18nAddressModel",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Changes Autofill Clear Form into Undo Autofill.
+BASE_FEATURE(kAutofillUndo, "AutofillUndo", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Makes is_autofilled = true cached only after filling and not previewing.
 BASE_FEATURE(kAutofillOnlyCacheIsAutofilledOnFill,
@@ -352,6 +355,13 @@ BASE_FEATURE(kAutofillIgnoreUnmappableAutocompleteValues,
              "AutofillIgnoreUnmappableAutocompleteValues",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, some local heuristic predictions will take precedence over the
+// autocomplete attribute and server predictions, when determining a field's
+// overall type.
+BASE_FEATURE(kAutofillLocalHeuristicsOverrides,
+             "AutofillLocalHeuristicsOverrides",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, only changed values are highlighted in preview mode.
 // TODO(crbug/1248585): Remove when launched.
 BASE_FEATURE(kAutofillHighlightOnlyChangedValuesInPreviewMode,
@@ -363,6 +373,26 @@ BASE_FEATURE(kAutofillHighlightOnlyChangedValuesInPreviewMode,
 BASE_FEATURE(kAutofillLabelAffixRemoval,
              "AutofillLabelAffixRemoval",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Allows passing a set of overrides for Autofill server predictions.
+// Example command line to override server predictions manually:
+// chrome --enable-features=AutofillOverridePredictions:spec/1_2_4-7_8_9
+// This creates two manual overrides that supersede server predictions as
+// follows:
+// * The server prediction for the field with signature 2 in the form with
+//   signature 1 is overridden to be 4 (NAME_MIDDLE).
+// * The server prediction for the field with signature 8 in the form with
+//   signature 7 is overridden to be 9 (EMAIL_ADDRESS).
+//
+// See components/autofill/core/browser/server_prediction_overrides.h for more
+// examples and details on how to specify overrides.
+BASE_FEATURE(kAutofillOverridePredictions,
+             "AutofillOverridePredictions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// The override specification in string form.
+const base::FeatureParam<std::string> kAutofillOverridePredictionsSpecification{
+    &kAutofillOverridePredictions, "spec", "[]"};
 
 // When enabled, Autofill would not override the field values that were either
 // filled by Autofill or on page load.
@@ -422,14 +452,12 @@ BASE_FEATURE(kAutofillAlwaysParsePlaceholders,
              "AutofillAlwaysParsePlaceholders",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If enabled, the same 500ms threshold will be applied for accepting keyboard
-// enter strokes that is already applied to mouse and gesture events.
-// It will also be applied to tap events on popup menus on Android (but not the
-// keyboard accessory, at the screen is outside of the render surface).
-// TODO(crbug.com/1418364): Remove once launched.
-BASE_FEATURE(kAutofillPopupUseThresholdForKeyboardAndMobileAccept,
-             "AutofillPopupUseThresholdForKeyboardAndMobileAccept",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// If the feature is enabled, browser forms for which Autofill has received
+// predictions, are split into renderer forms before passing them on to password
+// manager.
+BASE_FEATURE(kAutofillPassRendererFormsToPasswordManager,
+             "AutofillPassRendererFormsToPasswordManager",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If the feature is enabled, FormTracker's probable-form-submission detection
 // is disabled and replaced with browser-side detection.
@@ -465,12 +493,6 @@ BASE_FEATURE(kAutofillServerBehaviors,
 const base::FeatureParam<int> kAutofillServerBehaviorsParam{
     &kAutofillServerBehaviors, "server_prediction_source", 0};
 
-// Controls whether Autofill may fill across origins.
-// TODO(crbug.com/1304721): Clean up when launched.
-BASE_FEATURE(kAutofillSharedAutofill,
-             "AutofillSharedAutofill",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Controls whether to offer a delete button for Autocomplete entries in the
 // Autofill popup.
 BASE_FEATURE(kAutofillShowAutocompleteDeleteButton,
@@ -482,6 +504,12 @@ BASE_FEATURE(kAutofillShowAutocompleteDeleteButton,
 // TODO(crbug.com/1326895): Clean up when launched.
 BASE_FEATURE(kAutofillShowManualFallbackInContextMenu,
              "AutofillShowManualFallbackInContextMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether granular filling will be available in the autofill popup.
+// TODO(crbug.com/1459990): Clean up when launched.
+BASE_FEATURE(kAutofillGranularFillingAvailable,
+             "AutofillGranularFillingAvailable",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allows silent profile updates even when the profile import requirements are
@@ -507,6 +535,13 @@ BASE_FEATURE(kAutofillSplitCreditCardNumbersCautiously,
 // filtering profiles, or only on prefixes of the whole string.
 BASE_FEATURE(kAutofillTokenPrefixMatching,
              "AutofillTokenPrefixMatching",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// When enabled, on form submit, observations for every used profile are
+// collected into the profile's `token_quality()`.
+// TODO(crbug.com/1453650): Remove when launched.
+BASE_FEATURE(kAutofillTrackProfileTokenQuality,
+             "AutofillTrackProfileTokenQuality",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether to use the AutofillUseAlternativeStateNameMap for filling
@@ -542,10 +577,6 @@ const base::FeatureParam<bool> kAutofillSectioningModeCreateGaps{
     &kAutofillUseParameterizedSectioning, "create_gaps", false};
 const base::FeatureParam<bool> kAutofillSectioningModeExpand{
     &kAutofillUseParameterizedSectioning, "expand_assigned_sections", false};
-const base::FeatureParam<bool>
-    kAutofillSectioningModeExpandOverUnfocusableFields{
-        &kAutofillUseParameterizedSectioning, "expand_over_unfocsuable_fields",
-        false};
 
 // Controls whether to use form renderer IDs to find the form which contains the
 // field that was last interacted with in
@@ -606,19 +637,13 @@ BASE_FEATURE(kAutofillUseUpdatedRequiredFieldsForAddressImport,
 // surface for credit cards on Android.
 BASE_FEATURE(kAutofillVirtualCardsOnTouchToFillAndroid,
              "AutofillVirtualCardsOnTouchToFillAndroid",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // When enabled, Autofill suggestions are displayed in the keyboard accessory
 // instead of the regular popup.
 BASE_FEATURE(kAutofillKeyboardAccessory,
              "AutofillKeyboardAccessory_LAUNCHED",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Controls whether the Autofill manual fallback for Addresses and Payments is
-// present on Android.
-BASE_FEATURE(kAutofillManualFallbackAndroid,
-             "AutofillManualFallbackAndroid_LAUNCHED",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, Autofill suggestions from keyboard accessory chips are only
@@ -634,6 +659,12 @@ BASE_FEATURE(kAutofillTouchToFillForCreditCardsAndroid,
              "AutofillTouchToFillForCreditCardsAndroid",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls the whether the Chrome may provide a virtual view structure for
+// Android Autofill.
+BASE_FEATURE(kAutofillVirtualViewStructureAndroid,
+             "AutofillVirtualViewStructureAndroid",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
@@ -643,14 +674,18 @@ BASE_FEATURE(kAutofillUseMobileLabelDisambiguation,
 const char kAutofillUseMobileLabelDisambiguationParameterName[] = "variant";
 const char kAutofillUseMobileLabelDisambiguationParameterShowAll[] = "show-all";
 const char kAutofillUseMobileLabelDisambiguationParameterShowOne[] = "show-one";
-#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
-#if BUILDFLAG(IS_ANDROID)
-bool IsAutofillManualFallbackEnabled() {
-  return base::FeatureList::IsEnabled(kAutofillKeyboardAccessory) &&
-         base::FeatureList::IsEnabled(kAutofillManualFallbackAndroid);
-}
-#endif  // BUILDFLAG(IS_ANDROID)
+// When enabled, the keyboard accessory is shown for autocomplete=unrecognized
+// fields. Selecting a keyboard accessory suggestion will fill the triggering
+// field (independently of the autocomplete attribute) and all
+// autocomplete != unrecognized fields in the triggering field's section.
+// Note that this only affects address fields, since credit cards already ignore
+// autocomplete=unrecognized.
+// TODO(crbug.com/1446318): Remove when launched.
+BASE_FEATURE(kAutofillSuggestionsForAutocompleteUnrecognizedFieldsOnMobile,
+             "AutofillSuggestionsForAutocompleteUnrecognizedFieldsOnMobile",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
 namespace test {
 

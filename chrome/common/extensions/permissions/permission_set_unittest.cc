@@ -755,7 +755,6 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kBrowsingData);
   skip.insert(APIPermissionID::kCommandsAccessibility);
   skip.insert(APIPermissionID::kContextMenus);
-  skip.insert(APIPermissionID::kDesktopCapturePrivate);
   skip.insert(APIPermissionID::kDiagnostics);
   skip.insert(APIPermissionID::kDns);
   skip.insert(APIPermissionID::kDownloadsShelf);
@@ -837,7 +836,6 @@ TEST(PermissionsTest, PermissionMessages) {
   skip.insert(APIPermissionID::kFileManagerPrivate);
   skip.insert(APIPermissionID::kFirstRunPrivate);
   skip.insert(APIPermissionID::kSharedStoragePrivate);
-  skip.insert(APIPermissionID::kIdentityPrivate);
   skip.insert(APIPermissionID::kInputMethodPrivate);
   skip.insert(APIPermissionID::kLanguageSettingsPrivate);
   skip.insert(APIPermissionID::kLockWindowFullscreenPrivate);

@@ -29,10 +29,6 @@
 #import "net/test/embedded_test_server/http_response.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using chrome_test_util::ButtonWithAccessibilityLabelId;
 using chrome_test_util::ContextMenuCopyButton;
 using chrome_test_util::OmniboxText;
@@ -428,7 +424,9 @@ void TapOnContextMenuButton(id<GREYMatcher> context_menu_item_button) {
       assertWithMatcher:grey_nil()];
 
   // Verify that system text selection callout is displayed.
-  [[EarlGrey selectElementWithMatcher:SystemSelectionCalloutCopyButton()]
+  [[EarlGrey
+      selectElementWithMatcher:grey_allOf(SystemSelectionCalloutCopyButton(),
+                                          grey_sufficientlyVisible(), nil)]
       assertWithMatcher:grey_notNil()];
 
   // TODO(crbug.com/1233056): Tap to dismiss the system selection callout

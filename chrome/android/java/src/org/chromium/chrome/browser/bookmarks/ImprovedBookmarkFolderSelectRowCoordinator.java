@@ -5,94 +5,85 @@
 package org.chromium.chrome.browser.bookmarks;
 
 import android.content.Context;
-import android.content.res.ColorStateList;
-import android.util.Pair;
 import android.view.View;
 
-import androidx.appcompat.content.res.AppCompatResources;
-
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
-import org.chromium.components.bookmarks.BookmarkType;
-import org.chromium.components.browser_ui.styles.ChromeColors;
-import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 /** Business logic for the improved bookmark folder select view. */
 public class ImprovedBookmarkFolderSelectRowCoordinator {
     private final Context mContext;
-    private final View mView;
     private final PropertyModel mModel;
     private final BookmarkImageFetcher mBookmarkImageFetcher;
-    private final BookmarkId mBookmarkId;
-    private final BookmarkItem mBookmarkItem;
     private final BookmarkModel mBookmarkModel;
+    private final ImprovedBookmarkFolderViewCoordinator mFolderViewCoordinator;
+
+    private View mView;
+    private BookmarkId mBookmarkId;
+    private BookmarkItem mBookmarkItem;
+    private PropertyModelChangeProcessor mChangeProcessor;
 
     /**
      * @param context The calling context.
      * @param view The view this coordinator controls.
      * @param bookmarkImageFetcher Fetches images for bookmarks.
-     * @param bookmarkId The folder to show the row for.
+     * @param bookmarkId The bookmark id to show the row for.
      * @param bookmarkModel The bookmark model used to query bookmark properties.
+     * @param clickListener The listener for a row click event.
      */
     public ImprovedBookmarkFolderSelectRowCoordinator(Context context,
-            ImprovedBookmarkFolderSelectRow view, BookmarkImageFetcher bookmarkImageFetcher,
-            BookmarkId bookmarkId, BookmarkModel bookmarkModel) {
+            BookmarkImageFetcher bookmarkImageFetcher, BookmarkModel bookmarkModel,
+            Runnable clickListener) {
         mContext = context;
-        mView = view;
         mModel = new PropertyModel(ImprovedBookmarkFolderSelectRowProperties.ALL_KEYS);
-        PropertyModelChangeProcessor.create(
-                mModel, mView, ImprovedBookmarkFolderSelectRowViewBinder::bind);
         mBookmarkImageFetcher = bookmarkImageFetcher;
-        mBookmarkId = bookmarkId;
         mBookmarkModel = bookmarkModel;
-        mBookmarkItem = mBookmarkModel.getBookmarkById(mBookmarkId);
+        mFolderViewCoordinator = new ImprovedBookmarkFolderViewCoordinator(
+                mContext, mBookmarkImageFetcher, mBookmarkModel);
 
-        int type = mBookmarkId.getType();
-        mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_ICON_DRAWABLE,
-                BookmarkUtils.getFolderIcon(mContext, type, BookmarkRowDisplayPref.VISUAL));
-        if (type == BookmarkType.READING_LIST) {
-            mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_AREA_BACKGROUND_COLOR,
-                    SemanticColorUtils.getColorPrimaryContainer(mContext));
-            mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_ICON_TINT,
-                    ColorStateList.valueOf(
-                            SemanticColorUtils.getDefaultIconColorAccent1(mContext)));
-        } else {
-            mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_AREA_BACKGROUND_COLOR,
-                    ChromeColors.getSurfaceColor(mContext, R.dimen.default_elevation_1));
-            mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_ICON_TINT,
-                    AppCompatResources.getColorStateList(
-                            mContext, R.color.default_icon_color_secondary_tint_list));
-        }
-
-        mModel.set(ImprovedBookmarkFolderSelectRowProperties.TITLE,
-                mBookmarkModel.getBookmarkTitle(mBookmarkId));
-        mModel.set(ImprovedBookmarkFolderSelectRowProperties.FOLDER_CHILD_COUNT,
-                mBookmarkModel.getChildCount(mBookmarkId));
         mModel.set(ImprovedBookmarkFolderSelectRowProperties.END_ICON_VISIBLE, true);
         mModel.set(ImprovedBookmarkFolderSelectRowProperties.ROW_CLICK_LISTENER,
-                (v)
-                        -> {
-                                // TODO(crbug.com/1448933): Implement new move activity.
-                        });
-        mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_IMAGE_FOLDER_DRAWABLES,
-                new Pair<>(null, null));
-        if (BookmarkUtils.shouldShowImagesForFolder(mBookmarkModel, mBookmarkId)) {
-            mBookmarkImageFetcher.fetchFirstTwoImagesForFolder(mBookmarkItem, (imagePair) -> {
-                mModel.set(ImprovedBookmarkFolderSelectRowProperties.START_IMAGE_FOLDER_DRAWABLES,
-                        imagePair);
-            });
-        }
+                (v) -> { clickListener.run(); });
     }
 
+    /** Sets the given bookmark id. */
+    public void setBookmarkId(BookmarkId bookmarkId) {
+        mBookmarkId = bookmarkId;
+        mBookmarkItem = mBookmarkModel.getBookmarkById(mBookmarkId);
+
+        mModel.set(ImprovedBookmarkFolderSelectRowProperties.TITLE, mBookmarkItem.getTitle());
+        mFolderViewCoordinator.setBookmarkId(bookmarkId);
+    }
+
+    /** Sets the view that this coordinator controls. */
+    public void setView(ImprovedBookmarkFolderSelectRow view) {
+        if (mChangeProcessor != null) {
+            mChangeProcessor.destroy();
+        }
+
+        mView = view;
+        if (view == null) return;
+
+        mChangeProcessor = PropertyModelChangeProcessor.create(
+                mModel, mView, ImprovedBookmarkFolderSelectRowViewBinder::bind);
+        mFolderViewCoordinator.setView(mView.findViewById(R.id.folder_view));
+    }
+
+    /** Returns the {@link View} this coordinator controls. */
+    public View getView() {
+        return mView;
+    }
+
+    /** Returns the {@link PropertyModel}. */
     public PropertyModel getModel() {
         return mModel;
     }
 
-    public View getView() {
-        return mView;
+    /** Returns the bookmark id currently assigned to the coordinator. */
+    public BookmarkId getBookmarkIdForTesting() {
+        return mBookmarkId;
     }
 }

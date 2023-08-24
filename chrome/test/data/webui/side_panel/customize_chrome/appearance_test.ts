@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-test/mojo_webui_test_support.js';
 import 'chrome://customize-chrome-side-panel.top-chrome/appearance.js';
 
 import {AppearanceElement} from 'chrome://customize-chrome-side-panel.top-chrome/appearance.js';
@@ -30,10 +29,6 @@ suite('AppearanceTest', () => {
                 mock, new CustomizeChromePageCallbackRouter()));
     callbackRouterRemote = CustomizeChromeApiProxy.getInstance()
                                .callbackRouter.$.bindNewPipeAndPassRemote();
-    // Set result for getOverviewChromeColors for the mock handler. Otherwise,
-    // it crashes since colors is a child of appearance and needs a Promise from
-    // getOverviewChromeColors.
-    handler.setResultFor('getOverviewChromeColors', Promise.resolve({}));
     appearanceElement = document.createElement('customize-chrome-appearance');
     document.body.appendChild(appearanceElement);
   });

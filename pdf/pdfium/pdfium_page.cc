@@ -43,6 +43,7 @@
 #include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/range/range.h"
+#include "ui/gfx/skbitmap_operations.h"
 
 using printing::ConvertUnitFloat;
 using printing::kPixelsPerInch;
@@ -1284,18 +1285,65 @@ void PDFiumPage::CalculateImages() {
 
     FPDF_PAGEOBJECT page_object =
         FPDFPage_GetObject(page, image.page_object_index);
+
+    // OCR needs the image with the highest available quality. To get it, the
+    // image transform matrix is reset to no-scale, the bitmap is extracted,
+    // and then the original matrix is restored.
+    FS_MATRIX original_matrix;
+    if (!FPDFPageObj_GetMatrix(page_object, &original_matrix)) {
+      continue;
+    }
+
+    // Get the actual image size.
+    unsigned int width;
+    unsigned int height;
+    if (!FPDFImageObj_GetImagePixelSize(page_object, &width, &height)) {
+      continue;
+    }
+
+    // Resize the matrix to actual size.
+    FS_MATRIX new_matrix = {static_cast<float>(width),  0, 0,
+                            static_cast<float>(height), 0, 0};
+    if (!FPDFPageObj_SetMatrix(page_object, &new_matrix)) {
+      continue;
+    }
+
     ScopedFPDFBitmap bitmap(
         FPDFImageObj_GetRenderedBitmap(engine_->doc(), page, page_object));
+
+    // Restore the original matrix.
+    CHECK(FPDFPageObj_SetMatrix(page_object, &original_matrix));
+
     if (!bitmap)
       continue;
 
+    CHECK_EQ(FPDFBitmap_GetFormat(bitmap.get()), FPDFBitmap_BGRA);
     SkImageInfo info = SkImageInfo::Make(
         FPDFBitmap_GetWidth(bitmap.get()), FPDFBitmap_GetHeight(bitmap.get()),
         kBGRA_8888_SkColorType, kOpaque_SkAlphaType);
     const size_t row_bytes = FPDFBitmap_GetStride(bitmap.get());
     SkPixmap pixels(info, FPDFBitmap_GetBuffer(bitmap.get()), row_bytes);
-    if (image.image_data.tryAllocPixels(info, row_bytes))
-      image.image_data.writePixels(pixels);
+    if (!image.image_data.tryAllocPixels(info, row_bytes)) {
+      continue;
+    }
+    image.image_data.writePixels(pixels);
+
+    SkBitmapOperations::RotationAmount rotation;
+    switch (FPDFPage_GetRotation(page)) {
+      case 0:
+        continue;
+      case 1:
+        rotation = SkBitmapOperations::RotationAmount::ROTATION_90_CW;
+        break;
+      case 2:
+        rotation = SkBitmapOperations::RotationAmount::ROTATION_180_CW;
+        break;
+      case 3:
+        rotation = SkBitmapOperations::RotationAmount::ROTATION_270_CW;
+        break;
+    }
+
+    image.image_data = SkBitmapOperations::Rotate(image.image_data, rotation);
   }
 }
 

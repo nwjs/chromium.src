@@ -10,6 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/time/time.h"
 #include "base/version.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/permissions/permission_request.h"
 #include "components/permissions/permission_result.h"
@@ -65,7 +66,7 @@ enum class RequestTypeForUma {
   PERMISSION_ACCESSIBILITY_EVENTS = 15,
   // PERMISSION_CLIPBOARD_READ = 16, // Replaced by
   // PERMISSION_CLIPBOARD_READ_WRITE in M81.
-  PERMISSION_SECURITY_KEY_ATTESTATION = 17,
+  // PERMISSION_SECURITY_KEY_ATTESTATION = 17,
   PERMISSION_PAYMENT_HANDLER = 18,
   PERMISSION_NFC = 19,
   PERMISSION_CLIPBOARD_READ_WRITE = 20,
@@ -77,7 +78,7 @@ enum class RequestTypeForUma {
   PERMISSION_LOCAL_FONTS = 26,
   PERMISSION_IDLE_DETECTION = 27,
   PERMISSION_FILE_HANDLING = 28,
-  PERMISSION_U2F_API_REQUEST = 29,
+  // PERMISSION_U2F_API_REQUEST = 29,
   PERMISSION_TOP_LEVEL_STORAGE_ACCESS = 30,
   PERMISSION_MIDI = 31,
   // NUM must be the last value in the enum.
@@ -380,8 +381,13 @@ enum class PermissionChangeAction {
   // CONTENT_SETTING_DEFAULT.
   RESET_FROM_DENIED = 3,
 
+  // For one time grantable permissions, the user can toggle a remember checkbox
+  // in the secondary page info page which toggles grants between permanent
+  // grant and one time grant.
+  REMEMBER_CHECKBOX_TOGGLED = 4,
+
   // Always keep at the end.
-  kMaxValue = RESET_FROM_DENIED
+  kMaxValue = REMEMBER_CHECKBOX_TOGGLED
 };
 
 // The reason the permission action `PermissionAction::IGNORED` was triggered.
@@ -623,6 +629,12 @@ class PermissionUmaUtil {
       PermissionSourceUI source_ui,
       content::BrowserContext* browser_context,
       base::Time current_time);
+
+  static absl::optional<uint32_t> GetDaysSinceUnusedSitePermissionRevocation(
+      const GURL& origin,
+      ContentSettingsType content_settings_type,
+      base::Time current_time,
+      HostContentSettingsMap* hcsm);
 
   // A scoped class that will check the current resolved content setting on
   // construction and report a revocation metric accordingly if the revocation

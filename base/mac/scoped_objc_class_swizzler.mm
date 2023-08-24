@@ -13,14 +13,14 @@ namespace base::mac {
 ScopedObjCClassSwizzler::ScopedObjCClassSwizzler(Class target,
                                                  Class source,
                                                  SEL selector)
-    : old_selector_impl_(NULL), new_selector_impl_(NULL) {
+    : old_selector_impl_(nullptr), new_selector_impl_(nullptr) {
   Init(target, source, selector, selector);
 }
 
 ScopedObjCClassSwizzler::ScopedObjCClassSwizzler(Class target,
                                                  SEL original,
                                                  SEL alternate)
-    : old_selector_impl_(NULL), new_selector_impl_(NULL) {
+    : old_selector_impl_(nullptr), new_selector_impl_(nullptr) {
   Init(target, target, original, alternate);
 }
 
@@ -59,7 +59,7 @@ void ScopedObjCClassSwizzler::Init(Class target,
   DCHECK(new_types);
   DCHECK_EQ(0, strcmp(old_types, new_types));
   if (!old_types || !new_types || strcmp(old_types, new_types)) {
-    old_selector_impl_ = new_selector_impl_ = NULL;
+    old_selector_impl_ = new_selector_impl_ = nullptr;
     return;
   }
 

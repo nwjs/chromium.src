@@ -6,6 +6,7 @@
 
 #include "build/build_config.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
+#include "gpu/command_buffer/common/gpu_memory_buffer_support.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/ipc/client/shared_image_interface_proxy.h"
 #include "ui/gfx/gpu_fence.h"
@@ -122,10 +123,30 @@ Mailbox ClientSharedImageInterface::CreateSharedImage(
     SkAlphaType alpha_type,
     uint32_t usage,
     base::StringPiece debug_label,
+    gpu::SurfaceHandle surface_handle,
+    gfx::BufferUsage buffer_usage) {
+  DCHECK_EQ(surface_handle, kNullSurfaceHandle);
+  DCHECK(gpu::IsValidClientUsage(usage));
+  return AddMailbox(proxy_->CreateSharedImage(format, size, color_space,
+                                              surface_origin, alpha_type, usage,
+                                              debug_label, buffer_usage));
+}
+
+Mailbox ClientSharedImageInterface::CreateSharedImage(
+    viz::SharedImageFormat format,
+    const gfx::Size& size,
+    const gfx::ColorSpace& color_space,
+    GrSurfaceOrigin surface_origin,
+    SkAlphaType alpha_type,
+    uint32_t usage,
+    base::StringPiece debug_label,
     gfx::GpuMemoryBufferHandle buffer_handle) {
   DCHECK(gpu::IsValidClientUsage(usage));
   DCHECK(viz::HasEquivalentBufferFormat(format));
   CHECK(!format.IsLegacyMultiplanar());
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  CHECK(!format.PrefersExternalSampler());
+#endif
   return AddMailbox(proxy_->CreateSharedImage(
       format, size, color_space, surface_origin, alpha_type, usage, debug_label,
       std::move(buffer_handle)));
@@ -141,9 +162,11 @@ Mailbox ClientSharedImageInterface::CreateSharedImage(
     uint32_t usage,
     base::StringPiece debug_label) {
   DCHECK(gpu::IsValidClientUsage(usage));
+  auto buffer_format = gpu_memory_buffer->GetFormat();
+  CHECK(gpu::IsPlaneValidForGpuMemoryBufferFormat(plane, buffer_format));
   return AddMailbox(proxy_->CreateSharedImage(
-      gpu_memory_buffer->GetFormat(), plane, gpu_memory_buffer->GetSize(),
-      color_space, surface_origin, alpha_type, usage, debug_label,
+      buffer_format, plane, gpu_memory_buffer->GetSize(), color_space,
+      surface_origin, alpha_type, usage, debug_label,
       gpu_memory_buffer->CloneHandle()));
 }
 

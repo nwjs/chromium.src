@@ -141,6 +141,21 @@ absl::optional<WebFeature> FeatureCoepRO(CrossOriginEmbedderPolicyValue value) {
   }
 }
 
+ukm::SourceId GetPageUkmSourceId(RenderFrameHost& rfh) {
+  // RenderFrameHost::GetPageUkmSourceId does not support being called in the
+  // prerendering state, because our data collection policy disallows collecting
+  // UKMs while prerendering. This function changes calls within Navigator to
+  // use kInvalidSourceId in this state, since most other callers outside
+  // Navigator can avoid the call during prerendering.
+  // If a future use case needs a UKM during prerendering, please see
+  // //content/browser/preloading/prerender/README.md and consult the Prerender
+  // team.
+  if (rfh.IsInLifecycleState(RenderFrameHost::LifecycleState::kPrerendering)) {
+    return ukm::kInvalidSourceId;
+  }
+  return rfh.GetPageUkmSourceId();
+}
+
 // TODO(titouan): Move the feature computation logic into `NavigationRequest`,
 // and use `NavigationRequest::TakeWebFeatureToLog()` to record them later.
 void RecordWebPlatformSecurityMetrics(RenderFrameHostImpl* rfh,
@@ -197,7 +212,7 @@ void RecordWebPlatformSecurityMetrics(RenderFrameHostImpl* rfh,
     log(WebFeature::kCrossOriginSubframeWithoutEmbeddingControl);
     RenderFrameHostImpl* main_frame = rfh->GetMainFrame();
     ukm::builders::CrossOriginSubframeWithoutEmbeddingControl(
-        main_frame->GetPageUkmSourceId())
+        GetPageUkmSourceId(*main_frame))
         .SetSubframeEmbedded(1)
         .Record(ukm::UkmRecorder::Get());
   }
@@ -732,7 +747,7 @@ void Navigator::Navigate(std::unique_ptr<NavigationRequest> request,
 
   metrics_data_ = std::make_unique<NavigationMetricsData>(
       request->common_params().navigation_start, request->common_params().url,
-      frame_tree_node->current_frame_host()->GetPageUkmSourceId(),
+      GetPageUkmSourceId(*frame_tree_node->current_frame_host()),
       true /* is_browser_initiated_before_unload */);
 
   // Check if the BeforeUnload event needs to execute before assigning the
@@ -1078,7 +1093,7 @@ void Navigator::OnBeginNavigation(
   metrics_data_ = std::make_unique<NavigationMetricsData>(
       navigation_request->common_params().navigation_start,
       navigation_request->common_params().url,
-      frame_tree_node->current_frame_host()->GetPageUkmSourceId(),
+      GetPageUkmSourceId(*frame_tree_node->current_frame_host()),
       false /* is_browser_initiated_before_unload */);
 
   LogRendererInitiatedBeforeUnloadTime(

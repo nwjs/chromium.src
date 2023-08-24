@@ -7,7 +7,9 @@
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
 #import "components/bookmarks/common/bookmark_features.h"
+#import "components/bookmarks/common/storage_type.h"
 #import "components/strings/grit/components_strings.h"
+#import "components/sync/base/features.h"
 #import "ios/chrome/browser/signin/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/signin/advanced_settings_signin/advanced_settings_signin_constants.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
@@ -30,10 +32,6 @@
 #import "ios/testing/earl_grey/matchers.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
 #import "ui/base/l10n/l10n_util_mac.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 using base::test::ios::kWaitForUIElementTimeout;
 using base::test::ios::WaitUntilConditionOrTimeout;
@@ -80,9 +78,12 @@ void WaitForSettingDoneButton() {
   AppLaunchConfiguration config;
   if ([self isRunningTest:@selector
             (testInterruptAdvancedSigninBookmarksFromAdvancedSigninSettings)]) {
-    // TODO(crbug.com/1455018): Re-enable the flag for non-legacy tests.
+    // When kReplaceSyncPromosWithSignInPromos is enabled, the advanced sync
+    // setup doesn't exist.
     config.features_disabled.push_back(
-        bookmarks::kEnableBookmarksAccountStorage);
+        syncer::kReplaceSyncPromosWithSignInPromos);
+    // TODO(crbug.com/1455018): Re-enable the flag for non-legacy tests.
+    config.features_disabled.push_back(syncer::kEnableBookmarksAccountStorage);
   }
   return config;
 }
@@ -90,7 +91,7 @@ void WaitForSettingDoneButton() {
 - (void)setUp {
   [super setUp];
 
-  [ChromeEarlGrey waitForBookmarksToFinishLoading];
+  [BookmarkEarlGrey waitForBookmarkModelsLoaded];
   [ChromeEarlGrey clearBookmarks];
   // TODO(crbug.com/1450472): Remove when kHideSettingsSyncPromo is launched.
   [SigninSettingsAppInterface setSettingsSigninPromoDisplayedCount:INT_MAX];
@@ -174,8 +175,9 @@ void WaitForSettingDoneButton() {
   // Add a bookmark after sync is initialized.
   [ChromeEarlGrey waitForSyncEngineInitialized:YES
                                    syncTimeout:kSyncOperationTimeout];
-  [ChromeEarlGrey waitForBookmarksToFinishLoading];
-  [BookmarkEarlGrey setupStandardBookmarks];
+  [BookmarkEarlGrey waitForBookmarkModelsLoaded];
+  [BookmarkEarlGrey
+      setupStandardBookmarksInStorage:bookmarks::StorageType::kLocalOrSyncable];
 
   // Sign out and clear data from Sync settings.
   [ChromeEarlGreyUI tapSettingsMenuButton:GoogleSyncSettingsButton()];
@@ -222,8 +224,9 @@ void WaitForSettingDoneButton() {
   // Add a bookmark after sync is initialized.
   [ChromeEarlGrey waitForSyncEngineInitialized:YES
                                    syncTimeout:kSyncOperationTimeout];
-  [ChromeEarlGrey waitForBookmarksToFinishLoading];
-  [BookmarkEarlGrey setupStandardBookmarks];
+  [BookmarkEarlGrey waitForBookmarkModelsLoaded];
+  [BookmarkEarlGrey
+      setupStandardBookmarksInStorage:bookmarks::StorageType::kLocalOrSyncable];
 
   // Sign out and keep data from Sync settings.
   [ChromeEarlGreyUI tapSettingsMenuButton:GoogleSyncSettingsButton()];
@@ -365,6 +368,7 @@ void WaitForSettingDoneButton() {
 // Tests interrupting sign-in by opening an URL from another app.
 // Sign-in opened from: bookmark view.
 // Interrupted at: advanced sign-in.
+// kReplaceSyncPromosWithSignInPromos is disabled.
 - (void)testInterruptAdvancedSigninBookmarksFromAdvancedSigninSettings {
   FakeSystemIdentity* fakeIdentity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:fakeIdentity];

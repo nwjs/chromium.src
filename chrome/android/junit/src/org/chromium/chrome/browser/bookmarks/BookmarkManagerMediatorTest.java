@@ -19,6 +19,7 @@ import static org.mockito.Mockito.atLeast;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -60,8 +61,9 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.bookmarks.BookmarkListEntry.ViewType;
 import org.chromium.chrome.browser.bookmarks.BookmarkRow.Location;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
+import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowSortOrder;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiState.BookmarkUiMode;
-import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties.StartImageVisibility;
+import org.chromium.chrome.browser.bookmarks.ImprovedBookmarkRowProperties.ImageVisibility;
 import org.chromium.chrome.browser.commerce.PriceTrackingUtils;
 import org.chromium.chrome.browser.commerce.PriceTrackingUtilsJni;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -205,21 +207,21 @@ public class BookmarkManagerMediatorTest {
     private final BookmarkId mDesktopFolderId = new BookmarkId(/*id=*/7, BookmarkType.NORMAL);
 
     private final BookmarkItem mFolderItem1 = new BookmarkItem(
-            mFolderId1, "Folder1", null, true, mRootFolderId, true, false, 0, false);
-    private final BookmarkItem mFolderItem2 =
-            new BookmarkItem(mFolderId2, "Folder2", null, true, mFolderId1, true, false, 0, false);
-    private final BookmarkItem mFolderItem3 =
-            new BookmarkItem(mFolderId3, "Folder3", null, true, mFolderId1, true, false, 0, false);
+            mFolderId1, "Folder1", null, true, mRootFolderId, true, false, 0, false, 0);
+    private final BookmarkItem mFolderItem2 = new BookmarkItem(
+            mFolderId2, "Folder2", null, true, mFolderId1, true, false, 0, false, 0);
+    private final BookmarkItem mFolderItem3 = new BookmarkItem(
+            mFolderId3, "Folder3", null, true, mFolderId1, true, false, 0, false, 0);
     private final BookmarkItem mBookmarkItem21 = new BookmarkItem(mBookmarkId21, "Bookmark21",
             JUnitTestGURLs.getGURL(JUnitTestGURLs.EXAMPLE_URL), false, mFolderId2, true, false, 0,
-            false);
+            false, 0);
     private final BookmarkItem mReadingListFolderItem = new BookmarkItem(mReadingListFolderId,
-            "Reading List", null, true, mRootFolderId, false, false, 0, false);
+            "Reading List", null, true, mRootFolderId, false, false, 0, false, 0);
     private final BookmarkItem mReadingListItem = new BookmarkItem(mReadingListId,
             JUnitTestGURLs.EXAMPLE_URL, JUnitTestGURLs.getGURL(JUnitTestGURLs.EXAMPLE_URL), false,
-            mReadingListFolderId, true, false, 0, false);
+            mReadingListFolderId, true, false, 0, false, 0);
     private final BookmarkItem mDesktopFolderItem = new BookmarkItem(
-            mDesktopFolderId, "Desktop", null, true, mRootFolderId, false, false, 0, false);
+            mDesktopFolderId, "Desktop", null, true, mRootFolderId, false, false, 0, false, 0);
     private final ModelList mModelList = new ModelList();
     private final Bitmap mBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
     private BookmarkUiPrefs mBookmarkUiPrefs =
@@ -233,6 +235,9 @@ public class BookmarkManagerMediatorTest {
     public void setUp() {
         mActivityScenarioRule.getScenario().onActivity((activity) -> {
             mActivity = spy(activity);
+
+            // Setup Profile.
+            Profile.setLastUsedProfileForTesting(mProfile);
 
             // Setup UrlFormatter.
             mJniMocker.mock(UrlFormatterJni.TEST_HOOKS, mUrlFormatterJniMock);
@@ -274,6 +279,10 @@ public class BookmarkManagerMediatorTest {
                     .when(mBookmarkModel)
                     .getBookmarkById(mReadingListFolderId);
             doReturn(mReadingListItem).when(mBookmarkModel).getBookmarkById(mReadingListId);
+            doReturn(true).when(mBookmarkModel).isFolderVisible(any());
+            doReturn(Arrays.asList(mReadingListFolderId))
+                    .when(mBookmarkModel)
+                    .getTopLevelFolderIds(/*getSpecial=*/true, /*getNormal=*/false);
 
             // Setup SelectableListLayout.
             doReturn(mActivity).when(mSelectableListLayout).getContext();
@@ -299,7 +308,7 @@ public class BookmarkManagerMediatorTest {
             mBookmarkUiPrefs.setBookmarkRowDisplayPref(BookmarkRowDisplayPref.COMPACT);
 
             // Setup sync/identify mocks.
-            SyncServiceFactory.overrideForTests(mSyncService);
+            SyncServiceFactory.setInstanceForTesting(mSyncService);
             IdentityServicesProvider.setInstanceForTests(mIdentityServicesProvider);
             doReturn(mSigninManager).when(mIdentityServicesProvider).getSigninManager(any());
             doReturn(mIdentityManager).when(mSigninManager).getIdentityManager();
@@ -621,6 +630,7 @@ public class BookmarkManagerMediatorTest {
     @Test
     @EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
     public void onPreferenceChanged_ViewPreferenceUpdated() {
+        mMediator.onBookmarkModelLoaded();
         mMediator.openFolder(mFolderId1);
         mBookmarkUiPrefs.setBookmarkRowDisplayPref(BookmarkRowDisplayPref.VISUAL);
         assertEquals(ViewType.IMPROVED_BOOKMARK_VISUAL, mModelList.get(1).type);
@@ -652,7 +662,7 @@ public class BookmarkManagerMediatorTest {
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.DRAG_ENABLED));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.LIST_MENU_BUTTON_DELEGATE));
         assertEquals(true, model.get(ImprovedBookmarkRowProperties.EDITABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.OPEN_BOOKMARK_CALLBACK));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER));
     }
 
     @Test
@@ -705,7 +715,7 @@ public class BookmarkManagerMediatorTest {
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.DRAG_ENABLED));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.LIST_MENU_BUTTON_DELEGATE));
         assertEquals(true, model.get(ImprovedBookmarkRowProperties.EDITABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.OPEN_BOOKMARK_CALLBACK));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER));
     }
 
     @Test
@@ -753,9 +763,10 @@ public class BookmarkManagerMediatorTest {
         assertEquals(mFolderItem2.getId(),
                 model.get(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY).getBookmarkItem().getId());
         assertEquals(mFolderId2, model.get(BookmarkManagerProperties.BOOKMARK_ID));
-        assertEquals(mFolderItem2.getTitle(), model.get(ImprovedBookmarkRowProperties.TITLE));
-        assertEquals("1 bookmark", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
-        assertEquals(StartImageVisibility.DRAWABLE,
+        assertEquals(
+                mFolderItem2.getTitle() + " (1)", model.get(ImprovedBookmarkRowProperties.TITLE));
+        assertFalse(model.get(ImprovedBookmarkRowProperties.DESCRIPTION_VISIBLE));
+        assertEquals(ImageVisibility.DRAWABLE,
                 model.get(ImprovedBookmarkRowProperties.START_IMAGE_VISIBILITY));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_AREA_BACKGROUND_COLOR));
@@ -765,7 +776,7 @@ public class BookmarkManagerMediatorTest {
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.DRAG_ENABLED));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.LIST_MENU_BUTTON_DELEGATE));
         assertEquals(true, model.get(ImprovedBookmarkRowProperties.EDITABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.OPEN_BOOKMARK_CALLBACK));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER));
     }
 
     @Test
@@ -785,8 +796,8 @@ public class BookmarkManagerMediatorTest {
                 model.get(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY).getBookmarkItem().getId());
         assertEquals(mFolderId2, model.get(BookmarkManagerProperties.BOOKMARK_ID));
         assertEquals(mFolderItem2.getTitle(), model.get(ImprovedBookmarkRowProperties.TITLE));
-        assertEquals("1 bookmark", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
-        assertEquals(StartImageVisibility.FOLDER_DRAWABLE,
+        assertFalse(model.get(ImprovedBookmarkRowProperties.DESCRIPTION_VISIBLE));
+        assertEquals(ImageVisibility.FOLDER_DRAWABLE,
                 model.get(ImprovedBookmarkRowProperties.START_IMAGE_VISIBILITY));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_AREA_BACKGROUND_COLOR));
@@ -796,7 +807,7 @@ public class BookmarkManagerMediatorTest {
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.DRAG_ENABLED));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.LIST_MENU_BUTTON_DELEGATE));
         assertEquals(true, model.get(ImprovedBookmarkRowProperties.EDITABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.OPEN_BOOKMARK_CALLBACK));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER));
     }
 
     @Test
@@ -814,8 +825,8 @@ public class BookmarkManagerMediatorTest {
         assertEquals(mFolderItem2.getId(),
                 model.get(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY).getBookmarkItem().getId());
         assertEquals(mFolderId2, model.get(BookmarkManagerProperties.BOOKMARK_ID));
-        assertEquals(mFolderItem2.getTitle(), model.get(ImprovedBookmarkRowProperties.TITLE));
-        assertEquals("1 bookmark", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
+        assertEquals(
+                mFolderItem2.getTitle() + " (1)", model.get(ImprovedBookmarkRowProperties.TITLE));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_AREA_BACKGROUND_COLOR));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_ICON_TINT));
@@ -824,7 +835,7 @@ public class BookmarkManagerMediatorTest {
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.DRAG_ENABLED));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.LIST_MENU_BUTTON_DELEGATE));
         assertEquals(true, model.get(ImprovedBookmarkRowProperties.EDITABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.OPEN_BOOKMARK_CALLBACK));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER));
     }
 
     @Test
@@ -844,15 +855,14 @@ public class BookmarkManagerMediatorTest {
                 model.get(BookmarkManagerProperties.BOOKMARK_LIST_ENTRY).getBookmarkItem());
         assertEquals(mFolderId2, model.get(BookmarkManagerProperties.BOOKMARK_ID));
         assertEquals(mFolderItem2.getTitle(), model.get(ImprovedBookmarkRowProperties.TITLE));
-        assertEquals("1 bookmark", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
+        assertFalse(model.get(ImprovedBookmarkRowProperties.DESCRIPTION_VISIBLE));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.START_IMAGE_FOLDER_DRAWABLES));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.POPUP_LISTENER));
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.SELECTION_ACTIVE));
         assertEquals(false, model.get(ImprovedBookmarkRowProperties.DRAG_ENABLED));
         assertNotNull(model.get(ImprovedBookmarkRowProperties.LIST_MENU_BUTTON_DELEGATE));
         assertEquals(true, model.get(ImprovedBookmarkRowProperties.EDITABLE));
-        assertNotNull(model.get(ImprovedBookmarkRowProperties.OPEN_BOOKMARK_CALLBACK));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ROW_CLICK_LISTENER));
     }
 
     @Test
@@ -984,19 +994,65 @@ public class BookmarkManagerMediatorTest {
     @EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
     public void testParentFolderUpdatedWhenChildDeleted() {
         finishLoading();
+
+        doReturn(1).when(mBookmarkModel).getTotalBookmarkCount(mFolderId2);
+        doReturn(2).when(mBookmarkModel).getTotalBookmarkCount(mFolderId3);
         mMediator.openFolder(mFolderId1);
         mBookmarkUiPrefs.setBookmarkRowDisplayPref(BookmarkRowDisplayPref.VISUAL);
+
         assertEquals(3, mModelList.size());
+        PropertyModel coordinatorModel =
+                mModelList.get(1)
+                        .model.get(ImprovedBookmarkRowProperties.FOLDER_COORDINATOR)
+                        .getModelForTesting();
         assertEquals(
-                1, mModelList.get(1).model.get(ImprovedBookmarkRowProperties.FOLDER_CHILD_COUNT));
+                1, coordinatorModel.get(ImprovedBookmarkFolderViewProperties.FOLDER_CHILD_COUNT));
 
         doReturn(0).when(mBookmarkModel).getTotalBookmarkCount(mFolderId2);
         verify(mBookmarkModel).addObserver(mBookmarkModelObserverArgumentCaptor.capture());
         mBookmarkModelObserverArgumentCaptor.getValue().bookmarkNodeRemoved(
                 mFolderItem2, 0, mBookmarkItem21, false);
-
+        coordinatorModel = mModelList.get(1)
+                                   .model.get(ImprovedBookmarkRowProperties.FOLDER_COORDINATOR)
+                                   .getModelForTesting();
         assertEquals(
-                0, mModelList.get(1).model.get(ImprovedBookmarkRowProperties.FOLDER_CHILD_COUNT));
+                0, coordinatorModel.get(ImprovedBookmarkFolderViewProperties.FOLDER_CHILD_COUNT));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
+    public void testChildRemoved() {
+        finishLoading();
+
+        mMediator.openFolder(mFolderId1);
+        mBookmarkUiPrefs.setBookmarkRowDisplayPref(BookmarkRowDisplayPref.VISUAL);
+
+        assertEquals(3, mModelList.size());
+
+        reset(mBookmarkUiObserver);
+        verify(mBookmarkModel).addObserver(mBookmarkModelObserverArgumentCaptor.capture());
+        mBookmarkModelObserverArgumentCaptor.getValue().bookmarkNodeRemoved(
+                mFolderItem2, 0, mFolderItem2, false);
+        assertEquals(2, mModelList.size());
+        verify(mBookmarkUiObserver, times(0)).onUiModeChanged(BookmarkUiMode.FOLDER);
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
+    public void testChildRemoved_indexNotFound() {
+        finishLoading();
+
+        mMediator.openFolder(mFolderId1);
+        mBookmarkUiPrefs.setBookmarkRowDisplayPref(BookmarkRowDisplayPref.VISUAL);
+
+        assertEquals(3, mModelList.size());
+
+        reset(mBookmarkUiObserver);
+        verify(mBookmarkModel).addObserver(mBookmarkModelObserverArgumentCaptor.capture());
+        mBookmarkModelObserverArgumentCaptor.getValue().bookmarkNodeRemoved(
+                mFolderItem2, 0, mBookmarkItem21, false);
+        assertEquals(3, mModelList.size());
+        verify(mBookmarkUiObserver, times(1)).onUiModeChanged(BookmarkUiMode.FOLDER);
     }
 
     @Test
@@ -1113,5 +1169,56 @@ public class BookmarkManagerMediatorTest {
         assertEquals(normalBackgroundColor,
                 mModelList.get(2).model.get(
                         ImprovedBookmarkRowProperties.START_AREA_BACKGROUND_COLOR));
+    }
+
+    // Tests directly related to a regression.
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
+    public void testShowInFolder() { // https://crbug.com/1456275
+        when(mBookmarkModel.searchBookmarks(eq("test"), anyInt()))
+                .thenReturn(Collections.singletonList(mBookmarkId21));
+        finishLoading();
+
+        mMediator.openFolder(mFolderId1);
+        mMediator.openSearchUi();
+        mMediator.search("test");
+        BasicListMenu menu =
+                (BasicListMenu) mMediator.createListMenuForBookmark(mModelList.get(1).model);
+        assertNotNull(menu);
+        assertFalse(mModelList.get(1).model.get(BookmarkManagerProperties.IS_HIGHLIGHTED));
+
+        // Show in folder.
+        menu.onItemClick(null, null, 4, 0);
+        assertTrue(mModelList.get(1).model.get(BookmarkManagerProperties.IS_HIGHLIGHTED));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_IMPROVED_BOOKMARKS)
+    public void testChangeSortOrderDuringSearch() { // https://crbug.com/1464965
+        mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.ALPHABETICAL);
+        when(mBookmarkModel.searchBookmarks(eq("test"), anyInt()))
+                .thenReturn(Arrays.asList(mFolderId1, mFolderId2));
+        finishLoading();
+
+        mMediator.search("test");
+        verifyCurrentBookmarkIds(null, mFolderId1, mFolderId2);
+
+        mBookmarkUiPrefs.setBookmarkRowSortOrder(BookmarkRowSortOrder.REVERSE_ALPHABETICAL);
+        verifyCurrentBookmarkIds(null, mFolderId2, mFolderId1);
+    }
+
+    @Test
+    public void testSelectionMoved_dropSelection() {
+        finishLoading();
+        mMediator.openFolder(mFolderId1);
+
+        doReturn(true).when(mSelectionDelegate).isItemSelected(mFolderId2);
+        mModelList.removeAt(mMediator.getPositionForBookmark(mFolderId2));
+
+        verify(mBookmarkModel).addObserver(mBookmarkModelObserverArgumentCaptor.capture());
+        mBookmarkModelObserverArgumentCaptor.getValue().bookmarkNodeChanged(mFolderItem2);
+
+        verify(mSelectionDelegate).toggleSelectionForItem(mFolderId2);
     }
 }

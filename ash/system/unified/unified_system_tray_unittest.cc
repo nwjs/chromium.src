@@ -38,7 +38,9 @@
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/dbus/audio/audio_node.h"
 #include "chromeos/ash/components/dbus/audio/fake_cras_audio_client.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/events/event_constants.h"
@@ -49,6 +51,8 @@ namespace ash {
 namespace {
 
 constexpr int kQsDetailedViewHeight = 464;
+constexpr char kQuickSettingsPageCountOnClose[] =
+    "Ash.QuickSettings.PageCountOnClose";
 
 }  // namespace
 
@@ -66,11 +70,10 @@ class UnifiedSystemTrayTest
   ~UnifiedSystemTrayTest() override = default;
 
   void SetUp() override {
-    base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kCameraEffectsSupportedByHardware);
-
     std::vector<base::test::FeatureRef> enabled_features;
     std::vector<base::test::FeatureRef> disabled_features;
+
+    enabled_features.push_back(features::kCameraEffectsSupportedByHardware);
     if (IsQsRevampEnabled()) {
       enabled_features.push_back(features::kQsRevamp);
     } else {
@@ -548,6 +551,51 @@ TEST_P(UnifiedSystemTrayTest, TimeInQuickSettingsMetric) {
                                     /*count=*/2);
 }
 
+// Tests that the number of quick settings pages is recorded when the QS bubble
+// is closed. Tests that the metric is not recorded when QsRevamp is disabled.
+TEST_P(UnifiedSystemTrayTest, QuickSettingsPageCountMetric) {
+  base::HistogramTester histogram_tester;
+
+  // Show the bubble with one page and verify that nothing is recorded yet.
+  auto* tray = GetPrimaryUnifiedSystemTray();
+  tray->ShowBubble();
+  tray->bubble()
+      ->unified_system_tray_controller()
+      ->model()
+      ->pagination_model()
+      ->SetTotalPages(1);
+  histogram_tester.ExpectTotalCount(kQuickSettingsPageCountOnClose, 0);
+
+  // Close the bubble and verify that the metric is recorded.
+  tray->CloseBubble();
+  histogram_tester.ExpectTotalCount(kQuickSettingsPageCountOnClose,
+                                    IsQsRevampEnabled() ? 1 : 0);
+  histogram_tester.ExpectBucketCount(
+      kQuickSettingsPageCountOnClose,
+      /*sample=*/1,
+      /*expected_count=*/IsQsRevampEnabled() ? 1 : 0);
+
+  // Show the bubble with two pages, and verify that the metric is recorded when
+  // the bubble is closed.
+  tray->ShowBubble();
+  tray->bubble()
+      ->unified_system_tray_controller()
+      ->model()
+      ->pagination_model()
+      ->SetTotalPages(2);
+  tray->CloseBubble();
+  histogram_tester.ExpectTotalCount(kQuickSettingsPageCountOnClose,
+                                    IsQsRevampEnabled() ? 2 : 0);
+  histogram_tester.ExpectBucketCount(
+      kQuickSettingsPageCountOnClose,
+      /*sample=*/2,
+      /*expected_count=*/IsQsRevampEnabled() ? 1 : 0);
+  histogram_tester.ExpectBucketCount(
+      kQuickSettingsPageCountOnClose,
+      /*sample=*/1,
+      /*expected_count=*/IsQsRevampEnabled() ? 1 : 0);
+}
+
 // Tests that pressing the TOGGLE_CALENDAR accelerator once results in the
 // calendar view showing.
 TEST_P(UnifiedSystemTrayTest, PressCalendarAccelerator) {
@@ -828,8 +876,14 @@ TEST_P(UnifiedSystemTrayTest, TrayBackgroundColorAfterSwitchToTabletMode) {
             ShelfConfig::Get()->GetShelfControlButtonColor(widget));
 
   tablet_mode_controller->SetEnabledForTest(true);
-  EXPECT_EQ(tray->layer()->background_color(),
-            ShelfConfig::Get()->GetShelfControlButtonColor(widget));
+  if (chromeos::features::IsJellyEnabled()) {
+    EXPECT_EQ(tray->layer()->background_color(),
+              widget->GetColorProvider()->GetColor(
+                  cros_tokens::kCrosSysSystemBaseElevated));
+  } else {
+    EXPECT_EQ(tray->layer()->background_color(),
+              ShelfConfig::Get()->GetShelfControlButtonColor(widget));
+  }
 
   tablet_mode_controller->SetEnabledForTest(false);
   EXPECT_EQ(tray->layer()->background_color(),

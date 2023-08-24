@@ -20,10 +20,6 @@
 #import "testing/gtest/include/gtest/gtest.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 const char* kAllowedPattern = "[*.]example.com";
@@ -125,19 +121,19 @@ TEST_F(BlockPopupsTableViewControllerTest, TestOneAllowedItem) {
 TEST_F(BlockPopupsTableViewControllerTest, TestOneAllowedItemDeleted) {
   // Get the number of entries before testing, to ensure after adding and
   // deleting, the entries are the same.
-  ContentSettingsForOneType initial_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &initial_entries);
+  ContentSettingsForOneType initial_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
 
   // Add the pattern to be deleted.
   AddAllowedPattern(kAllowedPattern, GURL(kAllowedURL));
 
   // Make sure adding the pattern changed the settings size.
-  ContentSettingsForOneType added_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &added_entries);
+  ContentSettingsForOneType added_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
   EXPECT_NE(initial_entries.size(), added_entries.size());
 
   CreateController();
@@ -154,10 +150,10 @@ TEST_F(BlockPopupsTableViewControllerTest, TestOneAllowedItemDeleted) {
       }));
 
   // Verify that there are no longer any allowed patterns in `profile_`.
-  ContentSettingsForOneType final_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &final_entries);
+  ContentSettingsForOneType final_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
   EXPECT_EQ(initial_entries.size(), final_entries.size());
 }
 
@@ -165,10 +161,10 @@ TEST_F(BlockPopupsTableViewControllerTest, TestOneAllowedItemDeleted) {
 TEST_F(BlockPopupsTableViewControllerTest, TestMultipleAllowedItemsDeleted) {
   // Get the number of entries before testing, to ensure after adding and
   // deleting, the entries are the same.
-  ContentSettingsForOneType initial_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &initial_entries);
+  ContentSettingsForOneType initial_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
 
   // Add 3 patterns.
   AddAllowedPattern(kAllowedPattern, GURL(kAllowedURL));
@@ -184,10 +180,10 @@ TEST_F(BlockPopupsTableViewControllerTest, TestMultipleAllowedItemsDeleted) {
       std::pair<std::string, std::string>(kAllowedPattern3, kAllowedURL3));
 
   // Make sure adding the pattern changed the settings size.
-  ContentSettingsForOneType added_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &added_entries);
+  ContentSettingsForOneType added_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
   EXPECT_NE(initial_entries.size(), added_entries.size());
 
   CreateController();
@@ -254,10 +250,10 @@ TEST_F(BlockPopupsTableViewControllerTest, TestMultipleAllowedItemsDeleted) {
 TEST_F(BlockPopupsTableViewControllerTest, TestMultipleAllowedItemsDeleted2) {
   // Get the number of entries before testing, to ensure after adding and
   // deleting, the entries are the same.
-  ContentSettingsForOneType initial_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &initial_entries);
+  ContentSettingsForOneType initial_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
 
   // Add 3 patterns.
   AddAllowedPattern(kAllowedPattern, GURL(kAllowedURL));
@@ -265,10 +261,10 @@ TEST_F(BlockPopupsTableViewControllerTest, TestMultipleAllowedItemsDeleted2) {
   AddAllowedPattern(kAllowedPattern3, GURL(kAllowedURL3));
 
   // Make sure adding the pattern changed the settings size.
-  ContentSettingsForOneType added_entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(
-      chrome_browser_state_.get())
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &added_entries);
+  ContentSettingsForOneType added_entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(
+          chrome_browser_state_.get())
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
   EXPECT_NE(initial_entries.size(), added_entries.size());
 
   CreateController();

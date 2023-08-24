@@ -306,7 +306,8 @@ AutocompleteMatch::AutocompleteMatch(const AutocompleteMatch& match)
       query_tiles(match.query_tiles),
       suggest_tiles(match.suggest_tiles),
       scoring_signals(match.scoring_signals),
-      culled_by_provider(match.culled_by_provider) {}
+      culled_by_provider(match.culled_by_provider),
+      shortcut_boosted(match.shortcut_boosted) {}
 
 AutocompleteMatch::AutocompleteMatch(AutocompleteMatch&& match) noexcept {
   *this = std::move(match);
@@ -363,6 +364,7 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   suggest_tiles = std::move(match.suggest_tiles);
   scoring_signals = std::move(match.scoring_signals);
   culled_by_provider = std::move(match.culled_by_provider);
+  shortcut_boosted = std::move(match.shortcut_boosted);
 #if BUILDFLAG(IS_ANDROID)
   DestroyJavaObject();
   std::swap(java_match_, match.java_match_);
@@ -437,6 +439,7 @@ AutocompleteMatch& AutocompleteMatch::operator=(
   suggest_tiles = match.suggest_tiles;
   scoring_signals = match.scoring_signals;
   culled_by_provider = match.culled_by_provider;
+  shortcut_boosted = match.shortcut_boosted;
 
 #if BUILDFLAG(IS_ANDROID)
   // In case the target element previously held a java object, release it.
@@ -789,6 +792,11 @@ bool AutocompleteMatch::IsSearchType(Type type) {
          type == AutocompleteMatchType::SEARCH_OTHER_ENGINE ||
          type == AutocompleteMatchType::CALCULATOR ||
          type == AutocompleteMatchType::VOICE_SUGGEST ||
+#if BUILDFLAG(IS_ANDROID)
+         // iOS tests fail if Clipboard searches are annotated as searches.
+         type == AutocompleteMatchType::CLIPBOARD_TEXT ||
+         type == AutocompleteMatchType::CLIPBOARD_IMAGE ||
+#endif
          IsSpecializedSearchType(type);
 }
 
@@ -1021,6 +1029,11 @@ void AutocompleteMatch::LogSearchEngineUsed(
             : SEARCH_ENGINE_OTHER;
     UMA_HISTOGRAM_ENUMERATION("Omnibox.SearchEngineType", search_engine_type,
                               SEARCH_ENGINE_MAX);
+    if (template_url->created_by_policy()) {
+      UMA_HISTOGRAM_ENUMERATION(
+          "Omnibox.SearchEngineType.SetByEnterprisePolicy", search_engine_type,
+          SEARCH_ENGINE_MAX);
+    }
   }
 }
 

@@ -106,6 +106,8 @@ bool StructTraits<network::mojom::TrustedUrlRequestParamsDataView,
   }
   out->accept_ch_frame_observer = data.TakeAcceptChFrameObserver<
       mojo::PendingRemote<network::mojom::AcceptCHFrameObserver>>();
+  out->shared_dictionary_observer = data.TakeSharedDictionaryObserver<
+      mojo::PendingRemote<network::mojom::SharedDictionaryAccessObserver>>();
   return true;
 }
 
@@ -174,7 +176,9 @@ bool StructTraits<
       !data.ReadNetLogReferenceInfo(&out->net_log_reference_info) ||
       !data.ReadNavigationRedirectChain(&out->navigation_redirect_chain) ||
       !data.ReadAttributionReportingRuntimeFeatures(
-          &out->attribution_reporting_runtime_features)) {
+          &out->attribution_reporting_runtime_features) ||
+      !data.ReadAttributionReportingSrcToken(
+          &out->attribution_reporting_src_token)) {
     // Note that data.ReadTrustTokenParams is temporarily handled below.
     return false;
   }
@@ -219,6 +223,11 @@ bool StructTraits<
       data.attribution_reporting_eligibility();
   out->shared_dictionary_writer_enabled =
       data.shared_dictionary_writer_enabled();
+#if BUILDFLAG(IS_ANDROID)
+  if (!data.ReadCreatedLocation(&out->created_location)) {
+    return false;
+  }
+#endif
   return true;
 }
 

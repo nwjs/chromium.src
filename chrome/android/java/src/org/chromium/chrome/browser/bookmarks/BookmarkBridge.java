@@ -125,7 +125,6 @@ class BookmarkBridge {
      * Load an empty partner bookmark shim for testing. The root node for bookmark will be an
      * empty node.
      */
-    @VisibleForTesting
     public void loadEmptyPartnerBookmarkShimForTesting() {
         BookmarkBridgeJni.get().loadEmptyPartnerBookmarkShimForTesting(
                 mNativeBookmarkBridge, BookmarkBridge.this);
@@ -135,7 +134,6 @@ class BookmarkBridge {
      * Load a fake partner bookmark shim for testing. To see (or edit) the titles and URLs of the
      * partner bookmarks, go to bookmark_bridge.cc.
      */
-    @VisibleForTesting
     public void loadFakePartnerBookmarkShimForTesting() {
         BookmarkBridgeJni.get().loadFakePartnerBookmarkShimForTesting(
                 mNativeBookmarkBridge, BookmarkBridge.this);
@@ -211,7 +209,7 @@ class BookmarkBridge {
         if (BookmarkId.SHOPPING_FOLDER.equals(id)) {
             return new BookmarkItem(id, /*title=*/null, /*url=*/null,
                     /*isFolder=*/true, /*parentId=*/getRootFolderId(), /*isEditable=*/false,
-                    /*isManaged=*/false, /*dateAdded=*/0L, /*read=*/false);
+                    /*isManaged=*/false, /*dateAdded=*/0L, /*read=*/false, /*dateLastOpened=*/0L);
         }
 
         return BookmarkBridgeJni.get().getBookmarkById(
@@ -369,7 +367,6 @@ class BookmarkBridge {
      *
      * @return Bookmark GUID of the given node.
      */
-    @VisibleForTesting
     public String getBookmarkGuidByIdForTesting(BookmarkId id) {
         ThreadUtils.assertOnUiThread();
         if (mNativeBookmarkBridge == 0) return null;
@@ -544,6 +541,19 @@ class BookmarkBridge {
         if (mNativeBookmarkBridge == 0) return;
         BookmarkBridgeJni.get().deletePowerBookmarkMeta(
                 mNativeBookmarkBridge, BookmarkBridge.this, id.getId(), id.getType());
+    }
+
+    /**
+     * Returns whether all of the given {@link BookmarkId}s exist in the current bookmark model.
+     */
+    public boolean doAllBookmarksExist(List<BookmarkId> bookmarkIds) {
+        ThreadUtils.assertOnUiThread();
+        for (BookmarkId bookmarkId : bookmarkIds) {
+            if (!doesBookmarkExist(bookmarkId)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -897,9 +907,10 @@ class BookmarkBridge {
     @CalledByNative
     private static BookmarkItem createBookmarkItem(long id, int type, String title, GURL url,
             boolean isFolder, long parentId, int parentIdType, boolean isEditable,
-            boolean isManaged, long dateAdded, boolean read) {
+            boolean isManaged, long dateAdded, boolean read, long dateLastOpened) {
         return new BookmarkItem(new BookmarkId(id, type), title, url, isFolder,
-                new BookmarkId(parentId, parentIdType), isEditable, isManaged, dateAdded, read);
+                new BookmarkId(parentId, parentIdType), isEditable, isManaged, dateAdded, read,
+                dateLastOpened);
     }
 
     @CalledByNative
@@ -908,13 +919,14 @@ class BookmarkBridge {
     }
 
     @CalledByNative
-    private static void addToBookmarkIdList(List<BookmarkId> bookmarkIdList, long id, int type) {
+    private static void addToBookmarkIdList(
+            List<BookmarkId> bookmarkIdList, long id, @BookmarkType int type) {
         bookmarkIdList.add(new BookmarkId(id, type));
     }
 
     @CalledByNative
     private static void addToBookmarkIdListWithDepth(List<BookmarkId> folderList, long id,
-            int type, List<Integer> depthList, int depth) {
+            @BookmarkType int type, List<Integer> depthList, int depth) {
         folderList.add(new BookmarkId(id, type));
         depthList.add(depth);
     }

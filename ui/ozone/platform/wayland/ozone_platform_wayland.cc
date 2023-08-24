@@ -38,6 +38,7 @@
 #include "ui/ozone/platform/wayland/gpu/wayland_gl_egl_utility.h"
 #include "ui/ozone/platform/wayland/gpu/wayland_overlay_manager.h"
 #include "ui/ozone/platform/wayland/gpu/wayland_surface_factory.h"
+#include "ui/ozone/platform/wayland/host/surface_augmenter.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_connector.h"
 #include "ui/ozone/platform/wayland/host/wayland_buffer_manager_host.h"
 #include "ui/ozone/platform/wayland/host/wayland_connection.h"
@@ -65,10 +66,10 @@
 #include "ui/events/ozone/layout/stub/stub_keyboard_layout_engine.h"
 #endif
 
-#if BUILDFLAG(IS_CHROMEOS)
-#include "ui/ozone/common/bitmap_cursor_factory.h"
-#else
+#if BUILDFLAG(IS_LINUX)
 #include "ui/ozone/platform/wayland/host/wayland_cursor_factory.h"
+#else
+#include "ui/ozone/common/bitmap_cursor_factory.h"
 #endif
 
 #if BUILDFLAG(IS_LINUX)
@@ -245,10 +246,10 @@ class OzonePlatformWayland : public OzonePlatform,
 
     buffer_manager_connector_ = std::make_unique<WaylandBufferManagerConnector>(
         connection_->buffer_manager_host());
-#if BUILDFLAG(IS_CHROMEOS)
-    cursor_factory_ = std::make_unique<BitmapCursorFactory>();
-#else
+#if BUILDFLAG(IS_LINUX)
     cursor_factory_ = std::make_unique<WaylandCursorFactory>(connection_.get());
+#else
+    cursor_factory_ = std::make_unique<BitmapCursorFactory>();
 #endif
     input_controller_ = CreateWaylandInputController(connection_.get());
     gpu_platform_support_host_.reset(CreateStubGpuPlatformSupportHost());
@@ -348,6 +349,9 @@ class OzonePlatformWayland : public OzonePlatform,
           connection_->ShouldUseOverlayDelegation() &&
           connection_->buffer_manager_host()
               ->SupportsNonBackedSolidColorBuffers();
+      properties.supports_single_pixel_buffer =
+          ui::IsWaylandOverlayDelegationEnabled() &&
+          connection_->buffer_manager_host()->SupportsSinglePixelBuffer();
       // Primary planes can be transluscent due to underlay strategy. As a
       // result Wayland server draws contents occluded by an accelerated widget.
       // To prevent this, an opaque background image is stacked below the
@@ -373,6 +377,9 @@ class OzonePlatformWayland : public OzonePlatform,
       properties.supports_non_backed_solid_color_buffers =
           buffer_manager_->supports_overlays() &&
           buffer_manager_->supports_non_backed_solid_color_buffers();
+      properties.supports_single_pixel_buffer =
+          ui::IsWaylandOverlayDelegationEnabled() &&
+          buffer_manager_->supports_single_pixel_buffer();
       // See the comment above.
       properties.needs_background_image =
           buffer_manager_->supports_overlays() &&
@@ -380,6 +387,8 @@ class OzonePlatformWayland : public OzonePlatform,
       properties.supports_native_pixmaps =
           surface_factory_->SupportsNativePixmaps();
       properties.supports_clip_rect = buffer_manager_->supports_clip_rect();
+      properties.supports_affine_transform =
+          buffer_manager_->supports_affine_transform();
     }
     return properties;
   }

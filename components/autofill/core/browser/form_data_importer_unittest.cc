@@ -60,8 +60,9 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using autofill::test::CreateTestFormField;
 using base::UTF8ToUTF16;
-using testing::_;
+using ::testing::_;
 
 namespace autofill {
 
@@ -81,7 +82,6 @@ constexpr char kDefaultCity[] = "Los Angeles";
 constexpr char kDefaultState[] = "California";
 constexpr char kDefaultCountry[] = "US";
 constexpr char kDefaultPhone[] = "+1 650-555-0000";
-constexpr char kDefaultPhoneAlternativeFormatting[] = "650-555-0000";
 constexpr char kDefaultPhoneDomesticFormatting[] = "(650) 555-0000";
 constexpr char kDefaultPhoneAreaCode[] = "650";
 constexpr char kDefaultPhonePrefix[] = "555";
@@ -160,13 +160,11 @@ FormData ConstructFormDateFromTypeValuePairs(
   FormData form;
   form.url = GURL(url);
 
-  FormFieldData field;
   for (const auto& [type, value] : type_value_pairs) {
     const auto& [name, label] = GetLabelAndNameForType(type);
-    test::CreateTestFormField(
-        name.c_str(), label.c_str(), value.c_str(),
-        type == ADDRESS_HOME_STREET_ADDRESS ? "textarea" : "text", &field);
-    form.fields.push_back(field);
+    form.fields.push_back(CreateTestFormField(
+        name, label, value,
+        type == ADDRESS_HOME_STREET_ADDRESS ? "textarea" : "text"));
   }
 
   return form;
@@ -417,8 +415,6 @@ ACTION_P(QuitMessageLoop, loop) {
   loop->Quit();
 }
 
-enum UserMode { USER_MODE_NORMAL, USER_MODE_INCOGNITO };
-
 class PersonalDataLoadedObserverMock : public PersonalDataManagerObserver {
  public:
   PersonalDataLoadedObserverMock() = default;
@@ -492,7 +488,7 @@ class FormDataImporterTestBase {
  protected:
   FormDataImporterTestBase() : autofill_table_(nullptr) {}
 
-  void ResetPersonalDataManager(UserMode user_mode) {
+  void ResetPersonalDataManager() {
     // Before invalidating the `personal_data_manager_`, the `autofill_client_`s
     // FormDataImporter needs to be reset, because it stores a weak pointer to
     // `personal_data_manager_` that otherwise points to garbage.
@@ -511,10 +507,9 @@ class FormDataImporterTestBase {
         /*local_state=*/prefs_.get(),
         /*identity_manager=*/identity_test_env_.identity_manager(),
         /*history_service=*/nullptr,
-        /*sync_service=*/nullptr,
+        /*sync_service=*/&sync_service_,
         /*strike_database=*/nullptr,
-        /*image_fetcher=*/nullptr,
-        /*is_off_the_record=*/(user_mode == USER_MODE_INCOGNITO));
+        /*image_fetcher=*/nullptr);
     personal_data_manager_->AddObserver(&personal_data_observer_);
 
     WaitForOnPersonalDataChanged();
@@ -530,7 +525,6 @@ class FormDataImporterTestBase {
     auto virtual_card_enrollment_manager =
         std::make_unique<MockVirtualCardEnrollmentManager>(
             nullptr, nullptr, autofill_client_.get());
-    virtual_card_enrollment_manager_ = virtual_card_enrollment_manager.get();
     form_data_importer().virtual_card_enrollment_manager_ =
         std::move(virtual_card_enrollment_manager);
   }
@@ -557,7 +551,7 @@ class FormDataImporterTestBase {
 
     test::DisableSystemServices(prefs_.get());
     // This will also initialize the `form_data_importer()`.
-    ResetPersonalDataManager(USER_MODE_NORMAL);
+    ResetPersonalDataManager();
 
     // Reset the deduping pref to its default value.
     personal_data_manager_->pref_service_->SetInteger(
@@ -582,7 +576,7 @@ class FormDataImporterTestBase {
     return *autofill_client_->GetFormDataImporter();
   }
 
-  // Helper method that will add credit card fields in |form|, according to the
+  // Helper method that will add credit card fields in `form`, according to the
   // specified values. If a value is nullptr, the corresponding field won't get
   // added (empty string will add a field with an empty string as the value).
   void AddFullCreditCardForm(FormData* form,
@@ -590,25 +584,21 @@ class FormDataImporterTestBase {
                              const char* number,
                              const char* month,
                              const char* year) {
-    FormFieldData field;
     if (name) {
-      test::CreateTestFormField("Name on card:", "name_on_card", name, "text",
-                                &field);
-      form->fields.push_back(field);
+      form->fields.push_back(
+          CreateTestFormField("Name on card:", "name_on_card", name, "text"));
     }
     if (number) {
-      test::CreateTestFormField("Card Number:", "card_number", number, "text",
-                                &field);
-      form->fields.push_back(field);
+      form->fields.push_back(
+          CreateTestFormField("Card Number:", "card_number", number, "text"));
     }
     if (month) {
-      test::CreateTestFormField("Exp Month:", "exp_month", month, "text",
-                                &field);
-      form->fields.push_back(field);
+      form->fields.push_back(
+          CreateTestFormField("Exp Month:", "exp_month", month, "text"));
     }
     if (year) {
-      test::CreateTestFormField("Exp Year:", "exp_year", year, "text", &field);
-      form->fields.push_back(field);
+      form->fields.push_back(
+          CreateTestFormField("Exp Year:", "exp_year", year, "text"));
     }
   }
 
@@ -760,11 +750,17 @@ class FormDataImporterTestBase {
     run_loop.Run();
   }
 
+  MockVirtualCardEnrollmentManager& virtual_card_enrollment_manager() {
+    return *static_cast<MockVirtualCardEnrollmentManager*>(
+        form_data_importer().GetVirtualCardEnrollmentManager());
+  }
+
   base::test::SingleThreadTaskEnvironment task_environment_{
       base::test::SingleThreadTaskEnvironment::MainThreadType::UI};
   test::AutofillUnitTestEnvironment autofill_test_environment_;
   std::unique_ptr<PrefService> prefs_;
   signin::IdentityTestEnvironment identity_test_env_;
+  syncer::TestSyncService sync_service_;
   scoped_refptr<AutofillWebDataService> autofill_database_service_;
   scoped_refptr<WebDatabaseService> web_database_;
   raw_ptr<AutofillTable> autofill_table_;  // weak ref
@@ -773,8 +769,6 @@ class FormDataImporterTestBase {
   // as the destructor of the clients FormDataImporter relies on it.
   std::unique_ptr<PersonalDataManager> personal_data_manager_;
   std::unique_ptr<TestAutofillClient> autofill_client_;
-  raw_ptr<MockVirtualCardEnrollmentManager, DanglingUntriaged>
-      virtual_card_enrollment_manager_;
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
@@ -916,22 +910,14 @@ TEST_P(FormDataImporterTest, ImportStructuredNameProfile) {
   FormData form;
   form.url = GURL("https://www.foo.com");
 
-  FormFieldData field;
-  test::CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Address:", "address1", "21 Laussat St", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "San Francisco", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("State:", "state", "California", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "94102", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                          "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Address:", "address1", "21 Laussat St", "text"),
+      CreateTestFormField("City:", "city", "San Francisco", "text"),
+      CreateTestFormField("State:", "state", "California", "text"),
+      CreateTestFormField("Zip:", "zip", "94102", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/true, form_structure);
@@ -957,27 +943,16 @@ TEST_P(FormDataImporterTest,
        ImportStructuredAddressProfile_StreetNameAndHouseNumber) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Street name:", "street_name", "Laussat St", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("House number:", "house_number", "21", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "San Francisco", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("State:", "state", "California", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "94102", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                          "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Street name:", "street_name", "Laussat St", "text"),
+      CreateTestFormField("House number:", "house_number", "21", "text"),
+      CreateTestFormField("City:", "city", "San Francisco", "text"),
+      CreateTestFormField("State:", "state", "California", "text"),
+      CreateTestFormField("Zip:", "zip", "94102", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/true, form_structure);
@@ -1009,29 +984,17 @@ TEST_P(
   }
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Street name:", "street_name", "Laussat St", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("House number:", "house_number", "21", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Apartment", "apartment", "101", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "San Francisco", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("State:", "state", "California", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "94102", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                          "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Street name:", "street_name", "Laussat St", "text"),
+      CreateTestFormField("House number:", "house_number", "21", "text"),
+      CreateTestFormField("Apartment", "apartment", "101", "text"),
+      CreateTestFormField("City:", "city", "San Francisco", "text"),
+      CreateTestFormField("State:", "state", "California", "text"),
+      CreateTestFormField("Zip:", "zip", "94102", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/true, form_structure);
@@ -1057,27 +1020,17 @@ TEST_P(FormDataImporterTest,
        ImportStructuredAddressProfile_GermanStreetNameAndHouseNumber) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Street name:", "street_name", "Hermann Strasse",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("House number:", "house_number", "23", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "Munich", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Country:", "country", "Germany", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "80992", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                          "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Street name:", "street_name", "Hermann Strasse",
+                          "text"),
+      CreateTestFormField("House number:", "house_number", "23", "text"),
+      CreateTestFormField("City:", "city", "Munich", "text"),
+      CreateTestFormField("Country:", "country", "Germany", "text"),
+      CreateTestFormField("Zip:", "zip", "80992", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/true, form_structure);
@@ -1104,23 +1057,15 @@ TEST_P(FormDataImporterTest,
 TEST_P(FormDataImporterTest, ImportStructuredNameAddressProfile) {
   FormData form;
   form.url = GURL("https://www.foo.com");
+  form.fields = {
 
-  FormFieldData field;
-  test::CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Address:", "address1", "21 Laussat St", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "San Francisco", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("State:", "state", "California", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "94102", "text", &field);
-  form.fields.push_back(field);
+      CreateTestFormField("Name:", "name", "Pablo Diego Ruiz y Picasso",
+                          "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Address:", "address1", "21 Laussat St", "text"),
+      CreateTestFormField("City:", "city", "San Francisco", "text"),
+      CreateTestFormField("State:", "state", "California", "text"),
+      CreateTestFormField("Zip:", "zip", "94102", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/true, form_structure);
@@ -1497,63 +1442,6 @@ TEST_P(FormDataImporterTest,
   ExtractAddressProfileAndVerifyExtractionOfDefaultProfile(*form_structure);
 }
 
-TEST_P(FormDataImporterTest, ImportAddressProfiles_SameProfileWithConflict) {
-  TypeValuePairs initial_type_value_pairs{
-      {NAME_FULL, kDefaultFullName},
-      {ADDRESS_HOME_LINE1, kDefaultAddressLine1},
-      {ADDRESS_HOME_CITY, kDefaultCity},
-      {ADDRESS_HOME_STATE, kDefaultState},
-      {ADDRESS_HOME_ZIP, kDefaultZip},
-      {ADDRESS_HOME_COUNTRY, kDefaultCountry},
-      {PHONE_HOME_WHOLE_NUMBER, kDefaultPhoneDomesticFormatting},
-  };
-  AutofillProfile initial_profile =
-      ConstructProfileFromTypeValuePairs(initial_type_value_pairs);
-
-  std::unique_ptr<FormStructure> initial_form_structure =
-      ConstructFormStructureFromTypeValuePairs(initial_type_value_pairs);
-  ExtractAddressProfilesAndVerifyExpectation(*initial_form_structure,
-                                             {initial_profile});
-
-  // Create a second form structure with an additional country and a differently
-  // formatted phone number
-  TypeValuePairs conflicting_type_value_pairs = {
-      {NAME_FULL, kDefaultFullName},
-      {ADDRESS_HOME_LINE1, kDefaultAddressLine1},
-      {ADDRESS_HOME_CITY, kDefaultCity},
-      {ADDRESS_HOME_STATE, kDefaultState},
-      {ADDRESS_HOME_ZIP, kDefaultZip},
-      // The phone number is spelled differently.
-      {PHONE_HOME_WHOLE_NUMBER, kDefaultPhoneAlternativeFormatting},
-      // Country information is added.
-      {ADDRESS_HOME_COUNTRY, "US"}};
-  AutofillProfile conflicting_profile =
-      ConstructProfileFromTypeValuePairs(conflicting_type_value_pairs);
-
-  // Verify that the initial profile and the conflicting profile are not the
-  // same.
-  ASSERT_FALSE(initial_profile.Compare(conflicting_profile) == 0);
-  std::unique_ptr<FormStructure> conflicting_form_structure =
-      ConstructFormStructureFromTypeValuePairs(conflicting_type_value_pairs);
-
-  TypeValuePairs resulting_type_value_pairs{
-      {NAME_FULL, kDefaultFullName},
-      {ADDRESS_HOME_LINE1, kDefaultAddressLine1},
-      {ADDRESS_HOME_CITY, kDefaultCity},
-      {ADDRESS_HOME_STATE, kDefaultState},
-      {ADDRESS_HOME_ZIP, kDefaultZip},
-      // The phone number remains in domestic format.
-      {PHONE_HOME_WHOLE_NUMBER, kDefaultPhoneDomesticFormatting},
-      // Country information is added.
-      {ADDRESS_HOME_COUNTRY, "US"}};
-
-  // Verify that extracting the conflicting profile will result in an update of
-  // the existing profile rather than creating a new one.
-  ExtractAddressProfilesAndVerifyExpectation(
-      *conflicting_form_structure,
-      {ConstructProfileFromTypeValuePairs(resulting_type_value_pairs)});
-}
-
 TEST_P(FormDataImporterTest, ImportAddressProfiles_MissingInfoInOld) {
   TypeValuePairs initial_type_value_pairs{
       {NAME_FULL, kDefaultFullName},
@@ -1624,8 +1512,10 @@ TEST_P(FormDataImporterTest, ImportAddressProfiles_MissingInfoInNew) {
   // the superset.
   std::unique_ptr<FormStructure> subset_form_structure =
       ConstructFormStructureFromTypeValuePairs(subset_type_value_pairs);
-  ExtractAddressProfilesAndVerifyExpectation(*superset_form_structure,
-                                             {superset_profile});
+  ExtractAddressProfiles(/*extraction_successful=*/true,
+                         *superset_form_structure,
+                         /*skip_waiting_on_pdm=*/true);
+  VerifyExpectationForExtractedAddressProfiles({superset_profile});
 }
 
 TEST_P(FormDataImporterTest, ImportAddressProfiles_InsufficientAddress) {
@@ -1684,28 +1574,15 @@ TEST_P(FormDataImporterTest,
        ImportAddressProfiles_CompleteComposedCountryName) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("First name:", "first_name", "George", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Last name:", "last_name", "Washington", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Address:", "address1",
-                            "No. 43 Bo Aung Gyaw Street", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "Yangon", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "11181", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Country:", "country", "Myanmar [Burma]", "text",
-                            &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("First name:", "first_name", "George", "text"),
+      CreateTestFormField("Last name:", "last_name", "Washington", "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Address:", "address1", "No. 43 Bo Aung Gyaw Street",
+                          "text"),
+      CreateTestFormField("City:", "city", "Yangon", "text"),
+      CreateTestFormField("Zip:", "zip", "11181", "text"),
+      CreateTestFormField("Country:", "country", "Myanmar [Burma]", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/true, form_structure);
@@ -1773,7 +1650,7 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_InvalidCardNumber) {
 
   // Since no refresh is expected, reload the data from the database to make
   // sure no changes were written out.
-  ResetPersonalDataManager(USER_MODE_NORMAL);
+  ResetPersonalDataManager();
 
   ASSERT_EQ(0U, personal_data_manager_->GetCreditCards().size());
 }
@@ -1896,17 +1773,12 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_TwoValidCards) {
 TEST_P(FormDataImporterTest, ExtractCreditCard_Month2DigitYearCombination) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "John MMYY",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Date:", "exp_date", "05/45", "text", "cc-exp",
-                            5, &field);
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name on card:", "name_on_card", "John MMYY", "text"),
+      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                          "text"),
+      CreateTestFormField("Exp Date:", "exp_date", "05/45", "text", "cc-exp",
+                          5)};
 
   SubmitFormAndExpectImportedCardWithData(form, "John MMYY", "4111111111111111",
                                           "05", "2045");
@@ -1916,17 +1788,12 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_Month2DigitYearCombination) {
 TEST_P(FormDataImporterTest, ExtractCreditCard_Month4DigitYearCombination) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "John MMYYYY",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Date:", "exp_date", "05/2045", "text",
-                            "cc-exp", 7, &field);
-  form.fields.push_back(field);
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "John MMYYYY", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4111111111111111", "text"),
+                 CreateTestFormField("Exp Date:", "exp_date", "05/2045", "text",
+                                     "cc-exp", 7)};
 
   SubmitFormAndExpectImportedCardWithData(form, "John MMYYYY",
                                           "4111111111111111", "05", "2045");
@@ -1936,17 +1803,12 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_Month4DigitYearCombination) {
 TEST_P(FormDataImporterTest, ExtractCreditCard_1DigitMonth4DigitYear) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "John MYYYY",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Date:", "exp_date", "5/2045", "text", "cc-exp",
-                            &field);
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name on card:", "name_on_card", "John MYYYY",
+                          "text"),
+      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                          "text"),
+      CreateTestFormField("Exp Date:", "exp_date", "5/2045", "text", "cc-exp")};
 
   SubmitFormAndExpectImportedCardWithData(form, "John MYYYY",
                                           "4111111111111111", "05", "2045");
@@ -1956,19 +1818,13 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_1DigitMonth4DigitYear) {
 TEST_P(FormDataImporterTest, ExtractCreditCard_2DigitYear) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "John Smith",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "05", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "45", "text", &field);
-  field.max_length = 2;
-  form.fields.push_back(field);
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "John Smith", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4111111111111111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "05", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "45", "text")};
+  form.fields.back().max_length = 2;
 
   SubmitFormAndExpectImportedCardWithData(form, "John Smith",
                                           "4111111111111111", "05", "2045");
@@ -2161,7 +2017,7 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_EmptyCardWithConflict) {
 
   // Since no refresh is expected, reload the data from the database to make
   // sure no changes were written out.
-  ResetPersonalDataManager(USER_MODE_NORMAL);
+  ResetPersonalDataManager();
 
   // No change is expected.
   CreditCard expected2(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -2208,7 +2064,7 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_MissingInfoInNew) {
 
   // Since no refresh is expected, reload the data from the database to make
   // sure no changes were written out.
-  ResetPersonalDataManager(USER_MODE_NORMAL);
+  ResetPersonalDataManager();
 
   // No change is expected.
   CreditCard expected2(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -2234,7 +2090,7 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_MissingInfoInNew) {
 
   // Since no refresh is expected, reload the data from the database to make
   // sure no changes were written out.
-  ResetPersonalDataManager(USER_MODE_NORMAL);
+  ResetPersonalDataManager();
 
   // No change is expected.
   CreditCard expected3(base::Uuid::GenerateRandomV4().AsLowercaseString(),
@@ -2319,7 +2175,7 @@ TEST_P(FormDataImporterTest, ExtractCreditCard_SameCardWithSeparators) {
 
   // Since no refresh is expected, reload the data from the database to make
   // sure no changes were written out.
-  ResetPersonalDataManager(USER_MODE_NORMAL);
+  ResetPersonalDataManager();
 
   // Expect that no new card is saved.
   const std::vector<CreditCard*>& results2 =
@@ -2360,7 +2216,7 @@ TEST_P(FormDataImporterTest,
 
   // Since no refresh is expected, reload the data from the database to make
   // sure no changes were written out.
-  ResetPersonalDataManager(USER_MODE_NORMAL);
+  ResetPersonalDataManager();
 
   // Expect that the saved credit card is not modified.
   const std::vector<CreditCard*>& results =
@@ -2427,26 +2283,14 @@ TEST_P(FormDataImporterTest,
   // submission with no card.
   FormData form3;
   form3.url = GURL("https://wwww.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("First name:", "first_name", "George", "text",
-                            &field);
-  form3.fields.push_back(field);
-  test::CreateTestFormField("Last name:", "last_name", "Washington", "text",
-                            &field);
-  form3.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "bogus@example.com", "text",
-                            &field);
-  form3.fields.push_back(field);
-  test::CreateTestFormField("Address:", "address1", "21 Laussat St", "text",
-                            &field);
-  form3.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "San Francisco", "text", &field);
-  form3.fields.push_back(field);
-  test::CreateTestFormField("State:", "state", "California", "text", &field);
-  form3.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "94102", "text", &field);
-  form3.fields.push_back(field);
+  form3.fields = {
+      CreateTestFormField("First name:", "first_name", "George", "text"),
+      CreateTestFormField("Last name:", "last_name", "Washington", "text"),
+      CreateTestFormField("Email:", "email", "bogus@example.com", "text"),
+      CreateTestFormField("Address:", "address1", "21 Laussat St", "text"),
+      CreateTestFormField("City:", "city", "San Francisco", "text"),
+      CreateTestFormField("State:", "state", "California", "text"),
+      CreateTestFormField("Zip:", "zip", "94102", "text")};
   FormStructure form_structure3(form3);
   form_structure3.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data3 = ExtractFormDataAndProcessAddressCandidates(
@@ -2644,27 +2488,14 @@ TEST_P(FormDataImporterTest,
   // Simulate a form submission with no credit card on form.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("First name:", "first_name", "George", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Last name:", "last_name", "Washington", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "bogus@example.com", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Address:", "address1", "21 Laussat St", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("City:", "city", "San Francisco", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("State:", "state", "California", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Zip:", "zip", "94102", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("First name:", "first_name", "George", "text"),
+      CreateTestFormField("Last name:", "last_name", "Washington", "text"),
+      CreateTestFormField("Email:", "email", "bogus@example.com", "text"),
+      CreateTestFormField("Address:", "address1", "21 Laussat St", "text"),
+      CreateTestFormField("City:", "city", "San Francisco", "text"),
+      CreateTestFormField("State:", "state", "California", "text"),
+      CreateTestFormField("Zip:", "zip", "94102", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
@@ -3166,19 +2997,12 @@ TEST_P(FormDataImporterTest, DuplicateMaskedServerCard) {
   // We should not offer to save locally.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "John Dillinger",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4012888888881881",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "01", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2999", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "John Dillinger", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4012888888881881", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "01", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2999", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
@@ -3192,27 +3016,17 @@ TEST_P(FormDataImporterTest, DuplicateMaskedServerCard) {
 TEST_P(FormDataImporterTest, ExtractFormData_HiddenCreditCardFormAfterEntered) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-
-  test::CreateTestFormField("Name on card:", "name_on_card", "Biggie Smalls",
-                            "text", &field);
-  field.is_focusable = false;
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4111111111111111",
-                            "text", &field);
-  field.is_focusable = false;
-  form.fields.push_back(field);
-  test::CreateTestFormField("Email:", "email", "theprez@gmail.com", "text",
-                            &field);
-  field.is_focusable = false;
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "01", "text", &field);
-  field.is_focusable = false;
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2999", "text", &field);
-  field.is_focusable = false;
-  form.fields.push_back(field);
+  form.fields = {
+      CreateTestFormField("Name on card:", "name_on_card", "Biggie Smalls",
+                          "text"),
+      CreateTestFormField("Card Number:", "card_number", "4111111111111111",
+                          "text"),
+      CreateTestFormField("Email:", "email", "theprez@gmail.com", "text"),
+      CreateTestFormField("Exp Month:", "exp_month", "01", "text"),
+      CreateTestFormField("Exp Year:", "exp_year", "2999", "text")};
+  for (FormFieldData& field : form.fields) {
+    field.is_focusable = false;
+  }
 
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
@@ -3287,19 +3101,12 @@ TEST_P(FormDataImporterTest,
   // card.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "378282246310005",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "04", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2999", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "378282246310005", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "04", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2999", "text")};
   FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
@@ -3336,21 +3143,15 @@ TEST_P(FormDataImporterTest,
   // an expiration date match is recorded.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "04", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2111", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "04", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2111", "text")};
   base::HistogramTester histogram_tester;
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3377,20 +3178,14 @@ TEST_P(FormDataImporterTest,
   // expiration date.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2111", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2111", "text")};
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3414,20 +3209,14 @@ TEST_P(FormDataImporterTest,
   // expiration date.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "08", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "08", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "", "text")};
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3452,20 +3241,14 @@ TEST_P(
   // expiration date.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "08", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "", "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "08", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "", "text")};
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3488,21 +3271,15 @@ TEST_P(FormDataImporterTest,
   // is recorded.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "04", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2345", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "04", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2345", "text")};
+  FormStructure form_structure(form);
 
   base::HistogramTester histogram_tester;
-  FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3528,21 +3305,15 @@ TEST_P(FormDataImporterTest,
   // an expiration date match is recorded.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "01", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2111", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "01", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2111", "text")};
+  FormStructure form_structure(form);
 
   base::HistogramTester histogram_tester;
-  FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3569,21 +3340,15 @@ TEST_P(FormDataImporterTest,
   // is recorded.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("Name on card:", "name_on_card", "Clyde Barrow",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Card Number:", "card_number", "4444333322221111",
-                            "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Month:", "exp_month", "04", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Exp Year:", "exp_year", "2345", "text", &field);
-  form.fields.push_back(field);
+  form.fields = {CreateTestFormField("Name on card:", "name_on_card",
+                                     "Clyde Barrow", "text"),
+                 CreateTestFormField("Card Number:", "card_number",
+                                     "4444333322221111", "text"),
+                 CreateTestFormField("Exp Month:", "exp_month", "04", "text"),
+                 CreateTestFormField("Exp Year:", "exp_year", "2345", "text")};
+  FormStructure form_structure(form);
 
   base::HistogramTester histogram_tester;
-  FormStructure form_structure(form);
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/true,
@@ -3597,15 +3362,11 @@ TEST_P(FormDataImporterTest,
 TEST_P(FormDataImporterTest, ExtractUpiId) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("UPI ID:", "upi_id", "user@indianbank", "text",
-                            &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("UPI ID:", "upi_id", "user@indianbank", "text")};
   FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
 
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/false,
       /*payment_methods_autofill_enabled=*/true);
@@ -3616,15 +3377,11 @@ TEST_P(FormDataImporterTest, ExtractUpiId) {
 TEST_P(FormDataImporterTest, ExtractUpiIdDisabled) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("UPI ID:", "upi_id", "user@indianbank", "text",
-                            &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("UPI ID:", "upi_id", "user@indianbank", "text")};
   FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
 
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/false,
       /*payment_methods_autofill_enabled=*/false);
@@ -3634,15 +3391,11 @@ TEST_P(FormDataImporterTest, ExtractUpiIdDisabled) {
 TEST_P(FormDataImporterTest, ExtractUpiIdIgnoreNonUpiId) {
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("UPI ID:", "upi_id", "user@gmail.com", "text",
-                            &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("UPI ID:", "upi_id", "user@gmail.com", "text")};
   FormStructure form_structure(form);
-  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
 
+  form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   auto extracted_data = ExtractFormDataAndProcessAddressCandidates(
       form_structure, /*profile_autofill_enabled=*/false,
       /*payment_methods_autofill_enabled=*/false);
@@ -3677,18 +3430,13 @@ TEST_P(FormDataImporterTest, SilentlyUpdateExistingProfileByIncompleteProfile) {
   // Simulate a form submission with conflicting info.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("First name:", "first_name", "Marion", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Middle name:", "middle_name", "", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
-                            "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("First name:", "first_name", "Marion", "text"),
+      CreateTestFormField("Middle name:", "middle_name", "", "text"),
+      CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
+                          "text")};
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/false, form_structure);
 
@@ -3733,18 +3481,13 @@ TEST_P(
   // Simulate a form submission with conflicting info.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("First name:", "first_name", "Marion", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Middle name:", "middle_name", "", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
-                            "text", &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("First name:", "first_name", "Marion", "text"),
+      CreateTestFormField("Middle name:", "middle_name", "", "text"),
+      CreateTestFormField("Last name:", "last_name", "Mitchell Morrison",
+                          "text")};
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/false, form_structure,
                          /*skip_waiting_on_pdm=*/false,
@@ -3789,18 +3532,12 @@ TEST_P(FormDataImporterTest, UnusableIncompleteProfile) {
   // Simulate a form submission with conflicting info.
   FormData form;
   form.url = GURL("https://www.foo.com");
-
-  FormFieldData field;
-  test::CreateTestFormField("First name:", "first_name", "Marion", "text",
-                            &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Middle name:", "middle_name", "", "text", &field);
-  form.fields.push_back(field);
-  test::CreateTestFormField("Last name:", "last_name", "Mitch Morrison", "text",
-                            &field);
-  form.fields.push_back(field);
-
+  form.fields = {
+      CreateTestFormField("First name:", "first_name", "Marion", "text"),
+      CreateTestFormField("Middle name:", "middle_name", "", "text"),
+      CreateTestFormField("Last name:", "last_name", "Mitch Morrison", "text")};
   FormStructure form_structure(form);
+
   form_structure.DetermineHeuristicTypes(nullptr, nullptr);
   ExtractAddressProfiles(/*extraction_successful=*/false, form_structure,
                          /*skip_waiting_on_pdm=*/true);
@@ -4199,7 +3936,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
   extracted_credit_card.SetNetworkForMaskedCard(kAmericanExpressCard);
   extracted_credit_card.set_instrument_id(1111);
   extracted_credit_card.set_virtual_card_enrollment_state(
-      CreditCard::VirtualCardEnrollmentState::UNENROLLED_AND_ELIGIBLE);
+      CreditCard::VirtualCardEnrollmentState::kUnenrolledAndEligible);
   absl::optional<std::string> extracted_upi_id;
   std::unique_ptr<FormStructure> form_structure =
       ConstructDefaultCreditCardFormStructure();
@@ -4214,7 +3951,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
   syncer::TestSyncService sync_service;
   personal_data_manager_->SetSyncServiceForTest(&sync_service);
 
-  EXPECT_CALL(*virtual_card_enrollment_manager_,
+  EXPECT_CALL(virtual_card_enrollment_manager(),
               InitVirtualCardEnroll(_, VirtualCardEnrollmentSource::kDownstream,
                                     _, _, _, _))
       .Times(0);
@@ -4225,7 +3962,7 @@ TEST_F(FormDataImporterNonParameterizedTest,
       /*is_credit_card_upstream_enabled=*/true));
 
   form_data_importer().SetFetchedCardInstrumentId(1111);
-  EXPECT_CALL(*virtual_card_enrollment_manager_,
+  EXPECT_CALL(virtual_card_enrollment_manager(),
               InitVirtualCardEnroll(_, VirtualCardEnrollmentSource::kDownstream,
                                     _, _, _, _))
       .Times(1);

@@ -8,7 +8,6 @@
 #include <vector>
 
 #include "base/functional/bind.h"
-#include "base/mac/scoped_nsobject.h"
 #include "content/app_shim_remote_cocoa/render_widget_host_ns_view_bridge.h"
 #include "content/app_shim_remote_cocoa/render_widget_host_ns_view_host_helper.h"
 #include "content/app_shim_remote_cocoa/web_contents_ns_view_bridge.h"
@@ -152,8 +151,6 @@ class RenderWidgetHostNSViewBridgeOwner
 
   mojo::AssociatedRemote<mojom::RenderWidgetHostNSViewHost> host_;
   std::unique_ptr<RenderWidgetHostNSViewBridge> bridge_;
-  base::scoped_nsobject<NSAccessibilityRemoteUIElement>
-      remote_accessibility_element_;
 };
 }
 

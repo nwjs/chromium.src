@@ -55,10 +55,6 @@
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using autofill::FieldDataManager;
 using autofill::FieldRendererId;
 using autofill::FormActivityObserverBridge;
@@ -306,7 +302,6 @@ NSString* const kPasswordFormSuggestionSuffix = @" ••••••••";
   // Casting is safe, as this code is run on iOS Chrome & WebView only.
   auto* driver = static_cast<IOSPasswordManagerDriver*>(
       [_driverHelper PasswordManagerDriver:webFrame]);
-
   auto fieldDataManager =
       UniqueIDDataTabHelper::FromWebState(_webState)->GetFieldDataManager();
   _passwordManager->OnIframeDetach(frameId, driver, *fieldDataManager);

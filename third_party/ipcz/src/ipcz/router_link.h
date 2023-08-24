@@ -34,7 +34,7 @@ class Router;
 // deactivate it. As a general rule, calls into Router should be made using a
 // Router reference owned on the calling stack rather than a reference owned by
 // the RouterLink.
-class RouterLink : public RefCounted {
+class RouterLink : public RefCounted<RouterLink> {
  public:
   using Pair = std::pair<Ref<RouterLink>, Ref<RouterLink>>;
 
@@ -70,7 +70,7 @@ class RouterLink : public RefCounted {
   // Passes a parcel to the Router on the other side of this link to be queued
   // and/or router further.
   virtual void AcceptParcel(const OperationContext& context,
-                            Parcel& parcel) = 0;
+                            std::unique_ptr<Parcel> parcel) = 0;
 
   // Notifies the Router on the other side of the link that the route has been
   // closed from this side. `sequence_length` is the total number of parcels
@@ -184,7 +184,9 @@ class RouterLink : public RefCounted {
   virtual std::string Describe() const = 0;
 
  protected:
-  ~RouterLink() override = default;
+  friend class RefCounted<RouterLink>;
+
+  virtual ~RouterLink() = default;
 };
 
 }  // namespace ipcz

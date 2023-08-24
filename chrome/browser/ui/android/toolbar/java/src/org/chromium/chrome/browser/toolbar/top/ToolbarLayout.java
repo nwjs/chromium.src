@@ -208,7 +208,7 @@ public abstract class ToolbarLayout
     /**
      * @param toolbarColorObserver The observer that observes toolbar color change.
      */
-    void setToolbarColorObserver(@NonNull ToolbarColorObserver toolbarColorObserver) {
+    public void setToolbarColorObserver(@NonNull ToolbarColorObserver toolbarColorObserver) {
         mToolbarColorObserver = toolbarColorObserver;
     }
 
@@ -383,7 +383,6 @@ public abstract class ToolbarLayout
         return mMenuButtonCoordinator;
     }
 
-    @VisibleForTesting
     void setMenuButtonCoordinatorForTesting(MenuButtonCoordinator menuButtonCoordinator) {
         mMenuButtonCoordinator = menuButtonCoordinator;
     }
@@ -802,7 +801,6 @@ public abstract class ToolbarLayout
     /**
      * @return Optional button view.
      */
-    @VisibleForTesting
     public View getOptionalButtonViewForTesting() {
         return null;
     }
@@ -823,7 +821,6 @@ public abstract class ToolbarLayout
     /**
      * Returns whether there are any ongoing animations.
      */
-    @VisibleForTesting
     public boolean isAnimationRunningForTesting() {
         return false;
     }

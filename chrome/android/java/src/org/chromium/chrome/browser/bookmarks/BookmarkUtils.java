@@ -17,9 +17,11 @@ import android.os.LocaleList;
 import android.provider.Browser;
 import android.text.TextUtils;
 
+import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.chromium.base.BuildInfo;
 import org.chromium.base.Callback;
@@ -34,6 +36,7 @@ import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkAddEditFolderActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkEditActivity;
+import org.chromium.chrome.browser.app.bookmarks.BookmarkFolderPickerActivity;
 import org.chromium.chrome.browser.app.bookmarks.BookmarkFolderSelectActivity;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
 import org.chromium.chrome.browser.commerce.ShoppingServiceFactory;
@@ -54,6 +57,7 @@ import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
 import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.widget.RoundedIconGenerator;
 import org.chromium.components.commerce.core.ShoppingService;
@@ -520,6 +524,41 @@ public class BookmarkUtils {
         }
     }
 
+    /** Starts an {@link BookmarkFolderPickerActivity} for the given {@link BookmarkId}. */
+    public static void startFolderPickerActivity(Context context, BookmarkId... bookmarkIds) {
+        // TODO(crbug.com/1465757): Record user action.
+        Intent intent = new Intent(context, BookmarkFolderPickerActivity.class);
+        intent.putStringArrayListExtra(BookmarkFolderPickerActivity.INTENT_BOOKMARK_IDS,
+                bookmarkIdsToStringList(bookmarkIds));
+        context.startActivity(intent);
+    }
+
+    /** Given the {@link BookmarkId}s, return a list of those ids serialized to string. */
+    public static ArrayList<String> bookmarkIdsToStringList(BookmarkId... bookmarkIds) {
+        ArrayList<String> bookmarkStrings = new ArrayList<>(bookmarkIds.length);
+        for (BookmarkId id : bookmarkIds) {
+            bookmarkStrings.add(id.toString());
+        }
+
+        return bookmarkStrings;
+    }
+
+    /**
+     * Given the {@link BookmarkId}s serialized {@link String}s, return a list of the
+     * {@link BookmarkIds}.
+     */
+    public static List<BookmarkId> stringListToBookmarkIds(
+            BookmarkModel bookmarkModel, List<String> bookmarkIdStrings) {
+        List<BookmarkId> bookmarkIds = new ArrayList<>(bookmarkIdStrings.size());
+        for (String string : bookmarkIdStrings) {
+            BookmarkId bookmarkId = BookmarkId.getBookmarkIdFromString(string);
+            if (bookmarkModel.doesBookmarkExist(bookmarkId)) {
+                bookmarkIds.add(bookmarkId);
+            }
+        }
+        return bookmarkIds;
+    }
+
     /** Starts an {@link BookmarkFolderSelectActivity} for the given {@link BookmarkId}. */
     public static void startFolderSelectActivity(Context context, BookmarkId bookmarkId) {
         BookmarkFolderSelectActivity.startFolderSelectActivity(context, bookmarkId);
@@ -572,6 +611,7 @@ public class BookmarkUtils {
      * @return The list of top level bookmark folder ids.
      */
     public static List<BookmarkId> populateTopLevelFolders(BookmarkModel bookmarkModel) {
+        // TODO(crbug.com/1449020): Refactor this to not go through JNI so much.
         List<BookmarkId> topLevelFolders = new ArrayList<>();
         BookmarkId desktopNodeId = bookmarkModel.getDesktopFolderId();
         BookmarkId mobileNodeId = bookmarkModel.getMobileFolderId();
@@ -630,8 +670,9 @@ public class BookmarkUtils {
     }
 
     /** Returns whether this bookmark can be moved */
-    public static boolean isMovable(BookmarkItem node) {
-        return ReadingListUtils.isSwappableReadingListItem(node.getId()) || node.isReorderable();
+    public static boolean isMovable(BookmarkModel bookmarkModel, BookmarkItem item) {
+        if (Objects.equals(item.getParentId(), bookmarkModel.getPartnerFolderId())) return false;
+        return ReadingListUtils.isSwappableReadingListItem(item.getId()) || item.isEditable();
     }
 
     /**
@@ -708,17 +749,125 @@ public class BookmarkUtils {
         return resources.getDimensionPixelSize(R.dimen.bookmark_favicon_display_size);
     }
 
-    /** Returns whether the given folder can have a new folder added to it. */
-    public static boolean canAddSubfolder(BookmarkModel bookmarkModel, BookmarkId folder) {
-        return !Objects.equals(folder, bookmarkModel.getReadingListFolder())
-                && !Objects.equals(folder, bookmarkModel.getPartnerFolderId());
+    /**
+     * Returns whether the given folder being viewed can have a new folder added to it. While in
+     * improved bookmarks, this includes the root folder.
+     */
+    public static boolean canAddFolderWhileViewingParent(
+            BookmarkModel bookmarkModel, BookmarkId parent) {
+        // There's special logic while viewing the root node while improved bookamrks is enabled.
+        if (Objects.equals(parent, bookmarkModel.getRootFolderId())
+                && BookmarkFeatures.isAndroidImprovedBookmarksEnabled()) {
+            return true;
+        }
+
+        return !Objects.equals(parent, bookmarkModel.getReadingListFolder())
+                && !Objects.equals(parent, bookmarkModel.getPartnerFolderId())
+                && !Objects.equals(parent, bookmarkModel.getRootFolderId());
     }
 
-    /** Returns whether the given folder can have a new folder added to it. */
+    /**
+     * Returns whether the given folder being viewed can have a new folder added to it. While in
+     * improved bookmarks, this includes the root folder.
+     */
+    public static boolean canAddBookmarkWhileViewingParent(
+            BookmarkModel bookmarkModel, BookmarkId parent) {
+        // There's special logic while viewing the root node while improved bookamrks is enabled.
+        if (Objects.equals(parent, bookmarkModel.getRootFolderId())
+                && BookmarkFeatures.isAndroidImprovedBookmarksEnabled()) {
+            return true;
+        }
+
+        return !Objects.equals(parent, bookmarkModel.getPartnerFolderId())
+                && !Objects.equals(parent, bookmarkModel.getRootFolderId());
+    }
+
+    /**
+     * Given a {@link BookmarkId}, returns the parent bookmark that should be used when going up.
+     * All bookmarks will skip over mobile bookmarks and other bookmarks.
+     * @param bookmarkModel The {@link BookmarkModel}.
+     * @param bookmarkId The {@link BookmarkId} to get the bparent for.
+     */
+    public static BookmarkId getParentFolderForViewing(
+            BookmarkModel bookmarkModel, BookmarkId bookmarkId) {
+        BookmarkItem item = bookmarkModel.getBookmarkById(bookmarkId);
+        BookmarkId parent = item.getParentId();
+        if (!BookmarkFeatures.isAndroidImprovedBookmarksEnabled()) return parent;
+
+        boolean skipToRoot = Objects.equals(parent, bookmarkModel.getOtherFolderId())
+                || Objects.equals(parent, bookmarkModel.getMobileFolderId());
+        return skipToRoot ? bookmarkModel.getRootFolderId() : parent;
+    }
+
+    /**
+     * Moves the given {@link BookmarkId}s to the new parent if the parent is valid. Type-swaps
+     * Reading List items as necessary. This method assumes that the bookmark ids that are passed
+     * in are valid bookmarks that are moveable. See the {@link canAddFolderWhileViewingParent} and
+     * {@link canAddBookmarkWhileViewingParent} methods for details on where a valid move location
+     * is.
+     */
+    public static void moveBookmarksToViewedParent(
+            BookmarkModel bookmarkModel, List<BookmarkId> bookmarksToMove, BookmarkId newParent) {
+        // Check if each bookmark is moveable to the viewed parent.
+        for (BookmarkId id : bookmarksToMove) {
+            BookmarkItem item = bookmarkModel.getBookmarkById(id);
+            boolean canAddCurrentBookmarkToViewedParent = item.isFolder()
+                    ? canAddFolderWhileViewingParent(bookmarkModel, newParent)
+                    : canAddBookmarkWhileViewingParent(bookmarkModel, newParent);
+            if (!canAddCurrentBookmarkToViewedParent) return;
+        }
+
+        if (BookmarkFeatures.isAndroidImprovedBookmarksEnabled()
+                && Objects.equals(newParent, bookmarkModel.getRootFolderId())) {
+            newParent = bookmarkModel.getOtherFolderId();
+        }
+        List<BookmarkId> typeSwappedReadingListItems = new ArrayList<>();
+        ReadingListUtils.typeSwapBookmarksIfNecessary(
+                bookmarkModel, bookmarksToMove, typeSwappedReadingListItems, newParent);
+        bookmarkModel.moveBookmarks(bookmarksToMove, newParent);
+        bookmarksToMove.addAll(typeSwappedReadingListItems);
+    }
+
+    /** Returns whether the given folder should display images. */
     public static boolean shouldShowImagesForFolder(
             BookmarkModel bookmarkModel, BookmarkId folder) {
-        return !bookmarkModel.getTopLevelFolderIds(/*getSpecial=*/true, /*getNormal=*/true)
-                        .contains(folder);
+        // TODO(crbug.com/1449020): Refactor this to not go through JNI so much.
+        BookmarkId rootNodeId = bookmarkModel.getRootFolderId();
+        BookmarkId desktopNodeId = bookmarkModel.getDesktopFolderId();
+        BookmarkId mobileNodeId = bookmarkModel.getMobileFolderId();
+        BookmarkId othersNodeId = bookmarkModel.getOtherFolderId();
+
+        List<BookmarkId> specialFoldersIds =
+                bookmarkModel.getTopLevelFolderIds(/*getSpecial=*/true, /*getNormal=*/false);
+        return !Objects.equals(folder, rootNodeId) && !Objects.equals(folder, desktopNodeId)
+                && !Objects.equals(folder, mobileNodeId) && !Objects.equals(folder, othersNodeId)
+                && !specialFoldersIds.contains(folder);
+    }
+
+    /** Returns whether the given id is a special folder. */
+    public static boolean isSpecialFolder(BookmarkModel bookmarkModel, BookmarkItem item) {
+        return item != null && Objects.equals(item.getParentId(), bookmarkModel.getRootFolderId());
+    }
+
+    /** Return the background color for the given {@link BookmarkType}. */
+    public static @ColorInt int getIconBackground(
+            Context context, BookmarkModel bookmarkModel, BookmarkItem item) {
+        if (isSpecialFolder(bookmarkModel, item)) {
+            return SemanticColorUtils.getColorPrimaryContainer(context);
+        } else {
+            return ChromeColors.getSurfaceColor(context, R.dimen.default_elevation_1);
+        }
+    }
+
+    /** Return the icon tint for the given {@link BookmarkType}. */
+    public static ColorStateList getIconTint(
+            Context context, BookmarkModel bookmarkModel, BookmarkItem item) {
+        if (isSpecialFolder(bookmarkModel, item)) {
+            return ColorStateList.valueOf(SemanticColorUtils.getDefaultIconColorAccent1(context));
+        } else {
+            return AppCompatResources.getColorStateList(
+                    context, R.color.default_icon_color_secondary_tint_list);
+        }
     }
 
     private static int getDisplayTextSize(Resources resources) {

@@ -72,8 +72,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 // default or removed if the flag is removed.
 @Features.DisableFeatures(ChromeFeatureList.SYNC_ANDROID_LIMIT_NTP_PROMO_IMPRESSIONS)
 @Features.EnableFeatures({ChromeFeatureList.WEB_FEED, ChromeFeatureList.INTEREST_FEED_V2_HEARTS,
-        ChromeFeatureList.WEB_FEED_SORT, ChromeFeatureList.FEED_MULTI_COLUMN,
-        ChromeFeatureList.FEED_HEADER_STICK_TO_TOP})
+        ChromeFeatureList.WEB_FEED_SORT, ChromeFeatureList.FEED_HEADER_STICK_TO_TOP})
 public class FeedSurfaceMediatorTest {
     static final @Px int TOOLBAR_HEIGHT = 10;
     @Rule
@@ -164,18 +163,13 @@ public class FeedSurfaceMediatorTest {
         Profile.setLastUsedProfileForTesting(mProfileMock);
         IdentityServicesProvider.setInstanceForTests(mIdentityService);
         TemplateUrlServiceFactory.setInstanceForTesting(mUrlService);
-        SignInPromo.setDisablePromoForTests(true);
+        SignInPromo.setDisablePromoForTesting(true);
     }
 
     @After
     public void tearDown() {
         if (mFeedSurfaceMediator != null) mFeedSurfaceMediator.destroy();
         FeedSurfaceMediator.setPrefForTest(null, null);
-        FeedFeatures.setFakePrefsForTest(null);
-        Profile.setLastUsedProfileForTesting(null);
-        IdentityServicesProvider.setInstanceForTests(null);
-        TemplateUrlServiceFactory.setInstanceForTesting(null);
-        SignInPromo.setDisablePromoForTests(false);
     }
 
     @Test
@@ -769,8 +763,8 @@ public class FeedSurfaceMediatorTest {
     public void testStreamsMediatorImpl_switchToStreamKind() {
         PropertyModel model = SectionHeaderListProperties.create(TOOLBAR_HEIGHT);
         PropertyModel forYou = SectionHeaderProperties.createSectionHeader("For you");
-        OnSectionHeaderSelectedListener listener =
-                getOnSectionHeaderSelectedListener(model, forYou, true);
+
+        getOnSectionHeaderSelectedListener(model, forYou, true);
 
         Stream.StreamsMediator streamsMediator = mFeedSurfaceMediator.new StreamsMediatorImpl();
         streamsMediator.switchToStreamKind(StreamKind.FOR_YOU);

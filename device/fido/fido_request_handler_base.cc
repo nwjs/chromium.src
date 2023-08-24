@@ -196,6 +196,9 @@ void FidoRequestHandlerBase::InitDiscoveries(
     FIDO_LOG(ERROR) << "Cannot test Bluetooth power status because process is "
                        "not self-responsible. Launch from Finder to fix.";
   }
+
+  transport_availability_info_.has_icloud_drive_enabled =
+      fido::icloud_keychain::IsICloudDriveEnabled();
 #else
   const bool can_call_ble_apis = true;
 #endif
@@ -433,8 +436,7 @@ void FidoRequestHandlerBase::OnHavePlatformCredentialStatus(
     }
   }
 
-  auto& out_creds = transport_availability_info_
-                        .recognized_platform_authenticator_credentials;
+  auto& out_creds = transport_availability_info_.recognized_credentials;
   if (out_creds.empty()) {
     out_creds = std::move(creds);
   } else if (!creds.empty()) {

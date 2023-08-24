@@ -75,10 +75,6 @@
 #import "net/url_request/url_request_context_getter.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // A helper enum to report the deletion of cookies and/or cache. Do not
@@ -579,10 +575,11 @@ void BrowsingDataRemoverImpl::RemoveImpl(base::Time delete_begin,
 // Removes directories for sessions with `session_ids`
 void BrowsingDataRemoverImpl::RemoveSessionsData(
     NSArray<NSString*>* session_ids) {
-  [[SessionServiceIOS sharedService]
-      deleteSessions:session_ids
-           directory:browser_state_->GetStatePath()
-          completion:base::DoNothing()];
+  if (session_service_) {
+    [session_service_ deleteSessions:session_ids
+                           directory:browser_state_->GetStatePath()
+                          completion:base::DoNothing()];
+  }
 }
 
 // TODO(crbug.com/619783): removing data from WkWebsiteDataStore should be

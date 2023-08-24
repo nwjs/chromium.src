@@ -47,6 +47,7 @@ enum UIDisplayDisposition {
   MANUAL_BIOMETRIC_AUTHENTICATION_FOR_FILLING = 13,
   AUTOMATIC_BIOMETRIC_AUTHENTICATION_FOR_FILLING = 14,
   AUTOMATIC_BIOMETRIC_AUTHENTICATION_CONFIRMATION = 15,
+  AUTOMATIC_SHARED_PASSWORDS_NOTIFICATION = 16,
   NUM_DISPLAY_DISPOSITIONS,
 };
 
@@ -309,19 +310,6 @@ enum class IsSyncPasswordHashSaved {
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
-// Metrics: "PasswordManager.CertificateErrorsWhileSeeingForms"
-enum class CertificateError {
-  NONE = 0,
-  OTHER = 1,
-  AUTHORITY_INVALID = 2,
-  DATE_INVALID = 3,
-  COMMON_NAME_INVALID = 4,
-  WEAK_SIGNATURE_ALGORITHM = 5,
-  COUNT
-};
-
-// These values are persisted to logs. Entries should not be renumbered and
-// numeric values should never be reused.
 // Metric: "PasswordManager.ReusedPasswordType".
 enum class PasswordType {
   // Passwords saved by password manager.
@@ -415,6 +403,15 @@ enum class GenerationDialogChoice {
   // The user rejected the generated password.
   kRejected = 1,
   kMaxValue = kRejected
+};
+
+enum class SignInState {
+  // The user is signed out.
+  kSignedOut = 0,
+  // The user is signed in but has not enabled Sync.
+  kSignedInSyncDisabled = 1,
+  // The user has enabled Sync.
+  kSyncing = 2,
 };
 
 // Represents the state of the user wrt. sign-in and account-scoped storage.
@@ -656,6 +653,7 @@ enum class PasswordManagementBubbleInteractions {
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused. Always keep this enum in sync with the
 // corresponding PasswordMigrationWarningTriggers in enums.xml.
+// GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.pwd_migration
 enum class PasswordMigrationWarningTriggers {
   kChromeStartup = 0,
   kPasswordSaveUpdateMessage = 1,
@@ -677,6 +675,20 @@ enum class PasswordManagerShortcutMetric {
   // User switched profile in the standalone password manager app.
   kProfileSwitched = 2,
   kMaxValue = kProfileSwitched,
+};
+
+// Presumed password form type. Calculated using heuristics after form parsing.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+// Needs to stay in sync with PasswordFormType2 in enums.xml.
+enum class SubmittedFormType {
+  kUndefined = 0,
+  kLogin = 1,
+  kSignup = 2,
+  kChangePassword = 3,
+  kResetPassword = 4,
+  kSingleUsername = 5,
+  kMaxValue = kSingleUsername,
 };
 
 std::string GetPasswordAccountStorageUsageLevelHistogramSuffix(
@@ -733,10 +745,6 @@ void LogSaveUIDismissalReason(
     UIDismissalReason reason,
     autofill::mojom::SubmissionIndicatorEvent submission_event,
     absl::optional<PasswordAccountStorageUserState> user_state);
-
-// Log the |reason| a user dismissed the save password prompt after previously
-// having unblocklisted the origin while on the page.
-void LogSaveUIDismissalReasonAfterUnblocklisting(UIDismissalReason reason);
 
 // Log the |reason| a user dismissed the update password bubble. If the
 // submission is detected on a cleared change password form, dismissal reason is
@@ -850,11 +858,8 @@ void LogIsSyncPasswordHashSaved(IsSyncPasswordHashSaved state,
 // privacy of individual data points, we will log with 10% noise.
 void LogIsPasswordProtected(bool is_password_protected);
 
-// Log the number of Gaia password hashes saved. Currently only called on
-// profile start up.
 void LogProtectedPasswordHashCounts(size_t gaia_hash_count,
-                                    bool does_primary_account_exists,
-                                    bool is_signed_in);
+                                    SignInState sign_in_state);
 
 // Log the user interaction events when creating a new credential from settings.
 void LogUserInteractionsWhenAddingCredentialFromSettings(

@@ -86,10 +86,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/gfx/image/image.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using base::RecordAction;
 using base::UserMetricsAction;
 
@@ -343,15 +339,15 @@ PopupMenuTextItem* CreateEnterpriseInfoItem(NSString* imageName,
   self.webState = nullptr;
 }
 
-#pragma mark - WebStateListObserver
+#pragma mark - WebStateListObserving
 
-- (void)webStateList:(WebStateList*)webStateList
-    didChangeActiveWebState:(web::WebState*)newWebState
-                oldWebState:(web::WebState*)oldWebState
-                    atIndex:(int)atIndex
-                     reason:(ActiveWebStateChangeReason)reason {
+- (void)didChangeWebStateList:(WebStateList*)webStateList
+                       change:(const WebStateListChange&)change
+                       status:(const WebStateListStatus&)status {
   DCHECK_EQ(_webStateList, webStateList);
-  self.webState = newWebState;
+  if (status.active_web_state_change()) {
+    self.webState = status.new_active_web_state;
+  }
 }
 
 #pragma mark - BookmarkModelBridgeObserver

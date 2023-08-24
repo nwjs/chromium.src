@@ -314,7 +314,7 @@ void FrameCaptionButtonContainerView::SetButtonImage(
   }
 }
 
-void FrameCaptionButtonContainerView::SetBackgroundColor(
+void FrameCaptionButtonContainerView::SetButtonBackgroundColor(
     SkColor background_color) {
   if (custom_button_) {
     custom_button_->SetBackgroundColor(background_color);
@@ -326,12 +326,20 @@ void FrameCaptionButtonContainerView::SetBackgroundColor(
   minimize_button_->SetBackgroundColor(background_color);
   size_button_->SetBackgroundColor(background_color);
   close_button_->SetBackgroundColor(background_color);
+}
 
-  // When buttons' background color changes, the entire view's background color
-  // changes if WCO is enabled.
-  if (window_controls_overlay_enabled_) {
-    SetBackground(views::CreateSolidBackground(background_color));
+void FrameCaptionButtonContainerView::SetButtonIconColor(
+    ui::ColorId icon_color_id) {
+  if (custom_button_) {
+    custom_button_->SetIconColorId(icon_color_id);
   }
+  if (float_button_) {
+    float_button_->SetIconColorId(icon_color_id);
+  }
+  menu_button_->SetIconColorId(icon_color_id);
+  minimize_button_->SetIconColorId(icon_color_id);
+  size_button_->SetIconColorId(icon_color_id);
+  close_button_->SetIconColorId(icon_color_id);
 }
 
 void FrameCaptionButtonContainerView::ResetWindowControls() {
@@ -659,7 +667,7 @@ void FrameCaptionButtonContainerView::SizeButtonPressed() {
     base::RecordAction(base::UserMetricsAction("MaxButton_Clk_Restore"));
   } else if (frame_->GetNativeWindow()->GetProperty(kWindowStateTypeKey) ==
              WindowStateType::kFloated) {
-    FloatControllerBase::Get()->ToggleFloat(frame_->GetNativeWindow());
+    FloatControllerBase::Get()->UnsetFloat(frame_->GetNativeWindow());
   } else {
     frame_->Maximize();
     base::RecordAction(base::UserMetricsAction("MaxButton_Clk_Maximize"));
@@ -702,7 +710,13 @@ void FrameCaptionButtonContainerView::FloatButtonPressed() {
   SetButtonsToNormal(Animate::kNo);
   CHECK(chromeos::wm::features::IsWindowLayoutMenuEnabled());
 
-  FloatControllerBase::Get()->ToggleFloat(GetWidget()->GetNativeWindow());
+  aura::Window* window = GetWidget()->GetNativeWindow();
+  if (window->GetProperty(kWindowStateTypeKey) == WindowStateType::kFloated) {
+    FloatControllerBase::Get()->UnsetFloat(window);
+  } else {
+    FloatControllerBase::Get()->SetFloat(window,
+                                         FloatStartLocation::kBottomRight);
+  }
 }
 
 bool FrameCaptionButtonContainerView::IsMinimizeButtonVisible() const {

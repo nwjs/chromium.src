@@ -76,6 +76,7 @@
 
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 #include "components/safe_browsing/content/renderer/phishing_classifier/phishing_classifier_delegate.h"
+#include "components/safe_browsing/content/renderer/phishing_classifier/phishing_image_embedder_delegate.h"
 #endif
 
 #if BUILDFLAG(ENABLE_OFFLINE_PAGES)
@@ -202,12 +203,9 @@ ChromeRenderFrameObserver::ChromeRenderFrameObserver(
 #if !BUILDFLAG(IS_ANDROID)
   SetVisualSearchClassifierAgent();
 #endif
-
 #if 0
-  if (!translate::IsSubFrameTranslationEnabled()) {
-    translate_agent_ = new translate::TranslateAgent(
-        render_frame, ISOLATED_WORLD_ID_TRANSLATE);
-  }
+  translate_agent_ =
+      new translate::TranslateAgent(render_frame, ISOLATED_WORLD_ID_TRANSLATE);
 #endif
 }
 
@@ -559,6 +557,8 @@ void ChromeRenderFrameObserver::SetClientSidePhishingDetection() {
 #if 0 //BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   phishing_classifier_ = safe_browsing::PhishingClassifierDelegate::Create(
       render_frame(), nullptr);
+  phishing_image_embedder_ =
+      safe_browsing::PhishingImageEmbedderDelegate::Create(render_frame());
 #endif
 }
 
@@ -694,6 +694,10 @@ void ChromeRenderFrameObserver::CapturePageText(
   if (phishing_classifier_) {
     phishing_classifier_->PageCaptured(
         &contents, layout_type == blink::WebMeaningfulLayout::kFinishedParsing);
+  }
+  if (phishing_image_embedder_) {
+    phishing_image_embedder_->PageCaptured(
+        layout_type == blink::WebMeaningfulLayout::kFinishedParsing);
   }
 #endif
 }

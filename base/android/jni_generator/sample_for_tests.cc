@@ -112,6 +112,19 @@ static ScopedJavaLocalRef<jobjectArray> JNI_SampleForTests_GetNonPODDatatype(
   return ScopedJavaLocalRef<jobjectArray>();
 }
 
+static base::android::ScopedJavaLocalRef<jclass> JNI_SampleForTests_GetClass(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jclass>& arg0) {
+  return ScopedJavaLocalRef<jclass>();
+}
+
+static base::android::ScopedJavaLocalRef<jthrowable>
+JNI_SampleForTests_GetThrowable(
+    JNIEnv* env,
+    const base::android::JavaParamRef<jthrowable>& arg0) {
+  return ScopedJavaLocalRef<jthrowable>();
+}
+
 } // namespace android
 } // namespace base
 
@@ -276,6 +289,15 @@ int main() {
 
   base::android::Java_SampleForTests_getInnerInterface(env);
   base::android::Java_SampleForTests_getInnerEnum(env);
+  base::android::Java_SampleForTests_getInnerEnum(env, 0);
+
+  base::android::ScopedJavaLocalRef<jthrowable> throwable;
+  throwable = base::android::Java_SampleForTests_getThrowable(
+      env, my_java_object, throwable);
+
+  base::android::ScopedJavaLocalRef<jclass> clazz;
+  clazz =
+      base::android::Java_SampleForTests_getClass(env, my_java_object, clazz);
 
   return 0;
 }

@@ -222,7 +222,7 @@ class CountDanglingRawPtr {
 // For ease of reading, the tests are placed into the latter namespace.
 namespace partition_alloc::internal {
 
-using BucketDistribution = ThreadSafePartitionRoot::BucketDistribution;
+using BucketDistribution = PartitionRoot::BucketDistribution;
 using SlotSpan = SlotSpanMetadata;
 
 const size_t kTestAllocSize = 16;
@@ -237,10 +237,10 @@ const size_t kExtraAllocSizeWithoutRefCount = kCookieSize;
 
 const char* type_name = nullptr;
 
-void SetDistributionForPartitionRoot(ThreadSafePartitionRoot* root,
+void SetDistributionForPartitionRoot(PartitionRoot* root,
                                      BucketDistribution distribution) {
   switch (distribution) {
-    case BucketDistribution::kDefault:
+    case BucketDistribution::kNeutral:
       root->ResetBucketDistributionForTesting();
       break;
     case BucketDistribution::kDenser:
@@ -256,35 +256,27 @@ struct PartitionAllocTestParam {
 };
 
 const std::vector<PartitionAllocTestParam> GetPartitionAllocTestParams() {
-  std::vector<size_t> ref_count_sizes = {16};
-
-  bool only_supports_16b_ref_count = false;
-#if PA_CONFIG(INCREASE_REF_COUNT_SIZE_FOR_MTE)
-  only_supports_16b_ref_count =
-      partition_alloc::internal::base::CPU::GetInstanceNoAllocation().has_mte();
-#endif
-
-  if (!only_supports_16b_ref_count) {
-    ref_count_sizes.push_back(0);
-    ref_count_sizes.push_back(8);
-    // sizeof(PartitionRefCount) == 8 under some configurations, so we can't
-    // force the size down to 4.
+  std::vector<size_t> ref_count_sizes = {0, 8, 16};
+  // sizeof(PartitionRefCount) == 8 under some configurations, so we can't force
+  // the size down to 4.
 #if !PA_CONFIG(REF_COUNT_STORE_REQUESTED_SIZE) && \
     !PA_CONFIG(REF_COUNT_CHECK_COOKIE) &&         \
     !BUILDFLAG(ENABLE_DANGLING_RAW_PTR_CHECKS)
-    ref_count_sizes.push_back(4);
+  ref_count_sizes.push_back(4);
 #endif
-  }
+  // Using MTE or Mac13 workaroud increases extras size without increasing
+  // sizeof(PartitionRefCount), so we don't have to exclude it here, as long as
+  // ExtraAllocSize() accounts for it.
 
   std::vector<PartitionAllocTestParam> params;
   for (size_t ref_count_size : ref_count_sizes) {
-    params.emplace_back(PartitionAllocTestParam{BucketDistribution::kDefault,
+    params.emplace_back(PartitionAllocTestParam{BucketDistribution::kNeutral,
                                                 false, ref_count_size});
     params.emplace_back(PartitionAllocTestParam{BucketDistribution::kDenser,
                                                 false, ref_count_size});
 #if BUILDFLAG(ENABLE_PKEYS)
     if (CPUHasPkeySupport()) {
-      params.emplace_back(PartitionAllocTestParam{BucketDistribution::kDefault,
+      params.emplace_back(PartitionAllocTestParam{BucketDistribution::kNeutral,
                                                   true, ref_count_size});
       params.emplace_back(PartitionAllocTestParam{BucketDistribution::kDenser,
                                                   true, ref_count_size});
@@ -408,10 +400,12 @@ class PartitionAllocTest
             .ref_count_size = GetParam().ref_count_size,
 #if PA_CONFIG(HAS_MEMORY_TAGGING)
             .memory_tagging =
-                partition_alloc::internal::base::CPU::GetInstanceNoAllocation()
-                        .has_mte()
-                    ? PartitionOptions::MemoryTagging::kEnabled
-                    : PartitionOptions::MemoryTagging::kDisabled,
+            {.enabled =
+                 partition_alloc::internal::base::CPU::GetInstanceNoAllocation()
+                         .has_mte()
+                     ? PartitionOptions::MemoryTagging::kEnabled
+                     : PartitionOptions::MemoryTagging::kDisabled,
+            }
 #endif
           },
           PartitionTestOptions{.use_memory_reclaimer = true,
@@ -465,12 +459,22 @@ class PartitionAllocTest
   }
 
   static size_t ExtraAllocSize(const PartitionAllocator& allocator) {
-    size_t ref_count_size = GetParam().ref_count_size;
-    if (!ref_count_size) {
-      ref_count_size = kInSlotRefCountBufferSize;
+    size_t ref_count_size = 0;
+    // Duplicate the logic from PartitionRoot::Init().
+    if (allocator.root()->brp_enabled()) {
+      ref_count_size = GetParam().ref_count_size;
+      if (!ref_count_size) {
+        ref_count_size = kPartitionRefCountSizeAdjustment;
+      }
+      ref_count_size = AlignUpRefCountSizeForMac(ref_count_size);
+#if PA_CONFIG(INCREASE_REF_COUNT_SIZE_FOR_MTE)
+      if (allocator.root()->IsMemoryTaggingEnabled()) {
+        ref_count_size = partition_alloc::internal::base::bits::AlignUp(
+            ref_count_size, kMemTagGranuleSize);
+      }
+#endif  // PA_CONFIG(INCREASE_REF_COUNT_SIZE_FOR_MTE)
     }
-    return kExtraAllocSizeWithoutRefCount +
-           (allocator.root()->brp_enabled() ? ref_count_size : 0);
+    return kExtraAllocSizeWithoutRefCount + ref_count_size;
   }
 
   size_t GetNumPagesPerSlotSpan(size_t size) {
@@ -3728,7 +3732,7 @@ void VerifyAlignment(PartitionRoot* root, size_t size, size_t alignment) {
   }
 
   for (void* ptr : allocated_ptrs) {
-    PartitionRoot::Free(ptr);
+    root->Free(ptr);
   }
 }
 

@@ -55,7 +55,8 @@ LLVM_INSTRUMENTED_DIR = os.path.join(THIRD_PARTY_DIR, 'llvm-instrumented')
 LLVM_PROFDATA_FILE = os.path.join(LLVM_INSTRUMENTED_DIR, 'profdata.prof')
 LLVM_BUILD_TOOLS_DIR = os.path.abspath(
     os.path.join(LLVM_DIR, '..', 'llvm-build-tools'))
-ANDROID_NDK_DIR = os.path.join(CHROMIUM_DIR, 'third_party', 'android_toolchain')
+ANDROID_NDK_DIR = os.path.join(CHROMIUM_DIR, 'third_party',
+                               'android_toolchain', 'ndk')
 FUCHSIA_SDK_DIR = os.path.join(CHROMIUM_DIR, 'third_party', 'fuchsia-sdk',
                                'sdk')
 PINNED_CLANG_DIR = os.path.join(LLVM_BUILD_TOOLS_DIR, 'pinned-clang')
@@ -423,24 +424,9 @@ def StartGomaAndGetGomaCCPath():
 
 
 def DownloadPinnedClang():
-  PINNED_CLANG_VERSION = 'llvmorg-17-init-12166-g7586aeab-3'
+  PINNED_CLANG_VERSION = 'llvmorg-17-init-16420-g0c545a44-1'
   DownloadAndUnpackPackage('clang', PINNED_CLANG_DIR, GetDefaultHostOs(),
                            PINNED_CLANG_VERSION)
-
-
-# TODO(crbug.com/1013560): Consider linking with libc++ instead of libstdc++.
-def MaybeDownloadHostGcc(args):
-  """Download the libstdc++ packaged with GCC, which we must link into the clang
-  we are building on Linux."""
-  assert sys.platform.startswith('linux')
-  if args.gcc_toolchain:
-    return
-  gcc_dir = os.path.join(LLVM_BUILD_TOOLS_DIR, 'gcc-10.2.0-bionic')
-  if os.path.isdir(gcc_dir):
-    RmTree(gcc_dir)  # TODO(thakis): Remove this branch after a few weeks.
-  if not os.path.exists(gcc_dir):
-    DownloadAndUnpack(CDS_URL + '/tools/gcc-10.2.0-bionic.tgz', gcc_dir)
-  args.gcc_toolchain = gcc_dir
 
 
 def VerifyVersionOfBuiltClangMatchesVERSION():
@@ -482,20 +468,34 @@ def VerifyZlibSupport():
     sys.exit(1)
 
 
-# TODO(https://crbug.com/1286289): remove once Chrome targets don't rely on
-# libstdc++.so existing in the clang package.
-def CopyLibstdcpp(args, build_dir):
-  if not args.gcc_toolchain:
-    return
-  # Find libstdc++.so.6
-  libstdcpp = subprocess.check_output([
-      os.path.join(args.gcc_toolchain, 'bin', 'g++'),
-      '-print-file-name=libstdc++.so.6'
-  ],
-                                      universal_newlines=True).rstrip()
+def DownloadDebianSysroot(platform_name):
+  # Download sysroots. This uses basically Chromium's sysroots, but with
+  # minor changes:
+  # - glibc version bumped to 2.18 to make __cxa_thread_atexit_impl
+  #   work (clang can require 2.18; chromium currently doesn't)
+  # - libcrypt.so.1 reversioned so that crypt() is picked up from glibc
+  # The sysroot was built at
+  # https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1
+  # and the hashes here are from sysroots.json in that CL.
+  toolchain_bucket = 'https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/'
 
-  EnsureDirExists(os.path.join(build_dir, 'lib'))
-  CopyFile(libstdcpp, os.path.join(build_dir, 'lib'))
+  hashes = {
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#3
+      'amd64': '2028cdaf24259d23adcff95393b8cc4f0eef714b',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#23
+      'i386': 'a033618b5e092c86e96d62d3c43f7363df6cebe7',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#8
+      'arm': '0b9a3c54d2d5f6b1a428369aaa8d7ba7b227f701',
+      # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#12
+      'arm64': '0e28d9832614729bb5b731161ff96cb4d516f345',
+  }
+
+  toolchain_name = f'debian_bullseye_{platform_name}_sysroot'
+  output = os.path.join(LLVM_BUILD_TOOLS_DIR, toolchain_name)
+  U = toolchain_bucket + hashes[platform_name] + '/' + toolchain_name + '.tar.xz'
+  DownloadAndUnpack(U, output)
+
+  return output
 
 
 def compiler_rt_cmake_flags(*, sanitizers, profile):
@@ -543,9 +543,6 @@ def main():
   parser.add_argument('--host-cxx',
                       help='build with host C++ compiler, requires --host-cc '
                       'as well')
-  parser.add_argument('--gcc-toolchain', help='what gcc toolchain to use for '
-                      'building; --gcc-toolchain=/opt/foo picks '
-                      '/opt/foo/bin/gcc')
   parser.add_argument('--pgo', action='store_true', help='build with PGO')
   parser.add_argument('--thinlto',
                       action='store_true',
@@ -714,7 +711,6 @@ def main():
       '-DLLVM_ENABLE_RUNTIMES=compiler-rt',
       '-DLLVM_TARGETS_TO_BUILD=' + targets,
       f'-DLLVM_ENABLE_PIC={pic_mode}',
-      '-DLLVM_ENABLE_UNWIND_TABLES=OFF',
       '-DLLVM_ENABLE_TERMINFO=OFF',
       '-DLLVM_ENABLE_Z3_SOLVER=OFF',
       '-DCLANG_PLUGIN_SUPPORT=OFF',
@@ -740,6 +736,8 @@ def main():
   if sys.platform == 'darwin':
     isysroot = subprocess.check_output(['xcrun', '--show-sdk-path'],
                                        universal_newlines=True).rstrip()
+  else:
+    base_cmake_args += ['-DLLVM_ENABLE_UNWIND_TABLES=OFF']
 
   # See https://crbug.com/1302636#c49 - #c56 -- intercepting crypt_r() does not
   # work with the sysroot for not fully understood reasons. Disable it.
@@ -779,51 +777,13 @@ def main():
       cxx = os.path.join(PINNED_CLANG_DIR, 'bin', 'clang++')
 
     if sys.platform.startswith('linux'):
-      MaybeDownloadHostGcc(args)
       base_cmake_args += [ '-DLLVM_STATIC_LINK_CXX_STDLIB=ON' ]
 
   if sys.platform.startswith('linux'):
-    # Download sysroots. This uses basically Chromium's sysroots, but with
-    # minor changes:
-    # - glibc version bumped to 2.18 to make __cxa_thread_atexit_impl
-    #   work (clang can require 2.18; chromium currently doesn't)
-    # - libcrypt.so.1 reversioned so that crypt() is picked up from glibc
-    # The sysroot was built at
-    # https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1
-    # and the hashes here are from sysroots.json in that CL.
-    toolchain_bucket = 'https://commondatastorage.googleapis.com/chrome-linux-sysroot/toolchain/'
-
-    # amd64
-    # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#3
-    toolchain_hash = '2028cdaf24259d23adcff95393b8cc4f0eef714b'
-    toolchain_name = 'debian_bullseye_amd64_sysroot'
-    U = toolchain_bucket + toolchain_hash + '/' + toolchain_name + '.tar.xz'
-    sysroot_amd64 = os.path.join(LLVM_BUILD_TOOLS_DIR, toolchain_name)
-    DownloadAndUnpack(U, sysroot_amd64)
-
-    # i386
-    # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#23
-    toolchain_hash = 'a033618b5e092c86e96d62d3c43f7363df6cebe7'
-    toolchain_name = 'debian_bullseye_i386_sysroot'
-    U = toolchain_bucket + toolchain_hash + '/' + toolchain_name + '.tar.xz'
-    sysroot_i386 = os.path.join(LLVM_BUILD_TOOLS_DIR, toolchain_name)
-    DownloadAndUnpack(U, sysroot_i386)
-
-    # arm
-    # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#8
-    toolchain_hash = '0b9a3c54d2d5f6b1a428369aaa8d7ba7b227f701'
-    toolchain_name = 'debian_bullseye_arm_sysroot'
-    U = toolchain_bucket + toolchain_hash + '/' + toolchain_name + '.tar.xz'
-    sysroot_arm = os.path.join(LLVM_BUILD_TOOLS_DIR, toolchain_name)
-    DownloadAndUnpack(U, sysroot_arm)
-
-    # arm64
-    # hash from https://chromium-review.googlesource.com/c/chromium/src/+/3684954/1/build/linux/sysroot_scripts/sysroots.json#12
-    toolchain_hash = '0e28d9832614729bb5b731161ff96cb4d516f345'
-    toolchain_name = 'debian_bullseye_arm64_sysroot'
-    U = toolchain_bucket + toolchain_hash + '/' + toolchain_name + '.tar.xz'
-    sysroot_arm64 = os.path.join(LLVM_BUILD_TOOLS_DIR, toolchain_name)
-    DownloadAndUnpack(U, sysroot_arm64)
+    sysroot_amd64 = DownloadDebianSysroot('amd64')
+    sysroot_i386 = DownloadDebianSysroot('i386')
+    sysroot_arm = DownloadDebianSysroot('arm')
+    sysroot_arm64 = DownloadDebianSysroot('arm64')
 
     # Add the sysroot to base_cmake_args.
     if platform.machine() == 'aarch64':
@@ -1088,73 +1048,115 @@ def main():
   elif sys.platform == 'win32':
     cmake_args.append('-DLLVM_DEFAULT_TARGET_TRIPLE=x86_64-pc-windows-msvc')
 
-  # List of (triple, list of CMake vars without '-D').
-  runtimes_triples_args = []
+  # Map from triple to {
+  #   "args": list of CMake vars without '-D' common to builtins and runtimes
+  #   "profile": bool # build profile runtime
+  #   "sanitizers": bool # build sanitizer runtimes
+  # }
+  runtimes_triples_args = {}
 
   if sys.platform.startswith('linux'):
-    runtimes_triples_args.append((
-        'i386-unknown-linux-gnu',
-        compiler_rt_cmake_flags(sanitizers=True, profile=True) + [
+    runtimes_triples_args['i386-unknown-linux-gnu'] = {
+        "args": [
             'CMAKE_SYSROOT=%s' % sysroot_i386,
             # TODO(https://crbug.com/1374690): pass proper flags to i386 tests so they compile correctly
             'LLVM_INCLUDE_TESTS=OFF',
-        ]))
-    runtimes_triples_args.append(
-        ('x86_64-unknown-linux-gnu',
-         compiler_rt_cmake_flags(sanitizers=True, profile=True) + [
-             'CMAKE_SYSROOT=%s' % sysroot_amd64,
-         ]))
-    runtimes_triples_args.append(
-        # Using "armv7a-unknown-linux-gnueabhihf" confuses the compiler-rt
-        # builtins build, since compiler-rt/cmake/builtin-config-ix.cmake
-        # doesn't include "armv7a" in its `ARM32` list.
-        # TODO(thakis): It seems to work for everything else though, see try
-        # results on
-        # https://chromium-review.googlesource.com/c/chromium/src/+/3702739/4
-        # Maybe it should work for builtins too?
-        (
-            'armv7-unknown-linux-gnueabihf',
-            compiler_rt_cmake_flags(sanitizers=True, profile=True) + [
-                'CMAKE_SYSROOT=%s' % sysroot_arm,
-                # Can't run tests on x86 host.
-                'LLVM_INCLUDE_TESTS=OFF',
-            ]))
-    runtimes_triples_args.append((
-        'aarch64-unknown-linux-gnu',
-        compiler_rt_cmake_flags(sanitizers=True, profile=True) + [
+        ],
+        "profile":
+        True,
+        "sanitizers":
+        True,
+    }
+    runtimes_triples_args['x86_64-unknown-linux-gnu'] = {
+        "args": [
+            'CMAKE_SYSROOT=%s' % sysroot_amd64,
+        ],
+        "profile": True,
+        "sanitizers": True,
+    }
+    # Using "armv7a-unknown-linux-gnueabhihf" confuses the compiler-rt
+    # builtins build, since compiler-rt/cmake/builtin-config-ix.cmake
+    # doesn't include "armv7a" in its `ARM32` list.
+    # TODO(thakis): It seems to work for everything else though, see try
+    # results on
+    # https://chromium-review.googlesource.com/c/chromium/src/+/3702739/4
+    # Maybe it should work for builtins too?
+    runtimes_triples_args['armv7-unknown-linux-gnueabihf'] = {
+        "args": [
+            'CMAKE_SYSROOT=%s' % sysroot_arm,
+            # Can't run tests on x86 host.
+            'LLVM_INCLUDE_TESTS=OFF',
+        ],
+        "profile":
+        True,
+        "sanitizers":
+        True,
+    }
+    runtimes_triples_args['aarch64-unknown-linux-gnu'] = {
+        "args": [
             'CMAKE_SYSROOT=%s' % sysroot_arm64,
             # Can't run tests on x86 host.
             'LLVM_INCLUDE_TESTS=OFF',
-        ]))
+        ],
+        "profile":
+        True,
+        "sanitizers":
+        True,
+    }
   elif sys.platform == 'win32':
     sysroot = os.path.dirname(os.path.dirname(GetWinSDKDir()))
-    runtimes_triples_args.append(
-        ('i386-pc-windows-msvc',
-         compiler_rt_cmake_flags(sanitizers=False, profile=True) + [
-             'LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF',
-             'LLVM_WINSYSROOT="%s"' % sysroot,
-         ]))
-    runtimes_triples_args.append(
-        ('x86_64-pc-windows-msvc',
-         compiler_rt_cmake_flags(sanitizers=True, profile=True) + [
-             'LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF',
-             'LLVM_WINSYSROOT="%s"' % sysroot,
-         ]))
+    runtimes_triples_args['i386-pc-windows-msvc'] = {
+        "args": [
+            'LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF',
+            'LLVM_WINSYSROOT="%s"' % sysroot,
+        ],
+        "profile":
+        True,
+        "sanitizers":
+        False,
+    }
+    runtimes_triples_args['x86_64-pc-windows-msvc'] = {
+        "args": [
+            'LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF',
+            'LLVM_WINSYSROOT="%s"' % sysroot,
+        ],
+        "profile":
+        True,
+        "sanitizers":
+        True,
+    }
+    runtimes_triples_args['aarch64-pc-windows-msvc'] = {
+        "args": [
+            'LLVM_ENABLE_PER_TARGET_RUNTIME_DIR=OFF',
+            'LLVM_WINSYSROOT="%s"' % sysroot,
+            # Can't run tests on x86 host.
+            'LLVM_INCLUDE_TESTS=OFF',
+        ],
+        "profile":
+        True,
+        "sanitizers":
+        False,
+    }
   elif sys.platform == 'darwin':
-    compiler_rt_args = [
-        'SANITIZER_MIN_OSX_VERSION=' + deployment_target,
-        'COMPILER_RT_ENABLE_MACCATALYST=ON',
-        'COMPILER_RT_ENABLE_IOS=ON',
-        'COMPILER_RT_ENABLE_WATCHOS=OFF',
-        'COMPILER_RT_ENABLE_TVOS=OFF',
-        'DARWIN_ios_ARCHS=arm64',
-        'DARWIN_iossim_ARCHS=arm64;x86_64',
-        'DARWIN_osx_ARCHS=arm64;x86_64',
-    ] + compiler_rt_cmake_flags(sanitizers=True, profile=True)
     # compiler-rt is built for all platforms/arches with a single
     # configuration, we should only specify one target triple. 'default' is
     # specially handled.
-    runtimes_triples_args.append(('default', compiler_rt_args))
+    runtimes_triples_args['default'] = {
+        "args": [
+            'SANITIZER_MIN_OSX_VERSION=' + deployment_target,
+            'COMPILER_RT_ENABLE_MACCATALYST=ON',
+            'COMPILER_RT_ENABLE_IOS=ON',
+            'COMPILER_RT_ENABLE_WATCHOS=OFF',
+            'COMPILER_RT_ENABLE_TVOS=OFF',
+            'DARWIN_ios_ARCHS=arm64',
+            'DARWIN_iossim_ARCHS=arm64;x86_64',
+            'DARWIN_osx_ARCHS=arm64;x86_64',
+        ],
+        "sanitizers":
+        True,
+        "profile":
+        True
+    }
 
   if args.with_android:
     toolchain_dir = ANDROID_NDK_DIR + '/toolchains/llvm/prebuilt/linux-x86_64'
@@ -1177,7 +1179,7 @@ def main():
         # Use PAC/BTI instructions for AArch64
         android_cflags += ['-mbranch-protection=standard']
 
-      android_args = compiler_rt_cmake_flags(sanitizers=True, profile=True) + [
+      android_args = [
           'LLVM_ENABLE_RUNTIMES=compiler-rt',
           # On Android, we want DWARF info for the builtins for unwinding. See
           # crbug.com/1311807.
@@ -1195,8 +1197,11 @@ def main():
           # TODO: remove once we only support API >=24.
           'ANDROID_NATIVE_API_LEVEL=' + api_level,
       ]
-
-      runtimes_triples_args.append((target_triple, android_args))
+      runtimes_triples_args[target_triple] = {
+          "args": android_args,
+          "sanitizers": True,
+          "profile": True
+      }
 
   if args.with_fuchsia:
     # Fuchsia links against libclang_rt.builtins-<arch>.a instead of libgcc.a.
@@ -1217,9 +1222,7 @@ def main():
       build_sanitizers = build_profile and sys.platform != 'darwin'
       # TODO(thakis): Might have to pass -B here once sysroot contains
       # binaries (e.g. gas for arm64?)
-      fuchsia_args = compiler_rt_cmake_flags(
-          sanitizers=build_sanitizers, profile=build_profile
-      ) + [
+      fuchsia_args = [
           'LLVM_ENABLE_RUNTIMES=compiler-rt',
           'CMAKE_SYSTEM_NAME=Fuchsia',
           'CMAKE_SYSROOT=%s' % toolchain_dir,
@@ -1230,7 +1233,11 @@ def main():
       if build_sanitizers:
         fuchsia_args.append('SANITIZER_NO_UNDEFINED_SYMBOLS=OFF')
 
-      runtimes_triples_args.append((target_triple, fuchsia_args))
+      runtimes_triples_args[target_triple] = {
+          "args": fuchsia_args,
+          "sanitizers": build_sanitizers,
+          "profile": build_profile
+      }
 
   # Embed MLGO inliner model. If tf_path is not specified, a vpython3 env
   # will be created which contains the necessary source files for compilation.
@@ -1261,16 +1268,25 @@ def main():
   # -DBUILTINS_$triple_FOO=BAR/-DRUNTIMES_$triple_FOO=BAR and build up
   # -DLLVM_BUILTIN_TARGETS/-DLLVM_RUNTIME_TARGETS.
   all_triples = ''
-  for (triple, a) in runtimes_triples_args:
-    all_triples += ';' + triple
-    for arg in a:
+  for triple in sorted(runtimes_triples_args.keys()):
+    all_triples += triple + ';'
+    for arg in runtimes_triples_args[triple]["args"]:
       assert not arg.startswith('-')
       # 'default' is specially handled to pass through relevant CMake flags.
       if triple == 'default':
         cmake_args.append('-D' + arg)
       else:
-        cmake_args.append('-DBUILTINS_' + triple + '_' + arg)
         cmake_args.append('-DRUNTIMES_' + triple + '_' + arg)
+        cmake_args.append('-DBUILTINS_' + triple + '_' + arg)
+    for arg in compiler_rt_cmake_flags(
+        profile=runtimes_triples_args[triple]["profile"],
+        sanitizers=runtimes_triples_args[triple]["sanitizers"]):
+      # 'default' is specially handled to pass through relevant CMake flags.
+      if triple == 'default':
+        cmake_args.append('-D' + arg)
+      else:
+        cmake_args.append('-DRUNTIMES_' + triple + '_' + arg)
+
   cmake_args.append('-DLLVM_BUILTIN_TARGETS=' + all_triples)
   cmake_args.append('-DLLVM_RUNTIME_TARGETS=' + all_triples)
 
@@ -1286,7 +1302,6 @@ def main():
   RunCommand(['cmake'] + cmake_args + [os.path.join(LLVM_DIR, 'llvm')],
              setenv=True,
              env=deployment_env)
-  CopyLibstdcpp(args, LLVM_BUILD_DIR)
   RunCommand(['ninja'] + goma_ninja_args, setenv=True)
 
   if chrome_tools:
@@ -1368,10 +1383,16 @@ def main():
     env = None
     if sys.platform.startswith('linux'):
       env = os.environ.copy()
-      # See SANITIZER_OVERRIDE_INTERCEPTORS above: We disable crypt_r()
-      # interception, so its tests can't pass.
-      env['LIT_FILTER_OUT'] = ('^SanitizerCommon-(a|l|m|ub|t)san-x86_64-Linux' +
-                               ' :: Linux/crypt_r.cpp$')
+      lit_excludes = [
+          # See SANITIZER_OVERRIDE_INTERCEPTORS above: We disable crypt_r()
+          # interception, so its tests can't pass.
+          '^SanitizerCommon-(a|l|m|ub|t)san-x86_64-Linux :: Linux/crypt_r.cpp$',
+          # fstat and sunrpc tests fail due to sysroot/host mismatches
+          # (crbug.com/1459187).
+          '^MemorySanitizer-.* f?stat(at)?(64)?.cpp$',
+          '^.*Sanitizer-.*sunrpc.*cpp$'
+      ]
+      env['LIT_FILTER_OUT'] = '|'.join(lit_excludes)
     RunCommand(['ninja', '-C', LLVM_BUILD_DIR, 'check-all'],
                env=env,
                setenv=True)

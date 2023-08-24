@@ -5,8 +5,6 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_COMMON_AUTOFILL_PREFS_H_
 #define COMPONENTS_AUTOFILL_CORE_COMMON_AUTOFILL_PREFS_H_
 
-#include <string>
-
 #include "build/build_config.h"
 #include "google_apis/gaia/core_account_id.h"
 
@@ -26,7 +24,7 @@ extern const char kAutofillCreditCardEnabled[];
 extern const char kAutofillCreditCardFidoAuthEnabled[];
 #if BUILDFLAG(IS_ANDROID)
 extern const char kAutofillCreditCardFidoAuthOfferCheckboxState[];
-#endif
+#endif  // BUILDFLAG(IS_ANDROID)
 // Please use kAutofillCreditCardEnabled, kAutofillIBANEnabled and
 // kAutofillProfileEnabled instead.
 extern const char kAutofillEnabledDeprecated[];
@@ -36,7 +34,7 @@ extern const char kAutofillLastVersionDeduped[];
 extern const char kAutofillLastVersionDisusedAddressesDeleted[];
 extern const char kAutofillLastVersionDisusedCreditCardsDeleted[];
 extern const char kAutofillOrphanRowsRemoved[];
-extern const char kAutofillPaymentCvcStorageAndFilling[];
+extern const char kAutofillPaymentCvcStorage[];
 // Do not get/set the value of this pref directly. Use provided getter/setter.
 extern const char kAutofillProfileEnabled[];
 extern const char kAutofillSyncTransportOptIn[];
@@ -44,12 +42,14 @@ extern const char kAutofillStatesDataDir[];
 extern const char kAutofillUploadEncodingSeed[];
 extern const char kAutofillUploadEvents[];
 extern const char kAutofillUploadEventsLastResetTimestamp[];
-extern const char kAutofillWalletImportEnabled[];
 extern const char kAutocompleteLastVersionRetentionPolicy[];
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
 extern const char kAutofillPaymentMethodsMandatoryReauth[];
 extern const char kAutofillPaymentMethodsMandatoryReauthPromoShownCounter[];
 #endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_ANDROID)
+extern const char kAutofillUsingVirtualViewStructure[];
+#endif  // BUILDFLAG(IS_ANDROID)
 
 // The maximum value for the
 // `kAutofillPaymentMethodsMandatoryReauthPromoShownCounter` pref. If this
@@ -96,10 +96,6 @@ bool IsAutofillProfileEnabled(const PrefService* prefs);
 
 void SetAutofillProfileEnabled(PrefService* prefs, bool enabled);
 
-bool IsPaymentsIntegrationEnabled(const PrefService* prefs);
-
-void SetPaymentsIntegrationEnabled(PrefService* prefs, bool enabled);
-
 bool IsPaymentMethodsMandatoryReauthEnabled(const PrefService* prefs);
 
 void SetPaymentMethodsMandatoryReauthEnabled(PrefService* prefs, bool enabled);
@@ -109,9 +105,9 @@ bool ShouldShowPaymentMethodsMandatoryReauthPromo(const PrefService* prefs);
 void IncrementPaymentMethodsMandatoryReauthPromoShownCounter(
     PrefService* prefs);
 
-bool IsPaymentCvcStorageAndFillingEnabled(const PrefService* prefs);
+bool IsPaymentCvcStorageEnabled(const PrefService* prefs);
 
-void SetPaymentCvcStorageAndFilling(PrefService* prefs, bool value);
+void SetPaymentCvcStorage(PrefService* prefs, bool value);
 
 void SetUserOptedInWalletSyncTransport(PrefService* prefs,
                                        const CoreAccountId& account_id,
@@ -121,6 +117,8 @@ bool IsUserOptedInWalletSyncTransport(const PrefService* prefs,
                                       const CoreAccountId& account_id);
 
 void ClearSyncTransportOptIns(PrefService* prefs);
+
+bool UsesVirtualViewStructureForAutofill(const PrefService* prefs);
 
 }  // namespace prefs
 }  // namespace autofill

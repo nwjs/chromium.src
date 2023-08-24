@@ -6,7 +6,9 @@
 
 #include "base/debug/dump_without_crashing.h"
 #include "base/debug/stack_trace.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/metrics/field_trial_params.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
 #include "base/strings/stringprintf.h"
@@ -17,7 +19,6 @@
 #include "cc/paint/decode_stashing_image_provider.h"
 #include "cc/paint/display_item_list.h"
 #include "cc/tiles/software_image_decode_cache.h"
-#include "components/viz/common/resources/resource_format_utils.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/GLES2/gl2extchromium.h"
 #include "gpu/command_buffer/client/raster_interface.h"
@@ -41,6 +42,7 @@
 #include "third_party/skia/include/gpu/GrDirectContext.h"
 #include "third_party/skia/include/gpu/GrTypes.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
+#include "third_party/skia/include/gpu/ganesh/gl/GrGLBackendSurface.h"
 #include "third_party/skia/include/gpu/gl/GrGLTypes.h"
 
 namespace blink {
@@ -92,9 +94,6 @@ bool IsGMBAllowed(const SkImageInfo& info, const gpu::Capabilities& caps) {
 }
 
 }  // namespace
-
-size_t CanvasResourceProvider::max_pinned_image_bytes_ =
-    kDefaultMaxPinnedImageBytes;
 
 class CanvasResourceProvider::CanvasImageProvider : public cc::ImageProvider {
  public:
@@ -341,9 +340,9 @@ class CanvasResourceProviderSharedImage : public CanvasResourceProvider {
       // Note that the call below is guarenteed to not issue any GPU work for
       // the backend texture since we ensure that all skia work on the resource
       // is issued before releasing write access.
-      SkSurfaces::GetBackendTexture(surface_.get(),
-                                    SkSurfaces::BackendHandleAccess::kFlushRead)
-          .glTextureParametersModified();
+      auto tex = SkSurfaces::GetBackendTexture(
+          surface_.get(), SkSurfaces::BackendHandleAccess::kFlushRead);
+      GrBackendTextures::GLTextureParametersModified(&tex);
     }
   }
 
@@ -845,7 +844,7 @@ class CanvasResourceProviderSwapChain final : public CanvasResourceProvider {
             viz::SkColorTypeToSinglePlaneSharedImageFormat(
                 GetSkImageInfo().colorType()));
 
-    auto backend_texture = GrBackendTexture(
+    auto backend_texture = GrBackendTextures::MakeGL(
         Size().width(), Size().height(), skgpu::Mipmapped::kNo, texture_info);
 
     const auto props = GetSkSurfaceProps();
@@ -960,6 +959,10 @@ CanvasResourceProvider::CreateSharedImageProvider(
     RasterMode raster_mode,
     bool is_origin_top_left,
     uint32_t shared_image_usage_flags) {
+  // TODO(crbug.com/1456636): Remove the |is_origin_top_left| parameter once
+  // all the CLs removing its usage stick. In the meantime, prevent any new
+  // usage of bottom left origin.
+  CHECK(is_origin_top_left);
   // IsGpuCompositingEnabled can re-create the context if it has been lost, do
   // this up front so that we can fail early and not expose ourselves to
   // use after free bugs (crbug.com/1126424)
@@ -1034,13 +1037,13 @@ CanvasResourceProvider::CreateSharedImageProvider(
 std::unique_ptr<CanvasResourceProvider>
 CanvasResourceProvider::CreateWebGPUImageProvider(
     const SkImageInfo& info,
-    bool is_origin_top_left,
     uint32_t shared_image_usage_flags) {
   auto context_provider_wrapper = SharedGpuContext::ContextProviderWrapper();
+  constexpr bool kIsOriginTopLeft = true;
   return CreateSharedImageProvider(
       info, cc::PaintFlags::FilterQuality::kLow,
       CanvasResourceProvider::ShouldInitialize::kNo,
-      std::move(context_provider_wrapper), RasterMode::kGPU, is_origin_top_left,
+      std::move(context_provider_wrapper), RasterMode::kGPU, kIsOriginTopLeft,
       shared_image_usage_flags | gpu::SHARED_IMAGE_USAGE_WEBGPU);
 }
 
@@ -1219,6 +1222,33 @@ bool CanvasResourceProvider::CanvasImageProvider::IsHardwareDecodeCache()
   return raster_mode_ != cc::PlaybackImageProvider::RasterMode::kSoftware;
 }
 
+BASE_FEATURE(kCanvas2DAutoFlushParams,
+             "Canvas2DAutoFlushParams",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// The following parameters attempt to reach a compromise between not flushing
+// too often, and not accumulating an unreasonable backlog. Flushing too
+// often will hurt performance due to overhead costs. Accumulating large
+// backlogs, in the case of OOPR-Canvas, results in poor parellelism and
+// janky UI. With OOPR-Canvas disabled, it is still desirable to flush
+// periodically to guard against run-away memory consumption caused by
+// PaintOpBuffers that grow indefinitely. The OOPR-related jank is caused by
+// long-running RasterCHROMIUM calls that monopolize the main thread
+// of the GPU process. By flushing periodically, we allow the rasterization
+// of canvas contents to be interleaved with other compositing and UI work.
+//
+// The default values for these parameters were initially determined
+// empirically. They were selected to maximize the MotionMark score on
+// desktop computers. Field trials may be used to tune these parameters
+// further by using metrics data from the field.
+const base::FeatureParam<int> kMaxRecordedOpKB(&kCanvas2DAutoFlushParams,
+                                               "max_recorded_op_kb",
+                                               4 * 1024);
+
+const base::FeatureParam<int> kMaxPinnedImageKB(&kCanvas2DAutoFlushParams,
+                                                "max_pinned_image_kb",
+                                                64 * 1024);
+
 CanvasResourceProvider::CanvasResourceProvider(
     const ResourceProviderType& type,
     const SkImageInfo& info,
@@ -1233,12 +1263,15 @@ CanvasResourceProvider::CanvasResourceProvider(
       is_origin_top_left_(is_origin_top_left),
       snapshot_paint_image_id_(cc::PaintImage::GetNextId()) {
   info_ = info;
+  max_recorded_op_bytes_ = static_cast<size_t>(kMaxRecordedOpKB.Get()) * 1024;
+  max_pinned_image_bytes_ = static_cast<size_t>(kMaxPinnedImageKB.Get()) * 1024;
   if (context_provider_wrapper_) {
     context_provider_wrapper_->AddObserver(this);
     const auto& caps =
         context_provider_wrapper_->ContextProvider()->GetCapabilities();
     oopr_uses_dmsaa_ = !caps.msaa_is_slow && !caps.avoid_stencil_buffers;
   }
+
   CanvasMemoryDumpProvider::Instance()->RegisterClient(this);
   recorder_.beginRecording(Size());
 }
@@ -1249,6 +1282,18 @@ CanvasResourceProvider::~CanvasResourceProvider() {
   if (context_provider_wrapper_)
     context_provider_wrapper_->RemoveObserver(this);
   CanvasMemoryDumpProvider::Instance()->UnregisterClient(this);
+}
+
+void CanvasResourceProvider::FlushIfRecordingLimitExceeded() {
+  // When printing we avoid flushing if it is still possible to print in
+  // vector mode.
+  if (IsPrinting() && clear_frame_) {
+    return;
+  }
+  if (UNLIKELY(TotalOpBytesUsed() > max_recorded_op_bytes_) ||
+      UNLIKELY(total_pinned_image_bytes_ > max_pinned_image_bytes_)) {
+    FlushCanvas(FlushReason::kRecordingLimitExceeded);
+  }
 }
 
 SkSurface* CanvasResourceProvider::GetSkSurface() const {

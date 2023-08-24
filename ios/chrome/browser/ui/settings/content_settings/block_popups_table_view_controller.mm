@@ -32,10 +32,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
@@ -345,9 +341,9 @@ typedef NS_ENUM(NSInteger, ItemType) {
   // The body of this method was mostly copied from
   // chrome/browser/ui/webui/options/content_settings_handler.cc and simplified
   // to only deal with urls/patterns that allow popups.
-  ContentSettingsForOneType entries;
-  ios::HostContentSettingsMapFactory::GetForBrowserState(_browserState)
-      ->GetSettingsForOneType(ContentSettingsType::POPUPS, &entries);
+  ContentSettingsForOneType entries =
+      ios::HostContentSettingsMapFactory::GetForBrowserState(_browserState)
+          ->GetSettingsForOneType(ContentSettingsType::POPUPS);
   for (size_t i = 0; i < entries.size(); ++i) {
     // Skip default settings from extensions and policy, and the default content
     // settings; all of them will affect the default setting UI.

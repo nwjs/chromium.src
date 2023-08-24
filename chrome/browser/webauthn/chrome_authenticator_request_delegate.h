@@ -158,13 +158,18 @@ class ChromeAuthenticatorRequestDelegate
       AccountPreselectedCallback account_preselected_callback,
       device::FidoRequestHandlerBase::RequestCallback request_callback,
       base::RepeatingClosure bluetooth_adapter_power_on_callback) override;
+  void OnTransactionSuccessful(RequestSource request_source,
+                               device::FidoRequestType,
+                               device::AuthenticatorType) override;
   void ShouldReturnAttestation(
       const std::string& relying_party_id,
       const device::FidoAuthenticator* authenticator,
       bool is_enterprise_attestation,
       base::OnceCallback<void(bool)> callback) override;
-  void ConfigureCable(
+  void ConfigureDiscoveries(
       const url::Origin& origin,
+      const std::string& rp_id,
+      RequestSource request_source,
       device::FidoRequestType request_type,
       absl::optional<device::ResidentKeyRequirement> resident_key_requirement,
       base::span<const device::CableDiscoveryData> pairings_from_extension,
@@ -216,6 +221,7 @@ class ChromeAuthenticatorRequestDelegate
   // "leaks" to be reported.
   void SetPassEmptyUsbDeviceManagerForTesting(bool value);
 
+ private:
   FRIEND_TEST_ALL_PREFIXES(ChromeAuthenticatorRequestDelegateTest,
                            TestTransportPrefType);
   FRIEND_TEST_ALL_PREFIXES(ChromeAuthenticatorRequestDelegateTest,
@@ -234,8 +240,21 @@ class ChromeAuthenticatorRequestDelegate
   // information that will be broadcast by the device.
   bool ShouldPermitCableExtension(const url::Origin& origin);
 
-  void OnInvalidatedCablePairing(size_t failed_contact_index);
+  void OnInvalidatedCablePairing(
+      std::unique_ptr<device::cablev2::Pairing> failed_pairing);
   void OnCableEvent(device::cablev2::Event event);
+
+  // Adds GPM passkeys matching |rp_id| to |passkeys|.
+  void GetPhoneContactableGpmPasskeysForRpId(
+      std::vector<device::DiscoverableCredentialMetadata>* passkeys);
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  // Configures an WebAuthn enclave authenticator discovery and provides it with
+  // synced passkeys.
+  void ConfigureEnclaveDiscovery(
+      const std::string& rp_id,
+      device::FidoDiscoveryFactory* discovery_factory);
+#endif
 
   const content::GlobalRenderFrameHostId render_frame_host_id_;
   const std::unique_ptr<AuthenticatorRequestDialogModel> dialog_model_;
@@ -243,11 +262,6 @@ class ChromeAuthenticatorRequestDelegate
   base::RepeatingClosure start_over_callback_;
   AccountPreselectedCallback account_preselected_callback_;
   device::FidoRequestHandlerBase::RequestCallback request_callback_;
-
-  // The next two fields are the same length and contain the names and public
-  // keys of paired phones.
-  std::vector<std::string> phone_names_;
-  std::vector<std::array<uint8_t, device::kP256X962Length>> phone_public_keys_;
 
   // If in the TransportAvailabilityInfo reported by the request handler,
   // disable_embedder_ui is set, this will be set to true. No UI must be
@@ -271,7 +285,10 @@ class ChromeAuthenticatorRequestDelegate
   // don't show errors on the desktop too.
   bool cable_device_ready_ = false;
 
- private:
+  // can_use_synced_phone_passkeys_ is true if there is a phone pairing
+  // available that can service requests for synced GPM passkeys.
+  bool can_use_synced_phone_passkeys_ = false;
+
   base::WeakPtrFactory<ChromeAuthenticatorRequestDelegate> weak_ptr_factory_{
       this};
 };

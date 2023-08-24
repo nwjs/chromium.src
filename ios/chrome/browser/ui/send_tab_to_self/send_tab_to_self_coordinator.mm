@@ -50,10 +50,6 @@
 #import "third_party/abseil-cpp/absl/types/optional.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // Snackbar category for activity services.
@@ -347,7 +343,7 @@ void OpenManageDevicesTab(CommandDispatcher* dispatcher) {
             [weakSelf onSigninComplete:succeeded];
           };
       ShowSigninCommand* command = [[ShowSigninCommand alloc]
-          initWithOperation:AuthenticationOperationSigninOnly
+          initWithOperation:AuthenticationOperation::kSigninOnly
                    identity:nil
                 accessPoint:signin_metrics::AccessPoint::
                                 ACCESS_POINT_SEND_TAB_TO_SELF_PROMO

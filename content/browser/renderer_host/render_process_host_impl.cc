@@ -1286,14 +1286,14 @@ void InvokeBadMojoMessageCallbackForTesting(int render_process_id,
 
 void LogDelayReasonForFastShutdown(
     const RenderProcessHostImpl::DelayShutdownReason& reason) {
-  base::UmaHistogramEnumeration(
+  UMA_HISTOGRAM_ENUMERATION(
       "BrowserRenderProcessHost.FastShutdownIfPossible.DelayReason", reason);
 }
 
 void LogDelayReasonForCleanup(
     const RenderProcessHostImpl::DelayShutdownReason& reason) {
-  base::UmaHistogramEnumeration("BrowserRenderProcessHost.Cleanup.DelayReason",
-                                reason);
+  UMA_HISTOGRAM_ENUMERATION("BrowserRenderProcessHost.Cleanup.DelayReason",
+                            reason);
 }
 
 #if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
@@ -1329,6 +1329,16 @@ void InvokeStableVideoDecoderEventCB(
 BASE_FEATURE(kCheckNoNewRefCountsWhenRphDeletingSoon,
              "CheckNoNewRefCountsWhenRphDeletingSoon",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Please keep in sync with "RenderProcessHostBlockedURLReason" in
+// tools/metrics/histograms/enums.xml. // These values are persisted to logs.
+// Entries should not be renumbered and numeric values should never be reused.
+enum class BlockedURLReason {
+  kInvalidURL = 0,
+  kFailedCanRequestURLCheck = 1,
+
+  kMaxValue = kFailedCanRequestURLCheck
+};
 
 }  // namespace
 
@@ -3532,6 +3542,16 @@ void RenderProcessHostImpl::AppendRendererCommandLine(
         base::NumberToString(
             base::TimeTicks::UnixEpoch().since_origin().InMicroseconds()));
   }
+
+#if BUILDFLAG(IS_LINUX)
+  // Append `kDisableVideoCaptureUseGpuMemoryBuffer` flag if there is no support
+  // for NV12 GPU memory buffer.
+  if (switches::IsVideoCaptureUseGpuMemoryBufferEnabled() &&
+      !GpuDataManagerImpl::GetInstance()->IsGpuMemoryBufferNV12Supported()) {
+    command_line->AppendSwitch(
+        switches::kDisableVideoCaptureUseGpuMemoryBuffer);
+  }
+#endif  // BUILDFLAG(IS_LINUX)
 }
 
 void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
@@ -3608,7 +3628,6 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kEnablePluginPlaceholderTesting,
     switches::kEnablePreciseMemoryInfo,
     switches::kEnableSkiaBenchmarking,
-    switches::kEnableThreadedCompositing,
     switches::kEnableTouchDragDrop,
     switches::kEnableUnsafeWebGPU,
     switches::kEnableViewport,
@@ -3673,6 +3692,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     blink::switches::kDarkModeSettings,
     blink::switches::kDefaultTileWidth,
     blink::switches::kDefaultTileHeight,
+    blink::switches::kForcePermissionPolicyUnloadDefaultEnabled,
     blink::switches::kDisableImageAnimationResync,
     blink::switches::kDisableLowResTiling,
     blink::switches::kDisableNewBaseUrlInheritanceBehavior,
@@ -3752,8 +3772,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
     switches::kLacrosUseChromeosProtectedAv1,
 #endif
   };
-  renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames,
-                                 std::size(kSwitchNames));
+  renderer_cmd->CopySwitchesFrom(browser_cmd, kSwitchNames);
 
   // |switches::kGaiaConfig| can be set via browser command-line arguments,
   // usually by developers working on signin code. The switch, however, cannot
@@ -4395,8 +4414,10 @@ base::TimeDelta RenderProcessHostImpl::GetChildProcessIdleTime() {
   return base::TimeTicks::Now() - child_process_activity_time_;
 }
 
-void RenderProcessHostImpl::FilterURL(bool empty_allowed, GURL* url) {
-  FilterURL(this, empty_allowed, url);
+RenderProcessHost::FilterURLResult RenderProcessHostImpl::FilterURL(
+    bool empty_allowed,
+    GURL* url) {
+  return FilterURL(this, empty_allowed, url);
 }
 
 void RenderProcessHostImpl::EnableAudioDebugRecordings(
@@ -4509,11 +4530,13 @@ void RenderProcessHostImpl::UnregisterCreationObserver(
 }
 
 // static
-void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
-                                      bool empty_allowed,
-                                      GURL* url) {
-  if (empty_allowed && url->is_empty())
-    return;
+RenderProcessHost::FilterURLResult RenderProcessHostImpl::FilterURL(
+    RenderProcessHost* rph,
+    bool empty_allowed,
+    GURL* url) {
+  if (empty_allowed && url->is_empty()) {
+    return FilterURLResult::kAllowed;
+  }
 
   if (!url->is_valid()) {
     // Have to use about:blank for the denied case, instead of an empty GURL.
@@ -4522,8 +4545,12 @@ void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
     // (chrome://newtab/) which is exactly what we don't want.
     TRACE_EVENT1("navigation", "RenderProcessHost::FilterURL - invalid URL",
                  "process_id", rph->GetID());
+    VLOG(1) << "Blocked invalid URL";
+    base::UmaHistogramEnumeration("BrowserRenderProcessHost.BlockedByFilterURL",
+                                  BlockedURLReason::kInvalidURL);
+
     *url = GURL(kBlockedURL);
-    return;
+    return FilterURLResult::kBlocked;
   }
 
   ChildProcessSecurityPolicyImpl* policy =
@@ -4536,10 +4563,15 @@ void RenderProcessHostImpl::FilterURL(RenderProcessHost* rph,
                  "RenderProcessHost::FilterURL - failed CanRequestURL",
                  "process_id", rph->GetID(), "url", url->spec());
     if (nw::gRphGuestFilterURLHook && nw::gRphGuestFilterURLHook(rph, url))
-      return;
+      return FilterURLResult::kAllowed;
     VLOG(1) << "Blocked URL " << url->spec();
+    base::UmaHistogramEnumeration("BrowserRenderProcessHost.BlockedByFilterURL",
+                                  BlockedURLReason::kFailedCanRequestURLCheck);
+
     *url = GURL(kBlockedURL);
+    return FilterURLResult::kBlocked;
   }
+  return FilterURLResult::kAllowed;
 }
 
 // static
@@ -5377,11 +5409,14 @@ void RenderProcessHostImpl::UpdateProcessPriority() {
 #elif BUILDFLAG(IS_MAC)
     if (base::FeatureList::IsEnabled(
             features::kMacAllowBackgroundingRenderProcesses)) {
-      child_process_launcher_->SetProcessBackgrounded(
-          priority_.is_background());
+      child_process_launcher_->SetProcessPriority(
+          priority_.is_background() ? base::Process::Priority::kBestEffort
+                                    : base::Process::Priority::kUserBlocking);
     }
 #else
-    child_process_launcher_->SetProcessBackgrounded(priority_.is_background());
+    child_process_launcher_->SetProcessPriority(
+        priority_.is_background() ? base::Process::Priority::kBestEffort
+                                  : base::Process::Priority::kUserBlocking);
 #endif
   }
 
@@ -5458,9 +5493,9 @@ void RenderProcessHostImpl::OnProcessLaunched() {
       // sure |priority_.visible| reflects this platform's initial process
       // state.
 #if BUILDFLAG(IS_APPLE)
-    priority_.visible =
-        !child_process_launcher_->GetProcess().IsProcessBackgrounded(
-            ChildProcessTaskPortProvider::GetInstance());
+    priority_.visible = child_process_launcher_->GetProcess().GetPriority(
+                            ChildProcessTaskPortProvider::GetInstance()) ==
+                        base::Process::Priority::kUserBlocking;
 #elif BUILDFLAG(IS_ANDROID)
     // Android child process priority works differently and cannot be queried
     // directly from base::Process.
@@ -5468,8 +5503,8 @@ void RenderProcessHostImpl::OnProcessLaunched() {
     // reflect |priority_.is_background()|.
     DCHECK_EQ(blink::kLaunchingProcessIsBackgrounded, !priority_.visible);
 #else
-    priority_.visible =
-        !child_process_launcher_->GetProcess().IsProcessBackgrounded();
+    priority_.visible = child_process_launcher_->GetProcess().GetPriority() ==
+                        base::Process::Priority::kUserBlocking;
 #endif  // BUILDFLAG(IS_MAC)
 
     // Only update the priority on startup if boosting is enabled (to avoid
@@ -5741,8 +5776,10 @@ void RenderProcessHostImpl::ProvideStatusFileForRenderer() {
 #endif
 
 void RenderProcessHostImpl::ProvideSwapFileForRenderer() {
-  if (!blink::features::IsParkableStringsToDiskEnabled())
+  if (!blink::features::IsParkableStringsToDiskEnabled() &&
+      !blink::features::IsParkableImagesToDiskEnabled()) {
     return;
+  }
 
   // In Incognito, nothing should be written to disk. Don't provide a file..
   if (GetBrowserContext()->IsOffTheRecord())

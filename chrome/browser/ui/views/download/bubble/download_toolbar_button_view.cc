@@ -13,6 +13,7 @@
 #include "base/strings/strcat.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "build/build_config.h"
 #include "cc/paint/paint_flags.h"
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/download/bubble/download_bubble_prefs.h"
@@ -37,8 +38,8 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/components/kiosk/kiosk_utils.h"
 #include "components/feature_engagement/public/feature_constants.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/user_education/common/user_education_class_properties.h"
 #include "content/public/browser/browser_thread.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -66,6 +67,10 @@
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chromeos/components/kiosk/kiosk_utils.h"
+#endif
 
 namespace {
 
@@ -319,8 +324,13 @@ bool DownloadToolbarButtonView::ShouldShowExclusiveAccessBubble() {
   if (!browser_view) {
     return false;
   }
+#if BUILDFLAG(IS_CHROMEOS)
+  if (chromeos::IsKioskSession()) {
+    return false;
+  }
+#endif
   return !browser_view->IsImmersiveModeEnabled() &&
-         browser_view->CanUserExitFullscreen() && !chromeos::IsKioskSession();
+         browser_view->CanUserExitFullscreen();
 }
 
 // This function shows the partial view. If the main view is already showing,
@@ -504,8 +514,12 @@ void DownloadToolbarButtonView::CreateBubbleDialogDelegate() {
   auto bubble_delegate = std::make_unique<views::BubbleDialogDelegate>(
       this, views::BubbleBorder::TOP_RIGHT);
   bubble_delegate->SetTitle(
-      l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_HEADER_TEXT));
+      base::FeatureList::IsEnabled(
+          safe_browsing::kImprovedDownloadBubbleWarnings)
+          ? l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_HEADER_LABEL)
+          : l10n_util::GetStringUTF16(IDS_DOWNLOAD_BUBBLE_HEADER_TEXT));
   bubble_delegate->SetShowTitle(false);
+  bubble_delegate->set_internal_name(kBubbleName);
   bubble_delegate->SetShowCloseButton(false);
   bubble_delegate->SetButtons(ui::DIALOG_BUTTON_NONE);
   bubble_delegate->SetDefaultButton(ui::DIALOG_BUTTON_NONE);

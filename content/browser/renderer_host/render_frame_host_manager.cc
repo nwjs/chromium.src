@@ -19,6 +19,7 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/memory/ptr_util.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/ranges/algorithm.h"
@@ -28,6 +29,7 @@
 #include "base/types/expected.h"
 #include "build/build_config.h"
 #include "content/browser/child_process_security_policy_impl.h"
+#include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/network/cross_origin_opener_policy_reporter.h"
 #include "content/browser/process_lock.h"
 #include "content/browser/renderer_host/agent_scheduling_group_host.h"
@@ -346,6 +348,24 @@ void ReuseDefaultProcessFromDifferentBrowsingInstanceIfPossible(
       });
 }
 
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+enum class ProcessPerSiteWithMainFrameThresholdBlockReason {
+  kNotBlocked = 0,
+  kDisableProcessResuse = 1,
+  kDevToolsWasEverAttached = 2,
+  kDoesNotRequireDedicatedProcess = 3,
+  kIsIpAddressOrLocalHost = 4,
+  kSchemeIsNotHttpOrHttps = 5,
+  kMaxValue = kSchemeIsNotHttpOrHttps,
+};
+
+void RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+    ProcessPerSiteWithMainFrameThresholdBlockReason reason) {
+  base::UmaHistogramEnumeration(
+      "SiteIsolation.ProcessPerSiteWithMainFrameThreshold.BlockReason", reason);
+}
+
 // If `site_instance` is for a main frame, try to reuse an existing process
 // when an experimental process-per-site-up-to-main-frame-threshold feature is
 // enabled, subject to a threshold for the maximum number of main frames that
@@ -357,33 +377,53 @@ void UpdateProcessReusePolicyForProcessPerSiteWithMainFrameThreshold(
           features::kProcessPerSiteUpToMainFrameThreshold)) {
     return;
   }
+  if (!frame_tree_node->IsOutermostMainFrame()) {
+    return;
+  }
   if (base::FeatureList::IsEnabled(features::kDisableProcessReuse)) {
+    RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+        ProcessPerSiteWithMainFrameThresholdBlockReason::kDisableProcessResuse);
+    return;
+  }
+  if (!features::kProcessPerSiteMainFrameAllowDevToolsAttached.Get() &&
+      RenderFrameDevToolsAgentHost::WasEverAttachedToAnyFrame()) {
+    RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+        ProcessPerSiteWithMainFrameThresholdBlockReason::
+            kDevToolsWasEverAttached);
     return;
   }
   if (!site_instance->RequiresDedicatedProcess()) {
-    return;
-  }
-  if (!frame_tree_node->IsOutermostMainFrame()) {
+    RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+        ProcessPerSiteWithMainFrameThresholdBlockReason::
+            kDoesNotRequireDedicatedProcess);
     return;
   }
 
   // ProcessPerSite doesn't work well when DevTools is attached because DevTools
   // assumes that there is only one main frame per renderer process
   // (https://crbug.com/1449114). Localhost and IP based host names are a common
-  // target for DevTools to  attach to. Exclude localhost and IP based host name
+  // target for DevTools to attach to. Exclude localhost and IP based host name
   // for process reuse to work around the problem, unless a field parameter
   // explicitly allows it.
   const GURL& site_url = site_instance->GetSiteURL();
   if (!features::kProcessPerSiteMainFrameAllowIPAndLocalhost.Get() &&
       (site_url.HostIsIPAddress() || net::IsLocalHostname(site_url.host()))) {
+    RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+        ProcessPerSiteWithMainFrameThresholdBlockReason::
+            kIsIpAddressOrLocalHost);
     return;
   }
 
   // Disallow process reuse when scheme is not HTTP(S).
   if (!site_url.SchemeIsHTTPOrHTTPS()) {
+    RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+        ProcessPerSiteWithMainFrameThresholdBlockReason::
+            kSchemeIsNotHttpOrHttps);
     return;
   }
 
+  RecordProcessPerSiteWithMainFrameThresholdBlockReason(
+      ProcessPerSiteWithMainFrameThresholdBlockReason::kNotBlocked);
   site_instance->set_process_reuse_policy(
       SiteInstanceImpl::ProcessReusePolicy::
           REUSE_PENDING_OR_COMMITTED_SITE_WITH_MAIN_FRAME_THRESHOLD);
@@ -1165,10 +1205,11 @@ void RenderFrameHostManager::RestorePage(
 
   // speculative_render_frame_host_ and stored_page_to_restore_ will be
   // consumed during CommitPendingIfNecessary.
-  // TODO(ahemery): This is awkward to leave the entry in a half consumed state
-  // and it would be clearer if we could not reuse speculative_render_frame_host
-  // in the long run. For now, and to avoid complex edge cases, we simply reuse
-  // it to preserve the understood logic in CommitPending.
+  // TODO(https://crbug.com/1467502): This is awkward to leave the entry in a
+  // half consumed state and it would be clearer if we could not reuse
+  // speculative_render_frame_host in the long run. For now, and to avoid
+  // complex edge cases, we simply reuse it to preserve the understood logic in
+  // CommitPending.
 
   // There should be no speculative RFH at this point. With BackForwardCache, it
   // should have never been created, and with prerender activation, it should
@@ -1264,8 +1305,122 @@ void RenderFrameHostManager::DidCreateNavigationRequest(
     auto result = GetFrameHostForNavigation(request, &ignored_bcg_swap_info);
     if (result.has_value()) {
       DCHECK(result.value());
+    } else if (result.error() ==
+               GetFrameHostForNavigationFailed::kBlockedByPendingCommit) {
+      frame_tree_node_->render_manager()
+          ->speculative_frame_host()
+          ->RecordMetricsForBlockedGetFrameHostAttempt(
+              /* commit_attempt=*/false);
     }
   }
+}
+
+void RenderFrameHostManager::PerformEarlyRenderFrameHostSwapIfNeeded(
+    NavigationRequest* request) {
+  // The early swap is possible only when there's a speculative RenderFrameHost
+  // to swap with the current one.
+  if (!speculative_render_frame_host_) {
+    return;
+  }
+
+  // Check if this is for a prerendered FrameTree. Note that we cannot check
+  // the RFH's LifecycleState here instead, because it will be kSpeculative
+  // even for prerendering RFHs at this point.
+  //
+  // For prerendering FrameTrees, skip the early swap to explicitly avoid a
+  // LifecycleState transition from kSpeculative directly to kPrerender, and
+  // force it to go through the regular path instead (i.e. through
+  // kPendingCommit).
+  if (frame_tree_node_->frame_tree().is_prerendering()) {
+    return;
+  }
+
+  // Currently, only non-live frames do the early swap.  This is possible in
+  // two cases: (1) if a frame's process dies (e.g., due to a crash or OOM),
+  // and (2) if we navigate a frame immediately after its creation, and the
+  // navigation cannot reuse the initial non-live RFH and must create a
+  // speculative RFH. The latter case is possible with WebUI and <webview>
+  // tags.
+  if (render_frame_host_->IsRenderFrameLive()) {
+    return;
+  }
+
+  // Skip the early swap if we explicitly do not want it when recovering from a
+  // crash.
+  if (ShouldSkipEarlyCommitPendingForCrashedFrame() &&
+      render_frame_host_->must_be_replaced()) {
+    return;
+  }
+
+  // Remember why the early swap is occurring for metrics. Note that we're
+  // being slightly imprecise here by using kCrashedFrame for
+  // must_be_replaced(), which includes all cases where a RenderFrameHost has
+  // had a process in the past but then lost it via RenderProcessGone, which
+  // also includes cases like OOM.
+  using EarlySwapType = NavigationRequest::EarlyRenderFrameHostSwapType;
+  EarlySwapType early_swap_type = render_frame_host_->must_be_replaced()
+                                      ? EarlySwapType::kCrashedFrame
+                                      : EarlySwapType::kInitialFrame;
+
+  // Now, proceed with the early swap. There's no reason to sit around with a
+  // sad tab or a newly created RFH while we wait for the navigation to
+  // complete. Just switch to the speculative RFH now and allow the navigation
+  // to proceed in that now-current RFH.
+  //
+  // TODO(alexmos,creis): Note that we currently don't care about
+  // on{before}unload handlers because the current RFH isn't live.  However, if
+  // we start doing early RFH swap for non-live current RFHs, we will need to
+  // revisit this and ensure that beforeunload handlers run before the swap.
+  //
+  // If the corresponding RenderFrame is currently associated with a
+  // proxy, send a SwapIn message to ensure that the RenderFrame swaps
+  // into the frame tree and replaces that proxy on the renderer side.
+  // Normally this happens at navigation commit time, but in this case
+  // this must be done earlier to keep browser and renderer state in sync.
+  // This is important to do before CommitPending(), which destroys the
+  // corresponding proxy. See https://crbug.com/487872.
+  // TODO(https://crbug.com/1072817): Make this logic more robust to
+  // consider the case for failed navigations after CommitPending.
+  RenderFrameHostImpl* speculative_rfh = speculative_render_frame_host_.get();
+  if (speculative_rfh->browsing_context_state()->GetRenderFrameProxyHost(
+          speculative_rfh->GetSiteInstance()->group())) {
+    speculative_rfh->SwapIn();
+  }
+  speculative_rfh->OnCommittedSpeculativeBeforeNavigationCommit();
+
+  // An Active RenderFrameHost MUST always have a PolicyContainerHost. A new
+  // document is either:
+  // - The initial empty document, via frame creation.
+  // - A new document replacing the previous one, via a navigation.
+  // Here this is an additional case: A new document (in a weird state) is
+  // replacing the one crashed. In this case, it is not entirely clear what
+  // PolicyContainerHost should be used. In the absence of anything better,
+  // we simply keep the PolicyContainerHost that was previously active.
+  speculative_rfh->SetPolicyContainerForEarlyCommitAfterCrash(
+      current_frame_host()->policy_container_host()->Clone());
+
+  if (request->HasWebUI()) {
+    // If a WebUI has been created for the NavigationRequest, set it on the
+    // RenderFrameHost picked for the navigation. Note that there is a
+    // similar WebUI handling near the end of GetFrameHostForNavigation to
+    // cover the non-early commit cases, which won't run if we already run this
+    // code because `HasWebUI()` will return false after we take the WebUI from
+    // the NavigationRequest here.
+    //
+    // TODO(crbug.com/1467011): Remove this logic after the early swap is moved
+    // to happen after GetFrameHostForNavigation, rather than in the middle of
+    // it.
+    speculative_rfh->SetWebUI(*request);
+    CHECK(speculative_rfh->web_ui());
+  }
+
+  CommitPending(
+      std::move(speculative_render_frame_host_), nullptr,
+      request->browsing_context_group_swap().ShouldClearProxiesOnCommit());
+  request->SetAssociatedRFHType(
+      NavigationRequest::AssociatedRenderFrameHostType::CURRENT);
+
+  request->set_early_render_frame_host_swap_type(early_swap_type);
 }
 
 base::expected<RenderFrameHostImpl*, GetFrameHostForNavigationFailed>
@@ -1367,10 +1522,7 @@ RenderFrameHostManager::GetFrameHostForNavigation(
 
   // Force using a different RenderFrameHost when RenderDocument is enabled.
   if (use_current_rfh &&
-      ((ShouldCreateNewHostForSameSiteSubframe() &&
-        !frame_tree_node_->IsMainFrame()) ||
-       ShouldCreateNewHostForAllFrames()) &&
-      render_frame_host_->has_committed_any_navigation()) {
+      render_frame_host_->ShouldChangeRenderFrameHostOnSameSiteNavigation()) {
     use_current_rfh = false;
     AppendReason(reason,
                  "GetFrameHostForNavigation / RenderDocument-enforcement");
@@ -1490,73 +1642,11 @@ RenderFrameHostManager::GetFrameHostForNavigation(
     request->SetAssociatedRFHType(
         NavigationRequest::AssociatedRenderFrameHostType::SPECULATIVE);
 
-    // Check that this is for a prerendered FrameTree or not. Note that we
-    // cannot check the RFH's LifecycleState here instead, because it will be
-    // kSpeculative even for prerendering RFHs at this point.
-    bool is_prerendering = frame_tree_node_->frame_tree().is_prerendering();
-
-    if (!render_frame_host_->IsRenderFrameLive() &&
-        !recovering_without_early_commit && !is_prerendering) {
-      // The current RFH is not live. There's no reason to sit around with a
-      // sad tab or a newly created RFH while we wait for the navigation to
-      // complete. Just switch to the speculative RFH now and go back to
-      // normal. (Note that we don't care about on{before}unload handlers if
-      // the current RFH isn't live.)
-      //
-      // Note: We can reach this path without there being a crash. If we
-      // navigate a frame immediately after its creation, and the navigation
-      // results in a speculative RFH being created, we would hit this codepath
-      // as the RFH is not live yet. For prerendering FrameTrees, we skip this
-      // codepath to explicitly avoid a LifecycleState transition from
-      // kSpeculative directly to kPrerender, and force it to go through the
-      // regular path instead (i.e. through kPendingCommit).
-      //
-      // If the corresponding RenderFrame is currently associated with a
-      // proxy, send a SwapIn message to ensure that the RenderFrame swaps
-      // into the frame tree and replaces that proxy on the renderer side.
-      // Normally this happens at navigation commit time, but in this case
-      // this must be done earlier to keep browser and renderer state in sync.
-      // This is important to do before CommitPending(), which destroys the
-      // corresponding proxy. See https://crbug.com/487872.
-      // TODO(https://crbug.com/1072817): Make this logic more robust to
-      // consider the case for failed navigations after CommitPending.
-      if (navigation_rfh->browsing_context_state()->GetRenderFrameProxyHost(
-              dest_site_instance->group())) {
-        navigation_rfh->SwapIn();
-      }
-      navigation_rfh->OnCommittedSpeculativeBeforeNavigationCommit();
-
-      // An Active RenderFrameHost MUST always have a PolicyContainerHost. A new
-      // document is either:
-      // - The initial empty document, via frame creation.
-      // - A new document replacing the previous one, via a navigation.
-      // Here this is an additional case: A new document (in a weird state) is
-      // replacing the one crashed. In this case, it is not entirely clear what
-      // PolicyContainerHost should be used. In the absence of anything better,
-      // we simply keep the PolicyContainerHost that was previously active.
-      // TODO(https://crbug.com/1072817): Remove this logic when removing the
-      // early commit.
-      navigation_rfh->SetPolicyContainerForEarlyCommitAfterCrash(
-          current_frame_host()->policy_container_host()->Clone());
-
-      if (request->HasWebUI()) {
-        // If a WebUI has been created for the NavigationRequest, set it on the
-        // RenderFrameHost picked for the navigation. Note that there is a
-        // similar WebUI handling near the end of this function to cover the
-        // non-early commit cases, which won't run if we already run this code
-        // because `HasWebUI()` will return false after we take the WebUI from
-        // the NavigationRequest here.
-        navigation_rfh->SetWebUI(*request);
-        CHECK(navigation_rfh->web_ui());
-      }
-
-      CommitPending(
-          std::move(speculative_render_frame_host_), nullptr,
-          request->browsing_context_group_swap().ShouldClearProxiesOnCommit());
-      request->SetAssociatedRFHType(
-          NavigationRequest::AssociatedRenderFrameHostType::CURRENT);
-    }
+    // TODO(crbug.com/1467011): Move the early swap to happen after
+    // DidStartNavigation.
+    PerformEarlyRenderFrameHostSwapIfNeeded(request);
   }
+
   DCHECK(navigation_rfh &&
          (navigation_rfh == render_frame_host_.get() ||
           navigation_rfh == speculative_render_frame_host_.get()));
@@ -2194,18 +2284,11 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   // BrowsingInstance. This is why this block is after security checks, but
   // before proactive BrowsingInstance swap.
   if (destination_instance) {
-    // TODO(ahemery): We should not have to specify here if we are going to swap
-    // BrowsingInstance. DetermineSiteInstanceForURL will reuse the
-    // destination_instance unless it is unfit because of a security concern
-    // flagged by above blocks. This is only used by BackForwardCache metrics to
-    // know if we have swapped BrowsingInstance, and it would be more
-    // appropriate to get this information in DetermineSiteInstanceForURL.
-    //
-    // For this reason, it is not important to distinguish between a
-    // BrowsingInstance that is within the same CoopRelatedGroup, as both are
-    // recorded as a kForceSwap by the BFCache.
-    if (!destination_instance->IsRelatedSiteInstance(current_instance)) {
+    if (!destination_instance->IsCoopRelatedSiteInstance(current_instance)) {
       return BrowsingContextGroupSwap::CreateSecuritySwap();
+    }
+    if (!destination_instance->IsRelatedSiteInstance(current_instance)) {
+      return BrowsingContextGroupSwap::CreateRelatedCoopSwap();
     }
     return BrowsingContextGroupSwap::CreateNoSwap(
         ShouldSwapBrowsingInstance::kNo_AlreadyHasMatchingBrowsingInstance);
@@ -2236,10 +2319,6 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
 
   // Experimental mode to swap BrowsingInstances on most navigations when there
   // are no other windows in the BrowsingInstance.
-  // TODO(https://crbug.com/1221127): For single-page websites, do we want to
-  // do a full proactive swap if `coop_swap_result` is kSwapRelated? See if a
-  // different BrowsingInstance in the same CoopRelatedGroup
-  // provides the same guarantees.
   return ShouldProactivelySwapBrowsingInstance(destination_url_info, is_reload,
                                                is_same_site,
                                                should_replace_current_entry);
@@ -2884,8 +2963,8 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
   // If we haven't used our SiteInstance yet, then we can use it for this
   // navigation.  We won't commit the SiteInstance to this site until the
   // response is received (in OnResponseStarted).
-  // TODO(ahemery): In theory we should be able to go for an unused
-  // SiteInstance with the same web exposed isolation status.
+  // TODO(https://crbug.com/1467849): In theory we should be able to go for an
+  // unused SiteInstance with the same web exposed isolation status.
   if (!current_instance->HasSite() && !dest_url_info.IsIsolated() &&
       !current_instance->IsCrossOriginIsolated()) {
     // If we've already created a SiteInstance for our destination, we don't
@@ -3179,7 +3258,7 @@ scoped_refptr<SiteInstanceImpl> RenderFrameHostManager::ConvertToSiteInstance(
   // `candidate_instance` is the SiteInstance that was created at request start
   // time.
   if (candidate_instance &&
-      !current_instance->IsRelatedSiteInstance(candidate_instance) &&
+      !current_instance->IsCoopRelatedSiteInstance(candidate_instance) &&
       candidate_instance->DoesSiteInfoForURLMatch(dest_url_info)) {
     return candidate_instance;
   }
@@ -3365,7 +3444,7 @@ void RenderFrameHostManager::CreateProxiesForNewNamedFrame(
   // BrowsingInstances, even if they are in the same CoopRelatedGroup. In that
   // case we do not need proxies and do not want to expose more than what is
   // strictly required to the renderer.
-  // TODO(https://crbug.com/1370357): this will likely need to change once we
+  // TODO(https://crbug.com/1467184): this will likely need to change once we
   // implement a more robust approach to named targeting, using per-
   // BrowsingInstance names. In that case, we'll need to create proxies across
   // BrowsingInstances to support named targeting.
@@ -3511,8 +3590,7 @@ bool RenderFrameHostManager::CreateSpeculativeRenderFrameHost(
   //
   // [1] http://crbug.com/936696
   DCHECK(old_instance != new_instance ||
-         render_frame_host_->must_be_replaced() ||
-         ShouldCreateNewHostForSameSiteSubframe());
+         render_frame_host_->ShouldChangeRenderFrameHostOnSameSiteNavigation());
 
   // The process for the new SiteInstance may (if we're sharing a process with
   // another host that already initialized it) or may not (we have our own
@@ -3624,8 +3702,7 @@ RenderFrameHostManager::CreateSpeculativeRenderFrame(
   //
   // [1] http://crbug.com/936696
   DCHECK(render_frame_host_->GetSiteInstance() != instance ||
-         render_frame_host_->must_be_replaced() ||
-         ShouldCreateNewHostForSameSiteSubframe());
+         render_frame_host_->ShouldChangeRenderFrameHostOnSameSiteNavigation());
 
   std::unique_ptr<RenderFrameHostImpl> new_render_frame_host =
       CreateRenderFrameHost(CreateFrameCase::kCreateSpeculative, instance,
@@ -4131,7 +4208,8 @@ RenderFrameHostManager::GetReplacementFrameToken(
                current_frame_host()->GetSiteInstance());
       // The new frame will replace an existing frame in the renderer. For now
       // this can only be when RenderDocument-subframe is enabled.
-      DCHECK(ShouldCreateNewHostForSameSiteSubframe());
+      DCHECK(render_frame_host_
+                 ->ShouldChangeRenderFrameHostOnSameSiteNavigation());
       DCHECK_NE(render_frame_host, current_frame_host());
       return current_frame_host()->GetFrameToken();
     } else {

@@ -1078,8 +1078,8 @@ void CrxInstaller::NotifyCrxInstallBegin() {
   profile_keep_alive_ = std::make_unique<ScopedProfileKeepAlive>(
       profile_, ProfileKeepAliveOrigin::kCrxInstaller);
 
-  InstallTrackerFactory::GetForBrowserContext(profile())
-      ->OnBeginCrxInstall(expected_id_);
+  InstallTrackerFactory::GetForBrowserContext(profile())->OnBeginCrxInstall(
+      *this, expected_id_);
 }
 
 void CrxInstaller::NotifyCrxInstallComplete(
@@ -1122,8 +1122,8 @@ void CrxInstaller::NotifyCrxInstallComplete(
     }
   }
 
-  InstallTrackerFactory::GetForBrowserContext(profile())
-      ->OnFinishCrxInstall(success ? extension()->id() : expected_id_, success);
+  InstallTrackerFactory::GetForBrowserContext(profile())->OnFinishCrxInstall(
+      *this, success ? extension()->id() : expected_id_, success);
 
   if (success)
     ConfirmReEnable();

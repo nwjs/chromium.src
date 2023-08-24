@@ -10,10 +10,6 @@
 #import "testing/gtest_mac.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 class LockdownModeViewControllerTest : public ChromeTableViewControllerTest {
  protected:
   ChromeTableViewController* InstantiateController() override {
@@ -28,7 +24,7 @@ TEST_F(LockdownModeViewControllerTest, TestItems) {
   CheckController();
   CheckTitle(l10n_util::GetNSString(IDS_IOS_LOCKDOWN_MODE_TITLE));
 
-  ASSERT_EQ(2, NumberOfSections());
+  ASSERT_EQ(1, NumberOfSections());
   ASSERT_EQ(1, NumberOfItemsInSection(0));
 
   CheckSwitchCellStateAndTextWithId(NO, IDS_IOS_LOCKDOWN_MODE_TITLE, 0, 0);

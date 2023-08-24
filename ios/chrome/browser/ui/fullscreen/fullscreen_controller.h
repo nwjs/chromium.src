@@ -36,8 +36,6 @@ class FullscreenController : public base::SupportsUserData::Data {
   // The WebStateList for the Browser whose fullscreen state is managed by this
   // controller.
   virtual void SetWebStateList(WebStateList* web_state_list) = 0;
-  virtual const WebStateList* GetWebStateList() const = 0;
-  virtual WebStateList* GetWebStateList() = 0;
 
   // Adds and removes FullscreenControllerObservers.
   virtual void AddObserver(FullscreenControllerObserver* observer) = 0;
@@ -85,6 +83,13 @@ class FullscreenController : public base::SupportsUserData::Data {
   // Exits fullscreen mode, animating in toolbars and resetting the progress to
   // 1.0.
   virtual void ExitFullscreen() = 0;
+
+  // Force enters fullscreen mode, without animation, resetting the progress to
+  // 0.0. Calling this forces the progress to 0.0 even when fullscreen is
+  // disabled.
+  virtual void ForceEnterFullscreen() = 0;
+  // Exits fullscreen without animation, resetting the progress to 1.0.
+  virtual void ExitFullscreenWithoutAnimation() = 0;
 
   virtual void FreezeToolbarHeight(bool freeze_toolbar_height) = 0;
 

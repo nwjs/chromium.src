@@ -46,9 +46,11 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
     private ImageView mCheckImageView;
     // 3-dot menu which displays contextual actions.
     private ListMenuButton mMoreButton;
+    private ImageView mEndImageView;
 
     private boolean mDragEnabled;
     private boolean mBookmarkIdEditable;
+    private boolean mMoreButtonVisible;
 
     private Runnable mOpenBookmarkCallback;
 
@@ -102,6 +104,7 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
         mCheckImageView = findViewById(R.id.check_image);
 
         mMoreButton = findViewById(R.id.more);
+        mEndImageView = findViewById(R.id.end_image);
     }
 
     void setTitle(String title) {
@@ -114,6 +117,10 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
         mDescriptionView.setText(description);
     }
 
+    void setDescriptionVisible(boolean visible) {
+        mDescriptionView.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
     void setStartImageVisible(boolean visible) {
         mStartImageView.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
@@ -124,25 +131,14 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
 
     void setStartIconDrawable(Drawable drawable) {
         mStartImageView.setImageDrawable(drawable);
-        mFolderIconView.setStartIconDrawable(drawable);
     }
 
     void setStartIconTint(ColorStateList tint) {
-        mFolderIconView.setStartIconTint(tint);
         mStartImageView.setImageTintList(tint);
     }
 
     void setStartAreaBackgroundColor(@ColorInt int color) {
-        mFolderIconView.setStartAreaBackgroundColor(color);
         mStartImageView.setBackgroundColor(color);
-    }
-
-    void setStartImageDrawables(@Nullable Drawable first, @Nullable Drawable second) {
-        mFolderIconView.setStartImageDrawables(first, second);
-    }
-
-    void setFolderChildCount(int count) {
-        mFolderIconView.setChildCount(count);
     }
 
     void setAccessoryView(@Nullable View view) {
@@ -182,13 +178,31 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
         mDragEnabled = dragEnabled;
     }
 
-    void setOpenBookmarkCallback(Runnable openBookmarkCallback) {
-        mOpenBookmarkCallback = openBookmarkCallback;
-    }
-
     void setBookmarkIdEditable(boolean bookmarkIdEditable) {
         mBookmarkIdEditable = bookmarkIdEditable;
         updateView(false);
+    }
+
+    void setFolderCoordinator(ImprovedBookmarkFolderViewCoordinator folderCoordinator) {
+        folderCoordinator.setView(mFolderIconView);
+    }
+
+    void setRowClickListener(View.OnClickListener listener) {
+        setOnClickListener(listener);
+    }
+
+    void setEndImageVisible(boolean visible) {
+        mEndImageView.setVisibility(visible ? View.VISIBLE : View.GONE);
+    }
+
+    void setEndMenuVisible(boolean visible) {
+        mMoreButtonVisible = visible;
+        mMoreButton.setVisibility(visible ? View.VISIBLE : View.GONE);
+        updateView(false);
+    }
+
+    void setEndImageRes(int res) {
+        mEndImageView.setImageResource(res);
     }
 
     // SelectableItemViewBase implementation.
@@ -200,7 +214,7 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
                                                   : R.drawable.rounded_rectangle_surface_0);
 
         boolean checkVisible = selected;
-        boolean moreVisible = !selected && mBookmarkIdEditable;
+        boolean moreVisible = mMoreButtonVisible && !selected && mBookmarkIdEditable;
         mCheckImageView.setVisibility(checkVisible ? View.VISIBLE : View.GONE);
         mMoreButton.setVisibility(moreVisible ? View.VISIBLE : View.GONE);
     }
@@ -208,5 +222,9 @@ public class ImprovedBookmarkRow extends SelectableItemViewBase<BookmarkId> {
     @Override
     protected void onClick() {
         mOpenBookmarkCallback.run();
+    }
+
+    ImprovedBookmarkFolderView getFolderView() {
+        return mFolderIconView;
     }
 }

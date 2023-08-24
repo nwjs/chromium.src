@@ -143,11 +143,11 @@ void AuthHubImpl::StartAuthentication(AccountId account_id,
 
 bool AuthHubImpl::PurposeMatchesMode(AuthPurpose purpose, AuthHubMode mode) {
   switch (mode) {
-    case kLoginScreen:
+    case AuthHubMode::kLoginScreen:
       return purpose == AuthPurpose::kLogin;
-    case kInSession:
+    case AuthHubMode::kInSession:
       return purpose != AuthPurpose::kLogin;
-    case kNone:
+    case AuthHubMode::kNone:
       NOTREACHED_NORETURN();
   }
 }
@@ -240,7 +240,7 @@ void AuthHubImpl::OnIdle() {
     }
     AuthHubMode mode = *target_mode_;
     target_mode_.reset();
-    InitializeForMode(mode);
+    SwitchToModeImpl(mode);
     return;
   }
 

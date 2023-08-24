@@ -22,7 +22,6 @@ import androidx.test.espresso.NoMatchingViewException;
 import androidx.test.espresso.ViewAssertion;
 import androidx.test.filters.MediumTest;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -75,11 +74,6 @@ public class TabSwitcherThumbnailTest {
         TabGridViewBinder.setThumbnailFeatureForTesting(mNullThumbnailProvider);
     }
 
-    @After
-    public void tearDown() {
-        TabGridViewBinder.setThumbnailFeatureForTesting(null);
-    }
-
     @Test
     @MediumTest
     @EnableFeatures({ChromeFeatureList.THUMBNAIL_CACHE_REFACTOR})
@@ -95,21 +89,6 @@ public class TabSwitcherThumbnailTest {
         TabUiTestHelper.leaveTabSwitcher(mActivityTestRule.getActivity());
         TabUiTestHelper.enterTabSwitcher(mActivityTestRule.getActivity());
         verifyAllThumbnailHeightWithAspectRatio(tabCounts, 0.85f);
-    }
-
-    @Test
-    @MediumTest
-    @CommandLineFlags.Add({BASE_PARAMS + "/thumbnail_aspect_ratio/1.0"})
-    public void testThumbnailAspectRatio_one() {
-        int tabCounts = 11;
-        TabUiTestHelper.prepareTabsWithThumbnail(mActivityTestRule, tabCounts, 0, "about:blank");
-        TabUiTestHelper.enterTabSwitcher(mActivityTestRule.getActivity());
-        verifyAllThumbnailHeightWithAspectRatio(tabCounts, 1.f);
-
-        // With hard cleanup.
-        TabUiTestHelper.leaveTabSwitcher(mActivityTestRule.getActivity());
-        TabUiTestHelper.enterTabSwitcher(mActivityTestRule.getActivity());
-        verifyAllThumbnailHeightWithAspectRatio(tabCounts, 1.f);
     }
 
     @Test

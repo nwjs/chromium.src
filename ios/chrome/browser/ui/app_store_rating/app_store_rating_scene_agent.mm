@@ -22,11 +22,8 @@
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/ui/app_store_rating/constants.h"
+#import "ios/chrome/browser/ui/app_store_rating/features.h"
 #import "ios/chrome/common/channel_info.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 @interface AppStoreRatingSceneAgent ()
 
@@ -62,6 +59,9 @@
 }
 
 - (BOOL)isUserEngaged {
+  if (IsAppStoreRatingLoosenedTriggersEnabled()) {
+    return IsChromeLikelyDefaultBrowser() || self.CPEEnabled;
+  }
   return IsChromeLikelyDefaultBrowser() && self.daysInPastWeekRequirementMet &&
          self.totalDaysRequirementMet && self.CPEEnabled;
 }
@@ -72,6 +72,7 @@
     transitionedToActivationLevel:(SceneActivationLevel)level {
   switch (level) {
     case SceneActivationLevelUnattached:
+    case SceneActivationLevelDisconnected:
       // no-op.
       break;
     case SceneActivationLevelBackground:

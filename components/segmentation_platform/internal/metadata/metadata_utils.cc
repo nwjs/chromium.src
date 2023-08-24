@@ -426,7 +426,8 @@ std::vector<proto::UMAFeature> GetAllUmaFeatures(
 proto::PredictionResult CreatePredictionResult(
     const std::vector<float>& model_scores,
     const proto::OutputConfig& output_config,
-    base::Time timestamp) {
+    base::Time timestamp,
+    int64_t model_version) {
   proto::PredictionResult result;
   result.mutable_result()->Add(model_scores.begin(), model_scores.end());
   if (output_config.has_predictor()) {
@@ -434,6 +435,7 @@ proto::PredictionResult CreatePredictionResult(
   }
   result.set_timestamp_us(
       timestamp.ToDeltaSinceWindowsEpoch().InMicroseconds());
+  result.set_model_version(model_version);
   return result;
 }
 
@@ -464,7 +466,6 @@ bool SegmentUsesLegacyOutput(proto::SegmentId segment_id) {
       SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_QUERY_TILES,
       SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_CHROME_LOW_USER_ENGAGEMENT,
       SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_FEED_USER,
-      SegmentId::OPTIMIZATION_TARGET_CONTEXTUAL_PAGE_ACTION_PRICE_TRACKING,
       SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_SHOPPING_USER,
       SegmentId::OPTIMIZATION_TARGET_SEGMENTATION_CHROME_START_ANDROID_V2,
       SegmentId::POWER_USER_SEGMENT,

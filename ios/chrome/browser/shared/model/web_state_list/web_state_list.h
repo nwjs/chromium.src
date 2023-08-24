@@ -24,8 +24,6 @@ namespace web {
 class WebState;
 }
 
-enum class ActiveWebStateChangeReason;
-
 // Manages a list of WebStates.
 //
 // This class supports mutating the list and to observe the mutations via the
@@ -155,7 +153,7 @@ class WebStateList {
   // WebStates at the beginning of the list).
   int SetWebStatePinnedAt(int index, bool pinned);
 
-  // Returns true if the WebState at |index| is pinned.
+  // Returns true if the WebState at `index` is pinned.
   bool IsWebStatePinnedAt(int index) const;
 
   // Inserts the specified WebState at the best position in the WebStateList
@@ -233,7 +231,9 @@ class WebStateList {
   // Moves the WebState at the specified index to another index.
   //
   // Assumes that the WebStateList is locked.
-  void MoveWebStateAtImpl(int from_index, int to_index);
+  void MoveWebStateAtImpl(int from_index,
+                          int to_index,
+                          bool pinned_state_change);
 
   // Replaces the WebState at the specified index with new WebState. Returns
   // the old WebState at that index to the caller (abandon ownership of the
@@ -248,13 +248,23 @@ class WebStateList {
   // to the caller (abandon ownership of the returned WebState).
   //
   // Assumes that the WebStateList is locked.
-  std::unique_ptr<web::WebState> DetachWebStateAtImpl(int index);
+  std::unique_ptr<web::WebState> DetachWebStateAtImpl(
+      int index,
+      bool is_closing,
+      bool is_user_action,
+      bool use_old_active_web_state,
+      web::WebState* old_active_web_state);
 
   // Closes and destroys the WebState at the specified index. The `close_flags`
-  // is a bitwise combination of ClosingFlags values.
+  // is a bitwise combination of ClosingFlags values. Use `old_active_web_state`
+  // as a value in WebStateListStatus if the `use_old_active_web_state` flag is
+  // true.
   //
   // Assumes that the WebStateList is locked.
-  void CloseWebStateAtImpl(int index, int close_flags);
+  void CloseWebStateAtImpl(int index,
+                           int close_flags,
+                           bool use_old_active_web_state,
+                           web::WebState* old_active_web_state);
 
   // Closes and destroys all WebStates after `start_index`. The `close_flags`
   // is a bitwise combination of ClosingFlags values. WebStateList is locked
@@ -270,16 +280,11 @@ class WebStateList {
   // Makes the WebState at the specified index the active WebState.
   //
   // Assumes that the WebStateList is locked.
-  void ActivateWebStateAtImpl(int index, ActiveWebStateChangeReason reason);
+  void ActivateWebStateAtImpl(int index);
 
   // Sets the opener of any WebState that reference the WebState at the
   // specified index to null.
   void ClearOpenersReferencing(int index);
-
-  // Notify the observers if the active WebState change. `reason` is the value
-  // passed to the WebStateListObservers.
-  void NotifyIfActiveWebStateChanged(web::WebState* old_web_state,
-                                     ActiveWebStateChangeReason reason);
 
   // Returns the index of the `n`-th WebState (with n > 0) in the sequence of
   // WebStates opened from the specified WebState starting the search from
@@ -318,6 +323,15 @@ class WebStateList {
   // to call this with an index such that `ContainsIndex(index)` returns false.
   WebStateWrapper* GetWebStateWrapperAt(int index) const;
 
+  // Updates the active index, updates the WebState opener for the old active
+  // WebState if exists and brings the new active WebState to the "realized"
+  // state.
+  void SetActiveIndex(int active_index);
+
+  // Takes action when the active WebState changes. Does nothing it
+  // there is no active WebState.
+  void OnActiveWebStateChanged();
+
   SEQUENCE_CHECKER(sequence_checker_);
 
   // The WebStateList delegate.
@@ -335,6 +349,9 @@ class WebStateList {
 
   // Index of the currently active WebState, kInvalidIndex if no such WebState.
   int active_index_ = kInvalidIndex;
+
+  // Number of pinned tabs. Always in range from 0 to count() inclusive.
+  int pinned_tabs_count_ = 0;
 
   // Lock to prevent observers from mutating or deleting the list while it is
   // mutating. The lock is managed by LockForMutation() method (and released

@@ -20,6 +20,7 @@ ci.defaults.set(
     reclient_instance = reclient.instance.DEFAULT_TRUSTED,
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
+    shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     thin_tester_cores = 2,
     tree_closing_notifiers = ci.gpu.TREE_CLOSING_NOTIFIERS,
 )
@@ -48,7 +49,7 @@ ci.gpu.linux_builder(
         chromium_config = builder_config.chromium_config(
             config = "android",
             apply_configs = [
-                "download_vr_test_apks",
+                "download_xr_test_apks",
                 "mb",
             ],
             build_config = builder_config.build_config.RELEASE,
@@ -90,9 +91,6 @@ ci.gpu.linux_builder(
         category = "Linux",
     ),
     cq_mirrors_console_view = "mirrors",
-    reclient_bootstrap_env = {
-        "RBE_clang_depscan_archive": "true",
-    },
 )
 
 ci.gpu.linux_builder(
@@ -116,9 +114,6 @@ ci.gpu.linux_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Linux",
     ),
-    reclient_bootstrap_env = {
-        "RBE_clang_depscan_archive": "true",
-    },
 )
 
 ci.gpu.mac_builder(

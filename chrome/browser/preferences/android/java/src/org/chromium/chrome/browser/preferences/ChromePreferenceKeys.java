@@ -44,7 +44,7 @@ import java.util.List;
  * 3. Delete the KeyPrefix constant.
  *
  * Tests in ChromePreferenceKeysTest and checks in {@link ChromePreferenceKeyChecker} ensure the
- * sanity of this file.
+ * validity of this file.
  */
 public final class ChromePreferenceKeys {
     /**
@@ -242,18 +242,6 @@ public final class ChromePreferenceKeys {
      */
     public static final String DESKTOP_SITE_GLOBAL_SETTING_OPT_IN_MESSAGE_COHORT =
             "Chrome.RequestDesktopSiteGlobalSetting.OptInMessageCohort";
-    /**
-     * Indicates whether the desktop site global setting was enabled prior to downgrade of desktop
-     * site domain level exceptions.
-     */
-    public static final String DESKTOP_SITE_EXCEPTIONS_DOWNGRADE_GLOBAL_SETTING_ENABLED =
-            "Chrome.RequestDesktopSiteExceptionsDowngrade.GlobalSettingEnabled";
-    /**
-     * Holds a set of tab IDs for tabs whose desktop site tab level settings have to be updated on
-     * downgrade of desktop site domain level exceptions.
-     */
-    public static final String DESKTOP_SITE_EXCEPTIONS_DOWNGRADE_TAB_SETTING_SET =
-            "Chrome.RequestDesktopSiteExceptionsDowngrade.TabSettingSet";
     /**
      * Indicates display spec when the device is added to the default-on cohort for the desktop site
      * global setting experiment.
@@ -755,6 +743,12 @@ public final class ChromePreferenceKeys {
     /** Key used to store the date of when search engine choice was requested. */
     public static final String SEARCH_ENGINE_CHOICE_REQUESTED_TIMESTAMP =
             "search_engine_choice_requested_timestamp";
+    /**
+     * Key used to store the date of when an OS level choice had last been applied as default
+     * search engine by Chrome. Linux epoch timestamp in millis.
+     */
+    public static final String SEARCH_ENGINE_CHOICE_OS_CHOICE_APPLIED_TIMESTAMP =
+            "Chrome.SearchEngineChoice.OsChoiceAppliedTimestamp";
 
     public static final String SEARCH_WIDGET_IS_VOICE_SEARCH_AVAILABLE =
             "org.chromium.chrome.browser.searchwidget.IS_VOICE_SEARCH_AVAILABLE";
@@ -862,6 +856,10 @@ public final class ChromePreferenceKeys {
 
     public static final String SURVEY_DATE_LAST_ROLLED = "last_rolled_for_chrome_survey_key";
 
+    // sWAA (Supplemental Web and App Activity) user setting.
+    public static final String SWAA_TIMESTAMP = "Chrome.Swaa.Timestamp";
+    public static final String SWAA_STATUS = "Chrome.Swaa.Status";
+
     // The UI used to be an infobar in the past.
     public static final String SYNC_ERROR_MESSAGE_SHOWN_AT_TIME =
             "sync_error_infobar_shown_shown_at_time";
@@ -907,7 +905,7 @@ public final class ChromePreferenceKeys {
     public static final String UI_THEME_SETTING = "ui_theme_setting";
 
     // Diagnostic counters for short sessions; see histogram
-    // UMA.PreNative.ChromeTabbedActivityCounter.
+    // UMA.PreNative.ChromeActivityCounter.
     public static final String UMA_ON_PRECREATE_COUNTER = "Chrome.UMA.OnPreCreateCounter";
     public static final String UMA_ON_RESUME_COUNTER = "Chrome.UMA.OnResumeCounter";
 
@@ -1013,8 +1011,6 @@ public final class ChromePreferenceKeys {
                 DEFAULT_BROWSER_PROMO_SESSION_COUNT,
                 DEFAULT_ENABLED_DESKTOP_SITE_GLOBAL_SETTING,
                 DEFAULT_ENABLE_DESKTOP_SITE_GLOBAL_SETTING_COHORT,
-                DESKTOP_SITE_EXCEPTIONS_DOWNGRADE_GLOBAL_SETTING_ENABLED,
-                DESKTOP_SITE_EXCEPTIONS_DOWNGRADE_TAB_SETTING_SET,
                 DESKTOP_SITE_GLOBAL_SETTING_DEFAULT_ON_COHORT_DISPLAY_SPEC,
                 DESKTOP_SITE_GLOBAL_SETTING_OPT_IN_MESSAGE_COHORT,
                 DOWNLOAD_INTERSTITIAL_DOWNLOAD_PENDING_REMOVAL,
@@ -1090,6 +1086,7 @@ public final class ChromePreferenceKeys {
                 QUERY_TILES_SHOW_SEGMENTATION_RESULT,
                 QUERY_TILES_SHOWN_ON_START_SURFACE,
                 REGULAR_TAB_COUNT,
+                SEARCH_ENGINE_CHOICE_OS_CHOICE_APPLIED_TIMESTAMP,
                 SEGMENTATION_FEED_ACTIVE_USER,
                 SEGMENTATION_SHOW_QUERY_TILES,
                 SETTINGS_SAFETY_CHECK_LAST_RUN_TIMESTAMP,
@@ -1101,6 +1098,8 @@ public final class ChromePreferenceKeys {
                 SIGNIN_PROMO_NTP_LAST_SHOWN_TIME,
                 SYNC_PROMO_TOTAL_SHOW_COUNT,
                 SEARCH_RESUMPTION_MODULE_COLLAPSE_ON_NTP,
+                SWAA_TIMESTAMP,
+                SWAA_STATUS,
                 TABBED_ACTIVITY_LAST_VISIBLE_TIME_MS,
                 TWA_DISCLOSURE_SEEN_PACKAGES,
                 UMA_ON_PRECREATE_COUNTER,

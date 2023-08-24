@@ -40,6 +40,8 @@ class ExtensionHostDelegate;
 class ExtensionHostObserver;
 class ExtensionHostQueue;
 
+enum class EventDispatchSource;
+
 // This class is the browser component of an extension component's page.
 // It handles setting up the renderer process, if needed, with special
 // privileges available to extensions.  It may have a view to be shown in the
@@ -110,7 +112,10 @@ class ExtensionHost : public DeferredStartRenderHost,
 
   // Called when an event is dispatched to the event page associated with this
   // ExtensionHost.
-  void OnBackgroundEventDispatched(const std::string& event_name, int event_id);
+  void OnBackgroundEventDispatched(const std::string& event_name,
+                                   base::TimeTicks dispatch_start_time,
+                                   int event_id,
+                                   EventDispatchSource dispatch_source);
 
   // Called by the ProcessManager when a network request is started by the
   // extension corresponding to this ExtensionHost.
@@ -178,6 +183,18 @@ class ExtensionHost : public DeferredStartRenderHost,
   virtual bool IsBackgroundPage() const;
 
  private:
+  struct UnackedEventData {
+    // The event to dispatch.
+    std::string event_name;
+
+    // When the event router received the event to be dispatched to the
+    // extension. Used in UMA histograms.
+    base::TimeTicks dispatch_start_time;
+
+    // The event dispatching processing flow that was followed for this event.
+    EventDispatchSource dispatch_source;
+  };
+
   // DeferredStartRenderHost:
   void CreateRendererNow() override;
 
@@ -234,8 +251,8 @@ class ExtensionHost : public DeferredStartRenderHost,
   GURL initial_url_;
 
   // Messages sent out to the renderer that have not been acknowledged yet.
-  // Maps event ID to event name.
-  std::unordered_map<int, std::string> unacked_messages_;
+  // Maps event ID to unacknowledged event information.
+  std::map<int, UnackedEventData> unacked_messages_;
 
   // The type of view being hosted.
   mojom::ViewType extension_host_type_;

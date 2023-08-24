@@ -28,6 +28,7 @@
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/user_agent.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/user_agent/user_agent_brand_version_type.h"
@@ -429,8 +430,30 @@ TEST_F(UserAgentUtilsTest, CustomUserAgent) {
   // Make sure user-agent API returns value correctly when user provide custom
   // user-agent.
   EXPECT_EQ(GetUserAgent(), custom_user_agent);
-  // Make sure return blank values for GetUserAgentMetadata().
-  EXPECT_EQ(blink::UserAgentMetadata(), GetUserAgentMetadata());
+
+  base::test::ScopedFeatureList scoped_feature_list;
+  {
+    auto metadata = GetUserAgentMetadata();
+
+    // Verify low-entropy client hints aren't empty.
+    const std::string major_version = version_info::GetMajorVersionNumber();
+    const blink::UserAgentBrandVersion chromium_brand_version = {"Chromium",
+                                                                 major_version};
+    EXPECT_TRUE(ContainsBrandVersion(metadata.brand_version_list,
+                                     chromium_brand_version));
+    EXPECT_NE("", metadata.platform);
+
+    // Verify high-entropy client hints are empty, take platform version as
+    // an example to verify.
+    EXPECT_EQ("", metadata.platform_version);
+  }
+
+  scoped_feature_list.InitAndEnableFeature(blink::features::kUACHOverrideBlank);
+  {
+    // Make sure return blank values for GetUserAgentMetadata().
+    EXPECT_EQ(blink::UserAgentMetadata::Marshal(blink::UserAgentMetadata()),
+              blink::UserAgentMetadata::Marshal(GetUserAgentMetadata()));
+  }
 }
 
 TEST_F(UserAgentUtilsTest, InvalidCustomUserAgent) {
@@ -916,6 +939,7 @@ TEST_F(UserAgentUtilsTest, UserAgentMetadata) {
   EXPECT_EQ(metadata.model, content::BuildModelInfo());
   EXPECT_EQ(metadata.bitness, content::GetCpuBitness());
   EXPECT_EQ(metadata.wow64, content::IsWoW64());
+  EXPECT_EQ(metadata.form_factor, metadata.mobile ? "Mobile" : "");
 }
 
 TEST_F(UserAgentUtilsTest, GenerateBrandVersionListUnbranded) {
@@ -1528,6 +1552,16 @@ TEST_F(UserAgentUtilsTest, GetUserAgent) {
   EXPECT_EQ(major_version, version_info::GetMajorVersionNumber());
   // Minor version should contain the actual minor version number.
   EXPECT_EQ(minor_version, "0");
+}
+
+TEST_F(UserAgentUtilsTest, HeadlessUserAgent) {
+  base::test::ScopedCommandLine scoped_command_line;
+  base::CommandLine* command_line = scoped_command_line.GetProcessCommandLine();
+  command_line->AppendSwitch(kHeadless);
+  ASSERT_TRUE(command_line->HasSwitch(kHeadless));
+
+  // In headless mode product name should have the Headless prefix.
+  EXPECT_THAT(GetUserAgent(), testing::HasSubstr("HeadlessChrome/"));
 }
 
 class UserAgentUtilsMinorVersionTest

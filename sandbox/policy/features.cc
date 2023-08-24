@@ -59,12 +59,6 @@ BASE_FEATURE(kRendererAppContainer,
              "RendererAppContainer",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Emergency "off switch" for removal of direct system font access from
-// web renderer processes.
-BASE_FEATURE(kWinSboxAllowSystemFonts,
-             "WinSboxAllowSystemFonts",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables very high job memory limits for sandboxed renderer processes. This
 // sets a limit of 1Tb, effectively removing the Job memory limits, except in
 // egregious cases.
@@ -77,6 +71,19 @@ BASE_FEATURE(kWinSboxHighRendererJobMemoryLimits,
 BASE_FEATURE(kWinSboxRendererCloseKsecDD,
              "WinSboxRendererCloseKsecDD",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// If enabled, only warm up `bcryptprimitives!ProcessPrng` - if disabled warms
+// up `advapi32!RtlGenRandom`.
+BASE_FEATURE(kWinSboxWarmupProcessPrng,
+             "WinSboxWarmupProcessPrng",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, launch the network service within an LPAC sandbox. If disabled,
+// the network service will run inside an App Container.
+BASE_FEATURE(kWinSboxNetworkServiceSandboxIsLPAC,
+             "WinSboxNetworkServiceSandboxIsLPAC",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

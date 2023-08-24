@@ -37,10 +37,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 ChromeOmniboxClientIOS::ChromeOmniboxClientIOS(
     WebLocationBar* location_bar,
     ChromeBrowserState* browser_state,
@@ -83,6 +79,10 @@ bool ChromeOmniboxClientIOS::IsDefaultSearchProviderEnabled() const {
 SessionID ChromeOmniboxClientIOS::GetSessionID() const {
   return IOSChromeSessionTabHelper::FromWebState(location_bar_->GetWebState())
       ->session_id();
+}
+
+PrefService* ChromeOmniboxClientIOS::GetPrefs() {
+  return browser_state_->GetPrefs();
 }
 
 bookmarks::BookmarkModel* ChromeOmniboxClientIOS::GetBookmarkModel() {

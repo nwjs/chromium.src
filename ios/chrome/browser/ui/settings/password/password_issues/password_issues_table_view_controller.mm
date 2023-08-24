@@ -22,10 +22,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using password_manager::WarningType;
 using password_manager::features::IsPasswordCheckupEnabled;
 
@@ -254,6 +250,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
   dismissedWarningsItem.accessibilityTraits = UIAccessibilityTraitButton;
   dismissedWarningsItem.accessoryType =
       UITableViewCellAccessoryDisclosureIndicator;
+  dismissedWarningsItem.accessibilityIdentifier = kDismissedWarningsCellId;
   return dismissedWarningsItem;
 }
 

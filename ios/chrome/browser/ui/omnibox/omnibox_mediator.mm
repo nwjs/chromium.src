@@ -39,10 +39,6 @@
 #import "ios/public/provider/chrome/browser/lens/lens_api.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using base::UserMetricsAction;
 
 @interface OmniboxMediator () <SearchEngineObserving>
@@ -341,7 +337,7 @@ using base::UserMetricsAction;
   __weak __typeof(self) weakSelf = self;
   auto textCompletion =
       ^(__kindof id<NSItemProviderReading> providedItem, NSError* error) {
-        LogLikelyInterestedDefaultBrowserUserActivity(DefaultPromoTypeGeneral);
+        LogCopyPasteInOmniboxForDefaultBrowserPromo();
         dispatch_async(dispatch_get_main_queue(), ^{
           NSString* text = static_cast<NSString*>(providedItem);
           if (text) {

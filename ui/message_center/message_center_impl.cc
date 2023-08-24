@@ -78,6 +78,7 @@ void MessageCenterImpl::AddNotificationBlocker(NotificationBlocker* blocker) {
 
   blocker->AddObserver(this);
   blockers_.push_back(blocker);
+  OnBlockingStateChanged(blocker);
 }
 
 void MessageCenterImpl::RemoveNotificationBlocker(
@@ -151,6 +152,12 @@ void MessageCenterImpl::SetNotificationExpandState(
   DCHECK(FindVisibleNotificationById(id));
 
   notification_list_->SetNotificationExpandState(id, expand_state);
+
+  scoped_refptr<NotificationDelegate> delegate =
+      notification_list_->GetNotificationDelegate(id);
+  if (delegate) {
+    delegate->ExpandStateChanged();
+  }
 }
 
 void MessageCenterImpl::SetHasMessageCenterView(bool has_message_center_view) {
@@ -234,6 +241,9 @@ Notification* MessageCenterImpl::FindParentNotification(
         return nullptr;
       }
       for (auto* n : notifications) {
+        if (n->group_parent() || n->group_child()) {
+          continue;
+        }
         n->SetGroupChild();
       }
     }

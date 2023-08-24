@@ -199,7 +199,11 @@ class ScheduledFeatureTest : public NoSessionAshTestBase,
     return geolocation_controller_;
   }
   const base::OneShotTimer* timer_ptr() const { return timer_ptr_; }
-  TestGeolocationUrlLoaderFactory* factory() const { return factory_; }
+
+  TestGeolocationUrlLoaderFactory* factory() const {
+    return static_cast<TestGeolocationUrlLoaderFactory*>(
+        geolocation_controller_->GetSharedURLLoaderFactoryForTesting());
+  }
 
   // AshTestBase:
   void SetUp() override {
@@ -234,11 +238,6 @@ class ScheduledFeatureTest : public NoSessionAshTestBase,
         Shell::Get()->session_controller()->GetActivePrefService());
 
     timer_ptr_ = geolocation_controller()->GetTimerForTesting();
-
-    // `factory_` allows the test to control the value of geoposition
-    // that the geolocation provider sends back upon geolocation request.
-    factory_ = static_cast<TestGeolocationUrlLoaderFactory*>(
-        geolocation_controller()->GetFactoryForTesting());
   }
 
   void TearDown() override {
@@ -353,7 +352,7 @@ class ScheduledFeatureTest : public NoSessionAshTestBase,
   // `GeolocationController` request.
   void SetServerPosition(const Geoposition& position) {
     position_ = position;
-    factory_->set_position(position_);
+    factory()->set_position(position_);
   }
 
   // Checks if the feature is observing geoposition changes.
@@ -406,7 +405,6 @@ class ScheduledFeatureTest : public NoSessionAshTestBase,
   std::unique_ptr<TestScheduledFeature> feature_;
   raw_ptr<GeolocationController, ExperimentalAsh> geolocation_controller_;
   raw_ptr<base::OneShotTimer, ExperimentalAsh> timer_ptr_;
-  raw_ptr<TestGeolocationUrlLoaderFactory, ExperimentalAsh> factory_;
   Geoposition position_;
 };
 
@@ -771,16 +769,9 @@ TEST_F(ScheduledFeatureTest, SunsetSunriseGeoposition) {
 
   const base::Time sunset_time2 = geolocation_controller()->GetSunsetTime();
   const base::Time sunrise_time2 = geolocation_controller()->GetSunriseTime();
-  // We choose the second location such that the new sunrise time is later
-  // in the day compared to the old sunrise time, which is also the current
-  // time.
-  ASSERT_GT(Now(), sunset_time2);
-  ASSERT_LT(Now(), sunset_time2 + base::Days(1));
-  ASSERT_GT(Now(), sunrise_time2);
-  ASSERT_LT(Now(), sunrise_time2 + base::Days(1));
 
-  // Expect that the scheduled end delay has been updated to sunrise of the
-  // same (second) day in location 2, and the status hasn't changed.
+  // Expect that the scheduled end delay has been updated to sunrise of location
+  // 2, and the status has changed to enabled even though time has not advanced.
   EXPECT_TRUE(feature()->GetEnabled());
 
   // Simulate reaching sunrise.
@@ -788,7 +779,7 @@ TEST_F(ScheduledFeatureTest, SunsetSunriseGeoposition) {
       sunrise_time2 + delta));  // Now is sunrise time of the position2.
   EXPECT_FALSE(feature()->GetEnabled());
   // Timer is running scheduling the start at the sunset of the next day.
-  FastForwardTo(TimeOfDay::FromTime(sunrise_time2));
+  FastForwardTo(TimeOfDay::FromTime(sunset_time2 + delta));
   EXPECT_TRUE(feature()->GetEnabled());
 }
 

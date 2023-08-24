@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.autofill;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.widget.EditText;
 
 import androidx.test.filters.SmallTest;
@@ -19,6 +20,7 @@ import org.junit.runner.RunWith;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
+import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.autofill.AutofillUiUtils.ErrorType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
@@ -288,6 +290,24 @@ public class AutofillUiUtilsTest {
         int fourDigitYear = AutofillUiUtils.getFourDigitYear(mYearInput);
 
         Assert.assertEquals(-1, fourDigitYear);
+    }
+
+    @Test
+    @SmallTest
+    @Features.EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES)
+    public void testResizeAndAddRoundedCornersAndGreyBorder() {
+        Bitmap testImage = Bitmap.createBitmap(400, 300, Bitmap.Config.ARGB_8888);
+        AutofillUiUtils.CardIconSpecs testSpecs = AutofillUiUtils.CardIconSpecs.create(
+                ContextUtils.getApplicationContext(), AutofillUiUtils.CardIconSize.LARGE);
+
+        Bitmap resizedTestImage = AutofillUiUtils.resizeAndAddRoundedCornersAndGreyBorder(
+                testImage, testSpecs, /* addRoundedCornersAndGreyBorder= */ true);
+
+        // Verify that the image gets resized to required dimensions. We can't verify other
+        // enhancements like border and corner-radius because they are not properties of the bitmap
+        // image.
+        Assert.assertEquals(resizedTestImage.getWidth(), testSpecs.getWidth());
+        Assert.assertEquals(resizedTestImage.getHeight(), testSpecs.getHeight());
     }
 
     @Test

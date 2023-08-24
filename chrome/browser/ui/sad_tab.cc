@@ -19,7 +19,6 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/components/kiosk/kiosk_utils.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/ui_metrics/sadtab_metrics_types.h"
 #include "content/public/browser/browser_context.h"
@@ -29,6 +28,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/memory/oom_memory_details.h"
+#include "chromeos/components/kiosk/kiosk_utils.h"
 #endif
 
 namespace {
@@ -243,14 +243,6 @@ SadTab::SadTab(content::WebContents* web_contents, SadTabKind kind)
       is_repeatedly_crashing_(IsRepeatedlyCrashing()),
       show_feedback_button_(false),
       recorded_paint_(false) {
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-  // Only Google Chrome-branded browsers may show the Feedback button.
-  // Sending feedback is not allowed in the ChromeOS Kiosk mode.
-  if (!chromeos::IsKioskSession()) {
-    show_feedback_button_ = is_repeatedly_crashing_;
-  }
-#endif
-
   switch (kind) {
     case SAD_TAB_KIND_CRASHED:
     case SAD_TAB_KIND_OOM:
@@ -269,4 +261,16 @@ SadTab::SadTab(content::WebContents* web_contents, SadTabKind kind)
                    << web_contents->GetURL().DeprecatedGetOriginAsURL().spec();
       break;
   }
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // Sending feedback is not allowed in the ChromeOS Kiosk mode.
+  if (chromeos::IsKioskSession()) {
+    return;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+  // Only Google Chrome-branded browsers may show the Feedback button.
+  show_feedback_button_ = is_repeatedly_crashing_;
+#endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }

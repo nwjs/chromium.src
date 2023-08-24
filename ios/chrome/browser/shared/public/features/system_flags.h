@@ -18,6 +18,9 @@ namespace experimental_flags {
 // Whether the First Run UI will be always be displayed.
 bool AlwaysDisplayFirstRun();
 
+// Whether the Upgrade Promo UI will be always be displayed.
+bool AlwaysDisplayUpgradePromo();
+
 // Returns the host name for an alternative Origin Server host for use by
 // `BrandCode` startup ping. Returns empty string if there is no alternative
 // host specified.
@@ -90,6 +93,9 @@ NSString* GetForcedPromoToDisplay();
 // The value could be set both from Experimental Settings and command line
 // switches, but the former takes precedence.
 std::string GetSegmentForForcedDeviceSwitcherExperience();
+
+// Whether a phone backup/restore state should be simulated.
+bool SimulatePostDeviceRestore();
 
 }  // namespace experimental_flags
 

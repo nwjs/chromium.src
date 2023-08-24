@@ -118,6 +118,8 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   bool enable_scroll_animator;
   bool threaded_scrolling_enabled;
   bool prefers_reduced_motion;
+  bool prefers_reduced_transparency;
+  bool inverted_colors;
   bool touch_event_feature_detection_enabled;
   int pointer_events_max_touch_points;
   int available_pointer_types;

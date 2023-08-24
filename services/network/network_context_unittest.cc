@@ -73,6 +73,7 @@
 #include "net/cert/x509_certificate.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/cookie_access_result.h"
+#include "net/cookies/cookie_inclusion_status.h"
 #include "net/cookies/cookie_options.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_store.h"
@@ -701,19 +702,6 @@ TEST_F(NetworkContextTest, EnableBrotli) {
   }
 }
 
-TEST_F(NetworkContextTest, QuicUserAgentId) {
-  const char kQuicUserAgentId[] = "007";
-  mojom::NetworkContextParamsPtr context_params =
-      CreateNetworkContextParamsForTesting();
-  context_params->quic_user_agent_id = kQuicUserAgentId;
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(std::move(context_params));
-  EXPECT_EQ(kQuicUserAgentId, network_context->url_request_context()
-                                  ->quic_context()
-                                  ->params()
-                                  ->user_agent_id);
-}
-
 TEST_F(NetworkContextTest, UnhandedProtocols) {
   const GURL kUnsupportedUrls[] = {
       // These are handled outside the network service.
@@ -936,11 +924,12 @@ TEST_F(NetworkContextTest, MemoryCache) {
 TEST_F(NetworkContextTest, DiskCache) {
   mojom::NetworkContextParamsPtr context_params =
       CreateNetworkContextParamsForTesting();
+  context_params->file_paths = mojom::NetworkContextFilePaths::New();
   context_params->http_cache_enabled = true;
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  context_params->http_cache_directory = temp_dir.GetPath();
+  context_params->file_paths->http_cache_directory = temp_dir.GetPath();
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(std::move(context_params));
@@ -978,11 +967,12 @@ class DiskCacheSizeTest : public NetworkContextTest {
 
     mojom::NetworkContextParamsPtr context_params =
         CreateNetworkContextParamsForTesting();
+    context_params->file_paths = mojom::NetworkContextFilePaths::New();
     context_params->http_cache_enabled = true;
 
     base::ScopedTempDir temp_dir;
     EXPECT_TRUE(temp_dir.CreateUniqueTempDir());
-    context_params->http_cache_directory = temp_dir.GetPath();
+    context_params->file_paths->http_cache_directory = temp_dir.GetPath();
 
     std::unique_ptr<NetworkContext> network_context =
         CreateContextWithParams(std::move(context_params));
@@ -1028,11 +1018,12 @@ TEST_F(NetworkContextTest, SimpleCache) {
   base::FieldTrialList::CreateFieldTrial("SimpleCacheTrial", "ExperimentYes");
   mojom::NetworkContextParamsPtr context_params =
       CreateNetworkContextParamsForTesting();
+  context_params->file_paths = mojom::NetworkContextFilePaths::New();
   context_params->http_cache_enabled = true;
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  context_params->http_cache_directory = temp_dir.GetPath();
+  context_params->file_paths->http_cache_directory = temp_dir.GetPath();
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(std::move(context_params));
@@ -1738,11 +1729,12 @@ TEST_F(NetworkContextTest, ClearHttpCacheWithNoCache) {
 TEST_F(NetworkContextTest, ClearHttpCache) {
   mojom::NetworkContextParamsPtr context_params =
       CreateNetworkContextParamsForTesting();
+  context_params->file_paths = mojom::NetworkContextFilePaths::New();
   context_params->http_cache_enabled = true;
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  context_params->http_cache_directory = temp_dir.GetPath();
+  context_params->file_paths->http_cache_directory = temp_dir.GetPath();
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(std::move(context_params));
@@ -1793,11 +1785,12 @@ TEST_F(NetworkContextTest, MultipleClearHttpCacheCalls) {
 
   mojom::NetworkContextParamsPtr context_params =
       CreateNetworkContextParamsForTesting();
+  context_params->file_paths = mojom::NetworkContextFilePaths::New();
   context_params->http_cache_enabled = true;
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
-  context_params->http_cache_directory = temp_dir.GetPath();
+  context_params->file_paths->http_cache_directory = temp_dir.GetPath();
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(std::move(context_params));
@@ -4581,11 +4574,15 @@ TEST_F(NetworkContextTest, CanSetCookieFalseIfCookiesBlocked) {
       net::COOKIE_PRIORITY_LOW, false);
   EXPECT_TRUE(
       network_context->url_request_context()->network_delegate()->CanSetCookie(
-          *request, *cookie, nullptr));
+          *request, *cookie, /* options */ nullptr,
+          /* inclusion_status */ nullptr));
   SetDefaultContentSetting(CONTENT_SETTING_BLOCK, network_context.get());
+  net::CookieInclusionStatus status;
   EXPECT_FALSE(
       network_context->url_request_context()->network_delegate()->CanSetCookie(
-          *request, *cookie, nullptr));
+          *request, *cookie, /* options */ nullptr, &status));
+  EXPECT_FALSE(status.HasWarningReason(
+      net::CookieInclusionStatus::WARN_THIRD_PARTY_PHASEOUT));
 }
 
 TEST_F(NetworkContextTest, CanSetCookieTrueIfCookiesAllowed) {
@@ -4602,39 +4599,13 @@ TEST_F(NetworkContextTest, CanSetCookieTrueIfCookiesAllowed) {
       net::COOKIE_PRIORITY_LOW, false);
 
   SetDefaultContentSetting(CONTENT_SETTING_ALLOW, network_context.get());
+  net::CookieInclusionStatus status;
   EXPECT_TRUE(
       network_context->url_request_context()->network_delegate()->CanSetCookie(
-          *request, *cookie, nullptr));
-}
+          *request, *cookie, /* options */ nullptr, &status));
 
-TEST_F(NetworkContextTest, CanSetCookieTrueIfBlockThirdPartyCookiesOverridden) {
-  std::unique_ptr<NetworkContext> network_context =
-      CreateContextWithParams(CreateNetworkContextParamsForTesting());
-  std::unique_ptr<net::URLRequestContext> context =
-      CreateTestURLRequestContextBuilder()->Build();
-  std::unique_ptr<net::URLRequest> request = context->CreateRequest(
-      GURL("http://foo.com"), net::DEFAULT_PRIORITY,
-      /*delegate=*/nullptr, TRAFFIC_ANNOTATION_FOR_TESTS);
-  request->set_site_for_cookies(
-      net::SiteForCookies::FromUrl(GURL("http://bar.com")));
-  auto cookie = net::CanonicalCookie::CreateUnsafeCookieForTesting(
-      "ThirdPartyCookie", "1", "www.foo.com", "/", base::Time(), base::Time(),
-      base::Time(), base::Time(), false, false, net::CookieSameSite::LAX_MODE,
-      net::COOKIE_PRIORITY_LOW, false);
-
-  network_context->cookie_manager()->BlockThirdPartyCookies(true);
-  EXPECT_FALSE(
-      network_context->url_request_context()->network_delegate()->CanSetCookie(
-          *request, *cookie, nullptr));
-
-  // Now the cookie should be allowed if the request includes the override that
-  // the user is forcing 3PCs.
-  request->cookie_setting_overrides().Clear();
-  request->cookie_setting_overrides().Put(
-      net::CookieSettingOverride::kForceThirdPartyByUser);
-  EXPECT_TRUE(
-      network_context->url_request_context()->network_delegate()->CanSetCookie(
-          *request, *cookie, nullptr));
+  EXPECT_TRUE(status.HasWarningReason(
+      net::CookieInclusionStatus::WARN_THIRD_PARTY_PHASEOUT));
 }
 
 TEST_F(NetworkContextTest,
@@ -4651,59 +4622,38 @@ TEST_F(NetworkContextTest,
   net::CookieAccessResultList excluded;
 
   // Cookies are allowed, so call returns true.
-  EXPECT_TRUE(network_context->url_request_context()
-                  ->network_delegate()
-                  ->AnnotateAndMoveUserBlockedCookies(
-                      *request,
-                      net::FirstPartySetMetadata(
-                          net::SamePartyContext(
-                              net::SamePartyContext::Type::kCrossParty),
-                          /*frame_entry=*/nullptr,
-                          /*top_frame_entry=*/nullptr),
-                      included, excluded));
+  EXPECT_TRUE(
+      network_context->url_request_context()
+          ->network_delegate()
+          ->AnnotateAndMoveUserBlockedCookies(*request,
+                                              net::FirstPartySetMetadata(
+                                                  /*frame_entry=*/nullptr,
+                                                  /*top_frame_entry=*/nullptr),
+                                              included, excluded));
 
   // Cookies are blocked, so call returns false.
   SetDefaultContentSetting(CONTENT_SETTING_BLOCK, network_context.get());
-  EXPECT_FALSE(network_context->url_request_context()
-                   ->network_delegate()
-                   ->AnnotateAndMoveUserBlockedCookies(
-                       *request,
-                       net::FirstPartySetMetadata(
-                           net::SamePartyContext(
-                               net::SamePartyContext::Type::kCrossParty),
-                           /*frame_entry=*/nullptr,
-                           /*top_frame_entry=*/nullptr),
-                       included, excluded));
+  EXPECT_FALSE(
+      network_context->url_request_context()
+          ->network_delegate()
+          ->AnnotateAndMoveUserBlockedCookies(*request,
+                                              net::FirstPartySetMetadata(
+                                                  /*frame_entry=*/nullptr,
+                                                  /*top_frame_entry=*/nullptr),
+                                              included, excluded));
 
-  // Even with override, third party cookies blocked by content setting.
-  request->cookie_setting_overrides().Clear();
-  request->cookie_setting_overrides().Put(
-      net::CookieSettingOverride::kForceThirdPartyByUser);
-  EXPECT_FALSE(network_context->url_request_context()
-                   ->network_delegate()
-                   ->AnnotateAndMoveUserBlockedCookies(
-                       *request,
-                       net::FirstPartySetMetadata(
-                           net::SamePartyContext(
-                               net::SamePartyContext::Type::kCrossParty),
-                           /*frame_entry=*/nullptr,
-                           /*top_frame_entry=*/nullptr),
-                       included, excluded));
-
-  // Set blocking third party cookies instead of content setting.
-  // Now override should apply.
+  // Reset content setting, but block third party cookies. The call should still
+  // return false.
   SetDefaultContentSetting(CONTENT_SETTING_ALLOW, network_context.get());
   network_context->cookie_manager()->BlockThirdPartyCookies(true);
-  EXPECT_TRUE(network_context->url_request_context()
-                  ->network_delegate()
-                  ->AnnotateAndMoveUserBlockedCookies(
-                      *request,
-                      net::FirstPartySetMetadata(
-                          net::SamePartyContext(
-                              net::SamePartyContext::Type::kCrossParty),
-                          /*frame_entry=*/nullptr,
-                          /*top_frame_entry=*/nullptr),
-                      included, excluded));
+  EXPECT_FALSE(
+      network_context->url_request_context()
+          ->network_delegate()
+          ->AnnotateAndMoveUserBlockedCookies(*request,
+                                              net::FirstPartySetMetadata(
+                                                  /*frame_entry=*/nullptr,
+                                                  /*top_frame_entry=*/nullptr),
+                                              included, excluded));
 }
 
 TEST_F(NetworkContextTest,
@@ -4719,16 +4669,14 @@ TEST_F(NetworkContextTest,
   net::CookieAccessResultList excluded;
 
   SetDefaultContentSetting(CONTENT_SETTING_ALLOW, network_context.get());
-  EXPECT_TRUE(network_context->url_request_context()
-                  ->network_delegate()
-                  ->AnnotateAndMoveUserBlockedCookies(
-                      *request,
-                      net::FirstPartySetMetadata(
-                          net::SamePartyContext(
-                              net::SamePartyContext::Type::kCrossParty),
-                          /*frame_entry=*/nullptr,
-                          /*top_frame_entry=*/nullptr),
-                      included, excluded));
+  EXPECT_TRUE(
+      network_context->url_request_context()
+          ->network_delegate()
+          ->AnnotateAndMoveUserBlockedCookies(*request,
+                                              net::FirstPartySetMetadata(
+                                                  /*frame_entry=*/nullptr,
+                                                  /*top_frame_entry=*/nullptr),
+                                              included, excluded));
 }
 
 // Gets notified by the EmbeddedTestServer on incoming connections being
@@ -7372,7 +7320,8 @@ TEST_F(NetworkContextTestWithMockTime, EnableTrustTokensWithStoreOnDisk) {
 
 TEST_F(NetworkContextTest, DisableTrustTokens) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(features::kPrivateStateTokens);
+  scoped_feature_list.InitWithFeatures(
+      {}, {features::kPrivateStateTokens, features::kFledgePst});
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(CreateNetworkContextParamsForTesting());
@@ -7405,7 +7354,8 @@ class NetworkContextExpectBadMessageTest : public NetworkContextTest {
 TEST_F(NetworkContextExpectBadMessageTest,
        FailsTrustTokenBearingRequestWhenTrustTokensIsDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(features::kPrivateStateTokens);
+  scoped_feature_list.InitWithFeatures(
+      {}, {features::kPrivateStateTokens, features::kFledgePst});
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(CreateNetworkContextParamsForTesting());
@@ -7610,7 +7560,8 @@ TEST_F(NetworkContextTest,
 
 TEST_F(NetworkContextTest, NoAvailableTrustTokensWhenTrustTokensAreDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(features::kPrivateStateTokens);
+  scoped_feature_list.InitWithFeatures(
+      {}, {features::kPrivateStateTokens, features::kFledgePst});
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(CreateNetworkContextParamsForTesting());
@@ -7726,7 +7677,8 @@ TEST_F(NetworkContextTest, GetStoredTrustTokensReentrant) {
 TEST_F(NetworkContextTest,
        DeleteStoredTrustTokensReportsErrorWhenFeatureIsDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndDisableFeature(features::kPrivateStateTokens);
+  scoped_feature_list.InitWithFeatures(
+      {}, {features::kPrivateStateTokens, features::kFledgePst});
 
   std::unique_ptr<NetworkContext> network_context =
       CreateContextWithParams(CreateNetworkContextParamsForTesting());

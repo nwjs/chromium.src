@@ -71,7 +71,8 @@ void AddNotification(const std::string& notification_id,
           ? message_center::NotifierId(
                 message_center::NotifierType::SYSTEM_COMPONENT, "system",
                 NotificationCatalogName::kHPSNotify)
-          : message_center::NotifierId(/*url=*/GURL(), notifier_title);
+          : message_center::NotifierId(/*url=*/GURL(), notifier_title,
+                                       /*web_app_id=*/absl::nullopt);
 
   message_center::MessageCenter::Get()->AddNotification(
       std::make_unique<message_center::Notification>(
@@ -120,7 +121,7 @@ size_t PositionInInfoPopupMessage(const std::u16string& substr) {
 // A blocker that blocks only a popup with the given ID.
 class IdPopupBlocker : public message_center::NotificationBlocker {
  public:
-  IdPopupBlocker(message_center::MessageCenter* message_center)
+  explicit IdPopupBlocker(message_center::MessageCenter* message_center)
       : NotificationBlocker(message_center) {}
   IdPopupBlocker(const IdPopupBlocker&) = delete;
   IdPopupBlocker& operator=(const IdPopupBlocker&) = delete;
@@ -406,6 +407,7 @@ TEST_F(SnoopingProtectionNotificationBlockerTest, InfoPopup) {
 // blocking.
 TEST_F(SnoopingProtectionNotificationBlockerTest, InfoPopupOtherBlocker) {
   IdPopupBlocker other_blocker(message_center_);
+  other_blocker.Init();
   other_blocker.SetTargetId("notification-2");
 
   SetBlockerPref(true);
@@ -537,7 +539,8 @@ TEST(SnoopingProtectionNotificationBlockerInternalTest, WebsiteNotifierTitles) {
 
   // Website with a trusted title uses the title.
   const message_center::NotifierId trusted_notifier(
-      GURL("https://trusted.com:443"), u"Trusted");
+      GURL("https://trusted.com:443"), u"Trusted",
+      /*web_app_id=*/absl::nullopt);
   const std::u16string trusted_title =
       hps_internal::GetNotifierTitle<FakeAppRegistryCache>(trusted_notifier,
                                                            AccountId());

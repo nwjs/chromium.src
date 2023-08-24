@@ -175,8 +175,15 @@ class MetadataWriter {
       int64_t default_ttl,
       proto::TimeUnit time_unit);
 
+  // Sets `ignore_previous_model_ttl` as true in `OutputConfig`.
+  void SetIgnorePreviousModelTTLInOutputConfig();
+
   // Append a delay trigger for training data collection.
   void AddDelayTrigger(uint64_t delay_sec);
+
+  // Adds a custom input from Input Context.
+  void AddFromInputContext(const char* custom_input_name,
+                           const char* additional_args_name);
 
  private:
   const raw_ptr<proto::SegmentationModelMetadata> metadata_;

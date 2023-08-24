@@ -26,10 +26,6 @@
 #import "net/test/embedded_test_server/default_handlers.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 static constexpr char kFormPassword[] = "pw";
 
 namespace {
@@ -82,8 +78,6 @@ id<GREYMatcher> ButtonWithAccessibilityID(NSString* id) {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(
       password_manager::features::kIOSPasswordBottomSheet);
-  config.features_enabled.push_back(
-      password_manager::features::kPasswordsGrouping);
   return config;
 }
 

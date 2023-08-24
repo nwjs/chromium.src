@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -11,6 +12,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/desk_template.h"
 #include "ash/public/cpp/notification_utils.h"
+#include "ash/wm/desks/desk.h"
 #include "ash/wm/desks/templates/saved_desk_metrics_util.h"
 #include "ash/wm/desks/templates/saved_desk_util.h"
 #include "base/check.h"
@@ -47,12 +49,22 @@
 
 namespace ash {
 
-const char kNotificationForNoNetworkConnection[] =
+constexpr char kNotificationForNoNetworkConnection[] =
     "notification_no_network_connection";
-const char kNotificationForSyncErrorOrTimeOut[] =
+constexpr char kNotificationForSyncErrorOrTimeOut[] =
     "notification_sync_error_or_timeout";
-const char kNotificationForRestoreAfterError[] =
+constexpr char kNotificationForRestoreAfterError[] =
     "notification_restore_after_error";
+constexpr char kNotificationForProgressStatus[] =
+    "notification_progress_status";
+// Default time without activity after which a floating workspace template is
+// considered stale and becomes a candidate for garbage collection.
+constexpr base::TimeDelta kStaleFWSThreshold = base::Days(30);
+// Minimum time to wait before we decide to show the progress status if no
+// floating workspace templates have been downloaded yet.
+constexpr base::TimeDelta kMinTimeToWait = base::Seconds(2);
+// Time interval between progress bar update.
+constexpr base::TimeDelta kProgressTimeUpdateDelay = base::Seconds(1);
 
 FloatingWorkspaceServiceNotificationType GetNotificationTypeById(
     const std::string& id) {
@@ -64,6 +76,9 @@ FloatingWorkspaceServiceNotificationType GetNotificationTypeById(
   }
   if (id == kNotificationForRestoreAfterError) {
     return FloatingWorkspaceServiceNotificationType::kRestoreAfterError;
+  }
+  if (id == kNotificationForProgressStatus) {
+    return FloatingWorkspaceServiceNotificationType::kProgressStatus;
   }
   return FloatingWorkspaceServiceNotificationType::kUnknown;
 }
@@ -83,11 +98,20 @@ FloatingWorkspaceService::FloatingWorkspaceService(
       initialization_timestamp_(base::TimeTicks::Now()) {}
 
 FloatingWorkspaceService::~FloatingWorkspaceService() {
-  if (is_testing_)
-    return;
-  if (floating_workspace_util::IsFloatingWorkspaceV2Enabled()) {
+  if (timer_.IsRunning()) {
     StopCaptureAndUploadActiveDesk();
   }
+
+  if (sync_service_ && sync_service_->HasObserver(this)) {
+    sync_service_->RemoveObserver(this);
+  }
+}
+
+void FloatingWorkspaceService::OnSyncShutdown(syncer::SyncService* sync) {
+  if (sync_service_ && sync_service_->HasObserver(this)) {
+    sync_service_->RemoveObserver(this);
+  }
+  sync_service_ = nullptr;
 }
 
 void FloatingWorkspaceService::Init(
@@ -206,12 +230,14 @@ void FloatingWorkspaceService::OnStateChanged(syncer::SyncService* sync) {
       break;
     }
     case syncer::SyncService::ModelTypeDownloadStatus::kUpToDate: {
+      StopProgressBarNotification();
       RestoreFloatingWorkspaceTemplate(GetLatestFloatingWorkspaceTemplate());
       break;
     }
     case syncer::SyncService::ModelTypeDownloadStatus::kError: {
       // Sync is not expected to deliver the data, let user decide.
       // TODO: send notification to user asking if restore local.
+      StopProgressBarNotification();
       HandleSyncEror();
       break;
     }
@@ -228,6 +254,8 @@ void FloatingWorkspaceService::Click(
       // For unknown type of notification id, do nothing and run close logic.
       break;
     case FloatingWorkspaceServiceNotificationType::kSyncErrorOrTimeOut:
+      break;
+    case FloatingWorkspaceServiceNotificationType::kProgressStatus:
       break;
     case FloatingWorkspaceServiceNotificationType::kNoNetworkConnection:
       if (button_index.has_value()) {
@@ -254,6 +282,13 @@ void FloatingWorkspaceService::MaybeCloseNotification() {
   if (notification_ == nullptr) {
     return;
   }
+  // If it's a progress bar notification and we're still waiting for chrome sync
+  // to finish downloading, don't need to close notification.
+  if (notification_->type() == message_center::NOTIFICATION_TYPE_PROGRESS &&
+      !progress_notification_id_.empty() &&
+      progress_notification_id_ == notification_->id()) {
+    return;
+  }
   auto* notification_display_service =
       NotificationDisplayService::GetForProfile(profile_);
   notification_display_service->Close(NotificationHandler::Type::TRANSIENT,
@@ -271,17 +306,19 @@ void FloatingWorkspaceService::InitForV2(
     desks_storage::DeskSyncService* desk_sync_service) {
   sync_service_ = sync_service;
   desk_sync_service_ = desk_sync_service;
-  sync_service_->AddObserver(this);
+  if (sync_service_ && !sync_service_->HasObserver(this)) {
+    sync_service_->AddObserver(this);
+  }
   StartCaptureAndUploadActiveDesk();
-  // Post a task to check if anything is restored after FWS timeout.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&FloatingWorkspaceService::MaybeHandleDownloadTimeOut,
-                     weak_pointer_factory_.GetWeakPtr()),
-      ash::features::kFloatingWorkspaceV2MaxTimeAvailableForRestoreAfterLogin
-          .Get());
   if (!floating_workspace_util::IsInternetConnected()) {
     SendNotification(kNotificationForNoNetworkConnection);
+  } else {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(
+            &FloatingWorkspaceService::MaybeStartProgressBarNotification,
+            weak_pointer_factory_.GetWeakPtr()),
+        kMinTimeToWait);
   }
 }
 
@@ -346,27 +383,72 @@ void FloatingWorkspaceService::StopCaptureAndUploadActiveDesk() {
   timer_.Stop();
 }
 
+void FloatingWorkspaceService::MaybeStartProgressBarNotification() {
+  if (!should_run_restore_) {
+    return;
+  }
+  progress_timer_.Start(FROM_HERE, kProgressTimeUpdateDelay, this,
+                        &FloatingWorkspaceService::HandleProgressBarStatus);
+}
+
+void FloatingWorkspaceService::StopProgressBarNotification() {
+  progress_notification_id_ = std::string();
+  if (progress_timer_.IsRunning()) {
+    progress_timer_.Stop();
+  }
+  MaybeCloseNotification();
+}
+
+void FloatingWorkspaceService::HandleProgressBarStatus() {
+  const base::TimeDelta time_difference =
+      base::TimeTicks::Now() - initialization_timestamp_;
+  if (!should_run_restore_ ||
+      time_difference >=
+          ash::features::
+              kFloatingWorkspaceV2MaxTimeAvailableForRestoreAfterLogin.Get()) {
+    StopProgressBarNotification();
+    MaybeHandleDownloadTimeOut();
+    return;
+  }
+
+  SendNotification(kNotificationForProgressStatus);
+}
+
 const DeskTemplate*
 FloatingWorkspaceService::GetLatestFloatingWorkspaceTemplate() {
+  const DeskTemplate* floating_workspace_template = nullptr;
+  std::vector<const ash::DeskTemplate*> fws_entries =
+      GetFloatingWorkspaceTemplateEntries();
+  VLOG(1) << "Found " << fws_entries.size() << " floating workspace entries";
+  for (const DeskTemplate* entry : fws_entries) {
+    if (!entry) {
+      continue;
+    }
+    if (!floating_workspace_template ||
+        floating_workspace_template->GetLastUpdatedTime() <
+            entry->GetLastUpdatedTime()) {
+      floating_workspace_template = entry;
+    }
+  }
+  DoGarbageCollection(/*exclude template=*/floating_workspace_template);
+  return floating_workspace_template;
+}
+
+std::vector<const ash::DeskTemplate*>
+FloatingWorkspaceService::GetFloatingWorkspaceTemplateEntries() {
+  std::vector<const ash::DeskTemplate*> entries;
   desks_storage::DeskModel::GetAllEntriesResult result =
       desk_sync_service_->GetDeskModel()->GetAllEntries();
   if (result.status != desks_storage::DeskModel::GetAllEntriesStatus::kOk) {
-    return nullptr;
+    return entries;
   }
-  const DeskTemplate* floating_workspace_template = nullptr;
   for (const DeskTemplate* desk_template : result.entries) {
     if (desk_template &&
         desk_template->type() == DeskTemplateType::kFloatingWorkspace) {
-      // Set the to be floating workspace template to the latest floating
-      // workspace template found.
-      if (!floating_workspace_template ||
-          floating_workspace_template->GetLastUpdatedTime() <
-              desk_template->GetLastUpdatedTime()) {
-        floating_workspace_template = desk_template;
-      }
+      entries.push_back(desk_template);
     }
   }
-  return floating_workspace_template;
+  return entries;
 }
 
 void FloatingWorkspaceService::CaptureAndUploadActiveDesk() {
@@ -381,11 +463,12 @@ void FloatingWorkspaceService::CaptureAndUploadActiveDeskForTest(
   OnTemplateCaptured(absl::nullopt, std::move(desk_template));
 }
 
-// TODO(b/274502821): create garbage collection method for stale floating
-// workspace templates.
 void FloatingWorkspaceService::RestoreFloatingWorkspaceTemplate(
     const DeskTemplate* desk_template) {
   if (desk_template == nullptr) {
+    LOG(WARNING) << "No floating workspace entry found. Won't "
+                    "restore. This is only possible if this is the first time "
+                    "a user is using Floating Workspace.";
     should_run_restore_ = false;
     return;
   }
@@ -401,6 +484,7 @@ void FloatingWorkspaceService::RestoreFloatingWorkspaceTemplate(
           ash::features::
               kFloatingWorkspaceV2MaxTimeAvailableForRestoreAfterLogin.Get()) {
     // Template arrives late, asking user to restore or not.
+    StopProgressBarNotification();
     SendNotification(kNotificationForRestoreAfterError);
     // Set this flag false after sending restore notification to user
     // since user will control the restoration behavior from then on.
@@ -416,6 +500,11 @@ void FloatingWorkspaceService::LaunchFloatingWorkspaceTemplate(
   if (desk_template == nullptr) {
     return;
   }
+  base::Uuid active_desk_uuid = GetDesksClient()->GetActiveDesk();
+  VLOG(1) << "Launching Floating Workspace template with timestamp of "
+          << desk_template->GetLastUpdatedTime();
+  RemoveAllPreviousDesksExceptActiveDesk(
+      /*exclude_desk_uuid=*/active_desk_uuid);
   GetDesksClient()->LaunchDeskTemplate(
       desk_template->uuid(),
       base::BindOnce(&FloatingWorkspaceService::OnTemplateLaunched,
@@ -471,7 +560,7 @@ bool FloatingWorkspaceService::IsCurrentDeskSameAsPrevious(
   return true;
 }
 
-void FloatingWorkspaceService::HandleTemplateUploadErrors(
+void FloatingWorkspaceService::HandleTemplateLaunchErrors(
     DesksClient::DeskActionError error) {
   switch (error) {
     case DesksClient::DeskActionError::kUnknownError:
@@ -479,26 +568,70 @@ void FloatingWorkspaceService::HandleTemplateUploadErrors(
           RecordFloatingWorkspaceV2TemplateLaunchFailureType(
               floating_workspace_metrics_util::LaunchTemplateFailureType::
                   kUnknownError);
+      LOG(WARNING) << "Failed to launch template: unknown error.";
       return;
     case DesksClient::DeskActionError::kStorageError:
       floating_workspace_metrics_util::
           RecordFloatingWorkspaceV2TemplateLaunchFailureType(
               floating_workspace_metrics_util::LaunchTemplateFailureType::
                   kStorageError);
+      LOG(WARNING) << "Failed to launch template: storage error.";
       return;
     case DesksClient::DeskActionError::kDesksCountCheckFailedError:
       floating_workspace_metrics_util::
           RecordFloatingWorkspaceV2TemplateLaunchFailureType(
               floating_workspace_metrics_util::LaunchTemplateFailureType::
                   kDesksCountCheckFailedError);
+      LOG(WARNING) << "Failed to launch template: max number of desks open.";
       return;
-    // No need to record metrics for the below desk action errors since they do
-    // not relate to template launch.
+    // No need to record metrics for the below desk action errors since they
+    // do not relate to template launch.
     case DesksClient::DeskActionError::kNoCurrentUserError:
+      LOG(WARNING) << "Failed to launch template: no active user.";
+      return;
     case DesksClient::DeskActionError::kBadProfileError:
+      LOG(WARNING) << "Failed to launch template: bad profile.";
+      return;
     case DesksClient::DeskActionError::kResourceNotFoundError:
+      LOG(WARNING) << "Failed to launch template: resource not found.";
+      return;
     case DesksClient::DeskActionError::kInvalidIdError:
+      LOG(WARNING) << "Failed to launch template: desk id is invalid.";
+      return;
     case DesksClient::DeskActionError::kDesksBeingModifiedError:
+      LOG(WARNING)
+          << "Failed to launch template: desk is currently being modified.";
+      return;
+  }
+}
+
+void FloatingWorkspaceService::HandleTemplateCaptureErrors(
+    DesksClient::DeskActionError error) {
+  switch (error) {
+    case DesksClient::DeskActionError::kUnknownError:
+      LOG(WARNING) << "Failed to capture template: unknown error.";
+      return;
+    case DesksClient::DeskActionError::kStorageError:
+      LOG(WARNING) << "Failed to capture template: storage error.";
+      return;
+    case DesksClient::DeskActionError::kDesksCountCheckFailedError:
+      LOG(WARNING) << "Failed to capture template: max number of desks open.";
+      return;
+    case DesksClient::DeskActionError::kNoCurrentUserError:
+      LOG(WARNING) << "Failed to capture template: no active user.";
+      return;
+    case DesksClient::DeskActionError::kBadProfileError:
+      LOG(WARNING) << "Failed to capture template: bad profile.";
+      return;
+    case DesksClient::DeskActionError::kResourceNotFoundError:
+      LOG(WARNING) << "Failed to capture template: resource not found.";
+      return;
+    case DesksClient::DeskActionError::kInvalidIdError:
+      LOG(WARNING) << "Failed to capture template: desk id is invalid.";
+      return;
+    case DesksClient::DeskActionError::kDesksBeingModifiedError:
+      LOG(WARNING)
+          << "Failed to capture template: desk is currently being modified.";
       return;
   }
 }
@@ -507,25 +640,30 @@ void FloatingWorkspaceService::OnTemplateLaunched(
     absl::optional<DesksClient::DeskActionError> error,
     const base::Uuid& desk_uuid) {
   if (error) {
-    HandleTemplateUploadErrors(error.value());
+    HandleTemplateLaunchErrors(error.value());
     return;
   }
   RecordLaunchSavedDeskHistogram(DeskTemplateType::kFloatingWorkspace);
+  RemoveAllPreviousDesksExceptActiveDesk(/*exclude_desk_uuid=*/desk_uuid);
 }
 
 void FloatingWorkspaceService::OnTemplateCaptured(
     absl::optional<DesksClient::DeskActionError> error,
     std::unique_ptr<DeskTemplate> desk_template) {
   // Desk capture was not successful, nothing to upload.
+  if (error) {
+    HandleTemplateCaptureErrors(error.value());
+  }
   if (!desk_template) {
+    LOG(WARNING) << "Desk capture failed. Nothing to upload.";
     return;
   }
-  // Check if there's an associated floating workspace uuid from the desk sync
-  // bridge. If there is, use that one. The `floating_workspace_uuid_ is
-  // populated once during the first capture of the session if there is known
-  // information from the sync bridge and the info may be outdated for the sync
-  // bridge. However, the sync bridge does not need to know the new uuid since
-  // the current service will handle it. Ignore for testing.
+  // Check if there's an associated floating workspace uuid from the desk
+  // sync bridge. If there is, use that one. The `floating_workspace_uuid_
+  // is populated once during the first capture of the session if there is
+  // known information from the sync bridge and the info may be outdated for
+  // the sync bridge. However, the sync bridge does not need to know the new
+  // uuid since the current service will handle it. Ignore for testing.
   if (!floating_workspace_uuid_.has_value()) {
     absl::optional<base::Uuid> floating_workspace_uuid_from_desk_model =
         GetFloatingWorkspaceUuidForCurrentDevice();
@@ -562,20 +700,20 @@ void FloatingWorkspaceService::OnTemplateUploaded(
   previously_captured_desk_template_ = std::move(new_entry);
   floating_workspace_metrics_util::
       RecordFloatingWorkspaceV2TemplateUploadStatusHistogram(status);
+  VLOG(1) << "Desk template uploaded successfully.";
 }
 
 absl::optional<base::Uuid>
 FloatingWorkspaceService::GetFloatingWorkspaceUuidForCurrentDevice() {
   std::string cache_guid = desk_sync_service_->GetDeskModel()->GetCacheGuid();
-  std::vector<const DeskTemplate*> entries =
-      desk_sync_service_->GetDeskModel()->GetAllEntries().entries;
-  auto iter = base::ranges::find_if(entries, [cache_guid](const auto& entry) {
-    return entry->client_cache_guid() == cache_guid;
-  });
-  if (iter == entries.end()) {
-    return absl::nullopt;
+  std::vector<const ash::DeskTemplate*> fws_entries =
+      GetFloatingWorkspaceTemplateEntries();
+  for (const DeskTemplate* entry : fws_entries) {
+    if (entry && entry->client_cache_guid() == cache_guid) {
+      return entry->uuid();
+    }
   }
-  return (*iter)->uuid();
+  return absl::nullopt;
 }
 
 void FloatingWorkspaceService::HandleSyncEror() {
@@ -601,6 +739,9 @@ void FloatingWorkspaceService::SendNotification(const std::string& id) {
   message_center::RichNotificationData notification_data;
   std::u16string title, message;
   message_center::SystemNotificationWarningLevel warning_level;
+  const base::TimeDelta time_difference =
+      base::TimeTicks::Now() - initialization_timestamp_;
+  bool is_progress_bar = false;
   switch (GetNotificationTypeById(id)) {
     case FloatingWorkspaceServiceNotificationType::kNoNetworkConnection:
       title =
@@ -627,28 +768,93 @@ void FloatingWorkspaceService::SendNotification(const std::string& id) {
       notification_data.buttons.emplace_back(l10n_util::GetStringUTF16(
           IDS_FLOATING_WORKSPACE_RESTORE_FROM_ERROR_RESTORATION_BUTTON));
       break;
+    case ash::FloatingWorkspaceServiceNotificationType::kProgressStatus:
+      title =
+          l10n_util::GetStringUTF16(IDS_FLOATING_WORKSPACE_PROGRESS_BAR_TITLE);
+      notification_data.progress_status = l10n_util::GetStringUTF16(
+          IDS_FLOATING_WORKSPACE_PROGRESS_BAR_MESSAGE);
+      warning_level = message_center::SystemNotificationWarningLevel::NORMAL;
+      notification_data.progress = std::min(
+          100.0,
+          (time_difference * 100.0) /
+              ash::features::
+                  kFloatingWorkspaceV2MaxTimeAvailableForRestoreAfterLogin
+                      .Get());
+      is_progress_bar = true;
+      break;
     case FloatingWorkspaceServiceNotificationType::kUnknown:
       VLOG(2) << "Unknown notification type for floating workspace, skip "
                  "sending notification";
       return;
   }
-
-  notification_ = CreateSystemNotificationPtr(
-      message_center::NOTIFICATION_TYPE_SIMPLE, id, title, message,
-      l10n_util::GetStringUTF16(IDS_FLOATING_WORKSPACE_DISPLAY_SOURCE), GURL(),
-      message_center::NotifierId(message_center::NotifierType::SYSTEM_COMPONENT,
-                                 id,
-                                 NotificationCatalogName::kFloatingWorkspace),
-      notification_data,
-      base::MakeRefCounted<message_center::ThunkNotificationDelegate>(
-          weak_pointer_factory_.GetWeakPtr()),
-      kFloatingWorkspaceNotificationIcon, warning_level);
-  notification_->set_priority(message_center::SYSTEM_PRIORITY);
+  // Update the current notification with progress status if we are still
+  // showing progress status. Otherwise, make a new notification.
+  if (is_progress_bar && notification_ != nullptr &&
+      !progress_notification_id_.empty() &&
+      notification_->id() == progress_notification_id_) {
+    notification_->set_progress(notification_data.progress);
+  } else {
+    notification_ = CreateSystemNotificationPtr(
+        is_progress_bar ? message_center::NOTIFICATION_TYPE_PROGRESS
+                        : message_center::NOTIFICATION_TYPE_SIMPLE,
+        id, title, message,
+        l10n_util::GetStringUTF16(IDS_FLOATING_WORKSPACE_DISPLAY_SOURCE),
+        GURL(),
+        message_center::NotifierId(
+            message_center::NotifierType::SYSTEM_COMPONENT, id,
+            NotificationCatalogName::kFloatingWorkspace),
+        notification_data,
+        base::MakeRefCounted<message_center::ThunkNotificationDelegate>(
+            weak_pointer_factory_.GetWeakPtr()),
+        kFloatingWorkspaceNotificationIcon, warning_level);
+    notification_->set_priority(message_center::SYSTEM_PRIORITY);
+    if (is_progress_bar) {
+      progress_notification_id_ = notification_->id();
+    }
+  }
   auto* notification_display_service =
       NotificationDisplayService::GetForProfile(profile_);
   notification_display_service->Display(NotificationHandler::Type::TRANSIENT,
                                         *notification_,
                                         /*metadata=*/nullptr);
+}
+
+void FloatingWorkspaceService::DoGarbageCollection(
+    const DeskTemplate* exclude_template) {
+  // Do not delete any floating workspace templates if we have less than 2
+  // templates. We want to keep the latest template. If there's only one
+  // floating workspace template then this is the latest one.
+  std::vector<const DeskTemplate*> fws_entries =
+      GetFloatingWorkspaceTemplateEntries();
+  if (fws_entries.size() < 2) {
+    return;
+  }
+  for (const DeskTemplate* entry : fws_entries) {
+    const base::TimeDelta template_age =
+        base::Time::Now() - entry->GetLastUpdatedTime();
+    if (template_age < kStaleFWSThreshold ||
+        (exclude_template != nullptr &&
+         exclude_template->uuid() == entry->uuid())) {
+      continue;
+    }
+    base::Uuid uuid = entry->uuid();
+    desk_sync_service_->GetDeskModel()->DeleteEntry(uuid, base::DoNothing());
+  }
+}
+
+// TODO(b/294456894): Migrate to desk controller logic.
+void FloatingWorkspaceService::RemoveAllPreviousDesksExceptActiveDesk(
+    const base::Uuid& exclude_desk_uuid) {
+  auto all_desks = GetDesksClient()->GetAllDesks();
+  if (all_desks.has_value() && all_desks.value().size() > 1) {
+    for (const Desk* entry : all_desks.value()) {
+      if (entry && entry->uuid() != exclude_desk_uuid) {
+        base::Uuid uuid_to_remove = entry->uuid();
+        GetDesksClient()->RemoveDesk(uuid_to_remove,
+                                     ash::DeskCloseType::kCloseAllWindows);
+      }
+    }
+  }
 }
 
 }  // namespace ash

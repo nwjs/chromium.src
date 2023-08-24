@@ -195,6 +195,18 @@ warns admins of the implications of mis-using this policy for Chrome OS.
       enabled and a network scan shows a new policy managed network, the device
       will automatically switch to the managed network.
 
+* **AllowTextMessages**
+    * (optional, defaults to Unset) - **string**
+    * When this field is present and set to Allow text message notifications
+     will be shown. When this field is set to Suppress, no text message
+     notifications will be shown and text messages will be dropped forever.
+     When this field is Unset, text messages notifications will be shown by
+     default and will allow user configuration for suppressing text messages.
+     * Allowed values are:
+        * *Allow*
+        * *Suppress*
+        * *Unset*
+
 * **BlacklistedHexSSIDs** <!--- nocheck -->
     * DEPRECATED, use **BlockedHexSSIDs** instead.<br/>
     * (optional) - **array of string**
@@ -505,6 +517,22 @@ field **WiFi** must be set to an object of type [WiFi](#WiFi-type).
         * *["00:00:00:00:00:00"]*: Special value indicating the network
           shouldn't associate with any AP. `"00:00:00:00:00:00"` shouldn't be a
           part of any other list of values, otherwise it may cause an error.
+
+* **BSSIDRequested**
+    * (optional) - **string**
+    * BSSID that the AP should connect to. BSSIDs
+      should be formatted as colon-separated octets (e.g.
+      `"00:01:02:03:04:05"`).
+    * If the AP cannot connect to the requested BSSID, then it will not fallback
+      to another BSSID and will remain unconnected.
+    * If **BSSIDRequested** is empty and **BSSIDAllowlist** is not, then the
+      WiFi network will follow the values in **BSSIDAllowlist**
+    * If **BSSIDAllowlist** is empty and **BSSIDRequested** is not, then the
+      WiFi network will follow the value in **BSSIDRequested**
+    * If **BSSIDRequested** and **BSSIDAllowlist** have a disjoint set of
+      values, then the WiFi network will not connect.
+    * If **BSSIDRequested** is also in **BSSIDAllowlist**, then the network will
+      follow the value in **BSSIDRequested**
 
 * **EAP**
     * (required if **Security** is

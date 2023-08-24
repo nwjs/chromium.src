@@ -84,7 +84,7 @@ public class PasswordSettingsTest {
         // By default sync is off. Tests can override this later.
         setSyncServiceState(false, false);
         TestThreadUtils.runOnUiThreadBlocking(
-                () -> SyncServiceFactory.overrideForTests(mMockSyncService));
+                () -> SyncServiceFactory.setInstanceForTesting(mMockSyncService));
 
         // This initializes the browser, so some tests can do setup before PasswordSettings is
         // launched. ChromeTabbedActivityTestRule.startMainActivityOnBlankPage() is more commonly
@@ -108,7 +108,7 @@ public class PasswordSettingsTest {
     public void testResetListEmpty() {
         // Load the preferences, they should show the empty list.
         mTestHelper.startPasswordSettingsFromMainSettings(mPasswordSettingsActivityTestRule);
-        onViewWaiting(withText(R.string.password_settings_title));
+        onViewWaiting(withText(R.string.password_manager_settings_title));
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             PasswordSettings savePasswordPreferences =
@@ -131,7 +131,7 @@ public class PasswordSettingsTest {
 
         final SettingsActivity settingsActivity = mTestHelper.startPasswordSettingsFromMainSettings(
                 mPasswordSettingsActivityTestRule);
-        onViewWaiting(withText(R.string.password_settings_title));
+        onViewWaiting(withText(R.string.password_manager_settings_title));
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             PasswordSettings savedPasswordPrefs = mPasswordSettingsActivityTestRule.getFragment();
@@ -158,7 +158,7 @@ public class PasswordSettingsTest {
         });
 
         mTestHelper.startPasswordSettingsFromMainSettings(mPasswordSettingsActivityTestRule);
-        onViewWaiting(withText(R.string.password_settings_title));
+        onViewWaiting(withText(R.string.password_manager_settings_title));
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             PasswordSettings savedPasswordPrefs = mPasswordSettingsActivityTestRule.getFragment();
             ChromeSwitchPreference onOffSwitch =
@@ -342,8 +342,7 @@ public class PasswordSettingsTest {
     public void testLocalPasswordsMigrationSheetTriggeredWhenShouldShow() {
         mTestHelper.setPasswordSourceWithMultipleEntries(PasswordSettingsTestHelper.GREEK_GODS);
         assertFalse(mTestHelper.getHandler().wasShowWarningCalled());
-        SettingsActivity activity = mTestHelper.startPasswordSettingsFromMainSettings(
-                mPasswordSettingsActivityTestRule);
+        mTestHelper.startPasswordSettingsFromMainSettings(mPasswordSettingsActivityTestRule);
         assertTrue(mTestHelper.getHandler().wasShowWarningCalled());
     }
 

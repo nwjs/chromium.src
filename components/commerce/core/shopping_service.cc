@@ -16,6 +16,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
+#include "base/uuid.h"
 #include "base/values.h"
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_utils.h"
@@ -36,7 +37,7 @@
 #include "components/commerce/core/subscriptions/subscriptions_observer.h"
 #include "components/commerce/core/web_wrapper.h"
 #include "components/grit/components_resources.h"
-#include "components/optimization_guide/core/new_optimization_guide_decider.h"
+#include "components/optimization_guide/core/optimization_guide_decider.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/core/optimization_guide_util.h"
 #include "components/optimization_guide/proto/hints.pb.h"
@@ -100,7 +101,7 @@ ShoppingService::ShoppingService(
     const std::string& country_on_startup,
     const std::string& locale_on_startup,
     bookmarks::BookmarkModel* bookmark_model,
-    optimization_guide::NewOptimizationGuideDecider* opt_guide,
+    optimization_guide::OptimizationGuideDecider* opt_guide,
     PrefService* pref_service,
     signin::IdentityManager* identity_manager,
     syncer::SyncService* sync_service,
@@ -510,13 +511,13 @@ absl::optional<ProductInfo> ShoppingService::GetAvailableProductInfoForUrl(
 }
 
 void ShoppingService::GetUpdatedProductInfoForBookmarks(
-    const std::vector<int64_t>& bookmark_ids,
+    const std::vector<base::Uuid>& bookmark_uuids,
     BookmarkProductInfoUpdatedCallback info_updated_callback) {
   std::vector<GURL> urls;
-  std::unordered_map<std::string, int64_t> url_to_id_map;
-  for (uint64_t id : bookmark_ids) {
+  std::unordered_map<std::string, base::Uuid> url_to_uuid_map;
+  for (const base::Uuid& uuid : bookmark_uuids) {
     const bookmarks::BookmarkNode* bookmark =
-        bookmarks::GetBookmarkNodeByID(bookmark_model_, id);
+        bookmarks::GetBookmarkNodeByUuid(bookmark_model_, uuid);
 
     std::unique_ptr<power_bookmarks::PowerBookmarkMeta> meta =
         power_bookmarks::GetNodePowerBookmarkMeta(bookmark_model_, bookmark);
@@ -528,7 +529,7 @@ void ShoppingService::GetUpdatedProductInfoForBookmarks(
       continue;
 
     urls.push_back(bookmark->url());
-    url_to_id_map[bookmark->url().spec()] = id;
+    url_to_uuid_map[bookmark->url().spec()] = uuid;
   }
 
   opt_guide_->CanApplyOptimizationOnDemand(
@@ -537,7 +538,7 @@ void ShoppingService::GetUpdatedProductInfoForBookmarks(
       base::BindRepeating(&ShoppingService::OnProductInfoUpdatedOnDemand,
                           weak_ptr_factory_.GetWeakPtr(),
                           std::move(info_updated_callback),
-                          std::move(url_to_id_map)));
+                          std::move(url_to_uuid_map)));
 }
 
 size_t ShoppingService::GetMaxProductBookmarkUpdatesPerBatch() {
@@ -752,7 +753,7 @@ std::unique_ptr<ProductInfo> ShoppingService::OptGuideResultToProductInfo(
 
 void ShoppingService::OnProductInfoUpdatedOnDemand(
     BookmarkProductInfoUpdatedCallback callback,
-    std::unordered_map<std::string, int64_t> url_to_id_map,
+    std::unordered_map<std::string, base::Uuid> url_to_uuid_map,
     const GURL& url,
     const base::flat_map<
         optimization_guide::proto::OptimizationType,
@@ -780,7 +781,7 @@ void ShoppingService::OnProductInfoUpdatedOnDemand(
     optional_info.emplace(*info);
     UpdateProductInfoCache(url, false, std::move(info));
 
-    std::move(callback).Run(url_to_id_map[url.spec()], url, optional_info);
+    std::move(callback).Run(url_to_uuid_map[url.spec()], url, optional_info);
   }
 }
 

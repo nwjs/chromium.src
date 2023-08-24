@@ -384,10 +384,10 @@ class PaymentsClient {
     // |virtual_card_enrollment_state| is used to determine whether we want to
     // pursue further action with the credit card that was uploaded regarding
     // virtual card enrollment. For example, if the state is
-    // UNENROLLED_AND_ELIGIBLE we might offer the user the option to enroll the
+    // kUnenrolledAndEligible we might offer the user the option to enroll the
     // card that was uploaded into virtual card.
     CreditCard::VirtualCardEnrollmentState virtual_card_enrollment_state =
-        CreditCard::VirtualCardEnrollmentState::UNSPECIFIED;
+        CreditCard::VirtualCardEnrollmentState::kUnspecified;
     // |card_art_url| is the mapping that would be used by PersonalDataManager
     // to try to get the card art for the credit card that was uploaded. It is
     // used in flows where after uploading a card we want to display its card
@@ -521,6 +521,7 @@ class PaymentsClient {
   // Exposed for testing.
   void set_url_loader_factory_for_testing(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
+  void set_access_token_for_testing(std::string access_token);
 
   // TODO(crbug.com/1409158): Remove this function, as it should not be the
   // PaymentsClient's responsibility to check if the user is off the record. The
@@ -568,7 +569,7 @@ class PaymentsClient {
   const raw_ptr<signin::IdentityManager> identity_manager_;
 
   // Provided in constructor; not owned by PaymentsClient.
-  const raw_ptr<AccountInfoGetter, DanglingUntriaged> account_info_getter_;
+  const raw_ptr<AccountInfoGetter> account_info_getter_;
 
   // The current request.
   std::unique_ptr<PaymentsRequest> request_;

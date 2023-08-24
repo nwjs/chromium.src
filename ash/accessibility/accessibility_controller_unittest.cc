@@ -179,11 +179,12 @@ TEST_F(AccessibilityControllerTest, PrefsAreRegistered) {
       prefs::kAccessibilityEnhancedNetworkVoicesInSelectToSpeakAllowed));
   if (::features::
           AreExperimentalAccessibilityColorEnhancementSettingsEnabled()) {
-    EXPECT_TRUE(prefs->FindPreference(prefs::kAccessibilityColorFiltering));
     EXPECT_TRUE(
-        prefs->FindPreference(prefs::kAccessibilityColorFilteringHasBeenSetup));
+        prefs->FindPreference(prefs::kAccessibilityColorCorrectionEnabled));
+    EXPECT_TRUE(prefs->FindPreference(
+        prefs::kAccessibilityColorCorrectionHasBeenSetup));
     EXPECT_TRUE(
-        prefs->FindPreference(prefs::kAccessibilityColorVisionDeficiencyType));
+        prefs->FindPreference(prefs::kAccessibilityColorVisionCorrectionType));
     EXPECT_TRUE(prefs->FindPreference(
         prefs::kAccessibilityColorVisionCorrectionAmount));
   }
@@ -912,28 +913,33 @@ TEST_F(AccessibilityControllerTest, ColorCorrectionTrayMenuVisibility) {
       Shell::Get()->accessibility_controller();
   // Check when the value is true and not being controlled by any policy.
   controller->color_correction().SetEnabled(true);
-  EXPECT_FALSE(prefs->IsManagedPreference(prefs::kAccessibilityColorFiltering));
+  EXPECT_FALSE(
+      prefs->IsManagedPreference(prefs::kAccessibilityColorCorrectionEnabled));
   EXPECT_TRUE(controller->color_correction().enabled());
   EXPECT_TRUE(controller->IsColorCorrectionSettingVisibleInTray());
   // Check when the value is false and not being controlled by any policy.
   controller->color_correction().SetEnabled(false);
-  EXPECT_FALSE(prefs->IsManagedPreference(prefs::kAccessibilityColorFiltering));
+  EXPECT_FALSE(
+      prefs->IsManagedPreference(prefs::kAccessibilityColorCorrectionEnabled));
   EXPECT_FALSE(controller->color_correction().enabled());
   EXPECT_TRUE(controller->IsColorCorrectionSettingVisibleInTray());
 
   // Check that when the pref is managed and being forced on then it will be
   // visible.
   static_cast<TestingPrefServiceSimple*>(prefs)->SetManagedPref(
-      prefs::kAccessibilityColorFiltering, std::make_unique<base::Value>(true));
-  EXPECT_TRUE(prefs->IsManagedPreference(prefs::kAccessibilityColorFiltering));
+      prefs::kAccessibilityColorCorrectionEnabled,
+      std::make_unique<base::Value>(true));
+  EXPECT_TRUE(
+      prefs->IsManagedPreference(prefs::kAccessibilityColorCorrectionEnabled));
   EXPECT_TRUE(controller->IsColorCorrectionSettingVisibleInTray());
   EXPECT_TRUE(controller->color_correction().enabled());
   // Check that when the pref is managed and only being forced off then it will
   // be invisible.
   static_cast<TestingPrefServiceSimple*>(prefs)->SetManagedPref(
-      prefs::kAccessibilityColorFiltering,
+      prefs::kAccessibilityColorCorrectionEnabled,
       std::make_unique<base::Value>(false));
-  EXPECT_TRUE(prefs->IsManagedPreference(prefs::kAccessibilityColorFiltering));
+  EXPECT_TRUE(
+      prefs->IsManagedPreference(prefs::kAccessibilityColorCorrectionEnabled));
   EXPECT_FALSE(controller->color_correction().enabled());
   EXPECT_FALSE(controller->IsColorCorrectionSettingVisibleInTray());
 }
@@ -1352,6 +1358,131 @@ TEST_F(AccessibilityControllerTest,
   EXPECT_EQ(u"Dictation", (*notifications.begin())->display_source());
   EXPECT_EQ(message_center::SystemNotificationWarningLevel::CRITICAL_WARNING,
             (*notifications.begin())->system_notification_warning_level());
+}
+
+// Verifies the behavior of EnableOrToggleDictation without the keyboard
+// improvements feature (current behavior).
+TEST_F(AccessibilityControllerTest, EnableOrToggleDictation) {
+  AccessibilityControllerImpl* controller =
+      Shell::Get()->accessibility_controller();
+  TestAccessibilityControllerClient client;
+  controller->SetClient(&client);
+  PrefService* prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+
+  // If Dictation is disabled, then EnableOrToggleDictation should do nothing.
+  prefs->SetBoolean(prefs::kDictationAcceleratorDialogHasBeenAccepted, false);
+  ASSERT_FALSE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  ASSERT_FALSE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+
+  prefs->SetBoolean(prefs::kDictationAcceleratorDialogHasBeenAccepted, true);
+  ASSERT_FALSE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  ASSERT_FALSE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+
+  // If Dictation is enabled, then EnableOrToggleDictation should toggle
+  // Dictation on/off.
+  ASSERT_TRUE(
+      prefs->GetBoolean(prefs::kDictationAcceleratorDialogHasBeenAccepted));
+  ASSERT_FALSE(controller->dictation_active());
+  controller->dictation().SetEnabled(true);
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  ASSERT_TRUE(controller->dictation().enabled());
+  ASSERT_TRUE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  ASSERT_TRUE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+}
+
+class AccessibilityControllerDictationKeyboardImprovementsTest
+    : public AshTestBase {
+ protected:
+  AccessibilityControllerDictationKeyboardImprovementsTest() = default;
+  AccessibilityControllerDictationKeyboardImprovementsTest(
+      const AccessibilityControllerDictationKeyboardImprovementsTest&) = delete;
+  AccessibilityControllerDictationKeyboardImprovementsTest& operator=(
+      const AccessibilityControllerDictationKeyboardImprovementsTest&) = delete;
+  ~AccessibilityControllerDictationKeyboardImprovementsTest() override =
+      default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(
+        ::features::kAccessibilityDictationKeyboardImprovements);
+    AshTestBase::SetUp();
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+// Verifies the behavior of EnableOrToggleDictation with the keyboard
+// improvements feature (new behavior).
+TEST_F(AccessibilityControllerDictationKeyboardImprovementsTest,
+       EnableOrToggleDictation) {
+  AccessibilityControllerImpl* controller =
+      Shell::Get()->accessibility_controller();
+  TestAccessibilityControllerClient client;
+  controller->SetClient(&client);
+  PrefService* prefs =
+      Shell::Get()->session_controller()->GetLastActiveUserPrefService();
+
+  // Dictation disabled.
+
+  prefs->SetBoolean(prefs::kDictationAcceleratorDialogHasBeenAccepted, false);
+  ASSERT_FALSE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  // If the dialog hasn't been accepted yet, then pressing the Dictation key
+  // should show a dialog.
+  ASSERT_FALSE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_TRUE(controller->IsDictationKeyboardDialogShowingForTesting());
+
+  controller->DismissDictationKeyboardDialogForTesting();
+  prefs->SetBoolean(prefs::kDictationAcceleratorDialogHasBeenAccepted, true);
+  controller->dictation().SetEnabled(false);
+  controller->SetDictationActive(false);
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  // If the dialog has been accepted, then pressing the Dictation key should
+  // enable Dictation (Dictation should still remain inactive).
+  ASSERT_TRUE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+
+  // Dictation enabled.
+
+  ASSERT_TRUE(
+      prefs->GetBoolean(prefs::kDictationAcceleratorDialogHasBeenAccepted));
+  ASSERT_FALSE(controller->dictation_active());
+  controller->dictation().SetEnabled(true);
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  // If Dictation is already on, then pressing the Dictation key should toggle
+  // Dictation on/off.
+  ASSERT_TRUE(controller->dictation().enabled());
+  ASSERT_TRUE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
+  controller->EnableOrToggleDictationFromSource(
+      DictationToggleSource::kKeyboard);
+  ASSERT_TRUE(controller->dictation().enabled());
+  ASSERT_FALSE(controller->dictation_active());
+  ASSERT_FALSE(controller->IsDictationKeyboardDialogShowingForTesting());
 }
 
 namespace {

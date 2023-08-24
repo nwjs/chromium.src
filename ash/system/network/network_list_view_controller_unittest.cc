@@ -17,6 +17,7 @@
 #include "ash/style/ash_color_provider.h"
 #include "ash/style/switch.h"
 #include "ash/system/model/system_tray_model.h"
+#include "ash/system/network/network_detailed_network_view.h"
 #include "ash/system/network/network_detailed_network_view_impl.h"
 #include "ash/system/network/network_utils.h"
 #include "ash/system/network/tray_network_state_model.h"
@@ -479,6 +480,11 @@ class NetworkListViewControllerTest : public AshTestBase,
         .IsRunning();
   }
 
+  NetworkDetailedNetworkView* network_detailed_network_view() {
+    return static_cast<NetworkDetailedNetworkView*>(
+        network_list_view_controller_impl_->network_detailed_network_view_);
+  }
+
   views::View* network_list(NetworkType type) {
     return static_cast<NetworkDetailedNetworkView*>(
                network_detailed_network_view_)
@@ -596,6 +602,9 @@ TEST_P(NetworkListViewControllerTest, MobileDataSectionIsShown) {
   properties->device_state = DeviceStateType::kUninitialized;
   cros_network()->SetDeviceProperties(properties.Clone());
   ASSERT_THAT(GetMobileSubHeader(), NotNull());
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
   histogram_tester.ExpectBucketCount("ChromeOS.SystemTray.Network.SectionShown",
                                      DetailedViewSection::kMobileSection, 3);
 
@@ -937,6 +946,73 @@ TEST_P(NetworkListViewControllerTest, HasCorrectWifiNetworkList) {
 }
 
 TEST_P(NetworkListViewControllerTest,
+       StaysInTheSamePositionAfterUpdatingNetworks) {
+  // Sets a screen with a limited height to make sure it can be scrollable.
+  UpdateDisplay("500x200");
+
+  // Adds an enabled wifi device.
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          kWifiName, NetworkType::kWiFi, ConnectionStateType::kNotConnected));
+
+  CheckNetworkListOrdering(/*ethernet_network_count=*/0,
+                           /*mobile_network_count=*/-1,
+                           /*wifi_network_count=*/1);
+
+  // Adds mobile network.
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          kCellularName, NetworkType::kCellular,
+          ConnectionStateType::kConnected));
+
+  CheckNetworkListOrdering(/*ethernet_network_count=*/0,
+                           /*mobile_network_count=*/1,
+                           /*wifi_network_count=*/1);
+
+  // Lets the network list scroll to a random number.
+  network_detailed_network_view()->ScrollToPosition(23);
+
+  // Adds 5 more Wifi network. The scroll position should not change after each
+  // time the new network is added.
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          kWifiName2, NetworkType::kWiFi, ConnectionStateType::kNotConnected));
+  EXPECT_EQ(23, network_detailed_network_view()->GetScrollPosition());
+
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          "wifi_3", NetworkType::kWiFi, ConnectionStateType::kNotConnected));
+  EXPECT_EQ(23, network_detailed_network_view()->GetScrollPosition());
+
+  // Scrolls to another position.
+  network_detailed_network_view()->ScrollToPosition(37);
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          "wifi_4", NetworkType::kWiFi, ConnectionStateType::kNotConnected));
+  EXPECT_EQ(37, network_detailed_network_view()->GetScrollPosition());
+
+  cros_network()->RemoveNthNetworks(0);
+  EXPECT_EQ(37, network_detailed_network_view()->GetScrollPosition());
+
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          "wifi_5", NetworkType::kWiFi, ConnectionStateType::kNotConnected));
+  EXPECT_EQ(37, network_detailed_network_view()->GetScrollPosition());
+
+  cros_network()->RemoveNthNetworks(1);
+  EXPECT_EQ(37, network_detailed_network_view()->GetScrollPosition());
+
+  cros_network()->AddNetworkAndDevice(
+      CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
+          "wifi_6", NetworkType::kWiFi, ConnectionStateType::kNotConnected));
+
+  CheckNetworkListOrdering(/*ethernet_network_count=*/0,
+                           /*mobile_network_count=*/1,
+                           /*wifi_network_count=*/4);
+  EXPECT_EQ(37, network_detailed_network_view()->GetScrollPosition());
+}
+
+TEST_P(NetworkListViewControllerTest,
        CellularStatusMessageAndToggleButtonState) {
   EXPECT_THAT(GetMobileStatusMessage(), IsNull());
 
@@ -950,6 +1026,9 @@ TEST_P(NetworkListViewControllerTest,
 
   ASSERT_THAT(GetMobileStatusMessage(), NotNull());
   CheckMobileToggleButtonStatus(/*enabled=*/false, /*toggled_on=*/false);
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
   EXPECT_EQ(
       l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_INITIALIZING_CELLULAR),
       GetMobileStatusMessage()->label()->GetText());
@@ -962,6 +1041,9 @@ TEST_P(NetworkListViewControllerTest,
   EXPECT_EQ(l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_NO_MOBILE_NETWORKS),
             GetMobileStatusMessage()->label()->GetText());
   CheckMobileToggleButtonStatus(/*enabled=*/true, /*toggled_on=*/true);
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
 
   // No message is shown when there are available networks.
   cros_network()->AddNetworkAndDevice(
@@ -981,6 +1063,7 @@ TEST_P(NetworkListViewControllerTest,
             GetMobileStatusMessage()->label()->GetText());
   if (IsQsRevampEnabled()) {
     EXPECT_TRUE(GetQsMobileToggleButton()->GetVisible());
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
   } else {
     EXPECT_TRUE(GetMobileToggleButton()->GetVisible());
   }
@@ -1000,6 +1083,9 @@ TEST_P(NetworkListViewControllerTest,
   EXPECT_EQ(l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_NO_MOBILE_NETWORKS),
             GetMobileStatusMessage()->label()->GetText());
   CheckMobileToggleButtonStatus(/*enabled=*/true, /*toggled_on=*/true);
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
 
   // When device is in disabling message is shown.
   properties->device_state = DeviceStateType::kDisabling;
@@ -1010,6 +1096,9 @@ TEST_P(NetworkListViewControllerTest,
       l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_NETWORK_MOBILE_DISABLING),
       GetMobileStatusMessage()->label()->GetText());
   CheckMobileToggleButtonStatus(/*enabled=*/false, /*toggled_on=*/false);
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
 
   properties->device_state = DeviceStateType::kDisabled;
   cros_network()->SetDeviceProperties(properties.Clone());
@@ -1061,12 +1150,18 @@ TEST_P(NetworkListViewControllerTest, HasCorrectTetherStatusMessage) {
   EXPECT_EQ(
       l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_NO_MOBILE_DEVICES_FOUND),
       GetMobileStatusMessage()->label()->GetText());
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
 
   // Tether network is uninitialized and Bluetooth state enabling.
   properties->device_state = DeviceStateType::kUninitialized;
   cros_network()->SetDeviceProperties(properties.Clone());
   SetBluetoothAdapterState(BluetoothSystemState::kEnabling);
   CheckMobileToggleButtonStatus(/*enabled=*/false, /*toggled_on=*/true);
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
   ASSERT_THAT(GetMobileStatusMessage(), NotNull());
   EXPECT_EQ(
       l10n_util::GetStringUTF16(IDS_ASH_STATUS_TRAY_INITIALIZING_CELLULAR),
@@ -1076,6 +1171,9 @@ TEST_P(NetworkListViewControllerTest, HasCorrectTetherStatusMessage) {
   SetBluetoothAdapterState(BluetoothSystemState::kDisabling);
   CheckMobileToggleButtonStatus(/*enabled=*/true, /*toggled_on=*/false);
   ASSERT_THAT(GetMobileStatusMessage(), NotNull());
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
   EXPECT_EQ(l10n_util::GetStringUTF16(
                 IDS_ASH_STATUS_TRAY_ENABLING_MOBILE_ENABLES_BLUETOOTH),
             GetMobileStatusMessage()->label()->GetText());
@@ -1085,6 +1183,9 @@ TEST_P(NetworkListViewControllerTest, HasCorrectTetherStatusMessage) {
   SetBluetoothAdapterState(BluetoothSystemState::kDisabled);
   CheckMobileToggleButtonStatus(/*enabled=*/false, /*toggled_on=*/false);
   ASSERT_THAT(GetMobileStatusMessage(), NotNull());
+  if (IsQsRevampEnabled()) {
+    EXPECT_TRUE(network_list(NetworkType::kMobile)->GetVisible());
+  }
   EXPECT_EQ(l10n_util::GetStringUTF16(
                 IDS_ASH_STATUS_TRAY_ENABLING_MOBILE_ENABLES_BLUETOOTH),
             GetMobileStatusMessage()->label()->GetText());
@@ -1094,6 +1195,13 @@ TEST_P(NetworkListViewControllerTest, HasCorrectTetherStatusMessage) {
       CrosNetworkConfigTestHelper::CreateStandaloneNetworkProperties(
           kTetherName, NetworkType::kTether, ConnectionStateType::kConnected));
   EXPECT_THAT(GetMobileStatusMessage(), IsNull());
+
+  if (features::IsQsRevampEnabled()) {
+    properties->device_state = DeviceStateType::kDisabled;
+    cros_network()->SetDeviceProperties(properties.Clone());
+    // No mobile network list is shown when device is disabled.
+    EXPECT_FALSE(network_list(NetworkType::kMobile)->GetVisible());
+  }
 }
 
 TEST_P(NetworkListViewControllerTest, HasCorrectWifiStatusMessage) {

@@ -11,10 +11,6 @@
 #include "media/base/mac/color_space_util_mac.h"
 #include "ui/gfx/hdr_metadata_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // https://developer.apple.com/documentation/avfoundation/avassettrack/1386694-formatdescriptions?language=objc
@@ -74,11 +70,7 @@ CFStringRef GetTransferFunction(
     media::VideoColorSpace::TransferID transfer_id) {
   switch (transfer_id) {
     case media::VideoColorSpace::TransferID::LINEAR:
-      if (@available(macos 10.14, *))
-        return kCMFormatDescriptionTransferFunction_Linear;
-      DLOG(WARNING) << "kCMFormatDescriptionTransferFunction_Linear "
-                       "unsupported prior to 10.14";
-      return nil;
+      return kCMFormatDescriptionTransferFunction_Linear;
 
     case media::VideoColorSpace::TransferID::GAMMA22:
     case media::VideoColorSpace::TransferID::GAMMA28:

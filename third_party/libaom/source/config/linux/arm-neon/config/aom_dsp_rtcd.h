@@ -583,7 +583,14 @@ void aom_dc_top_predictor_8x8_neon(uint8_t *dst, ptrdiff_t y_stride, const uint8
 #define aom_dc_top_predictor_8x8 aom_dc_top_predictor_8x8_neon
 
 void aom_dist_wtd_comp_avg_pred_c(uint8_t *comp_pred, const uint8_t *pred, int width, int height, const uint8_t *ref, int ref_stride, const DIST_WTD_COMP_PARAMS *jcp_param);
-#define aom_dist_wtd_comp_avg_pred aom_dist_wtd_comp_avg_pred_c
+void aom_dist_wtd_comp_avg_pred_neon(uint8_t* comp_pred,
+                                     const uint8_t* pred,
+                                     int width,
+                                     int height,
+                                     const uint8_t* ref,
+                                     int ref_stride,
+                                     const DIST_WTD_COMP_PARAMS* jcp_param);
+#define aom_dist_wtd_comp_avg_pred aom_dist_wtd_comp_avg_pred_neon
 
 unsigned int aom_dist_wtd_sad128x128_avg_c(const uint8_t *src_ptr, int src_stride, const uint8_t *ref_ptr, int ref_stride, const uint8_t *second_pred, const DIST_WTD_COMP_PARAMS *jcp_param);
 #define aom_dist_wtd_sad128x128_avg aom_dist_wtd_sad128x128_avg_c
@@ -705,10 +712,17 @@ void aom_fft8x8_float_c(const float *input, float *temp, float *output);
 #define aom_fft8x8_float aom_fft8x8_float_c
 
 void aom_get_blk_sse_sum_c(const int16_t *data, int stride, int bw, int bh, int *x_sum, int64_t *x2_sum);
-#define aom_get_blk_sse_sum aom_get_blk_sse_sum_c
+void aom_get_blk_sse_sum_neon(const int16_t* data,
+                              int stride,
+                              int bw,
+                              int bh,
+                              int* x_sum,
+                              int64_t* x2_sum);
+#define aom_get_blk_sse_sum aom_get_blk_sse_sum_neon
 
 unsigned int aom_get_mb_ss_c(const int16_t *);
-#define aom_get_mb_ss aom_get_mb_ss_c
+unsigned int aom_get_mb_ss_neon(const int16_t*);
+#define aom_get_mb_ss aom_get_mb_ss_neon
 
 void aom_get_var_sse_sum_16x16_dual_c(const uint8_t *src_ptr, int source_stride, const uint8_t *ref_ptr, int ref_stride, uint32_t *sse16x16, unsigned int *tot_sse, int *tot_sum, uint32_t *var16x16);
 void aom_get_var_sse_sum_16x16_dual_neon(const uint8_t *src_ptr, int source_stride, const uint8_t *ref_ptr, int ref_stride, uint32_t *sse16x16, unsigned int *tot_sse, int *tot_sum, uint32_t *var16x16);

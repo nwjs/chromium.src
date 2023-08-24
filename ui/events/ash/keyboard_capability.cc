@@ -121,12 +121,8 @@ class StubKeyboardCapabilityDelegate : public KeyboardCapability::Delegate {
       const StubKeyboardCapabilityDelegate&) = delete;
   ~StubKeyboardCapabilityDelegate() override = default;
 
-  void AddObserver(KeyboardCapability::Observer* observer) override {}
-  void RemoveObserver(KeyboardCapability::Observer* observer) override {}
   bool TopRowKeysAreFKeys() const override { return false; }
   void SetTopRowKeysAsFKeysEnabledForTesting(bool enabled) override {}
-  bool IsPrivacyScreenSupported() const override { return false; }
-  void SetPrivacyScreenSupportedForTesting(bool is_supported) override {}
 };
 
 absl::optional<KeyboardDevice> FindKeyboardWithId(int device_id) {
@@ -553,14 +549,6 @@ absl::optional<KeyboardCode> KeyboardCapability::ConvertToKeyboardCode(
   return absl::nullopt;
 }
 
-void KeyboardCapability::AddObserver(Observer* observer) {
-  delegate_->AddObserver(observer);
-}
-
-void KeyboardCapability::RemoveObserver(Observer* observer) {
-  delegate_->RemoveObserver(observer);
-}
-
 bool KeyboardCapability::TopRowKeysAreFKeys() const {
   return delegate_->TopRowKeysAreFKeys();
 }
@@ -571,22 +559,9 @@ void KeyboardCapability::SetTopRowKeysAsFKeysEnabledForTesting(
   delegate_->SetTopRowKeysAsFKeysEnabledForTesting(enabled);  // IN-TEST
 }
 
-void KeyboardCapability::SetPrivacyScreenSupportedForTesting(
-    bool is_supported) const {
-  CHECK_IS_TEST();
-  delegate_->SetPrivacyScreenSupportedForTesting(is_supported);  // IN-TEST
-}
-
 // static
 bool KeyboardCapability::IsSixPackKey(const KeyboardCode& key_code) {
-  return base::Contains(kSixPackKeyToSystemKeyMap, key_code);
-}
-
-// static
-bool KeyboardCapability::IsReversedSixPackKey(const KeyboardCode& key_code) {
-  // [Back] maps back to both [Delete] and [Insert].
-  return base::Contains(kReversedSixPackKeyToSystemKeyMap, key_code) ||
-         key_code == ui::KeyboardCode::VKEY_BACK;
+  return base::Contains(kSixPackKeyToSearchSystemKeyMap, key_code);
 }
 
 absl::optional<KeyboardCode> KeyboardCapability::GetMappedFKeyIfExists(
@@ -689,30 +664,8 @@ bool KeyboardCapability::HasLauncherButtonOnAnyKeyboard() const {
 // static
 bool KeyboardCapability::IsTopRowKey(const KeyboardCode& key_code) {
   // A set that includes all top row keys from different keyboards.
-  static const base::NoDestructor<base::flat_set<KeyboardCode>>
-      top_row_action_keys({
-          KeyboardCode::VKEY_BROWSER_BACK,
-          KeyboardCode::VKEY_BROWSER_FORWARD,
-          KeyboardCode::VKEY_BROWSER_REFRESH,
-          KeyboardCode::VKEY_ZOOM,
-          KeyboardCode::VKEY_MEDIA_LAUNCH_APP1,
-          KeyboardCode::VKEY_ALL_APPLICATIONS,
-          KeyboardCode::VKEY_SNAPSHOT,
-          KeyboardCode::VKEY_BRIGHTNESS_DOWN,
-          KeyboardCode::VKEY_BRIGHTNESS_UP,
-          KeyboardCode::VKEY_PRIVACY_SCREEN_TOGGLE,
-          KeyboardCode::VKEY_MICROPHONE_MUTE_TOGGLE,
-          KeyboardCode::VKEY_MEDIA_PLAY_PAUSE,
-          KeyboardCode::VKEY_VOLUME_MUTE,
-          KeyboardCode::VKEY_VOLUME_DOWN,
-          KeyboardCode::VKEY_VOLUME_UP,
-          KeyboardCode::VKEY_KBD_BACKLIGHT_TOGGLE,
-          KeyboardCode::VKEY_KBD_BRIGHTNESS_DOWN,
-          KeyboardCode::VKEY_KBD_BRIGHTNESS_UP,
-          KeyboardCode::VKEY_MEDIA_NEXT_TRACK,
-          KeyboardCode::VKEY_MEDIA_PREV_TRACK,
-      });
-  return base::Contains(*top_row_action_keys, key_code);
+  const auto* action = kVKeyToTopRowActionKeyMap.find(key_code);
+  return action != kVKeyToTopRowActionKeyMap.end();
 }
 
 // static
@@ -739,30 +692,6 @@ bool KeyboardCapability::HasSixPackOnAnyKeyboard() {
 bool KeyboardCapability::IsFunctionKey(ui::KeyboardCode code) {
   return ui::KeyboardCode::VKEY_F1 <= code &&
          code <= ui::KeyboardCode::VKEY_F24;
-}
-
-bool KeyboardCapability::IsTopRowActionKey(ui::KeyboardCode code) {
-  // TODO(jimmyxgong): This is based off of the Layout1, Layout2, Wilco/Drallion
-  // mappings with some additional keys. This is not a complete list.
-  static constexpr auto kTopRowKeys = base::MakeFixedFlatSet<ui::KeyboardCode>({
-      ui::KeyboardCode::VKEY_BROWSER_BACK,
-      ui::KeyboardCode::VKEY_BROWSER_FORWARD,
-      ui::KeyboardCode::VKEY_BROWSER_REFRESH,
-      ui::KeyboardCode::VKEY_ZOOM,
-      ui::KeyboardCode::VKEY_MEDIA_LAUNCH_APP1,
-      ui::KeyboardCode::VKEY_BRIGHTNESS_DOWN,
-      ui::KeyboardCode::VKEY_BRIGHTNESS_UP,
-      ui::KeyboardCode::VKEY_VOLUME_MUTE,
-      ui::KeyboardCode::VKEY_VOLUME_UP,
-      ui::KeyboardCode::VKEY_VOLUME_DOWN,
-      ui::KeyboardCode::VKEY_MICROPHONE_MUTE_TOGGLE,
-      ui::KeyboardCode::VKEY_PRIVACY_SCREEN_TOGGLE,
-      ui::KeyboardCode::VKEY_SNAPSHOT,
-      ui::KeyboardCode::VKEY_MEDIA_PLAY_PAUSE,
-      ui::KeyboardCode::VKEY_KBD_BRIGHTNESS_DOWN,
-      ui::KeyboardCode::VKEY_KBD_BRIGHTNESS_UP,
-  });
-  return base::Contains(kTopRowKeys, code);
 }
 
 std::vector<mojom::ModifierKey> KeyboardCapability::GetModifierKeys(
@@ -883,10 +812,12 @@ bool KeyboardCapability::HasGlobeKey(const KeyboardDevice& keyboard) const {
     return false;
   }
 
-  // TODO(dpad): This is not quite right, some external keyboards have it as
-  // well.
-  // Globe key only exists on drallion or wilco devices.
-  return keyboard_info->top_row_layout ==
+  // TODO(jimmyxgong): VKEY_MODECHANGE (globe key) for now we should assume
+  // can be available for external keyboards or Wilco/Drallion device. Will
+  // need a better way to determine if the key is available in non
+  // Wilco/Drallion keyboards.
+  return !IsInternalKeyboard(keyboard) ||
+         keyboard_info->top_row_layout ==
              KeyboardTopRowLayout::kKbdTopRowLayoutDrallion ||
          keyboard_info->top_row_layout ==
              KeyboardTopRowLayout::kKbdTopRowLayoutWilco;
@@ -962,22 +893,6 @@ bool KeyboardCapability::HasMediaKeysOnAnyKeyboard() const {
   // TODO(dpad): Many external keyboards do not have these keys, but currently
   // we do not have a good way to detect these situations.
   return HasExternalKeyboardConnected();
-}
-
-bool KeyboardCapability::HasPrivacyScreenKey(
-    const KeyboardDevice& keyboard) const {
-  return GetDeviceType(keyboard) == DeviceType::kDeviceInternalKeyboard &&
-         delegate_->IsPrivacyScreenSupported();
-}
-
-bool KeyboardCapability::HasPrivacyScreenKeyOnAnyKeyboard() const {
-  for (const ui::KeyboardDevice& keyboard :
-       ui::DeviceDataManager::GetInstance()->GetKeyboardDevices()) {
-    if (HasPrivacyScreenKey(keyboard)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 const std::vector<TopRowActionKey>* KeyboardCapability::GetTopRowActionKeys(
@@ -1067,20 +982,10 @@ void KeyboardCapability::TrimKeyboardInfoMap() {
 bool KeyboardCapability::HasKeyEvent(const KeyboardCode& key_code,
                                      const KeyboardDevice& keyboard) const {
   // Handle top row keys.
-  if (IsTopRowKey(key_code)) {
-    KeyboardTopRowLayout layout = GetTopRowLayout(keyboard);
-    switch (layout) {
-      case KeyboardTopRowLayout::kKbdTopRowLayout1:
-        return kLayout1TopRowKeyToFKeyMap.contains(key_code);
-      case KeyboardTopRowLayout::kKbdTopRowLayout2:
-        return kLayout2TopRowKeyToFKeyMap.contains(key_code);
-      case KeyboardTopRowLayout::kKbdTopRowLayoutWilco:
-      case KeyboardTopRowLayout::kKbdTopRowLayoutDrallion:
-        return kLayoutWilcoDrallionTopRowKeyToFKeyMap.contains(key_code);
-      case KeyboardTopRowLayout::kKbdTopRowLayoutCustom:
-        // TODO(zhangwenyu): Handle custom vivaldi layout.
-        return true;
-    }
+  absl::optional<TopRowActionKey> top_row_action_key =
+      ConvertToTopRowActionKey(key_code);
+  if (top_row_action_key.has_value()) {
+    return HasTopRowActionKey(keyboard, top_row_action_key.value());
   }
 
   // Handle six pack keys.

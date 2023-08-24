@@ -39,7 +39,7 @@ REMOTE_COCOA_APP_SHIM_EXPORT
   ui::ScopedCrTrackingArea _cursorTrackingArea;
 
   // The keyDown event currently being handled, nil otherwise.
-  NSEvent* _keyDownEvent;
+  NSEvent* __strong _keyDownEvent;
 
   // Whether there's an active key down event which is not handled yet.
   BOOL _hasUnhandledKeyDownEvent;
@@ -55,7 +55,7 @@ REMOTE_COCOA_APP_SHIM_EXPORT
 
 @property(readonly, nonatomic) remote_cocoa::NativeWidgetNSWindowBridge* bridge;
 @property(assign, nonatomic) BOOL drawMenuBackgroundForBlur;
-@property(assign, nonatomic) NSEvent* keyDownEventForTesting;
+@property(strong, nonatomic) NSEvent* keyDownEventForTesting;
 
 // Used by g_force_cpu_draw
 @property(assign, nonatomic) CALayer* forceCPUDrawLayer;

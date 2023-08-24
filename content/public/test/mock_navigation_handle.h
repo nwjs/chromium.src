@@ -148,6 +148,9 @@ class MockNavigationHandle : public NavigationHandle {
   MOCK_METHOD1(
       SetLCPPNavigationHint,
       void(const blink::mojom::LCPCriticalPathPredictorNavigationTimeHint&));
+  MOCK_METHOD0(
+      GetLCPPNavigationHint,
+      const blink::mojom::LCPCriticalPathPredictorNavigationTimeHintPtr&());
   MOCK_METHOD0(GetConnectionInfo, net::HttpResponseInfo::ConnectionInfo());
   const absl::optional<net::SSLInfo>& GetSSLInfo() override {
     return ssl_info_;
@@ -217,6 +220,7 @@ class MockNavigationHandle : public NavigationHandle {
   MOCK_METHOD(PrerenderTriggerType, GetPrerenderTriggerType, ());
   MOCK_METHOD(std::string, GetPrerenderEmbedderHistogramSuffix, ());
   MOCK_METHOD(void, SetAllowCookiesFromBrowser, (bool));
+  MOCK_METHOD(void, GetResponseBody, (ResponseBodyCallback));
 
 #if BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(const base::android::JavaRef<jobject>&,

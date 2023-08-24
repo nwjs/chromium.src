@@ -123,6 +123,10 @@
     border-radius: 8px;
   }
 
+  #folder-icon {
+    display: flex;
+  }
+
   .favicon {
     background-position: center center;
     background-repeat: no-repeat;
@@ -452,7 +456,8 @@
   <div class="image-container"
       hidden$="[[!shouldShowUrlImage_(
           url, size, imageUrls, firstImageLoaded_)]]">
-    <img class="url-image" is="cr-auto-img" auto-src="[[imageUrls.0]]">
+    <img class="url-image" is="cr-auto-img" auto-src="[[imageUrls.0]]"
+        draggable="false">
   </div>
   <div class="folder-and-count"
       hidden$="[[!shouldShowFolderCount_(url, count)]]">
@@ -460,7 +465,8 @@
       <template is="dom-repeat" items="[[imageUrls]]"
           filter="shouldShowImageUrl_">
         <div class="image-container" hidden$="[[!firstImageLoaded_]]">
-          <img class="folder-image" is="cr-auto-img" auto-src="[[item]]">
+          <img class="folder-image" is="cr-auto-img" auto-src="[[item]]"
+              draggable="false">
         </div>
       </template>
     </template>

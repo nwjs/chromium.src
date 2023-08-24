@@ -59,6 +59,8 @@ class TestCookieManager : public network::mojom::CookieManager {
   void BlockThirdPartyCookies(bool block) override {}
   void SetContentSettingsForLegacyCookieAccess(
       const std::vector<::ContentSettingPatternSource>& settings) override {}
+  void SetContentSettingsFor3pcd(
+      const std::vector<::ContentSettingPatternSource>& settings) override {}
   void SetStorageAccessGrantSettings(
       const std::vector<::ContentSettingPatternSource>& settings,
       SetStorageAccessGrantSettingsCallback callback) override {}
@@ -67,7 +69,7 @@ class TestCookieManager : public network::mojom::CookieManager {
       const std::vector<::ContentSettingPatternSource>& top_level_settings,
       SetAllStorageAccessSettingsCallback callback) override {}
 
-  void DispatchCookieChange(const net::CookieChangeInfo& change);
+  virtual void DispatchCookieChange(const net::CookieChangeInfo& change);
 
  private:
   // List of observers receiving cookie change notifications.

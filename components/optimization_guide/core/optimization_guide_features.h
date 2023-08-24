@@ -38,6 +38,7 @@ BASE_DECLARE_FEATURE(kPageTextExtraction);
 BASE_DECLARE_FEATURE(kPushNotifications);
 BASE_DECLARE_FEATURE(kOptimizationGuideMetadataValidation);
 BASE_DECLARE_FEATURE(kPageVisibilityBatchAnnotations);
+BASE_DECLARE_FEATURE(kTextEmbeddingBatchAnnotations);
 BASE_DECLARE_FEATURE(kPageContentAnnotationsValidation);
 BASE_DECLARE_FEATURE(kPreventLongRunningPredictionModels);
 BASE_DECLARE_FEATURE(kOverrideNumThreadsForModelExecution);
@@ -48,6 +49,7 @@ BASE_DECLARE_FEATURE(kOptimizationGuideInstallWideModelStore);
 BASE_DECLARE_FEATURE(kExtractRelatedSearchesFromPrefetchedZPSResponse);
 BASE_DECLARE_FEATURE(kPageContentAnnotationsPersistSalientImageMetadata);
 BASE_DECLARE_FEATURE(kModelStoreUseRelativePath);
+BASE_DECLARE_FEATURE(kOptimizationGuidePersonalizedFetching);
 
 // Enables use of task runner with trait CONTINUE_ON_SHUTDOWN for page content
 // annotations on-device models.
@@ -193,6 +195,12 @@ bool ShouldPersistHintsToDisk();
 bool ShouldOverrideOptimizationTargetDecisionForMetricsPurposes(
     proto::OptimizationTarget optimization_target);
 
+// Returns which OAuth scopes to use for personalized metadata.
+base::flat_set<std::string> OAuthScopesForPersonalizedMetadata();
+
+// Returns whether personalized metadata is enabled for |request_context|.
+bool EnabledPersonalizedMetadata(proto::RequestContext request_context);
+
 // Returns the minimum number of seconds to randomly delay before starting to
 // fetch for prediction models and host model features.
 int PredictionModelFetchRandomMinDelaySecs();
@@ -212,6 +220,16 @@ base::TimeDelta PredictionModelFetchStartupDelay();
 // Returns the time to wait after a successful fetch of prediction models to
 // refresh models.
 base::TimeDelta PredictionModelFetchInterval();
+
+// Returns whether to enable fetching the model again when a new optimization
+// target observer registration happens, after the initial model fetch is
+// completed.
+bool IsPredictionModelNewRegistrationFetchEnabled();
+
+// Returns the time to wait for starting a model fetch when a new optimization
+// target observer registration happens, after the initial model fetch is
+// completed.
+base::TimeDelta PredictionModelNewRegistrationFetchDelay();
 
 // Whether to use the model execution watchdog.
 bool IsModelExecutionWatchdogEnabled();
@@ -273,6 +291,9 @@ bool ShouldMetadataValidationFetchHostKeyed();
 
 // Returns if Page Visibility Batch Annotations are enabled.
 bool PageVisibilityBatchAnnotationsEnabled();
+
+// Returns if Text Embedding Batch Annotations are enabled.
+bool TextEmbeddingBatchAnnotationsEnabled();
 
 // The number of visits batch before running the page content annotation
 // models. A size of 1 is equivalent to annotating one page load at time

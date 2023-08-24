@@ -13,6 +13,8 @@
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/ntp_tiles/most_visited_sites.h"
 #import "components/prefs/pref_service.h"
+#import "components/segmentation_platform/public/features.h"
+#import "components/sync/base/features.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/tests_hook.h"
 #import "ios/chrome/browser/discover_feed/discover_feed_service.h"
@@ -27,6 +29,7 @@
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/promos_manager/promos_manager_factory.h"
 #import "ios/chrome/browser/reading_list/reading_list_model_factory.h"
+#import "ios/chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_browser_agent.h"
@@ -46,7 +49,10 @@
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/chrome_account_manager_service.h"
+#import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
+#import "ios/chrome/browser/sync/sync_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
@@ -79,10 +85,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/web/public/web_state.h"
 #import "ui/base/l10n/l10n_util_mac.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace {
 // Kill-switch for quick fix of crbug.com/1204507
@@ -173,6 +175,9 @@ BASE_FEATURE(kNoRecentTabIfNullWebState,
       [[ContentSuggestionsMetricsRecorder alloc]
           initWithLocalState:GetApplicationContext()->GetLocalState()];
 
+  syncer::SyncService* syncService =
+      SyncServiceFactory::GetForBrowserState(self.browser->GetBrowserState());
+
   AuthenticationService* authenticationService =
       AuthenticationServiceFactory::GetForBrowserState(
           self.browser->GetBrowserState());
@@ -188,6 +193,7 @@ BASE_FEATURE(kNoRecentTabIfNullWebState,
                    readingListModel:readingListModel
                         prefService:prefs
       isGoogleDefaultSearchProvider:isGoogleDefaultSearchProvider
+                        syncService:syncService
               authenticationService:authenticationService
                     identityManager:identityManager
                             browser:self.browser];
@@ -195,6 +201,12 @@ BASE_FEATURE(kNoRecentTabIfNullWebState,
   self.contentSuggestionsMediator.promosManager = promosManager;
   self.contentSuggestionsMediator.contentSuggestionsMetricsRecorder =
       self.contentSuggestionsMetricsRecorder;
+  if (base::FeatureList::IsEnabled(segmentation_platform::features::
+                                       kSegmentationPlatformIosModuleRanker)) {
+    self.contentSuggestionsMediator.segmentationService =
+        segmentation_platform::SegmentationPlatformServiceFactory::
+            GetForBrowserState(self.browser->GetBrowserState());
+  }
   // TODO(crbug.com/1045047): Use HandlerForProtocol after commands protocol
   // clean up.
   self.contentSuggestionsMediator.dispatcher =
@@ -489,8 +501,20 @@ BASE_FEATURE(kNoRecentTabIfNullWebState,
                                               SetUpListItemType::kSignInSync);
         }
       };
+  AuthenticationOperation operation =
+      AuthenticationOperation::kSigninAndSyncWithTwoScreens;
+  if (base::FeatureList::IsEnabled(
+          syncer::kReplaceSyncPromosWithSignInPromos)) {
+    // If there are 0 identities, kInstantSignin requires less taps.
+    ChromeBrowserState* browserState = self.browser->GetBrowserState();
+    operation =
+        ChromeAccountManagerServiceFactory::GetForBrowserState(browserState)
+                ->HasIdentities()
+            ? AuthenticationOperation::kSigninOnly
+            : AuthenticationOperation::kInstantSignin;
+  }
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperationSigninAndSyncWithTwoScreens
+      initWithOperation:operation
                identity:nil
             accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_SET_UP_LIST
             promoAction:signin_metrics::PromoAction::

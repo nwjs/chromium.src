@@ -13,13 +13,10 @@
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_configuration.h"
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_tab_grid_button.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_constants.h"
+#import "ios/chrome/browser/ui/toolbar/toolbar_progress_bar.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ui/gfx/ios/uikit_util.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace {
 const CGFloat kToolsMenuOffset = -7;
@@ -56,11 +53,11 @@ UIView* SecondaryToolbarLocationBarContainerView(
 
 // Separator above the toolbar, redefined as readwrite.
 @property(nonatomic, strong, readwrite) UIView* separator;
+// Progress bar displayed below the toolbar, redefined as readwrite.
+@property(nonatomic, strong, readwrite) ToolbarProgressBar* progressBar;
 
 // The stack view containing the buttons, redefined as readwrite.
 @property(nonatomic, strong, readwrite) UIStackView* buttonStackView;
-// The stack view containing `locationBarContainer` and `buttonStackView`.
-@property(nonatomic, strong) UIStackView* verticalStackView;
 
 // Button to navigate back, redefined as readwrite.
 @property(nonatomic, strong, readwrite) ToolbarButton* backButton;
@@ -106,6 +103,7 @@ UIView* SecondaryToolbarLocationBarContainerView(
 @synthesize locationBarContainer = _locationBarContainer;
 @synthesize locationBarContainerHeight = _locationBarContainerHeight;
 @synthesize openNewTabButton = _openNewTabButton;
+@synthesize progressBar = _progressBar;
 @synthesize toolsMenuButton = _toolsMenuButton;
 @synthesize tabGridButton = _tabGridButton;
 
@@ -192,6 +190,17 @@ UIView* SecondaryToolbarLocationBarContainerView(
     [contentView bringSubviewToFront:self.collapsedToolbarButton];
     AddSameConstraints(self, self.collapsedToolbarButton);
 
+    // Add progress bar on the top edge.
+    _progressBar = [[ToolbarProgressBar alloc] init];
+    _progressBar.translatesAutoresizingMaskIntoConstraints = NO;
+    _progressBar.hidden = YES;
+    [_progressBar.heightAnchor constraintEqualToConstant:kProgressBarHeight]
+        .active = YES;
+    [contentView addSubview:_progressBar];
+    AddSameConstraintsToSides(
+        self, _progressBar,
+        LayoutSides::kTop | LayoutSides::kLeading | LayoutSides::kTrailing);
+
     // LocationBarView constraints.
     if (self.locationBarView) {
       AddSameConstraints(self.locationBarView, self.locationBarContainer);
@@ -206,6 +215,13 @@ UIView* SecondaryToolbarLocationBarContainerView(
     _locationBarBottomConstraint = [self.buttonStackView.topAnchor
         constraintEqualToAnchor:self.locationBarContainer.bottomAnchor
                        constant:kBottomAdaptiveLocationBarBottomMargin];
+
+    // Constraint used to move the location bar above the keyboard. The view
+    // controller will set the constant to the keyboard's size when necessary.
+    _locationBarKeyboardConstraint = [self.bottomAnchor
+        constraintGreaterThanOrEqualToAnchor:self.locationBarContainer
+                                                 .bottomAnchor];
+
     _buttonStackViewNoOmniboxConstraint = [self.buttonStackView.topAnchor
         constraintEqualToAnchor:self.topAnchor
                        constant:kBottomButtonsTopMargin];
@@ -260,10 +276,6 @@ UIView* SecondaryToolbarLocationBarContainerView(
 }
 
 - (ToolbarButton*)shareButton {
-  return nil;
-}
-
-- (MDCProgressView*)progressBar {
   return nil;
 }
 

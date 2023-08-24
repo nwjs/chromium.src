@@ -81,10 +81,6 @@
 #import "services/network/public/mojom/network_service.mojom.h"
 #import "ui/base/resource/resource_bundle.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // Requests a network::mojom::ProxyResolvingSocketFactory on the UI thread.
@@ -589,7 +585,6 @@ void ApplicationContextImpl::CreateGCMDriver() {
 
   gcm_driver_ = gcm::CreateGCMDriverDesktop(
       base::WrapUnique(new gcm::GCMClientFactory), GetLocalState(), store_path,
-      /*remove_account_mappings_with_email_key=*/true,
       // Because ApplicationContextImpl is destroyed after all WebThreads have
       // been shut down, base::Unretained() is safe here.
       base::BindRepeating(&RequestProxyResolvingSocketFactory,

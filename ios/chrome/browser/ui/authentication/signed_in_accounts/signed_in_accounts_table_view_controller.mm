@@ -13,10 +13,6 @@
 #import "ios/chrome/browser/signin/system_identity.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_identity_item.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // List of sections.
@@ -51,6 +47,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
                       (ChromeAccountManagerService*)accountManagerService {
   self = [super initWithStyle:UITableViewStylePlain];
   if (self) {
+    CHECK(identityManager);
+    CHECK(accountManagerService);
     _identityManager = identityManager;
     _accountManagerService = accountManagerService;
     _accountManagerServiceObserver.reset(

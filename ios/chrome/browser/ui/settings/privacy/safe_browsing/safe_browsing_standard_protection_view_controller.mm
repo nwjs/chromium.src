@@ -7,6 +7,7 @@
 #import "base/mac/foundation_util.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
+#import "components/safe_browsing/core/common/features.h"
 #import "ios/chrome/browser/net/crurl.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_info_button_cell.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_switch_cell.h"
@@ -18,10 +19,6 @@
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 using ItemArray = NSArray<TableViewItem*>*;
 
@@ -206,16 +203,18 @@ const CGFloat kSafeBrowsingStandardProtectionContentInset = 16;
 - (void)loadModel {
   [super loadModel];
   TableViewModel* model = self.tableViewModel;
-  [model addSectionWithIdentifier:SectionIdentifierHeaderShield];
-  [model addSectionWithIdentifier:SectionIdentifierHeaderMetric];
+
+  if (!base::FeatureList::IsEnabled(
+          safe_browsing::kFriendlierSafeBrowsingSettingsStandardProtection)) {
+    [model addSectionWithIdentifier:SectionIdentifierHeaderShield];
+    [model addSectionWithIdentifier:SectionIdentifierHeaderMetric];
+    [model setHeader:self.shieldIconHeader
+        forSectionWithIdentifier:SectionIdentifierHeaderShield];
+    [model setHeader:self.metricIconHeader
+        forSectionWithIdentifier:SectionIdentifierHeaderMetric];
+  }
   [model
       addSectionWithIdentifier:SectionIdentifierSafeBrowsingStandardProtection];
-
-  [model setHeader:self.shieldIconHeader
-      forSectionWithIdentifier:SectionIdentifierHeaderShield];
-  [model setHeader:self.metricIconHeader
-      forSectionWithIdentifier:SectionIdentifierHeaderMetric];
-
   for (TableViewItem* item in self.safeBrowsingStandardProtectionItems) {
     [model addItem:item
         toSectionWithIdentifier:

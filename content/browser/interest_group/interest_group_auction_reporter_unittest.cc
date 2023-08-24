@@ -233,7 +233,7 @@ class InterestGroupAuctionReporterTest
             std::move(auction_config_), kTopFrameOrigin, kFrameOrigin,
             frame_client_security_state_.Clone(),
             dummy_report_shared_url_loader_factory_,
-            auction_worklet::mojom::KAnonymityBidMode::kNone,
+            auction_worklet::mojom::KAnonymityBidMode::kNone, false,
             std::move(winning_bid_info_), std::move(seller_winning_bid_info_),
             std::move(component_seller_winning_bid_info_),
             /*interest_groups_that_bid=*/
@@ -288,6 +288,7 @@ class InterestGroupAuctionReporterTest
   void WaitForReportWinAndRunCallback(
       absl::optional<GURL> report_url,
       base::flat_map<std::string, GURL> ad_beacon_map = {},
+      base::flat_map<std::string, std::string> ad_macro_map = {},
       std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr>
           pa_requests = {},
       std::vector<std::string> errors = {}) {
@@ -296,8 +297,8 @@ class InterestGroupAuctionReporterTest
         auction_process_manager_.TakeBidderWorklet(kWinningBidderScriptUrl);
     bidder_worklet->WaitForReportWin();
     bidder_worklet->InvokeReportWinCallback(
-        std::move(report_url), std::move(ad_beacon_map), std::move(pa_requests),
-        std::move(errors));
+        std::move(report_url), std::move(ad_beacon_map),
+        std::move(ad_macro_map), std::move(pa_requests), std::move(errors));
 
     // Note that the bidder pipe is not automatically flushed on destruction, so
     // need to destroy it manually. Flushing the pipe ensures that the reporter
@@ -543,7 +544,7 @@ class InterestGroupAuctionReporterTest
           /*is_web_secure_context=*/true,
           /*ip_address_space=*/network::mojom::IPAddressSpace::kPublic,
           /*is_web_secure_context=*/
-          network::mojom::LocalNetworkRequestPolicy::kBlock)};
+          network::mojom::PrivateNetworkRequestPolicy::kBlock)};
 
   const GURL kSellerReportUrl =
       GURL("https://seller.report.test/seller-report");
@@ -564,6 +565,10 @@ class InterestGroupAuctionReporterTest
       {"click", GURL("https://buyer.click.test/")},
       {"clack", GURL("https://buyer.clack.test/")},
       {"cluck", GURL("https://buyer.cluck.test/")},
+  };
+
+  const FencedFrameReporter::ReportingMacroMap kAdMacroMap = {
+      {"campaign", "123"},
   };
 
   base::HistogramTester histogram_tester_;
@@ -709,6 +714,7 @@ TEST_F(InterestGroupAuctionReporterTest, ComponentAuctionErrors) {
         kComponentSellerReportUrl}});
 
   WaitForReportWinAndRunCallback(kBidderReportUrl, /*ad_beacon_map=*/{},
+                                 /*ad_macro_map=*/{},
                                  /*pa_requests=*/{}, /*errors=*/{kBuyerError});
   interest_group_manager_impl_->ExpectReports(
       {{InterestGroupManagerImpl::ReportType::kSendReportTo,
@@ -1361,7 +1367,7 @@ TEST_F(InterestGroupAuctionReporterTest, PrivateAggregationRequests) {
   // All reserved aggregation requests should be immediately passed along once
   // the auction is complete.
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(kReportWinPrivateAggregationRequest.Clone(),
                            kBonusPrivateAggregationRequest.Clone()));
   EXPECT_THAT(
@@ -1411,7 +1417,7 @@ TEST_F(InterestGroupAuctionReporterTest,
               testing::UnorderedElementsAre());
 
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(kReportWinPrivateAggregationRequest.Clone(),
                            kBonusPrivateAggregationRequest.Clone()));
   EXPECT_THAT(private_aggregation_manager_.TakePrivateAggregationRequests(),
@@ -1469,7 +1475,7 @@ TEST_F(InterestGroupAuctionReporterTest,
   // The non-reserved aggregation requests should be passed along right after
   // the reporting phase.
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
   EXPECT_THAT(
@@ -1507,7 +1513,7 @@ TEST_F(InterestGroupAuctionReporterTest,
                                     /*report_url=*/absl::nullopt);
 
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
   EXPECT_TRUE(interest_group_auction_reporter_->fenced_frame_reporter()
@@ -1541,7 +1547,7 @@ TEST_F(InterestGroupAuctionReporterTest,
       /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
       MakeRequestPtrVector(kReportResultPrivateAggregationRequest.Clone()));
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
 
@@ -1670,7 +1676,7 @@ TEST_F(InterestGroupAuctionReporterTest, NoNavigation) {
       kSellerScriptUrl, kSellerReportUrl, /*ad_beacon_map=*/{},
       MakeRequestPtrVector(kReportResultPrivateAggregationRequest.Clone()));
   WaitForReportWinAndRunCallback(
-      kBidderReportUrl, /*ad_beacon_map=*/{},
+      kBidderReportUrl, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinPrivateAggregationRequest.Clone(),
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
@@ -1714,7 +1720,7 @@ TEST_F(InterestGroupAuctionReporterTest, MultipleNavigations) {
   callback.Run();
 
   WaitForReportWinAndRunCallback(
-      kBidderReportUrl, /*ad_beacon_map=*/{},
+      kBidderReportUrl, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinPrivateAggregationRequest.Clone(),
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
@@ -1818,7 +1824,7 @@ TEST_F(InterestGroupAuctionReporterPrivateAggregationDisabledTest,
   // requests if the worklet is compromised when featrue kPrivateAggregationApi
   // is disabled.
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
   EXPECT_TRUE(interest_group_auction_reporter_->fenced_frame_reporter()
@@ -1849,7 +1855,8 @@ TEST_F(
   // when collecting PA requests and sending to InterestGroupAuctionReporter,
   // and a compromised worklet can send PA requests to browser process when
   // feature param
-  // `blink::features::kPrivateAggregationApiFledgeExtensionsEnabled` is false.
+  // `blink::features::kPrivateAggregationApiProtectedAudienceExtensionsEnabled`
+  // is false.
   private_aggregation_event_map_["event_type"].push_back(
       kWinningBidderGenerateBidPrivateAggregationRequest.Clone());
   private_aggregation_event_map_["event_type2"].push_back(
@@ -1875,9 +1882,10 @@ TEST_F(
   // The non-reserved aggregation requests from the bidder's reportWin() method
   // should not be passed along neither. reportWin() could only return PA
   // requests if the worklet is compromised when feature param
-  // `blink::features::kPrivateAggregationApiFledgeExtensionsEnabled` is false.
+  // `blink::features::kPrivateAggregationApiProtectedAudienceExtensionsEnabled`
+  // is false.
   WaitForReportWinAndRunCallback(
-      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{},
+      /*report_url=*/absl::nullopt, /*ad_beacon_map=*/{}, /*ad_macro_map=*/{},
       MakeRequestPtrVector(
           kReportWinNonReservedPrivateAggregationRequest.Clone()));
   EXPECT_TRUE(interest_group_auction_reporter_->fenced_frame_reporter()
@@ -2001,6 +2009,85 @@ TEST(InterestGroupAuctionReporterStochasticRounding, ApproximatesTrueSum) {
 
   EXPECT_GT(total, 0.9 * kInput * kIterations);
   EXPECT_LT(total, 1.1 * kInput * kIterations);
+}
+
+class InterestGroupAuctionReporterAdMacroReportingEnabledTest
+    : public InterestGroupAuctionReporterTest {
+ public:
+  InterestGroupAuctionReporterAdMacroReportingEnabledTest() {
+    feature_list_.InitAndEnableFeature(
+        blink::features::kAdAuctionReportingWithMacroApi);
+  }
+
+ protected:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+TEST_F(InterestGroupAuctionReporterAdMacroReportingEnabledTest,
+       SingleSellerReportMacroMap) {
+  SetUpAndStartSingleSellerAuction();
+  // The macro map should be empty from the start.
+  EXPECT_THAT(interest_group_auction_reporter_->fenced_frame_reporter()
+                  ->GetAdMacroMapForTesting(),
+              testing::UnorderedElementsAre());
+
+  WaitForReportResultAndRunCallback(kSellerScriptUrl,
+                                    /*report_url=*/absl::nullopt);
+
+  WaitForReportWinAndRunCallback(/*report_url=*/absl::nullopt,
+                                 /*ad_beacon_map=*/{}, kAdMacroMap);
+  EXPECT_THAT(interest_group_auction_reporter_->fenced_frame_reporter()
+                  ->GetAdMacroMapForTesting(),
+              testing::UnorderedElementsAre(testing::Pair(
+                  blink::FencedFrame::ReportingDestination::kBuyer,
+                  testing::UnorderedElementsAreArray(kAdMacroMap))));
+
+  // Invoking the callback has no effect on macro maps. Fenced frames navigated
+  // to the winning ad use them to trigger reports, so no need to hold them back
+  // until a fenced frame is navigated to the winning ad.
+  interest_group_auction_reporter_->OnNavigateToWinningAdCallback().Run();
+
+  WaitForCompletion();
+  EXPECT_THAT(interest_group_auction_reporter_->fenced_frame_reporter()
+                  ->GetAdMacroMapForTesting(),
+              testing::UnorderedElementsAre(testing::Pair(
+                  blink::FencedFrame::ReportingDestination::kBuyer,
+                  testing::UnorderedElementsAreArray(kAdMacroMap))));
+}
+
+TEST_F(InterestGroupAuctionReporterAdMacroReportingEnabledTest,
+       ComponentAuctionReportMacroMap) {
+  SetUpAndStartComponentAuction();
+  EXPECT_THAT(interest_group_auction_reporter_->fenced_frame_reporter()
+                  ->GetAdMacroMapForTesting(),
+              testing::UnorderedElementsAre());
+
+  WaitForReportResultAndRunCallback(kSellerScriptUrl,
+                                    /*report_url=*/absl::nullopt);
+
+  WaitForReportResultAndRunCallback(kComponentSellerScriptUrl,
+                                    /*report_url=*/absl::nullopt);
+
+  WaitForReportWinAndRunCallback(/*report_url=*/absl::nullopt,
+                                 /*ad_beacon_map=*/{}, kAdMacroMap);
+  EXPECT_THAT(interest_group_auction_reporter_->fenced_frame_reporter()
+                  ->GetAdMacroMapForTesting(),
+              testing::UnorderedElementsAre(testing::Pair(
+                  blink::FencedFrame::ReportingDestination::kBuyer,
+                  testing::UnorderedElementsAreArray(kAdMacroMap))));
+
+  // Invoking the callback has no effect on per-destination reporting maps.
+  // Fenced frames navigated to the winning ad use them to trigger reports, so
+  // no need to hold them back until a fenced frame is navigated to the winning
+  // ad.
+  interest_group_auction_reporter_->OnNavigateToWinningAdCallback().Run();
+
+  WaitForCompletion();
+  EXPECT_THAT(interest_group_auction_reporter_->fenced_frame_reporter()
+                  ->GetAdMacroMapForTesting(),
+              testing::UnorderedElementsAre(testing::Pair(
+                  blink::FencedFrame::ReportingDestination::kBuyer,
+                  testing::UnorderedElementsAreArray(kAdMacroMap))));
 }
 
 }  // namespace

@@ -18,10 +18,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // The horizontal inset for the content within this container.
@@ -35,7 +31,7 @@ const CGFloat kContentBottomInset = 24.0f;
 const CGFloat kReducedContentBottomInset = 10.0f;
 
 // Vertical spacing between the content views.
-const float kContentVerticalSpacing = 20.0f;
+const CGFloat kContentVerticalSpacing = 16.0f;
 
 // The corner radius of this container.
 const float kCornerRadius = 24;

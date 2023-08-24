@@ -20,10 +20,13 @@
 #include "chrome/browser/dips/dips_service.h"
 #include "chrome/browser/dips/dips_utils.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
+#include "content/public/browser/allow_service_worker_result.h"
 #include "content/public/browser/cookie_access_details.h"
+#include "content/public/browser/dedicated_worker_service.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_handle_user_data.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/shared_worker_service.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
@@ -119,6 +122,15 @@ class DIPSRedirectContext {
 
   size_t GetRedirectChainLength() {
     return redirects_.size() + redirect_prefix_count_;
+  }
+
+  int GetRedirectChainIndex(const std::string& site) const {
+    for (size_t ind = 0; ind < redirects_.size(); ind++) {
+      if (GetSiteForDIPS(redirects_.at(ind)->url) == site) {
+        return ind;
+      }
+    }
+    return -1;
   }
 
  private:
@@ -230,6 +242,7 @@ class DIPSBounceDetector {
   DIPSBounceDetector& operator=(const DIPSBounceDetector&) = delete;
 
   void SetClockForTesting(base::Clock* clock) { clock_ = clock; }
+  const base::Clock* GetClock() { return clock_.get(); }
   // The following methods are based on WebContentsObserver, simplified.
   void DidStartNavigation(DIPSNavigationHandle* navigation_handle);
   void OnClientSiteDataAccessed(const GURL& url, CookieOperation op);
@@ -237,6 +250,7 @@ class DIPSBounceDetector {
   void OnServerCookiesAccessed(DIPSNavigationHandle* navigation_handle,
                                const GURL& url,
                                CookieOperation op);
+  void OnWorkerInitialized(const GURL& url);
   void DidFinishNavigation(DIPSNavigationHandle* navigation_handle);
   // Only records a new user activation event once per
   // |kTimestampUpdateInterval| for a given page.
@@ -252,6 +266,10 @@ class DIPSBounceDetector {
   void SetRedirectChainHandlerForTesting(DIPSRedirectChainHandler handler) {
     committed_redirect_context_.SetRedirectChainHandlerForTesting(handler);
   }
+  const DIPSRedirectContext& CommittedRedirectContext() {
+    return committed_redirect_context_;
+  }
+
   // Makes a call to process the current chain on
   // `client_bounce_detection_timer_`'s timeout.
   void OnClientBounceDetectionTimeout();
@@ -276,6 +294,8 @@ class DIPSWebContentsObserver
     : public content_settings::PageSpecificContentSettings::SiteDataObserver,
       public content::WebContentsObserver,
       public content::WebContentsUserData<DIPSWebContentsObserver>,
+      public content::SharedWorkerService::Observer,
+      public content::DedicatedWorkerService::Observer,
       public DIPSBounceDetectorDelegate {
  public:
   static void MaybeCreateForWebContents(content::WebContents* web_contents);
@@ -308,6 +328,18 @@ class DIPSWebContentsObserver
 
   void EmitDIPSIssue(const std::set<std::string>& sites);
 
+  // Record a RedirectHeuristic event for a cookie access, if eligible. This
+  // applies when the tracking site has appeared previously in the current
+  // redirect context.
+  void MaybeRecordRedirectHeuristic(
+      const ukm::SourceId& source_id,
+      const content::CookieAccessDetails& details);
+  void RecordRedirectHeuristic(
+      const ukm::SourceId& source_id,
+      const content::CookieAccessDetails& details,
+      const size_t sites_passed_count,
+      absl::optional<base::Time> last_user_interaction_time);
+
   // DIPSBounceDetectorDelegate overrides:
   const GURL& GetLastCommittedURL() const override;
   ukm::SourceId GetPageUkmSourceId() const override;
@@ -327,6 +359,14 @@ class DIPSWebContentsObserver
                          const content::CookieAccessDetails& details) override;
   void OnCookiesAccessed(content::NavigationHandle* navigation_handle,
                          const content::CookieAccessDetails& details) override;
+  void OnServiceWorkerAccessed(
+      content::RenderFrameHost* render_frame_host,
+      const GURL& scope,
+      content::AllowServiceWorkerResult allowed) override;
+  void OnServiceWorkerAccessed(
+      content::NavigationHandle* navigation_handle,
+      const GURL& scope,
+      content::AllowServiceWorkerResult allowed) override;
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
   void FrameReceivedUserActivation(
@@ -342,6 +382,36 @@ class DIPSWebContentsObserver
   void OnStatefulBounceDetected() override;
   // End SiteDataObserver overrides.
 
+  // Start SharedWorkerService.Observer overrides:
+  void OnClientAdded(
+      const blink::SharedWorkerToken& token,
+      content::GlobalRenderFrameHostId render_frame_host_id) override;
+  void OnWorkerCreated(const blink::SharedWorkerToken& token,
+                       int worker_process_id,
+                       const base::UnguessableToken& dev_tools_token) override {
+  }
+  void OnBeforeWorkerDestroyed(const blink::SharedWorkerToken& token) override {
+  }
+  void OnClientRemoved(
+      const blink::SharedWorkerToken& token,
+      content::GlobalRenderFrameHostId render_frame_host_id) override {}
+  using content::SharedWorkerService::Observer::OnFinalResponseURLDetermined;
+  // End SharedWorkerService.Observer overrides.
+
+  // Start DedicatedWorkerService.Observer overrides:
+  void OnWorkerCreated(
+      const blink::DedicatedWorkerToken& worker_token,
+      int worker_process_id,
+      content::GlobalRenderFrameHostId ancestor_render_frame_host_id) override;
+  void OnBeforeWorkerDestroyed(
+      const blink::DedicatedWorkerToken& worker_token,
+      content::GlobalRenderFrameHostId ancestor_render_frame_host_id) override {
+  }
+  void OnFinalResponseURLDetermined(
+      const blink::DedicatedWorkerToken& worker_token,
+      const GURL& url) override {}
+  // End DedicatedWorkerService.Observer overrides.
+
   // raw_ptr<> is safe here because DIPSService is a KeyedService, associated
   // with the BrowserContext/Profile which will outlive the WebContents that
   // DIPSWebContentsObserver is observing.
@@ -350,6 +420,7 @@ class DIPSWebContentsObserver
   DIPSIssueReportingCallback issue_reporting_callback_;
 
   absl::optional<std::string> last_committed_site_;
+  absl::optional<base::Time> last_commit_timestamp_;
 
   base::WeakPtrFactory<DIPSWebContentsObserver> weak_factory_{this};
 

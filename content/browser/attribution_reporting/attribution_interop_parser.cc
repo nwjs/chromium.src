@@ -19,6 +19,7 @@
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "base/types/expected_macros.h"
 #include "base/types/optional_util.h"
 #include "base/values.h"
 #include "components/attribution_reporting/source_registration.h"
@@ -139,10 +140,10 @@ class AttributionInteropParser {
              config.max_destinations_per_source_site_reporting_site, required);
 
     ParseInt(dict, "max_destinations_per_rate_limit_window_reporting_site",
-             config.throttler_policy.max_per_reporting_site, required);
+             config.destination_rate_limit.max_per_reporting_site, required);
 
     ParseInt(dict, "max_destinations_per_rate_limit_window",
-             config.throttler_policy.max_total, required);
+             config.destination_rate_limit.max_total, required);
 
     int rate_limit_time_window;
     if (ParseInt(dict, "rate_limit_time_window", rate_limit_time_window,
@@ -313,17 +314,15 @@ class AttributionInteropParser {
             ParseDict(
                 response_dict, "Attribution-Reporting-Register-Source",
                 [&](base::Value::Dict registration_dict) {
-                  auto registration =
+                  ASSIGN_OR_RETURN(
+                      auto registration,
                       attribution_reporting::SourceRegistration::Parse(
-                          std::move(registration_dict));
-                  if (!registration.has_value()) {
-                    *Error() << registration.error();
-                    return;
-                  }
+                          std::move(registration_dict)),
+                      [&](auto error) { *Error() << error; });
 
                   events_.emplace_back(
                       StorableSource(std::move(*reporting_origin),
-                                     std::move(*registration),
+                                     std::move(registration),
                                      std::move(*source_origin), *source_type,
                                      /*is_within_fenced_frame=*/false),
                       source_time, debug_permission);
@@ -362,25 +361,23 @@ class AttributionInteropParser {
           }
 
           ParseDict(dict, kResponseKey, [&](base::Value::Dict response_dict) {
-            ParseDict(response_dict, "Attribution-Reporting-Register-Trigger",
-                      [&](base::Value::Dict registration_dict) {
-                        auto trigger_registration =
-                            attribution_reporting::TriggerRegistration::Parse(
-                                std::move(registration_dict));
-                        if (!trigger_registration.has_value()) {
-                          *Error() << trigger_registration.error();
-                          return;
-                        }
+            ParseDict(
+                response_dict, "Attribution-Reporting-Register-Trigger",
+                [&](base::Value::Dict registration_dict) {
+                  ASSIGN_OR_RETURN(
+                      auto trigger_registration,
+                      attribution_reporting::TriggerRegistration::Parse(
+                          std::move(registration_dict)),
+                      [&](auto error) { *Error() << error; });
 
-                        events_.emplace_back(
-                            AttributionTrigger(
-                                std::move(*reporting_origin),
-                                std::move(*trigger_registration),
-                                std::move(*destination_origin),
-                                /*verifications=*/{},
-                                /*is_within_fenced_frame=*/false),
-                            trigger_time, debug_permission);
-                      });
+                  events_.emplace_back(
+                      AttributionTrigger(std::move(*reporting_origin),
+                                         std::move(trigger_registration),
+                                         std::move(*destination_origin),
+                                         /*verifications=*/{},
+                                         /*is_within_fenced_frame=*/false),
+                      trigger_time, debug_permission);
+                });
           });
         },
         /*expected_size=*/1);

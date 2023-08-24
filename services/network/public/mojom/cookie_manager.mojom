@@ -38,6 +38,11 @@ struct CookieManagerParams {
   array<content_settings.mojom.ContentSettingPatternSource>
       settings_for_legacy_cookie_access;
 
+  // Content settings for 3PCD support.
+  // Note: This does not override `block_third_party_cookies` or `settings`.
+  array<content_settings.mojom.ContentSettingPatternSource>
+      settings_for_3pcd;
+
   // Content settings for which storage access grants have been set using
   // the Storage Access API.
   array<content_settings.mojom.ContentSettingPatternSource>
@@ -164,12 +169,6 @@ struct CookieOptions {
   CookieSameSiteContext same_site_cookie_context;
   bool update_access_time = true;
   bool return_excluded_cookies = false;
-  SamePartyContext same_party_context;
-  // The size of the isolation_info.party_context plus the top-frame site for
-  // logging purposes.
-  uint32 full_party_context_size = 0;
-  // Whether the site is a member of a nontrivial First-Party Set.
-  bool is_in_nontrivial_first_party_set = false;
 };
 
 // See net/cookies/canonical_cookie.{h,cc} for documentation.
@@ -473,6 +472,11 @@ interface CookieManager {
   // Sets content settings for which domains are allowed to use legacy cookie
   // access rules.
   SetContentSettingsForLegacyCookieAccess(
+      array<content_settings.mojom.ContentSettingPatternSource> settings);
+
+  // Note: This does not override settings created with SetContentSettings
+  // or BlockThirdPartyCookies.
+  SetContentSettingsFor3pcd(
       array<content_settings.mojom.ContentSettingPatternSource> settings);
 
   // Sets content settings for which storage access grants exist. Will ack

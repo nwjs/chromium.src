@@ -25,10 +25,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using base::UserMetricsAction;
 using l10n_util::GetNSString;
 
@@ -102,26 +98,26 @@ using l10n_util::GetNSString;
                  completion:nil];
 }
 
-- (void)interruptWithAction:(SigninCoordinatorInterruptAction)action
+- (void)interruptWithAction:(SigninCoordinatorInterrupt)action
                  completion:(ProceduralBlock)completion {
   DCHECK(self.advancedSettingsSigninNavigationController);
   [self.syncSettingsCoordinator stop];
   self.syncSettingsCoordinator = nil;
 
   switch (action) {
-    case SigninCoordinatorInterruptActionNoDismiss:
+    case SigninCoordinatorInterrupt::UIShutdownNoDismiss:
       [self finishedWithSigninResult:SigninCoordinatorResultInterrupted];
       if (completion) {
         completion();
       }
       break;
-    case SigninCoordinatorInterruptActionDismissWithoutAnimation:
+    case SigninCoordinatorInterrupt::DismissWithoutAnimation:
       [self dismissViewControllerAndFinishWithResult:
                 SigninCoordinatorResultInterrupted
                                             animated:NO
                                           completion:completion];
       break;
-    case SigninCoordinatorInterruptActionDismissWithAnimation:
+    case SigninCoordinatorInterrupt::DismissWithAnimation:
       [self dismissViewControllerAndFinishWithResult:
                 SigninCoordinatorResultInterrupted
                                             animated:YES
@@ -176,6 +172,10 @@ using l10n_util::GetNSString;
   [self.advancedSettingsSigninMediator
       saveUserPreferenceForSigninResult:signinResult
                     originalSigninState:self.signinStateForCancel];
+  [self.advancedSettingsSigninNavigationController cleanUpSettings];
+  self.advancedSettingsSigninNavigationController.navigationDelegate = nil;
+  self.advancedSettingsSigninNavigationController.presentationController
+      .delegate = nil;
   self.advancedSettingsSigninNavigationController = nil;
   self.advancedSettingsSigninMediator = nil;
   [self.syncSettingsCoordinator stop];
@@ -201,7 +201,8 @@ using l10n_util::GetNSString;
 
 #pragma mark - AdvancedSettingsSigninNavigationControllerNavigationDelegate
 
-- (void)navigationDoneButtonWasTapped {
+- (void)navigationDoneButtonWasTapped:
+    (AdvancedSettingsSigninNavigationController*)controller {
   [self dismissViewControllerAndFinishWithResult:SigninCoordinatorResultSuccess
                                         animated:YES
                                       completion:nil];

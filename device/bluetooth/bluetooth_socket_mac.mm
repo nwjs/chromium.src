@@ -34,10 +34,6 @@
 #include "net/base/net_errors.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using device::BluetoothSocket;
 
 // A simple helper class that forwards SDP query completed notifications to its
@@ -443,7 +439,7 @@ void BluetoothSocketMac::Connect(IOBluetoothDevice* device,
                                         device:device
                               success_callback:std::move(success_callback)
                                 error_callback:std::move(error_callback)];
-  [device performSDPQuery:listener uuids:@[ GetIOBluetoothSDPUUID(uuid_) ]];
+  [device performSDPQuery:listener];
 }
 
 void BluetoothSocketMac::ListenUsingRfcomm(

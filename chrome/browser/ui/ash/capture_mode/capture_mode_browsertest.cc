@@ -22,15 +22,15 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/ash/file_manager/file_manager_test_util.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_content_manager_test_helper.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_content_observer.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_content_restriction_set.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_policy_event.pb.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_reporting_manager.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_reporting_manager_test_helper.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
-#include "chrome/browser/chromeos/policy/dlp/mock_dlp_rules_manager.h"
+#include "chrome/browser/chromeos/policy/dlp/test/dlp_content_manager_test_helper.h"
+#include "chrome/browser/chromeos/policy/dlp/test/dlp_reporting_manager_test_helper.h"
+#include "chrome/browser/chromeos/policy/dlp/test/mock_dlp_rules_manager.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
@@ -854,9 +854,7 @@ IN_PROC_BROWSER_TEST_F(CaptureModeCameraBrowserTests, VerifyFrames) {
 
 class CaptureModeProjectorBrowserTests : public CaptureModeCameraBrowserTests {
  public:
-  CaptureModeProjectorBrowserTests() {
-    scoped_feature_list_.InitWithFeatures({ash::features::kProjector}, {});
-  }
+  CaptureModeProjectorBrowserTests() = default;
 
   ~CaptureModeProjectorBrowserTests() override = default;
 
@@ -890,9 +888,6 @@ class CaptureModeProjectorBrowserTests : public CaptureModeCameraBrowserTests {
     EXPECT_TRUE(projector_session->is_active());
     EXPECT_TRUE(ash::CaptureModeTestApi().IsSessionActive());
   }
-
- private:
-  base::test::ScopedFeatureList scoped_feature_list_;
 };
 
 // Tests that the crash reported in https://crbug.com/1368903 is not happening.

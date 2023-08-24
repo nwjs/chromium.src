@@ -45,9 +45,11 @@
 #include "extensions/browser/extension_system.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/manifest_handlers/background_info.h"
+#include "services/accessibility/public/mojom/assistive_technology_type.mojom.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/aura/client/cursor_client.h"
 #include "ui/aura/window_tree_host.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -57,6 +59,7 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine.h"
 #include "ui/events/ozone/layout/keyboard_layout_engine_manager.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/wm/core/coordinate_conversion.h"
 
 namespace {
@@ -261,10 +264,6 @@ AccessibilityPrivateIsFeatureEnabledFunction::Run() {
         ACCESSIBILITY_FEATURE_DICTATIONCONTEXTCHECKING:
       enabled = ::features::
           IsExperimentalAccessibilityDictationContextCheckingEnabled();
-      break;
-    case accessibility_private::AccessibilityFeature::
-        ACCESSIBILITY_FEATURE_CHROMEVOXTABSDEPRECATION:
-      enabled = ::features::IsAccessibilityDeprecateChromeVoxTabsEnabled();
       break;
     case accessibility_private::AccessibilityFeature::
         ACCESSIBILITY_FEATURE_CHROMEVOXSETTINGSMIGRATION:
@@ -507,6 +506,37 @@ AccessibilityPrivateSetFocusRingsFunction::Run() {
 
   auto* accessibility_manager = AccessibilityManager::Get();
 
+  ax::mojom::AssistiveTechnologyType at_type;
+  switch (params->at_type) {
+    case extensions::api::accessibility_private::ASSISTIVE_TECHNOLOGY_TYPE_NONE:
+      at_type = ax::mojom::AssistiveTechnologyType::kUnknown;
+      break;
+    case extensions::api::accessibility_private::
+        ASSISTIVE_TECHNOLOGY_TYPE_CHROMEVOX:
+      at_type = ax::mojom::AssistiveTechnologyType::kChromeVox;
+      break;
+    case extensions::api::accessibility_private::
+        ASSISTIVE_TECHNOLOGY_TYPE_SELECTTOSPEAK:
+      at_type = ax::mojom::AssistiveTechnologyType::kSelectToSpeak;
+      break;
+    case extensions::api::accessibility_private::
+        ASSISTIVE_TECHNOLOGY_TYPE_SWITCHACCESS:
+      at_type = ax::mojom::AssistiveTechnologyType::kSwitchAccess;
+      break;
+    case extensions::api::accessibility_private::
+        ASSISTIVE_TECHNOLOGY_TYPE_AUTOCLICK:
+      at_type = ax::mojom::AssistiveTechnologyType::kAutoClick;
+      break;
+    case extensions::api::accessibility_private::
+        ASSISTIVE_TECHNOLOGY_TYPE_MAGNIFIER:
+      at_type = ax::mojom::AssistiveTechnologyType::kMagnifier;
+      break;
+    case extensions::api::accessibility_private::
+        ASSISTIVE_TECHNOLOGY_TYPE_DICTATION:
+      at_type = ax::mojom::AssistiveTechnologyType::kDictation;
+      break;
+  }
+
   for (const accessibility_private::FocusRingInfo& focus_ring_info :
        params->focus_rings) {
     auto focus_ring = std::make_unique<ash::AccessibilityFocusRingInfo>();
@@ -520,7 +550,7 @@ AccessibilityPrivateSetFocusRingsFunction::Run() {
     }
 
     const std::string id = accessibility_manager->GetFocusRingId(
-        extension_id(), focus_ring_info.id ? *(focus_ring_info.id) : "");
+        at_type, focus_ring_info.id ? *(focus_ring_info.id) : "");
 
     if (!content::ParseHexColorString(focus_ring_info.color,
                                       &(focus_ring->color))) {
@@ -756,8 +786,11 @@ AccessibilityPrivateShowConfirmationDialogFunction::Run() {
 
   std::u16string title = base::UTF8ToUTF16(params->title);
   std::u16string description = base::UTF8ToUTF16(params->description);
+  std::u16string cancel_name =
+      params->cancel_name ? base::UTF8ToUTF16(params->cancel_name.value())
+                          : l10n_util::GetStringUTF16(IDS_APP_CANCEL);
   ash::AccessibilityController::Get()->ShowConfirmationDialog(
-      title, description,
+      title, description, cancel_name,
       base::BindOnce(
           &AccessibilityPrivateShowConfirmationDialogFunction::OnDialogResult,
           this, /* confirmed */ true),
@@ -842,10 +875,10 @@ AccessibilityPrivateUpdateDictationBubbleFunction::Run() {
   if (properties.hints) {
     std::vector<ash::DictationBubbleHintType> converted_hints;
     for (size_t i = 0; i < (*properties.hints).size(); ++i) {
-      converted_hints.push_back(
+      converted_hints.emplace_back(
           ConvertDictationHintType((*properties.hints)[i]));
     }
-    hints = converted_hints;
+    hints = std::move(converted_hints);
   }
 
   if (hints.has_value() && hints.value().size() > 5)

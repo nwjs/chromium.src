@@ -385,7 +385,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   LayoutCustomScrollbarPart* ScrollCorner() const { return scroll_corner_; }
 
-  void Resize(const gfx::Point& pos, const LayoutSize& old_offset);
+  void Resize(const gfx::Point& pos, const gfx::Vector2d& old_offset);
   gfx::Vector2d OffsetFromResizeCorner(const gfx::Point& absolute_point) const;
 
   bool InResizeMode() const { return in_resize_mode_; }
@@ -393,7 +393,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
     in_resize_mode_ = in_resize_mode;
   }
 
-  LayoutSize Size() const;
+  PhysicalSize Size() const;
   LayoutUnit ScrollWidth() const;
   LayoutUnit ScrollHeight() const;
 
@@ -510,6 +510,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
   bool HasStickyLayer(PaintLayer* layer) const {
     return rare_data_ && rare_data_->sticky_layers_.Contains(layer);
   }
+  void UpdateAllStickyConstraints();
   void InvalidateAllStickyConstraints();
   void InvalidatePaintForStickyDescendants();
 
@@ -713,6 +714,8 @@ class CORE_EXPORT PaintLayerScrollableArea final
   void DelayableClampScrollOffsetAfterOverflowChange();
   void ClampScrollOffsetAfterOverflowChangeInternal();
   Element* GetElementForScrollStart() const;
+
+  void SetShouldCheckForPaintInvalidation();
 
   // PaintLayer is destructed before PaintLayerScrollable area, during this
   // time before PaintLayerScrollableArea has been collected layer_ will

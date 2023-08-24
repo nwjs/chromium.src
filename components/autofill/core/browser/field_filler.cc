@@ -531,10 +531,10 @@ std::u16string GetCreditCardNumberForInput(
     const CreditCard& credit_card,
     const AutofillField& field,
     const std::string& app_locale,
-    mojom::RendererFormDataAction action) {
+    mojom::AutofillActionPersistence action_persistence) {
   std::u16string value;
 
-  if (action == mojom::RendererFormDataAction::kPreview) {
+  if (action_persistence == mojom::AutofillActionPersistence::kPreview) {
     // A single field is detected when the offset begins at 0 and the field's
     // max_length can hold the entire obfuscated credit card number.
     bool is_single_field =
@@ -876,12 +876,13 @@ std::u16string GetPhoneCountryCodeSelectControlForInput(
 
 // Returns the appropriate |credit_card| value based on |storable_type| to fill
 // into |field|.
-std::u16string GetValueForCreditCard(const CreditCard& credit_card,
-                                     const std::u16string& cvc,
-                                     const std::string& app_locale,
-                                     mojom::RendererFormDataAction action,
-                                     const AutofillField& field,
-                                     std::string* failure_to_fill) {
+std::u16string GetValueForCreditCard(
+    const CreditCard& credit_card,
+    const std::u16string& cvc,
+    const std::string& app_locale,
+    mojom::AutofillActionPersistence action_persistence,
+    const AutofillField& field,
+    std::string* failure_to_fill) {
   ServerFieldType storable_type = field.Type().GetStorableType();
 
   if (field.form_control_type == "month") {
@@ -892,7 +893,7 @@ std::u16string GetValueForCreditCard(const CreditCard& credit_card,
         return cvc;
       case CREDIT_CARD_NUMBER:
         return GetCreditCardNumberForInput(credit_card, field, app_locale,
-                                           action);
+                                           action_persistence);
       case CREDIT_CARD_EXP_DATE_2_DIGIT_YEAR:
       case CREDIT_CARD_EXP_DATE_4_DIGIT_YEAR:
         return GetExpirationDateForInput(credit_card, field, failure_to_fill);
@@ -925,10 +926,9 @@ std::u16string GetValueForProfile(const AutofillProfile& profile,
       value = GetPhoneCountryCodeSelectControlForInput(value, field_data,
                                                        failure_to_fill);
     } else {
-      const std::u16string phone_home_city_and_number =
-          profile.GetInfo(PHONE_HOME_CITY_AND_NUMBER, app_locale);
       value = FieldFiller::GetPhoneNumberValueForInput(
-          field, value, phone_home_city_and_number, *field_data);
+          *field_data, value,
+          profile.GetInfo(PHONE_HOME_CITY_AND_NUMBER, app_locale));
     }
   } else if (type.GetStorableType() == ADDRESS_HOME_STREET_ADDRESS) {
     const std::string& profile_language_code = profile.language_code();
@@ -991,7 +991,7 @@ std::u16string FieldFiller::GetValueForFilling(
         profile_or_credit_card,
     FormFieldData* field_data,
     const std::u16string& cvc,
-    mojom::RendererFormDataAction action,
+    mojom::AutofillActionPersistence action_persistence,
     std::string* failure_to_fill) {
   std::u16string value;
   DCHECK(field_data);
@@ -1001,12 +1001,12 @@ std::u16string FieldFiller::GetValueForFilling(
         absl::get<const CreditCard*>(profile_or_credit_card);
 
     if (credit_card->record_type() == CreditCard::VIRTUAL_CARD &&
-        action == mojom::RendererFormDataAction::kPreview) {
+        action_persistence == mojom::AutofillActionPersistence::kPreview) {
       value = GetValueForVirtualCardPreview(*credit_card, app_locale_, field,
                                             failure_to_fill);
     } else {
-      value = GetValueForCreditCard(*credit_card, cvc, app_locale_, action,
-                                    field, failure_to_fill);
+      value = GetValueForCreditCard(*credit_card, cvc, app_locale_,
+                                    action_persistence, field, failure_to_fill);
     }
   }
 
@@ -1031,7 +1031,7 @@ bool FieldFiller::FillFormField(
     const std::map<FieldGlobalId, std::u16string>& forced_fill_values,
     FormFieldData* field_data,
     const std::u16string& cvc,
-    mojom::RendererFormDataAction action,
+    mojom::AutofillActionPersistence action_persistence,
     std::string* failure_to_fill) {
   const AutofillType type = field.Type();
 
@@ -1041,7 +1041,7 @@ bool FieldFiller::FillFormField(
       value_is_an_override
           ? it->second
           : GetValueForFilling(field, profile_or_credit_card, field_data, cvc,
-                               action, failure_to_fill);
+                               action_persistence, failure_to_fill);
 
   // Do not attempt to fill empty values as it would skew the metrics.
   if (value.empty()) {
@@ -1064,10 +1064,9 @@ bool FieldFiller::FillFormField(
 // phone numbers with 10 or 11 digits.
 // static
 std::u16string FieldFiller::GetPhoneNumberValueForInput(
-    const AutofillField& field,
+    const FormFieldData& field_data,
     const std::u16string& number,
-    const std::u16string& phone_home_city_and_number,
-    const FormFieldData& field_data) {
+    const std::u16string& city_and_number) {
   // If no max length was specified, return the complete number.
   if (field_data.max_length == 0)
     return number;
@@ -1075,8 +1074,9 @@ std::u16string FieldFiller::GetPhoneNumberValueForInput(
   if (number.length() > field_data.max_length) {
     // Try after removing the country code, if |number| exceeds the maximum size
     // of the field.
-    if (phone_home_city_and_number.length() <= field_data.max_length)
-      return phone_home_city_and_number;
+    if (city_and_number.length() <= field_data.max_length) {
+      return city_and_number;
+    }
 
     // If |number| exceeds the maximum size of the field, cut the first part to
     // provide a valid number for the field. For example, the number 15142365264

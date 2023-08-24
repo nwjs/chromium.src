@@ -19,6 +19,7 @@
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/profiles/profile_manager_observer.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
 #include "chrome/browser/web_applications/scope_extension_info.h"
@@ -49,10 +50,10 @@ enum class WebappInstallSource;
 
 namespace web_app {
 
+class IsolatedWebAppUrlInfo;
 class WebAppRegistrarObserver;
 class WebApp;
-class WebAppPolicyManager;
-class WebAppTranslationManager;
+class WebAppProvider;
 
 using Registry = std::map<AppId, std::unique_ptr<WebApp>>;
 
@@ -82,11 +83,9 @@ class WebAppRegistrar : public ProfileManagerObserver {
 
   bool AppsExistWithExternalConfigData() const;
 
+  void SetProvider(base::PassKey<WebAppProvider>, WebAppProvider& provider);
   void Start();
   void Shutdown();
-
-  void SetSubsystems(WebAppPolicyManager* policy_manager,
-                     WebAppTranslationManager* translation_manager);
 
   base::WeakPtr<WebAppRegistrar> AsWeakPtr();
 
@@ -150,6 +149,9 @@ class WebAppRegistrar : public ProfileManagerObserver {
   // Returns true if the app exists and is allowed to be uninstalled by the user
   // e.g. it is not policy installed.
   bool CanUserUninstallWebApp(const AppId& app_id) const;
+
+  // Returns true if the prevent-close feature is enabled for the given app
+  bool IsPreventCloseEnabled(const AppId& app_id) const;
 
   // Returns the AppIds and URLs of apps externally installed from
   // |install_source|.
@@ -266,11 +268,6 @@ class WebAppRegistrar : public ProfileManagerObserver {
   std::vector<WebAppShortcutsMenuItemInfo> GetAppShortcutsMenuItemInfos(
       const AppId& app_id) const;
 
-  // Represents which icon sizes we successfully downloaded from the
-  // ShortcutsMenuItemInfos.
-  std::vector<IconSizes> GetAppDownloadedShortcutsMenuIconsSizes(
-      const AppId& app_id) const;
-
   // Returns the Run on OS Login mode and enterprise policy value.
   ValueWithPolicy<RunOnOsLoginMode> GetAppRunOnOsLoginMode(
       const AppId& app_id) const;
@@ -385,6 +382,28 @@ class WebAppRegistrar : public ProfileManagerObserver {
   std::vector<content::StoragePartitionConfig>
   GetIsolatedWebAppStoragePartitionConfigs(
       const AppId& isolated_web_app_id) const;
+
+  // Saves a record of the |partition_name| in
+  // |isolated_web_app_in_memory_controlled_frame_partitions_|.
+  // Then returns the StoragePartitionConfig of the in-memory
+  // Controlled Frame partition.
+  absl::optional<content::StoragePartitionConfig>
+  SaveAndGetInMemoryControlledFramePartitionConfig(
+      const IsolatedWebAppUrlInfo& url_info,
+      const std::string& partition_name);
+
+  // Returns true if a web app is set to be the default app to
+  // capture links by the user. If an app is not locally installed or is a
+  // shortcut, this returns false.
+  bool CapturesLinksInScope(const AppId& app_id) const;
+
+  // Returns a set of app ids that match the scope for user link capturing.
+  std::vector<AppId> GetOverlappingAppsMatchingScopePrefix(
+      const AppId& app_id) const;
+
+  // Verifies if the scopes of 2 apps match for user link capturing.
+  bool AppScopesMatchForUserLinkCapturing(const AppId& app_id1,
+                                          const AppId& app_id2);
 
 #if BUILDFLAG(IS_MAC)
   bool AlwaysShowToolbarInFullscreen(const AppId& app_id) const;
@@ -523,10 +542,9 @@ class WebAppRegistrar : public ProfileManagerObserver {
   bool registry_profile_being_deleted_ = false;
 
  private:
+  bool SharesSamePrefixedScopeAs(const AppId& without_id) const;
   const raw_ptr<Profile> profile_;
-  raw_ptr<WebAppPolicyManager, DanglingUntriaged> policy_manager_ = nullptr;
-  raw_ptr<WebAppTranslationManager, DanglingUntriaged> translation_manager_ =
-      nullptr;
+  raw_ptr<WebAppProvider> provider_ = nullptr;
 
   base::ScopedObservation<ProfileManager, ProfileManagerObserver>
       profile_manager_observation_{this};
@@ -539,6 +557,12 @@ class WebAppRegistrar : public ProfileManagerObserver {
 
   base::flat_map<AppId, mojom::UserDisplayMode>
       user_display_mode_overrides_for_experiment_;
+
+  // Keeps a record of in-memory (non-persistent) Storage Partitions created by
+  // Isolated Web Apps' Controlled Frames. This table will expire on browser
+  // shutdown same as in-memory Storage Partitions.
+  base::flat_map<AppId, base::flat_set<std::string>>
+      isolated_web_app_in_memory_controlled_frame_partitions_;
 
   base::WeakPtrFactory<WebAppRegistrar> weak_factory_{this};
 };

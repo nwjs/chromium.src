@@ -7,7 +7,6 @@
 #import "base/mac/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
-#import "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
 #import "ios/chrome/browser/ntp/features.h"
@@ -45,10 +44,6 @@
 #import "net/test/embedded_test_server/http_request.h"
 #import "net/test/embedded_test_server/http_response.h"
 #import "ui/base/l10n/l10n_util.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace {
 
@@ -297,12 +292,6 @@ id<GREYMatcher> notPracticallyVisible() {
 
 // Tests that the fake omnibox width is correctly updated after a rotation.
 - (void)testOmniboxWidthRotation {
-
-  // TODO(crbug.com/652465): Enable the test for iPad when rotation bug is
-  // fixed.
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_DISABLED(@"Disabled for iPad due to device rotation bug.");
-  }
   [ChromeEarlGreyUI waitForAppToIdle];
   UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
   UIEdgeInsets safeArea = collectionView.safeAreaInsets;
@@ -325,8 +314,6 @@ id<GREYMatcher> notPracticallyVisible() {
   safeArea = collectionView.safeAreaInsets;
   CGFloat collectionWidthAfterRotation =
       CGRectGetWidth(UIEdgeInsetsInsetRect(collectionView.bounds, safeArea));
-  GREYAssertNotEqual(collectionWidth, collectionWidthAfterRotation,
-                     @"The collection width has not changed.");
   fakeOmniboxWidth = [NewTabPageAppInterface
       searchFieldWidthForCollectionWidth:collectionWidthAfterRotation
                          traitCollection:collectionView.traitCollection];
@@ -338,12 +325,6 @@ id<GREYMatcher> notPracticallyVisible() {
 // Tests that the fake omnibox width is correctly updated after a rotation done
 // while the settings screen is shown.
 - (void)testOmniboxWidthRotationBehindSettings {
-
-  // TODO(crbug.com/652465): Enable the test for iPad when rotation bug is
-  // fixed.
-  if ([ChromeEarlGrey isRegularXRegularSizeClass]) {
-    EARL_GREY_TEST_DISABLED(@"Disabled for iPad due to device rotation bug.");
-  }
   [ChromeEarlGreyUI waitForAppToIdle];
   UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
   UIEdgeInsets safeArea = collectionView.safeAreaInsets;
@@ -371,8 +352,6 @@ id<GREYMatcher> notPracticallyVisible() {
   safeArea = collectionView.safeAreaInsets;
   CGFloat collectionWidthAfterRotation =
       CGRectGetWidth(UIEdgeInsetsInsetRect(collectionView.bounds, safeArea));
-  GREYAssertNotEqual(collectionWidth, collectionWidthAfterRotation,
-                     @"The collection width has not changed.");
   fakeOmniboxWidth = [NewTabPageAppInterface
       searchFieldWidthForCollectionWidth:collectionWidthAfterRotation
                          traitCollection:collectionView.traitCollection];
@@ -384,12 +363,9 @@ id<GREYMatcher> notPracticallyVisible() {
 // Tests that the fake omnibox width is correctly updated after a rotation done
 // while the fake omnibox is pinned to the top.
 - (void)testOmniboxPinnedWidthRotation {
-  // TODO(crbug.com/652465): Enable the test for iPad when rotation bug is
-  // fixed.
-  if ([ChromeEarlGrey isRegularXRegularSizeClass]) {
-    EARL_GREY_TEST_DISABLED(@"Disabled for iPad due to device rotation bug.");
+  if ([ChromeEarlGrey isIPadIdiom]) {
+    EARL_GREY_TEST_DISABLED(@"Fake Omnibox is not pinned to the top on iPad");
   }
-
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
       performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
 
@@ -406,11 +382,16 @@ id<GREYMatcher> notPracticallyVisible() {
   [EarlGrey rotateDeviceToOrientation:UIDeviceOrientationLandscapeLeft
                                 error:nil];
 
-  [ChromeEarlGreyUI waitForAppToIdle];
+  UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
+  UIEdgeInsets safeArea = collectionView.safeAreaInsets;
   CGFloat collectionWidthAfterRotation =
-      [NewTabPageAppInterface collectionView].bounds.size.width;
-  GREYAssertNotEqual(collectionWidth, collectionWidthAfterRotation,
-                     @"The collection width has not changed.");
+      CGRectGetWidth(UIEdgeInsetsInsetRect(collectionView.bounds, safeArea));
+  CGFloat fakeOmniboxWidth = [NewTabPageAppInterface
+      searchFieldWidthForCollectionWidth:collectionWidthAfterRotation
+                         traitCollection:collectionView.traitCollection];
+
+  [[EarlGrey selectElementWithMatcher:chrome_test_util::FakeOmnibox()]
+      assertWithMatcher:OmniboxWidth(fakeOmniboxWidth)];
 }
 
 // Tests that the fake omnibox remains visible when scrolling, by pinning itself
@@ -592,12 +573,11 @@ id<GREYMatcher> notPracticallyVisible() {
 // and moved up, the scroll position restored is the position before the omnibox
 // is selected.
 - (void)testPositionRestoredWithShiftingOffset {
-  [self addMostVisitedTile];
-  // Scroll to have a position to restored.
+  // Scroll a bit to have a position to restore.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::NTPCollectionView()]
-      performAction:grey_scrollInDirection(kGREYDirectionDown, 50)];
+      performAction:grey_scrollInDirection(kGREYDirectionDown, 20)];
 
-  // Save the position before navigating.
+  // Save the position before focusing the omnibox.
   UICollectionView* collectionView = [NewTabPageAppInterface collectionView];
   CGFloat previousPosition = collectionView.contentOffset.y;
 
@@ -605,16 +585,15 @@ id<GREYMatcher> notPracticallyVisible() {
   [self focusFakebox];
 
   // Navigate and come back.
-  [[EarlGrey selectElementWithMatcher:
-                 chrome_test_util::StaticTextWithAccessibilityLabel(
-                     base::SysUTF8ToNSString(kPageTitle))]
-      performAction:grey_tap()];
+  self.testServer->RegisterRequestHandler(
+      base::BindRepeating(&StandardResponse));
+  GREYAssertTrue(self.testServer->Start(), @"Test server failed to start.");
+  const GURL pageURL = self.testServer->GetURL(kPageURL);
+  [ChromeEarlGrey loadURL:pageURL];
   [ChromeEarlGrey waitForWebStateContainingText:kPageLoadedString];
   [ChromeEarlGrey goBack];
 
-  [ChromeEarlGreyUI waitForAppToIdle];
-
-  // Check that the new position is the same.
+  // Check that the new position is the same as before focusing the omnibox.
   collectionView = [NewTabPageAppInterface collectionView];
   GREYAssertEqual(
       previousPosition, collectionView.contentOffset.y,
@@ -1422,12 +1401,7 @@ id<GREYMatcher> notPracticallyVisible() {
   // through the fake identity service.
   FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   [SigninEarlGrey addFakeIdentity:identity];
-
-  ios::CapabilitiesDict* capabilities = @{
-    @(kIsSubjectToParentalControlsCapabilityName) :
-        @(static_cast<int>(SystemIdentityCapabilityResult::kTrue))
-  };
-  [SigninEarlGrey setCapabilities:capabilities forIdentity:identity];
+  [SigninEarlGrey setIsSubjectToParentalControls:YES forIdentity:identity];
 
   [SigninEarlGreyUI signinWithFakeIdentity:identity];
 

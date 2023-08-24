@@ -38,6 +38,7 @@
 
 namespace content {
 
+class AdAuctionPageData;
 class InterestGroupManagerImpl;
 struct BiddingAndAuctionServerKey;
 class RenderFrameHost;
@@ -63,6 +64,7 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
                           LeaveInterestGroupCallback callback) override;
   void LeaveInterestGroupForDocument() override;
   void UpdateAdInterestGroups() override;
+  void CreateAuctionNonce(CreateAuctionNonceCallback callback) override;
   void RunAdAuction(
       const blink::AuctionConfig& config,
       mojo::PendingReceiver<blink::mojom::AbortableAdAuction> abort_receiver,
@@ -110,8 +112,10 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
         BiddingAndAuctionDataConstructionState&& other);
     ~BiddingAndAuctionDataConstructionState();
 
+    base::TimeTicks start_time;
     BiddingAndAuctionData data;
     base::Uuid request_id;
+    url::Origin seller;
     GetInterestGroupAdAuctionDataCallback callback;
   };
 
@@ -135,6 +139,8 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
   bool IsInterestGroupAPIAllowed(ContentBrowserClient::InterestGroupApiOperation
                                      interest_group_api_operation,
                                  const url::Origin& origin) const;
+
+  AdAuctionPageData* GetAdAuctionPageData();
 
   // Deletes `auction`.
   void OnAuctionComplete(
@@ -184,6 +190,10 @@ class CONTENT_EXPORT AdAuctionServiceImpl final
   // This must be before `auctions_`, since auctions may own references to
   // worklets it manages.
   AuctionWorkletManager auction_worklet_manager_;
+
+  // Auction nonces that have been created via CreateAuctionNonce, but not yet
+  // used by a subsequent call to RunAdAuction.
+  std::set<base::Uuid> pending_auction_nonces_;
 
   // Use a map instead of a list so can remove entries without destroying them.
   // TODO(mmenke): Switch to std::set() and use extract() once that's allowed.

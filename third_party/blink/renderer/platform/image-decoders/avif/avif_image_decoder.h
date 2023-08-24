@@ -6,6 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_IMAGE_DECODERS_AVIF_AVIF_IMAGE_DECODER_H_
 
 #include <memory>
+#include <vector>
 
 #include "third_party/blink/renderer/platform/allow_discouraged_type.h"
 #include "third_party/blink/renderer/platform/image-decoders/image_decoder.h"
@@ -13,7 +14,6 @@
 #include "third_party/libavif/src/include/avif/avif.h"
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "ui/gfx/color_space.h"
-#include "ui/gfx/color_transform.h"
 #include "ui/gfx/geometry/point.h"
 
 namespace blink {
@@ -24,7 +24,7 @@ class PLATFORM_EXPORT AVIFImageDecoder final : public ImageDecoder {
  public:
   AVIFImageDecoder(AlphaOption,
                    HighBitDepthDecodingOption,
-                   const ColorBehavior&,
+                   ColorBehavior,
                    wtf_size_t max_decoded_bytes,
                    AnimationOption);
   AVIFImageDecoder(const AVIFImageDecoder&) = delete;
@@ -32,10 +32,13 @@ class PLATFORM_EXPORT AVIFImageDecoder final : public ImageDecoder {
   ~AVIFImageDecoder() override;
 
   // ImageDecoder:
-  String FilenameExtension() const override { return "avif"; }
+  String FilenameExtension() const override;
   const AtomicString& MimeType() const override;
   bool ImageIsHighBitDepth() override;
   void OnSetData(SegmentReader* data) override;
+  bool GetGainmapInfoAndData(
+      SkGainmapInfo& out_gainmap_info,
+      scoped_refptr<SegmentReader>& out_gainmap_data) const override;
   cc::YUVSubsampling GetYUVSubsampling() const override;
   gfx::Size DecodedYUVSize(cc::YUVIndex) const override;
   wtf_size_t DecodedYUVWidthBytes(cc::YUVIndex) const override;
@@ -54,7 +57,7 @@ class PLATFORM_EXPORT AVIFImageDecoder final : public ImageDecoder {
   // (ftyp) that supports the brand 'avif' or 'avis'.
   static bool MatchesAVIFSignature(const FastSharedBufferReader& fast_reader);
 
-  gfx::ColorTransform* GetColorTransformForTesting();
+  gfx::ColorSpace GetColorSpaceForTesting() const;
 
  private:
   // If the AVIF image has a clean aperture ('clap') property, what kind of
@@ -71,7 +74,7 @@ class PLATFORM_EXPORT AVIFImageDecoder final : public ImageDecoder {
   };
 
   struct AvifIOData {
-    blink::SegmentReader* reader = nullptr;
+    const SegmentReader* reader = nullptr;
     std::vector<uint8_t> buffer ALLOW_DISCOURAGED_TYPE("Required by libavif");
     bool all_data_received = false;
   };
@@ -99,9 +102,6 @@ class PLATFORM_EXPORT AVIFImageDecoder final : public ImageDecoder {
   // depth, and YUV format matches those reported by the container. The decoded
   // frame is available in decoded_image_.
   avifResult DecodeImage(wtf_size_t index);
-
-  // Updates or creates |color_transform_| for YUV-to-RGB conversion.
-  void UpdateColorTransform(const gfx::ColorSpace& frame_cs, int bit_depth);
 
   // Crops |decoded_image_|.
   void CropDecodedImage();
@@ -160,8 +160,6 @@ class PLATFORM_EXPORT AVIFImageDecoder final : public ImageDecoder {
       nullptr, avifDecoderDestroy};
   avifIO avif_io_ = {};
   AvifIOData avif_io_data_;
-
-  std::unique_ptr<gfx::ColorTransform> color_transform_;
 
   const AnimationOption animation_option_;
 

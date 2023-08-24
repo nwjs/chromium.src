@@ -232,6 +232,11 @@ public class ChromeMessageQueueMediator implements MessageQueueDelegate, UrlFocu
         mContainerCoordinator.onAnimationEnd();
     }
 
+    @Override
+    public boolean isDestroyed() {
+        return mIsDestroyed;
+    }
+
     /**
      * Suspend queue so that the queue will not show a new message until it is resumed.
      * @return A token of {@link TokenHolder} required when resuming the queue.
@@ -318,7 +323,6 @@ public class ChromeMessageQueueMediator implements MessageQueueDelegate, UrlFocu
             mRunOnControlsFullyVisible = runnable;
         }
 
-        @VisibleForTesting
         Runnable getRunnableForTesting() {
             return mRunOnControlsFullyVisible;
         }
@@ -328,12 +332,10 @@ public class ChromeMessageQueueMediator implements MessageQueueDelegate, UrlFocu
         }
     }
 
-    @VisibleForTesting
     void setQueueHandlerForTesting(Handler handler) {
         mQueueHandler = handler;
     }
 
-    @VisibleForTesting
     int getUrlFocusTokenForTesting() {
         return mUrlFocusToken;
     }

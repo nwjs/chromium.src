@@ -14,8 +14,8 @@ import '../../css/wallpaper.css.js';
 import '../../common/icons.html.js';
 import '../../css/common.css.js';
 
-import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 import {assert} from 'chrome://resources/js/assert_ts.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {FilePath} from 'chrome://resources/mojo/mojo/public/mojom/base/file_path.mojom-webui.js';
 import {Url} from 'chrome://resources/mojo/url/mojom/url.mojom-webui.js';
 import {afterNextRender} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -29,7 +29,7 @@ import {getCountText, isImageDataUrl, isNonEmptyArray, isSelectionEvent} from '.
 import {DefaultImageSymbol, kDefaultImageSymbol, kMaximumLocalImagePreviews} from './constants.js';
 import {getLoadingPlaceholderAnimationDelay, getLoadingPlaceholders, getPathOrSymbol} from './utils.js';
 import {getTemplate} from './wallpaper_collections_element.html.js';
-import {initializeBackdropData} from './wallpaper_controller.js';
+import {fetchGooglePhotosEnabled, fetchLocalData, getDefaultImageThumbnail, initializeBackdropData} from './wallpaper_controller.js';
 import {WallpaperGridItemSelectedEvent} from './wallpaper_grid_item_element.js';
 import {getWallpaperProvider} from './wallpaper_interface_provider.js';
 
@@ -381,6 +381,14 @@ export class WallpaperCollections extends WithPersonalizationStore {
         'localImageData_', state => state.wallpaper.local.data);
     this.updateFromStore();
     initializeBackdropData(getWallpaperProvider(), this.getStore());
+    getDefaultImageThumbnail(getWallpaperProvider(), this.getStore());
+    fetchLocalData(getWallpaperProvider(), this.getStore());
+    window.addEventListener('focus', () => {
+      fetchLocalData(getWallpaperProvider(), this.getStore());
+    });
+    if (isGooglePhotosIntegrationEnabled()) {
+      fetchGooglePhotosEnabled(getWallpaperProvider(), this.getStore());
+    }
   }
 
   /**
@@ -648,6 +656,14 @@ export class WallpaperCollections extends WithPersonalizationStore {
 
   private getAriaIndex_(index: number): number {
     return index + 1;
+  }
+
+  private getOnlineTileSecondaryText_(item: Tile): string {
+    assert(this.isOnlineTile_(item), 'item must be online tile');
+    if (this.isTimeOfDayCollection_(item)) {
+      return loadTimeData.getString('timeOfDayWallpaperCollectionSublabel');
+    }
+    return item.count;
   }
 }
 

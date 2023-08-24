@@ -178,7 +178,8 @@ PermissionsManager* PermissionsManagerFactory::GetForBrowserContext(
 
 content::BrowserContext* PermissionsManagerFactory::GetBrowserContextToUse(
     content::BrowserContext* browser_context) const {
-  return ExtensionsBrowserClient::Get()->GetOriginalContext(browser_context);
+  return ExtensionsBrowserClient::Get()->GetContextRedirectedToOriginal(
+      browser_context, /*force_guest_profile=*/true);
 }
 
 KeyedService* PermissionsManagerFactory::BuildServiceInstanceFor(
@@ -750,6 +751,22 @@ PermissionsManager::GetRevokablePermissions(const Extension& extension) const {
   // considered unrevokable.
   return PermissionSet::CreateDifference(*current_granted_permissions,
                                          unrevokable_permissions);
+}
+
+std::unique_ptr<const PermissionSet>
+PermissionsManager::GetExtensionGrantedPermissions(
+    const Extension& extension) const {
+  // Some extensions such as policy installed extensions, have active
+  // permissions that are always granted and do not store their permissions in
+  // `GetGrantedPermissions()`. Instead, retrieve their permissions through
+  // their permissions data directly.
+  if (!CanAffectExtension(extension)) {
+    return extension.permissions_data()->active_permissions().Clone();
+  }
+
+  return HasWithheldHostPermissions(extension)
+             ? extension_prefs_->GetRuntimeGrantedPermissions(extension.id())
+             : extension_prefs_->GetGrantedPermissions(extension.id());
 }
 
 void PermissionsManager::NotifyExtensionPermissionsUpdated(

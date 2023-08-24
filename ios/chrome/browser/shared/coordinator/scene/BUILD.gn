@@ -3,15 +3,12 @@
 # found in the LICENSE file.
 
 source_set("scene_state_observer") {
-  configs += [ "//build/config/compiler:enable_arc" ]
   sources = [ "scene_state_observer.h" ]
 
   frameworks = [ "UIKit.framework" ]
 }
 
 source_set("observing_scene_agent") {
-  configs += [ "//build/config/compiler:enable_arc" ]
-
   sources = [
     "observing_scene_state_agent.h",
     "observing_scene_state_agent.mm",
@@ -26,7 +23,6 @@ source_set("observing_scene_agent") {
 }
 
 source_set("scene_state_header") {
-  configs += [ "//build/config/compiler:enable_arc" ]
   sources = [
     "connection_information.h",
     "scene_controller.h",
@@ -51,7 +47,6 @@ source_set("scene_testing") {
 }
 
 source_set("scene") {
-  configs += [ "//build/config/compiler:enable_arc" ]
   sources = [
     "scene_controller.mm",
     "scene_delegate.h",
@@ -62,7 +57,6 @@ source_set("scene") {
   deps = [
     ":scene_state_browser_agent",
     "//base",
-    "//base/ios",
     "//components/autofill/core/browser",
     "//components/breadcrumbs/core",
     "//components/breadcrumbs/core:status",
@@ -101,7 +95,6 @@ source_set("scene") {
     "//ios/chrome/browser/main",
     "//ios/chrome/browser/ntp",
     "//ios/chrome/browser/ntp:features",
-    "//ios/chrome/browser/shared/model/paths",
     "//ios/chrome/browser/policy",
     "//ios/chrome/browser/policy:policy_util",
     "//ios/chrome/browser/promos_manager:factory",
@@ -114,12 +107,14 @@ source_set("scene") {
     "//ios/chrome/browser/shared/coordinator/layout_guide:layout_guide_scene_agent",
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/browser_state",
+    "//ios/chrome/browser/shared/model/paths",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/url",
     "//ios/chrome/browser/shared/model/url:constants",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands:commands",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/public/features:system_flags",
     "//ios/chrome/browser/shared/ui/util",
     "//ios/chrome/browser/signin",
     "//ios/chrome/browser/signin:capabilities_types",
@@ -155,7 +150,6 @@ source_set("scene") {
     "//ios/chrome/browser/ui/start_surface:feature_flags",
     "//ios/chrome/browser/ui/tab_switcher:tab_utils",
     "//ios/chrome/browser/ui/tab_switcher/tab_grid",
-    "//ios/chrome/browser/ui/thumb_strip:feature_flags",
     "//ios/chrome/browser/ui/whats_new/promo",
     "//ios/chrome/browser/url_loading",
     "//ios/chrome/browser/web:page_placeholder",
@@ -168,6 +162,7 @@ source_set("scene") {
     "//ios/public/provider/chrome/browser/ui_utils:ui_utils_api",
     "//ios/public/provider/chrome/browser/user_feedback:user_feedback_api",
     "//ios/third_party/material_components_ios",
+    "//ios/web/common:features",
     "//ui/base:base",
   ]
   public_deps = [ ":scene_state_header" ]
@@ -180,7 +175,6 @@ source_set("scene") {
 }
 
 source_set("scene_state_browser_agent") {
-  configs += [ "//build/config/compiler:enable_arc" ]
   sources = [
     "scene_state_browser_agent.h",
     "scene_state_browser_agent.mm",
@@ -191,7 +185,6 @@ source_set("scene_state_browser_agent") {
 }
 
 source_set("unit_tests") {
-  configs += [ "//build/config/compiler:enable_arc" ]
   testonly = true
   sources = [
     "scene_controller_unittest.mm",

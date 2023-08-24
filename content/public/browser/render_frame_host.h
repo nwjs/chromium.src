@@ -181,6 +181,11 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   ~RenderFrameHost() override = default;
 
+  // Returns the storage key for the last committed document in this
+  // RenderFrameHost. It is used for partitioning storage by the various
+  // storage APIs.
+  virtual const blink::StorageKey& GetStorageKey() const = 0;
+
   // Returns the route id for this frame.
   virtual int GetRoutingID() const = 0;
 
@@ -950,6 +955,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // fenced frames is the same as the id for the outermost main frame. For
   // portals, this id for frames inside a portal is the same as the id for the
   // main frame for the portal.
+  // Should not be called while prerendering as our data collection policy
+  // disallow recording UKMs until the page activation.
+  // See //content/browser/preloading/prerender/README.md#ukm-source-ids for
+  // more details to record UKMS for prerendering.
   virtual ukm::SourceId GetPageUkmSourceId() = 0;
 
   // Report an inspector issue to devtools. Note that the issue is stored on the
@@ -1033,6 +1042,14 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // a CookieSettingOverrides pertaining to the last committed document in the
   // frame. Can only be called on a frame with a committed navigation.
   virtual net::CookieSettingOverrides GetCookieSettingOverrides() = 0;
+
+  // Whether a same-site navigation that happens when this RenderFrameHost is
+  // the current RenderFrameHost should initiate a RenderFrameHost change, due
+  // to RenderDocument. the result may differ depending on whether the
+  // RenderFrameHost is a main/local root/non-local-root frame, whether it has
+  // committed any navigations or not, and whether it's a crashed frame that
+  // must be replaced or not.
+  virtual bool ShouldChangeRenderFrameHostOnSameSiteNavigation() const = 0;
 
  private:
   // This interface should only be implemented inside content.

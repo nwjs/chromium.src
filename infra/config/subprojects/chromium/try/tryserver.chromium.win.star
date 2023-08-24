@@ -5,7 +5,7 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
-load("//lib/builders.star", "os", "reclient")
+load("//lib/builders.star", "os", "reclient", "siso")
 load("//lib/try.star", "try_")
 load("//lib/consoles.star", "consoles")
 
@@ -23,6 +23,9 @@ try_.defaults.set(
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
+    siso_enable_cloud_profiler = True,
+    siso_enable_cloud_trace = True,
+    siso_project = siso.project.DEFAULT_UNTRUSTED,
 )
 
 consoles.list_view(
@@ -40,7 +43,7 @@ try_.builder(
     mirrors = [
         "ci/win-asan",
     ],
-    execution_timeout = 6 * time.hour,
+    execution_timeout = 9 * time.hour,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
 )
 
@@ -80,10 +83,11 @@ try_.orchestrator_builder(
             condition = builder_config.rts_condition.QUICK_RUN_ONLY,
         ),
     ),
-    compilator = "win-rel-compilator",
-    # TODO (crbug.com/1413505) - disabling due to high pending times. test
-    # history inaccuracies causing additional tests to be run.
+    # TODO(crbug.com/1456545) - _with_resultdb should be deprecated in favor for
+    # the original property once all builders have migrated.
     # check_for_flakiness = True,
+    check_for_flakiness_with_resultdb = True,
+    compilator = "win-rel-compilator",
     coverage_test_types = ["unit", "overall"],
     experiments = {
         "chromium_rts.inverted_rts": 100,
@@ -101,10 +105,61 @@ try_.orchestrator_builder(
 try_.compilator_builder(
     name = "win-rel-compilator",
     branch_selector = branches.selector.WINDOWS_BRANCHES,
-    check_for_flakiness = True,
+    # TODO(crbug.com/1456545) - _with_resultdb should be deprecated in favor for
+    # the original property once all builders have migrated.
+    # check_for_flakiness = True,
+    check_for_flakiness_with_resultdb = True,
     # TODO (crbug.com/1245171): Revert when root issue is fixed
     grace_period = 4 * time.minute,
     main_list_view = "try",
+)
+
+# TODO(b/277863839): remove Siso experimental builders after migrate
+# win-rel to Siso.
+try_.orchestrator_builder(
+    name = "win-siso-rel",
+    mirrors = [
+        "ci/Win x64 Builder",
+        "ci/Win10 Tests x64",
+        "ci/GPU Win x64 Builder",
+        "ci/Win10 x64 Release (NVIDIA)",
+    ],
+    try_settings = builder_config.try_settings(
+        include_all_triggered_testers = True,
+        is_compile_only = True,
+        rts_config = builder_config.rts_config(
+            condition = builder_config.rts_condition.QUICK_RUN_ONLY,
+        ),
+    ),
+    # TODO(crbug.com/1456545) - _with_resultdb should be deprecated in favor for
+    # the original property once all builders have migrated.
+    # check_for_flakiness = True,
+    check_for_flakiness_with_resultdb = True,
+    compilator = "win-siso-rel-compilator",
+    coverage_test_types = ["unit", "overall"],
+    experiments = {
+        "chromium_rts.inverted_rts": 100,
+        # go/nplus1shardsproposal
+        "chromium.add_one_test_shard": 5,
+    },
+    main_list_view = "try",
+    tryjob = try_.job(
+        # TODO(b/277863839): increase percentage.
+        experiment_percentage = 20,
+    ),
+    use_clang_coverage = True,
+)
+
+try_.compilator_builder(
+    name = "win-siso-rel-compilator",
+    # TODO(crbug.com/1456545) - _with_resultdb should be deprecated in favor for
+    # the original property once all builders have migrated.
+    # check_for_flakiness = True,
+    check_for_flakiness_with_resultdb = True,
+    # TODO (crbug.com/1245171): Revert when root issue is fixed
+    grace_period = 4 * time.minute,
+    main_list_view = "try",
+    siso_enabled = True,
 )
 
 try_.builder(

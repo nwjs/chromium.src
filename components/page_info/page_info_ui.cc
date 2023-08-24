@@ -13,7 +13,6 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "components/content_settings/core/common/content_settings.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "components/page_info/core/features.h"
 #include "components/page_info/page_info.h"
 #include "components/page_info/page_info_ui_delegate.h"
@@ -30,6 +29,7 @@
 #include "ppapi/buildflags/buildflags.h"
 #include "services/device/public/cpp/device_features.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/l10n/time_format.h"
 #include "url/gurl.h"
 #if BUILDFLAG(IS_ANDROID)
 #include "components/resources/android/theme_resources.h"
@@ -369,8 +369,6 @@ std::u16string GetPermissionAskStateString(ContentSettingsType type) {
 
 }  // namespace
 
-PageInfoUI::CookieInfo::CookieInfo() : allowed(-1), blocked(-1) {}
-
 PageInfoUI::CookiesNewInfo::CookiesNewInfo() = default;
 
 PageInfoUI::CookiesNewInfo::~CookiesNewInfo() = default;
@@ -547,10 +545,7 @@ PageInfoUI::GetSecurityDescription(const IdentityInfo& identity_info) const {
 
           auto description = CreateSecurityDescription(
               SecuritySummaryColor::GREEN, IDS_PAGE_INFO_SECURE_SUMMARY,
-              base::FeatureList::IsEnabled(
-                  omnibox::kUpdatedConnectionSecurityIndicators)
-                  ? IDS_PAGE_INFO_SECURE_DETAILS_V2
-                  : IDS_PAGE_INFO_SECURE_DETAILS,
+              IDS_PAGE_INFO_SECURE_DETAILS,
               SecurityDescriptionType::CONNECTION);
           if (identity_info.identity_status ==
               PageInfo::SITE_IDENTITY_STATUS_ADMIN_PROVIDED_CERT) {
@@ -735,7 +730,25 @@ std::u16string PageInfoUI::PermissionMainPageStateToUIString(
     return PermissionStateToUIString(delegate, permission);
   }
 
-  return std::u16string();
+  if (permission.is_in_use) {
+    return l10n_util::GetStringUTF16(IDS_PAGE_INFO_PERMISSION_USING_NOW);
+  }
+
+  if (permission.setting != CONTENT_SETTING_ALLOW ||
+      permission.last_used == base::Time()) {
+    return std::u16string();
+  }
+
+  base::TimeDelta time_delta = base::Time::Now() - permission.last_used;
+  if (time_delta < base::Minutes(1)) {
+    return l10n_util::GetStringUTF16(IDS_PAGE_INFO_PERMISSION_RECENTLY_USED);
+  }
+
+  std::u16string used_time_string =
+      ui::TimeFormat::Simple(ui::TimeFormat::Format::FORMAT_DURATION,
+                             ui::TimeFormat::Length::LENGTH_LONG, time_delta);
+  return l10n_util::GetStringFUTF16(IDS_PAGE_INFO_PERMISSION_USED_TIME_AGO,
+                                    used_time_string);
 }
 
 // static

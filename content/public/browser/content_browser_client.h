@@ -32,7 +32,9 @@
 #include "content/public/browser/certificate_request_result_type.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/commit_deferring_condition.h"
+#include "content/public/browser/file_system_access_permission_context.h"
 #include "content/public/browser/generated_code_cache_settings.h"
+#include "content/public/browser/interest_group_api_operation.h"
 #include "content/public/browser/interest_group_manager.h"
 #include "content/public/browser/login_delegate.h"
 #include "content/public/browser/mojo_binder_policy_map.h"
@@ -64,6 +66,8 @@
 #include "third_party/blink/public/common/permissions_policy/permissions_policy.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "third_party/blink/public/mojom/browsing_topics/browsing_topics.mojom-forward.h"
+#include "third_party/blink/public/mojom/file_system_access/file_system_access_cloud_identifier.mojom-forward.h"
+#include "third_party/blink/public/mojom/file_system_access/file_system_access_error.mojom-forward.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom-forward.h"
 #include "ui/accessibility/ax_mode.h"
@@ -222,7 +226,9 @@ class NavigationHandle;
 class NavigationThrottle;
 class NavigationUIData;
 class PrefetchServiceDelegate;
+class PrerenderWebContentsDelegate;
 class PresentationObserver;
+class PrivateNetworkDeviceDelegate;
 class ReceiverPresentationServiceDelegate;
 class RenderFrameHost;
 class RenderProcessHost;
@@ -765,6 +771,14 @@ class CONTENT_EXPORT ContentBrowserClient {
       const GURL& scope,
       BrowserContext* browser_context);
 
+  // Returns true if the content layer should attempt to update the service
+  // worker associated with the given `scope`. This can return false if the
+  // service worker is tied to another service that handles the update flow
+  // (today, this is limited to extensions).
+  virtual bool ShouldTryToUpdateServiceWorkerRegistration(
+      const GURL& scope,
+      BrowserContext* browser_context);
+
   // Allows the embedder to enable process-wide blink features before starting a
   // service worker. This is similar to
   // `blink.mojom.CommitNavigationParams.force_enabled_origin_trials` but for
@@ -877,9 +891,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   // "1812:e, 00001800-0000-1000-8000-00805f9b34fb:w, ignored:1, alsoignored."
   virtual std::string GetWebBluetoothBlocklist();
 
-  // The possible operations performable by parties related to the Interest
-  // Group API.
-  enum class InterestGroupApiOperation { kJoin, kLeave, kUpdate, kSell, kBuy };
+  using InterestGroupApiOperation = content::InterestGroupApiOperation;
 
   // Returns whether |api_origin| on |top_frame_origin| can perform
   // |operation| within the interest group API.
@@ -1047,9 +1059,12 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Returns a callback that cancels the UI element corresponding to this
   // request. The callback should expect to be invoked on the UI thread. The
   // callback may be null. The callback is not required to be invoked.
-  //
-  // TODO(davidben): Move this hook to WebContentsDelegate.
+  // `web_contents` may be null if the requestor was called from something
+  // without an associated WebContents, like a service worker. In this case, UI
+  // should not be shown, but a certificate may still be provided (such as when
+  // the certificate is auto-selected by policy).
   virtual base::OnceClosure SelectClientCertificate(
+      BrowserContext* browser_context,
       WebContents* web_contents,
       net::SSLCertRequestInfo* cert_request_info,
       net::ClientCertIdentityList client_certs,
@@ -1151,6 +1166,9 @@ class CONTENT_EXPORT ContentBrowserClient {
 
   // Returns the path to the First-Party Sets directory.
   virtual base::FilePath GetFirstPartySetsDirectory();
+
+  // Returns the path to Local Traces directory.
+  virtual absl::optional<base::FilePath> GetLocalTracesDirectory();
 
   // Notification that a pepper plugin has just been spawned. This allows the
   // embedder to add filters onto the host to implement interfaces.
@@ -1964,6 +1982,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // Allows the embedder to provide an implementation of the WebUSB API.
   virtual UsbDelegate* GetUsbDelegate();
 
+  // Allows the embedder to provide an implementation of the Private Network
+  // Device API.
+  virtual PrivateNetworkDeviceDelegate* GetPrivateNetworkDeviceDelegate();
+
   // Allows the embedder to provide an implementation of the Local Font Access
   // API.
   virtual FontAccessDelegate* GetFontAccessDelegate();
@@ -2243,12 +2265,17 @@ class CONTENT_EXPORT ContentBrowserClient {
                                       const url::Origin& requesting_origin,
                                       const url::Origin& embedding_origin);
 
-  // Returns true if the site is allowed to use persistent media device IDs.
-  virtual bool ArePersistentMediaDeviceIDsAllowed(
-      content::BrowserContext* browser_context,
-      const GURL& scope,
+  // Returns via callback:
+  //  1. A boolean indicating whether persistent device IDs are allowed.
+  //  2. A salt for hashing media device IDs for the given storage key.
+  //  Ideally, the salt should be unique per `storage_key` and persistent if
+  //  cookie access is allowed for `site_for_cookies`. However the embedder is
+  //  free to return a salt that does not satisfy all these properties.
+  virtual void GetMediaDeviceIDSalt(
+      content::RenderFrameHost* rfh,
       const net::SiteForCookies& site_for_cookies,
-      const absl::optional<url::Origin>& top_frame_origin);
+      const blink::StorageKey& storage_key,
+      base::OnceCallback<void(bool, const std::string&)> callback);
 
   // Requests an SMS from |origin_list| from a remote device with telephony
   // capabilities, for example the user's mobile phone. Callbacks |callback|
@@ -2362,7 +2389,7 @@ class CONTENT_EXPORT ContentBrowserClient {
   //
   // |browser_context| must not be nullptr. Caller retains ownership.
   // |origin| is the origin of a navigation ready to commit.
-  virtual bool ShouldAllowInsecureLocalNetworkRequests(
+  virtual bool ShouldAllowInsecurePrivateNetworkRequests(
       BrowserContext* browser_context,
       const url::Origin& origin);
 
@@ -2406,9 +2433,10 @@ class CONTENT_EXPORT ContentBrowserClient {
   // status code.
   virtual bool HasErrorPage(int http_status_code);
 
-  // Creates a modal window that intermediates the exchange of ID tokens.
+  // Creates a controller that intermediates the exchange of ID tokens for the
+  // given |web_contents|.
   virtual std::unique_ptr<IdentityRequestDialogController>
-  CreateIdentityRequestDialogController();
+  CreateIdentityRequestDialogController(WebContents* web_contents);
 
   // Creates an mdoc provider to fetch mdocs from native apps.
   virtual std::unique_ptr<MDocProvider> CreateMDocProvider();
@@ -2433,6 +2461,11 @@ class CONTENT_EXPORT ContentBrowserClient {
   // to make prefetches.
   virtual std::unique_ptr<PrefetchServiceDelegate>
   CreatePrefetchServiceDelegate(BrowserContext* browser_context);
+
+  // Allows the embedder to provide a PrerenderWebContentsDelegate that will be
+  // used to start prerendering in a new WebContents (i.e. new tab).
+  virtual std::unique_ptr<PrerenderWebContentsDelegate>
+  CreatePrerenderWebContentsDelegate();
 
   // Returns true if find-in-page should be disabled for a given `origin`.
   virtual bool IsFindInPageDisabledForOrigin(const url::Origin& origin);
@@ -2549,6 +2582,20 @@ class CONTENT_EXPORT ContentBrowserClient {
       const net::SiteForCookies& site_for_cookies,
       const absl::optional<url::Origin>& top_frame_origin,
       const net::CookieSettingOverrides overrides);
+
+  // Callback will be called with either an error
+  // (!=`FileSystemAccessStatus::kOk`) or a list of cloud file handles as
+  // result.
+  using GetCloudIdentifiersCallback = base::OnceCallback<void(
+      blink::mojom::FileSystemAccessErrorPtr,
+      std::vector<blink::mojom::FileSystemAccessCloudIdentifierPtr>)>;
+
+  // Retrieve the identifiers the cloud storage providers use for a given
+  // file/directory.
+  virtual void GetCloudIdentifiers(
+      const storage::FileSystemURL& url,
+      FileSystemAccessPermissionContext::HandleType handle_type,
+      GetCloudIdentifiersCallback callback);
 };
 
 }  // namespace content

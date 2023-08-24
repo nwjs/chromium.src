@@ -131,7 +131,8 @@ void SafeBrowsingLoudErrorUI::PopulateStringsForHtml(
 
 void SafeBrowsingLoudErrorUI::HandleCommand(
     SecurityInterstitialCommand command) {
-  if (base::FeatureList::IsEnabled(safe_browsing::kAntiPhishingTelemetry)) {
+  if (base::FeatureList::IsEnabled(safe_browsing::kAntiPhishingTelemetry) ||
+      base::FeatureList::IsEnabled(safe_browsing::kRedWarningSurvey)) {
     UpdateInterstitialInteractionData(command);
   }
 
@@ -250,6 +251,7 @@ void SafeBrowsingLoudErrorUI::HandleCommand(
     case CMD_TEXT_FOUND:
     case CMD_TEXT_NOT_FOUND:
     case CMD_CLOSE_INTERSTITIAL_WITHOUT_UI:
+    case CMD_REQUEST_SITE_ACCESS_PERMISSION:
       break;
   }
 }

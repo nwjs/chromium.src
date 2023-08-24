@@ -25,7 +25,7 @@
 namespace floss {
 
 extern DEVICE_BLUETOOTH_EXPORT int kDBusTimeoutMs;
-extern DEVICE_BLUETOOTH_EXPORT int kAdapterPowerTimeoutMs;
+extern DEVICE_BLUETOOTH_EXPORT int kAdapterEnabledTimeoutMs;
 
 // TODO(b/189499077) - Expose via floss package
 extern DEVICE_BLUETOOTH_EXPORT const char kAdapterService[];
@@ -34,6 +34,7 @@ extern DEVICE_BLUETOOTH_EXPORT const char kManagerService[];
 extern DEVICE_BLUETOOTH_EXPORT const char kAdapterLoggingObjectFormat[];
 extern DEVICE_BLUETOOTH_EXPORT const char kAdapterObjectFormat[];
 extern DEVICE_BLUETOOTH_EXPORT const char kBatteryManagerObjectFormat[];
+extern DEVICE_BLUETOOTH_EXPORT const char kBluetoothTelephonyFormat[];
 extern DEVICE_BLUETOOTH_EXPORT const char kGattObjectFormat[];
 extern DEVICE_BLUETOOTH_EXPORT const char kManagerObject[];
 extern DEVICE_BLUETOOTH_EXPORT const char kMediaObjectFormat[];
@@ -42,6 +43,7 @@ extern DEVICE_BLUETOOTH_EXPORT const char kAdapterInterface[];
 extern DEVICE_BLUETOOTH_EXPORT const char kAdapterLoggingInterface[];
 extern DEVICE_BLUETOOTH_EXPORT const char kAdminInterface[];
 extern DEVICE_BLUETOOTH_EXPORT const char kBatteryManagerInterface[];
+extern DEVICE_BLUETOOTH_EXPORT const char kBluetoothTelephonyInterface[];
 extern DEVICE_BLUETOOTH_EXPORT const char kExperimentalInterface[];
 extern DEVICE_BLUETOOTH_EXPORT const char kGattInterface[];
 extern DEVICE_BLUETOOTH_EXPORT const char kManagerInterface[];
@@ -255,6 +257,10 @@ extern DEVICE_BLUETOOTH_EXPORT const char kGetBatteryInformation[];
 extern DEVICE_BLUETOOTH_EXPORT const char kOnBatteryInfoUpdated[];
 }  // namespace battery_manager
 
+namespace bluetooth_telephony {
+extern DEVICE_BLUETOOTH_EXPORT const char kSetPhoneOpsEnabled[];
+}  // namespace bluetooth_telephony
+
 namespace experimental {
 extern DEVICE_BLUETOOTH_EXPORT const char kSetLLPrivacy[];
 extern DEVICE_BLUETOOTH_EXPORT const char kSetDevCoredump[];
@@ -445,6 +451,7 @@ class DEVICE_BLUETOOTH_EXPORT FlossDBusClient {
     kJniEnvironmentError,
     kJniThreadAttachError,
     kWakelockError,
+    kTimeout,
   };
 
   enum class BluetoothTransport {
@@ -479,6 +486,9 @@ class DEVICE_BLUETOOTH_EXPORT FlossDBusClient {
 
   // Convert adapter number to battery_manager object path.
   static dbus::ObjectPath GenerateBatteryManagerPath(int adapter_index);
+
+  // Convert adapter number to bluetooth_telephony object path.
+  static dbus::ObjectPath GenerateBluetoothTelephonyPath(int adapter_index);
 
   // Convert adapter number to admin object path.
   static dbus::ObjectPath GenerateAdminPath(int adapter_index);

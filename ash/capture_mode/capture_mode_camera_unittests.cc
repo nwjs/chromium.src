@@ -1111,7 +1111,7 @@ TEST_F(CaptureModeCameraTest, MultiDisplayCameraPreviewWidgetBounds) {
 
   const gfx::Point point_in_second_display = gfx::Point(1000, 500);
   auto* event_generator = GetEventGenerator();
-  MoveMouseToAndUpdateCursorDisplay(point_in_second_display, event_generator);
+  event_generator->MoveMouseTo(point_in_second_display);
 
   // Start the capture session in the second display.
   auto* controller = StartCaptureSession(CaptureModeSource::kFullscreen,
@@ -1129,14 +1129,14 @@ TEST_F(CaptureModeCameraTest, MultiDisplayCameraPreviewWidgetBounds) {
 
   // Move the capture session to the primary display should move the camera
   // preview to the primary display as well.
-  MoveMouseToAndUpdateCursorDisplay(gfx::Point(10, 20), event_generator);
+  event_generator->MoveMouseTo(gfx::Point(10, 20));
   EXPECT_TRUE(gfx::Rect(0, 0, 800, 700)
                   .Contains(preview_widget->GetWindowBoundsInScreen()));
 
   // Move back to the second display, switch to `kRegion` and set the capture
   // region. The camera preview should be moved back to the second display and
   // inside the capture region.
-  MoveMouseToAndUpdateCursorDisplay(point_in_second_display, event_generator);
+  event_generator->MoveMouseTo(point_in_second_display);
   controller->SetSource(CaptureModeSource::kRegion);
   // The capture region set through `controller` is in root coordinate.
   const gfx::Rect capture_region(100, 0, 400, 550);
@@ -3258,7 +3258,7 @@ TEST_P(CaptureModeCameraPreviewTest, CameraPreviewDragToSnapOnMultipleDisplay) {
 
   const gfx::Point point_in_second_display = gfx::Point(1000, 500);
   auto* event_generator = GetEventGenerator();
-  MoveMouseToAndUpdateCursorDisplay(point_in_second_display, event_generator);
+  event_generator->MoveMouseTo(point_in_second_display);
 
   // Start capture mode on the second display.
   StartCaptureSessionWithParam();
@@ -3325,6 +3325,33 @@ TEST_P(CaptureModeCameraPreviewTest,
             preview_bounds_in_screen_before_drag);
   EXPECT_EQ(camera_controller->camera_preview_snap_position(),
             snap_position_before_drag);
+}
+
+// Tests that the bounds of the camera preview widget should always be
+// constrained by the capture mode confine bounds.
+TEST_P(CaptureModeCameraPreviewTest,
+       PreviewWidgetIsConstrainedByConfineBounds) {
+  StartCaptureSessionWithParam();
+  auto* camera_controller = GetCameraController();
+  AddDefaultCamera();
+  camera_controller->SetSelectedCamera(CameraId(kDefaultCameraModelId, 1));
+  auto* preview_widget = camera_controller->camera_preview_widget();
+  ASSERT_TRUE(preview_widget);
+
+  const auto confine_bounds = GetCaptureBoundsInScreen();
+
+  // Create an outsetted bounds to generate locations outside of the confine
+  // bounds.
+  gfx::Rect outer_rect = confine_bounds;
+  outer_rect.Inset(-20);
+
+  for (const auto& release_point :
+       {outer_rect.origin(), outer_rect.top_right(), outer_rect.bottom_left(),
+        outer_rect.bottom_right()}) {
+    DragPreviewToPoint(preview_widget, release_point);
+    EXPECT_TRUE(
+        confine_bounds.Contains(preview_widget->GetWindowBoundsInScreen()));
+  }
 }
 
 // Tests that dragging camera preview outside of the preview circle shouldn't
@@ -3514,7 +3541,7 @@ TEST_P(CaptureModeCameraPreviewTest, MultiDisplayResize) {
   // Put the cursor in the secondary display, and expect the session root to be
   // there.
   auto* event_generator = GetEventGenerator();
-  MoveMouseToAndUpdateCursorDisplay(gfx::Point(900, 500), event_generator);
+  event_generator->MoveMouseTo(gfx::Point(900, 500));
   StartCaptureSessionWithParam();
   auto* controller = CaptureModeController::Get();
   auto* session = controller->capture_mode_session();
@@ -3846,7 +3873,7 @@ TEST_P(CaptureModeCameraPreviewTest,
   // can stay in the same side with it when camera preview is collapsed,
   // otherwise, camera preview should be snapped to the other side of the
   // display.
-  UpdateDisplay("1366x700");
+  UpdateDisplay("1366x950");
 
   StartCaptureSessionWithParam();
   auto* camera_controller = GetCameraController();

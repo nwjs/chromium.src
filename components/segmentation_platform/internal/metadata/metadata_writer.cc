@@ -153,6 +153,10 @@ void MetadataWriter::AddOutputConfigForBinaryClassifier(
   binary_classifier->set_negative_label(negative_label);
 }
 
+void MetadataWriter::SetIgnorePreviousModelTTLInOutputConfig() {
+  metadata_->mutable_output_config()->set_ignore_previous_model_ttl(true);
+}
+
 void MetadataWriter::AddOutputConfigForMultiClassClassifier(
     const char* const* class_labels,
     size_t class_labels_length,
@@ -221,6 +225,15 @@ void MetadataWriter::AddDelayTrigger(uint64_t delay_sec) {
   auto* trigger = config->add_observation_trigger();
   trigger->set_delay_sec(delay_sec);
   config->set_decision_type(proto::TrainingOutputs::TriggerConfig::ONDEMAND);
+}
+
+void MetadataWriter::AddFromInputContext(const char* custom_input_name,
+                                         const char* additional_args_name) {
+  proto::CustomInput* custom_input = AddCustomInput(MetadataWriter::CustomInput{
+      .tensor_length = 1,
+      .fill_policy = proto::CustomInput::FILL_FROM_INPUT_CONTEXT,
+      .name = custom_input_name});
+  (*custom_input->mutable_additional_args())["name"] = additional_args_name;
 }
 
 }  // namespace segmentation_platform

@@ -47,7 +47,7 @@ void UpdateMargins(int margins_type,
   }
 }
 
-void UpdatePageSizeAndScaling(const gfx::Size& page_size,
+void UpdatePageSizeAndScaling(const gfx::SizeF& page_size,
                               int scale_factor,
                               printing::mojom::PrintParams* params) {
   params->page_size = page_size;
@@ -56,15 +56,8 @@ void UpdatePageSizeAndScaling(const gfx::Size& page_size,
 
 }  // namespace
 
-MockPrinterPage::MockPrinterPage(const void* source_data,
-                                 uint32_t source_size,
-                                 const printing::Image& image)
-    : source_size_(source_size), image_(image) {
-  // Create copies of the source data
-  source_data_.reset(new uint8_t[source_size]);
-  if (source_data_.get())
-    memcpy(source_data_.get(), source_data, source_size);
-}
+MockPrinterPage::MockPrinterPage(const printing::Image& image)
+    : image_(image) {}
 
 MockPrinterPage::~MockPrinterPage() {
 }
@@ -160,7 +153,7 @@ void MockPrinter::ScriptedPrint(int cookie,
 void MockPrinter::UpdateSettings(printing::mojom::PrintPagesParams* params,
                                  const printing::PageRanges& pages,
                                  int margins_type,
-                                 const gfx::Size& page_size,
+                                 const gfx::SizeF& page_size,
                                  int scale_factor) {
   EXPECT_TRUE(document_cookie_.has_value());
 
@@ -208,8 +201,7 @@ void MockPrinter::PrintPage(printing::mojom::DidPrintDocumentParamsPtr params) {
 #endif
   metafile.InitFromData(mapping.GetMemoryAsSpan<const uint8_t>());
   printing::Image image(metafile);
-  pages_.push_back(base::MakeRefCounted<MockPrinterPage>(
-      mapping.memory(), mapping.size(), image));
+  pages_.push_back(base::MakeRefCounted<MockPrinterPage>(image));
 #endif
 
   // We finish printing a printing job.
@@ -251,28 +243,11 @@ bool MockPrinter::GetBitmapChecksum(unsigned int page,
   return true;
 }
 
-bool MockPrinter::SaveSource(unsigned int page,
-                             const base::FilePath& filepath) const {
-  if (printer_status_ != PRINTER_READY || page >= pages_.size())
-    return false;
-  base::WriteFile(filepath, base::make_span(pages_[page]->source_data(),
-                                            pages_[page]->source_size()));
-  return true;
-}
-
-bool MockPrinter::SaveBitmap(unsigned int page,
-                             const base::FilePath& filepath) const {
-  if (printer_status_ != PRINTER_READY || page >= pages_.size())
-    return false;
-
-  pages_[page]->image().SaveToPng(filepath);
-  return true;
-}
-
 void MockPrinter::CreateDocumentCookie() {
   EXPECT_FALSE(document_cookie_.has_value());
-  document_cookie_ =
-      use_invalid_settings_ ? 0 : printing::PrintSettings::NewCookie();
+  document_cookie_ = use_invalid_settings_
+                         ? printing::PrintSettings::NewInvalidCookie()
+                         : printing::PrintSettings::NewCookie();
 }
 
 void MockPrinter::SetPrintParams(printing::mojom::PrintParams* params) {

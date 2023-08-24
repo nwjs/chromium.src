@@ -16,10 +16,6 @@
 #include "base/strings/sys_string_conversions.h"
 #include "base/values.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 // The code here is unusually skeptical about the macOS APIs returning non-null
 // values. An earlier version was reverted due to crashing tests on bots running
 // older macOS versions. The DCHECKs are there to expedite debugging similar
@@ -64,21 +60,6 @@ class FontFamilyResolver {
             raw_descriptor, mandatory_attributes_.get()));
     return CopyLocalizedFamilyNameFrom(family_name,
                                        normalized_descriptors.get());
-  }
-
-  // True if the font should be hidden from Chrome.
-  //
-  // On macOS 10.15, CTFontManagerCopyAvailableFontFamilyNames() filters hidden
-  // fonts. This is not true on older version of macOS that Chrome still
-  // supports. The unittest FontTest.GetFontListDoesNotIncludeHiddenFonts can be
-  // used to determine when it's safe to slim down / remove this function.
-  static bool IsHiddenFontFamily(NSString* family_name) {
-    DCHECK(family_name != nullptr);
-    DCHECK_GT(family_name.length, 0u);
-
-    // macOS 10.13 includes names that start with . (period). These fonts should
-    // not be shown to users.
-    return [family_name characterAtIndex:0] == '.';
   }
 
  private:
@@ -215,10 +196,6 @@ base::Value::List GetFontList_SlowBlocking() {
       DCHECK(family_name != nil)
           << "CTFontManagerCopyAvailableFontFamilyNames returned an array with "
           << "a null element";
-
-      if (FontFamilyResolver::IsHiddenFontFamily(family_name)) {
-        continue;
-      }
 
       base::ScopedCFTypeRef<CFStringRef> cf_normalized_family_name =
           resolver.CopyLocalizedFamilyName(

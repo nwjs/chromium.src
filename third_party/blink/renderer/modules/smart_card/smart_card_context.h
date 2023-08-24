@@ -10,7 +10,6 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_smart_card_access_mode.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_smart_card_protocol.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
-#include "third_party/blink/renderer/core/dom/dom_high_res_time_stamp.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context_lifecycle_observer.h"
 #include "third_party/blink/renderer/platform/bindings/script_wrappable.h"
@@ -20,6 +19,9 @@ namespace blink {
 
 class ScriptPromiseResolver;
 class SmartCardReaderStateIn;
+
+class SmartCardGetStatusChangeOptions;
+class SmartCardConnectOptions;
 
 class SmartCardContext final : public ScriptWrappable,
                                public ExecutionContextClient {
@@ -36,26 +38,22 @@ class SmartCardContext final : public ScriptWrappable,
   ScriptPromise getStatusChange(
       ScriptState* script_state,
       const HeapVector<Member<SmartCardReaderStateIn>>& reader_states,
-      AbortSignal* signal,
+      SmartCardGetStatusChangeOptions* options,
       ExceptionState& exception_state);
 
   ScriptPromise connect(ScriptState* script_state,
                         const String& reader_name,
                         V8SmartCardAccessMode access_mode,
-                        const Vector<V8SmartCardProtocol>& preferred_protocols,
-                        ExceptionState& exception_state);
-
-  ScriptPromise connect(ScriptState* script_state,
-                        const String& reader_name,
-                        V8SmartCardAccessMode access_mode,
+                        SmartCardConnectOptions* options,
                         ExceptionState& exception_state);
 
   // ScriptWrappable overrides
   void Trace(Visitor*) const override;
 
- private:
-  class GetStatusChangeAbortAlgorithm;
+  // Called by SmartCardCancelAlgorithm
+  void Cancel();
 
+ private:
   void CloseMojoConnection();
   bool EnsureNoOperationInProgress(ExceptionState& exception_state) const;
   bool EnsureMojoConnection(ExceptionState& exception_state) const;
@@ -63,20 +61,16 @@ class SmartCardContext final : public ScriptWrappable,
                          device::mojom::blink::SmartCardListReadersResultPtr);
   void OnGetStatusChangeDone(
       ScriptPromiseResolver* resolver,
+      AbortSignal* signal,
+      AbortSignal::AlgorithmHandle* abort_handle,
       device::mojom::blink::SmartCardStatusChangeResultPtr result);
   void OnCancelDone(device::mojom::blink::SmartCardResultPtr result);
   void OnConnectDone(ScriptPromiseResolver* resolver,
                      device::mojom::blink::SmartCardConnectResultPtr result);
-  void AbortGetStatusChange();
-  void ResetAbortSignal();
 
   HeapMojoRemote<device::mojom::blink::SmartCardContext> scard_context_;
-  Member<ScriptPromiseResolver> list_readers_request_;
-  Member<ScriptPromiseResolver> connect_request_;
-
-  Member<AbortSignal> get_status_change_abort_signal_;
-  Member<AbortSignal::AlgorithmHandle> get_status_change_abort_handle_;
-  Member<ScriptPromiseResolver> get_status_change_request_;
+  // The currently ongoing request, if any.
+  Member<ScriptPromiseResolver> request_;
 };
 }  // namespace blink
 

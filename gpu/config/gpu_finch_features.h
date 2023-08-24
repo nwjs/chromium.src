@@ -28,6 +28,8 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kWebViewThreadSafeMediaDefault);
 GPU_EXPORT BASE_DECLARE_FEATURE(kIncreaseBufferCountForHighFrameRate);
 #endif  // BUILDFLAG(IS_ANDROID)
 
+GPU_EXPORT BASE_DECLARE_FEATURE(kAggressiveSkiaGpuResourcePurge);
+
 GPU_EXPORT BASE_DECLARE_FEATURE(kDefaultEnableGpuRasterization);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasOopRasterization);
@@ -39,6 +41,8 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kOzoneFrontBufferUsage);
 GPU_EXPORT BASE_DECLARE_FEATURE(kEnableMSAAOnNewIntelGPUs);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kDefaultEnableANGLEValidation);
+
+GPU_EXPORT BASE_DECLARE_FEATURE(kDisableSlowMSAAInGraphite);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kCanvasContextLostInBackground);
 
@@ -104,6 +108,10 @@ GPU_EXPORT BASE_DECLARE_FEATURE(kIncreasedCmdBufferParseSlice);
 GPU_EXPORT BASE_DECLARE_FEATURE(kPassthroughYuvRgbConversion);
 
 GPU_EXPORT BASE_DECLARE_FEATURE(kGpuCleanupInBackground);
+
+#if BUILDFLAG(IS_ANDROID)
+GPU_EXPORT BASE_DECLARE_FEATURE(kCmdDecoderSkipGLRedMesaWorkaroundOnAndroid);
+#endif
 
 GPU_EXPORT bool UseGles2ForOopR();
 GPU_EXPORT bool IsUsingVulkan();

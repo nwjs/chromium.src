@@ -67,6 +67,7 @@
 #include "third_party/blink/renderer/platform/instrumentation/tracing/traced_value.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "ui/gfx/geometry/quad_f.h"
+#include "ui/gfx/geometry/size_conversions.h"
 
 namespace blink {
 
@@ -101,7 +102,6 @@ class HitTestLatencyRecorder {
 LayoutView::LayoutView(ContainerNode* document)
     : LayoutBlockFlow(document),
       frame_view_(To<Document>(document)->View()),
-      layout_quote_head_(nullptr),
       layout_counter_count_(0),
       hit_test_count_(0),
       hit_test_cache_hits_(0),
@@ -128,7 +128,6 @@ LayoutView::~LayoutView() = default;
 void LayoutView::Trace(Visitor* visitor) const {
   visitor->Trace(frame_view_);
   visitor->Trace(fragmentation_context_);
-  visitor->Trace(layout_quote_head_);
   visitor->Trace(svg_text_descendants_);
   visitor->Trace(hit_test_cache_);
   LayoutBlockFlow::Trace(visitor);
@@ -233,28 +232,15 @@ void LayoutView::ClearHitTestCache() {
     object->View()->ClearHitTestCache();
 }
 
-void LayoutView::ComputeLogicalHeight(
-    LayoutUnit logical_height,
-    LayoutUnit,
-    LogicalExtentComputedValues& computed_values) const {
-  NOT_DESTROYED();
-  computed_values.extent_ = LayoutUnit(ViewLogicalHeightForBoxSizing());
-}
-
 LayoutUnit LayoutView::ComputeMinimumWidth() {
-  if (!RuntimeEnabledFeatures::RemoveLegacySizeComputationEnabled()) {
-    return PreferredLogicalWidths().min_size;
-  }
   const ComputedStyle& style = StyleRef();
   WritingMode mode = style.GetWritingMode();
   NGConstraintSpaceBuilder builder(mode, style.GetWritingDirection(),
                                    /* is_new_fc */ true);
-  LayoutUnit min = NGBlockNode(this)
-                       .ComputeMinMaxSizes(mode, MinMaxSizesType::kIntrinsic,
-                                           builder.ToConstraintSpace())
-                       .sizes.min_size;
-  DCHECK_EQ(min, PreferredLogicalWidths().min_size);
-  return min;
+  return NGBlockNode(this)
+      .ComputeMinMaxSizes(mode, MinMaxSizesType::kIntrinsic,
+                          builder.ToConstraintSpace())
+      .sizes.min_size;
 }
 
 void LayoutView::AddChild(LayoutObject* new_child, LayoutObject* before_child) {
@@ -381,8 +367,10 @@ void LayoutView::MapAncestorToLocal(const LayoutBoxModelObject* ancestor,
       DCHECK(!ancestor);
       // Note that MapLocalToRemoteMainFrame is correct here because
       // transform_state will be set to kUnapplyInverseTransformDirection.
-      if (mode & kApplyRemoteMainFrameTransform)
+      if ((mode & kApplyRemoteMainFrameTransform) &&
+          GetFrame()->IsLocalRoot()) {
         GetFrameView()->MapLocalToRemoteMainFrame(transform_state);
+      }
     }
   } else {
     DCHECK(this == ancestor || !ancestor);
@@ -406,12 +394,6 @@ LayoutViewTransitionRoot* LayoutView::GetViewTransitionRoot() const {
 }
 
 void LayoutView::Paint(const PaintInfo& paint_info) const {
-  NOT_DESTROYED();
-  NOTREACHED_NORETURN();
-}
-
-void LayoutView::PaintBoxDecorationBackground(const PaintInfo& paint_info,
-                                              const PhysicalOffset&) const {
   NOT_DESTROYED();
   NOTREACHED_NORETURN();
 }
@@ -483,11 +465,6 @@ bool LayoutView::MapToVisualRectInAncestorSpaceInternal(
 PhysicalOffset LayoutView::OffsetForFixedPosition() const {
   NOT_DESTROYED();
   return IsScrollContainer() ? ScrolledContentOffset() : PhysicalOffset();
-}
-
-PhysicalOffset LayoutView::PixelSnappedOffsetForFixedPosition() const {
-  NOT_DESTROYED();
-  return PhysicalOffset(ToFlooredPoint(OffsetForFixedPosition()));
 }
 
 void LayoutView::AbsoluteQuads(Vector<gfx::QuadF>& quads,
@@ -697,6 +674,30 @@ void LayoutView::CalculateScrollbarModes(
 #undef RETURN_SCROLLBAR_MODE
 }
 
+PhysicalSize LayoutView::PageAreaSize(wtf_size_t page_index,
+                                      const AtomicString& page_name) const {
+  NOT_DESTROYED();
+  scoped_refptr<const ComputedStyle> page_style =
+      GetDocument().StyleForPage(page_index, page_name);
+  WebPrintPageDescription description = default_page_description_;
+  GetDocument().GetPageDescription(*page_style, &description);
+
+  gfx::SizeF page_size(
+      std::max(.0f, description.size.width() -
+                        (description.margin_left + description.margin_right)),
+      std::max(.0f, description.size.height() -
+                        (description.margin_top + description.margin_bottom)));
+
+  page_size.Scale(page_scale_factor_);
+
+  // Round down to the nearest integer. Although layout itself could have
+  // handled subpixels just fine, the paint code cannot without bleeding across
+  // page boundaries. Furthermore, the printing code (outside Blink) also rounds
+  // down, which means that anything larger than that would end up getting
+  // clipped.
+  return PhysicalSize(gfx::ToFlooredSize(page_size));
+}
+
 PhysicalRect LayoutView::DocumentRect() const {
   NOT_DESTROYED();
   return FlipForWritingMode(LayoutOverflowRect());
@@ -705,8 +706,9 @@ PhysicalRect LayoutView::DocumentRect() const {
 gfx::Size LayoutView::GetLayoutSize(
     IncludeScrollbarsInRect scrollbar_inclusion) const {
   NOT_DESTROYED();
-  if (ShouldUsePrintingLayout())
-    return ToFlooredSize(page_size_);
+  if (ShouldUsePrintingLayout()) {
+    return ToFlooredSize(initial_containing_block_size_for_pagination_);
+  }
 
   if (!frame_view_)
     return gfx::Size();
@@ -735,8 +737,10 @@ int LayoutView::ViewLogicalHeight(
 
 LayoutUnit LayoutView::ViewLogicalHeightForPercentages() const {
   NOT_DESTROYED();
-  if (ShouldUsePrintingLayout())
-    return PageLogicalHeight();
+  if (ShouldUsePrintingLayout()) {
+    PhysicalSize size = initial_containing_block_size_for_pagination_;
+    return IsHorizontalWritingMode() ? size.height : size.width;
+  }
   return LayoutUnit(ViewLogicalHeight());
 }
 
@@ -791,12 +795,6 @@ bool LayoutView::BackgroundIsKnownToBeOpaqueInRect(const PhysicalRect&) const {
          frame_view_->BaseBackgroundColor().IsOpaque();
 }
 
-gfx::SizeF LayoutView::ViewportSizeForViewportUnits() const {
-  NOT_DESTROYED();
-  return GetFrameView() ? GetFrameView()->ViewportSizeForViewportUnits()
-                        : gfx::SizeF();
-}
-
 gfx::SizeF LayoutView::SmallViewportSizeForViewportUnits() const {
   NOT_DESTROYED();
   return GetFrameView() ? GetFrameView()->SmallViewportSizeForViewportUnits()
@@ -813,6 +811,17 @@ gfx::SizeF LayoutView::DynamicViewportSizeForViewportUnits() const {
   NOT_DESTROYED();
   return GetFrameView() ? GetFrameView()->DynamicViewportSizeForViewportUnits()
                         : gfx::SizeF();
+}
+
+gfx::SizeF LayoutView::DefaultPageAreaSize() const {
+  NOT_DESTROYED();
+  return gfx::SizeF(
+      std::max(.0f, default_page_description_.size.width() -
+                        (default_page_description_.margin_left +
+                         default_page_description_.margin_right)),
+      std::max(.0f, default_page_description_.size.height() -
+                        (default_page_description_.margin_top +
+                         default_page_description_.margin_bottom)));
 }
 
 void LayoutView::WillBeDestroyed() {

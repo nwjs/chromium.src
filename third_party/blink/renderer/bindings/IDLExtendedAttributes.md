@@ -771,7 +771,7 @@ Usage: `[Measure]` can be specified on interfaces, methods, attributes, and cons
 
 (_deprecated_) When specified on an interface usage of the constructor will be measured. This behavior could be changed in the future. Specify `[Measure]` on constructor operations instead.
 
-The generated feature name must be added to `WebFeature` (in [blink/public/mojom/web_feature/web_feature.mojom](https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/public/mojom/web_feature/web_feature.mojom)).
+The generated feature name must be added to `WebFeature` (in [blink/public/mojom/use_counter/metrics/web_feature.mojom](https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom)).
 
 ```webidl
 [Measure] attribute Node interestingAttribute;
@@ -788,7 +788,7 @@ Usage: `[MeasureAs]` can be specified on interfaces, methods, attributes, and co
 
 (_deprecated_) Specifying `[MeasureAs]` on interfaces is deprecated. Specify `[MeasureAs]` on constructor operations instead.
 
-The value must match one of the enumeration values in `WebFeature` (in [blink/public/mojom/web_feature/web_feature.mojom](https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/public/mojom/web_feature/web_feature.mojom)).
+The value must match one of the enumeration values in `WebFeature` (in [blink/public/mojom/use_counter/metrics/web_feature.mojom](https://source.chromium.org/chromium/chromium/src/+/master:third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom)).
 
 ```webidl
 [MeasureAs=AttributeWeAreInterestedIn] attribute Node interestingAttribute;
@@ -1194,7 +1194,7 @@ Usage: Applies to arguments of methods. See modules/webgl/WebGLRenderingContextB
 ### [IsolatedContext]
 
 Summary: Interfaces and interface members with a `IsolatedContext` extended attribute are exposed only inside isolated contexts.
-This attribute is primarily intended for Isolated Apps (see [explainer](https://github.com/reillyeon/isolated-web-apps)) with an option for the embedder to include their own additional scenarios.
+This attribute is primarily intended for Isolated Web Apps (see [explainer](https://github.com/WICG/isolated-web-apps)) with an option for the embedder to include their own additional scenarios.
 
 Note that it's likely for these requirements to shift over time: <https://crbug.com/1206150>.
 

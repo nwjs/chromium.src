@@ -212,10 +212,8 @@ base::trace_event::TraceConfig GetTracingConfig() {
 
 }  // namespace
 
-// static
 base::FilePath ArcGraphicsTracingHandler::GetModelPathFromTitle(
-    Profile* profile,
-    const std::string& title) {
+    std::string_view title) {
   constexpr size_t kMaxNameSize = 32;
   char normalized_name[kMaxNameSize];
   size_t index = 0;
@@ -231,10 +229,9 @@ base::FilePath ArcGraphicsTracingHandler::GetModelPathFromTitle(
       normalized_name[index++] = c;
   }
   normalized_name[index] = 0;
-  return file_manager::util::GetDownloadsFolderForProfile(profile).AppendASCII(
+  return GetDownloadsFolder().AppendASCII(
       base::StringPrintf("overview_tracing_%s_%" PRId64 ".json",
-                         normalized_name,
-                         (base::Time::Now() - base::Time()).InSeconds()));
+                         normalized_name, Now().since_origin().InSeconds()));
 }
 
 ArcGraphicsTracingHandler::ArcGraphicsTracingHandler()
@@ -289,10 +286,6 @@ void ArcGraphicsTracingHandler::OnWindowActivated(ActivationReason reason,
 
   // Limit tracing by newly activated window.
   tracing_time_min_ = TRACE_TIME_TICKS_NOW();
-}
-
-base::TimeDelta ArcGraphicsTracingHandler::GetMaxInterval() const {
-  return max_tracing_time_;
 }
 
 void ArcGraphicsTracingHandler::OnWindowPropertyChanged(aura::Window* window,
@@ -363,6 +356,15 @@ void ArcGraphicsTracingHandler::DiscardActiveArcWindow() {
   arc_active_window_ = nullptr;
 }
 
+base::Time ArcGraphicsTracingHandler::Now() {
+  return base::Time::Now();
+}
+
+base::FilePath ArcGraphicsTracingHandler::GetDownloadsFolder() {
+  return file_manager::util::GetDownloadsFolderForProfile(
+      Profile::FromWebUI(web_ui()));
+}
+
 void ArcGraphicsTracingHandler::Activate() {
   aura::Window* const window =
       web_ui()->GetWebContents()->GetTopLevelNativeWindow();
@@ -381,7 +383,7 @@ void ArcGraphicsTracingHandler::StartTracing() {
   if (jank_detector_)
     jank_detector_->Reset();
   system_stat_collector_ = std::make_unique<arc::ArcSystemStatCollector>();
-  system_stat_collector_->Start(GetMaxInterval());
+  system_stat_collector_->Start(max_tracing_time_);
 
   // Timestamp and app information would be updated when |OnTracingStarted| is
   // called.
@@ -448,9 +450,7 @@ void ArcGraphicsTracingHandler::OnTracingStopped(
   std::string string_data;
   string_data.swap(*trace_data);
 
-  Profile* const profile = Profile::FromWebUI(web_ui());
-  const base::FilePath model_path =
-      GetModelPathFromTitle(profile, active_task_title_);
+  const base::FilePath model_path = GetModelPathFromTitle(active_task_title_);
 
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::BEST_EFFORT},
@@ -475,14 +475,18 @@ void ArcGraphicsTracingHandler::OnGraphicsModelReady(
 
 void ArcGraphicsTracingHandler::HandleSetMaxTime(
     const base::Value::List& args) {
-  DCHECK_EQ(1U, args.size());
-
-  if (!args[0].is_int()) {
-    LOG(ERROR) << "Invalid input";
+  if (args.size() != 1) {
+    LOG(ERROR) << "Expect 1 numeric arg";
     return;
   }
-  max_tracing_time_ = base::Seconds(args[0].GetInt());
-  DCHECK_GE(max_tracing_time_, base::Seconds(1));
+
+  auto new_time = args[0].GetIfDouble();
+  if (!new_time.has_value() || *new_time < 1.0) {
+    LOG(ERROR) << "Interval too small or not a number: " << args[0];
+    return;
+  }
+
+  max_tracing_time_ = base::Seconds(*new_time);
 }
 
 void ArcGraphicsTracingHandler::HandleLoadFromText(

@@ -20,6 +20,7 @@
 #include "base/scoped_observation_traits.h"
 #include "base/sequence_checker.h"
 #include "base/supports_user_data.h"
+#include "base/uuid.h"
 #include "components/commerce/core/account_checker.h"
 #include "components/commerce/core/proto/commerce_subscription_db_content.pb.h"
 #include "components/commerce/core/subscriptions/commerce_subscription.h"
@@ -48,7 +49,7 @@ class SharedURLLoaderFactory;
 }  // namespace network
 
 namespace optimization_guide {
-class NewOptimizationGuideDecider;
+class OptimizationGuideDecider;
 class OptimizationMetadata;
 }  // namespace optimization_guide
 
@@ -231,7 +232,7 @@ using PriceInsightsInfoCallback =
 // A callback for getting updated ProductInfo for a bookmark. This provides the
 // bookmark ID being updated, the URL, and the product info.
 using BookmarkProductInfoUpdatedCallback = base::RepeatingCallback<
-    void(const int64_t, const GURL&, absl::optional<ProductInfo>)>;
+    void(const base::Uuid&, const GURL&, absl::optional<ProductInfo>)>;
 
 class ShoppingService : public KeyedService, public base::SupportsUserData {
  public:
@@ -239,7 +240,7 @@ class ShoppingService : public KeyedService, public base::SupportsUserData {
       const std::string& country_on_startup,
       const std::string& locale_on_startup,
       bookmarks::BookmarkModel* bookmark_model,
-      optimization_guide::NewOptimizationGuideDecider* opt_guide,
+      optimization_guide::OptimizationGuideDecider* opt_guide,
       PrefService* pref_service,
       signin::IdentityManager* identity_manager,
       syncer::SyncService* sync_service,
@@ -272,7 +273,7 @@ class ShoppingService : public KeyedService, public base::SupportsUserData {
   // repeating callback that provides the bookmark's ID, URL, and product info.
   // Currently this API should only be used in the BookmarkUpdateManager.
   virtual void GetUpdatedProductInfoForBookmarks(
-      const std::vector<int64_t>& bookmark_ids,
+      const std::vector<base::Uuid>& bookmark_uuids,
       BookmarkProductInfoUpdatedCallback info_updated_callback);
 
   // Gets the maximum number of bookmarks that the backend will retrieve per
@@ -459,7 +460,7 @@ class ShoppingService : public KeyedService, public base::SupportsUserData {
   // info.
   void OnProductInfoUpdatedOnDemand(
       BookmarkProductInfoUpdatedCallback callback,
-      std::unordered_map<std::string, int64_t> url_to_id_map,
+      std::unordered_map<std::string, base::Uuid> url_to_uuid_map,
       const GURL& url,
       const base::flat_map<
           optimization_guide::proto::OptimizationType,
@@ -541,7 +542,7 @@ class ShoppingService : public KeyedService, public base::SupportsUserData {
 
   // A handle to optimization guide for information about URLs that have
   // recently been navigated to.
-  raw_ptr<optimization_guide::NewOptimizationGuideDecider> opt_guide_;
+  raw_ptr<optimization_guide::OptimizationGuideDecider> opt_guide_;
 
   raw_ptr<PrefService> pref_service_;
 

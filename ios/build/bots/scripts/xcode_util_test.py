@@ -21,6 +21,9 @@ Build version 12D4e
 _XCODEBUILD_VERSION_OUTPUT_13 = b"""Xcode 13.0
 Build version 13A5155e
 """
+_XCODEBUILD_VERSION_OUTPUT_15 = b"""Xcode 15.0
+Build version 15A5209g
+"""
 
 
 class XcodeUtilTest(test_runner_test.TestCase):
@@ -43,6 +46,7 @@ class XcodeUtilTest(test_runner_test.TestCase):
     """Tests xcode_util.using_xcode_11_or_higher"""
     self.assertTrue(xcode_util.using_xcode_11_or_higher())
     self.assertFalse(xcode_util.using_xcode_13_or_higher())
+    self.assertFalse(xcode_util.using_xcode_15_or_higher())
 
   @mock.patch(
       'subprocess.check_output', return_value=_XCODEBUILD_VERSION_OUTPUT_13)
@@ -50,6 +54,15 @@ class XcodeUtilTest(test_runner_test.TestCase):
     """Tests xcode_util.using_xcode_13_or_higher"""
     self.assertTrue(xcode_util.using_xcode_11_or_higher())
     self.assertTrue(xcode_util.using_xcode_13_or_higher())
+    self.assertFalse(xcode_util.using_xcode_15_or_higher())
+
+  @mock.patch(
+      'subprocess.check_output', return_value=_XCODEBUILD_VERSION_OUTPUT_15)
+  def test_using_xcode_15(self, _):
+    """Tests xcode_util.using_xcode_13_or_higher"""
+    self.assertTrue(xcode_util.using_xcode_11_or_higher())
+    self.assertTrue(xcode_util.using_xcode_13_or_higher())
+    self.assertTrue(xcode_util.using_xcode_15_or_higher())
 
 
 class InstallTest(XcodeUtilTest):
@@ -257,7 +270,7 @@ class InstallTest(XcodeUtilTest):
                 mac_toolchain='mac_toolchain',
                 runtime_cache_folder='/path/to/runtime_cache_folder',
                 ios_version='15.0',
-            )
+                xcode_build_version='14a123')
 
     self.assertFalse(mock_delete_simulator_runtime_and_wait.called)
     self.assertFalse(mock__install_runtime_dmg.called)
@@ -278,11 +291,11 @@ class InstallTest(XcodeUtilTest):
                   mac_toolchain='mac_toolchain',
                   runtime_cache_folder='/path/to/runtime_cache_folder',
                   ios_version='15.0',
-              )
+                  xcode_build_version='15a123')
 
     mock_delete_simulator_runtime_and_wait.assert_called_once_with('15.0')
     mock__install_runtime_dmg.assert_called_once_with(
-        'mac_toolchain', '/path/to/runtime_cache_folder', '15.0')
+        'mac_toolchain', '/path/to/runtime_cache_folder', '15.0', '15a123')
     mock_add_simulator_runtime.assert_called_once_with(
         '/path/to/runtime_cache_folder/test.dmg')
 
@@ -665,11 +678,13 @@ class MacToolchainInvocationTests(XcodeUtilTest):
   @mock.patch('subprocess.check_call', autospec=True)
   def test_install_runtime_dmg(self, mock_check_output):
     xcode_util._install_runtime_dmg(self.mac_toolchain,
-                                    self.runtime_cache_folder, self.ios_version)
+                                    self.runtime_cache_folder, self.ios_version,
+                                    self.xcode_build_version)
 
     mock_check_output.assert_called_with([
         'mac_toolchain', 'install-runtime-dmg', '-runtime-version', 'ios-14-4',
-        '-output-dir', 'test/path/Runtime'
+        '-xcode-version', self.xcode_build_version, '-output-dir',
+        'test/path/Runtime'
     ],
                                          stderr=-2)
 

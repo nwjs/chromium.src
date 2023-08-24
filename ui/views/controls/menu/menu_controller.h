@@ -13,10 +13,10 @@
 #include <utility>
 #include <vector>
 
+#include "base/callback_list.h"
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/weak_auto_reset.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
@@ -101,6 +101,12 @@ class VIEWS_EXPORT MenuController
     kReadonly,
   };
 
+  // The direction in which a menu opens relative to its anchor.
+  enum class MenuOpenDirection {
+    kLeading,
+    kTrailing,
+  };
+
   // Callback that is used to pass events to an "annotation" bubble or widget,
   // such as a help bubble, that floats alongside the menu and acts as part of
   // the menu for event-handling purposes. These require special handling
@@ -117,8 +123,6 @@ class VIEWS_EXPORT MenuController
   // processed by the menu (except for purposes of e.g. hot-tracking).
   using AnnotationCallback =
       base::RepeatingCallback<bool(const ui::LocatedEvent& event)>;
-  using AnnotationCallbackHandle =
-      base::WeakAutoReset<MenuController, AnnotationCallback>;
 
   // If a menu is currently active, this returns the controller for it.
   static MenuController* GetActiveInstance();
@@ -283,10 +287,11 @@ class VIEWS_EXPORT MenuController
   // Sets the customized rounded corners of the context menu.
   void SetMenuRoundedCorners(absl::optional<gfx::RoundedCornersF> corners);
 
-  // Sets the annotation event handler. The handle should be discarded when the
-  // calling code no longer wants to intercept events for the annotation. It is
-  // safe to discard the handle after the menu controller has been destroyed.
-  AnnotationCallbackHandle SetAnnotationCallback(AnnotationCallback callback);
+  // Adds an annotation event handler. The subscription should be discarded when
+  // the calling code no longer wants to intercept events for the annotation. It
+  // is safe to discard the handle after the menu controller has been destroyed.
+  base::CallbackListSubscription AddAnnotationCallback(
+      AnnotationCallback callback);
 
  private:
   friend class internal::MenuRunnerImpl;
@@ -349,9 +354,6 @@ class VIEWS_EXPORT MenuController
 
     // Position of the initial menu.
     MenuAnchorPosition anchor = MenuAnchorPosition::kTopLeft;
-
-    // The direction child menus have opened in.
-    std::list<bool> open_leading;
 
     // Bounds for the monitor we're showing on.
     gfx::Rect monitor_bounds;
@@ -488,24 +490,26 @@ class VIEWS_EXPORT MenuController
   void StartCancelAllTimer();
   void StopCancelAllTimer();
 
-  // Calculates the bounds of the menu to show. is_leading is set to match the
-  // direction the menu opened in. Also calculates anchor that system compositor
-  // can use to position the menu.
+  // Calculates the bounds of the menu to show. `resulting_direction` is set to
+  // match the direction the menu opened in. Also calculates anchor that system
+  // compositor can use to position the menu. Resulting menu bounds, and bounds
+  // set for the `anchor` are in screen coordinates.
   gfx::Rect CalculateMenuBounds(MenuItemView* item,
-                                bool prefer_leading,
-                                bool* is_leading,
+                                MenuOpenDirection preferred_open_direction,
+                                MenuOpenDirection* resulting_direction,
                                 ui::OwnedWindowAnchor* anchor);
 
-  // Calculates the bubble bounds of the menu to show. is_leading is set to
-  // match the direction the menu opened in. Also calculates anchor that system
-  // compositor can use to position the menu.
+  // Calculates the bubble bounds of the menu to show. `resulting_direction` is
+  // set to match the direction the menu opened in. Also calculates anchor that
+  // system compositor can use to position the menu.
   // TODO(msisov): anchor.anchor_rect equals to returned rect at the moment as
   // bubble menu bounds are used only by ash, as its backend uses menu bounds
   // instead of anchor for positioning.
-  gfx::Rect CalculateBubbleMenuBounds(MenuItemView* item,
-                                      bool prefer_leading,
-                                      bool* is_leading,
-                                      ui::OwnedWindowAnchor* anchor);
+  gfx::Rect CalculateBubbleMenuBounds(
+      MenuItemView* item,
+      MenuOpenDirection preferred_open_direction,
+      MenuOpenDirection* resulting_direction,
+      ui::OwnedWindowAnchor* anchor);
 
   // Returns the depth of the menu.
   static size_t MenuDepth(MenuItemView* item);
@@ -569,7 +573,7 @@ class VIEWS_EXPORT MenuController
   void UpdateScrolling(const MenuPart& part);
 
   // Stops scrolling.
-  void StopScrolling();
+  void StopScrollingViaButton();
 
   // Updates active mouse view from the location of the event and sends it
   // the appropriate events. This is used to send mouse events to child views so
@@ -635,6 +639,14 @@ class VIEWS_EXPORT MenuController
   bool MaybeForwardToAnnotation(SubmenuView* source,
                                 const ui::LocatedEvent& event);
 
+  // Returns the direction in which the most recent child menu opened for a menu
+  // at the given `depth`.
+  MenuOpenDirection GetChildMenuOpenDirectionAtDepth(size_t depth) const;
+
+  // Updates the direction that a child menu opened in for a menu at `depth`.
+  void SetChildMenuOpenDirectionAtDepth(size_t depth,
+                                        MenuOpenDirection direction);
+
   // The active instance.
   static MenuController* active_instance_;
 
@@ -661,6 +673,13 @@ class VIEWS_EXPORT MenuController
   // user moves the mouse all submenus don't immediately pop.
   State pending_state_;
   State state_;
+
+  // The direction in which the most recent child menu opened for a menu at a
+  // given depth. The direction for a menu at depth N is stored at position N-1.
+  // This information is used as a hint when computing child menu bounds. The
+  // intention is to have child menus at a given depth open in the same
+  // direction if possible.
+  std::vector<MenuOpenDirection> child_menu_open_direction_;
 
   // If the user accepted the selection, this is the result.
   raw_ptr<MenuItemView> result_ = nullptr;
@@ -726,8 +745,8 @@ class VIEWS_EXPORT MenuController
   // If true, we're in the middle of invoking ShowAt on a submenu.
   bool showing_submenu_ = false;
 
-  // Task for scrolling the menu. If non-null indicates a scroll is currently
-  // underway.
+  // Task for scrolling the menu via scroll button. If non-null, indicates a
+  // scroll is currently underway.
   std::unique_ptr<MenuScrollTask> scroll_task_;
 
   // The lock to keep the menu button pressed while a menu is visible.
@@ -799,9 +818,11 @@ class VIEWS_EXPORT MenuController
   // The rounded corners of the context menu.
   absl::optional<gfx::RoundedCornersF> rounded_corners_ = absl::nullopt;
 
-  // The current annotation callback. Set if there is a menu annotation; see
-  // `AnnotationCallback` for more information.
-  AnnotationCallback annotation_callback_;
+  // The current annotation callbacks. Callbacks will be wrapped in such a way
+  // that a callback list can be used, with the return value as an out
+  // parameter. See `AnnotationCallback` for more information.
+  base::RepeatingCallbackList<void(bool&, const ui::LocatedEvent& event)>
+      annotation_callbacks_;
 };
 
 }  // namespace views

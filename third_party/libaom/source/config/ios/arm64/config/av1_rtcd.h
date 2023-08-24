@@ -100,7 +100,24 @@ void aom_dist_wtd_comp_avg_upsampled_pred_c(MACROBLOCKD *xd, const struct AV1Com
                                                        const MV *const mv, uint8_t *comp_pred, const uint8_t *pred, int width,
                                                        int height, int subpel_x_q3, int subpel_y_q3, const uint8_t *ref,
                                                        int ref_stride, const DIST_WTD_COMP_PARAMS *jcp_param, int subpel_search);
-#define aom_dist_wtd_comp_avg_upsampled_pred aom_dist_wtd_comp_avg_upsampled_pred_c
+void aom_dist_wtd_comp_avg_upsampled_pred_neon(
+    MACROBLOCKD* xd,
+    const struct AV1Common* const cm,
+    int mi_row,
+    int mi_col,
+    const MV* const mv,
+    uint8_t* comp_pred,
+    const uint8_t* pred,
+    int width,
+    int height,
+    int subpel_x_q3,
+    int subpel_y_q3,
+    const uint8_t* ref,
+    int ref_stride,
+    const DIST_WTD_COMP_PARAMS* jcp_param,
+    int subpel_search);
+#define aom_dist_wtd_comp_avg_upsampled_pred \
+  aom_dist_wtd_comp_avg_upsampled_pred_neon
 
 void aom_quantize_b_helper_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const qm_val_t *qm_ptr, const qm_val_t *iqm_ptr, const int log_scale);
 void aom_quantize_b_helper_neon(const tran_low_t *coeff_ptr, intptr_t n_coeffs, const int16_t *zbin_ptr, const int16_t *round_ptr, const int16_t *quant_ptr, const int16_t *quant_shift_ptr, tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr, const int16_t *dequant_ptr, uint16_t *eob_ptr, const int16_t *scan, const int16_t *iscan, const qm_val_t *qm_ptr, const qm_val_t *iqm_ptr, const int log_scale);
@@ -142,9 +159,6 @@ void av1_build_compound_diffwtd_mask_c(uint8_t *mask, DIFFWTD_MASK_TYPE mask_typ
 void av1_build_compound_diffwtd_mask_d16_c(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const CONV_BUF_TYPE *src0, int src0_stride, const CONV_BUF_TYPE *src1, int src1_stride, int h, int w, ConvolveParams *conv_params, int bd);
 void av1_build_compound_diffwtd_mask_d16_neon(uint8_t *mask, DIFFWTD_MASK_TYPE mask_type, const CONV_BUF_TYPE *src0, int src0_stride, const CONV_BUF_TYPE *src1, int src1_stride, int h, int w, ConvolveParams *conv_params, int bd);
 #define av1_build_compound_diffwtd_mask_d16 av1_build_compound_diffwtd_mask_d16_neon
-
-int64_t av1_calc_frame_error_c(const uint8_t *const ref, int stride, const uint8_t *const dst, int p_width, int p_height, int p_stride);
-#define av1_calc_frame_error av1_calc_frame_error_c
 
 void av1_calc_indices_dim1_c(const int16_t *data, const int16_t *centroids, uint8_t *indices, int64_t *total_dist, int n, int k);
 void av1_calc_indices_dim1_neon(const int16_t* data,
@@ -188,7 +202,42 @@ int av1_denoiser_filter_neon(const uint8_t *sig, int sig_stride, const uint8_t *
 
 void av1_dist_wtd_convolve_2d_c(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params);
 void av1_dist_wtd_convolve_2d_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params);
-#define av1_dist_wtd_convolve_2d av1_dist_wtd_convolve_2d_neon
+void av1_dist_wtd_convolve_2d_neon_dotprod(
+    const uint8_t* src,
+    int src_stride,
+    uint8_t* dst,
+    int dst_stride,
+    int w,
+    int h,
+    const InterpFilterParams* filter_params_x,
+    const InterpFilterParams* filter_params_y,
+    const int subpel_x_qn,
+    const int subpel_y_qn,
+    ConvolveParams* conv_params);
+void av1_dist_wtd_convolve_2d_neon_i8mm(
+    const uint8_t* src,
+    int src_stride,
+    uint8_t* dst,
+    int dst_stride,
+    int w,
+    int h,
+    const InterpFilterParams* filter_params_x,
+    const InterpFilterParams* filter_params_y,
+    const int subpel_x_qn,
+    const int subpel_y_qn,
+    ConvolveParams* conv_params);
+RTCD_EXTERN void (*av1_dist_wtd_convolve_2d)(
+    const uint8_t* src,
+    int src_stride,
+    uint8_t* dst,
+    int dst_stride,
+    int w,
+    int h,
+    const InterpFilterParams* filter_params_x,
+    const InterpFilterParams* filter_params_y,
+    const int subpel_x_qn,
+    const int subpel_y_qn,
+    ConvolveParams* conv_params);
 
 void av1_dist_wtd_convolve_2d_copy_c(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, ConvolveParams *conv_params);
 void av1_dist_wtd_convolve_2d_copy_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, ConvolveParams *conv_params);
@@ -196,7 +245,36 @@ void av1_dist_wtd_convolve_2d_copy_neon(const uint8_t *src, int src_stride, uint
 
 void av1_dist_wtd_convolve_x_c(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params);
 void av1_dist_wtd_convolve_x_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params);
-#define av1_dist_wtd_convolve_x av1_dist_wtd_convolve_x_neon
+void av1_dist_wtd_convolve_x_neon_dotprod(
+    const uint8_t* src,
+    int src_stride,
+    uint8_t* dst,
+    int dst_stride,
+    int w,
+    int h,
+    const InterpFilterParams* filter_params_x,
+    const int subpel_x_qn,
+    ConvolveParams* conv_params);
+void av1_dist_wtd_convolve_x_neon_i8mm(
+    const uint8_t* src,
+    int src_stride,
+    uint8_t* dst,
+    int dst_stride,
+    int w,
+    int h,
+    const InterpFilterParams* filter_params_x,
+    const int subpel_x_qn,
+    ConvolveParams* conv_params);
+RTCD_EXTERN void (*av1_dist_wtd_convolve_x)(
+    const uint8_t* src,
+    int src_stride,
+    uint8_t* dst,
+    int dst_stride,
+    int w,
+    int h,
+    const InterpFilterParams* filter_params_x,
+    const int subpel_x_qn,
+    ConvolveParams* conv_params);
 
 void av1_dist_wtd_convolve_y_c(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn, ConvolveParams *conv_params);
 void av1_dist_wtd_convolve_y_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn, ConvolveParams *conv_params);
@@ -285,7 +363,12 @@ void av1_fwht4x4_neon(const int16_t *input, tran_low_t *output, int stride);
 #define av1_fwht4x4 av1_fwht4x4_neon
 
 uint32_t av1_get_crc32c_value_c(void *crc_calculator, uint8_t *p, size_t length);
-#define av1_get_crc32c_value av1_get_crc32c_value_c
+uint32_t av1_get_crc32c_value_arm_crc32(void* crc_calculator,
+                                        uint8_t* p,
+                                        size_t length);
+RTCD_EXTERN uint32_t (*av1_get_crc32c_value)(void* crc_calculator,
+                                             uint8_t* p,
+                                             size_t length);
 
 void av1_get_horver_correlation_full_c( const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr);
 void av1_get_horver_correlation_full_neon( const int16_t *diff, int stride, int w, int h, float *hcorr, float *vcorr);
@@ -606,6 +689,24 @@ static void setup_rtcd_internal(void)
 
     (void)flags;
 
+    av1_dist_wtd_convolve_2d = av1_dist_wtd_convolve_2d_neon;
+    if (flags & HAS_NEON_DOTPROD) {
+      av1_dist_wtd_convolve_2d = av1_dist_wtd_convolve_2d_neon_dotprod;
+    }
+    if (flags & HAS_NEON_I8MM) {
+      av1_dist_wtd_convolve_2d = av1_dist_wtd_convolve_2d_neon_i8mm;
+    }
+    av1_dist_wtd_convolve_x = av1_dist_wtd_convolve_x_neon;
+    if (flags & HAS_NEON_DOTPROD) {
+      av1_dist_wtd_convolve_x = av1_dist_wtd_convolve_x_neon_dotprod;
+    }
+    if (flags & HAS_NEON_I8MM) {
+      av1_dist_wtd_convolve_x = av1_dist_wtd_convolve_x_neon_i8mm;
+    }
+    av1_get_crc32c_value = av1_get_crc32c_value_c;
+    if (flags & HAS_ARM_CRC32) {
+      av1_get_crc32c_value = av1_get_crc32c_value_arm_crc32;
+    }
 }
 #endif
 

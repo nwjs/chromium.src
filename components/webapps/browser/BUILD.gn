@@ -58,6 +58,9 @@ source_set("browser") {
     "//base",
     "//components/back_forward_cache",
     "//components/content_settings/core/browser",
+    "//components/favicon/content",
+    "//components/favicon/core",
+    "//components/favicon_base",
     "//components/password_manager/content/common",
     "//components/permissions",
     "//components/security_state/core",
@@ -127,9 +130,6 @@ source_set("browser") {
     deps += [
       "//base",
       "//components/dom_distiller/core",
-      "//components/favicon/content",
-      "//components/favicon/core",
-      "//components/favicon_base",
       "//components/feature_engagement",
       "//components/infobars/android",
       "//components/infobars/content",
@@ -157,10 +157,13 @@ source_set("test_support") {
   sources = [
     "installable/fake_installable_manager.cc",
     "installable/fake_installable_manager.h",
+    "test/service_worker_registration_waiter.cc",
+    "test/service_worker_registration_waiter.h",
   ]
   deps = [
     ":browser",
     "//base",
+    "//content/test:test_support",
     "//skia",
     "//third_party/blink/public/common:headers",
     "//third_party/blink/public/mojom:mojom_platform_headers",

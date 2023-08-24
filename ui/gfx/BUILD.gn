@@ -119,6 +119,7 @@ component("gfx") {
     "overlay_plane_data.h",
     "overlay_transform_utils.cc",
     "overlay_transform_utils.h",
+    "platform_font.cc",
     "platform_font.h",
     "scrollbar_size.cc",
     "scrollbar_size.h",
@@ -280,10 +281,6 @@ component("gfx") {
     "//build/config:precompiled_headers",
     "//build/config/compiler:wexit_time_destructors",
   ]
-
-  if (is_apple) {
-    configs += [ "//build/config/compiler:enable_arc" ]
-  }
 
   # This is part of the gfx component in the component build.
   defines = [ "GFX_IMPLEMENTATION" ]
@@ -483,7 +480,6 @@ component("color_space") {
       "CoreFoundation.framework",
       "CoreGraphics.framework",
     ]
-    configs += [ "//build/config/compiler:enable_arc" ]
     if (is_mac) {
       sources += [
         "mac/display_icc_profiles.cc",
@@ -714,7 +710,6 @@ static_library("test_support") {
   ]
   if (is_apple) {
     sources += [ "image/image_unittest_util_apple.mm" ]
-    configs += [ "//build/config/compiler:enable_arc" ]
   }
   if (use_fuzzing_engine) {
     sources += [
@@ -773,7 +768,6 @@ test("gfx_unittests") {
     sources += [ "font_fallback_linux_unittest.cc" ]
   }
   if (is_apple) {
-    configs += [ "//build/config/compiler:enable_arc" ]
     frameworks = [ "IOSurface.framework" ]
   }
   if (is_mac) {
@@ -861,6 +855,7 @@ test("gfx_unittests") {
       "selection_bound_unittest.cc",
       "selection_model_unittest.cc",
       "sequential_id_generator_unittest.cc",
+      "shadow_util_unittest.cc",
       "shadow_value_unittest.cc",
       "skbitmap_operations_unittest.cc",
       "skia_util_unittest.cc",

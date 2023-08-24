@@ -19,10 +19,6 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace base::mac {
 
 namespace {
@@ -95,6 +91,60 @@ TEST_F(MacUtilTest, TestGetAppBundlePath) {
   }
 }
 
+TEST_F(MacUtilTest, TestGetInnermostAppBundlePath) {
+  FilePath out;
+
+  // Make sure it doesn't crash.
+  out = GetInnermostAppBundlePath(FilePath());
+  EXPECT_TRUE(out.empty());
+
+  // Some more invalid inputs.
+  const char* const invalid_inputs[] = {
+      "/",
+      "/foo",
+      "foo",
+      "/foo/bar.",
+      "foo/bar.",
+      "/foo/bar./bazquux",
+      "foo/bar./bazquux",
+      "foo/.app",
+      "//foo",
+  };
+  for (size_t i = 0; i < std::size(invalid_inputs); i++) {
+    SCOPED_TRACE(testing::Message()
+                 << "case #" << i << ", input: " << invalid_inputs[i]);
+    out = GetInnermostAppBundlePath(FilePath(invalid_inputs[i]));
+    EXPECT_TRUE(out.empty());
+  }
+
+  // Some valid inputs; this and |expected_outputs| should be in sync.
+  struct {
+    const char* in;
+    const char* expected_out;
+  } valid_inputs[] = {
+      {"FooBar.app/", "FooBar.app"},
+      {"/FooBar.app", "/FooBar.app"},
+      {"/FooBar.app/", "/FooBar.app"},
+      {"//FooBar.app", "//FooBar.app"},
+      {"/Foo/Bar.app", "/Foo/Bar.app"},
+      {"/Foo/Bar.app/", "/Foo/Bar.app"},
+      {"/F/B.app", "/F/B.app"},
+      {"/F/B.app/", "/F/B.app"},
+      {"/Foo/Bar.app/baz", "/Foo/Bar.app"},
+      {"/Foo/Bar.app/baz/", "/Foo/Bar.app"},
+      {"/Foo/Bar.app/baz/quux.app/quuux", "/Foo/Bar.app/baz/quux.app"},
+      {"/Applications/Google Foo.app/bar/Foo Helper.app/quux/Foo Helper",
+       "/Applications/Google Foo.app/bar/Foo Helper.app"},
+  };
+  for (size_t i = 0; i < std::size(valid_inputs); i++) {
+    SCOPED_TRACE(testing::Message()
+                 << "case #" << i << ", input " << valid_inputs[i].in);
+    out = GetInnermostAppBundlePath(FilePath(valid_inputs[i].in));
+    EXPECT_FALSE(out.empty());
+    EXPECT_STREQ(valid_inputs[i].expected_out, out.value().c_str());
+  }
+}
+
 TEST_F(MacUtilTest, IsOSEllipsis) {
   int32_t major, minor, bugfix;
   base::SysInfo::OperatingSystemVersionNumbers(&major, &minor, &bugfix);
@@ -107,30 +157,15 @@ TEST_F(MacUtilTest, IsOSEllipsis) {
   // - FALSE/TRUE/FALSE (it is not the later version, it is "at most" the later
   //   version, it is not "at least" the later version)
 
-#define TEST_FOR_PAST_10_OS(V)      \
-  EXPECT_FALSE(IsOS10_##V());       \
-  EXPECT_FALSE(IsAtMostOS10_##V()); \
-  EXPECT_TRUE(IsAtLeastOS10_##V());
-
 #define TEST_FOR_PAST_OS(V)      \
   EXPECT_FALSE(IsOS##V());       \
   EXPECT_FALSE(IsAtMostOS##V()); \
   EXPECT_TRUE(IsAtLeastOS##V());
 
-#define TEST_FOR_SAME_10_OS(V)     \
-  EXPECT_TRUE(IsOS10_##V());       \
-  EXPECT_TRUE(IsAtMostOS10_##V()); \
-  EXPECT_TRUE(IsAtLeastOS10_##V());
-
 #define TEST_FOR_SAME_OS(V)     \
   EXPECT_TRUE(IsOS##V());       \
   EXPECT_TRUE(IsAtMostOS##V()); \
   EXPECT_TRUE(IsAtLeastOS##V());
-
-#define TEST_FOR_FUTURE_10_OS(V)   \
-  EXPECT_FALSE(IsOS10_##V());      \
-  EXPECT_TRUE(IsAtMostOS10_##V()); \
-  EXPECT_FALSE(IsAtLeastOS10_##V());
 
 #define TEST_FOR_FUTURE_OS(V)   \
   EXPECT_FALSE(IsOS##V());      \
@@ -138,94 +173,45 @@ TEST_F(MacUtilTest, IsOSEllipsis) {
   EXPECT_FALSE(IsAtLeastOS##V());
 
   if (major == 10) {
-    if (minor == 13) {
-      EXPECT_TRUE(IsOS10_13());
-      EXPECT_TRUE(IsAtMostOS10_13());
+    if (minor == 15) {
+      EXPECT_TRUE(IsOS10_15());
 
-      TEST_FOR_FUTURE_10_OS(14);
-      TEST_FOR_FUTURE_10_OS(15);
       TEST_FOR_FUTURE_OS(11);
       TEST_FOR_FUTURE_OS(12);
       TEST_FOR_FUTURE_OS(13);
       TEST_FOR_FUTURE_OS(14);
-
-      EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
-    } else if (minor == 14) {
-      EXPECT_FALSE(IsOS10_13());
-      EXPECT_FALSE(IsAtMostOS10_13());
-
-      TEST_FOR_SAME_10_OS(14);
-      TEST_FOR_FUTURE_10_OS(15);
-      TEST_FOR_FUTURE_OS(11);
-      TEST_FOR_FUTURE_OS(12);
-      TEST_FOR_FUTURE_OS(13);
-      TEST_FOR_FUTURE_OS(14);
-
-      EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
-    } else if (minor == 15) {
-      EXPECT_FALSE(IsOS10_13());
-      EXPECT_FALSE(IsAtMostOS10_13());
-
-      TEST_FOR_PAST_10_OS(14);
-      TEST_FOR_SAME_10_OS(15);
-      TEST_FOR_FUTURE_OS(11);
-      TEST_FOR_FUTURE_OS(12);
-      TEST_FOR_FUTURE_OS(13);
-      TEST_FOR_FUTURE_OS(14);
-
-      EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
     } else {
       // macOS 10.15 was the end of the line.
       FAIL() << "Unexpected 10.x macOS.";
     }
   } else if (major == 11) {
-    EXPECT_FALSE(IsOS10_13());
-    EXPECT_FALSE(IsAtMostOS10_13());
+    EXPECT_FALSE(IsOS10_15());
 
-    TEST_FOR_PAST_10_OS(14);
-    TEST_FOR_PAST_10_OS(15);
     TEST_FOR_SAME_OS(11);
     TEST_FOR_FUTURE_OS(12);
     TEST_FOR_FUTURE_OS(13);
     TEST_FOR_FUTURE_OS(14);
-
-    EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
   } else if (major == 12) {
-    EXPECT_FALSE(IsOS10_13());
-    EXPECT_FALSE(IsAtMostOS10_13());
+    EXPECT_FALSE(IsOS10_15());
 
-    TEST_FOR_PAST_10_OS(14);
-    TEST_FOR_PAST_10_OS(15);
     TEST_FOR_PAST_OS(11);
     TEST_FOR_SAME_OS(12);
     TEST_FOR_FUTURE_OS(13);
     TEST_FOR_FUTURE_OS(14);
-
-    EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
   } else if (major == 13) {
-    EXPECT_FALSE(IsOS10_13());
-    EXPECT_FALSE(IsAtMostOS10_13());
+    EXPECT_FALSE(IsOS10_15());
 
-    TEST_FOR_PAST_10_OS(14);
-    TEST_FOR_PAST_10_OS(15);
     TEST_FOR_PAST_OS(11);
     TEST_FOR_PAST_OS(12);
     TEST_FOR_SAME_OS(13);
     TEST_FOR_FUTURE_OS(14);
-
-    EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
   } else if (major == 14) {
-    EXPECT_FALSE(IsOS10_13());
-    EXPECT_FALSE(IsAtMostOS10_13());
+    EXPECT_FALSE(IsOS10_15());
 
-    TEST_FOR_PAST_10_OS(14);
-    TEST_FOR_PAST_10_OS(15);
     TEST_FOR_PAST_OS(11);
     TEST_FOR_PAST_OS(12);
     TEST_FOR_PAST_OS(13);
     TEST_FOR_SAME_OS(14);
-
-    EXPECT_FALSE(IsOSLaterThan14_DontCallThis());
   } else {
     // The spooky future.
     FAIL() << "Time to update the OS macros!";

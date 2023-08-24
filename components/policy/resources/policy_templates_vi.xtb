@@ -93,6 +93,10 @@ Nếu bạn đặt chính sách này thành Tắt, tính năng tự động sử
 <translation id="1063860513136880926">Nếu bạn đặt chính sách này thành Bật thì người dùng sẽ không thể dùng phím tắt hoặc API tiện ích để chụp ảnh màn hình. Nếu bạn đặt chính sách này thành Tắt hoặc không đặt thì người dùng có thể chụp ảnh màn hình.
 
 Xin lưu ý rằng chính sách này không ngăn người dùng chụp ảnh màn hình bằng hệ điều hành hoặc các ứng dụng của bên thứ ba trên <ph name="MS_WIN_NAME" />, <ph name="MAC_OS_NAME" /> và <ph name="LINUX_OS_NAME" />.</translation>
+<translation id="1065175969514496951">Việc đặt chính sách này sẽ cho phép truy cập vào các URL có trong danh sách trong quá trình xác thực (ví dụ như trên màn hình đăng nhập và màn hình khoá), với tư cách là các trường hợp ngoại lệ của <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" />. Hãy xem thông tin mô tả của chính sách đó để biết định dạng của các mục trong danh sách này. Ví dụ: Khi bạn đặt <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" /> thành <ph name="WILDCARD_VALUE" />, tất cả yêu cầu sẽ bị chặn và bạn có thể dùng chính sách này để cho phép truy cập vào một danh sách hạn chế gồm các URL. Hãy dùng danh sách này để mở các trường hợp ngoại lệ đối với một số phương pháp truy cập, miền con của các miền khác, cổng hoặc đường dẫn cụ thể theo định dạng được nêu tại (https://support.google.com/chrome/a?p=url_blocklist_filter_format). Bộ lọc cụ thể nhất sẽ xác định việc chặn hay cho phép URL. Chính sách <ph name="DEVICE_AUTHENTICATION_URL_ALLOWLIST_POLICY_NAME" /> sẽ được ưu tiên hơn chính sách <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" />. Chính sách này chỉ áp dụng cho 1.000 mục.
+
+Việc không đặt chính sách này sẽ không cho phép trường hợp ngoại lệ đối với <ph name="DEVICE_AUTHENTICATION_URL_BLOCKLIST_POLICY_NAME" />.</translation>
+<translation id="1068801725746725727">Cho phép nhận khảo sát về Duyệt web an toàn</translation>
 <translation id="1069489575852947981">Nếu bạn đặt thành Bật hoặc không đặt chính sách này, thì hệ thống sẽ thiết lập phiên tự động đăng nhập có độ trễ bằng 0 cho tài khoản trên thiết bị. <ph name="PRODUCT_OS_NAME" /> dùng phím tắt Ctrl+Alt+S để bỏ qua phiên tự động đăng nhập và hiển thị màn hình đăng nhập.
 
       Nếu bạn đặt chính sách này thành Tắt, người dùng sẽ không thể bỏ qua phiên tự động đăng nhập có độ trễ bằng 0 (nếu đã định cấu hình).</translation>
@@ -222,6 +226,7 @@ Xin lưu ý rằng chính sách này không ngăn người dùng chụp ảnh m�
 
       Nếu bạn đặt chính sách này thành False hoặc không đặt chính sách này, thì các trang web có thể sử dụng API WebGL và plugin có thể sử dụng API Pepper 3D. Tuy nhiên, tùy chọn cài đặt mặc định của trình duyệt có thể vẫn cần có đối số dòng lệnh để sử dụng các API này.</translation>
 <translation id="1198458955128279215">Sử dụng hành vi mặc định của kế hoạch ra mắt tính năng.</translation>
+<translation id="119943715168319757">Cài đặt MIDI</translation>
 <translation id="1202216683470826356">Hiển thị thẻ trên Trang thẻ mới</translation>
 <translation id="120314092766637918">Khi bạn bật hoặc không đặt chính sách này, thì <ph name="SAFE_BROWSING_PROTECTION_LEVEL_POLICY_NAME" /> sẽ kiểm soát việc chống lừa đảo phía máy khách cho <ph name="PRODUCT_NAME" />. Nếu bạn đặt <ph name="SAFE_BROWSING_PROTECTION_LEVEL_POLICY_NAME" /> thành <ph name="SAFE_BROWSING_PROTECTION_LEVEL_VALUE_STANDARD" /> hoặc <ph name="SAFE_BROWSING_PROTECTION_LEVEL_VALUE_ENHANCED" />, thì tính năng bảo vệ chống lừa đảo phía máy khách sẽ chạy mô hình cục bộ để kiểm tra xem một trang có phải là lừa đảo hay không. Nếu mô hình tin rằng trang đó là lừa đảo, <ph name="PRODUCT_NAME" /> sẽ gửi yêu cầu cho Google để có kết quả cuối cùng.
 Khi bạn tắt chính sách này, tính năng bảo vệ chống lừa đảo phía máy khách sẽ không thực hiện bất kỳ biện pháp bảo vệ nào và không gửi dữ liệu cho Google để có kết quả.</translation>
@@ -414,6 +419,7 @@ Chính sách này sẽ thay thế chính sách <ph name="DEFAULT_WINDOW_PLACEMEN
       "<ph name="RELOAD_PAGES_ACTION" />": tải lại tất cả trang web. Đối với một số trang, người dùng có thể được nhắc xác nhận trước.
 
       Việc đặt "<ph name="CLEAR_BROWSING_HISTORY_ACTION" />", "<ph name="CLEAR_PASSWORD_SIGNIN_ACTION" />", "<ph name="CLEAR_AUTOFILL_ACTION" />" và "<ph name="CLEAR_SITE_SETTINGS_ACTION" />" sẽ tắt tính năng đồng bộ hoá cho các loại dữ liệu tương ứng nếu "<ph name="CHROME_SYNC_NAME" />" không bị tắt bằng cách đặt chính sách <ph name="SYNC_DISABLED_POLICY_NAME" /> hoặc <ph name="BROWSER_SIGNIN_POLICY_NAME" /> không tắt.</translation>
+<translation id="1369698103169067223">Tiện ích xem nhanh không được bật cho người dùng.</translation>
 <translation id="1371626834351873151">Tính năng Giảm thiểu tác nhân người dùng sẽ được bật cho mọi bản dùng thử theo nguyên gốc.</translation>
 <translation id="1371851989348083665">Cho phép dùng <ph name="ASSISTANT_PRODUCT_NAME" /> trên web</translation>
 <translation id="1372618949173323717">Tắt JavaScript</translation>
@@ -434,6 +440,7 @@ Chính sách này sẽ thay thế chính sách <ph name="DEFAULT_WINDOW_PLACEMEN
           Giá trị danh sách chặn là "*" có nghĩa là tất cả tiện ích đều bị chặn trừ khi những tiện ích đó được liệt kê rõ ràng trong danh sách cho phép.
 
           Nếu bạn không đặt chính sách này, thì người dùng có thể cài đặt bất kỳ tiện ích nào trong <ph name="PRODUCT_NAME" />.</translation>
+<translation id="1392703142209771447">Biểu thức chính quy để so khớp với mã máy in.</translation>
 <translation id="1393485621820363363">Đã bật máy in kết nối với thiết bị dành cho doanh nghiệp</translation>
 <translation id="1395505489889158859">Cho phép gửi tên người dùng và tên tệp đến máy in gốc</translation>
 <translation id="1395988776118675626">Bật tính năng "Ghi nhớ mật khẩu" cho Kerberos</translation>
@@ -485,6 +492,7 @@ Nếu bạn tắt chính sách này, thì trang có tiêu đề <ph name="CACHE_
 
       Khi bạn không đặt hoặc đặt chính sách này thành tắt trong <ph name="PRODUCT_NAME" />, thì lựa chọn In dưới dạng hình ảnh sẽ không có sẵn cho người dùng trong phần Xem trước bản in, và các tệp PDF sẽ được in như bình thường mà không được tạo điểm ảnh thành một hình ảnh trước khi gửi đến máy in.</translation>
 <translation id="1435659902881071157">Cấu hình mạng ở mức thiết bị</translation>
+<translation id="143649776386947790">Sử dụng chế độ mặc định</translation>
 <translation id="1438739959477268107">Cài đặt tạo khóa mặc định</translation>
 <translation id="1440408958042020947">Cho phép người dùng đã chọn tham gia Trung tâm điều khiển điện thoại truy cập ảnh và video mới chụp/quay trên điện thoại của họ</translation>
 <translation id="1449083855104537880">Khi bạn đặt chính sách này thành True, các tùy chọn hỗ trợ tiếp cận sẽ hiển thị trong trình đơn ở khay hệ thống. Nếu bạn đặt chính sách này thành False, thì các tùy chọn sẽ không xuất hiện trong trình đơn.
@@ -561,6 +569,11 @@ Nếu bạn tắt chính sách này, thì việc cuộn trang web đến các ph
 
       Lưu ý: Hãy phân tách tên của các máy chủ bằng dấu phẩy. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />.</translation>
 <translation id="1488724823347505879">Bật tính năng chia sẻ dữ liệu của ứng dụng Android sang ứng dụng web</translation>
+<translation id="1490962807364514840">Chu kỳ thu thập từ xa của bộ đếm thời gian chạy CPU tính bằng mili giây.</translation>
+<translation id="1492223733885011596">Chính sách này cho phép bộ chọn biểu tượng cảm xúc hỗ trợ GIF trong <ph name="PRODUCT_OS_NAME" />.
+Nếu bạn đặt chính sách này thành Bật, thì bộ chọn biểu tượng cảm xúc sẽ hỗ trợ GIF biểu tượng cảm xúc.
+Nếu bạn đặt chính sách này thành Tắt hoặc không đặt, thì bộ chọn biểu tượng cảm xúc sẽ không hỗ trợ GIF biểu tượng cảm xúc.
+Nếu bạn không đặt chính sách này, thì bộ chọn biểu tượng cảm xúc sẽ được bật đối với người dùng thông thường nhưng bị tắt đối với người dùng được quản lý.</translation>
 <translation id="1494138678487405397">Tắt chế độ tương phản cao trên màn hình đăng nhập</translation>
 <translation id="1499129134689253257">Kiểm soát thao tác mới của <ph name="OFFSET_PARENT" /></translation>
 <translation id="1501644502684303995">Chỉ buộc đăng nhập trực tuyến trên màn hình đăng nhập</translation>
@@ -881,7 +894,6 @@ Trên <ph name="MS_WIN_NAME" />, chính sách này chỉ có trên các phiên b
 <translation id="1768225118528727376">Cấp quyền Quản lý cửa sổ trên những trang web này</translation>
 <translation id="1770071413238151235">Định dạng đồng hồ 12 giờ</translation>
 <translation id="1771024053220392089">Tắt tính năng Hỗ trợ trình duyệt cũ</translation>
-<translation id="1781225230395284182">Hiển thị hộp thoại huỷ khi beforeunload event.preventDefault() được gọi.</translation>
 <translation id="1781356041596378058">Chính sách này cũng kiểm soát quyền truy cập vào Tùy chọn của nhà phát triển Android. Nếu bạn đặt chính sách này thành true, người dùng sẽ không thể truy cập vào Tùy chọn của nhà phát triển. Nếu bạn đặt chính sách này thành false hoặc không đặt chính sách này thì người dùng có thể truy cập Tùy chọn của nhà phát triển bằng cách nhấn bảy lần trên số bản dựng trong ứng dụng cài đặt Android.</translation>
 <translation id="1787790976045065845">Chính sách này chỉ có hiệu lực khi bạn đặt chính sách <ph name="SECURITY_TOKEN_SESSION_BEHAVIOR_POLICY_NAME" /> thành <ph name="SECURITY_TOKEN_SESSION_BEHAVIOR_LOCK" /> hoặc <ph name="SECURITY_TOKEN_SESSION_BEHAVIOR_LOGOUT" /> và khi người dùng tháo thẻ thông minh mà họ dùng để xác thực. Khi đó, chính sách này sẽ chỉ rõ số giây hiển thị một thông báo cho người dùng biết về hành động sắp diễn ra. Thông báo này đang chặn màn hình. Hành động sẽ chỉ diễn ra sau khi thông báo này hết hạn. Người dùng có thể ngăn hành động diễn ra bằng cách lắp lại thẻ thông minh trước khi thông báo hết hạn. Nếu bạn đặt chính sách này thành 0, sẽ không có thông báo nào hiển thị và hành động sẽ diễn ra ngay lập tức.</translation>
 <translation id="1793346220873697538">Tắt tính năng in mã PIN theo mặc định</translation>
@@ -972,6 +984,7 @@ Khả năng sử dụng tiện ích vẫn chịu sự kiểm soát của các ch
 
           Chính sách này chỉ được tuân theo nếu kích hoạt chính sách 'DefaultSearchProviderEnabled'.</translation>
 <translation id="1850439894606905202">Theo mặc định, tài liệu được xếp vào các cụm tác nhân theo khoá trang web. document.domain sẽ vẫn thiết lập được.</translation>
+<translation id="1851034156561932736">Bật chuông báo khi sạc</translation>
 <translation id="1851282952069386119">Người dùng có thể chọn chia sẻ với Google các kết quả của lần làm sạch bằng tính năng Làm sạch Chrome</translation>
 <translation id="1852294065645015766">Cho phép tự động phát nội dung nghe nhìn</translation>
 <translation id="1855963029978337744">Nếu thiết lập chính sách này, bạn có thể liệt kê danh sách URL chỉ định những trang web được tự động cấp quyền truy cập vào thiết bị HID bằng mã nhà cung cấp và mã sản phẩm cụ thể. Mỗi mục trên danh sách này phải có cả trường <ph name="DEVICES_FIELD_NAME" /> lẫn trường <ph name="URLS_FIELD_NAME" /> thì mục đó mới hợp lệ, nếu không thì mục đó sẽ bị bỏ qua. Mỗi mục trong trường <ph name="DEVICES_FIELD_NAME" /> phải có <ph name="VENDOR_ID_FIELD_NAME" /> và có thể có trường <ph name="PRODUCT_ID_FIELD_NAME" />. Nếu bạn bỏ qua trường <ph name="PRODUCT_ID_FIELD_NAME" />, hệ thống sẽ tạo một chính sách áp dụng cho mọi thiết bị có mã nhà cung cấp đã chỉ định. Nếu một mục có trường <ph name="PRODUCT_ID_FIELD_NAME" /> mà không có trường <ph name="VENDOR_ID_FIELD_NAME" />, thì mục đó không hợp lệ và bị bỏ qua.
@@ -1091,6 +1104,7 @@ Trên <ph name="MS_WIN_NAME" />, chính sách này chỉ có trên các phiên b
 
       Nếu chính sách này được bật cùng với <ph name="DOWNLOAD_RESTRICTIONS_POLICY_NAME" /> và DownloadRestrictions được đặt để chặn loại tệp nguy hiểm, chế độ chặn tải xuống do DownloadRestrictions xác định sẽ được ưu tiên. Ví dụ: nếu chính sách này được đặt thành cho phép tải tiện ích "exe" xuống qua "website1.com" trong khi DownloadRestrictions được đặt thành chặn tệp tải xuống độc hại và loại tệp nguy hiểm, thì việc tải tiện ích "exe" xuống sẽ bị chặn trên mọi miền. Nếu DownloadRestrictions không được đặt để chặn loại tệp nguy hiểm, thì loại tệp chỉ định trong chính sách này sẽ được loại trừ khỏi cảnh báo tải xuống dựa trên tiện ích loại tệp trong các miền đã được chỉ định. Đọc thêm về DownloadRestrictions (https://chromeenterprise.google/policies/?policy=DownloadRestrictions).</translation>
 <translation id="1954612656043024615">Bật tính năng bảng nhớ tạm dùng chung</translation>
+<translation id="1955063069502242812">Bật chuông báo pin yếu</translation>
 <translation id="1960059835237529462">Cho phép người dùng thấy quảng cáo Xếp hạng <ph name="IOS_NAME" /> trong App Store</translation>
 <translation id="1960416154405676350">Bật tính năng tìm kiếm khu vực của <ph name="GOOGLE_LENS_PRODUCT_NAME" />.</translation>
 <translation id="1961091374249454164">Chính sách này chỉ áp dụng cho các phiên khách được quản lý.
@@ -1098,6 +1112,7 @@ Trên <ph name="MS_WIN_NAME" />, chính sách này chỉ có trên các phiên b
        Không đặt chính sách có nghĩa là không có tiện ích nào được miễn trừ khỏi quy trình đặt lại.</translation>
 <translation id="1962273523772270623">Cho phép thu thập nhật ký sự kiện WebRTC từ các dịch vụ của Google</translation>
 <translation id="1962864958436828230">Đặt giới hạn kích thước tối thiểu để ngăn chặn rò rỉ dữ liệu theo quy tắc hạn chế khay nhớ tạm</translation>
+<translation id="1964191545419036999">Thư viện (được hỗ trợ kể từ phiên bản 117)</translation>
 <translation id="1964634611280150550">Đã tắt chế độ ẩn danh</translation>
 <translation id="1964802606569741174">Chính sách này không ảnh hưởng đến ứng dụng YouTube trên Android. Nếu bị buộc phải sử dụng Chế độ an toàn trên YouTube thì việc cài đặt ứng dụng YouTube trên Android sẽ không được cho phép.</translation>
 <translation id="1964985353230379667">Chỉ định cấu hình <ph name="KRB5_CONFIG" /> đề xuất cho các phiếu yêu cầu hỗ trợ mới được tạo theo cách thủ công.
@@ -1146,6 +1161,11 @@ Trên <ph name="MS_WIN_NAME" />, chính sách này chỉ có trên các phiên b
       Nếu bạn không đặt chính sách này hoặc đặt chính sách thành false, thì thông tin này sẽ không được báo cáo.
       Nếu bạn đặt thành true, thì thông tin về múi giờ hiện đã đặt của thiết bị sẽ được báo cáo.</translation>
 <translation id="1990784382342293892">Chính sách này không còn được dùng nữa và không được hỗ trợ, vui lòng dùng chính sách "<ph name="NATIVE_MESSAGING_BLOCKLIST_POLICY_NAME" />".</translation>
+<translation id="1995744620192427843">Việc đặt chính sách này sẽ khiến những trang web có URL bị cấm không tải được trong quá trình xác thực người dùng (ví dụ như trên màn hình đăng nhập và màn hình khoá). Chính sách này cung cấp danh sách các mẫu URL chỉ định URL bị cấm. Nếu bạn không đặt chính sách này thì sẽ không có URL nào bị cấm trong quá trình xác thực. Hãy định dạng mẫu URL theo định dạng này (https://support.google.com/chrome/a?p=url_blocklist_filter_format). Bạn có thể xác định các trường hợp ngoại lệ đối với các mẫu này trong chính sách liên quan <ph name="DEVICE_AUTHENTICATION_URL_ALLOWLIST_POLICY_NAME" />.
+
+Cần có một số URL nhất định để xác thực thành công, bao gồm cả accounts.google.com. Vì vậy, bạn không nên chặn các URL đó nếu bắt buộc phải đăng nhập trực tuyến.
+
+Lưu ý: Chính sách này không áp dụng với URL JavaScript trong trang có dữ liệu được tải tự động. Nếu bạn đã chặn example.com/abc, thì example.com vẫn tải được URL đó qua XMLHTTPRequest.</translation>
 <translation id="199764499252435679">Cho phép cập nhật thành phần trong <ph name="PRODUCT_NAME" /></translation>
 <translation id="1997943707974344423">Cho phép sử dụng Smart Lock</translation>
 <translation id="1998504583649140526">Cài đặt yêu cầu mạng riêng</translation>
@@ -1157,13 +1177,6 @@ Trên <ph name="MS_WIN_NAME" />, chính sách này chỉ có trên các phiên b
 
       Nếu bạn thiết lập chính sách này, người dùng sẽ không thay đổi được. Nếu bạn không thiết lập chính sách này, thì tính năng đề xuất cụm từ tìm kiếm sẽ bật lúc đầu nhưng người dùng có thể tắt bất cứ lúc nào.</translation>
 <translation id="2000937390924915996">Không chạy chế độ tự động dọn dẹp ổ đĩa trong quá trình đăng nhập</translation>
-<translation id="2001420846508294174">Việc đặt chính sách này sẽ đặt các quy tắc để chọn máy in mặc định trong <ph name="PRODUCT_NAME" />, ghi đè các quy tắc mặc định. Máy in sẽ được chọn ngay trong lần đầu tiên người dùng cố gắng in, khi <ph name="PRODUCT_NAME" /> tìm kiếm một máy in phù hợp với các thuộc tính đã chỉ định. Trong trường hợp có một máy in hoàn toàn không phù hợp, <ph name="PRODUCT_NAME" /> có thể được đặt để chọn máy in phù hợp bất kỳ, tùy theo thứ tự tìm thấy máy in.
-
-      Nếu bạn không đặt chính sách này hoặc đặt thành các thuộc tính mà theo đó, không có máy in nào phù hợp, thì máy in tệp PDF tích hợp sẽ là máy in mặc định. Nếu không có máy in tệp PDF, <ph name="PRODUCT_NAME" /> sẽ đặt mặc định là không có.
-
-      Máy in đã kết nối với <ph name="CLOUD_PRINT_NAME" /> được coi là <ph name="PRINTER_TYPE_CLOUD" />, các máy in còn lại được phân loại là <ph name="PRINTER_TYPE_LOCAL" />.
-
-      Lưu ý: Việc bỏ qua một trường tức là mọi giá trị đều trùng khớp. Ví dụ: nếu bạn không chỉ định khả năng kết nối, chế độ Xem trước bản in sẽ bắt đầu tìm kiếm tất cả loại máy in, <ph name="PRINTER_TYPE_LOCAL" /> và <ph name="PRINTER_TYPE_CLOUD" />. Mẫu biểu thức chính quy phải tuân theo cú pháp JavaScript RegExp và kết quả trùng khớp có phân biệt chữ hoa/chữ thường.</translation>
 <translation id="2004382785802837840">Tắt chế độ đóng cảnh báo mật khẩu bị lộ</translation>
 <translation id="2005506794355327448">Hành động cần thực hiện khi đóng nắp</translation>
 <translation id="2006530844219044261">Quản lý nguồn</translation>
@@ -1379,6 +1392,7 @@ cho các tên máy chủ hoặc mẫu tên máy chủ cụ thể.</translation>
 <translation id="2178899310296064282">Buộc sử dụng ít nhất Chế độ hạn chế trung bình trên YouTube</translation>
 <translation id="2180958780733364832">Kiểm soát việc sử dụng Chế độ không có giao diện người dùng</translation>
 <translation id="2182291258410176649">Người dùng sẽ quyết định có bật tính năng sao lưu và khôi phục hay không</translation>
+<translation id="2183338188392346527">Không báo cáo bộ đếm thời gian chạy của thiết bị</translation>
 <translation id="219297066914002620">Hướng dẫn <ph name="PRODUCT_OS_NAME" /> bật hoặc tắt các công cụ trong bảng điều khiển quản lý máy ảo.
 
       Nếu bạn không đặt hoặc đặt chính sách này thành true, thì người dùng có thể sử dụng giao diện dòng lệnh (CLI) quản lý máy ảo (VM).
@@ -1439,6 +1453,11 @@ Nếu đặt chính sách này, thì bạn cần đặt chính sách <ph name="P
       Nếu bạn không đặt chính sách này, bất kỳ trình bổ trợ nào khớp với mẫu trong "DisabledPlugins" đều bị khóa ở trạng thái tắt và người dùng sẽ không thể bật được.</translation>
 <translation id="2236488539271255289">Không cho phép bất kỳ trang web nào lưu dữ liệu trên máy</translation>
 <translation id="2236593201136596376">Cho phép thu thập nhật ký văn bản WebRTC từ các Dịch vụ của Google</translation>
+<translation id="2237705286848619561">Nếu bạn bật chính sách này, các phiên hỗ trợ từ xa dành cho doanh nghiệp do quản trị viên khởi tạo sẽ cho phép chuyển tệp giữa ứng dụng và máy chủ.
+
+Chính sách này không ảnh hưởng đến các trường hợp truy cập từ xa.
+
+Nếu bạn không đặt chính sách này hoặc đặt thành Tắt, người dùng sẽ không thể chuyển tệp.</translation>
 <translation id="2241498944622759244">Tính năng này không bao giờ ra mắt nên chính sách đó không còn dùng nữa. Nếu bạn không đặt hoặc đặt chính sách này thành true, thì <ph name="PRODUCT_NAME" /> sẽ đề xuất các trang liên quan đến trang hiện tại.
       Hệ thống sẽ tìm nạp từ xa các nội dung đề xuất này từ các máy chủ của Google.
 
@@ -1463,6 +1482,7 @@ Nếu đặt chính sách này, thì bạn cần đặt chính sách <ph name="P
 <translation id="2269319728625047531">Cho phép hiển thị màn hình Đồng ý đồng bộ hóa trong khi đăng nhập</translation>
 <translation id="2270747976331889601">Bật tính năng bảo mật TLS 1.3 cho neo tin cậy cục bộ.</translation>
 <translation id="22754818344448444">Cho phép người dùng chọn một bố cục mẫu không gian làm việc để tải</translation>
+<translation id="2277117728011250860">Không cho phép sử dụng tính năng Lọc hiệu suất hỗ trợ tiếp cận.</translation>
 <translation id="2279381650184876122">Tắt tính năng Hỗ trợ URL dữ liệu trong SVGUseElement.</translation>
 <translation id="2281496157391382819"> Kiểm soát cảnh báo quyền riêng tư của phiên khách được quản lý trên <ph name="PRODUCT_OS_NAME" />.
 
@@ -1691,7 +1711,6 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
 <translation id="2467181864598429837">Hành vi mặc định của trình duyệt</translation>
 <translation id="2467896267442150508">Khoảng thời gian kéo dài tối đa 1 tuần. Nếu thời gian bắt đầu ở sau thời gian kết thúc, thì khoảng thời gian này sẽ kéo dài trong khoảng đó.</translation>
 <translation id="2476249479201711962">Bật quyền truy cập trình đơn theo bối cảnh của nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
-<translation id="247658312644322296">Đích 'Lưu dưới dạng PDF'</translation>
 <translation id="2478756867046106663">Cho phép trang web có trải nghiệm lừa gạt mở cửa sổ hoặc thẻ mới</translation>
 <translation id="2480971699591919564">Bật tính năng Nhấp để gọi. Tính năng này cho phép người dùng gửi số điện thoại từ Máy tính đang mở Chrome sang thiết bị Android khi người dùng đã đăng nhập. Để biết thêm thông tin, hãy xem bài viết trong trung tâm trợ giúp: https://support.google.com/chrome/answer/9430554?hl=vi.
 
@@ -1782,6 +1801,13 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
 
           Bạn phải chỉ định giá trị của chính sách bằng mili giây. Các giá trị được giới hạn ở mức nhỏ hơn hoặc bằng thời gian chờ khi ở chế độ tạm vắng.</translation>
 <translation id="2548572254685798999">Báo cáo thông tin Duyệt web an toàn</translation>
+<translation id="2549472870177108435">Việc đặt chính sách này sẽ đặt các quy tắc lựa chọn máy in mặc định trong <ph name="PRODUCT_NAME" />, ghi đè các quy tắc mặc định. Máy in sẽ được chọn ngay trong lần đầu tiên người dùng cố gắng in, khi <ph name="PRODUCT_NAME" /> tìm kiếm một máy in phù hợp với các thuộc tính đã chỉ định. Trong trường hợp có một máy in không hoàn toàn phù hợp, <ph name="PRODUCT_NAME" /> có thể được thiết lập để chọn máy in phù hợp bất kỳ, tuỳ theo thứ tự tìm thấy máy in.
+
+Nếu bạn không đặt chính sách này hoặc đặt thành các thuộc tính mà theo đó, không có máy in nào phù hợp, thì máy in tệp PDF tích hợp sẽ là máy in mặc định. Nếu không có máy in tệp PDF, <ph name="PRODUCT_NAME" /> sẽ đặt mặc định là không có.
+
+Hiện tại, tất cả máy in đều được phân loại là <ph name="PRINTER_TYPE_LOCAL" />. Máy in đã kết nối với <ph name="CLOUD_PRINT_NAME" /> được coi là <ph name="PRINTER_TYPE_CLOUD" />, nhưng <ph name="CLOUD_PRINT_NAME" /> không được hỗ trợ nữa.
+
+Lưu ý: Việc bạn bỏ qua một trường nghĩa là mọi giá trị đều khớp với trường cụ thể đó. Ví dụ: Nếu bạn không chỉ định idPattern thì tính năng Xem trước bản in sẽ chấp nhận mọi mã máy in. Mẫu biểu thức chính quy phải tuân theo cú pháp JavaScript RegExp và kết quả trùng khớp có phân biệt chữ hoa/chữ thường.</translation>
 <translation id="2550593661567988768">Chỉ in một mặt</translation>
 <translation id="2552318891854145040">Nếu bạn đặt chính sách này, thì danh sách dấu trang sẽ được thiết lập, trong đó mỗi dấu trang là một từ điển có khóa "<ph name="NAME" />" và "<ph name="URL_LABEL" />". Những khóa này lưu giữ tên và đích của dấu trang. Quản trị viên có thể thiết lập thư mục con bằng cách xác định một dấu trang không có khóa "<ph name="URL_LABEL" />" nhưng có khóa "<ph name="CHILDREN" />" bổ sung. Khóa này cũng có danh sách dấu trang và một số dấu trang trong đó cũng có thể là thư mục. Chrome sẽ sửa đổi các URL chưa hoàn chỉnh như thể các URL đó được gửi qua thanh địa chỉ. Ví dụ: "<ph name="GOOGLE_COM" />" trở thành "<ph name="HTTPS_GOOGLE_COM" />".
 
@@ -1840,6 +1866,7 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
 <translation id="2608887839902987727">Ngăn quá trình xác thực qua trang xác thực bỏ qua cài đặt proxy</translation>
 <translation id="2608985885792348429">Chế độ cài đặt bảng nhớ tạm mặc định</translation>
 <translation id="2615240493030733717">Báo cáo thông tin về múi giờ</translation>
+<translation id="2619258867868873629">Đích "Lưu dưới dạng PDF" cũng như đích "Lưu vào Google Drive" trên các thiết bị <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="2621290137818374425">Nếu bạn đặt chính sách này, hệ thống sẽ tắt các yêu cầu tiết lộ về Tính minh bạch của chứng chỉ cho các tên máy chủ trong URL đã chỉ định. Mặc dù điều này khiến việc phát hiện các chứng chỉ bị cấp sai trở nên khó khăn hơn nhưng máy chủ có thể tiếp tục sử dụng các chứng chỉ lẽ ra không được tin cậy (vì các chứng chỉ này không được tiết lộ công khai theo cách thích hợp).
 
       Không đặt chính sách này đồng nghĩa với việc nếu bạn không tiết lộ những chứng chỉ buộc phải tiết lộ thông qua Tính minh bạch của chứng chỉ thì <ph name="PRODUCT_NAME" /> sẽ không tin cậy những chứng chỉ đó.
@@ -1992,7 +2019,6 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="2787774054174244402">Nếu bạn đặt chính sách này thành True, thì người dùng sẽ không ghi được vào thiết bị lưu trữ bên ngoài.
 
       Nếu bạn không chặn bộ nhớ ngoài và đặt chính sách ExternalStorageReadOnly thành False hoặc không đặt chính sách này, thì người dùng có thể tạo hoặc sửa đổi tệp của thiết bị lưu trữ bên ngoài, có thể ghi được. (Bạn có thể chặn bộ nhớ ngoài bằng cách đặt chính sách ExternalStorageDisable thành True.)</translation>
-<translation id="2788443040242264100">Không hiển thị hộp thoại huỷ khi beforeunload event.preventDefault() được gọi.</translation>
 <translation id="2789742777235177478">Giới hạn thời gian mà người dùng xác thực qua GAIA nhưng không sử dụng SAML có thể đăng nhập ở chế độ ngoại tuyến trên màn hình khóa</translation>
 <translation id="2796714419743648316">Danh sách cho phép theo giới hạn thời gian cho mỗi ứng dụng</translation>
 <translation id="2801065672151277034">Các tùy chọn quản lý chứng chỉ</translation>
@@ -2051,6 +2077,7 @@ Chính sách <ph name="DEVICE_LOCAL_ACCOUNTS_POLICY_NAME" /> có thể ghi đè 
 <translation id="286898786908566256">Cho phép người dùng gửi số điện thoại từ Chrome đến thiết bị Android của họ</translation>
 <translation id="2872098849906555324">Tắt tính năng đồng bộ hoá Google Drive</translation>
 <translation id="2872961005593481000">Tắt</translation>
+<translation id="2872968825059227580">Tắt hỗ trợ GIF.</translation>
 <translation id="2874209944580848064">Lưu ý dành cho thiết bị <ph name="PRODUCT_OS_NAME" /> hỗ trợ ứng dụng Android:</translation>
 <translation id="287474029350993681">Tắt chính sách truyền nội dung tới thiết bị</translation>
 <translation id="2875192972412983412">Chỉ định tập hợp con các máy chủ máy in sẽ được truy vấn khi hệ thống tìm máy chủ máy in.
@@ -2171,6 +2198,7 @@ Chính sách <ph name="DEVICE_LOCAL_ACCOUNTS_POLICY_NAME" /> có thể ghi đè 
 <translation id="2959527429632925933">Nếu chính sách này không tồn tại (ví dụ: đối với người dùng không được quản lý), thì tính năng kết nối theo chiều đi từ máy khách qua SSH (Secure SHell) trong Ứng dụng hệ thống thiết bị đầu cuối sẽ bật (được đặt thành True theo mặc định).
       Nếu người dùng là người dùng được quản lý và bạn chưa thiết lập hoặc đã tắt chính sách này, thì tính năng đó sẽ bị tắt trong Thiết bị đầu cuối.
       Khi bạn bật chính sách này, người dùng được quản lý sẽ được phép tạo các đường kết nối theo chiều đi từ máy khách qua SSH trong Thiết bị đầu cuối.</translation>
+<translation id="2959737282368424062">Cho phép Native Client chạy</translation>
 <translation id="2959898425599642200">Quy tắc bỏ qua proxy</translation>
 <translation id="2960013482187484833">Dùng máy in được sử dụng gần đây nhất làm lựa chọn mặc định trong chế độ Xem trước bản in</translation>
 <translation id="2960128438010718932">Lịch trình thử nghiệm cho việc áp dụng bản cập nhật mới</translation>
@@ -2567,11 +2595,6 @@ Nếu bạn không đặt chính sách này, thì thao tác mới sẽ được 
 
       Bạn chỉ có thể đặt chính sách này thành chính sách người dùng trên đám mây.
       </translation>
-<translation id="3247992593782842520">Chính sách này cho phép quản trị viên định cấu hình danh sách mã nhận dạng tiện ích cần thiết để điều hướng ở Chế độ ẩn danh.
-
-Người dùng phải cho phép tất cả tiện ích trong danh sách này chạy ở Chế độ ẩn danh một cách rõ ràng, nếu không thì sẽ không được phép điều hướng ở Chế độ ẩn danh.
-
-Nếu không cài đặt một tiện ích được chỉ định trong chính sách này, thì người dùng sẽ bị chặn điều hướng ở Chế độ ẩn danh.</translation>
 <translation id="3248019773260441802">Cho phép trang hiện cửa sổ bật lên khi đang huỷ tải</translation>
 <translation id="3251500716404598358">Định cấu hình chính sách để chuyển đổi giữa các trình duyệt.
 
@@ -2596,6 +2619,7 @@ Nếu không cài đặt một tiện ích được chỉ định trong chính s
 <translation id="3278042410658310805">Tắt tính năng phản hồi bằng giọng nói trên màn hình đăng nhập và cho phép người dùng tạm thời bật tính năng này</translation>
 <translation id="328347261792478720">Theo mặc định, trình duyệt sẽ hiển thị các mục đề xuất nội dung nghe nhìn phù hợp với người dùng. Nếu bạn đặt chính sách này thành Tắt, thì các mục đề xuất này sẽ không hiển thị với người dùng. Nếu bạn không đặt hoặc đặt chính sách này thành Bật, thì các mục đề xuất nội dung nghe nhìn sẽ hiển thị cho người dùng.</translation>
 <translation id="3284094172359247914">Kiểm soát việc sử dụng API WebUSB</translation>
+<translation id="3284658508278342293">Cấp quyền sử dụng MIDI trên các trang web này</translation>
 <translation id="3286159327013237833">Bật tính năng tự động nhấp trên màn hình đăng nhập</translation>
 <translation id="3288595667065905535">Kênh phát hành</translation>
 <translation id="3294430356898755483">Nếu bạn đặt chính sách này, quản trị viên có thể thiết lập một danh sách máy in cho người dùng của họ. Máy in sẽ được chọn ngay trong lần đầu tiên người dùng cố gắng in.
@@ -3048,6 +3072,9 @@ Nếu mẫu URI chứa biến <ph name="HTTP_VARIABLE_DNS" />, thì các yêu c�
 
 Từ phiên bản 114 trở lên, bạn không bắt buộc phải đặt <ph name="DOH_SALT_POLICY_NAME" /> nếu đã đặt chính sách này.</translation>
 <translation id="3634125384445314047">Cho phép truy cập ảnh và video mới chụp/quay trên điện thoại thông qua Trung tâm điều khiển điện thoại.</translation>
+<translation id="3637063789824963261">Nếu bạn bật chính sách này, thì các thiết bị đã đăng ký sẽ báo cáo bộ đếm thời gian chạy của thiết bị (chỉ Intel vPro thế hệ 14 trở lên).
+
+Nếu bạn tắt hoặc không đặt chính sách này, thì các thiết bị đã đăng ký sẽ không ghi lại hoặc báo cáo bộ đếm thời gian chạy của thiết bị.</translation>
 <translation id="3642557248926713561">Không cho phép biện pháp bảo vệ tiện ích của tính năng Duyệt web an toàn</translation>
 <translation id="3644735978203799620">Cho phép tự động chọn để chụp ảnh nhiều màn hình</translation>
 <translation id="3646859102161347133">Đặt loại kính lúp màn hình</translation>
@@ -3066,6 +3093,11 @@ Từ phiên bản 114 trở lên, bạn không bắt buộc phải đặt <ph na
 
       Nếu bạn đặt chính sách này, người dùng sẽ không thể thay đổi được. Nếu bạn không đặt chính sách này, tính năng khởi động khi cắm nguồn AC sẽ tắt và người dùng sẽ không thể bật tính năng này.</translation>
 <translation id="3660562134618097814">Chuyển cookie SAML IdP trong khi đăng nhập</translation>
+<translation id="3661897198667953320">Thiết lập một danh sách mẫu URL trang web để chỉ định những trang web mà hệ thống sẽ tự động từ chối cấp quyền sử dụng MIDI. Khi bạn thiết lập danh sách này, các trang web sẽ không thể sử dụng thiết bị MIDI (chẳng hạn như bộ điều khiển nhạc và nhạc cụ).
+
+Để biết thông tin chi tiết về các mẫu URL trang web hợp lệ, vui lòng truy cập https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />. Chính sách này chỉ đối chiếu dựa trên nguồn gốc, nên mọi đường dẫn trong mẫu URL sẽ bị bỏ qua.
+
+Nếu bạn không đặt chính sách này cho một trang web, thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_MIDI_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), còn không thì quyền kiểm soát sẽ tuân theo chế độ mặc định của trình duyệt và cho phép người dùng chọn quyền này trên từng trang web.</translation>
 <translation id="3665437376055221832">Chỉ nhắc người dùng khi không có chứng chỉ nào khớp với chính sách tự động chọn.</translation>
 <translation id="3671773704245936868">Tắt tính năng làm nổi bật tiêu điểm bằng bàn phím</translation>
 <translation id="3674010627788940405">Không hỗ trợ các tiêu đề của yêu cầu không phải ký tự đại diện CORS.</translation>
@@ -3094,6 +3126,7 @@ Từ phiên bản 114 trở lên, bạn không bắt buộc phải đặt <ph na
       Nếu bạn không đặt chính sách này, <ph name="PRINTERS_ALLOW_ALL" /> sẽ được sử dụng.</translation>
 <translation id="3695204334462456702">Đích cho giao thức dựa trên Zeroconf (mDNS + DNS-SD) (Không dùng nữa)</translation>
 <translation id="3695706037816556327">Hành động xóa mã bảo mật (chẳng hạn như thẻ thông minh) của <ph name="PRODUCT_OS_NAME" />.</translation>
+<translation id="3696134803170884851">Tắt chuông báo khi sạc</translation>
 <translation id="3699986274986041335">Hỏi mỗi lần một trang web muốn có quyền Phông chữ trên máy</translation>
 <translation id="3700193037252896716">Tần suất khởi động lại định kỳ.</translation>
 <translation id="3700318587977845664">Tần suất kiểm tra để tìm bản cập nhật.</translation>
@@ -3250,6 +3283,11 @@ Chính sách này là giải pháp tạm thời và sẽ bị xoá ở một và
       Lưu ý: Các thông báo chính sách sẽ buộc làm mới khi chính sách này thay đổi nên không cần phải làm mới thường xuyên. Vì vậy, nếu nền tảng hỗ trợ các thông báo này, thời gian hoãn quá trình làm mới sẽ là 24 giờ (bỏ qua tùy chọn cài đặt mặc định và giá trị của chính sách này).</translation>
 <translation id="382476126209906314">Định cấu hình tiền tố TalkGadget cho máy chủ truy cập từ xa</translation>
 <translation id="3824972131618513497">Kiểm soát các tùy chọn cài đặt liên quan đến quản lý nguồn và khởi động lại.</translation>
+<translation id="3825313562760682300">Chính sách này cho phép quản trị viên chỉ định chế độ cài đặt cho các ứng dụng web đã cài đặt. Chính sách này liên kết một mã nhận dạng ứng dụng web với chế độ cài đặt cụ thể tương ứng. Bạn có thể đặt một cấu hình mặc định bằng mã đặc biệt <ph name="DEFAULT_SCOPE" />. Cấu hình này sẽ áp dụng cho tất cả ứng dụng web chưa đặt cấu hình tuỳ chỉnh trong chính sách này.
+
+Trường <ph name="MANIFEST_ID_FIELD" /> là mã nhận dạng tệp kê khai cho ứng dụng web. Hãy xem <ph name="WEB_APP_ID_REFERENCE_URL" /> để nắm được hướng dẫn về cách xác định mã nhận dạng tệp kê khai cho ứng dụng web đã được cài đặt.
+Trường <ph name="RUN_ON_OS_LOGIN_FIELD" /> cho biết ứng dụng web có thể hoạt động trong lúc đăng nhập vào hệ điều hành hay không. Nếu bạn đặt trường này thành <ph name="BLOCKED" />, ứng dụng web sẽ không chạy trong quá trình đăng nhập vào hệ điều hành và sau này, người dùng sẽ không thể bật ứng dụng này. Nếu bạn đặt trường này thành <ph name="RUN_WINDOWED" />, ứng dụng web sẽ chạy trong quá trình đăng nhập vào hệ điều hành và sau này, người dùng sẽ không thể tắt ứng dụng này. Nếu bạn đặt trường này thành <ph name="ALLOWED" />, người dùng sẽ có thể định cấu hình chạy ứng dụng web khi đăng nhập vào hệ điều hành. Cấu hình mặc định chỉ cho phép các giá trị <ph name="ALLOWED" /> và <ph name="BLOCKED" />.
+(Kể từ phiên bản 117) Trường <ph name="PREVENT_CLOSE_FIELD" /> chỉ định liệu một ứng dụng web có bị cấm đóng theo bất kỳ cách nào hay không (ví dụ: do người dùng, trình quản lý tác vụ, API web). Bạn chỉ có thể bật hành vi này nếu đặt <ph name="RUN_ON_OS_LOGIN_FIELD" /> thành <ph name="RUN_WINDOWED" />. Nếu ứng dụng đang chạy, thuộc tính này sẽ chỉ có hiệu lực sau khi khởi động lại ứng dụng. Nếu bạn không xác định trường này, người dùng có thể đóng ứng dụng.</translation>
 <translation id="3825873934240606959">Không cho phép tìm thiết bị cục bộ</translation>
 <translation id="3826475866868158882">Đã bật Dịch vụ vị trí của Google</translation>
 <translation id="3831376478177535007">Khi bạn bật cài đặt này, <ph name="PRODUCT_NAME" /> sẽ cho phép tin cậy các chứng chỉ do hoạt động của Cơ sở hạ tầng khóa công khai (PKI) cũ của Symantec Corporation phát hành nếu các chứng chỉ xác thực thành công và liên kết với một chứng chỉ CA được công nhận.
@@ -3493,6 +3531,13 @@ Chính sách này là giải pháp tạm thời và sẽ bị xoá ở một và
 <translation id="402759845255257575">Không cho phép bất kỳ trang web nào chạy JavaScript</translation>
 <translation id="4027608872760987929">Bật nhà cung cấp dịch vụ tìm kiếm mặc định</translation>
 <translation id="4030152268425532846">Tắt phím tắt bailout tự động đăng nhập</translation>
+<translation id="4039065751874009354">Chính sách này cho phép chọn tạm thời không sử dụng đối với hai bản sửa lỗi liên quan đến hành vi của hộp thoại xác nhận do sự kiện beforeunload hiển thị.
+Khi bạn Bật chính sách này, hộp thoại sẽ tuân theo hành vi mới và chính xác. Khi bạn Tắt chính sách này, hộp thoại sẽ tuân theo hành vi cũ và không được dùng nữa. Khi bạn không đặt chính sách này, hộp thoại sẽ tuân theo hành vi mặc định.
+Chính sách này chỉ là giải pháp tạm thời và sẽ sớm bị xoá.
+
+Hành vi mới và chính xác: Trong "beforeunload", lệnh gọi "event.preventDefault()" sẽ kích hoạt hộp thoại xác nhận. Nếu bạn đặt "event.returnValue" thành chuỗi trống, hộp thoại xác nhận sẽ không được kích hoạt.
+
+Hành vi cũ và không được dùng nữa: Trong "beforeunload", lệnh gọi "event.preventDefault()" sẽ không kích hoạt hộp thoại xác nhận. Nếu bạn đặt "event.returnValue" thành chuỗi trống, hộp thoại xác nhận sẽ được kích hoạt.</translation>
 <translation id="4043796890723386527">Ngăn người dùng tạo và sử dụng các hồ sơ phụ cũng như dùng chế độ khách trong trình duyệt <ph name="LACROS_NAME" /></translation>
 <translation id="4051723201852944592">Bật tính năng Che kín cửa sổ</translation>
 <translation id="4052529125939620019">Tải tiện ích thành phần CryptoToken khi khởi động</translation>
@@ -3586,6 +3631,9 @@ https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns. Chúng t�
 Nếu không đặt chính sách này, tất cả nguồn gốc sẽ yêu cầu cử chỉ trước đó của người dùng để gọi
 API này.</translation>
 <translation id="4115501011761259824">Bật First-Party Sets cho mọi người dùng trong phạm vi tác động</translation>
+<translation id="4120401094617902941">Chu kỳ lấy mẫu và thu thập từ bộ đếm thời gian chạy. Thời gian tối thiểu cho phép là 1 ngày.
+
+Nếu bạn không đặt chính sách này, thì chu kỳ mặc định là 1 ngày sẽ được áp dụng.</translation>
 <translation id="4121350739760194865">Chặn các quảng cáo ứng dụng xuất hiện trên trang thẻ mới</translation>
 <translation id="4122473079291425973">Trang thẻ mới sẽ hiển thị thẻ nếu có nội dung nhưng cho phép người dùng thay đổi tùy chọn cài đặt này</translation>
 <translation id="4122565688998751716">Chính sách này không còn dùng nữa, vui lòng sử dụng chính sách "<ph name="ALLOW_SYSTEM_NOTIFICATIONS_POLICY_NAME" />".
@@ -3747,6 +3795,7 @@ Lưu ý: Việc chặn các URL nội bộ chrome://* và chrome-untrusted://* c
 
       Khi bạn không đặt chính sách này, các trang web có thể yêu cầu quyền truy cập, nhưng người dùng có thể thay đổi tùy chọn cài đặt này.</translation>
 <translation id="4275048399551500192">Không hiện bộ điều khiển nội dung nghe nhìn cho các phiên <ph name="PRODUCT_NAME" /> do các thiết bị khác bắt đầu</translation>
+<translation id="4278656834593750050">Bật chuông báo khi sạc</translation>
 <translation id="4282243913059705499">Luôn hiển thị biểu tượng <ph name="PRODUCT_NAME" /> trên thanh công cụ</translation>
 <translation id="4285674129118156176">Cho phép người dùng không được liên kết sử dụng ARC</translation>
 <translation id="428948795004445932">Chu kỳ hệ thống lấy mẫu và thu thập dữ liệu mạng. Thời gian tối thiểu cho phép là 1 phút.
@@ -4061,6 +4110,7 @@ Nếu bạn không đặt hoặc để trống chính sách này thì sẽ khôn
 <translation id="4561560385824323005">Cho phép người dùng chọn một bố cục màn hình được thiết lập sẵn để tải</translation>
 <translation id="4561940244682063697">Không cho phép các trang web nhắc người dùng chia sẻ luồng video màn hình</translation>
 <translation id="4562165737444703281">Cho phép người dùng [bật/định cấu hình] dịch vụ chuyển tiếp cổng vào Crostini</translation>
+<translation id="456450545863578630">Bật chức năng chuyển tệp trong các kết nối hỗ trợ từ xa từ quản trị viên doanh nghiệp</translation>
 <translation id="456686782928669977">Chính sách này kiểm soát việc có tải các quy tắc từ chính sách SiteList của <ph name="IE_PRODUCT_NAME" /> hay không.
 
       Khi bạn đặt chính sách này thành true, <ph name="PRODUCT_NAME" /> sẽ đọc <ph name="IEEM_SITELIST_POLICY" /> của <ph name="IE_PRODUCT_NAME" /> để lấy URL của danh sách trang web. Khi đó, <ph name="PRODUCT_NAME" /> sẽ tải danh sách trang web xuống từ URL đó, rồi áp dụng các quy tắc như thể các quy tắc đó được định cấu hình bằng chính sách <ph name="BROWSER_SWITCHER_URL_LIST_POLICY_NAME" />.
@@ -4220,6 +4270,7 @@ Nếu bạn không đặt chính sách này, thì người dùng có thể thay 
 
       Chính sách này không còn dùng nữa, vui lòng sử dụng <ph name="EXTERNAL_PRINT_SERVERS_ALLOWLIST" />.</translation>
 <translation id="4668325077104657568">Cài đặt hình ảnh mặc định</translation>
+<translation id="4669083178278833688">Định cấu hình để tắt máy ảnh, các chế độ cài đặt của trình duyệt, các chế độ cài đặt của hệ điều hành, tính năng quét, cửa hàng trực tuyến, canvas, khám phá, crosh, các tính năng thư viện và terminal</translation>
 <translation id="4670865688564083639">Tối thiểu:</translation>
 <translation id="467236746355332046">Các tính năng được hỗ trợ:</translation>
 <translation id="4674167212832291997">Tùy chỉnh danh sách các mẫu URL sẽ luôn được <ph name="PRODUCT_FRAME_NAME" /> hiển thị.
@@ -4262,6 +4313,9 @@ Nếu bạn không đặt chính sách này, thì người dùng có thể thay 
 
       Nếu bạn không đặt chính sách này, giá trị mặc định chung sẽ được dùng cho tất cả trang web (không có quyền truy cập tự động).</translation>
 <translation id="471360812659157054">window.webkitStorageInfo sẽ không được cung cấp.</translation>
+<translation id="4714143485020697862">Nếu bạn đặt chính sách này, thì hệ thống sẽ loại trừ tất cả các loại dữ liệu đã chỉ định khỏi quá trình đồng bộ hoá của <ph name="CHROME_SYNC_NAME" /> cũng như quá trình đồng bộ hoá cấu hình chuyển vùng. Cách này có thể giúp giảm kích thước của cấu hình chuyển vùng hoặc giới hạn loại dữ liệu được tải lên Máy chủ <ph name="CHROME_SYNC_NAME" />.
+
+      Chính sách này hiện áp dụng cho các loại dữ liệu sau: "bookmarks", "readingList", "preferences", "passwords", "autofill", "themes", "typedUrls", "extensions", "apps", "tabs", "wifiConfigurations", "savedTabGroups". Tên của các loại dữ liệu đó phân biệt chữ hoa chữ thường!</translation>
 <translation id="4715773950737036924">Kiểm soát việc cung cấp tiện ích chưa phát hành trên Cửa hàng Chrome trực tuyến.</translation>
 <translation id="4722122254122249791">Bật chính sách Cô lập trang web cho các nguồn gốc đã xác định</translation>
 <translation id="4722761845551711583">Thiết lập khoảng thời gian hiển thị một hình ảnh (tính bằng giây) khi trình bảo vệ màn hình cho màn hình đăng nhập có nhiều hình ảnh cần hiển thị.
@@ -4279,6 +4333,7 @@ Chính sách này sẽ không có hiệu lực khi bạn đặt chính sách <ph
 <translation id="4735099388031364207">Việc đặt chính sách này thành Bật sẽ cho phép chứng thực từ xa đối với thiết bị này. Một chứng chỉ sẽ được tạo tự động và tải lên Máy chủ quản lý thiết bị.
 
       Nếu bạn đặt thành Tắt hoặc không đặt chính sách này, thì sẽ không có chứng chỉ nào được tạo và các lệnh gọi đến <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> sẽ không thực hiện được.</translation>
+<translation id="473613500147803115">Chặn quyền sử dụng MIDI trên các trang web này</translation>
 <translation id="473673197014866318">Nếu bạn đặt chính sách này, hệ thống sẽ kiểm soát các chế độ cài đặt quản lý tiện ích cho <ph name="PRODUCT_NAME" />, bao gồm cả những chế độ cài đặt chịu sự kiểm soát của các chính sách hiện có liên quan đến tiện ích. Chính sách này sẽ thay thế mọi chính sách cũ mà bạn có thể đã đặt.
 
 Chính sách này chỉ liên kết một mã tiện ích hoặc một URL cập nhật với chế độ cài đặt cụ thể tương ứng. Bạn có thể đặt cấu hình mặc định cho mã đặc biệt <ph name="DEFAULT_SCOPE" />. Cấu hình này sẽ áp dụng cho tất cả tiện ích chưa đặt cấu hình tuỳ chỉnh trong chính sách này. Với URL cập nhật, cấu hình sẽ áp dụng cho những tiện ích có URL cập nhật chính xác được nêu trong tệp kê khai của tiện ích đó (http://support.google.com/chrome/a?p=Configure_ExtensionSettings_policy). Nếu bạn đặt cờ "override_update_url" thành true, thì tiện ích đó sẽ được cài đặt và cập nhật bằng URL "cập nhật" được chỉ định trong chính sách <ph name="EXTENSION_INSTALL_FORCELIST_POLICY_NAME" /> hoặc trong trường "update_url" của chính sách này. Cờ "override_update_url" sẽ bị bỏ qua nếu "update_url" là một URL của Cửa hàng Chrome trực tuyến.
@@ -4360,6 +4415,8 @@ tức là một mô-đun xử lý âm thanh giúp loại bỏ âm thanh phát l�
 <translation id="4812714598405913256">Định cấu hình thông báo hết thời hạn tự động cập nhật cho chính sách DeviceMinimumVersion</translation>
 <translation id="4815581264328351694">Hiển thị các tuỳ chọn hỗ trợ tiếp cận trong trình đơn ở khay hệ thống</translation>
 <translation id="4816674326202173458">Cho phép người dùng doanh nghiệp trở thành người dùng vừa chính vừa phụ  (Hành vi mặc định cho người dùng không được quản lý)</translation>
+<translation id="4819906370830175867">Việc đặt chính sách này thành True (Đúng) sẽ cho phép Native Client tiếp tục chạy ngay cả khi chế độ mặc định là Native Client đã tắt.
+Nếu bạn đặt chính sách này thành False (Sai), thì chế độ mặc định sẽ được sử dụng.</translation>
 <translation id="4820432864264617413">Không cho phép một người dùng chạy <ph name="BOREALIS_NAME" /></translation>
 <translation id="4821987881803903281">Chặn quyền kiểm soát Vị trí cửa sổ trên những trang web này</translation>
 <translation id="4825777333376170738">Tắt tính năng báo cáo phiên kiosk của thiết bị</translation>
@@ -4449,6 +4506,7 @@ tức là một mô-đun xử lý âm thanh giúp loại bỏ âm thanh phát l�
 <translation id="4922136799178503494">Không cho phép chia sẻ tệp trên cùng mạng</translation>
 <translation id="4923806312383904642">Cho phép WebDriver ghi đè các chính sách không tương thích</translation>
 <translation id="4924377847308623325">Chặn các loại truy vấn DNS khác</translation>
+<translation id="492685741837024549">Buộc Native Client (NaCl) được phép chạy.</translation>
 <translation id="4927214690104703256">Việc đặt chính sách này sẽ chỉ định những tiện ích được phép sử dụng các chức năng của <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> để chứng thực từ xa. Các tiện ích phải có trong danh sách này thì mới có thể sử dụng API.
 
       Nếu một tiện ích không có trong danh sách hoặc nếu bạn không đặt danh sách này, thì lệnh gọi đến API sẽ không thực hiện được kèm theo mã lỗi.</translation>
@@ -4515,9 +4573,6 @@ tức là một mô-đun xử lý âm thanh giúp loại bỏ âm thanh phát l�
 <translation id="4970046075219007744">Cho phép các ứng dụng web yêu cầu người dùng cấp quyền truy cập vào các loại tệp thông qua API Xử lý tệp</translation>
 <translation id="4970855112942626932">Vô hiệu hóa đăng nhập vào trình duyệt</translation>
 <translation id="4974091268178043378">Chế độ màu trên ChromeOS</translation>
-<translation id="4976928720873547342">Nếu bạn đặt chính sách này, thì hệ thống sẽ loại trừ tất cả loại dữ liệu đã chỉ định khỏi quá trình đồng bộ hóa của <ph name="CHROME_SYNC_NAME" /> cũng như quá trình đồng bộ hóa cấu hình chuyển vùng. Điều này có thể giúp giảm kích thước của cấu hình chuyển vùng hoặc giới hạn loại dữ liệu đã tải lên các máy chủ <ph name="CHROME_SYNC_NAME" />.
-
-      Chính sách này hiện áp dụng cho các loại dữ liệu sau: "bookmarks", "readingList", "preferences", "passwords", "autofill", "themes", "typedUrls", "extensions", "apps", "tabs", "wifiConfigurations". Tên của các loại dữ liệu đó phân biệt chữ hoa chữ thường!</translation>
 <translation id="4977702914571821981">Cho phép bạn đặt một danh sách mẫu url chỉ định các trang web không được phép hiển thị nội dung hỗn hợp (nghĩa là nội dung HTTP trên các trang web HTTPS) có thể chặn (nghĩa là chủ động) và các trang web có nội dung hỗn hợp có thể tùy ý chặn (nghĩa là bị động) sẽ được nâng cấp.
 
           Nếu bạn không đặt chính sách này, nội dung hỗn hợp có thể chặn sẽ bị chặn và nội dung hỗn hợp có thể tùy ý chặn sẽ được nâng cấp. Tuy nhiên, người dùng sẽ được phép đặt các trường hợp ngoại lệ để cho phép nâng cấp các trang web cụ thể.
@@ -4592,6 +4647,11 @@ tức là một mô-đun xử lý âm thanh giúp loại bỏ âm thanh phát l�
 
       Nếu bạn không đặt hoặc đặt chính sách này thành true, thì người dùng có thể tùy chỉnh nền trên trang Thẻ mới.</translation>
 <translation id="5076953589932162038">Cài đặt First-Party Sets</translation>
+<translation id="507742683193937417">Thiết lập một danh sách mẫu URL trang web để chỉ định những trang web mà hệ thống sẽ tự động cấp quyền sử dụng MIDI. Khi bạn thiết lập danh sách này, các trang web sẽ có thể sử dụng thiết bị MIDI (chẳng hạn như bộ điều khiển nhạc và nhạc cụ).
+
+Để biết thông tin chi tiết về các mẫu URL trang web hợp lệ, vui lòng truy cập https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns. Cho phép sử dụng ký tự đại diện <ph name="WILDCARD_VALUE" />. Chính sách này chỉ đối chiếu dựa trên nguồn gốc, nên mọi đường dẫn trong mẫu URL sẽ bị bỏ qua.
+
+Nếu bạn không đặt chính sách này cho một trang web, thì hệ thống sẽ áp dụng chính sách của <ph name="DEFAULT_MIDI_SETTING_POLICY_NAME" /> cho trang web đó (nếu có), còn không thì quyền kiểm soát sẽ tuân theo chế độ mặc định của trình duyệt và cho phép người dùng chọn quyền này trên từng trang web.</translation>
 <translation id="5078623750797048009">Cho phép chú thích trong tệp PDF</translation>
 <translation id="5081204761483900654">Các phiên khách được quản lý và bị hạn chế</translation>
 <translation id="5082296146261894974">Cho phép người dùng nhấp vào thông báo trong Trung tâm điều khiển điện thoại để chạy ứng dụng Eche.</translation>
@@ -4780,6 +4840,7 @@ Nếu bạn không đặt chính sách này hoặc danh sách không chứa tệ
       Nếu chế độ này đang Bật, trạng thái hoạt động của thiết bị sẽ được báo cáo cho máy chủ, cho phép máy chủ phát hiện xem thiết bị có kết nối mạng hay không, miễn là người dùng vẫn liên kết.</translation>
 <translation id="5238275681097851753">Cho phép chặn một số nội dung <ph name="FLASH_PLUGIN_NAME" /> nhất định</translation>
 <translation id="5238976843489093540">Buộc bật tính năng Ghép nối nhanh (ghép nối Bluetooth nhanh).</translation>
+<translation id="5239277956452384929">Cho phép truy cập vào một danh sách các URL trong quá trình xác thực</translation>
 <translation id="5245647012663146075">Không cho phép bật Trung tâm điều khiển điện thoại</translation>
 <translation id="5245671702326993331">Cho phép thông báo gốc</translation>
 <translation id="524637053580639111">Chúng tôi đã gỡ bỏ chính sách này trong phiên bản M82, vui lòng sử dụng chính sách DeviceMinimumVersion.
@@ -4869,6 +4930,7 @@ Lưu ý: Chính sách này không áp dụng cho bản nâng cấp HSTS.</transl
       Để biết thông tin chi tiết về các mẫu <ph name="URL_LABEL" /> hợp lệ, vui lòng xem tại https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.  Chính sách này chỉ đối chiếu dựa trên nguồn gốc, nên mọi đường dẫn trong mẫu URL sẽ bị bỏ qua.</translation>
 <translation id="5318185076587284965">Cho phép máy chủ truy cập từ xa sử dụng máy chủ chuyển tiếp</translation>
 <translation id="5323200200131319468">Bật tính năng phản hồi bằng giọng nói trên màn hình đăng nhập</translation>
+<translation id="5323271643727095577">Không hiện hộp thoại huỷ khi có lệnh gọi event.preventDefault() cho sự kiện beforeunload. Hiện hộp thoại huỷ khi event.returnValue cho sự kiện beforeunload là chuỗi trống.</translation>
 <translation id="5323355956693037267">Bật bàn phím ảo trên màn hình đăng nhập</translation>
 <translation id="532848608876725157">Bật chế độ DNS qua HTTPS có phương án dự phòng cho truy vấn không an toàn</translation>
 <translation id="5328965694451556034">Báo cáo các lần đăng nhập/đăng xuất</translation>
@@ -4886,6 +4948,7 @@ Lưu ý: Chính sách này không áp dụng cho bản nâng cấp HSTS.</transl
       Nếu thuộc tính <ph name="AUTO_SELECT_ALL_SCREENS_NAME" /> được xác định trong một yêu cầu <ph name="GET_DISPLAY_MEDIA_SET_NAME" />, thì tất cả bề mặt màn hình sẽ tự động được chụp mà không cần người dùng cho phép rõ ràng.
       Nếu bạn chưa thiết lập chính sách này, thì mọi ứng dụng web đều không thể sử dụng <ph name="AUTO_SELECT_ALL_SCREENS_NAME" />.
 Để cải thiện quyền riêng tư, kể từ <ph name="PRODUCT_NAME" /> phiên bản 116, chính sách này sẽ không hỗ trợ làm mới động nữa. Do đó, người dùng có thể yên tâm rằng không có thêm trang nào có thể chụp màn hình sau khi đăng nhập nếu trang đó không được cho phép khi phiên bắt đầu.</translation>
+<translation id="5354891932736553743">Cài đặt quyền sử dụng MIDI mặc định</translation>
 <translation id="5361167871898066799">Kiểm soát tính năng tự động sửa lỗi khi nhập bằng bàn phím vật lý</translation>
 <translation id="5361708558735884308">Việc đặt chính sách này sẽ cho phép truy cập vào các URL có trong danh sách dưới dạng trường hợp ngoại lệ đối với <ph name="URL_BLOCKLIST_POLICY_NAME" />. Hãy xem thông tin mô tả của chính sách đó để biết định dạng của các mục trong danh sách này. Ví dụ: Khi bạn đặt <ph name="URL_BLOCKLIST_POLICY_NAME" /> thành *, tất cả yêu cầu sẽ bị chặn và bạn có thể dùng chính sách này để cho phép truy cập vào một danh sách hạn chế gồm các URL. Hãy dùng danh sách này để mở các trường hợp ngoại lệ đối với một số tên giao thức, miền con của các miền khác, cổng hoặc đường dẫn cụ thể theo định dạng được nêu tại (https://support.google.com/chrome/a?p=url_blocklist_filter_format). Bộ lọc cụ thể nhất sẽ xác định liệu một URL bị chặn hay được phép. Chính sách <ph name="URL_ALLOWLIST_POLICY_NAME" /> sẽ được ưu tiên hơn chính sách <ph name="URL_BLOCKLIST_POLICY_NAME" />. Chính sách này chỉ áp dụng cho 1.000 mục.
 
@@ -4948,6 +5011,7 @@ Từ <ph name="PRODUCT_NAME" /> phiên bản 92, chính sách này cũng đượ
 <translation id="5393009997533871906">Chỉ những máy in trong danh sách cho phép mới hiển thị với người dùng</translation>
 <translation id="5398387276166014955">Cho phép đưa mã của bên thứ ba vào Chrome</translation>
 <translation id="5401696449591951427">Bật <ph name="CHROME_DEVICES_LINK" /></translation>
+<translation id="5404749470367600971">Cho phép Lọc hiệu suất hỗ trợ tiếp cận.</translation>
 <translation id="5405289061476885481">Định cấu hình bố cục bàn phím được cho phép trên màn hình đăng nhập <ph name="PRODUCT_OS_NAME" />.
 
       Nếu chính sách này được đặt thành danh sách số nhận dạng phương thức nhập, phương thức nhập được cung cấp sẽ có sẵn trên màn hình đăng nhập. Phương thức nhập được cung cấp đầu tiên sẽ được chọn sẵn. Mặc dù nhóm người dùng được lấy tiêu điểm trên màn hình đăng nhập, phương thức nhập được sử dụng gần đây nhất của người dùng sẽ có sẵn ngoài phương thức nhập được cung cấp bởi chính sách này. Nếu chính sách này chưa được đặt, các phương thức nhập trên màn hình đăng nhập sẽ được lấy từ ngôn ngữ mà màn hình đăng nhập hiển thị. Các giá trị không phải số nhận dạng phương thức nhập hợp lệ sẽ bị bỏ qua.</translation>
@@ -5071,7 +5135,7 @@ Nếu bạn đặt chính sách này thành Tắt hoặc không đặt chính 
       Nếu bạn chọn "Bắt buộc", người dùng CHỈ có thể mở trang ở Chế độ ẩn danh. Chú ý rằng tùy chọn "Bắt buộc" không hoạt động trên Android-on-Chrome
 
       Lưu ý: Trên iOS, nếu bạn thay đổi chính sách này trong một phiên đăng nhập, thì chính sách sẽ chỉ có hiệu lực sau khi chạy lại.</translation>
-<translation id="5497565614013170656">Biểu thức chính quy để so khớp với mã máy in.</translation>
+<translation id="549471902631700911">Không cho phép nhận khảo sát về Duyệt web an toàn</translation>
 <translation id="5499375345075963939">Chính sách này chỉ hoạt động trong chế độ bán lẻ.
 
       Khi giá trị của chính sách này được đặt và giá trị đó khác 0, người dùng hiện được đăng nhập vào bản trình diễn sẽ tự động bị đăng xuất sau khi thời gian không hoạt động của khoảng thời gian đã chỉ định trôi qua.
@@ -5251,6 +5315,7 @@ Nếu bạn không đặt chính sách, thì tất cả miền sẽ không thể
 <translation id="5657752663637568277">Chính sách này kiểm soát việc có hiển thị các cảnh báo về việc ngừng cung cấp <ph name="CLOUD_PRINT_NAME" /> với người dùng trong hộp thoại xem trước bản in hoặc trang cài đặt hay không.
       Việc đặt chính sách này thành Bật sẽ ẩn các cảnh báo về việc ngừng cung cấp.
       Việc đặt thành Tắt hoặc không đặt chính sách này sẽ hiển thị các cảnh báo về việc ngừng cung cấp.</translation>
+<translation id="5659776687676755342">Bật chuông báo pin yếu</translation>
 <translation id="5660228672907979869">Chặn bật tính năng phân vùng bộ nhớ của bên thứ ba.</translation>
 <translation id="5666457529647159548">Cho phép người dùng quản lý các chứng chỉ ứng dụng khách đã cài đặt.</translation>
 <translation id="567377007899266033">Nếu bạn đặt chính sách này thành True, thì hệ thống sẽ gửi cho Google các báo cáo về sự kiện cài đặt tiện ích do khóa, chính sách kích hoạt. Nếu bạn đặt chính sách này thành False, thì sẽ không có sự kiện nào được ghi lại. Nếu bạn không đặt chính sách này, thì giá trị mặc định sẽ được đặt thành True.</translation>
@@ -5364,6 +5429,9 @@ Nếu bạn không đặt chính sách, thì tất cả miền sẽ không thể
 
       Để biết thông tin chi tiết về các mẫu <ph name="URL_LABEL" /> hợp lệ, vui lòng xem tại https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns. Chúng tôi không chấp nhận giá trị <ph name="WILDCARD_VALUE" /> đối với chính sách này.</translation>
 <translation id="5740636973289452345">Bật chính sách báo cáo thông tin về tiện ích và trình bổ trợ</translation>
+<translation id="5746149754419996562">Cho phép Tiện ích xem nhanh hiện diện trên <ph name="PRODUCT_OS_NAME" />. Cụ thể, người dùng sẽ có thể truy cập các tiện ích này qua khối ngày trên kệ.
+Khi bạn bật chính sách này, Tiện ích xem nhanh sẽ bật trên <ph name="PRODUCT_OS_NAME" />.
+Khi bạn tắt hoặc không đặt chính sách này, Tiện ích xem nhanh sẽ không bật trên <ph name="PRODUCT_OS_NAME" />.</translation>
 <translation id="5749396052108288586">Chính sách này không còn dùng nữa. Thay vào đó, vui lòng sử dụng <ph name="REMOTE_ACCESS_HOST_CLIENT_DOMAIN_LIST_POLICY_NAME" />.</translation>
 <translation id="574983287620584622">Bật phím tắt của tính năng hỗ trợ tiếp cận trên màn hình đăng nhập</translation>
 <translation id="5755002458331714762"> Các API Thành phần web phiên bản 0 (Shadow DOM v0, Custom Elements v0 và HTML Imports) đã ngừng hoạt động vào năm 2018 và bị tắt theo mặc định kể từ M80. Theo chính sách này, bạn có thể lựa chọn (các) tính năng nào trong số này sẽ bật lại cho đến M84.
@@ -5569,6 +5637,9 @@ Khi bạn tắt chính sách này, hệ thống sẽ tắt biện pháp bảo v�
 <translation id="5979376378555121803">Ứng dụng được lưu trữ</translation>
 <translation id="5984099692320899605">Không sử dụng tuỳ chọn xác thực NTLM</translation>
 <translation id="5984237109586500246">Chấp nhận nội dung web được phân phối ở dạng Signed HTTP Exchanges</translation>
+<translation id="5987654816293745077">Báo cáo bộ đếm thời gian chạy của thiết bị</translation>
+<translation id="5991707691018985057">Hiện hộp thoại huỷ khi có lệnh gọi event.preventDefault() cho sự kiện beforeunload. Không hiện hộp thoại huỷ khi event.returnValue cho sự kiện beforeunload là chuỗi trống.</translation>
+<translation id="5994438001592408007">Tiện ích xem nhanh được bật cho người dùng.</translation>
 <translation id="5997543603646547632">Sử dụng đồng hồ 24 giờ theo mặc định</translation>
 <translation id="5997846976342452720">Chỉ định xem có nên tắt trình tìm kiếm plugin hay không (không được dùng nữa)</translation>
 <translation id="5998198091336830580">Chính sách này thuộc nhóm không thể phân chia sau đây (chỉ áp dụng các chính sách thuộc nguồn có mức ưu tiên cao nhất trong nhóm):</translation>
@@ -5616,6 +5687,7 @@ Khi bạn tắt chính sách này, hệ thống sẽ tắt biện pháp bảo v�
 
       Nếu bạn đặt chính sách này thành Tắt, thì người dùng không thể sử dụng các ưu đãi này.</translation>
 <translation id="6042407236638640864">Cho phép các trang có tiêu đề <ph name="CACHE_CONTROL_NO_STORE_NAME" /> chuyển vào bộ nhớ đệm cho thao tác tiến/lùi</translation>
+<translation id="604243460476563291">Tắt chức năng chuyển tệp trong các kết nối hỗ trợ từ xa từ quản trị viên doanh nghiệp</translation>
 <translation id="6042629184389251062">Không cho phép thu thập chỉ số nhập dưới dạng URL</translation>
 <translation id="6046615715547751255">Không cho phép các biện pháp kiểm soát báo cáo chi tiết</translation>
 <translation id="6048199181629830227">Bật tính năng quản lý nguồn điện khi chuyển đổi vào giờ cao điểm</translation>
@@ -5665,6 +5737,7 @@ chính sách này trong khi trình duyệt đang chạy.</translation>
 <translation id="608788685013546076">Đặt ngưỡng pin cho chế độ chuyển đổi điện năng cao điểm theo phần trăm</translation>
 <translation id="6089679180657323464">Kiểm soát các tùy chọn cài đặt của bộ điều khiển đo từ xa và chẩn đoán wilco.</translation>
 <translation id="6091233616732024397">Buộc người dùng đăng nhập để sử dụng trình duyệt</translation>
+<translation id="6092073071805297119">Cho phép sử dụng tính năng Lọc hiệu suất hỗ trợ tiếp cận.</translation>
 <translation id="6093156968240188330">Cho phép người dùng ở xa tương tác với cửa sổ bật lên trong phiên hỗ trợ từ xa</translation>
 <translation id="6094314311474620462">Tắt chức năng in</translation>
 <translation id="6095048925836115505">Bật bàn phím ảo trên màn hình đăng nhập</translation>
@@ -5702,6 +5775,7 @@ chính sách này trong khi trình duyệt đang chạy.</translation>
 
       Nếu không, bạn có thể đặt chính sách này thành một trong các giá trị sau: "tls1.2" hoặc "tls1.3". Khi bạn đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ không sử dụng các phiên bản SSL/TLS (Bảo mật tầng truyền tải) lớn hơn phiên bản được chỉ định. Giá trị không nhận dạng được sẽ bị bỏ qua.</translation>
 <translation id="6123052603197028610">Không cho phép gửi các truy vấn đến máy chủ của Google để truy xuất dấu thời gian</translation>
+<translation id="6130360423841559818">Kiểm soát hành vi mới của hộp thoại huỷ phát sinh do sự kiện beforeunload</translation>
 <translation id="6131803221304830537">Tắt tính năng Tính toàn vẹn của mã trình kết xuất</translation>
 <translation id="6132506775968708399">Chặn cookie của bên thứ ba</translation>
 <translation id="6133088669883929098">Cho phép tất cả các trang web sử dụng tạo khóa</translation>
@@ -5969,6 +6043,7 @@ Xem thêm thông tin chi tiết tại https://developer.chrome.com/blog/immutabl
 
        Nếu giá trị của chính sách thay đổi, thì trang chủ <ph name="DM_CRYPT" /> hiện tại của người dùng sẽ được truy cập bằng phương thức mã hoá do chính sách này định cấu hình vì tương thích với các hoạt động triển khai <ph name="AES_ALGORITHM_NAME" />.
        Nếu bạn tắt hoặc không thiết lập chính sách này, thì trang chủ <ph name="DM_CRYPT" /> của người dùng sẽ sử dụng <ph name="AES_NI_NAME" /> theo mặc định.</translation>
+<translation id="6316971721180184579">Tắt chuông báo pin yếu</translation>
 <translation id="6319198883324703402">Đặt thời gian của thông báo chạy lại dành cho người dùng đầu tiên</translation>
 <translation id="6319907968994678054">Nếu bạn bật chính sách này, thì hệ thống sẽ tắt tính năng đồng bộ hóa dữ liệu đang sử dụng các dịch vụ đồng bộ hóa do Google lưu trữ trong <ph name="PRODUCT_NAME" />.
       Để tắt hoàn toàn các dịch vụ của <ph name="CHROME_SYNC_NAME" />, bạn nên tắt dịch vụ trong<ph name="GOOGLE_ADMIN_CONSOLE_PRODUCT_NAME" />.
@@ -6187,7 +6262,6 @@ Trên <ph name="MAC_OS_NAME" />, chính sách này chỉ có trên các phiên b
 
       Lưu ý: Nếu phương thức nhập hiện tại không được hỗ trợ, thì hệ thống sẽ sử dụng bố cục bàn phím phần cứng (nếu được phép) hoặc mục hợp lệ đầu tiên trong danh sách này. Hệ thống sẽ bỏ qua phương thức không hợp lệ hoặc không được hỗ trợ.</translation>
 <translation id="6483115462650732746">Hiện trình đơn hỗ trợ tiếp cận nổi trong chế độ kiosk</translation>
-<translation id="6485036313708130232">Kiểm soát hành vi mới đối với sự kiện beforeunload hiển thị hộp thoại xác nhận huỷ khi preventDefault được gọi</translation>
 <translation id="6489084406497912050">Kiểm soát việc người dùng có thể thêm tài khoản Kerberos hay không.
 
           Nếu bạn bật hoặc không đặt chính sách này, thì người dùng có thể thêm tài khoản Kerberos thông qua phần Cài đặt tài khoản Kerberos trên trang Cài đặt tài khoản Kerberos. Người dùng có toàn quyền kiểm soát các tài khoản mà họ thêm, cũng như có thể sửa đổi hoặc xóa các tài khoản này.
@@ -6587,6 +6661,7 @@ Trong tương lai, chúng tôi sẽ loại bỏ chính sách này khỏi <ph nam
 <translation id="6794083666143216172">Cho phép nguồn gốc truy vấn các thuộc tính của thiết bị</translation>
 <translation id="6795485990775913659">Chỉ cho phép in khi không có mã PIN</translation>
 <translation id="6796215185873669533">Đặt phiên bản chuỗi User-Agent thành giá trị mặc định của chế độ cài đặt trình duyệt</translation>
+<translation id="6800111968763383631">Từ chối cấp quyền sử dụng MIDI trên mọi trang web theo mặc định</translation>
 <translation id="6800181452282128474">Không truy vấn máy chủ Quirks</translation>
 <translation id="68031099365512050">Báo cáo trạng thái âm thanh</translation>
 <translation id="680356860463873420">Không cho phép người dùng sử dụng PluginVm</translation>
@@ -6964,6 +7039,7 @@ Nếu bạn đặt chính sách này, danh sách giá trị mặc định sẽ �
 
       Nếu bạn đặt chính sách này thành false hoặc không đặt, thì thông tin sẽ không được báo cáo.
       Nếu bạn đặt chính sách này thành true, thì thông tin về quạt của thiết bị sẽ được báo cáo.</translation>
+<translation id="7096708978256135543">Hỏi mỗi lần một trang web muốn có quyền sử dụng MIDI</translation>
 <translation id="7098400392308393199">Dịch vụ bảo vệ tệp tải xuống trong thời gian thực do chính sách <ph name="SAFE_BROWSING_PROTECTION_LEVEL_POLICY_NAME" /> kiểm soát</translation>
 <translation id="710003290625031750">Mô tả lược đồ mở rộng:</translation>
 <translation id="7101550508196914704">Không hiển thị lối tắt ứng dụng trên thanh dấu trang</translation>
@@ -7522,13 +7598,6 @@ Trên <ph name="MAC_OS_NAME" />, chính sách này chỉ có trên các phiên b
 <translation id="7613115815080726221">Khoảng thời gian (tính bằng mili giây) kể từ khi không có hoạt động đầu vào của người dùng cho đến thời điểm hệ thống thực hiện hành động khi chuyển sang trạng thái rảnh</translation>
 <translation id="7614663184588396421">Danh sách các lược đồ giao thức bị vô hiệu hóa</translation>
 <translation id="7616631530432070402">Bộ thuật toán mật mã 3DES sẽ được bật trong TLS</translation>
-<translation id="7617710923960807616">Chính sách này cho phép kiểm soát việc hộp thoại xác nhận có hiển thị khi một trang gọi preventDefault cho sự kiện beforeunload hay không. Trước đây, <ph name="PRODUCT_NAME" /> không hiển thị những hộp thoại này nhưng hành vi mặc định đang thay đổi. Chính sách này là giải pháp tạm thời dành cho các doanh nghiệp có trang web bị hỏng do hành vi mới và cần thời gian để khắc phục.
-
-Nếu bạn bật chính sách này, thì hộp thoại xác nhận huỷ sẽ hiển thị khi một trang gọi preventDefault cho sự kiện beforeunload.
-
-Nếu bạn tắt chính sách này, thì sẽ không có hộp thoại xác nhận huỷ nào hiển thị khi một trang gọi preventDefault cho sự kiện beforeunload.
-
-Nếu bạn không đặt chính sách này, thì hành vi mặc định sẽ được sử dụng theo kế hoạch ra mắt tính năng của <ph name="PRODUCT_NAME" />.</translation>
 <translation id="761788785484453836">Yêu cầu tách biệt trang web đối với tất cả trang web</translation>
 <translation id="7620869951155758729">Chính sách này chỉ định cấu hình dùng để tạo và xác minh Mã truy cập dành cho cha mẹ.
 
@@ -7660,6 +7729,7 @@ Khi bạn không đặt chính sách này, trình duyệt sẽ chọn trình k�
 <translation id="7734212505800048991">
           Các cuộc gọi đến getDisplayMedia bắt nguồn từ các ngữ cảnh không được phép
            sẽ bị từ chối.</translation>
+<translation id="7736521021425189418">Terminal (được hỗ trợ kể từ phiên bản 117)</translation>
 <translation id="77379430721695807">Nếu đặt chính sách này, bạn có thể chỉ định danh sách các mẫu URL sẽ được so khớp với nguồn bảo mật của URL yêu cầu. Nếu khớp, URL này sẽ có quyền truy cập vào thiết bị quay video mà không cần nhắc người dùng
 
       Để biết thông tin chi tiết về mẫu <ph name="URL_LABEL" /> hợp lệ, vui lòng xem tại https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns.</translation>
@@ -7740,7 +7810,6 @@ Khi bạn không đặt chính sách này, trình duyệt sẽ chọn trình k�
       Nếu bạn đặt chính sách này thành false hoặc không đặt chính sách này, thì thông tin đó sẽ không được báo cáo.
       Nếu bạn đặt chính sách này thành true, thì các sự kiện mạng của thiết bị sẽ được báo cáo.</translation>
 <translation id="780629758750905699">Cho phép thêm các tài khoản Family Link vào thiết bị</translation>
-<translation id="7807120658089613760">Định cấu hình để tắt máy ảnh, các chế độ cài đặt của trình duyệt, các chế độ cài đặt của hệ điều hành, tính năng quét, cửa hàng trực tuyến, canvas, các tính năng khám phá và crosh</translation>
 <translation id="7807139251387225825">Danh sách các loại sẽ bị loại trừ khỏi quá trình đồng bộ hóa</translation>
 <translation id="781268256210530471">Cài đặt trình bổ trợ</translation>
 <translation id="7816326058023670173">Dữ liệu mật được chia sẻ giữa thiết bị của con và cha mẹ.</translation>
@@ -7754,6 +7823,7 @@ Khi bạn không đặt chính sách này, trình duyệt sẽ chọn trình k�
 <translation id="7827127381981620448">Ứng dụng nền tảng</translation>
 <translation id="7829436838673974723">Cho phép các trang gửi yêu cầu XHR đồng bộ trong khi đóng trang</translation>
 <translation id="782978857350824974">Cho phép yêu cầu Xác thực web trên các trang web có chứng chỉ TLS bị hỏng.</translation>
+<translation id="7830775338190021763">Bật chức năng chuyển tệp trong các phiên hỗ trợ từ xa dành cho doanh nghiệp</translation>
 <translation id="7832225468415136704">Không cho phép tính năng Làm sạch Chrome quét hệ thống theo định kỳ và không cho phép người dùng tự quét</translation>
 <translation id="7833148823006528332">Mã ứng dụng Android, chẳng hạn như "com.google.android.gm" cho Gmail</translation>
 <translation id="7835218570504220753">Tắt tính năng tự động nhấp</translation>
@@ -7926,7 +7996,13 @@ Trên các phiên bản <ph name="MS_WIN_NAME" />, bạn chỉ có thể buộc 
 Trên các phiên bản <ph name="MAC_OS_NAME" />, bạn chỉ có thể buộc cài đặt các ứng dụng và tiện ích từ bên ngoài Cửa hàng Chrome trực tuyến nếu phiên bản đó được quản lý qua MDM, đã liên kết với một miền qua MCX hoặc đã đăng ký <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />.
 
 Lưu ý: Chính sách này không áp dụng cho Chế độ ẩn danh. Tìm hiểu về việc lưu trữ các tiện ích (https://developer.chrome.com/extensions/hosting).</translation>
+<translation id="798452960161141151">Nếu bạn đặt chính sách này thành <ph name="BLOCK_MIDI_POLICY_NAME" /> (giá trị 2), thì hệ thống sẽ tự động ngăn các trang web sử dụng thiết bị MIDI (chẳng hạn như bộ điều khiển nhạc và nhạc cụ).
+
+Nếu bạn đặt chính sách này thành <ph name="ASK_MIDI_POLICY_NAME" /> (giá trị 3), thì hệ thống sẽ nhắc người dùng khi có một trang web muốn sử dụng thiết bị MIDI.
+
+Khi bạn không đặt chính sách này, chính sách <ph name="ASK_MIDI_POLICY_NAME" /> sẽ được áp dụng. Tuy nhiên, người dùng có thể thay đổi chế độ cài đặt này.</translation>
 <translation id="7985242821674907985"><ph name="PRODUCT_NAME" /></translation>
+<translation id="7985781946183471651">Tiện ích xem nhanh trên <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="7986473886676689183">Bật tính năng báo cáo của Android</translation>
 <translation id="7990280274626154329">Bật <ph name="SEARCH_SIDE_PANEL_FEATURE_NAME" /></translation>
 <translation id="7991022023019679916">Lưu ý rằng chúng tôi không dùng chính sách này nữa và sẽ xóa khỏi <ph name="PRODUCT_OS_NAME" /> phiên bản 85. Thay vào đó, vui lòng sử dụng <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />.
@@ -7995,7 +8071,6 @@ Việc sử dụng <ph name="LACROS_SELECTION_USER_CHOICE_VALUE" /> hoặc <ph n
 <translation id="8035570672225663428">Bật mô hình sạc thích ứng để giữ quá trình sạc nhằm kéo dài thời lượng pin</translation>
 <translation id="8038007682032315784">Tắt <ph name="SEARCH_SIDE_PANEL_FEATURE_NAME" /> trên mọi trang web</translation>
 <translation id="8044493735196713914">Báo cáo chế độ khởi động thiết bị</translation>
-<translation id="8044720778481009876">Đích đến <ph name="CLOUD_PRINT_NAME" /> và "Lưu vào Google Drive" (Không dùng nữa)</translation>
 <translation id="80453040817068401">Cho phép sử dụng trình duyệt <ph name="LACROS_NAME" /></translation>
 <translation id="804619600634661088">Cho phép sử dụng tính năng gỡ lỗi từ xa</translation>
 <translation id="8047600674992048328">Tên hiển thị của người dùng cho cấu hình này</translation>
@@ -8157,6 +8232,13 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
           Nếu hành động là tạm ngưng, thì bạn có thể định cấu hình <ph name="PRODUCT_OS_NAME" /> một cách riêng biệt thành khóa hoặc không khóa màn hình trước khi tạm ngưng.</translation>
 <translation id="8214600119442850823">Định cấu hình trình quản lý mật khẩu.</translation>
 <translation id="8217664958939773083">Nếu bạn đặt chính sách này thành <ph name="ENABLED" /> hoặc không đặt chính sách này, thì người dùng sẽ sử dụng được chế độ không có giao diện người dùng. Nếu bạn đặt chính sách này thành <ph name="DISABLED" />, thì người dùng sẽ không sử dụng được chế độ không có giao diện người dùng.</translation>
+<translation id="8217837574199617401">Chính sách này cho phép quản trị viên thiết lập danh sách mã nhận dạng tiện ích cần thiết để điều hướng ở Chế độ ẩn danh.
+
+Người dùng phải cho phép tất cả tiện ích trong danh sách này chạy ở Chế độ ẩn danh một cách rõ ràng, nếu không thì sẽ không được phép điều hướng ở Chế độ ẩn danh.
+
+Nếu không cài đặt một tiện ích được chỉ định trong chính sách này, thì người dùng sẽ không được điều hướng ở Chế độ ẩn danh.
+
+Chính sách này được áp dụng cho Chế độ ẩn danh. Nói cách khác, bạn phải bật Chế độ ẩn danh trong trình duyệt. Nếu bạn tắt Chế độ ẩn danh thông qua chính sách <ph name="INCOGNITO_MODE_AVAILABILITY" />, thì chính sách này sẽ không có hiệu lực.</translation>
 <translation id="8219813789911069300">Chặn tải các tệp độc hại xuống. Khuyên dùng.</translation>
 <translation id="8220023426952118761">Tốc độ tải xuống mong muốn (tính bằng kbit/giây).</translation>
 <translation id="8220156281401380422">Định cấu hình danh sách cho phép máy chủ nhắn tin gốc</translation>
@@ -8181,6 +8263,7 @@ Nếu bạn không đặt chính sách này, thì màn hình bảo vệ quyền 
 <translation id="8244171102276095471">Bật bộ mật mã RC4 trong TLS</translation>
 <translation id="8244525275280476362">Độ trễ tìm nạp tối đa sau khi hủy hiệu lực chính sách</translation>
 <translation id="8245574649143980200">Nếu bạn không đặt hoặc đặt chính sách thành Bật, thì hệ thống sẽ cho phép người dùng xem và dùng mục trong trình đơn tìm kiếm khu vực của <ph name="GOOGLE_LENS_PRODUCT_NAME" /> trong trình đơn theo bối cảnh. Nếu bạn đặt chính sách thành Tắt, thì người dùng sẽ không nhìn thấy mục trong trình đơn tìm kiếm khu vực của <ph name="GOOGLE_LENS_PRODUCT_NAME" /> trong trình đơn theo bối cảnh khi tính năng tìm kiếm khu vực của <ph name="GOOGLE_LENS_PRODUCT_NAME" /> được hỗ trợ.</translation>
+<translation id="8247143534027746614">Chặn hành vi truy cập vào một danh sách các mẫu URL trong quá trình xác thực</translation>
 <translation id="824818544897669723">Bật tính năng xóa nhật ký trình duyệt và nhật ký tải xuống</translation>
 <translation id="8250048892729838843">Chính sách này không được dùng nữa. Nếu bạn đặt chính sách này thành bật hoặc không đặt, thì hệ thống sẽ cho phép thiết bị nhận các biện pháp kiểm soát báo cáo chi tiết.
       Nếu bạn đặt chính sách này thành Tắt thì các thiết bị đã đăng ký sẽ không nhận được các biện pháp kiểm soát báo cáo chi tiết.</translation>
@@ -8487,6 +8570,7 @@ Nếu bạn tắt chính sách, thì trang sẽ bị chặn.</translation>
 
       Cảnh báo: Không nên định cấu hình các giới hạn phiên bản vì những giới hạn này có thể khiến người dùng không thể nhận được các bản cập nhật phần mềm và các bản vá bảo mật quan trọng. Giới hạn cập nhật ở một tiền tố phiên bản cụ thể có thể khiến người dùng gặp rủi ro.</translation>
 <translation id="8508489378025029342">Bật tính năng báo cáo thời gian hoạt động của thiết bị</translation>
+<translation id="8510357716574220408"><ph name="CLOUD_PRINT_NAME" /> (Không dùng nữa)</translation>
 <translation id="8511192250554640451">Cho phép việc điều tiết các đồng hồ tính giờ JavaScript trong nền được kiểm soát theo logic của Chrome và do người dùng định cấu hình</translation>
 <translation id="8511708772548158302">Khôi phục thiết bị về phiên bản đích nếu phiên bản hệ điều hành hiện tại mới hơn phiên bản đích. Thiết bị này đã được định dạng lại nhưng cấu hình mạng trên toàn thiết bị không có chứng chỉ vẫn được lưu giữ và thiết bị tự động đăng ký lại.
 Không hỗ trợ khôi phục về <ph name="PRODUCT_OS_NAME" /> phiên bản 106 trở xuống.</translation>
@@ -8756,6 +8840,7 @@ Nếu bạn không đặt chính sách này, thì hệ thống sẽ không nhậ
 <translation id="874149307422233209">Chính sách này cho phép quản trị viên kiểm soát cách Google xử lý dữ liệu người dùng được gửi đến công cụ Tìm kiếm thông qua các tính năng của <ph name="PRODUCT_OS_NAME" />.
 Khi bạn bật chính sách này, người dùng có thể sử dụng hộp tìm kiếm của Trình chạy <ph name="PRODUCT_OS_NAME" /> và hộp địa chỉ của Trình duyệt <ph name="PRODUCT_NAME" /> trong <ph name="PRODUCT_OS_NAME" /> để nhật ký tìm kiếm của người dùng không được liên kết với danh tính của họ.
 Khi bạn tắt hoặc không đặt chính sách này, dữ liệu của người dùng trong các lượt tìm kiếm này sẽ được liên kết với danh tính của họ.</translation>
+<translation id="8743902569031401303">Cho phép khảo sát về Duyệt web an toàn</translation>
 <translation id="8744844164152340112">Cài đặt giao diện dùng để kết xuất giao diện người dùng khi OOBE và trong phiên sử dụng (tối/sáng/tự động).
       Chế độ tự động sẽ tự động chuyển đổi giữa giao diện tối và giao diện sáng tại thời điểm bình minh và hoàng hôn.
       Nên đề xuất chính sách này, cho phép người dùng thay đổi giao diện trong phần cài đặt hệ thống.</translation>
@@ -8820,10 +8905,12 @@ Khi bạn tắt hoặc không đặt chính sách này, dữ liệu của ngư�
           Chính sách này chỉ có hiệu lực nếu được đặt. Trong trường hợp này, các kết nối truy cập từ xa sẽ không có thời lượng tối đa trên máy này.</translation>
 <translation id="8800453707696044281">Đặt mức phần trăm ngừng sạc pin tùy chỉnh</translation>
 <translation id="8801680448782904838">Thông báo cho người dùng biết họ cần hoặc bắt buộc phải chạy lại trình duyệt hoặc khởi động lại thiết bị</translation>
+<translation id="8802800226877198994">Bật hỗ trợ GIF.</translation>
 <translation id="8804685015028424497">Tắt chế độ Ẩn danh</translation>
 <translation id="8806478127647484805">Không cho phép người dùng kết thúc quá trình bằng trình quản lý tác vụ Chrome</translation>
 <translation id="8807274441692477185">Không hiển thị màn hình hướng cuộn của bàn di chuột trong khi đăng nhập</translation>
 <translation id="8807313206348471682">Hiển thị hộp thoại xác nhận đăng xuất</translation>
+<translation id="8809082103104823938">Hỗ trợ GIF trong bộ chọn biểu tượng cảm xúc</translation>
 <translation id="8812091410765157924">Chỉ cho phép cửa sổ bật lên ở trạng thái mở với mục tiêu <ph name="BLANK_PAGE_NAME" /> để tương tác với chính trang đã mở cửa sổ bật lên nếu trang mở thể hiện rõ việc chọn sử dụng hoạt động tương tác đó</translation>
 <translation id="8816370949847593408">Ứng dụng Chrome có thể không được phép chạy, tùy thuộc vào trạng thái của việc ngừng phát hành.</translation>
 <translation id="8818768076343557335">Dự đoán các tác vụ mạng trên bất kỳ mạng nào không phải là mạng di động.
@@ -8996,11 +9083,6 @@ Nếu chính sách này đang tắt thì thao tác cũ sẽ được sử dụng
 Nếu bạn không đặt chính sách này, thì thao tác mới sẽ được sử dụng giống như thao tác của những người dùng Chromium còn lại.</translation>
 <translation id="8955719471735800169">Quay lại đầu trang</translation>
 <translation id="8956312248048980644">Cho phép phân nhóm tác nhân theo khoá nguồn gốc theo mặc định.</translation>
-<translation id="8961117818679701775">Chính sách này cho phép quản trị viên chỉ định chế độ cài đặt cho các ứng dụng web đã cài đặt. Chính sách này liên kết một mã nhận dạng ứng dụng web với chế độ cài đặt cụ thể tương ứng. Bạn có thể đặt một cấu hình mặc định bằng mã đặc biệt <ph name="DEFAULT_SCOPE" />. Cấu hình này sẽ áp dụng cho tất cả ứng dụng web chưa đặt cấu hình tuỳ chỉnh trong chính sách này.
-
-Trường <ph name="MANIFEST_ID_FIELD" /> là mã nhận dạng tệp kê khai cho ứng dụng web. Hãy xem <ph name="WEB_APP_ID_REFERENCE_URL" /> để nắm được hướng dẫn về cách xác định mã nhận dạng tệp kê khai cho ứng dụng web đã được cài đặt.
-Trường <ph name="RUN_ON_OS_LOGIN_FIELD" /> cho biết ứng dụng web có thể hoạt động trong lúc đăng nhập vào hệ điều hành hay không. Nếu bạn đặt trường này thành <ph name="BLOCKED" />, ứng dụng web sẽ không chạy trong quá trình đăng nhập vào hệ điều hành và sau này, người dùng sẽ không thể bật ứng dụng này. Nếu bạn đặt trường này thành <ph name="RUN_WINDOWED" />, ứng dụng web sẽ chạy trong quá trình đăng nhập vào hệ điều hành và sau này, người dùng sẽ không thể tắt ứng dụng này. Nếu bạn đặt trường này thành <ph name="ALLOWED" />, người dùng sẽ có thể định cấu hình chạy ứng dụng web khi đăng nhập vào hệ điều hành. Cấu hình mặc định chỉ cho phép các giá trị <ph name="ALLOWED" /> và <ph name="BLOCKED" />.
-(Kể từ phiên bản 115) Trường <ph name="PREVENT_CLOSE_FIELD" /> chỉ định liệu ứng dụng web có bị cấm đóng theo bất kỳ cách nào hay không (ví dụ: do người dùng, trình quản lý tác vụ, API web). Bạn chỉ có thể bật hành vi này nếu đặt <ph name="RUN_ON_OS_LOGIN_FIELD" /> thành <ph name="RUN_WINDOWED" />. Nếu ứng dụng đang chạy, thuộc tính này sẽ chỉ có hiệu lực sau khi khởi động lại ứng dụng. Nếu bạn không xác định trường này, người dùng có thể đóng ứng dụng.</translation>
 <translation id="8970205333161758602">Loại bỏ lời nhắc từ chối <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8973579598359969188">Chọn có cho người dùng thấy lời nhắc của <ph name="PRIVACY_SANDBOX_NAME" /> hay không</translation>
 <translation id="8974457039656761249">Kiểm soát tính năng gợi ý khi viết bằng bàn phím vật lý</translation>
@@ -9083,6 +9165,9 @@ Trường <ph name="RUN_ON_OS_LOGIN_FIELD" /> cho biết ứng dụng web có th
 
       Bạn nên chỉ định giá trị tính bằng mili giây cho chính sách. Giá trị được giới hạn trong khoảng từ 30 giây đến 24 giờ.</translation>
 <translation id="9040042535845939426">Đặt trạng trái của màn hình bảo vệ quyền riêng tư trên màn hình đăng nhập</translation>
+<translation id="904090524252041302">Đây là chính sách kiểm soát việc công cụ hỗ trợ tiếp cận có được phép tự động tính toán một bộ lọc cho cây hỗ trợ tiếp cận trong <ph name="PRODUCT_NAME" /> để cải thiện hiệu suất hay không.
+Khi bạn đặt chính sách thành Bật hoặc không đặt, công cụ hỗ trợ tiếp cận sẽ được phép tự động tính toán các chế độ lọc cho cây hỗ trợ tiếp cận trong <ph name="PRODUCT_NAME" />, từ đó có thể giúp cải thiện hiệu suất.
+Khi bạn đặt chính sách này thành Tắt, công cụ hỗ trợ tiếp cận sẽ không được phép tự động tính toán các chế độ lọc cho cây hỗ trợ tiếp cận.</translation>
 <translation id="9046248916118130378">Khi bạn đặt chính sách này thành bật, <ph name="PRODUCT_NAME" /> có thể thu thập nhật ký văn bản WebRTC từ các dịch vụ của Google (chẳng hạn như Google Meet) rồi tải các nhật ký đó lên Google. Các nhật ký này có thông tin chẩn đoán giúp khắc phục sự cố xảy ra với cuộc họp thoại hoặc cuộc họp video trên <ph name="PRODUCT_NAME" />, chẳng hạn như siêu dữ liệu bằng văn bản mô tả luồng đến và đi qua WebRTC, các mục nhập nhật ký cụ thể của WebRTC và các thông tin khác về hệ thống. Các nhật ký này không bao gồm nội dung là âm thanh hoặc video của cuộc họp.
 Nếu bạn đặt chính sách này thành tắt, các nhật ký này sẽ không được tải lên Google. Nhật ký sẽ vẫn tích luỹ trên thiết bị của người dùng.
 Nếu bạn không đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ mặc định có thể thu thập và tải các nhật ký này lên.</translation>
@@ -9364,6 +9449,8 @@ Nếu bạn không đặt chính sách này, <ph name="PRODUCT_NAME" /> sẽ m�
 <translation id="981346395360763138">Đã tắt dịch vụ vị trí của Google</translation>
 <translation id="982497069985795632">Bật tính năng kiểm tra chính tả</translation>
 <translation id="983256325512298435">Xác định danh sách các giao thức có thể chạy một ứng dụng bên ngoài từ các nguồn được liệt kê mà không cần nhắc người dùng</translation>
+<translation id="984365509386992443">Khi bạn bật chính sách này hoặc không đặt, người dùng có thể nhận được khảo sát liên quan đến tính năng Duyệt web an toàn.
+Khi bạn tắt chính sách này, người dùng sẽ không nhận được khảo sát liên quan đến tính năng Duyệt web an toàn.</translation>
 <translation id="987261962216071510">Chỉ cho phép đăng nhập trình duyệt với tư cách khách</translation>
 <translation id="987975731398348803">Nếu bạn đặt chính sách này thành Bật hoặc không đặt, thì thiết bị đã đăng ký sẽ báo cáo danh sách người dùng thiết bị đã đăng nhập gần đây.
 

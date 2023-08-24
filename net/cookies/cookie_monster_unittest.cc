@@ -37,6 +37,7 @@
 #include "base/test/test_future.h"
 #include "base/threading/thread.h"
 #include "base/time/time.h"
+#include "cookie_partition_key.h"
 #include "net/base/features.h"
 #include "net/cookies/canonical_cookie.h"
 #include "net/cookies/canonical_cookie_test_helpers.h"
@@ -3279,11 +3280,13 @@ TEST_F(CookieMonsterTest, HistogramCheck) {
       expired_histogram->SnapshotSamples());
   auto cookie = CanonicalCookie::CreateUnsafeCookieForTesting(
       "a", "b", "a.url", "/", base::Time(),
-      base::Time::Now() + base::Minutes(59), base::Time(), base::Time(), true,
-      false, CookieSameSite::NO_RESTRICTION, COOKIE_PRIORITY_DEFAULT, false);
+      base::Time::Now() + base::Minutes(59), base::Time(), base::Time(),
+      /*secure=*/true,
+      /*httponly=*/false, CookieSameSite::NO_RESTRICTION,
+      COOKIE_PRIORITY_DEFAULT, /*same_party=*/false);
   GURL source_url = cookie_util::SimulatedCookieSource(*cookie, "https");
   ASSERT_TRUE(SetCanonicalCookie(cm.get(), std::move(cookie), source_url,
-                                 true /*modify_httponly*/));
+                                 /*modify_httponly=*/true));
 
   std::unique_ptr<base::HistogramSamples> samples2(
       expired_histogram->SnapshotSamples());
@@ -3610,6 +3613,274 @@ TEST_F(CookieMonsterTest, NumKeysHistogram) {
     EXPECT_TRUE(cm->DoRecordPeriodicStatsForTesting());
     histogram_tester.ExpectUniqueSample(kHistogramName, 3 /* sample */,
                                         1 /* count */);
+  }
+}
+
+TEST_F(CookieMonsterTest, CookieCount2Histogram) {
+  auto cm = std::make_unique<CookieMonster>(nullptr, net::NetLog::Get());
+
+  {
+    base::HistogramTester histogram_tester;
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+    histogram_tester.ExpectUniqueSample("Cookie.Count2",
+                                        /*sample=*/0,
+                                        /*expected_bucket_count=*/1);
+  }
+
+  {
+    base::HistogramTester histogram_tester;
+
+    auto cookie = CanonicalCookie::CreateUnsafeCookieForTesting(
+        "a", "b", "a.url", "/", base::Time(),
+        base::Time::Now() + base::Minutes(59), base::Time(), base::Time(),
+        /*secure=*/true,
+        /*httponly=*/false, CookieSameSite::NO_RESTRICTION,
+        COOKIE_PRIORITY_DEFAULT, /*same_party=*/false);
+    GURL source_url = cookie_util::SimulatedCookieSource(*cookie, "https");
+    ASSERT_TRUE(SetCanonicalCookie(cm.get(), std::move(cookie), source_url,
+                                   /*modify_httponly=*/true));
+
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    histogram_tester.ExpectUniqueSample("Cookie.Count2", /*sample=*/1,
+                                        /*expected_bucket_count=*/1);
+  }
+}
+
+TEST_F(CookieMonsterTest, CookieJarSizeHistograms) {
+  auto cm = std::make_unique<CookieMonster>(nullptr, net::NetLog::Get());
+
+  {
+    base::HistogramTester histogram_tester;
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+    histogram_tester.ExpectUniqueSample("Cookie.CookieJarSize",
+                                        /*sample=*/0,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.AvgCookieJarSizePerKey",
+                                        /*sample=*/0,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.MaxCookieJarSizePerKey",
+                                        /*sample=*/0,
+                                        /*expected_bucket_count=*/1);
+  }
+
+  auto set_cookie =
+      [&](const std::string& name, int cookie_value_size_kb,
+          const std::string& domain, CookieSameSite same_site,
+          const absl::optional<CookiePartitionKey>& partition_key) {
+        auto cc = CanonicalCookie::CreateUnsafeCookieForTesting(
+            name, std::string(cookie_value_size_kb * 1024, '0'), domain, "/",
+            base::Time(), base::Time::Now() + base::Minutes(59), base::Time(),
+            base::Time(),
+            /*secure=*/true,
+            /*httponly=*/false, same_site, COOKIE_PRIORITY_DEFAULT,
+            /*same_party=*/false, partition_key);
+        GURL source_url = cookie_util::SimulatedCookieSource(*cc, "https");
+        ASSERT_TRUE(SetCanonicalCookie(cm.get(), std::move(cc), source_url,
+                                       /*can_modify_httponly=*/true));
+      };
+
+  {  // Add unpartitioned cookie.
+    base::HistogramTester histogram_tester;
+    set_cookie("a", 2, "a.url", CookieSameSite::NO_RESTRICTION, absl::nullopt);
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    histogram_tester.ExpectUniqueSample("Cookie.CookieJarSize",
+                                        /*sample=*/2,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.AvgCookieJarSizePerKey",
+                                        /*sample=*/2,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.MaxCookieJarSizePerKey",
+                                        /*sample=*/2,
+                                        /*expected_bucket_count=*/1);
+  }
+
+  {  // Add partitioned cookie, should not impact the counter.
+    base::HistogramTester histogram_tester;
+    set_cookie("b", 3, "a.url", CookieSameSite::NO_RESTRICTION,
+               CookiePartitionKey::FromURLForTesting(
+                   GURL("https://toplevelsite.com")));
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    histogram_tester.ExpectUniqueSample("Cookie.CookieJarSize",
+                                        /*sample=*/2,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.AvgCookieJarSizePerKey",
+                                        /*sample=*/2,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.MaxCookieJarSizePerKey",
+                                        /*sample=*/2,
+                                        /*expected_bucket_count=*/1);
+  }
+
+  {  // Add unpartitioned cookie from another domain. Is also SameSite=Lax to
+     // ensure the counter includes SameSite cookies.
+    base::HistogramTester histogram_tester;
+    set_cookie("c", 4, "c.url", CookieSameSite::LAX_MODE, absl::nullopt);
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    histogram_tester.ExpectUniqueSample("Cookie.CookieJarSize",
+                                        /*sample=*/6,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.AvgCookieJarSizePerKey",
+                                        /*sample=*/3,
+                                        /*expected_bucket_count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.MaxCookieJarSizePerKey",
+                                        /*sample=*/4,
+                                        /*expected_bucket_count=*/1);
+  }
+}
+
+TEST_F(CookieMonsterTest, PartitionedCookieHistograms) {
+  auto cm = std::make_unique<CookieMonster>(nullptr, net::NetLog::Get());
+
+  {
+    base::HistogramTester histogram_tester;
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    // Cookie counters.
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount",
+                                        /*sample=*/0,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount.Nonced",
+                                        /*sample=*/0,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieCount.Unnonced", /*sample=*/0,
+        /*count=*/1);
+
+    // Partitioned cookie jar size.
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes",
+        /*sample=*/0,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Nonced", /*sample=*/0,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Unnonced", /*sample=*/0,
+        /*count=*/1);
+  }
+
+  {  // Add unpartitioned cookie.
+    base::HistogramTester histogram_tester;
+    auto cookie = CanonicalCookie::CreateUnsafeCookieForTesting(
+        "a", "b", "a.url", "/", base::Time(),
+        base::Time::Now() + base::Minutes(59), base::Time(), base::Time(),
+        /*secure=*/true,
+        /*httponly=*/false, CookieSameSite::NO_RESTRICTION,
+        COOKIE_PRIORITY_DEFAULT, /*same_party=*/false);
+    GURL source_url = cookie_util::SimulatedCookieSource(*cookie, "https");
+    ASSERT_TRUE(SetCanonicalCookie(cm.get(), std::move(cookie), source_url,
+                                   /*modify_httponly=*/true));
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    // Cookie counters.
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount",
+                                        /*sample=*/0,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount.Nonced",
+                                        /*sample=*/0,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieCount.Unnonced", /*sample=*/0,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.Count2", /*sample=*/1,
+                                        /*count=*/1);
+
+    // Partitioned cookie jar size.
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes",
+        /*sample=*/0,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Nonced", /*sample=*/0,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Unnonced", /*sample=*/0,
+        /*count=*/1);
+  }
+
+  {  // Add unnonced partitioned cookie.
+    base::HistogramTester histogram_tester;
+    auto cookie = CanonicalCookie::CreateUnsafeCookieForTesting(
+        "a", std::string(2 * 1024, '0'), "a.url", "/", base::Time(),
+        base::Time::Now() + base::Minutes(59), base::Time(), base::Time(),
+        /*secure=*/true,
+        /*httponly=*/false, CookieSameSite::NO_RESTRICTION,
+        COOKIE_PRIORITY_DEFAULT, /*same_party=*/false,
+        CookiePartitionKey::FromURLForTesting(GURL("https://example.com")));
+    GURL source_url = cookie_util::SimulatedCookieSource(*cookie, "https");
+    ASSERT_TRUE(SetCanonicalCookie(cm.get(), std::move(cookie), source_url,
+                                   /*modify_httponly=*/true));
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    // Cookie counters.
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount",
+                                        /*sample=*/1,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount.Nonced",
+                                        /*sample=*/0,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieCount.Unnonced", /*sample=*/1,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.Count2", /*sample=*/1,
+                                        /*count=*/1);
+
+    // Partitioned cookie jar size.
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes",
+        /*sample=*/2,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Nonced", /*sample=*/0,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Unnonced", /*sample=*/2,
+        /*count=*/1);
+  }
+
+  {  // Add nonced partitioned cookie.
+    base::HistogramTester histogram_tester;
+    auto cookie = CanonicalCookie::CreateUnsafeCookieForTesting(
+        "a", std::string(3 * 1024, '0'), "a.url", "/", base::Time(),
+        base::Time::Now() + base::Minutes(59), base::Time(), base::Time(),
+        /*secure=*/true,
+        /*httponly=*/false, CookieSameSite::NO_RESTRICTION,
+        COOKIE_PRIORITY_DEFAULT, /*same_party=*/false,
+        CookiePartitionKey::FromURLForTesting(
+            GURL("https://example.com"), base::UnguessableToken::Create()));
+    GURL source_url = cookie_util::SimulatedCookieSource(*cookie, "https");
+    ASSERT_TRUE(SetCanonicalCookie(cm.get(), std::move(cookie), source_url,
+                                   /*modify_httponly=*/true));
+    ASSERT_TRUE(cm->DoRecordPeriodicStatsForTesting());
+
+    // Cookie counts.
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount",
+                                        /*sample=*/2,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.PartitionedCookieCount.Nonced",
+                                        /*sample=*/1,
+                                        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieCount.Unnonced", /*sample=*/1,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample("Cookie.Count2", /*sample=*/1,
+                                        /*count=*/1);
+
+    // Partitioned cookie jar size.
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes",
+        /*sample=*/5,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Nonced", /*sample=*/3,
+        /*count=*/1);
+    histogram_tester.ExpectUniqueSample(
+        "Cookie.PartitionedCookieJarSizeKibibytes.Unnonced", /*sample=*/2,
+        /*count=*/1);
   }
 }
 
@@ -4134,10 +4405,9 @@ TEST_F(CookieMonsterTest, SetSamePartyCookies) {
   EXPECT_TRUE(
       CreateAndSetCookieReturnStatus(&cm, https_url, "A=B;").IsInclude());
 
-  // A SameParty cookie cannot be set without the Secure attribute.
-  EXPECT_THAT(CreateAndSetCookieReturnStatus(&cm, https_url, "A=B; SameParty"),
-              CookieInclusionStatus::MakeFromReasonsForTesting(
-                  {CookieInclusionStatus::EXCLUDE_INVALID_SAMEPARTY}));
+  // A SameParty cookie can be set without the Secure attribute.
+  EXPECT_TRUE(CreateAndSetCookieReturnStatus(&cm, https_url, "A=B; SameParty")
+                  .IsInclude());
 
   // A SameParty cookie can be set from a URL with a secure scheme.
   EXPECT_TRUE(

@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'chrome://webui-test/mojo_webui_test_support.js';
-
 import {MostVisitedBrowserProxy} from 'chrome://resources/cr_components/most_visited/browser_proxy.js';
 import {MostVisitedElement} from 'chrome://resources/cr_components/most_visited/most_visited.js';
 import {MostVisitedPageCallbackRouter, MostVisitedPageHandlerRemote, MostVisitedPageRemote, MostVisitedTile} from 'chrome://resources/cr_components/most_visited/most_visited.mojom-webui.js';
@@ -1221,5 +1219,52 @@ suite('Theming', () => {
       assertStyle(tile, 'text-shadow', 'none');
       assertStyle(tile, 'color', 'rgb(60, 64, 67)');
     });
+  });
+});
+
+suite('Prerendering', () => {
+  suiteSetup(() => {
+    loadTimeData.overrideValues({
+      prerenderEnabled: true,
+      prerenderStartTimeThreshold: 0,
+    });
+  });
+
+  setup(() => {
+    setUpTest(/*singleRow=*/ false, /*reflowOnOverflow=*/ false);
+  });
+
+  test('onMouseHover Trigger', async () => {
+    // Arrange.
+    await addTiles(1);
+
+    // // Act.
+    const tileLink = queryTiles()[0]!;
+    // Prevent triggering a navigation, which would break the test.
+    tileLink.href = '#';
+    // simulate a mousedown event.
+    const mouseEvent = document.createEvent('MouseEvents');
+    mouseEvent.initEvent('mouseenter', true, true);
+    tileLink.dispatchEvent(mouseEvent);
+
+    // Make sure Prerendering has been triggered
+    await handler.whenCalled('prerenderMostVisitedTile');
+  });
+
+  test('onMouseDown Trigger', async () => {
+    // Arrange.
+    await addTiles(1);
+
+    // // Act.
+    const tileLink = queryTiles()[0]!;
+    // Prevent triggering a navigation, which would break the test.
+    tileLink.href = '#';
+    // simulate a mousedown event.
+    const mouseEvent = document.createEvent('MouseEvents');
+    mouseEvent.initEvent('mousedown', true, true);
+    tileLink.dispatchEvent(mouseEvent);
+
+    // Make sure Prerendering has been triggered
+    await handler.whenCalled('prerenderMostVisitedTile');
   });
 });

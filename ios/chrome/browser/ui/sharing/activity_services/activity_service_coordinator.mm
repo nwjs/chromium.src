@@ -38,10 +38,6 @@
 
 #import <LinkPresentation/LinkPresentation.h>
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 // MIME type of PDF.
@@ -272,9 +268,7 @@ constexpr CGFloat kAppIconPointSize = 80;
 
   id extraItem = nil;
   if (@available(iOS 16.4, *)) {
-    if (ShouldAddToHomeScreen(self.incognito)) {
-      extraItem = webState->GetActivityItem();
-    }
+    extraItem = webState->GetActivityItem();
   }
   [self shareItems:items activities:activities extraItem:extraItem];
 }
@@ -351,9 +345,7 @@ constexpr CGFloat kAppIconPointSize = 80;
       [self.mediator applicationActivitiesForDataItems:@[ URLData ]];
   id extraItem = nil;
   if (@available(iOS 16.4, *)) {
-    if (ShouldAddToHomeScreen(self.incognito)) {
-      extraItem = webState->GetActivityItem();
-    }
+    extraItem = webState->GetActivityItem();
   }
   [self shareItems:items activities:activities extraItem:extraItem];
 }

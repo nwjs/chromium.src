@@ -9,6 +9,24 @@
 
 namespace autofill::autofill_metrics {
 
+namespace {
+
+std::string_view GetSourceForOptInOrOptOutEvent(
+    MandatoryReauthOptInOrOutSource source) {
+  switch (source) {
+    case MandatoryReauthOptInOrOutSource::kSettingsPage:
+      return "SettingsPage";
+    case MandatoryReauthOptInOrOutSource::kCheckoutLocalCard:
+      return "CheckoutLocalCard";
+    case MandatoryReauthOptInOrOutSource::kCheckoutVirtualCard:
+      return "CheckoutVirtualCard";
+    case MandatoryReauthOptInOrOutSource::kUnknown:
+      return "Unknown";
+  }
+}
+
+}  // namespace
+
 void LogMandatoryReauthOptInBubbleOffer(MandatoryReauthOptInBubbleOffer metric,
                                         bool is_reshow) {
   std::string histogram_name =
@@ -24,6 +42,30 @@ void LogMandatoryReauthOptInBubbleResult(
       {"Autofill.PaymentMethods.MandatoryReauth.OptInBubbleResult.",
        is_reshow ? "Reshow" : "FirstShow"});
   base::UmaHistogramEnumeration(histogram_name, metric);
+}
+
+void LogMandatoryReauthOptInConfirmationBubbleMetric(
+    MandatoryReauthOptInConfirmationBubbleMetric metric) {
+  base::UmaHistogramEnumeration(
+      "Autofill.PaymentMethods.MandatoryReauth.OptInConfirmationBubble",
+      metric);
+}
+
+void LogMandatoryReauthOptInOrOutUpdateEvent(
+    MandatoryReauthOptInOrOutSource source,
+    bool opt_in,
+    MandatoryReauthAuthenticationFlowEvent event) {
+  std::string histogram_name = base::StrCat(
+      {"Autofill.PaymentMethods.MandatoryReauth.OptChangeEvent.",
+       GetSourceForOptInOrOptOutEvent(source), opt_in ? ".OptIn" : ".OptOut"});
+  base::UmaHistogramEnumeration(histogram_name, event);
+}
+
+void LogMandatoryReauthSettingsPageEditCardEvent(
+    MandatoryReauthAuthenticationFlowEvent event) {
+  std::string histogram_name =
+      "Autofill.PaymentMethods.MandatoryReauth.AuthEvent.SettingsPage.EditCard";
+  base::UmaHistogramEnumeration(histogram_name, event);
 }
 
 }  // namespace autofill::autofill_metrics

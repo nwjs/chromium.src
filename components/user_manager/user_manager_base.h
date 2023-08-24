@@ -134,7 +134,7 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   bool IsUserLoggedIn() const override;
   bool IsLoggedInAsUserWithGaiaAccount() const override;
   bool IsLoggedInAsChildUser() const override;
-  bool IsLoggedInAsPublicAccount() const override;
+  bool IsLoggedInAsManagedGuestSession() const override;
   bool IsLoggedInAsGuest() const override;
   bool IsLoggedInAsKioskApp() const override;
   bool IsLoggedInAsArcKioskApp() const override;
@@ -166,6 +166,7 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   void NotifyUserToBeRemoved(const AccountId& account_id) override;
   void NotifyUserRemoved(const AccountId& account_id,
                          UserRemovalReason reason) override;
+  void NotifyUserNotAllowed(const std::string& user_email) final;
   PrefService* GetLocalState() const final;
   bool IsFirstExecAfterBoot() const final;
   bool HasBrowserRestarted() const final;
@@ -213,6 +214,9 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Notifies observers that active user has changed.
   void NotifyActiveUserChanged(User* active_user);
+
+  // Notifies observers that login state is changed.
+  void NotifyLoginStateUpdated();
 
   // Notifies that user has logged in.
   virtual void NotifyOnLogin();
@@ -282,11 +286,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
   // Indicates that a regular user just logged in as ephemeral.
   virtual void RegularUserLoggedInAsEphemeral(const AccountId& account_id,
                                               const UserType user_type);
-
-  // Update the global LoginState.
-  virtual void UpdateLoginState(const User* active_user,
-                                const User* primary_user,
-                                bool is_current_user_owner) const = 0;
 
   virtual bool IsEphemeralAccountIdByPolicy(
       const AccountId& account_id) const = 0;
@@ -362,9 +361,6 @@ class USER_MANAGER_EXPORT UserManagerBase : public UserManager {
 
   // Notifies observers that merge session state had changed.
   void NotifyMergeSessionStateChanged();
-
-  // Call UpdateLoginState.
-  void CallUpdateLoginState();
 
   // Insert |user| at the front of the LRU user list.
   void SetLRUUser(User* user);

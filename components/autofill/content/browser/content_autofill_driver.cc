@@ -64,22 +64,11 @@ const std::vector<FormData>& WithNewVersion(
 ContentAutofillDriver::ContentAutofillDriver(
     content::RenderFrameHost* render_frame_host,
     ContentAutofillDriverFactory* owner)
-    : render_frame_host_(*render_frame_host),
-      owner_(*owner),
-      suppress_showing_ime_callback_(base::BindRepeating(
-          [](const ContentAutofillDriver* driver) {
-            return driver->should_suppress_keyboard_;
-          },
-          base::Unretained(this))) {
-  render_frame_host_->GetRenderWidgetHost()->AddSuppressShowingImeCallback(
-      suppress_showing_ime_callback_);
-}
+    : render_frame_host_(*render_frame_host), owner_(*owner) {}
 
 ContentAutofillDriver::~ContentAutofillDriver() {
   owner_->autofill_router().UnregisterDriver(this,
                                              /*driver_is_dying=*/true);
-  render_frame_host_->GetRenderWidgetHost()->RemoveSuppressShowingImeCallback(
-      suppress_showing_ime_callback_);
 }
 
 void ContentAutofillDriver::TriggerFormExtraction() {
@@ -223,17 +212,34 @@ net::IsolationInfo ContentAutofillDriver::IsolationInfo() {
 }
 
 std::vector<FieldGlobalId> ContentAutofillDriver::FillOrPreviewForm(
-    mojom::RendererFormDataAction action,
+    mojom::AutofillActionPersistence action_persistence,
     const FormData& data,
     const url::Origin& triggered_origin,
     const base::flat_map<FieldGlobalId, ServerFieldType>& field_type_map) {
   return autofill_router().FillOrPreviewForm(
-      this, action, data, triggered_origin, field_type_map,
-      [](ContentAutofillDriver* target, mojom::RendererFormDataAction action,
+      this, action_persistence, data, triggered_origin, field_type_map,
+      [](ContentAutofillDriver* target,
+         mojom::AutofillActionPersistence action_persistence,
          const FormData& data) {
         if (!target->RendererIsAvailable())
           return;
-        target->GetAutofillAgent()->FillOrPreviewForm(data, action);
+        target->GetAutofillAgent()->FillOrPreviewForm(data, action_persistence);
+      });
+}
+
+void ContentAutofillDriver::UndoAutofill(
+    mojom::AutofillActionPersistence action_persistence,
+    const FormData& data,
+    const url::Origin& triggered_origin,
+    const base::flat_map<FieldGlobalId, ServerFieldType>& field_type_map) {
+  return autofill_router().UndoAutofill(
+      this, action_persistence, data, triggered_origin, field_type_map,
+      [](ContentAutofillDriver* target, const FormData& data,
+         mojom::AutofillActionPersistence action_persistence) {
+        if (!target->RendererIsAvailable()) {
+          return;
+        }
+        target->GetAutofillAgent()->UndoAutofill(data, action_persistence);
       });
 }
 
@@ -592,15 +598,15 @@ void ContentAutofillDriver::DidEndTextFieldEditing() {
       });
 }
 
-void ContentAutofillDriver::SelectFieldOptionsDidChange(
+void ContentAutofillDriver::SelectOrSelectMenuFieldOptionsDidChange(
     const FormData& raw_form) {
   if (!bad_message::CheckFrameNotPrerendering(render_frame_host())) {
     return;
   }
-  autofill_router().SelectFieldOptionsDidChange(
+  autofill_router().SelectOrSelectMenuFieldOptionsDidChange(
       this, GetFormWithFrameAndFormMetaData(raw_form),
       [](ContentAutofillDriver* target, const FormData& form) {
-        target->autofill_manager_->OnSelectFieldOptionsDidChange(
+        target->autofill_manager_->OnSelectOrSelectMenuFieldOptionsDidChange(
             WithNewVersion(form));
       });
 }
@@ -669,10 +675,6 @@ void ContentAutofillDriver::UnsetKeyPressHandlerCallback() {
   key_press_handler_.Reset();
 }
 
-void ContentAutofillDriver::SetShouldSuppressKeyboardCallback(bool suppress) {
-  should_suppress_keyboard_ = suppress;
-}
-
 void ContentAutofillDriver::SetKeyPressHandler(
     const content::RenderWidgetHost::KeyPressEventCallback& handler) {
   autofill_router().SetKeyPressHandler(
@@ -690,13 +692,6 @@ void ContentAutofillDriver::UnsetKeyPressHandler() {
   autofill_router().UnsetKeyPressHandler(
       this, [](ContentAutofillDriver* target) {
         target->UnsetKeyPressHandlerCallback();
-      });
-}
-
-void ContentAutofillDriver::SetShouldSuppressKeyboard(bool suppress) {
-  autofill_router().SetShouldSuppressKeyboard(
-      this, suppress, [](ContentAutofillDriver* target, bool suppress) {
-        target->SetShouldSuppressKeyboardCallback(suppress);
       });
 }
 

@@ -98,6 +98,16 @@ struct CredentialUIEntry;
 // Shows the Safe Browsing page.
 - (void)showSafeBrowsingSettings;
 
+// Shows the Password Manager's search page.
+- (void)showPasswordSearchPage;
+
+// Shows the Tab Pickup Settings screen.
+- (void)showTabPickupSettings;
+
+// Shows the Content Settings page in the settings on top of baseViewController.
+- (void)showContentsSettingsFromViewController:
+    (UIViewController*)baseViewController;
+
 @end
 
 // Protocol for commands that will generally be handled by the application,
@@ -155,8 +165,7 @@ struct CredentialUIEntry;
 // Prepare to show the TabSwitcher UI.
 - (void)prepareTabSwitcher;
 
-// Shows the TabSwitcher UI. When the thumb strip is enabled, shows the
-// TabSwitcher UI, specifically in its grid layout.
+// Shows the TabSwitcher UI.
 - (void)displayTabSwitcherInGridLayout;
 
 // Same as displayTabSwitcherInGridLayout, but also force tab switcher to

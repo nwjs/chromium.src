@@ -6,6 +6,7 @@
 
 #import "base/command_line.h"
 #import "base/logging.h"
+#import "components/password_manager/ios/fake_bulk_leak_check_service.h"
 #import "components/signin/internal/identity_manager/fake_profile_oauth2_token_service.h"
 #import "components/signin/internal/identity_manager/profile_oauth2_token_service.h"
 #import "components/signin/internal/identity_manager/profile_oauth2_token_service_delegate.h"
@@ -17,10 +18,6 @@
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/signin_test_util.h"
 #import "ios/chrome/test/earl_grey/test_switches.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace tests_hook {
 
@@ -128,6 +125,11 @@ std::unique_ptr<SystemIdentityManager> CreateSystemIdentityManager() {
   }
 
   return system_identity_manager;
+}
+
+std::unique_ptr<password_manager::BulkLeakCheckServiceInterface>
+GetOverriddenBulkLeakCheckService() {
+  return std::make_unique<password_manager::FakeBulkLeakCheckService>();
 }
 
 void SetUpTestsIfPresent() {

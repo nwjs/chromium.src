@@ -22,7 +22,6 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_factory.h"
-#include "chrome/browser/ui/web_applications/web_app_dialog_manager.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_tabbed_utils.h"
 #include "chrome/browser/ui/web_applications/web_app_ui_manager_impl.h"
@@ -227,9 +226,7 @@ bool WebAppBrowserController::HasReloadButton() const {
 
 #if !BUILDFLAG(IS_CHROMEOS)
 bool WebAppBrowserController::HasProfileMenuButton() const {
-  return (app_id() == web_app::kPasswordManagerAppId) &&
-         base::FeatureList::IsEnabled(
-             password_manager::features::kPasswordManagerRedesign);
+  return app_id() == web_app::kPasswordManagerAppId;
 }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -459,6 +456,17 @@ GURL WebAppBrowserController::GetAppNewTabUrl() const {
   return registrar().GetAppNewTabUrl(app_id());
 }
 
+bool WebAppBrowserController::ShouldHideNewTabButton() const {
+  if (!registrar().IsTabbedWindowModeEnabled(app_id())) {
+    return false;
+  }
+
+  // If the app added a pinned home tab without changing their new tab URL, we
+  // hide the new tab button to avoid the start_url being opened in a non home
+  // tab.
+  return IsUrlInHomeTabScope(GetAppNewTabUrl());
+}
+
 bool WebAppBrowserController::IsUrlInHomeTabScope(const GURL& url) const {
   if (!registrar().IsTabbedWindowModeEnabled(app_id())) {
     return false;
@@ -592,9 +600,9 @@ bool WebAppBrowserController::CanUserUninstall() const {
 void WebAppBrowserController::Uninstall(
     webapps::WebappUninstallSource webapp_uninstall_source) {
   WebAppUiManagerImpl::Get(&*provider_)
-      ->dialog_manager()
-      .UninstallWebApp(app_id(), webapps::WebappUninstallSource::kAppMenu,
-                       browser()->window(), base::DoNothing());
+      ->PresentUserUninstallDialog(app_id(),
+                                   webapps::WebappUninstallSource::kAppMenu,
+                                   browser()->window(), base::DoNothing());
 }
 
 bool WebAppBrowserController::IsInstalled() const {
@@ -746,7 +754,7 @@ absl::optional<RE2::Set> WebAppBrowserController::GetTabbedHomeTabScope()
   TabStrip tab_strip = web_app->tab_strip().value();
   if (const auto* params =
           absl::get_if<blink::Manifest::HomeTabParams>(&tab_strip.home_tab)) {
-    std::vector<blink::UrlPattern> scope_patterns = params->scope_patterns;
+    std::vector<blink::SafeUrlPattern> scope_patterns = params->scope_patterns;
 
     RE2::Set scope_set = RE2::Set(RE2::Options(), RE2::Anchor::UNANCHORED);
     for (auto& scope : scope_patterns) {

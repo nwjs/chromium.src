@@ -6,6 +6,7 @@
 
 #include "ash/keyboard/ui/keyboard_ui_controller.h"
 #include "ash/public/cpp/saved_desk_delegate.h"
+#include "ash/public/cpp/shelf_types.h"
 #include "ash/public/cpp/shell_window_ids.h"
 #include "ash/public/cpp/style/color_provider.h"
 #include "ash/public/cpp/window_properties.h"
@@ -14,6 +15,7 @@
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
+#include "ash/style/typography.h"
 #include "ash/utility/haptics_util.h"
 #include "ash/wm/desks/desk_action_view.h"
 #include "ash/wm/desks/desk_mini_view_animations.h"
@@ -31,10 +33,16 @@
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/i18n/rtl.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
 #include "base/uuid.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/compositor/layer.h"
+#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/events/devices/device_data_manager.h"
 #include "ui/events/devices/haptic_touchpad_effects.h"
 #include "ui/events/event_observer.h"
@@ -50,6 +58,9 @@
 namespace ash {
 
 namespace {
+
+// Duration of delay when Bento Bar Desk Button is clicked.
+constexpr base::TimeDelta kAnimationDelayDuration = base::Milliseconds(100);
 
 OverviewHighlightController* GetHighlightController() {
   auto* overview_controller = Shell::Get()->overview_controller();
@@ -242,6 +253,8 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
   // TODO(conniekxu): After CrOS Next is launched, remove function
   // `LayoutInternal`, and move this to Layout.
   void LayoutInternalCrOSNext(views::View* host) {
+    TRACE_EVENT0("ui", "DeskBarScrollViewLayout::LayoutInternalCrOSNext");
+
     const gfx::Rect scroll_bounds = bar_view_->scroll_view_->bounds();
 
     auto* new_desk_button_label = bar_view_->new_desk_button_label();
@@ -252,7 +265,9 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
       host->SetBoundsRect(scroll_bounds);
 
       new_desk_button_label->SetVisible(false);
-      library_button_label->SetVisible(false);
+      if (library_button_label) {
+        library_button_label->SetVisible(false);
+      }
 
       auto* default_desk_button = bar_view_->default_desk_button();
       const gfx::Size default_desk_button_size =
@@ -278,6 +293,7 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
           gfx::Rect(gfx::Point((scroll_bounds.width() - content_width) / 2,
                                kDeskBarZeroStateY),
                     default_desk_button_size));
+
       // Update this button's text since it may changes while removing a desk
       // and going back to the zero state.
       default_desk_button->UpdateLabelText();
@@ -315,7 +331,8 @@ class DeskBarScrollViewLayout : public views::LayoutManager {
     auto* library_button = bar_view_->library_button();
     const bool library_button_visible =
         library_button && library_button->GetVisible();
-    gfx::Size library_button_size = library_button->GetPreferredSize();
+    gfx::Size library_button_size =
+        library_button ? library_button->GetPreferredSize() : gfx::Size();
 
     gfx::Size mini_view_size = mini_views[0]->GetPreferredSize();
 
@@ -466,8 +483,10 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
 
   const bool is_jellyroll_enabled = chromeos::features::IsJellyrollEnabled();
 
-  if (is_jellyroll_enabled) {
+  if (features::IsBackgroundBlurEnabled() &&
+      (is_jellyroll_enabled || type_ == Type::kDeskButton)) {
     layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
+    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
   }
 
   const float corner_radius = type_ == Type::kOverview
@@ -499,10 +518,12 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
       base::BindRepeating(&DeskBarViewBase::ScrollToPreviousPage,
                           base::Unretained(this)),
       /*is_left_arrow=*/true, this));
+  left_scroll_button_->RemoveFromFocusList();
   right_scroll_button_ = AddChildView(std::make_unique<ScrollArrowButton>(
       base::BindRepeating(&DeskBarViewBase::ScrollToNextPage,
                           base::Unretained(this)),
       /*is_left_arrow=*/false, this));
+  right_scroll_button_->RemoveFromFocusList();
 
   // Make the scroll content view animatable by painting to a layer.
   scroll_view_contents_ =
@@ -518,9 +539,12 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
             l10n_util::GetStringUTF16(IDS_ASH_DESKS_NEW_DESK_BUTTON),
             cros_tokens::kCrosSysOnPrimary, cros_tokens::kCrosSysPrimary,
             /*initially_enabled=*/DesksController::Get()->CanCreateDesks(),
-            base::BindRepeating(&DeskBarViewBase::OnNewDeskButtonPressed,
-                                base::Unretained(this),
-                                DesksCreationRemovalSource::kButton)));
+            base::BindRepeating(
+                &DeskBarViewBase::OnNewDeskButtonPressed,
+                base::Unretained(this),
+                type_ == Type::kDeskButton
+                    ? DesksCreationRemovalSource::kDeskButtonDeskBarButton
+                    : DesksCreationRemovalSource::kButton)));
     new_desk_button_label_ =
         scroll_view_contents_->AddChildView(std::make_unique<views::Label>());
     new_desk_button_label_->SetPaintToLayer();
@@ -531,9 +555,12 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
             this, &kDesksNewDeskButtonIcon,
             l10n_util::GetStringUTF16(IDS_ASH_DESKS_NEW_DESK_BUTTON),
             /*initially_enabled=*/DesksController::Get()->CanCreateDesks(),
-            base::BindRepeating(&DeskBarViewBase::OnNewDeskButtonPressed,
-                                base::Unretained(this),
-                                DesksCreationRemovalSource::kButton)));
+            base::BindRepeating(
+                &DeskBarViewBase::OnNewDeskButtonPressed,
+                base::Unretained(this),
+                type_ == Type::kDeskButton
+                    ? DesksCreationRemovalSource::kDeskButtonDeskBarButton
+                    : DesksCreationRemovalSource::kButton)));
 
     zero_state_default_desk_button_ = scroll_view_contents_->AddChildView(
         std::make_unique<ZeroStateDefaultDeskButton>(this));
@@ -541,9 +568,12 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
         std::make_unique<ZeroStateIconButton>(
             this, &kDesksNewDeskButtonIcon,
             l10n_util::GetStringUTF16(IDS_ASH_DESKS_NEW_DESK_BUTTON),
-            base::BindRepeating(&DeskBarViewBase::OnNewDeskButtonPressed,
-                                base::Unretained(this),
-                                DesksCreationRemovalSource::kButton)));
+            base::BindRepeating(
+                &DeskBarViewBase::OnNewDeskButtonPressed,
+                base::Unretained(this),
+                type_ == Type::kDeskButton
+                    ? DesksCreationRemovalSource::kDeskButtonDeskBarButton
+                    : DesksCreationRemovalSource::kButton)));
   }
 
   if (saved_desk_util::IsSavedDesksEnabled()) {
@@ -564,6 +594,9 @@ DeskBarViewBase::DeskBarViewBase(aura::Window* root, Type type)
                                   base::Unretained(this))));
       library_button_label_ =
           scroll_view_contents_->AddChildView(std::make_unique<views::Label>());
+      library_button_label_->SetFontList(
+          TypographyProvider::Get()->ResolveTypographyToken(
+              TypographyToken::kCrosAnnotation1));
       library_button_label_->SetPaintToLayer();
       library_button_label_->layer()->SetFillsBoundsOpaquely(false);
     } else {
@@ -701,11 +734,9 @@ std::unique_ptr<views::Widget> DeskBarViewBase::CreateDeskWidget(
   return widget;
 }
 
-const char* DeskBarViewBase::GetClassName() const {
-  return "DeskBarViewBase";
-}
-
 void DeskBarViewBase::Layout() {
+  TRACE_EVENT0("ui", "DeskBarViewBase::Layout");
+
   if (is_bounds_animation_on_going_) {
     return;
   }
@@ -717,22 +748,26 @@ void DeskBarViewBase::Layout() {
   }
 
   // Refresh bounds as preferred. This is needed for dynamic width for the bar.
+  // TODO(b/293658108): Move dynamic width update out of `Layout`.
   gfx::Size preferred_size = CalculatePreferredSize();
   gfx::Rect new_bounds = GetAvailableBounds();
-  switch (Shelf::ForWindow(root_)->alignment()) {
+  ShelfAlignment shelf_alignment = Shelf::ForWindow(root_)->alignment();
+  switch (shelf_alignment) {
     case ShelfAlignment::kBottom:
       new_bounds.ClampToCenteredSize(preferred_size);
       break;
     case ShelfAlignment::kLeft:
-      new_bounds.set_size(preferred_size);
-      break;
     case ShelfAlignment::kRight:
-      new_bounds.set_origin({new_bounds.right() - preferred_size.width(),
-                             new_bounds.bottom() - preferred_size.height()});
-      new_bounds.set_size(preferred_size);
+      if ((shelf_alignment == ShelfAlignment::kRight) == base::i18n::IsRTL()) {
+        new_bounds.set_size(preferred_size);
+      } else {
+        new_bounds.set_origin({new_bounds.right() - preferred_size.width(),
+                               new_bounds.bottom() - preferred_size.height()});
+        new_bounds.set_size(preferred_size);
+      }
       break;
-    default:
-      NOTREACHED();
+    case ShelfAlignment::kBottomLocked:
+      return;
   }
   SetBoundsRect(new_bounds);
 
@@ -771,11 +806,17 @@ void DeskBarViewBase::Layout() {
 }
 
 bool DeskBarViewBase::OnMousePressed(const ui::MouseEvent& event) {
+  if (desk_activation_timer_.IsRunning()) {
+    return false;
+  }
   DeskNameView::CommitChanges(GetWidget());
   return false;
 }
 
 void DeskBarViewBase::OnGestureEvent(ui::GestureEvent* event) {
+  if (desk_activation_timer_.IsRunning()) {
+    return;
+  }
   switch (event->type()) {
     case ui::ET_GESTURE_LONG_PRESS:
     case ui::ET_GESTURE_LONG_TAP:
@@ -860,10 +901,19 @@ int DeskBarViewBase::GetMiniViewIndex(const DeskMiniView* mini_view) const {
 
 void DeskBarViewBase::OnNewDeskButtonPressed(
     DesksCreationRemovalSource desks_creation_removal_source) {
+  if (desk_activation_timer_.IsRunning()) {
+    return;
+  }
   auto* controller = DesksController::Get();
   if (!controller->CanCreateDesks()) {
     return;
   }
+
+  base::UmaHistogramBoolean(type_ == Type::kDeskButton
+                                ? kDeskButtonDeskBarNewDeskHistogramName
+                                : kOverviewDeskBarNewDeskHistogramName,
+                            true);
+
   controller->NewDesk(desks_creation_removal_source);
   NudgeDeskName(mini_views_.size() - 1);
 
@@ -1076,6 +1126,9 @@ void DeskBarViewBase::OnHoverStateMayHaveChanged() {
 
 void DeskBarViewBase::OnGestureTap(const gfx::Rect& screen_rect,
                                    bool is_long_gesture) {
+  if (desk_activation_timer_.IsRunning()) {
+    return;
+  }
   for (auto* mini_view : mini_views_) {
     mini_view->OnWidgetGestureTap(screen_rect, is_long_gesture);
   }
@@ -1202,6 +1255,32 @@ bool DeskBarViewBase::HandleReleaseEvent(DeskMiniView* mini_view,
   return true;
 }
 
+void DeskBarViewBase::OnActivateDeskTimer(const base::Uuid& uuid) {
+  OnUiUpdateDone();
+
+  auto* desk_controller = DesksController::Get();
+  if (Desk* desk = desk_controller->GetDeskByUuid(uuid)) {
+    desk_controller->ActivateDesk(
+        desk, type_ == Type::kDeskButton
+                  ? DesksSwitchSource::kDeskButtonMiniViewButton
+                  : DesksSwitchSource::kMiniViewButton);
+  }
+}
+
+void DeskBarViewBase::HandleClickEvent(DeskMiniView* mini_view) {
+  // A timer to delay closing the desk bar.
+  if (!ui::ScopedAnimationDurationScaleMode::is_zero()) {
+    desk_activation_timer_.Start(
+        FROM_HERE,
+        ui::ScopedAnimationDurationScaleMode::duration_multiplier() *
+            kAnimationDelayDuration,
+        base::BindOnce(&DeskBarViewBase::OnActivateDeskTimer,
+                       base::Unretained(this), mini_view->desk()->uuid()));
+  } else {
+    OnActivateDeskTimer(mini_view->desk()->uuid());
+  }
+}
+
 void DeskBarViewBase::InitDragDesk(DeskMiniView* mini_view,
                                    const gfx::PointF& location_in_screen) {
   CHECK(!mini_view->is_animating_to_remove());
@@ -1285,6 +1364,11 @@ void DeskBarViewBase::EndDragDesk(DeskMiniView* mini_view, bool end_by_user) {
   CHECK_EQ(mini_view, drag_view_);
   CHECK(!mini_view->is_animating_to_remove());
 
+  base::UmaHistogramBoolean(type_ == Type::kDeskButton
+                                ? kDeskButtonDeskBarReorderDeskHistogramName
+                                : kOverviewDeskBarReorderDeskHistogramName,
+                            true);
+
   // Update default desk names after dropping.
   Shell::Get()->desks_controller()->UpdateDesksDefaultNames();
   Shell::Get()->cursor_manager()->SetCursor(ui::mojom::CursorType::kPointer);
@@ -1317,7 +1401,7 @@ void DeskBarViewBase::FinalizeDragDesk() {
   drag_proxy_.reset();
 }
 
-void DeskBarViewBase::OnDeskAdded(const Desk* desk) {
+void DeskBarViewBase::OnDeskAdded(const Desk* desk, bool from_undo) {
   DeskNameView::CommitChanges(GetWidget());
 
   if (chromeos::features::IsJellyrollEnabled()) {
@@ -1451,6 +1535,8 @@ void DeskBarViewBase::OnDeskNameChanged(const Desk* desk,
 
 void DeskBarViewBase::UpdateNewMiniViews(bool initializing_bar_view,
                                          bool expanding_bar_view) {
+  TRACE_EVENT0("ui", "DeskBarViewBase::UpdateNewMiniViews");
+
   const auto& desks = DesksController::Get()->desks();
   if (initializing_bar_view) {
     UpdateDeskButtonsVisibility();
@@ -1561,6 +1647,12 @@ void DeskBarViewBase::SwitchToExpandedState() {
     PerformZeroStateToExpandedStateMiniViewAnimationCrOSNext(this);
   } else {
     PerformZeroStateToExpandedStateMiniViewAnimation(this);
+  }
+}
+
+void DeskBarViewBase::OnUiUpdateDone() {
+  if (on_update_ui_closure_for_testing_) {
+    std::move(on_update_ui_closure_for_testing_).Run();
   }
 }
 
@@ -1719,7 +1811,16 @@ int DeskBarViewBase::GetAdjustedUncroppedScrollPosition(int position) const {
 }
 
 void DeskBarViewBase::OnLibraryButtonPressed() {
+  if (desk_activation_timer_.IsRunning()) {
+    return;
+  }
   RecordLoadSavedDeskLibraryHistogram();
+
+  base::UmaHistogramBoolean(type_ == Type::kDeskButton
+                                ? kDeskButtonDeskBarOpenLibraryHistogramName
+                                : kOverviewDeskBarOpenLibraryHistogramName,
+                            true);
+
   if (IsDeskNameBeingModified()) {
     DeskNameView::CommitChanges(GetWidget());
   }
@@ -1797,5 +1898,8 @@ bool DeskBarViewBase::MaybeScrollByDraggedDesk() {
 gfx::Rect DeskBarViewBase::GetAvailableBounds() const {
   return GetWidget()->GetRootView()->bounds();
 }
+
+BEGIN_METADATA(DeskBarViewBase, View)
+END_METADATA
 
 }  // namespace ash

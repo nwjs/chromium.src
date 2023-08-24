@@ -886,6 +886,11 @@ bool CaptureModeSession::IsInCountDownAnimation() const {
   return capture_label_view_->IsInCountDownAnimation();
 }
 
+bool CaptureModeSession::IsBarAnchoredToWindow() const {
+  return capture_window_observer_ &&
+         capture_window_observer_->bar_anchored_to_window();
+}
+
 void CaptureModeSession::OnCaptureFolderMayHaveChanged() {
   if (!capture_mode_settings_widget_)
     return;
@@ -1352,6 +1357,12 @@ void CaptureModeSession::HighlightWindowForTab(aura::Window* window) {
 void CaptureModeSession::MaybeUpdateSettingsBounds() {
   if (!capture_mode_settings_widget_)
     return;
+
+  // Set the content of the CaptureModeSettingsView to its maximum preferred
+  // size so the menu will update and scroll properly.
+  capture_mode_settings_view_->contents()->SetSize(
+      capture_mode_settings_view_->contents()->GetPreferredSize());
+
   capture_mode_settings_widget_->SetBounds(CaptureModeSettingsView::GetBounds(
       capture_mode_bar_view_, capture_mode_settings_view_));
 }
@@ -2840,11 +2851,12 @@ void CaptureModeSession::SetRecordingTypeMenuShown(bool shown,
     MaybeDismissUserNudgeForever();
     capture_toast_controller_.DismissCurrentToastIfAny();
 
-    recording_type_menu_widget_->Init(CreateWidgetParams(
-        parent,
-        RecordingTypeMenuView::GetIdealScreenBounds(
-            capture_label_widget_->GetWindowBoundsInScreen()),
-        "RecordingTypeMenuWidget"));
+    recording_type_menu_widget_->Init(
+        CreateWidgetParams(parent,
+                           RecordingTypeMenuView::GetIdealScreenBounds(
+                               capture_label_widget_->GetWindowBoundsInScreen(),
+                               current_root_->GetBoundsInScreen()),
+                           "RecordingTypeMenuWidget"));
     recording_type_menu_view_ = recording_type_menu_widget_->SetContentsView(
         std::make_unique<RecordingTypeMenuView>(
             base::BindRepeating(&CaptureModeSession::SetRecordingTypeMenuShown,
@@ -2890,6 +2902,7 @@ void CaptureModeSession::MaybeUpdateRecordingTypeMenu() {
   recording_type_menu_widget_->SetBounds(
       RecordingTypeMenuView::GetIdealScreenBounds(
           capture_label_widget_->GetWindowBoundsInScreen(),
+          current_root_->GetBoundsInScreen(),
           recording_type_menu_widget_->GetContentsView()));
 }
 

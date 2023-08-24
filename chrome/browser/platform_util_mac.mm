@@ -22,10 +22,6 @@
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace platform_util {
 
 // Returns true if revealing file paths in the Finder should be skipped
@@ -60,20 +56,10 @@ void OpenFileOnMainThread(const base::FilePath& full_path) {
   if (!url)
     return;
 
-  if (@available(macOS 10.15, *)) {
-    [[NSWorkspace sharedWorkspace]
-                  openURL:url
-            configuration:[NSWorkspaceOpenConfiguration configuration]
-        completionHandler:nil];
-  } else {
-    const NSWorkspaceLaunchOptions launch_options =
-        NSWorkspaceLaunchAsync | NSWorkspaceLaunchWithErrorPresentation;
-    [[NSWorkspace sharedWorkspace] openURLs:@[ url ]
-                    withAppBundleIdentifier:nil
-                                    options:launch_options
-             additionalEventParamDescriptor:nil
-                          launchIdentifiers:nil];
-  }
+  [[NSWorkspace sharedWorkspace]
+                openURL:url
+          configuration:[NSWorkspaceOpenConfiguration configuration]
+      completionHandler:nil];
 }
 
 namespace internal {

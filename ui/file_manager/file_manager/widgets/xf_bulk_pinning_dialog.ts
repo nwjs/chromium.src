@@ -36,7 +36,7 @@ const enum DialogState {
   READY,
 }
 
-const BulkPinStage = chrome.fileManagerPrivate.BulkPinStage;
+export const BulkPinStage = chrome.fileManagerPrivate.BulkPinStage;
 
 /**
  * Dialog that shows the benefits of enabling bulk pinning along with storage
@@ -141,14 +141,22 @@ export class XfBulkPinningDialog extends XfBase {
     this.$button_.disabled = s !== DialogState.READY;
   }
 
+  // Indicates if this dialog is currently open.
+  get is_open(): boolean {
+    return this.$dialog_.open;
+  }
+
+  // Shows the dialog and starts calculating the required space for
+  // bulk-pinning.
   async show() {
+    this.stage_ = BulkPinStage.LISTING_FILES;
     this.state = DialogState.LISTING;
     this.$dialog_.showModal();
     this.store_.subscribe(this);
     try {
       await calculateBulkPinRequiredSpace();
     } catch (e) {
-      console.error('Cannot calculate bulk-pinning required space', e);
+      console.error('Cannot calculate required space for bulk-pinning:', e);
       this.state = DialogState.ERROR;
     }
   }
@@ -158,6 +166,7 @@ export class XfBulkPinningDialog extends XfBase {
     this.store_.unsubscribe(this);
   }
 
+  // Called when the "Continue" button is clicked.
   private onContinue() {
     this.$dialog_.close();
     chrome.fileManagerPrivate.setPreferences(
@@ -165,6 +174,7 @@ export class XfBulkPinningDialog extends XfBase {
         chrome.fileManagerPrivate.PreferencesChange);
   }
 
+  // Called when the "Cancel" button is clicked.
   private onCancel() {
     this.$dialog_.cancel();
   }
@@ -172,7 +182,7 @@ export class XfBulkPinningDialog extends XfBase {
   // Called when the "Learn more" link is clicked.
   private onLearnMore(e: UIEvent) {
     e.preventDefault();
-    util.visitURL(str('GOOGLE_DRIVE_HELP_URL'));
+    util.visitURL('https://support.google.com/chromebook?p=my_drive_cbx');
   }
 
   // Called when the "View storage" link is clicked.
@@ -193,7 +203,7 @@ export class XfBulkPinningDialog extends XfBase {
         <div slot="body">
           <div class="description">
             ${str('BULK_PINNING_EXPLANATION')}
-            <a href="_blank" @click="${this.onLearnMore}">
+            <a id="learn-more-link" href="_blank" @click="${this.onLearnMore}">
               ${str('LEARN_MORE_LABEL')}
             </a>
           </div>
@@ -218,14 +228,16 @@ export class XfBulkPinningDialog extends XfBase {
           </div>
           <div id="not-enough-space-footer" class="error-footer">
             ${str('BULK_PINNING_NOT_ENOUGH_SPACE')}
-            <a href="_blank" @click="${this.onViewStorage}">
+            <a id="view-storage-link" href="_blank"
+              @click="${this.onViewStorage}">
               ${str('BULK_PINNING_VIEW_STORAGE')}
             </a>
           </div>
           <div id="ready-footer" class="normal-footer"></div>
         </div>
         <div slot="button-container">
-          <cr-button class="cancel-button" @click="${this.onCancel}">
+          <cr-button id="cancel-button" class="cancel-button"
+            @click="${this.onCancel}">
             ${str('CANCEL_LABEL')}
           </cr-button>
           <cr-button id="continue-button" class="continue-button action-button"

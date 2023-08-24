@@ -18,6 +18,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/privacy_budget/identifiability_metrics.h"
+#include "third_party/blink/renderer/bindings/modules/v8/v8_begin_layer_options.h"
 #include "third_party/blink/renderer/bindings/modules/v8/v8_union_canvasfilter_string.h"
 #include "third_party/blink/renderer/core/css/cssom/css_color_value.h"
 #include "third_party/blink/renderer/core/css/parser/css_parser.h"
@@ -80,12 +81,6 @@ const char BaseRenderingContext2D::kAllPetiteVariantString[] =
     "all-petite-caps";
 const char BaseRenderingContext2D::kUnicaseVariantString[] = "unicase";
 const char BaseRenderingContext2D::kTitlingCapsVariantString[] = "titling-caps";
-const char BaseRenderingContext2D::kAutoRendering[] = "auto";
-const char BaseRenderingContext2D::kOptimizeSpeedRendering[] = "optimizespeed";
-const char BaseRenderingContext2D::kOptimizeLegibilityRendering[] =
-    "optimizelegibility";
-const char BaseRenderingContext2D::kGeometricPrecisionRendering[] =
-    "geometricprecision";
 
 // Dummy overdraw test for ops that do not support overdraw detection
 const auto kNoOverdraw = [](const SkIRect& clip_bounds) { return false; };
@@ -179,7 +174,7 @@ void BaseRenderingContext2D::restore(ExceptionState& exception_state) {
 }
 
 void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
-                                        const V8CanvasFilterInput* filter_init,
+                                        const BeginLayerOptions* options,
                                         ExceptionState& exception_state) {
   if (UNLIKELY(isContextLost())) {
     return;
@@ -196,13 +191,21 @@ void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
   if (!canvas)
     return;
 
-  ++layer_count_;
-
   CanvasRenderingContext2DState& state = GetState();
-  if (filter_init != nullptr) {
+  if (const V8CanvasFilterInput* filter_input = CHECK_DEREF(options).filter();
+      filter_input != nullptr) {
+    FilterOperations filter_operations =
+        CanvasFilterOperationResolver::CreateFilterOperations(
+            *filter_input, CHECK_DEREF(ExecutionContext::From(script_state)),
+            exception_state);
+    if (exception_state.HadException()) {
+      return;
+    }
+
     FilterEffectBuilder filter_effect_builder(
         gfx::RectF(Width(), Height()),
         1.0f);  // Deliberately ignore zoom on the canvas element.
+
     // Save the layer's filter in the parent state, along with all the other
     // render states impacting the layer. Technically, this is only required so
     // that we could restore the `cc::PaintCanvas` matrix stack (in
@@ -210,14 +213,12 @@ void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
     // opened. The filter can be discarded from the parent state as soon as the
     // layer is closed.
     state.SetLayerFilter(paint_filter_builder::Build(
-        filter_effect_builder.BuildFilterEffect(
-            CanvasFilterOperationResolver::CreateFilterOperations(
-                CHECK_DEREF(filter_init),
-                CHECK_DEREF(ExecutionContext::From(script_state)),
-                exception_state),
-            !OriginClean()),
+        filter_effect_builder.BuildFilterEffect(std::move(filter_operations),
+                                                !OriginClean()),
         kInterpolationSpaceSRGB));
   }
+
+  ++layer_count_;
 
   state_stack_.push_back(MakeGarbageCollected<CanvasRenderingContext2DState>(
       state, CanvasRenderingContext2DState::kDontCopyClipList,
@@ -235,8 +236,6 @@ void BaseRenderingContext2D::beginLayer(ScriptState* script_state,
   DCHECK(!GetState().ShouldDrawShadows());
   setGlobalAlpha(1.0);
   setGlobalCompositeOperation("source-over");
-  setFilter(script_state,
-            MakeGarbageCollected<V8UnionCanvasFilterOrString>("none"));
 }
 
 CanvasRenderingContext2DState::SaveType
@@ -1786,8 +1785,9 @@ void BaseRenderingContext2D::drawImage(CanvasImageSource* image_source,
 
   WillDrawImage(image_source);
 
-  if (!origin_tainted_by_content_ && WouldTaintOrigin(image_source))
+  if (!origin_tainted_by_content_ && WouldTaintCanvasOrigin(image_source)) {
     SetOriginTaintedByContent();
+  }
 
   Draw<OverdrawOp::kDrawImage>(
       [this, image_source, image, src_rect, dst_rect](
@@ -1970,7 +1970,7 @@ CanvasPattern* BaseRenderingContext2D::createPattern(
   if (!image_for_rendering)
     return nullptr;
 
-  bool origin_clean = !WouldTaintOrigin(image_source);
+  bool origin_clean = !WouldTaintCanvasOrigin(image_source);
 
   auto* pattern = MakeGarbageCollected<CanvasPattern>(
       std::move(image_for_rendering), repeat_mode, origin_clean);
@@ -2118,15 +2118,17 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
       GetCanvasRenderingContextHost()->RenderingContext()) {
     if (will_read_frequently_value == CanvasContextCreationAttributesCore::
                                           WillReadFrequently::kUndefined) {
-      const String& message =
-          "Canvas2D: Multiple readback operations using getImageData are "
-          "faster with the willReadFrequently attribute set to true. See: "
-          "https://html.spec.whatwg.org/multipage/"
-          "canvas.html#concept-canvas-will-read-frequently";
-      GetTopExecutionContext()->AddConsoleMessage(
-          MakeGarbageCollected<ConsoleMessage>(
-              mojom::blink::ConsoleMessageSource::kRendering,
-              mojom::blink::ConsoleMessageLevel::kWarning, message));
+      if (auto* execution_context = GetTopExecutionContext()) {
+        const String& message =
+            "Canvas2D: Multiple readback operations using getImageData are "
+            "faster with the willReadFrequently attribute set to true. See: "
+            "https://html.spec.whatwg.org/multipage/"
+            "canvas.html#concept-canvas-will-read-frequently";
+        execution_context->AddConsoleMessage(
+            MakeGarbageCollected<ConsoleMessage>(
+                mojom::blink::ConsoleMessageSource::kRendering,
+                mojom::blink::ConsoleMessageLevel::kWarning, message));
+      }
     }
   }
 
@@ -2378,7 +2380,7 @@ String BaseRenderingContext2D::wordSpacing() const {
 }
 
 String BaseRenderingContext2D::textRendering() const {
-  return ToStringForIdl(GetState().GetTextRendering());
+  return GetState().GetTextRendering().AsString();
 }
 
 float BaseRenderingContext2D::GetFontBaseline(
@@ -2425,7 +2427,7 @@ String BaseRenderingContext2D::fontKerning() const {
 }
 
 String BaseRenderingContext2D::fontStretch() const {
-  return FontDescription::ToString(GetState().GetFontStretch()).LowerASCII();
+  return GetState().GetFontStretch().AsString();
 }
 
 String BaseRenderingContext2D::fontVariantCaps() const {

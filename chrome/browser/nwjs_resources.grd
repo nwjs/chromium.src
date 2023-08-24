@@ -157,7 +157,6 @@
       <include name="IDR_HISTORY_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_HISTORY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_OTHER_DEVICES_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_IDENTITY_API_SCOPE_APPROVAL_MANIFEST" file="resources\identity_scope_approval_dialog\manifest.json" type="BINDATA" />
       <include name="IDR_GAIA_AUTH_AUTHENTICATOR_JS" file="resources\gaia_auth_host\authenticator.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_INSPECT_CSS" file="resources\empty.css" flattenhtml="true" type="BINDATA" />
       <include name="IDR_INSPECT_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />

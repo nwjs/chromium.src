@@ -32,10 +32,6 @@
 #import "ios/chrome/browser/ui/first_run/tos/tos_coordinator.h"
 #import "ios/chrome/browser/ui/first_run/uma/uma_coordinator.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface SigninScreenCoordinator () <IdentityChooserCoordinatorDelegate,
                                        SigninScreenViewControllerDelegate,
                                        TOSCommands,
@@ -143,6 +139,12 @@
 }
 
 #pragma mark - Private
+
+- (void)stopUMACoordinator {
+  [self.UMACoordinator stop];
+  self.UMACoordinator.delegate = nil;
+  self.UMACoordinator = nil;
+}
 
 // Starts the coordinator to present the Add Account module.
 - (void)triggerAddAccount {
@@ -312,7 +314,7 @@
                         UMAReportingUserChoice:(BOOL)UMAReportingUserChoice {
   DCHECK(self.UMACoordinator);
   DCHECK_EQ(self.UMACoordinator, coordinator);
-  self.UMACoordinator = nil;
+  [self stopUMACoordinator];
   DCHECK(self.mediator);
   self.mediator.UMAReportingUserChoice = UMAReportingUserChoice;
 }

@@ -18,10 +18,6 @@
 #import "base/strings/sys_string_conversions.h"
 #import "ios/chrome/tools/strings/grit_header_parsing.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 using PList = NSDictionary<NSString*, NSObject*>;
@@ -99,12 +95,8 @@ NSObject* ConvertValue(NSObject* value, const ResourceMap& resource_map) {
 bool ConvertFile(const base::FilePath& source_path,
                  const base::FilePath& output_path,
                  const ResourceMap& resource_map) {
-  NSURL* source_url =
-      [NSURL fileURLWithPath:base::SysUTF8ToNSString(source_path.AsUTF8Unsafe())
-                 isDirectory:NO];
-  NSURL* output_url =
-      [NSURL fileURLWithPath:base::SysUTF8ToNSString(output_path.AsUTF8Unsafe())
-                 isDirectory:NO];
+  NSURL* source_url = base::mac::FilePathToNSURL(source_path);
+  NSURL* output_url = base::mac::FilePathToNSURL(output_path);
 
   NSError* error = nil;
   PList* source_plist = [NSDictionary dictionaryWithContentsOfURL:source_url

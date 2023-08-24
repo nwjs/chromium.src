@@ -21,6 +21,7 @@
 #include "components/permissions/features.h"
 #include "components/permissions/permission_context_base.h"
 #include "components/permissions/permission_request_id.h"
+#include "components/permissions/permission_request_manager.h"
 #include "components/permissions/permission_result.h"
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
@@ -350,12 +351,14 @@ PermissionStatus PermissionManager::GetPermissionStatus(
 content::PermissionResult
 PermissionManager::GetPermissionResultForOriginWithoutContext(
     blink::PermissionType permission,
-    const url::Origin& origin) {
+    const url::Origin& requesting_origin,
+    const url::Origin& embedding_origin) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   PermissionResult result = GetPermissionStatusInternal(
       PermissionUtil::PermissionTypeToContentSettingType(permission),
       /*render_process_host=*/nullptr,
-      /*render_frame_host=*/nullptr, origin.GetURL(), origin.GetURL());
+      /*render_frame_host=*/nullptr, requesting_origin.GetURL(),
+      embedding_origin.GetURL());
 
   return PermissionUtil::ToContentPermissionResult(result);
 }
@@ -519,6 +522,13 @@ void PermissionManager::UnsubscribePermissionStatusChange(
     PermissionContextBase* context = GetPermissionContext(type);
     context->RemoveObserver(this);
   }
+}
+
+absl::optional<gfx::Rect> PermissionManager::GetExclusionAreaBoundsInScreen(
+    content::WebContents* web_contents) const {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  auto* manager = PermissionRequestManager::FromWebContents(web_contents);
+  return manager ? manager->GetPromptBubbleViewBoundsInScreen() : absl::nullopt;
 }
 
 void PermissionManager::OnPermissionsRequestResponseStatus(

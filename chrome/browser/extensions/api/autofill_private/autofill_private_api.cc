@@ -22,12 +22,15 @@
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/core/browser/autofill_address_util.h"
+#include "components/autofill/core/browser/autofill_experiments.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
 #include "components/autofill/core/browser/data_model/autofill_profile.h"
 #include "components/autofill/core/browser/data_model/credit_card.h"
 #include "components/autofill/core/browser/data_model/iban.h"
 #include "components/autofill/core/browser/form_data_importer.h"
+#include "components/autofill/core/browser/metrics/payments/mandatory_reauth_metrics.h"
 #include "components/autofill/core/browser/payments/local_card_migration_manager.h"
+#include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_flow.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
 #include "components/autofill/core/browser/personal_data_manager.h"
@@ -50,6 +53,11 @@
 namespace autofill_private = extensions::api::autofill_private;
 namespace addressinput = i18n::addressinput;
 
+using autofill::autofill_metrics::LogMandatoryReauthOptInOrOutUpdateEvent;
+using autofill::autofill_metrics::LogMandatoryReauthSettingsPageEditCardEvent;
+using autofill::autofill_metrics::MandatoryReauthAuthenticationFlowEvent;
+using autofill::autofill_metrics::MandatoryReauthOptInOrOutSource;
+
 namespace {
 
 static const char kSettingsOrigin[] = "Chrome settings";
@@ -67,87 +75,17 @@ constexpr char kFieldLengthKey[] = "isLongField";
 constexpr char kFieldNameKey[] = "fieldName";
 constexpr char kFieldRequired[] = "isRequired";
 
-// Field names for the address components.
-constexpr char kFullNameField[] = "FULL_NAME";
-constexpr char kCompanyNameField[] = "COMPANY_NAME";
-constexpr char kAddressLineField[] = "ADDRESS_LINES";
-constexpr char kDependentLocalityField[] = "ADDRESS_LEVEL_3";
-constexpr char kCityField[] = "ADDRESS_LEVEL_2";
-constexpr char kStateField[] = "ADDRESS_LEVEL_1";
-constexpr char kPostalCodeField[] = "POSTAL_CODE";
-constexpr char kSortingCodeField[] = "SORTING_CODE";
-constexpr char kCountryField[] = "COUNTY_CODE";
-
-// Converts an autofill::ServerFieldType to string format. Used in serilization
-// of field type info to be used in JavaScript code, and hence those values
-// shouldn't be modified.
-const char* GetStringFromAddressField(i18n::addressinput::AddressField type) {
-  switch (type) {
-    case i18n::addressinput::RECIPIENT:
-      return kFullNameField;
-    case i18n::addressinput::ORGANIZATION:
-      return kCompanyNameField;
-    case i18n::addressinput::STREET_ADDRESS:
-      return kAddressLineField;
-    case i18n::addressinput::DEPENDENT_LOCALITY:
-      return kDependentLocalityField;
-    case i18n::addressinput::LOCALITY:
-      return kCityField;
-    case i18n::addressinput::ADMIN_AREA:
-      return kStateField;
-    case i18n::addressinput::POSTAL_CODE:
-      return kPostalCodeField;
-    case i18n::addressinput::SORTING_CODE:
-      return kSortingCodeField;
-    case i18n::addressinput::COUNTRY:
-      return kCountryField;
-    default:
-      NOTREACHED();
-      return "";
-  }
-}
-
 // Serializes the AddressUiComponent a map from string to base::Value().
 base::Value::Dict AddressUiComponentAsValueMap(
-    const autofill::ExtendedAddressUiComponent& address_ui_component) {
+    const autofill::AutofillAddressUIComponent& address_ui_component) {
   base::Value::Dict info;
   info.Set(kFieldNameKey, address_ui_component.name);
-  info.Set(kFieldTypeKey,
-           GetStringFromAddressField(address_ui_component.field));
+  info.Set(kFieldTypeKey, FieldTypeToStringPiece(address_ui_component.field));
   info.Set(kFieldLengthKey,
            address_ui_component.length_hint ==
-               i18n::addressinput::AddressUiComponent::HINT_LONG);
+               autofill::AutofillAddressUIComponent::HINT_LONG);
   info.Set(kFieldRequired, address_ui_component.is_required);
   return info;
-}
-
-// Searches the |list| for the value at |index|.  If this value is present in
-// any of the rest of the list, then the item (at |index|) is removed. The
-// comparison of phone number values is done on normalized versions of the phone
-// number values.
-void RemoveDuplicatePhoneNumberAtIndex(size_t index,
-                                       const std::string& country_code,
-                                       base::Value::List& list) {
-  if (list.size() <= index) {
-    NOTREACHED() << "List should have a value at index " << index;
-    return;
-  }
-  const std::string& new_value = list[index].GetString();
-
-  bool is_duplicate = false;
-  std::string app_locale = g_browser_process->GetApplicationLocale();
-  for (size_t i = 0; i < list.size() && !is_duplicate; ++i) {
-    if (i == index)
-      continue;
-
-    const std::string& existing_value = list[i].GetString();
-    is_duplicate = autofill::i18n::PhoneNumbersMatch(
-        base::UTF8ToUTF16(new_value), base::UTF8ToUTF16(existing_value),
-        country_code, app_locale);
-  }
-
-  if (is_duplicate)
-    list.erase(list.begin() + index);
 }
 
 autofill::AutofillManager* GetAutofillManager(
@@ -243,14 +181,11 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveAddressFunction::Run() {
           ? *existing_profile
           : CreateNewAutofillProfile(personal_data, address->country_code);
 
-  if (address->full_names) {
-    std::string full_name;
-    if (!address->full_names->empty())
-      full_name = address->full_names->at(0);
+  if (address->full_name) {
     profile.SetInfoWithVerificationStatus(
         autofill::AutofillType(autofill::NAME_FULL),
-        base::UTF8ToUTF16(full_name), g_browser_process->GetApplicationLocale(),
-        kUserVerified);
+        base::UTF8ToUTF16(*address->full_name),
+        g_browser_process->GetApplicationLocale(), kUserVerified);
   }
 
   if (address->honorific) {
@@ -307,21 +242,16 @@ ExtensionFunction::ResponseAction AutofillPrivateSaveAddressFunction::Run() {
         base::UTF8ToUTF16(*address->country_code), kUserVerified);
   }
 
-  if (address->phone_numbers) {
-    std::string phone;
-    if (!address->phone_numbers->empty())
-      phone = address->phone_numbers->at(0);
-    profile.SetRawInfoWithVerificationStatus(autofill::PHONE_HOME_WHOLE_NUMBER,
-                                             base::UTF8ToUTF16(phone),
-                                             kUserVerified);
+  if (address->phone_number) {
+    profile.SetRawInfoWithVerificationStatus(
+        autofill::PHONE_HOME_WHOLE_NUMBER,
+        base::UTF8ToUTF16(*address->phone_number), kUserVerified);
   }
 
-  if (address->email_addresses) {
-    std::string email;
-    if (!address->email_addresses->empty())
-      email = address->email_addresses->at(0);
+  if (address->email_address) {
     profile.SetRawInfoWithVerificationStatus(
-        autofill::EMAIL_ADDRESS, base::UTF8ToUTF16(email), kUserVerified);
+        autofill::EMAIL_ADDRESS, base::UTF8ToUTF16(*address->email_address),
+        kUserVerified);
   }
 
   if (address->language_code)
@@ -369,7 +299,7 @@ AutofillPrivateGetAddressComponentsFunction::Run() {
           api::autofill_private::GetAddressComponents::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(parameters);
 
-  std::vector<std::vector<autofill::ExtendedAddressUiComponent>> lines;
+  std::vector<std::vector<autofill::AutofillAddressUIComponent>> lines;
   std::string language_code;
 
   autofill::GetAddressComponents(
@@ -382,7 +312,7 @@ AutofillPrivateGetAddressComponentsFunction::Run() {
 
   for (auto& line : lines) {
     base::Value::List row_values;
-    for (const autofill::ExtendedAddressUiComponent& component : line) {
+    for (const autofill::AutofillAddressUIComponent& component : line) {
       row_values.Append(AddressUiComponentAsValueMap(component));
     }
     base::Value::Dict row;
@@ -518,30 +448,6 @@ ExtensionFunction::ResponseAction AutofillPrivateRemoveEntryFunction::Run() {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// AutofillPrivateValidatePhoneNumbersFunction
-
-ExtensionFunction::ResponseAction
-AutofillPrivateValidatePhoneNumbersFunction::Run() {
-  absl::optional<api::autofill_private::ValidatePhoneNumbers::Params>
-      parameters =
-          api::autofill_private::ValidatePhoneNumbers::Params::Create(args());
-  EXTENSION_FUNCTION_VALIDATE(parameters);
-
-  api::autofill_private::ValidatePhoneParams& params = parameters->params;
-
-  // Extract the phone numbers into a base::Value::List.
-  base::Value::List phone_numbers;
-  for (auto phone_number : params.phone_numbers) {
-    phone_numbers.Append(phone_number);
-  }
-
-  RemoveDuplicatePhoneNumberAtIndex(params.index_of_new_number,
-                                    params.country_code, phone_numbers);
-
-  return RespondNow(WithArguments(std::move(phone_numbers)));
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // AutofillPrivateMaskCreditCardFunction
 
 ExtensionFunction::ResponseAction AutofillPrivateMaskCreditCardFunction::Run() {
@@ -594,13 +500,14 @@ AutofillPrivateMigrateCreditCardsFunction::Run() {
   // FormDataImporter.
   autofill::AutofillManager* autofill_manager =
       GetAutofillManager(GetSenderWebContents());
-  if (!autofill_manager || !autofill_manager->client())
+  if (!autofill_manager) {
     return RespondNow(Error(kErrorDataUnavailable));
+  }
 
   // Get the FormDataImporter from AutofillClient. FormDataImporter owns
   // LocalCardMigrationManager.
   autofill::FormDataImporter* form_data_importer =
-      autofill_manager->client()->GetFormDataImporter();
+      autofill_manager->client().GetFormDataImporter();
   if (!form_data_importer)
     return RespondNow(Error(kErrorDataUnavailable));
 
@@ -783,17 +690,16 @@ ExtensionFunction::ResponseAction AutofillPrivateAddVirtualCardFunction::Run() {
 
   autofill::AutofillManager* autofill_manager =
       GetAutofillManager(GetSenderWebContents());
-  if (!autofill_manager || !autofill_manager->client() ||
-      !autofill_manager->client()->GetFormDataImporter() ||
+  if (!autofill_manager || !autofill_manager->client().GetFormDataImporter() ||
       !autofill_manager->client()
-           ->GetFormDataImporter()
+           .GetFormDataImporter()
            ->GetVirtualCardEnrollmentManager()) {
     return RespondNow(Error(kErrorDataUnavailable));
   }
 
   autofill::VirtualCardEnrollmentManager* virtual_card_enrollment_manager =
       autofill_manager->client()
-          ->GetFormDataImporter()
+          .GetFormDataImporter()
           ->GetVirtualCardEnrollmentManager();
 
   virtual_card_enrollment_manager->InitVirtualCardEnroll(
@@ -824,17 +730,16 @@ AutofillPrivateRemoveVirtualCardFunction::Run() {
 
   autofill::AutofillManager* autofill_manager =
       GetAutofillManager(GetSenderWebContents());
-  if (!autofill_manager || !autofill_manager->client() ||
-      !autofill_manager->client()->GetFormDataImporter() ||
+  if (!autofill_manager || !autofill_manager->client().GetFormDataImporter() ||
       !autofill_manager->client()
-           ->GetFormDataImporter()
+           .GetFormDataImporter()
            ->GetVirtualCardEnrollmentManager()) {
     return RespondNow(Error(kErrorDataUnavailable));
   }
 
   autofill::VirtualCardEnrollmentManager* virtual_card_enrollment_manager =
       autofill_manager->client()
-          ->GetFormDataImporter()
+          .GetFormDataImporter()
           ->GetVirtualCardEnrollmentManager();
 
   virtual_card_enrollment_manager->Unenroll(
@@ -856,50 +761,75 @@ AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::Run() {
     return RespondNow(Error(kErrorDeviceAuthUnavailable));
   }
 
-  // If `device_authenticator` is not available, then don't do anything.
-  scoped_refptr<device_reauth::DeviceAuthenticator> device_authenticator =
-      client->GetDeviceAuthenticator();
-  if (!device_authenticator) {
-    return RespondNow(Error(kErrorDeviceAuthUnavailable));
-  }
-
-  // `device_authenticator` is a scoped_refptr, so we need to keep it alive
-  // until the callback that uses it is complete.
-  base::OnceClosure bind_device_authenticator =
-      base::DoNothingWithBoundArgs(device_authenticator);
   const std::u16string message =
       l10n_util::GetStringUTF16(IDS_PAYMENTS_AUTOFILL_MANDATORY_REAUTH_PROMPT);
+
+  // If `personal_data_manager` is not available or `IsDataLoaded` is false,
+  // then don't do anything.
+  autofill::PersonalDataManager* personal_data_manager =
+      client->GetPersonalDataManager();
+  if (!personal_data_manager || !personal_data_manager->IsDataLoaded()) {
+    return RespondNow(Error(kErrorDataUnavailable));
+  }
 
   // We will be modifying the pref `kAutofillPaymentMethodsMandatoryReauth`
   // asynchronously. The pref value directly correlates to the mandatory auth
   // toggle.
-  autofill_util::AuthenticateUser(
-      device_authenticator, message,
+  // We are also logging the start of the auth flow and
+  // `!personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled()` denotes
+  // if the user is either opting in or out.
+  base::RecordAction(base::UserMetricsAction(
+      "PaymentsUserAuthTriggeredForMandatoryAuthToggle"));
+  LogMandatoryReauthOptInOrOutUpdateEvent(
+      MandatoryReauthOptInOrOutSource::kSettingsPage,
+      /*opt_in=*/
+      !personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled(),
+      MandatoryReauthAuthenticationFlowEvent::kFlowStarted);
+  client->GetOrCreatePaymentsMandatoryReauthManager()->AuthenticateWithMessage(
+      message,
       base::BindOnce(
           &AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::
               UpdateMandatoryAuthTogglePref,
-          this)
-          .Then(base::IgnoreArgs(std::move(bind_device_authenticator))));
-  base::RecordAction(base::UserMetricsAction(
-      "PaymentsUserAuthTriggeredForMandatoryAuthToggle"));
+          this));
+
   return RespondNow(NoArguments());
 #else
   return RespondNow(Error(kErrorDeviceAuthUnavailable));
 #endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN)
 }
 
-// Update the Mandatory auth toggle pref after a successful user auth.
+// Update the Mandatory auth toggle pref and log whether the auth was successful
+// or not.
 void AutofillPrivateAuthenticateUserAndFlipMandatoryAuthToggleFunction::
     UpdateMandatoryAuthTogglePref(bool reauth_succeeded) {
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
-  if (reauth_succeeded && browser_context()) {
-    PrefService* prefs =
-        Profile::FromBrowserContext(browser_context())->GetPrefs();
-    autofill::prefs::SetPaymentMethodsMandatoryReauthEnabled(
-        prefs, !prefs->GetBoolean(
-                   autofill::prefs::kAutofillPaymentMethodsMandatoryReauth));
+  content::WebContents* sender_web_contents = GetSenderWebContents();
+  if (!sender_web_contents) {
+    return;
+  }
+  autofill::ContentAutofillClient* client =
+      autofill::ContentAutofillClient::FromWebContents(sender_web_contents);
+  CHECK(client);
+  autofill::PersonalDataManager* personal_data_manager =
+      client->GetPersonalDataManager();
+  // This function is not called in incognito mode and therefore a
+  // PersonalDataManager should always exist.
+  CHECK(personal_data_manager);
+
+  // `opt_in` bool denotes whether the user is trying to opt in or out of the
+  // mandatory reauth feature. If the mandatory reauth toggle on the settings is
+  // currently enabled, then the `opt_in` bool will be false because the user is
+  // opting-out, otherwise the `opt_in` bool will be true.
+  const bool opt_in =
+      !personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled();
+  LogMandatoryReauthOptInOrOutUpdateEvent(
+      MandatoryReauthOptInOrOutSource::kSettingsPage, opt_in,
+      reauth_succeeded ? MandatoryReauthAuthenticationFlowEvent::kFlowSucceeded
+                       : MandatoryReauthAuthenticationFlowEvent::kFlowFailed);
+  if (reauth_succeeded) {
     base::RecordAction(base::UserMetricsAction(
         "PaymentsUserAuthSuccessfulForMandatoryAuthToggle"));
+    personal_data_manager->SetPaymentMethodsMandatoryReauthEnabled(opt_in);
   }
 #endif
 }
@@ -924,49 +854,61 @@ AutofillPrivateAuthenticateUserToEditLocalCardFunction::Run() {
     return RespondNow(Error(kErrorDataUnavailable));
   }
   if (personal_data_manager->IsPaymentMethodsMandatoryReauthEnabled()) {
-    // If `device_authenticator` is not available, then don't do anything.
-    scoped_refptr<device_reauth::DeviceAuthenticator> device_authenticator =
-        client->GetDeviceAuthenticator();
-    if (!device_authenticator) {
-      return RespondNow(Error(kErrorDeviceAuthUnavailable));
-    }
-
-    // `device_authenticator` is a scoped_refptr, so we need to keep it alive
-    // until the callback that uses it is complete.
-    base::OnceClosure bind_device_authenticator =
-        base::DoNothingWithBoundArgs(device_authenticator);
     const std::u16string message = l10n_util::GetStringUTF16(
         IDS_PAYMENTS_AUTOFILL_EDIT_CARD_MANDATORY_REAUTH_PROMPT);
 
     base::RecordAction(base::UserMetricsAction(
         "PaymentsUserAuthTriggeredToShowEditLocalCardDialog"));
+    LogMandatoryReauthSettingsPageEditCardEvent(
+        MandatoryReauthAuthenticationFlowEvent::kFlowStarted);
     // Based on the result of the auth, we will be asynchronously returning if
     // the user can edit the local card.
-    autofill_util::AuthenticateUser(
-        device_authenticator, message,
-        base::BindOnce(&AutofillPrivateAuthenticateUserToEditLocalCardFunction::
-                           CanShowEditDialogForLocalCard,
-                       this)
-            .Then(base::IgnoreArgs(std::move(bind_device_authenticator))));
+    client->GetOrCreatePaymentsMandatoryReauthManager()
+        ->AuthenticateWithMessage(
+            message,
+            base::BindOnce(
+                &AutofillPrivateAuthenticateUserToEditLocalCardFunction::
+                    CanShowEditDialogForLocalCard,
+                this));
 
-    // Due to async nature of AuthenticateWithMessage() on device authenticator
-    // we use the below check to make sure we have a `Respond` captured. If we
-    // didn't have this check, then we would show the edit card dialog box even
-    // before the user successfully completes the auth.
+    // Due to async nature of AuthenticateWithMessage() on mandatory re-auth
+    // manager we use the below check to make sure we have a `Respond` captured.
+    // If we didn't have this check, then we would show the edit card dialog box
+    // even before the user successfully completes the auth.
     return did_respond() ? AlreadyResponded() : RespondLater();
   }
 #endif
   return RespondNow(WithArguments(true));
 }
 
-// Return the auth result for showing the edit card for local card.
+// Return the auth result for showing the edit card dialog for local card. We
+// also log whether the auth was successful or not.
 void AutofillPrivateAuthenticateUserToEditLocalCardFunction::
     CanShowEditDialogForLocalCard(bool can_show) {
+  LogMandatoryReauthSettingsPageEditCardEvent(
+      can_show ? MandatoryReauthAuthenticationFlowEvent::kFlowSucceeded
+               : MandatoryReauthAuthenticationFlowEvent::kFlowFailed);
   if (can_show) {
     base::RecordAction(base::UserMetricsAction(
         "PaymentsUserAuthSuccessfulToShowEditLocalCardDialog"));
   }
   Respond(WithArguments(can_show));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// AutofillPrivateCheckIfDeviceAuthAvailableFunction
+
+ExtensionFunction::ResponseAction
+AutofillPrivateCheckIfDeviceAuthAvailableFunction::Run() {
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+  autofill::ContentAutofillClient* client =
+      autofill::ContentAutofillClient::FromWebContents(GetSenderWebContents());
+  if (client) {
+    return RespondNow(WithArguments(
+        autofill::IsDeviceAuthAvailable(client->GetDeviceAuthenticator())));
+  }
+#endif  // BUILDFLAG (IS_MAC) || BUILDFLAG(IS_WIN)
+  return RespondNow(Error(kErrorDeviceAuthUnavailable));
 }
 
 }  // namespace extensions

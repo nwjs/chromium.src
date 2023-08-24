@@ -133,6 +133,7 @@
 #include "components/lens/lens_features.h"
 #include "components/lens/lens_metrics.h"
 #include "components/live_caption/caption_util.h"
+#include "components/live_caption/pref_names.h"
 #include "components/media_router/browser/media_router_dialog_controller.h"
 #include "components/media_router/browser/media_router_metrics.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
@@ -250,6 +251,8 @@
 #endif  // BUILDFLAG(ENABLE_PRINTING)
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+#include "chrome/browser/accessibility/ax_screen_ai_annotator.h"
+#include "chrome/browser/accessibility/ax_screen_ai_annotator_factory.h"
 #include "chrome/browser/screen_ai/screen_ai_install_state.h"
 #endif
 
@@ -284,13 +287,15 @@
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_features.h"
 #include "ash/public/cpp/clipboard_history_controller.h"
-#include "ash/public/cpp/new_window_delegate.h"
 #include "ash/webui/system_apps/public/system_web_app_type.h"
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/arc/intent_helper/arc_intent_helper_mojo_ash.h"
+#include "chrome/browser/ash/input_method/editor_mediator.h"
 #include "chrome/browser/ash/system_web_apps/types/system_web_app_delegate.h"
+#include "chrome/browser/ash/url_handler.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
+#include "chrome/browser/ui/webui/ash/system_web_dialog_delegate.h"
 #include "chrome/browser/ui/webui/settings/chromeos/constants/routes.mojom.h"
 #include "chromeos/crosapi/mojom/clipboard_history.mojom.h"
 #include "ui/aura/window.h"
@@ -326,6 +331,11 @@ namespace {
 
 constexpr char kOpenLinkAsProfileHistogram[] =
     "RenderViewContextMenu.OpenLinkAsProfile";
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+// TODO(b/289859230): Replace with finalized display string and translate.
+constexpr char16_t kContentContextOrca[] = u"Orca";
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 base::OnceCallback<void(RenderViewContextMenu*)>* GetMenuShownCallback() {
   static base::NoDestructor<base::OnceCallback<void(RenderViewContextMenu*)>>
@@ -373,8 +383,8 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
        {IDC_CONTENT_CONTEXT_COPYIMAGE, 12},
        {IDC_CONTENT_CONTEXT_OPENIMAGENEWTAB, 13},
        {IDC_CONTENT_CONTEXT_OPENAVNEWTAB, 14},
-       {IDC_CONTENT_CONTEXT_PLAYPAUSE, 15},
-       {IDC_CONTENT_CONTEXT_MUTE, 16},
+       // Removed: {IDC_CONTENT_CONTEXT_PLAYPAUSE, 15},
+       // Removed: {IDC_CONTENT_CONTEXT_MUTE, 16},
        {IDC_CONTENT_CONTEXT_LOOP, 17},
        {IDC_CONTENT_CONTEXT_CONTROLS, 18},
        {IDC_CONTENT_CONTEXT_ROTATECW, 19},
@@ -471,7 +481,7 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
        {IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE, 118},
        {IDC_FOLLOW, 119},
        {IDC_UNFOLLOW, 120},
-       {IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_FIRST, 121},
+       // Removed: {IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_FIRST, 121},
        {IDC_CONTENT_CONTEXT_PARTIAL_TRANSLATE, 123},
        {IDC_CONTENT_CONTEXT_ADD_A_NOTE, 124},
        {IDC_LIVE_CAPTION, 125},
@@ -482,14 +492,17 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
        {IDC_CONTENT_CONTEXT_TRANSLATEIMAGEWITHWEB, 130},
        {IDC_CONTENT_CONTEXT_TRANSLATEIMAGEWITHLENS, 131},
        {IDC_CONTENT_CONTEXT_COPYVIDEOFRAME, 132},
+       {IDC_CONTENT_CONTEXT_SAVEPLUGINAS, 133},
+       {IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_AUTOCOMPLETE_UNRECOGNIZED, 134},
        {IDC_CONTENT_CONTEXT_SEARCHWEBFORNEWTAB, 135},
+       {IDC_CONTENT_CONTEXT_RUN_LAYOUT_EXTRACTION, 137},
        // To add new items:
        //   - Add one more line above this comment block, using the UMA value
        //     from the line below this comment block.
        //   - Increment the UMA value in that latter line.
        //   - Add the new item to the RenderViewContextMenuItem enum in
        //     tools/metrics/histograms/enums.xml.
-       {0, 136}});
+       {0, 138}});
 
   // These UMA values are for the the ContextMenuOptionDesktop enum, used for
   // the ContextMenu.SelectedOptionDesktop histograms.
@@ -564,11 +577,6 @@ int CollapseCommandsForUMA(int id) {
   if (id >= IDC_OPEN_LINK_IN_PROFILE_FIRST &&
       id <= IDC_OPEN_LINK_IN_PROFILE_LAST) {
     return IDC_OPEN_LINK_IN_PROFILE_FIRST;
-  }
-
-  if (id >= IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_FIRST &&
-      id <= IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_LAST) {
-    return IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_FIRST;
   }
 
   return id;
@@ -748,25 +756,6 @@ Browser* FindNormalBrowser(const Profile* profile) {
   return nullptr;
 }
 
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-ash::NewWindowDelegate::Disposition GetDispositionForLacros(
-    WindowOpenDisposition disposition) {
-  switch (disposition) {
-    case WindowOpenDisposition::NEW_FOREGROUND_TAB:
-      return ash::NewWindowDelegate::Disposition::kNewForegroundTab;
-    case WindowOpenDisposition::NEW_WINDOW:
-      return ash::NewWindowDelegate::Disposition::kNewWindow;
-    case WindowOpenDisposition::OFF_THE_RECORD:
-      return ash::NewWindowDelegate::Disposition::kOffTheRecord;
-    case WindowOpenDisposition::SWITCH_TO_TAB:
-      return ash::NewWindowDelegate::Disposition::kSwitchToTab;
-    default:
-      // Others are currently not supported.
-      return ash::NewWindowDelegate::Disposition::kNewForegroundTab;
-  }
-}
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
 }  // namespace
 
 // static
@@ -807,8 +796,7 @@ RenderViewContextMenu::RenderViewContextMenu(
       accessibility_labels_submenu_model_(this),
       embedder_web_contents_(GetWebContentsToUse(&render_frame_host)),
       autofill_context_menu_manager_(
-          autofill::PersonalDataManagerFactory::GetForProfile(
-              GetProfile()->GetOriginalProfile()),
+          autofill::PersonalDataManagerFactory::GetForProfile(GetProfile()),
           this,
           &menu_model_,
           GetBrowser(),
@@ -829,6 +817,8 @@ RenderViewContextMenu::RenderViewContextMenu(
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   pdf_ocr_submenu_model_ = std::make_unique<ui::SimpleMenuModel>(this);
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+
+  observers_.AddObserver(&autofill_context_menu_manager_);
 }
 
 RenderViewContextMenu::~RenderViewContextMenu() = default;
@@ -967,12 +957,9 @@ void RenderViewContextMenu::AppendCurrentExtensionItems() {
                                            render_frame_id_));
   MenuItem::ExtensionKey key;
   if (web_view_guest) {
-    key = MenuItem::ExtensionKey(extension->id(),
-                                 web_view_guest->owner_web_contents()
-                                     ->GetPrimaryMainFrame()
-                                     ->GetProcess()
-                                     ->GetID(),
-                                 web_view_guest->view_instance_id());
+    key = MenuItem::ExtensionKey(
+        extension->id(), web_view_guest->owner_rfh()->GetProcess()->GetID(),
+        web_view_guest->view_instance_id());
   } else {
     key = MenuItem::ExtensionKey(extension->id());
   }
@@ -1129,8 +1116,7 @@ void RenderViewContextMenu::InitMenu() {
 
   // Partial Translate is not supported on ChromeOS.
 #if !BUILDFLAG(IS_CHROMEOS)
-  if (base::FeatureList::IsEnabled(translate::kDesktopPartialTranslate) &&
-      content_type_->SupportsGroup(
+  if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PARTIAL_TRANSLATE) &&
       search::DefaultSearchProviderIsGoogle(GetProfile()) &&
       CanTranslate(/*menu_logging=*/false)) {
@@ -1166,6 +1152,11 @@ void RenderViewContextMenu::InitMenu() {
       features::IsPdfOcrEnabled() && IsFrameInPdfViewer(GetRenderFrameHost())) {
     AppendPdfOcrItems();
     VLOG(2) << "Appended PDF OCR Items";
+  }
+
+  if (features::IsLayoutExtractionEnabled()) {
+    AppendLayoutExtractionItem();
+    VLOG(2) << "Appended Layout Extraction Item";
   }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
@@ -1577,21 +1568,30 @@ void RenderViewContextMenu::AppendLinkItems() {
     }
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+    const bool in_system_web_dialog =
+        ash::SystemWebDialogDelegate::HasInstance(current_url_);
+
     Profile* profile = GetProfile();
     absl::optional<ash::SystemWebAppType> link_system_app_type =
         GetLinkSystemAppType(profile, params_.link_url);
 
-    // Links to system web app can't be opened in incognito / off-the-record.
-    show_open_link_off_the_record = !link_system_app_type;
+    // true if the link points to a WebUI page, including SWA.
+    const bool link_to_webui = content::HasWebUIScheme(params_.link_url);
 
-    if (system_app_ && link_system_app_type) {
+    // Opening a WebUI page in an incognito window makes little sense, so we
+    // don't show the item.
+    show_open_link_off_the_record = !link_to_webui;
+
+    // Basically, we don't show "Open link in new tab" and "Open link in new
+    // window" items inside SWAs/SystemWebDialogs if that link is to WebUI.
+    if ((system_app_ || in_system_web_dialog) && link_to_webui) {
       // We don't show "Open in new tab" if the current app doesn't have a tab
       // strip.
       //
       // Even if the app has a tab strip, we don't show the item for
       // links to a different SWA, because two SWAs can't share the same browser
       // window.
-      if (!system_app_->ShouldHaveTabStrip() ||
+      if (in_system_web_dialog || !system_app_->ShouldHaveTabStrip() ||
           system_app_->GetType() != link_system_app_type) {
         show_open_in_new_tab = false;
       }
@@ -1599,6 +1599,20 @@ void RenderViewContextMenu::AppendLinkItems() {
       // Don't show "open in new window", this is instead handled below in
       // |AppendOpenInWebAppLinkItems| (which includes app's name and icon).
       show_open_in_new_window = false;
+    }
+
+    // If the current browser is a system app or a SystemWebDialog, hide "Open
+    // link in ..." items on button-like links i.e. links that have a href='#'.
+    // Since most of those links are used to do something in their JavaScript
+    // click handlers, opening '#' links in another browser tab/window makes
+    // little sense.
+    const bool button_like_link =
+        current_url_.EqualsIgnoringRef(params_.link_url) &&
+        params_.link_url.has_ref() && params_.link_url.ref().empty();
+    if ((system_app_ || in_system_web_dialog) && button_like_link) {
+      show_open_in_new_tab = false;
+      show_open_in_new_window = false;
+      show_open_link_off_the_record = false;
     }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -1932,7 +1946,6 @@ void RenderViewContextMenu::AppendVideoItems() {
   if (base::FeatureList::IsEnabled(media::kContextMenuCopyVideoFrame)) {
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME,
                                     IDS_CONTENT_CONTEXT_COPYVIDEOFRAME);
-    menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
   }
   menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYAVLOCATION,
                                   IDS_CONTENT_CONTEXT_COPYVIDEOLOCATION);
@@ -1961,7 +1974,7 @@ void RenderViewContextMenu::AppendPluginItems() {
       AppendPageItems();
     }
   } else {
-    menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_SAVEAVAS,
+    menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_SAVEPLUGINAS,
                                     IDS_CONTENT_CONTEXT_SAVEPAGEAS);
     // The "Print" menu item should always be included for plugins. If
     // content_type_->SupportsGroup(ContextMenuContentType::ITEM_GROUP_PRINT)
@@ -2113,6 +2126,12 @@ void RenderViewContextMenu::AppendPdfOcrItems() {
   observers_.AddObserver(pdf_ocr_submenu_model_observer_.get());
   pdf_ocr_submenu_model_observer_->InitMenu(params_);
 }
+
+void RenderViewContextMenu::AppendLayoutExtractionItem() {
+  menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+  menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_RUN_LAYOUT_EXTRACTION,
+                                  IDS_CONTENT_CONTEXT_RUN_LAYOUT_EXTRACTION);
+}
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
 void RenderViewContextMenu::AppendRotationItems() {
@@ -2216,12 +2235,25 @@ void RenderViewContextMenu::AppendSpellingAndSearchSuggestionItems() {
     AppendSearchProvider();
     menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
   }
-  if (params_.misspelled_word.empty() &&
-      DoesInputFieldTypeSupportEmoji(params_.input_field_type) &&
-      ui::IsEmojiPanelSupported()) {
-    menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_EMOJI,
-                                    IDS_CONTENT_CONTEXT_EMOJI);
-    menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+  if (params_.misspelled_word.empty()) {
+    bool render_separator = false;
+    if (DoesInputFieldTypeSupportEmoji(params_.input_field_type) &&
+        ui::IsEmojiPanelSupported()) {
+      render_separator = true;
+      menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_EMOJI,
+                                      IDS_CONTENT_CONTEXT_EMOJI);
+    }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    if (ash::features::IsOrcaEnabled()) {
+      render_separator = true;
+      menu_model_.AddItem(IDC_CONTENT_CONTEXT_ORCA, kContentContextOrca);
+    }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+    if (render_separator) {
+      menu_model_.AddSeparator(ui::NORMAL_SEPARATOR);
+    }
   }
 }
 
@@ -2524,13 +2556,6 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
   if (ContextMenuMatcher::IsExtensionsCustomCommandId(id))
     return extension_items_.IsCommandIdEnabled(id);
 
-  // Autofill items.
-  if (autofill::AutofillContextMenuManager::IsAutofillCustomCommandId(
-          autofill::AutofillContextMenuManager::CommandId(id))) {
-    return autofill_context_menu_manager_.IsCommandIdEnabled(
-        autofill::AutofillContextMenuManager::CommandId(id));
-  }
-
   if (id >= IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_FIRST &&
       id <= IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_LAST) {
     return true;
@@ -2604,19 +2629,9 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
     case IDC_CONTENT_CONTEXT_COPYIMAGE:
       return params_.has_image_contents;
 
-    // Media control commands should all be disabled if the player is in an
-    // error state.
-    case IDC_CONTENT_CONTEXT_PLAYPAUSE:
-      return (params_.media_flags & ContextMenuData::kMediaInError) == 0;
-
     // Loop command should be disabled if the player is in an error state.
     case IDC_CONTENT_CONTEXT_LOOP:
       return (params_.media_flags & ContextMenuData::kMediaCanLoop) != 0 &&
-             (params_.media_flags & ContextMenuData::kMediaInError) == 0;
-
-    // Mute and unmute should also be disabled if the player has no audio.
-    case IDC_CONTENT_CONTEXT_MUTE:
-      return (params_.media_flags & ContextMenuData::kMediaHasAudio) != 0 &&
              (params_.media_flags & ContextMenuData::kMediaInError) == 0;
 
     case IDC_CONTENT_CONTEXT_CONTROLS:
@@ -2645,6 +2660,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return params_.src_url.is_valid();
 
     case IDC_CONTENT_CONTEXT_SAVEAVAS:
+    case IDC_CONTENT_CONTEXT_SAVEPLUGINAS:
       return IsSaveAsEnabled();
 
     case IDC_CONTENT_CONTEXT_OPENAVNEWTAB:
@@ -2745,6 +2761,11 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return !!(params_.media_flags &
                 ContextMenuData::kMediaCanPictureInPicture);
 
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+    case IDC_CONTENT_CONTEXT_RUN_LAYOUT_EXTRACTION:
+      return true;
+#endif
+
     case IDC_CONTENT_CONTEXT_EMOJI:
       return params_.is_editable;
 
@@ -2778,6 +2799,11 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
 #else
       NOTREACHED() << "Unhandled id: " << id;
       return false;
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    case IDC_CONTENT_CONTEXT_ORCA:
+      return ash::features::IsOrcaEnabled() && params_.is_editable;
 #endif
 
     case IDC_FOLLOW:
@@ -2817,11 +2843,6 @@ bool RenderViewContextMenu::IsCommandIdChecked(int id) const {
 bool RenderViewContextMenu::IsCommandIdVisible(int id) const {
   if (ContextMenuMatcher::IsExtensionsCustomCommandId(id))
     return extension_items_.IsCommandIdVisible(id);
-  if (autofill::AutofillContextMenuManager::IsAutofillCustomCommandId(
-          autofill::AutofillContextMenuManager::CommandId(id))) {
-    return autofill_context_menu_manager_.IsCommandIdVisible(
-        autofill::AutofillContextMenuManager::CommandId(id));
-  }
   return RenderViewContextMenuBase::IsCommandIdVisible(id);
 }
 
@@ -2833,10 +2854,7 @@ void RenderViewContextMenu::OpenURLWithExtraHeaders(
     const std::string& extra_headers,
     bool started_from_context_menu) {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
-    ash::NewWindowDelegate::GetPrimary()->OpenUrl(
-        url, ash::NewWindowDelegate::OpenUrlFrom::kUserInteraction,
-        GetDispositionForLacros(disposition));
+  if (ash::TryOpenUrl(params_.link_url, disposition)) {
     return;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
@@ -2861,13 +2879,6 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     return;
   }
 
-  if (autofill::AutofillContextMenuManager::IsAutofillCustomCommandId(
-          autofill::AutofillContextMenuManager::CommandId(id))) {
-    autofill_context_menu_manager_.ExecuteCommand(
-        autofill::AutofillContextMenuManager::CommandId(id));
-    return;
-  }
-
   if (id >= IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_FIRST &&
       id <= IDC_CONTENT_CONTEXT_PROTOCOL_HANDLER_LAST) {
     ExecProtocolHandler(event_flags,
@@ -2888,11 +2899,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       WindowOpenDisposition new_tab_disposition =
           WindowOpenDisposition::NEW_BACKGROUND_TAB;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-      if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
-        ash::NewWindowDelegate::GetPrimary()->OpenUrl(
-            params_.link_url,
-            ash::NewWindowDelegate::OpenUrlFrom::kUserInteraction,
-            GetDispositionForLacros(new_tab_disposition));
+      if (ash::TryOpenUrl(params_.link_url, new_tab_disposition)) {
         break;
       }
 #endif
@@ -2945,10 +2952,15 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_SAVELINKAS:
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+      CheckSupervisedUserURLFilterAndSaveLinkAs();
+#else
       ExecSaveLinkAs();
+#endif
       break;
 
     case IDC_CONTENT_CONTEXT_SAVEAVAS:
+    case IDC_CONTENT_CONTEXT_SAVEPLUGINAS:
     case IDC_CONTENT_CONTEXT_SAVEIMAGEAS:
       ExecSaveAs();
       break;
@@ -3020,14 +3032,6 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       OpenURL(params_.src_url, GetDocumentURL(params_),
               WindowOpenDisposition::NEW_BACKGROUND_TAB,
               ui::PAGE_TRANSITION_LINK);
-      break;
-
-    case IDC_CONTENT_CONTEXT_PLAYPAUSE:
-      ExecPlayPause();
-      break;
-
-    case IDC_CONTENT_CONTEXT_MUTE:
-      ExecMute();
       break;
 
     case IDC_CONTENT_CONTEXT_LOOP:
@@ -3134,6 +3138,12 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
     case IDC_CONTENT_CONTEXT_RELOADFRAME:
       source_web_contents_->ReloadFocusedFrame();
       break;
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+    case IDC_CONTENT_CONTEXT_RUN_LAYOUT_EXTRACTION:
+      ExecRunLayoutExtraction();
+      break;
+#endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
     case IDC_CONTENT_CONTEXT_VIEWFRAMESOURCE:
       if (GetRenderFrameHost())
@@ -3256,6 +3266,14 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
 #endif  // BUILDFLAG(IS_CHROMEOS)
       break;
     }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+    case IDC_CONTENT_CONTEXT_ORCA: {
+      CHECK(ash::features::IsOrcaEnabled());
+      ash::input_method::EditorMediator::Get()->HandleTrigger();
+      break;
+    }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
     case IDC_FOLLOW:
       feed::FollowSite(source_web_contents_);
@@ -3465,6 +3483,11 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
       supervised_user_service->IsURLFilteringEnabled()) {
     supervised_user::SupervisedUserURLFilter* url_filter =
         supervised_user_service->GetURLFilter();
+    // Use the URL filter's synchronous call to check if a site has been
+    // manually blocked for the user. This does not filter websites that are
+    // blocked by SafeSites API for having mature content. The mature content
+    // filter requires an async call. This call is made if the user selects
+    // "Save link as" and blocks the download.
     if (url_filter->GetFilteringBehaviorForURL(params_.link_url) !=
         supervised_user::SupervisedUserURLFilter::FilteringBehavior::ALLOW) {
       return false;
@@ -3830,6 +3853,38 @@ void RenderViewContextMenu::ExecInspectBackgroundPage() {
   extensions::devtools_util::InspectBackgroundPage(platform_app, GetProfile());
 }
 
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+void RenderViewContextMenu::CheckSupervisedUserURLFilterAndSaveLinkAs() {
+  Profile* const profile = Profile::FromBrowserContext(browser_context_);
+  supervised_user::SupervisedUserService* supervised_user_service =
+      SupervisedUserServiceFactory::GetForProfile(profile);
+
+  if (supervised_user_service &&
+      supervised_user_service->IsURLFilteringEnabled()) {
+    supervised_user::SupervisedUserURLFilter* url_filter =
+        supervised_user_service->GetURLFilter();
+    url_filter->GetFilteringBehaviorForURLWithAsyncChecks(
+        params_.link_url,
+        base::BindOnce(&RenderViewContextMenu::OnSupervisedUserURLFilterChecked,
+                       weak_pointer_factory_.GetWeakPtr()),
+        /* skip_manual_parent_filter= */ false);
+    return;
+  }
+  ExecSaveLinkAs();
+}
+
+void RenderViewContextMenu::OnSupervisedUserURLFilterChecked(
+    supervised_user::SupervisedUserURLFilter::FilteringBehavior
+        filtering_behavior,
+    supervised_user::FilteringBehaviorReason reason,
+    bool uncertain) {
+  if (filtering_behavior ==
+      supervised_user::SupervisedUserURLFilter::FilteringBehavior::ALLOW) {
+    ExecSaveLinkAs();
+  }
+}
+#endif
+
 void RenderViewContextMenu::ExecSaveLinkAs() {
   RenderFrameHost* render_frame_host = GetRenderFrameHost();
   if (!render_frame_host)
@@ -3992,10 +4047,23 @@ void RenderViewContextMenu::ExecRegionSearch(
     lens_region_search_controller_ =
         std::make_unique<lens::LensRegionSearchController>(browser);
   }
+  const lens::AmbientSearchEntryPoint entry_point =
+      is_google_default_search_provider
+          ? lens::AmbientSearchEntryPoint::
+                CONTEXT_MENU_SEARCH_REGION_WITH_GOOGLE_LENS
+          : lens::AmbientSearchEntryPoint::CONTEXT_MENU_SEARCH_REGION_WITH_WEB;
   lens_region_search_controller_->Start(web_contents, use_fullscreen_capture,
-                                        is_google_default_search_provider);
+                                        is_google_default_search_provider,
+                                        entry_point);
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 }
+
+#if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
+void RenderViewContextMenu::ExecRunLayoutExtraction() {
+  screen_ai::AXScreenAIAnnotatorFactory::GetForBrowserContext(GetProfile())
+      ->AnnotateScreenshot(source_web_contents_);
+}
+#endif
 
 void RenderViewContextMenu::ExecSearchWebForImage(bool is_image_translate) {
   CoreTabHelper* core_tab_helper =
@@ -4035,30 +4103,6 @@ void RenderViewContextMenu::ExecLoadImage() {
   render_frame_host->GetRemoteAssociatedInterfaces()->GetInterface(
       &chrome_render_frame);
   chrome_render_frame->RequestReloadImageForContextNode();
-}
-
-void RenderViewContextMenu::ExecPlayPause() {
-  bool play = !!(params_.media_flags & ContextMenuData::kMediaPaused);
-  if (play)
-    base::RecordAction(UserMetricsAction("MediaContextMenu_Play"));
-  else
-    base::RecordAction(UserMetricsAction("MediaContextMenu_Pause"));
-
-  MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
-                      blink::mojom::MediaPlayerAction(
-                          blink::mojom::MediaPlayerActionType::kPlay, play));
-}
-
-void RenderViewContextMenu::ExecMute() {
-  bool mute = !(params_.media_flags & ContextMenuData::kMediaMuted);
-  if (mute)
-    base::RecordAction(UserMetricsAction("MediaContextMenu_Mute"));
-  else
-    base::RecordAction(UserMetricsAction("MediaContextMenu_Unmute"));
-
-  MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
-                      blink::mojom::MediaPlayerAction(
-                          blink::mojom::MediaPlayerActionType::kMute, mute));
 }
 
 void RenderViewContextMenu::ExecLoop() {

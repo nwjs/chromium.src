@@ -23,10 +23,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.chromium.base.CommandLine;
 import org.chromium.base.ObserverList;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
@@ -41,6 +43,7 @@ import org.chromium.chrome.browser.feed.sort_ui.FeedOptionsCoordinator;
 import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncher;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
+import org.chromium.chrome.browser.ntp.NewTabPageLayout;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.share.ShareDelegate;
@@ -61,6 +64,7 @@ import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.third_party.android.swiperefresh.SwipeRefreshLayout;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.ListModelChangeProcessor;
@@ -713,12 +717,18 @@ public class FeedSurfaceCoordinator
         RecyclerView view;
         if (mHybridListRenderer != null) {
             // XSurface returns a View, but it should be a RecyclerView.
-            boolean useStaggeredLayout = FeedFeatures.isMultiColumnFeedEnabled(mActivity);
+            boolean useStaggeredLayout =
+                    DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity);
             view = (RecyclerView) mHybridListRenderer.bind(
                     mContentManager, mViewportView, useStaggeredLayout);
             view.setId(R.id.feed_stream_recycler_view);
             view.setClipToPadding(false);
-            view.setBackgroundColor(SemanticColorUtils.getDefaultBgColor(mActivity));
+            if (ChromeFeatureList.sSurfacePolish.isEnabled()) {
+                view.setBackground(AppCompatResources.getDrawable(
+                        mActivity, R.drawable.home_surface_background));
+            } else {
+                view.setBackgroundColor(SemanticColorUtils.getDefaultBgColor(mActivity));
+            }
 
             // Work around https://crbug.com/943873 where default focus highlight shows up after
             // toggling dark mode.
@@ -806,7 +816,7 @@ public class FeedSurfaceCoordinator
         return new FeedStream(mActivity, mSnackbarManager, mBottomSheetController,
                 mIsPlaceholderShownInitially, mWindowAndroid, mShareSupplier, kind, mActionDelegate,
                 mHelpAndFeedbackLauncher, this /* FeedContentFirstLoadWatcher */, streamsMediator,
-                null);
+                null, new FeedSurfaceRendererBridge.Factory() {});
     }
 
     private void setHeaders(List<View> headerViews) {
@@ -815,7 +825,9 @@ public class FeedSurfaceCoordinator
         for (View header : headerViews) {
             // Feed header view in multi does not need padding added.
             int lateralPaddingsPx = getLateralPaddingsPx();
-            if (header == mSectionHeaderView) {
+            if (header == mSectionHeaderView
+                    || ChromeFeatureList.sSurfacePolish.isEnabled()
+                            && header instanceof NewTabPageLayout) {
                 lateralPaddingsPx = 0;
             }
 
@@ -833,7 +845,6 @@ public class FeedSurfaceCoordinator
     }
 
     /** @return The {@link SectionHeaderListProperties} model for the Feed section header. */
-    @VisibleForTesting
     PropertyModel getSectionHeaderModelForTest() {
         return mSectionHeaderModel;
     }
@@ -867,22 +878,18 @@ public class FeedSurfaceCoordinator
         setHeaders(headers);
     }
 
-    @VisibleForTesting
     public FeedSurfaceMediator getMediatorForTesting() {
         return mMediator;
     }
 
-    @VisibleForTesting
     public void setMediatorForTesting(FeedSurfaceMediator mediator) {
         mMediator = mediator;
     }
 
-    @VisibleForTesting
     public View getSignInPromoViewForTesting() {
         return getSigninPromoView();
     }
 
-    @VisibleForTesting
     public View getSectionHeaderViewForTesting() {
         return mSectionHeaderView;
     }
@@ -1095,17 +1102,16 @@ public class FeedSurfaceCoordinator
                 R.dimen.ntp_header_lateral_paddings_v2);
     }
 
-    @VisibleForTesting
     public void setReliabilityLoggerForTesting(FeedReliabilityLogger logger) {
+        var oldValue = mReliabilityLogger;
         mReliabilityLogger = logger;
+        ResettersForTesting.register(() -> mReliabilityLogger = oldValue);
     }
 
-    @VisibleForTesting
     public void clearScrollableContainerDelegateForTesting() {
         mScrollableContainerDelegate = null;
     }
 
-    @VisibleForTesting
     public FeedActionDelegate getActionDelegateForTesting() {
         return mActionDelegate;
     }

@@ -19,10 +19,6 @@
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface TranslateInfobarBannerOverlayMediator ()
 
 // The translate banner config from the request.
@@ -55,9 +51,10 @@
 #pragma mark - InfobarOverlayRequestMediator
 
 - (void)bannerInfobarButtonWasPressed:(UIButton*)sender {
-  // Check if request was cancelled, to avoid crash below.
-  if (!self.config) {
-    DUMP_WILL_BE_CHECK(self.config);
+  // This can happen if the user quickly navigates to another website while the
+  // banner is still appearing, causing the banner to be triggered before being
+  // removed.
+  if (!self.translateDelegate) {
     return;
   }
 

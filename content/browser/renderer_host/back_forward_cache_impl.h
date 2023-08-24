@@ -30,10 +30,12 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_process_host_observer.h"
 #include "content/public/browser/site_instance.h"
+#include "content/public/browser/storage_partition.h"
 #include "content/public/common/content_features.h"
 #include "net/cookies/canonical_cookie.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "third_party/blink/public/mojom/back_forward_cache_not_restored_reasons.mojom.h"
+#include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom.h"
 #include "third_party/blink/public/mojom/page/page.mojom.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "url/gurl.h"
@@ -391,6 +393,15 @@ class CONTENT_EXPORT BackForwardCacheImpl
   void Prune(size_t limit) override;
   void DisableForTesting(DisableForTestingReason reason) override;
 
+  // Evict all entries from the BackForwardCache that match the removal filter.
+  void Flush(
+      const StoragePartition::StorageKeyMatcherFunction& storage_key_filter);
+
+  // Evict all entries from the BackForwardCache that were loaded with
+  // "Cache-Control: no-store" header and match the removal filter.
+  void FlushCacheControlNoStoreEntries(
+      const StoragePartition::StorageKeyMatcherFunction& storage_key_filter);
+
   // RenderProcessHostInternalObserver methods
   void RenderProcessBackgroundedChanged(RenderProcessHostImpl* host) override;
 
@@ -679,6 +690,12 @@ class CONTENT_EXPORT BackForwardCacheCanStoreTreeResult {
   // The reasons for this subtree's root document.
   const BackForwardCacheCanStoreDocumentResult& GetDocumentResult() const {
     return document_result_;
+  }
+
+  // The blocking details map for this subtree's root document.
+  const BackForwardCacheCanStoreDocumentResult::BlockingDetailsMap&
+  GetBlockingDetailsMap() const {
+    return document_result_.blocking_details_map();
   }
 
   // Populate NotRestoredReasons mojom struct based on the existing tree of

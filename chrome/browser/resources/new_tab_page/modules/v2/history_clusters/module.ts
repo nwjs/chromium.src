@@ -2,23 +2,29 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './module_header.js';
+import './cart/cart_tile.js';
+import './header_tile.js';
 import './visit_tile.js';
 import './suggest_tile.js';
+import 'chrome://resources/cr_elements/cr_shared_style.css.js';
 
 import {CrLazyRenderElement} from 'chrome://resources/cr_elements/cr_lazy_render/cr_lazy_render.js';
 import {assert} from 'chrome://resources/js/assert_ts.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {Cluster, URLVisit} from '../../../history_cluster_types.mojom-webui.js';
+import {Cart} from '../../../cart.mojom-webui.js';
+import {Cluster, InteractionState} from '../../../history_cluster_types.mojom-webui.js';
 import {I18nMixin, loadTimeData} from '../../../i18n_setup.js';
-import {HistoryClustersProxyImpl} from '../../history_clusters/history_clusters_proxy.js';
+import {NewTabPageProxy} from '../../../new_tab_page_proxy.js';
 import {InfoDialogElement} from '../../info_dialog';
 import {ModuleDescriptor} from '../../module_descriptor.js';
 
+import {HistoryClustersProxyImpl} from './history_clusters_proxy.js';
 import {getTemplate} from './module.html.js';
 
 export const MAX_MODULE_ELEMENT_INSTANCES = 3;
+
+const CLUSTER_MIN_REQUIRED_URL_VISITS = 3;
 
 export interface HistoryClustersModuleElement {
   $: {
@@ -40,28 +46,66 @@ export class HistoryClustersModuleElement extends I18nMixin
     return {
       layoutType: Number,
 
+      /** The cart displayed by this element, could be null. */
+      cart: {
+        type: Object,
+        value: null,
+      },
+
       /** The cluster displayed by this element. */
       cluster: {
         type: Object,
-        observer: 'onClusterUpdated_',
       },
-
-      searchResultsPage_: Object,
 
       format: {
         type: String,
         value: 'narrow',
         reflectToAttribute: true,
       },
+
+      imagesEnabled_: {
+        type: Boolean,
+        value: true,
+        computed: `computeImagesEnabled_(cart)`,
+        reflectToAttribute: true,
+      },
     };
   }
 
+  cart: Cart|null;
   cluster: Cluster;
   format: string;
-  private searchResultsPage_: URLVisit;
+  private imagesEnabled_: boolean;
+  private setDisabledModulesListenerId_: number|null = null;
 
-  private onClusterUpdated_() {
-    this.searchResultsPage_ = this.cluster!.visits[0];
+  override connectedCallback() {
+    super.connectedCallback();
+
+    if (loadTimeData.getBoolean(
+            'modulesChromeCartInHistoryClustersModuleEnabled')) {
+      this.setDisabledModulesListenerId_ =
+          NewTabPageProxy.getInstance()
+              .callbackRouter.setDisabledModules.addListener(
+                  async (_: boolean, ids: string[]) => {
+                    if (ids.includes('chrome_cart')) {
+                      this.cart = null;
+                    } else if (!this.cart) {
+                      const {cart} =
+                          await HistoryClustersProxyImpl.getInstance()
+                              .handler.getCartForCluster(this.cluster);
+                      this.cart = cart;
+                    }
+                  });
+    }
+  }
+
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+
+    if (this.setDisabledModulesListenerId_) {
+      NewTabPageProxy.getInstance().callbackRouter.removeListener(
+          this.setDisabledModulesListenerId_);
+    }
   }
 
   private onDisableButtonClick_() {
@@ -77,14 +121,20 @@ export class HistoryClustersModuleElement extends I18nMixin
   }
 
   private onDismissButtonClick_() {
-    HistoryClustersProxyImpl.getInstance().handler.dismissCluster(
-        [this.searchResultsPage_, ...this.cluster.visits], this.cluster.id);
-    this.dispatchEvent(new CustomEvent('dismiss-module', {
+    HistoryClustersProxyImpl.getInstance()
+        .handler.updateClusterVisitsInteractionState(
+            this.cluster.visits, InteractionState.kHidden);
+    this.dispatchEvent(new CustomEvent('dismiss-module-instance', {
       bubbles: true,
       composed: true,
       detail: {
         message: loadTimeData.getStringF(
             'dismissModuleToastMessage', this.cluster.label),
+        restoreCallback: () => {
+          HistoryClustersProxyImpl.getInstance()
+              .handler.updateClusterVisitsInteractionState(
+                  this.cluster.visits, InteractionState.kDefault);
+        },
       },
     }));
   }
@@ -99,11 +149,15 @@ export class HistoryClustersModuleElement extends I18nMixin
         this.cluster.label.substring(1, this.cluster.label.length - 1));
   }
 
-  private onOpenAllInTabGroupClick_() {
-    const urls = [this.searchResultsPage_, ...this.cluster.visits].map(
-        visit => visit.normalizedUrl);
-    HistoryClustersProxyImpl.getInstance().handler.openUrlsInTabGroup(
-        urls, this.cluster.tabGroupName ?? null);
+  private shouldShowCartTile_(cart: Object): boolean {
+    return loadTimeData.getBoolean(
+               'modulesChromeCartInHistoryClustersModuleEnabled') &&
+        !!cart;
+  }
+
+  private computeImagesEnabled_(): boolean {
+    return loadTimeData.getBoolean('historyClustersImagesEnabled') &&
+        !!this.cart;
   }
 }
 
@@ -114,6 +168,13 @@ async function createElement(cluster: Cluster):
     Promise<HistoryClustersModuleElement> {
   const element = new HistoryClustersModuleElement();
   element.cluster = cluster;
+  if (loadTimeData.getBoolean(
+          'modulesChromeCartInHistoryClustersModuleEnabled')) {
+    const {cart} =
+        await HistoryClustersProxyImpl.getInstance().handler.getCartForCluster(
+            cluster);
+    element.cart = cart;
+  }
 
   return element;
 }
@@ -130,7 +191,9 @@ async function createElements(): Promise<HTMLElement[]|null> {
     if (elements.length === MAX_MODULE_ELEMENT_INSTANCES) {
       break;
     }
-    elements.push(await createElement(clusters[i]));
+    if (clusters[i].visits.length >= CLUSTER_MIN_REQUIRED_URL_VISITS) {
+      elements.push(await createElement(clusters[i]));
+    }
   }
 
   return (elements as unknown) as HTMLElement[];

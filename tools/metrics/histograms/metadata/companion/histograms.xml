@@ -47,7 +47,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.FullLoad.Latency" units="ms"
-    expires_after="2023-10-20">
+    expires_after="2024-01-07">
   <owner>mcrouse@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -57,7 +57,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.HasNavigatedToExpsSuccessPagePref.OnChanged"
-    enum="Boolean" expires_after="2023-10-20">
+    enum="Boolean" expires_after="2024-01-07">
   <owner>tbansal@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -68,7 +68,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.HasNavigatedToExpsSuccessPagePref.Status"
-    enum="Boolean" expires_after="2023-10-20">
+    enum="Boolean" expires_after="2023-12-31">
   <owner>tbansal@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -77,7 +77,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.IsUserOptedInToExps" enum="BooleanOptedIn"
-    expires_after="2023-10-20">
+    expires_after="2023-12-24">
   <owner>tbansal@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -87,7 +87,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.NavigationLoad.Latency" units="ms"
-    expires_after="2023-10-20">
+    expires_after="2024-01-07">
   <owner>mcrouse@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -98,7 +98,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.PHFeedback.Result" enum="Companion.PhFeedback"
-    expires_after="2023-10-20">
+    expires_after="2024-01-14">
   <owner>mcrouse@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -118,7 +118,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.SidePanel.OpenTrigger" enum="SidePanelOpenTrigger"
-    expires_after="2023-10-20">
+    expires_after="2023-12-24">
   <owner>shaktisahu@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -128,7 +128,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.SidePanelAvailabilityChanged"
-    enum="CompanionSidePanelAvailabilityChanged" expires_after="2023-10-20">
+    enum="CompanionSidePanelAvailabilityChanged" expires_after="2023-12-24">
   <owner>tbansal@chromium.org</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
   <summary>
@@ -138,7 +138,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.VisualQuery.ClassificationInitStatus"
-    enum="Companion.VisualQuery.InitStatus" expires_after="2023-10-20">
+    enum="Companion.VisualQuery.InitStatus" expires_after="2024-02-04">
   <owner>srna@google.com</owner>
   <owner>pstjuste@google.com</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
@@ -150,7 +150,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.VisualQuery.ClassificationLatency" units="ms"
-    expires_after="2023-10-20">
+    expires_after="2024-02-04">
   <owner>srna@google.com</owner>
   <owner>pstjuste@google.com</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
@@ -161,7 +161,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.VisualQuery.ClassifierInitializationLatency"
-    units="ms" expires_after="2023-10-20">
+    units="ms" expires_after="2024-02-04">
   <owner>srna@google.com</owner>
   <owner>pstjuste@google.com</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
@@ -173,7 +173,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Companion.VisualQuery.ClassifierModelAvailable"
-    enum="BooleanAvailable" expires_after="2023-10-20">
+    enum="BooleanAvailable" expires_after="2024-02-04">
   <owner>srna@google.com</owner>
   <owner>pstjuste@google.com</owner>
   <owner>src/chrome/browser/companion/OWNERS</owner>
@@ -373,6 +373,8 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records whether {UiSurface} was shown on the companion page. Recorded as
     soon as the surface is shown.
+
+    Warning: For SearchBox and RegionSearch, this metric is not recorded.
   </summary>
   <token key="UiSurface" variants="UiSurface"/>
 </histogram>

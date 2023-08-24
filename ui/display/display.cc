@@ -189,15 +189,7 @@ Display::Display(int64_t id, const gfx::Rect& bounds)
   if (HasForceDisplayColorProfile())
     color_space = GetForcedDisplayColorProfile();
 #endif
-  color_spaces_ = gfx::DisplayColorSpaces(color_space);
-  if (color_spaces_.SupportsHDR()) {
-    color_depth_ = kHDR10BitsPerPixel;
-    depth_per_component_ = kHDR10BitsPerComponent;
-  } else {
-    color_depth_ = kDefaultBitsPerPixel;
-    depth_per_component_ = kDefaultBitsPerComponent;
-  }
-
+  SetColorSpaces(gfx::DisplayColorSpaces(color_space));
 #if defined(USE_AURA)
   if (!bounds.IsEmpty())
     SetScaleAndBounds(device_scale_factor_, bounds);
@@ -228,7 +220,11 @@ int Display::RotationAsDegree() const {
   return 0;
 }
 
-void Display::set_color_spaces(const gfx::DisplayColorSpaces& color_spaces) {
+const gfx::DisplayColorSpaces& Display::GetColorSpaces() const {
+  return color_spaces_;
+}
+
+void Display::SetColorSpaces(const gfx::DisplayColorSpaces& color_spaces) {
   color_spaces_ = color_spaces;
   if (color_spaces.SupportsHDR()) {
     color_depth_ = kHDR10BitsPerPixel;
@@ -279,6 +275,7 @@ void Display::SetScaleAndBounds(float device_scale_factor,
   f.InvScale(device_scale_factor_);
   bounds_ = gfx::ToEnclosedRectIgnoringError(f, kDisplaySizeAllowanceEpsilon);
   size_in_pixels_ = bounds_in_pixel.size();
+  native_origin_ = bounds_in_pixel.origin();
   UpdateWorkAreaFromInsets(insets);
 }
 
@@ -308,19 +305,21 @@ void Display::UpdateWorkAreaFromInsets(const gfx::Insets& insets) {
 }
 
 gfx::Size Display::GetSizeInPixel() const {
-  if (!size_in_pixels_.IsEmpty())
+  if (!size_in_pixels_.IsEmpty()) {
     return size_in_pixels_;
+  }
   return gfx::ScaleToFlooredSize(size(), device_scale_factor_);
 }
 
 std::string Display::ToString() const {
   return base::StringPrintf(
       "Display[%lld] bounds=[%s], workarea=[%s], scale=%g, rotation=%s, "
-      "panel_rotation=%s %s.",
+      "panel_rotation=%s %s %s",
       static_cast<long long int>(id_), bounds_.ToString().c_str(),
       work_area_.ToString().c_str(), device_scale_factor_,
       ToRotationString(rotation_), ToRotationString(panel_rotation()),
-      IsInternal() ? "internal" : "external");
+      IsInternal() ? "internal" : "external",
+      detected() ? "detected" : "not-detected");
 }
 
 bool Display::IsInternal() const {
@@ -337,12 +336,13 @@ int64_t Display::InternalDisplayId() {
 bool Display::operator==(const Display& rhs) const {
   return id_ == rhs.id_ && bounds_ == rhs.bounds_ &&
          size_in_pixels_ == rhs.size_in_pixels_ &&
+         native_origin_ == rhs.native_origin_ && detected_ == rhs.detected_ &&
          work_area_ == rhs.work_area_ &&
          device_scale_factor_ == rhs.device_scale_factor_ &&
          rotation_ == rhs.rotation_ && touch_support_ == rhs.touch_support_ &&
          accelerometer_support_ == rhs.accelerometer_support_ &&
          maximum_cursor_size_ == rhs.maximum_cursor_size_ &&
-         color_spaces_ == rhs.color_spaces_ &&
+         GetColorSpaces() == rhs.GetColorSpaces() &&
          color_depth_ == rhs.color_depth_ &&
          depth_per_component_ == rhs.depth_per_component_ &&
          is_monochrome_ == rhs.is_monochrome_ &&

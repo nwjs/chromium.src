@@ -183,7 +183,6 @@ class TabletModeController;
 class MediaControllerImpl;
 class MessageCenterAshImpl;
 class MessageCenterController;
-class MicrophonePrivacySwitchController;
 class MouseCursorEventFilter;
 class MruWindowTracker;
 class MultiDeviceNotificationPresenter;
@@ -244,7 +243,6 @@ class ToastManagerImpl;
 class ToplevelWindowEventHandler;
 class ClipboardHistoryControllerImpl;
 class TouchDevicesController;
-class TouchSelectionMagnifierRunnerAsh;
 class TrayAction;
 class UserEducationController;
 class UserMetricsRecorder;
@@ -624,6 +622,9 @@ class ASH_EXPORT Shell : public SessionObserver,
     return mouse_cursor_filter_.get();
   }
   MruWindowTracker* mru_window_tracker() { return mru_window_tracker_.get(); }
+  MultiDeviceNotificationPresenter* multidevice_notification_presenter() {
+    return multidevice_notification_presenter_.get();
+  }
   MultiDisplayMetricsController* multi_display_metrics_controller() {
     return multi_display_metrics_controller_.get();
   }
@@ -999,8 +1000,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<MessageCenterAshImpl> message_center_ash_impl_;
   std::unique_ptr<MediaControllerImpl> media_controller_;
   std::unique_ptr<MediaNotificationProvider> media_notification_provider_;
-  std::unique_ptr<MicrophonePrivacySwitchController>
-      microphone_privacy_switch_controller_;
   std::unique_ptr<MruWindowTracker> mru_window_tracker_;
   std::unique_ptr<MultiDisplayMetricsController>
       multi_display_metrics_controller_;
@@ -1143,9 +1142,6 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<PartialMagnifierController> partial_magnifier_controller_;
 
   std::unique_ptr<DockedMagnifierController> docked_magnifier_controller_;
-
-  std::unique_ptr<TouchSelectionMagnifierRunnerAsh>
-      touch_selection_magnifier_runner_ash_;
 
   std::unique_ptr<chromeos::SnapController> snap_controller_;
 

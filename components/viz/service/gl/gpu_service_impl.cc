@@ -28,6 +28,7 @@
 #include "build/chromeos_buildflags.h"
 #include "components/viz/common/features.h"
 #include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
+#include "gpu/command_buffer/service/dawn_caching_interface.h"
 #include "gpu/command_buffer/service/gpu_switches.h"
 #include "gpu/command_buffer/service/scheduler.h"
 #include "gpu/command_buffer/service/shared_context_state.h"
@@ -389,9 +390,24 @@ GpuServiceImpl::GpuServiceImpl(
   }
 #endif
 
+#if BUILDFLAG(USE_DAWN) || BUILDFLAG(SKIA_USE_DAWN)
+  dawn_caching_interface_factory_ =
+      std::make_unique<gpu::webgpu::DawnCachingInterfaceFactory>();
+#endif
+
   if (gpu_preferences_.gr_context_type == gpu::GrContextType::kGraphiteDawn) {
 #if BUILDFLAG(SKIA_USE_DAWN)
-    dawn_context_provider_ = gpu::DawnContextProvider::Create();
+    // GpuServiceImpl holds the instance of DawnContextProvider, so it outlives
+    // the DawnContextProvider.
+    auto cache_blob_callback = base::BindRepeating(
+        [](GpuServiceImpl* self, gpu::GpuDiskCacheType type,
+           const std::string& key, const std::string& blob) {
+          self->StoreBlobToDisk(gpu::kGraphiteDawnGpuDiskCacheHandle, key,
+                                blob);
+        },
+        base::Unretained(this));
+    dawn_context_provider_ = gpu::DawnContextProvider::Create(
+        dawn_caching_interface_factory_.get(), std::move(cache_blob_callback));
     if (!dawn_context_provider_) {
       DLOG(ERROR) << "Failed to create Dawn context provider for Graphite.";
     }
@@ -419,10 +435,6 @@ GpuServiceImpl::GpuServiceImpl(
     overlay_state_service->Initialize(
         base::SequencedTaskRunner::GetCurrentDefault());
   }
-
-  // Add GpuServiceImpl to DirectCompositionOverlayCapsMonitor observer list for
-  // overlay and DXGI info update.
-  gl::DirectCompositionOverlayCapsMonitor::GetInstance()->AddObserver(this);
 #endif
 
   gpu_memory_buffer_factory_ = gpu::GpuMemoryBufferFactory::CreateNativeType(
@@ -624,7 +636,8 @@ void GpuServiceImpl::InitializeWithHost(
       gpu_memory_buffer_factory_.get(), gpu_feature_info_,
       std::move(activity_flags), std::move(default_offscreen_surface),
       image_decode_accelerator_worker_.get(), vulkan_context_provider(),
-      metal_context_provider(), dawn_context_provider());
+      metal_context_provider(), dawn_context_provider(),
+      dawn_caching_interface_factory());
 
   media_gpu_channel_manager_ = std::make_unique<media::MediaGpuChannelManager>(
       gpu_channel_manager_.get());
@@ -643,6 +656,23 @@ void GpuServiceImpl::InitializeWithHost(
           ? gpu_channel_manager_->default_offscreen_surface()->GetGLDisplay()
           : nullptr,
       !!watchdog_thread_);
+
+#if BUILDFLAG(IS_WIN)
+  // Add GpuServiceImpl to DirectCompositionOverlayCapsMonitor observer list for
+  // overlay and DXGI info update. This should be added after |gpu_host_| is
+  // initialized.
+  gl::DirectCompositionOverlayCapsMonitor::GetInstance()->AddObserver(this);
+#endif
+
+  if (in_host_process() &&
+      gpu_channel_manager_->use_passthrough_cmd_decoder()) {
+    // Check `kCrashOnInProcessANGLEContextLoss` to ensure registration within
+    // the experiment - the check done at the time of MaybeExitOnContextLost()
+    // doesn't cause clients in the enabled arm to become registered in the
+    // experiment due to it being followed by an immediate crash.
+    [[maybe_unused]] bool unused =
+        base::FeatureList::IsEnabled(kCrashOnInProcessANGLEContextLoss);
+  }
 }
 
 void GpuServiceImpl::Bind(
@@ -1108,6 +1138,7 @@ void GpuServiceImpl::EstablishGpuChannel(int32_t client_id,
 
   media_gpu_channel_manager_->AddChannel(client_id, channel_token);
 
+  gpu_channel->SetGpuExtraInfo(gpu_extra_info_);
   std::move(callback).Run(std::move(pipe.handle1), gpu_info_,
                           gpu_feature_info_);
 }
@@ -1426,8 +1457,9 @@ void GpuServiceImpl::OnOverlayCapsChanged() {
   // Update DXGI adapter info in the GPU process through the GPU host mojom.
   auto old_dxgi_info = std::move(dxgi_info_);
   dxgi_info_ = gl::GetDirectCompositionHDRMonitorDXGIInfo();
-  if (!mojo::Equals(dxgi_info_, old_dxgi_info))
+  if (!mojo::Equals(dxgi_info_, old_dxgi_info)) {
     gpu_host_->DidUpdateDXGIInfo(dxgi_info_.Clone());
+  }
 }
 #endif
 
@@ -1620,19 +1652,22 @@ void GpuServiceImpl::ClientGmbInterfaceImpl::DestroyAllGpuMemoryBuffers() {
   pending_buffers_.clear();
 }
 
-void GpuServiceImpl::GetDawnInfo(GetDawnInfoCallback callback) {
+void GpuServiceImpl::GetDawnInfo(bool collect_metrics,
+                                 GetDawnInfoCallback callback) {
   DCHECK(io_runner_->BelongsToCurrentThread());
 
   main_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&GpuServiceImpl::GetDawnInfoOnMain,
-                                base::Unretained(this), std::move(callback)));
+      FROM_HERE,
+      base::BindOnce(&GpuServiceImpl::GetDawnInfoOnMain, base::Unretained(this),
+                     collect_metrics, std::move(callback)));
 }
 
-void GpuServiceImpl::GetDawnInfoOnMain(GetDawnInfoCallback callback) {
+void GpuServiceImpl::GetDawnInfoOnMain(bool collect_metrics,
+                                       GetDawnInfoCallback callback) {
   DCHECK(main_runner_->BelongsToCurrentThread());
 
   std::vector<std::string> dawn_info_list;
-  gpu::CollectDawnInfo(gpu_preferences_, &dawn_info_list);
+  gpu::CollectDawnInfo(gpu_preferences_, collect_metrics, &dawn_info_list);
 
   io_runner_->PostTask(FROM_HERE,
                        base::BindOnce(std::move(callback), dawn_info_list));

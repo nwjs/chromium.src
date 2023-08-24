@@ -396,7 +396,7 @@ void ToolbarView::Init() {
         gfx::Size(kToolbarDividerWidth, kToolbarDividerHeight));
   }
 
-  if (base::FeatureList::IsEnabled(features::kChromeLabs)) {
+  if (IsChromeLabsEnabled()) {
     chrome_labs_model_ = std::make_unique<ChromeLabsModel>();
     UpdateChromeLabsNewBadgePrefs(browser_->profile(),
                                   chrome_labs_model_.get());
@@ -406,7 +406,7 @@ void ToolbarView::Init() {
               browser_view_, chrome_labs_model_.get()));
 
       show_chrome_labs_button_.Init(
-          chrome_labs_prefs::kBrowserLabsEnabled, prefs,
+          chrome_labs_prefs::kBrowserLabsEnabledEnterprisePolicy, prefs,
           base::BindRepeating(&ToolbarView::OnChromeLabsPrefChanged,
                               base::Unretained(this)));
       // Set the visibility for the button based on initial enterprise policy
@@ -453,7 +453,7 @@ void ToolbarView::Init() {
       (browser_->profile()->IsOffTheRecord() &&
        browser_->profile()->GetOTRProfileID().IsCaptivePortal());
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
-  show_avatar_toolbar_button = !profiles::IsPublicSession();
+  show_avatar_toolbar_button = !profiles::IsManagedGuestSession();
 #endif
   avatar_->SetVisible(show_avatar_toolbar_button);
 
@@ -836,16 +836,12 @@ void ToolbarView::InitLayout() {
   // TODO(dfried): rename this constant.
   const int location_bar_margin = GetLayoutConstant(TOOLBAR_STANDARD_SPACING);
 
-  const views::FlexSpecification account_container_flex_rule =
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
-                               views::MaximumFlexSizeRule::kPreferred)
-          .WithOrder(1);
   const views::FlexSpecification location_bar_flex_rule =
       views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToMinimum,
                                views::MaximumFlexSizeRule::kUnbounded)
-          .WithOrder(2);
-  constexpr int kSidePanelFlexOrder = 3;
-  constexpr int kExtensionsFlexOrder = 4;
+          .WithOrder(1);
+  constexpr int kSidePanelFlexOrder = 2;
+  constexpr int kExtensionsFlexOrder = 3;
 
   layout_manager_ =
       container_view_->SetLayoutManager(std::make_unique<views::FlexLayout>());

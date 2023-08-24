@@ -41,10 +41,6 @@
 #import "net/base/mac/url_conversions.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 
 typedef NS_ENUM(NSInteger, SectionIdentifier) {
@@ -216,7 +212,10 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }
 
 - (void)settingsWillBeDismissed {
+  // TODO(crbug.com/1454777)
+  DUMP_WILL_BE_CHECK(self.dataSource);
   [self.dataSource stopObservingModel];
+  self.dataSource = nil;
 }
 
 #pragma mark - UITableViewDelegate

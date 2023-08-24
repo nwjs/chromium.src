@@ -131,13 +131,14 @@ AutofillPopupControllerImpl::~AutofillPopupControllerImpl() = default;
 
 void AutofillPopupControllerImpl::Show(
     std::vector<Suggestion> suggestions,
-    AutoselectFirstSuggestion autoselect_first_suggestion) {
+    AutofillSuggestionTriggerSource trigger_source) {
   if (IsMouseLocked()) {
     Hide(PopupHidingReason::kMouseLocked);
     return;
   }
 
   SetSuggestions(std::move(suggestions));
+  trigger_source_ = trigger_source;
 
   if (view_) {
     OnSuggestionsChanged();
@@ -157,7 +158,10 @@ void AutofillPopupControllerImpl::Show(
         ->UpdateSourceAvailability(FillingSource::AUTOFILL,
                                    !suggestions_.empty());
 #endif
-    if (!view_.Call(&AutofillPopupView::Show, autoselect_first_suggestion)) {
+    if (!view_.Call(&AutofillPopupView::Show,
+                    AutoselectFirstSuggestion(
+                        trigger_source == AutofillSuggestionTriggerSource::
+                                              kTextFieldDidReceiveKeyDown))) {
       return;
     }
 
@@ -181,6 +185,11 @@ void AutofillPopupControllerImpl::Show(
       GetDriver());
 
   delegate_->OnPopupShown();
+}
+
+AutofillSuggestionTriggerSource
+AutofillPopupControllerImpl::GetAutofillSuggestionTriggerSource() const {
+  return trigger_source_;
 }
 
 void AutofillPopupControllerImpl::UpdateDataListValues(
@@ -340,9 +349,15 @@ void AutofillPopupControllerImpl::AcceptSuggestionWithoutThreshold(int index) {
 
   if (web_contents_ &&
       suggestion.popup_item_id == PopupItemId::kVirtualCreditCardEntry) {
+    std::string event_name =
+        suggestion.feature_for_iph ==
+                feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature
+                    .name
+            ? "autofill_virtual_card_cvc_suggestion_accepted"
+            : "autofill_virtual_card_suggestion_accepted";
     feature_engagement::TrackerFactory::GetForBrowserContext(
         web_contents_->GetBrowserContext())
-        ->NotifyEvent("autofill_virtual_card_suggestion_accepted");
+        ->NotifyEvent(event_name);
   }
 
   if (web_contents_ &&
@@ -360,7 +375,7 @@ void AutofillPopupControllerImpl::AcceptSuggestionWithoutThreshold(int index) {
     std::ignore = view_.Call(&AutofillPopupView::AxAnnounce, *announcement);
   }
 
-  delegate_->DidAcceptSuggestion(suggestion, index);
+  delegate_->DidAcceptSuggestion(suggestion, index, trigger_source_);
 #if BUILDFLAG(IS_ANDROID)
   if ((suggestion.popup_item_id == PopupItemId::kPasswordEntry ||
        suggestion.popup_item_id == PopupItemId::kUsernameEntry) &&
@@ -482,7 +497,7 @@ void AutofillPopupControllerImpl::SelectSuggestion(
   }
 
   if (index) {
-    delegate_->DidSelectSuggestion(GetSuggestionAt(*index));
+    delegate_->DidSelectSuggestion(GetSuggestionAt(*index), trigger_source_);
   } else {
     delegate_->ClearPreviewedForm();
   }

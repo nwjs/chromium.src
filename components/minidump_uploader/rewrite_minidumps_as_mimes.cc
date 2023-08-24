@@ -30,7 +30,6 @@ namespace minidump_uploader {
 
 namespace {
 
-#if BUILDFLAG(IS_ANDROID)
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class ProcessedMinidumpCounts {
@@ -41,7 +40,6 @@ enum class ProcessedMinidumpCounts {
   kUtility = 4,
   kMaxValue = kUtility
 };
-#endif  // BUILDFLAG(IS_ANDROID)
 
 bool MimeifyReportWithKeyValuePairs(
     const crashpad::CrashReportDatabase::UploadReport& report,
@@ -82,7 +80,6 @@ bool MimeifyReportWithKeyValuePairs(
         crashes_key_value_arr->push_back(kv.first);
         crashes_key_value_arr->push_back(kv.second);
       }
-#if BUILDFLAG(IS_ANDROID)
       if (kv.first == kPtypeKey) {
         const crashpad::ExceptionSnapshot* exception =
             minidump_process_snapshot.Exception();
@@ -107,7 +104,6 @@ bool MimeifyReportWithKeyValuePairs(
           }
         }
       }
-#endif  // BUILDFLAG(IS_ANDROID)
     }
   }
 
@@ -258,11 +254,10 @@ void WriteAnrAsMime(crashpad::FileReader* anr_reader,
   builder.SetFormData("resources_version", info->resources_version());
   builder.SetFormData("gms_core_version", info->gms_version_code());
 
-  // The firebase package name and version are used for deobfuscation, but will
+  // The package name and version are used for deobfuscation, but will
   // only be accurate for the same version of chrome.
-  if (version_number == version_info::GetVersionNumber() &&
-      info->firebase_app_id()[0] != '\0') {
-    builder.SetFormData("package", std::string(info->firebase_app_id()) + " v" +
+  if (version_number == version_info::GetVersionNumber()) {
+    builder.SetFormData("package", std::string(info->package_name()) + " v" +
                                        info->package_version_code() + " (" +
                                        info->package_version_name() + ")");
   }

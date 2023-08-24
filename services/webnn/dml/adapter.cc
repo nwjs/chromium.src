@@ -4,38 +4,37 @@
 
 #include "services/webnn/dml/adapter.h"
 
+#include <d3d11.h>
+
 #include "base/logging.h"
+#include "services/webnn/dml/command_queue.h"
 #include "services/webnn/dml/error.h"
 #include "services/webnn/dml/platform_functions.h"
+#include "ui/gl/gl_angle_util_win.h"
 
 namespace webnn::dml {
 
-namespace {
+// static
+scoped_refptr<Adapter> Adapter::GetInstance() {
+  // If the `Adapter` instance is created, add a reference and return it.
+  if (instance_) {
+    return base::WrapRefCounted(instance_);
+  }
 
-D3D12_HEAP_PROPERTIES CreateHeapProperties(D3D12_HEAP_TYPE type) {
-  return {.Type = type,
-          .CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
-          .MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN,
-          .CreationNodeMask = 1,
-          .VisibleNodeMask = 1};
+  // Otherwise, create a new one with the adapter queried from ANGLE.
+  ComPtr<ID3D11Device> d3d11_device = gl::QueryD3D11DeviceObjectFromANGLE();
+  if (!d3d11_device) {
+    DLOG(ERROR) << "Failed to query ID3D11Device from ANGLE.";
+    return nullptr;
+  }
+  // A ID3D11Device is always QueryInteface-able to a IDXGIDevice.
+  ComPtr<IDXGIDevice> dxgi_device;
+  CHECK_EQ(d3d11_device.As(&dxgi_device), S_OK);
+  // All DXGI devices should have adapters.
+  ComPtr<IDXGIAdapter> dxgi_adapter;
+  CHECK_EQ(dxgi_device->GetAdapter(&dxgi_adapter), S_OK);
+  return Adapter::Create(std::move(dxgi_adapter));
 }
-
-D3D12_RESOURCE_DESC CreateResourceDesc(
-    uint64_t size,
-    D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE) {
-  return {.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER,
-          .Alignment = 0,
-          .Width = size,
-          .Height = 1,
-          .DepthOrArraySize = 1,
-          .MipLevels = 1,
-          .Format = DXGI_FORMAT_UNKNOWN,
-          .SampleDesc = {1, 0},
-          .Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-          .Flags = flags};
-}
-
-}  // namespace
 
 // static
 scoped_refptr<Adapter> Adapter::Create(ComPtr<IDXGIAdapter> dxgi_adapter) {
@@ -67,7 +66,7 @@ scoped_refptr<Adapter> Adapter::Create(ComPtr<IDXGIAdapter> dxgi_adapter) {
   };
 
   // Create command queue.
-  std::unique_ptr<CommandQueue> command_queue =
+  scoped_refptr<CommandQueue> command_queue =
       CommandQueue::Create(d3d12_device.Get());
   if (!command_queue) {
     DLOG(ERROR) << "Failed to create command queue.";
@@ -82,46 +81,20 @@ scoped_refptr<Adapter> Adapter::Create(ComPtr<IDXGIAdapter> dxgi_adapter) {
 Adapter::Adapter(ComPtr<IDXGIAdapter> dxgi_adapter,
                  ComPtr<ID3D12Device> d3d12_device,
                  ComPtr<IDMLDevice> dml_device,
-                 std::unique_ptr<CommandQueue> command_queue)
+                 scoped_refptr<CommandQueue> command_queue)
     : dxgi_adapter_(std::move(dxgi_adapter)),
       d3d12_device_(std::move(d3d12_device)),
       dml_device_(std::move(dml_device)),
-      command_queue_(std::move(command_queue)) {}
-
-Adapter::~Adapter() = default;
-
-HRESULT
-Adapter::CreateDefaultBuffer(uint64_t size, ComPtr<ID3D12Resource>& resource) {
-  auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-  auto resource_desc =
-      CreateResourceDesc(size, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_UNORDERED_ACCESS, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-  return S_OK;
+      command_queue_(std::move(command_queue)) {
+  CHECK_EQ(instance_, nullptr);
+  instance_ = this;
 }
 
-HRESULT Adapter::CreateUploadBuffer(uint64_t size,
-                                    ComPtr<ID3D12Resource>& resource) {
-  auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-  auto resource_desc = CreateResourceDesc(size, D3D12_RESOURCE_FLAG_NONE);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-  return S_OK;
+Adapter::~Adapter() {
+  CHECK_EQ(instance_, this);
+  instance_ = nullptr;
 }
 
-HRESULT
-Adapter::CreateReadbackBuffer(uint64_t size, ComPtr<ID3D12Resource>& resource) {
-  auto heap_properties = CreateHeapProperties(D3D12_HEAP_TYPE_READBACK);
-  auto resource_desc = CreateResourceDesc(size, D3D12_RESOURCE_FLAG_NONE);
-  RETURN_IF_FAILED(d3d12_device_->CreateCommittedResource(
-      &heap_properties, D3D12_HEAP_FLAG_NONE, &resource_desc,
-      D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&resource)));
-  CHECK(resource.Get());
-  return S_OK;
-}
+Adapter* Adapter::instance_ = nullptr;
 
 }  // namespace webnn::dml

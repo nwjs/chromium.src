@@ -1346,8 +1346,13 @@ WebTimeRanges WebMediaPlayerImpl::Buffered() const {
 WebTimeRanges WebMediaPlayerImpl::Seekable() const {
   DCHECK(main_task_runner_->BelongsToCurrentThread());
 
-  if (ready_state_ < WebMediaPlayer::kReadyStateHaveMetadata)
+  if (ready_state_ < WebMediaPlayer::kReadyStateHaveMetadata) {
     return WebTimeRanges();
+  }
+
+  if (demuxer_manager_->IsLiveContent()) {
+    return WebTimeRanges();
+  }
 
   const double seekable_end = Duration();
 
@@ -1815,6 +1820,11 @@ bool WebMediaPlayerImpl::IsSecurityOriginCryptographic() const {
 
 void WebMediaPlayerImpl::UpdateLoadedUrl(const GURL& url) {
   loaded_url_ = url;
+}
+
+void WebMediaPlayerImpl::DemuxerRequestsSeek(base::TimeDelta seek_time) {
+  DCHECK(main_task_runner_->BelongsToCurrentThread());
+  DoSeek(seek_time, true);
 }
 
 void WebMediaPlayerImpl::RestartForHls() {

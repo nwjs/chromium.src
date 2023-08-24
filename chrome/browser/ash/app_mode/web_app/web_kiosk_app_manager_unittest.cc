@@ -116,7 +116,7 @@ class WebKioskAppManagerTest : public BrowserWithTestWindowTest {
     app_service_test_.SetUp(profile());
     app_service_ = apps::AppServiceProxyFactory::GetForProfile(profile());
 
-    // |WebKioskAppUpdateObserver| requires WebAppProvider to be ready before it
+    // `WebKioskAppUpdateObserver` requires WebAppProvider to be ready before it
     // is created.
     fake_web_app_provider_ = web_app::FakeWebAppProvider::Get(profile());
     web_app::test::AwaitStartWebAppProviderAndSubsystems(profile());
@@ -291,7 +291,7 @@ TEST_F(WebKioskAppManagerTest, ShouldNotUpdateAppInfoForNonKioskApps) {
 
 TEST_F(WebKioskAppManagerTest, ShouldNotUpdateAppInfoForPlaceholders) {
   // Install app as placeholder.
-  auto app_info = std::make_unique<WebAppInstallInfo>();
+  auto app_info = std::make_unique<web_app::WebAppInstallInfo>();
   app_info->start_url = GURL(kAppLaunchUrl);
   app_info->scope = GURL(kAppInstallUrl);
   app_info->title = u"placeholder_title";

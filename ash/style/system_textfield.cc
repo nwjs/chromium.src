@@ -153,6 +153,10 @@ void SystemTextfield::RestoreText() {
   SetText(restored_text_content_);
 }
 
+void SystemTextfield::SetBackgroundColorEnabled(bool enabled) {
+  is_background_color_enabled_ = enabled;
+}
+
 gfx::Size SystemTextfield::CalculatePreferredSize() const {
   // The width of container equals to the content width with horizontal padding.
   // The height of the container dependents on the type.
@@ -192,22 +196,14 @@ void SystemTextfield::OnThemeChanged() {
 }
 
 void SystemTextfield::OnFocus() {
-  if (delegate_) {
-    delegate_->OnTextfieldFocused(this);
-  } else {
-    SetActive(true);
-  }
-
+  views::Textfield::OnFocus();
+  SetShowFocusRing(true);
   UpdateBackground();
 }
 
 void SystemTextfield::OnBlur() {
-  if (delegate_) {
-    delegate_->OnTextfieldBlurred(this);
-  } else {
-    SetActive(false);
-  }
-
+  views::Textfield::OnBlur();
+  SetShowFocusRing(false);
   UpdateBackground();
 }
 
@@ -256,6 +252,9 @@ void SystemTextfield::UpdateTextColor() {
 }
 
 void SystemTextfield::UpdateBackground() {
+  if (!is_background_color_enabled_) {
+    return;
+  }
   // Create a themed rounded rect background when the mouse hovers on the
   // textfield or the textfield is focused.
   if (IsMouseHovered() || HasFocus() || show_background_) {

@@ -32,10 +32,6 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using password_manager::WarningType;
 using password_manager::features::IsPasswordCheckupEnabled;
 
@@ -275,24 +271,8 @@ using password_manager::features::IsPasswordCheckupEnabled;
 
 // Provides passwords and blocked forms to the '_consumer'.
 - (void)providePasswordsToConsumer {
-  if (base::FeatureList::IsEnabled(
-          password_manager::features::kPasswordsGrouping)) {
-    [_consumer
-        setAffiliatedGroups:_savedPasswordsPresenter->GetAffiliatedGroups()
-               blockedSites:_savedPasswordsPresenter->GetBlockedSites()];
-  } else {
-    std::vector<password_manager::CredentialUIEntry> passwords, blockedSites;
-    for (const auto& credential :
-         _savedPasswordsPresenter->GetSavedCredentials()) {
-      if (credential.blocked_by_user) {
-        blockedSites.push_back(std::move(credential));
-      } else {
-        passwords.push_back(std::move(credential));
-      }
-    }
-    [_consumer setPasswords:std::move(passwords)
-               blockedSites:std::move(blockedSites)];
-  }
+  [_consumer setAffiliatedGroups:_savedPasswordsPresenter->GetAffiliatedGroups()
+                    blockedSites:_savedPasswordsPresenter->GetBlockedSites()];
 }
 
 // Updates the `_consumer` Password Check UI State and Insecure Passwords.

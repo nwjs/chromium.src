@@ -23,7 +23,6 @@
 #include "chrome/browser/ash/crosapi/resource_manager_ash.h"
 #include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/policy/handlers/device_name_policy_handler.h"
-#include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/cros_settings.h"
 #include "chrome/browser/ash/settings/device_settings_service.h"
 #include "chrome/browser/browser_process.h"
@@ -33,12 +32,16 @@
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/speech/tts_crosapi_util.h"
 #include "chrome/browser/ui/webui/chrome_web_ui_controller_factory.h"
+#include "chrome/browser/web_applications/preinstalled_web_app_utils.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
 #include "chromeos/ash/components/settings/cros_settings_provider.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/components/cdm_factory_daemon/mojom/browser_cdm_factory.mojom.h"
+#include "chromeos/components/payments/mojom/payment_app.mojom.h"
 #include "chromeos/components/remote_apps/mojom/remote_apps.mojom.h"
 #include "chromeos/components/sensors/mojom/cros_sensor_service.mojom.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -77,6 +80,7 @@
 #include "chromeos/crosapi/mojom/extension_info_private.mojom.h"
 #include "chromeos/crosapi/mojom/feedback.mojom.h"
 #include "chromeos/crosapi/mojom/file_manager.mojom.h"
+#include "chromeos/crosapi/mojom/file_system_access_cloud_identifier.mojom.h"
 #include "chromeos/crosapi/mojom/file_system_provider.mojom.h"
 #include "chromeos/crosapi/mojom/firewall_hole.mojom.h"
 #include "chromeos/crosapi/mojom/force_installed_tracker.mojom.h"
@@ -120,6 +124,7 @@
 #include "chromeos/crosapi/mojom/sync.mojom.h"
 #include "chromeos/crosapi/mojom/system_display.mojom.h"
 #include "chromeos/crosapi/mojom/task_manager.mojom.h"
+#include "chromeos/crosapi/mojom/telemetry_diagnostic_routine_service.mojom.h"
 #include "chromeos/crosapi/mojom/telemetry_event_service.mojom.h"
 #include "chromeos/crosapi/mojom/test_controller.mojom.h"
 #include "chromeos/crosapi/mojom/timezone.mojom.h"
@@ -133,6 +138,7 @@
 #include "chromeos/crosapi/mojom/vpn_service.mojom.h"
 #include "chromeos/crosapi/mojom/wallpaper.mojom.h"
 #include "chromeos/crosapi/mojom/web_app_service.mojom.h"
+#include "chromeos/crosapi/mojom/web_kiosk_service.mojom.h"
 #include "chromeos/crosapi/mojom/web_page_info.mojom.h"
 #include "chromeos/services/machine_learning/public/cpp/ml_switches.h"
 #include "chromeos/services/machine_learning/public/mojom/machine_learning_service.mojom.h"
@@ -159,6 +165,7 @@
 #include "services/device/public/mojom/hid.mojom.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
 #include "services/media_session/public/mojom/media_controller.mojom.h"
+#include "ui/accessibility/accessibility_features.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/gfx/switches.h"
 
@@ -179,6 +186,9 @@ constexpr char kSharedStoragePrefsCapability[] = "b/231890240";
 constexpr char kExtensionControlledPrefObserversCapability[] = "crbug/1334985";
 // Capability to always use ConfirmComposition for input methods.
 constexpr char kAlwaysConfirmCompositionCapability[] = "b/265853952";
+// Capability to pass testing ash extension keeplist data via ash
+// commandline switch.
+constexpr char kAshExtensionKeeplistCmdlineSwitchCapability[] = "crbug/1409199";
 
 // Returns the vector containing policy data of the device account. In case of
 // an error, returns nullopt.
@@ -266,6 +276,9 @@ mojom::DevicePropertiesPtr GetDeviceProperties() {
         device_name_policy_handler->GetHostnameChosenByAdministrator();
   }
 
+  result->has_stylus_enabled_touchscreen =
+      web_app::DeviceHasStylusEnabledTouchscreen();
+
   return result;
 }
 
@@ -279,12 +292,13 @@ constexpr InterfaceVersionEntry MakeInterfaceVersionEntry() {
   return {T::Uuid_, T::Version_};
 }
 
-static_assert(crosapi::mojom::Crosapi::Version_ == 110,
+static_assert(crosapi::mojom::Crosapi::Version_ == 114,
               "If you add a new crosapi, please add it to "
               "kInterfaceVersionEntries below.");
 
 constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<chromeos::cdm::mojom::BrowserCdmFactory>(),
+    MakeInterfaceVersionEntry<chromeos::payments::mojom::PaymentAppInstance>(),
     MakeInterfaceVersionEntry<
         chromeos::remote_apps::mojom::RemoteAppsLacrosBridge>(),
     MakeInterfaceVersionEntry<chromeos::sensors::mojom::SensorHalClient>(),
@@ -328,6 +342,8 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::Feedback>(),
     MakeInterfaceVersionEntry<crosapi::mojom::FieldTrialService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::FileManager>(),
+    MakeInterfaceVersionEntry<
+        crosapi::mojom::FileSystemAccessCloudIdentifierProvider>(),
     MakeInterfaceVersionEntry<crosapi::mojom::FileSystemProviderService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::FirewallHoleServiceDeprecated>(),
     MakeInterfaceVersionEntry<crosapi::mojom::ForceInstalledTracker>(),
@@ -362,6 +378,8 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::Power>(),
     MakeInterfaceVersionEntry<crosapi::mojom::Prefs>(),
     MakeInterfaceVersionEntry<crosapi::mojom::PrintingMetrics>(),
+    MakeInterfaceVersionEntry<
+        crosapi::mojom::TelemetryDiagnosticRoutinesService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::TelemetryEventService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::TelemetryProbeService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::Remoting>(),
@@ -390,6 +408,7 @@ constexpr InterfaceVersionEntry kInterfaceVersionEntries[] = {
     MakeInterfaceVersionEntry<crosapi::mojom::VpnService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::Wallpaper>(),
     MakeInterfaceVersionEntry<crosapi::mojom::WebAppService>(),
+    MakeInterfaceVersionEntry<crosapi::mojom::WebKioskService>(),
     MakeInterfaceVersionEntry<crosapi::mojom::WebPageInfoFactory>(),
     MakeInterfaceVersionEntry<device::mojom::HidConnection>(),
     MakeInterfaceVersionEntry<device::mojom::HidManager>(),
@@ -567,17 +586,11 @@ void InjectBrowserInitParams(
   params->accepted_internal_ash_urls =
       ChromeWebUIControllerFactory::GetInstance()->GetListOfAcceptableURLs();
 
-  // Pass holding space feature flag state to lacros.
-  params->is_holding_space_incognito_profile_integration_enabled = true;
-  params
-      ->is_holding_space_in_progress_downloads_notification_suppression_enabled =
-      ash::features::
-          IsHoldingSpaceInProgressDownloadsNotificationSuppressionEnabled();
-
   std::vector<std::string> ash_capabilities = {
       kBrowserManagerReloadBrowserCapability,
       kSharedStoragePrefsCapability,
       kExtensionControlledPrefObserversCapability,
+      kAshExtensionKeeplistCmdlineSwitchCapability,
   };
   // TODO(b/265853952): Remove this once kAlwaysConfirmComposition is enabled by
   // default.
@@ -599,6 +612,7 @@ void InjectBrowserInitParams(
   params->ash_chrome_version = version_info::GetVersionNumber();
   params->use_cups_for_printing = GetUseCupsForPrinting();
   params->use_floss_bluetooth = floss::features::IsFlossEnabled();
+  params->is_floss_available = floss::features::IsFlossAvailable();
 
   params->enable_window_layout_menu =
       base::FeatureList::IsEnabled(chromeos::wm::features::kWindowLayoutMenu);
@@ -636,6 +650,14 @@ void InjectBrowserInitParams(
 
   params->is_variable_refresh_rate_enabled =
       ::features::IsVariableRefreshRateEnabled();
+
+  params->is_pdf_ocr_enabled = ::features::IsPdfOcrEnabled();
+
+  params->is_drivefs_bulk_pinning_enabled =
+      ash::features::IsDriveFsBulkPinningEnabled();
+
+  params->is_sys_ui_downloads_integration_v2_enabled =
+      ash::features::IsSysUiDownloadsIntegrationV2Enabled();
 }
 
 template <typename BrowserParams>
@@ -655,8 +677,9 @@ void InjectBrowserPostLoginParams(BrowserParams* params,
         account_manager::ToMojoAccount(maybe_device_account.value());
   }
 
-  params->cros_user_id_hash = ash::ProfileHelper::GetUserIdHashFromProfile(
-      ProfileManager::GetPrimaryUserProfile());
+  params->cros_user_id_hash =
+      ash::BrowserContextHelper::GetUserIdHashFromBrowserContext(
+          ProfileManager::GetPrimaryUserProfile());
   params->device_account_policy = GetDeviceAccountPolicy(environment_provider);
   params->last_policy_fetch_attempt_timestamp =
       environment_provider->GetLastPolicyFetchAttemptTimestamp().ToTimeT();
@@ -674,7 +697,10 @@ void InjectBrowserPostLoginParams(BrowserParams* params,
 
   params->is_current_user_device_owner = GetIsCurrentUserOwner();
   params->is_current_user_ephemeral = IsCurrentUserEphemeral();
-  params->do_not_mux_extension_app_ids = !apps::ShouldMuxExtensionIds();
+  // TODO(crbug.com/1468140): Deprecate |do_not_mux_extension_app_ids| after
+  // the change for removing extension id muxing code is landed and runs without
+  // any regressions.
+  params->do_not_mux_extension_app_ids = true;
   params->enable_lacros_tts_support =
       tts_crosapi_util::ShouldEnableLacrosTtsSupport();
 }
@@ -736,7 +762,7 @@ bool WritePostLoginData(base::PlatformFile fd,
 }
 
 bool IsSigninProfileOrBelongsToAffiliatedUser(Profile* profile) {
-  if (ash::ProfileHelper::IsSigninProfile(profile)) {
+  if (ash::IsSigninBrowserContext(profile)) {
     return true;
   }
 
@@ -745,7 +771,7 @@ bool IsSigninProfileOrBelongsToAffiliatedUser(Profile* profile) {
   }
 
   const user_manager::User* user =
-      ash::ProfileHelper::Get()->GetUserByProfile(profile);
+      ash::BrowserContextHelper::Get()->GetUserByBrowserContext(profile);
   if (!user) {
     return false;
   }

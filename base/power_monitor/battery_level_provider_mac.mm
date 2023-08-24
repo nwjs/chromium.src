@@ -72,8 +72,9 @@ BatteryLevelProviderMac::GetBatteryStateImpl() {
   }
 
   base::ScopedCFTypeRef<CFMutableDictionaryRef> dict;
-  kern_return_t result = IORegistryEntryCreateCFProperties(
-      service.get(), dict.InitializeInto(), 0, 0);
+  kern_return_t result =
+      IORegistryEntryCreateCFProperties(service.get(), dict.InitializeInto(),
+                                        /*allocator=*/nullptr, /*options=*/0);
 
   if (result != KERN_SUCCESS) {
     // Failing to retrieve the dictionary is unexpected.
@@ -99,26 +100,14 @@ BatteryLevelProviderMac::GetBatteryStateImpl() {
     return absl::nullopt;
   }
 
-  CFStringRef capacity_key;
-  CFStringRef max_capacity_key;
-
-  // Use the correct capacity keys depending on macOS version.
-  if (@available(macOS 10.14.0, *)) {
-    capacity_key = CFSTR("AppleRawCurrentCapacity");
-    max_capacity_key = CFSTR("AppleRawMaxCapacity");
-  } else {
-    capacity_key = CFSTR("CurrentCapacity");
-    max_capacity_key = CFSTR("RawMaxCapacity");
-  }
-
   absl::optional<SInt64> current_capacity =
-      GetValueAsSInt64(dict, capacity_key);
+      GetValueAsSInt64(dict, CFSTR("AppleRawCurrentCapacity"));
   if (!current_capacity.has_value()) {
     return absl::nullopt;
   }
 
   absl::optional<SInt64> max_capacity =
-      GetValueAsSInt64(dict, max_capacity_key);
+      GetValueAsSInt64(dict, CFSTR("AppleRawMaxCapacity"));
   if (!max_capacity.has_value()) {
     return absl::nullopt;
   }

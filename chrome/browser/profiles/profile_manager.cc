@@ -112,9 +112,9 @@
 #endif
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
-#include "chrome/browser/supervised_user/child_accounts/child_account_service.h"
 #include "chrome/browser/supervised_user/child_accounts/child_account_service_factory.h"
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "components/supervised_user/core/browser/child_account_service.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #endif
@@ -127,6 +127,8 @@
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "components/live_caption/live_caption_controller.h"
+#else
+#include "chrome/browser/profiles/profile_manager_android.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -141,6 +143,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_type.h"
@@ -387,6 +390,8 @@ ProfileManager::ProfileManager(const base::FilePath& user_data_dir)
   closing_all_browsers_subscription_ = chrome::AddClosingAllBrowsersCallback(
       base::BindRepeating(&ProfileManager::OnClosingAllBrowsersChanged,
                           base::Unretained(this)));
+#else
+  profile_manager_android_ = std::make_unique<ProfileManagerAndroid>(this);
 #endif
 
   if (ProfileShortcutManager::IsFeatureEnabled() && !user_data_dir_.empty())
@@ -1452,13 +1457,13 @@ void ProfileManager::DoFinalInitForServices(Profile* profile,
 #if BUILDFLAG(ENABLE_EXTENSIONS)
   bool extensions_enabled = !go_off_the_record;
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableLoginScreenApps) &&
-      ash::ProfileHelper::IsSigninProfile(profile)) {
+  if ((!base::CommandLine::ForCurrentProcess()->HasSwitch(
+           switches::kDisableLoginScreenApps) &&
+       ash::ProfileHelper::IsSigninProfile(profile)) ||
+      ash::ProfileHelper::IsLockScreenAppProfile(profile) ||
+      ash::IsShimlessRmaAppBrowserContext(profile)) {
     extensions_enabled = true;
   }
-  if (ash::ProfileHelper::IsLockScreenAppProfile(profile))
-    extensions_enabled = true;
 #endif
   extensions::ExtensionSystem::Get(profile)->InitForRegularProfile(
       extensions_enabled);

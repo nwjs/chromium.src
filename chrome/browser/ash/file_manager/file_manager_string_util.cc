@@ -13,6 +13,7 @@
 #include "ash/system/time/date_helper.h"
 #include "base/feature_list.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "chrome/browser/ash/bruschetta/bruschetta_util.h"
@@ -27,6 +28,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part_ash.h"
+#include "chrome/browser/chromeos/policy/dlp/dlp_policy_constants.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
@@ -86,6 +88,9 @@ const int kNoActionForFileHelpNumber = 1700055;
 
 #define SET_STRING(id, idr) dict->Set(id, l10n_util::GetStringUTF16(idr))
 
+#define SET_STRING_PLURAL(id, idr, n) \
+  dict->Set(id, l10n_util::GetPluralStringFUTF16(idr, n))
+
 void AddStringsForFileTypes(base::Value::Dict* dict) {
   // TODO(crbug.com/438921): Rename string IDs to something like
   // FILE_TYPE_WHATEVER.
@@ -128,6 +133,16 @@ void AddStringsForFileTypes(base::Value::Dict* dict) {
 }
 
 void AddStringsForDrive(base::Value::Dict* dict) {
+  SET_STRING("BULK_PINNING_BUTTON_LABEL_ISSUE",
+             IDS_FILE_BROWSER_BULK_PINNING_BUTTON_LABEL_ISSUE);
+  SET_STRING("BULK_PINNING_BUTTON_LABEL_OFFLINE",
+             IDS_FILE_BROWSER_BULK_PINNING_BUTTON_LABEL_OFFLINE);
+  SET_STRING("BULK_PINNING_FILE_SYNC_ON",
+             IDS_FILE_BROWSER_BULK_PINNING_FILE_SYNC_ON);
+  SET_STRING("BULK_PINNING_BUTTON_LABEL_PAUSED",
+             IDS_FILE_BROWSER_BULK_PINNING_BUTTON_LABEL_PAUSED);
+  SET_STRING("BULK_PINNING_BUTTON_LABEL_SYNCING",
+             IDS_FILE_BROWSER_BULK_PINNING_BUTTON_LABEL_SYNCING);
   SET_STRING("DRIVE_BUY_MORE_SPACE", IDS_FILE_BROWSER_DRIVE_BUY_MORE_SPACE);
   SET_STRING("DRIVE_BUY_MORE_SPACE_LINK",
              IDS_FILE_BROWSER_DRIVE_BUY_MORE_SPACE_LINK);
@@ -214,8 +229,6 @@ void AddStringsForDrive(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_GOOGLE_DRIVE_MULTIPLE_FILES_SYNCING_LABEL);
   SET_STRING("DRIVE_SINGLE_FILE_SYNCING",
              IDS_FILE_BROWSER_GOOGLE_DRIVE_SINGLE_FILE_SYNCING_LABEL);
-  SET_STRING("DRIVE_ALL_FILES_SYNCED",
-             IDS_FILE_BROWSER_GOOGLE_DRIVE_ALL_FILES_SYNCED_LABEL);
   SET_STRING("DRIVE_BULK_PINNING_BATTERY_SAVER",
              IDS_FILE_BROWSER_BULK_PINNING_BATTERY_SAVER_LABEL);
   SET_STRING("DRIVE_BULK_PINNING_OFFLINE",
@@ -224,10 +237,9 @@ void AddStringsForDrive(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_BULK_PINNING_NOT_ENOUGH_SPACE_LABEL);
   SET_STRING("DRIVE_PREPARING_TO_SYNC",
              IDS_FILE_BROWSER_BULK_PINNING_PREPARING_TO_SYNC);
-  SET_STRING("DRIVE_ITEM_UNAVAILABLE_OFFLINE",
-             IDS_FILE_BROWSER_BULK_PINNING_ITEM_UNAVAILABLE_OFFLINE);
-  SET_STRING("DRIVE_OFFLINE_FOLDER_TOOLTIP",
-             IDS_FILE_BROWSER_BULK_PINNING_FOLDER_INDICATOR_TOOLTIP);
+  SET_STRING(
+      "DRIVE_ITEM_UNAVAILABLE_OFFLINE",
+      IDS_FILE_BROWSER_BULK_PINNING_ITEM_TEMPORARILY_UNAVAILABLE_OFFLINE);
   SET_STRING("DRIVE_BULK_PINNING_CALCULATING",
              IDS_FILE_BROWSER_BULK_PINNING_CALCULATING);
 }
@@ -547,10 +559,6 @@ void AddStringsGeneric(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_FOLDER_SHARED_WITH_PLUGIN_VM);
   SET_STRING("FOLDER_SHARED_WITH_PLUGIN_VM_PLURAL",
              IDS_FILE_BROWSER_FOLDER_SHARED_WITH_PLUGIN_VM_PLURAL);
-  SET_STRING("FOLDER_SHARED_WITH_BRUSCHETTA",
-             IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA);
-  SET_STRING("FOLDER_SHARED_WITH_BRUSCHETTA_PLURAL",
-             IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA_PLURAL);
   SET_STRING("FORMATTING_FINISHED_FAILURE_MESSAGE",
              IDS_FORMATTING_FINISHED_FAILURE_MESSAGE);
   SET_STRING("FORMATTING_FINISHED_SUCCESS_MESSAGE",
@@ -891,10 +899,6 @@ void AddStringsGeneric(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_SHARE_WITH_PLUGIN_VM_BUTTON_LABEL);
   SET_STRING("MANAGE_PLUGIN_VM_SHARING_BUTTON_LABEL",
              IDS_FILE_BROWSER_MANAGE_PLUGIN_VM_SHARING_BUTTON_LABEL);
-  SET_STRING("SHARE_WITH_BRUSCHETTA_BUTTON_LABEL",
-             IDS_FILE_BROWSER_SHARE_WITH_BRUSCHETTA_BUTTON_LABEL);
-  SET_STRING("MANAGE_BRUSCHETTA_SHARING_BUTTON_LABEL",
-             IDS_FILE_BROWSER_MANAGE_BRUSCHETTA_SHARING_BUTTON_LABEL);
   SET_STRING(
       "UNABLE_TO_DROP_IN_PLUGIN_VM_DIRECTORY_NOT_SHARED_MESSAGE",
       IDS_FILE_BROWSER_UNABLE_TO_DROP_IN_PLUGIN_VM_DIRECTORY_NOT_SHARED_MESSAGE);
@@ -932,12 +936,6 @@ void AddStringsGeneric(base::Value::Dict* dict) {
              IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_PLUGIN_VM);
   SET_STRING("SHARE_ROOT_FOLDER_WITH_PLUGIN_VM_DRIVE",
              IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_PLUGIN_VM_DRIVE);
-  SET_STRING("SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_TITLE",
-             IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_TITLE);
-  SET_STRING("SHARE_ROOT_FOLDER_WITH_BRUSCHETTA",
-             IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA);
-  SET_STRING("SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_DRIVE",
-             IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_DRIVE);
   SET_STRING("SIZE_BYTES", IDS_FILE_BROWSER_SIZE_BYTES);
   SET_STRING("SIZE_COLUMN_LABEL", IDS_FILE_BROWSER_SIZE_COLUMN_LABEL);
   SET_STRING("COLUMN_ASC_SORT_MESSAGE",
@@ -1101,13 +1099,73 @@ void AddStringsGeneric(base::Value::Dict* dict) {
   SET_STRING("DLP_COMPONENT_VM", IDS_FILE_BROWSER_DLP_COMPONENT_VM);
   SET_STRING("DLP_COMPONENT_MICROSOFT_ONEDRIVE",
              IDS_FILE_BROWSER_DLP_COMPONENT_MICROSOFT_ONEDRIVE);
+  SET_STRING("DLP_FILES_MOVE_REVIEW_TITLE",
+             IDS_POLICY_DLP_FILES_MOVE_REVIEW_TITLE);
+  SET_STRING("DLP_FILES_COPY_REVIEW_TITLE",
+             IDS_POLICY_DLP_FILES_COPY_REVIEW_TITLE);
+  SET_STRING("DLP_FILES_MOVE_WARN_CONTINUE_BUTTON",
+             IDS_POLICY_DLP_FILES_MOVE_WARN_CONTINUE_BUTTON);
+  SET_STRING("DLP_FILES_COPY_WARN_CONTINUE_BUTTON",
+             IDS_POLICY_DLP_FILES_COPY_WARN_CONTINUE_BUTTON);
+  SET_STRING_PLURAL("DLP_FILES_WARN_MESSAGE_SINGLE",
+                    IDS_POLICY_DLP_FILES_WARN_MESSAGE, 1);
+  SET_STRING_PLURAL("DLP_FILES_WARN_MESSAGE_MULTIPLE",
+                    IDS_POLICY_DLP_FILES_WARN_MESSAGE, 2);
+  SET_STRING_PLURAL("DLP_FILES_MOVE_BLOCKED_TITLE_SINGLE",
+                    IDS_POLICY_DLP_FILES_MOVE_BLOCKED_TITLE, 1);
+  SET_STRING_PLURAL("DLP_FILES_MOVE_BLOCKED_TITLE_MULTIPLE",
+                    IDS_POLICY_DLP_FILES_MOVE_BLOCKED_TITLE, 2);
+  SET_STRING_PLURAL("DLP_FILES_COPY_BLOCKED_TITLE_SINGLE",
+                    IDS_POLICY_DLP_FILES_COPY_BLOCKED_TITLE, 1);
+  SET_STRING_PLURAL("DLP_FILES_COPY_BLOCKED_TITLE_MULTIPLE",
+                    IDS_POLICY_DLP_FILES_COPY_BLOCKED_TITLE, 2);
+  SET_STRING_PLURAL("DLP_FILES_BLOCKED_MESSAGE_POLICY_SINGLE",
+                    IDS_POLICY_DLP_FILES_POLICY_BLOCK_MESSAGE, 1);
+  SET_STRING_PLURAL("DLP_FILES_BLOCKED_MESSAGE_CONTENT_SINGLE",
+                    IDS_POLICY_DLP_FILES_CONTENT_BLOCK_MESSAGE, 1);
+  SET_STRING("DLP_FILES_BLOCKED_MESSAGE_MULTIPLE",
+             IDS_POLICY_DLP_FILES_BLOCK_MESSAGE);
+  SET_STRING("DLP_FILES_REVIEW_BUTTON", IDS_POLICY_DLP_FILES_REVIEW_BUTTON);
+  SET_STRING("DLP_FILES_MOVE_TIMEOUT_TITLE",
+             IDS_POLICY_DLP_FILES_MOVE_TIMEOUT_TITLE);
+  SET_STRING("DLP_FILES_MOVE_TIMEOUT_MESSAGE",
+             IDS_POLICY_DLP_FILES_MOVE_TIMEOUT_MESSAGE);
+  SET_STRING("DLP_FILES_COPY_TIMEOUT_TITLE",
+             IDS_POLICY_DLP_FILES_COPY_TIMEOUT_TITLE);
+  SET_STRING("DLP_FILES_COPY_TIMEOUT_MESSAGE",
+             IDS_POLICY_DLP_FILES_COPY_TIMEOUT_MESSAGE);
   SET_STRING("ONE_DRIVE_MOVED_FILE_NUDGE",
              IDS_FILE_BROWSER_ONE_DRIVE_MOVED_FILE_NUDGE);
   SET_STRING("DRIVE_MOVED_FILE_NUDGE", IDS_FILE_BROWSER_DRIVE_MOVED_FILE_NUDGE);
+  SET_STRING("ENCRYPTED_ICON_TOOLTIP", IDS_FILE_BROWSER_ENCRYPTED_ICON_TOOLTIP);
+  SET_STRING("ONEDRIVE_LOGGED_OUT_TITLE",
+             IDS_FILE_BROWSER_ONEDRIVE_LOGGED_OUT_TITLE);
+  SET_STRING("ONEDRIVE_SIGN_IN_SUBTITLE",
+             IDS_FILE_BROWSER_ONEDRIVE_SIGN_IN_SUBTITLE);
+  SET_STRING("ONEDRIVE_SIGN_IN_LINK", IDS_FILE_BROWSER_ONEDRIVE_SIGN_IN_LINK);
 }  // NOLINT(readability/fn_size): Structure of AddStringsGeneric function
    // should be easy to manage.
 
 #undef SET_STRING
+
+// Attempts to get the current user profile, may return nullptr.
+Profile* GetProfile() {
+  if (!user_manager::UserManager::IsInitialized()) {
+    return nullptr;
+  }
+
+  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
+  if (!user_manager) {
+    return nullptr;
+  }
+
+  user_manager::User* user = user_manager->GetActiveUser();
+  if (!user) {
+    return nullptr;
+  }
+
+  return ash::ProfileHelper::Get()->GetProfileByUser(user);
+}
 
 bool IsEligibleAndEnabledGoogleOneOfferFilesBanner() {
   // Google One offer is for a device, not for an account. Do not show a banner
@@ -1118,17 +1176,7 @@ bool IsEligibleAndEnabledGoogleOneOfferFilesBanner() {
     return false;
   }
 
-  user_manager::UserManager* user_manager = user_manager::UserManager::Get();
-  if (!user_manager) {
-    return false;
-  }
-
-  user_manager::User* user = user_manager->GetActiveUser();
-  if (!user) {
-    return false;
-  }
-
-  Profile* profile = ash::ProfileHelper::Get()->GetProfileByUser(user);
+  Profile* profile = GetProfile();
   if (!profile) {
     return false;
   }
@@ -1153,6 +1201,39 @@ bool IsEligibleAndEnabledGoogleOneOfferFilesBanner() {
       ash::features::kGoogleOneOfferFilesBanner);
 }
 
+void AddStringsForVms(base::Value::Dict* dict) {
+  auto* profile = GetProfile();
+  std::u16string overall_name = bruschetta::GetOverallVmName(profile);
+
+  dict->Set("FOLDER_SHARED_WITH_BRUSCHETTA",
+            l10n_util::GetStringFUTF16(
+                IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA, overall_name));
+  dict->Set(
+      "FOLDER_SHARED_WITH_BRUSCHETTA_PLURAL",
+      l10n_util::GetStringFUTF16(
+          IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA_PLURAL, overall_name));
+  dict->Set(
+      "SHARE_WITH_BRUSCHETTA_BUTTON_LABEL",
+      l10n_util::GetStringFUTF16(
+          IDS_FILE_BROWSER_SHARE_WITH_BRUSCHETTA_BUTTON_LABEL, overall_name));
+  dict->Set("MANAGE_BRUSCHETTA_SHARING_BUTTON_LABEL",
+            l10n_util::GetStringFUTF16(
+                IDS_FILE_BROWSER_MANAGE_BRUSCHETTA_SHARING_BUTTON_LABEL,
+                overall_name));
+  dict->Set("SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_TITLE",
+            l10n_util::GetStringFUTF16(
+                IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_TITLE,
+                overall_name));
+  dict->Set(
+      "SHARE_ROOT_FOLDER_WITH_BRUSCHETTA",
+      l10n_util::GetStringFUTF16(
+          IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA, overall_name));
+  dict->Set("SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_DRIVE",
+            l10n_util::GetStringFUTF16(
+                IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_DRIVE,
+                overall_name));
+}
+
 }  // namespace
 
 base::Value::Dict GetFileManagerStrings() {
@@ -1168,6 +1249,7 @@ base::Value::Dict GetFileManagerStrings() {
   AddStringsForHoldingSpace(&dict);
   AddStringsForPhotos(&dict);
   AddStringsGeneric(&dict);
+  AddStringsForVms(&dict);
 
   dict.Set(
       "DOWNLOADS_LOW_SPACE_WARNING_HELP_URL",
@@ -1187,6 +1269,7 @@ base::Value::Dict GetFileManagerStrings() {
   dict.Set("GOOGLE_DRIVE_ROOT_URL", kGoogleDriveRootUrl);
   dict.Set("NO_TASK_FOR_FILE_URL",
            base::StringPrintf(kHelpURLFormat, kNoActionForFileHelpNumber));
+  dict.Set("DLP_HELP_URL", policy::dlp::kDlpLearnMoreUrl);
 
   webui::SetLoadTimeDataDefaults(g_browser_process->GetApplicationLocale(),
                                  &dict);
@@ -1258,6 +1341,8 @@ void AddFileManagerFeatureStrings(const std::string& locale,
 
   dict->Set("DRIVE_FS_BULK_PINNING",
             drive::util::IsDriveFsBulkPinningEnabled(profile));
+
+  dict->Set("CROS_COMPONENTS", chromeos::features::IsCrosComponentsEnabled());
 
   if (base::FeatureList::IsEnabled(features::kDataLeakPreventionPolicy) &&
       base::FeatureList::IsEnabled(

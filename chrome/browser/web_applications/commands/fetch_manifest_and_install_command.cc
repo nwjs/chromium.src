@@ -20,6 +20,7 @@
 #include "chrome/browser/web_applications/locks/noop_lock.h"
 #include "chrome/browser/web_applications/locks/web_app_lock_manager.h"
 #include "chrome/browser/web_applications/web_app_command_manager.h"
+#include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
@@ -437,6 +438,7 @@ void FetchManifestAndInstallCommand::OnDidCheckForIntentToPlayStore(
 
   data_retriever_->GetIcons(
       web_contents_.get(), std::move(icon_urls), skip_page_favicons,
+      /*fail_all_if_any_fail=*/false,
       base::BindOnce(
           &FetchManifestAndInstallCommand::OnIconsRetrievedShowDialog,
           weak_ptr_factory_.GetWeakPtr()));

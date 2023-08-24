@@ -28,10 +28,6 @@
 #include "device/fido/mac/touch_id_context.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace device::fido::mac {
 
 namespace {
@@ -641,6 +637,8 @@ bool TouchIdCredentialStore::DeleteCredentialById(
   // `kSecUseDataProtectionKeychain` to force a query to the right keychain, but
   // we need to support older versions of macOS for now. Hence, we must delete
   // keychain items by credential ID (stored in `kSecAttrApplicationLabel`).
+  // TODO(https://crbug.com/1463798): Update to this better approach that
+  // requires 10.15 now that Chromium requires 10.15.
   base::ScopedCFTypeRef<CFMutableDictionaryRef> query(CFDictionaryCreateMutable(
       kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks,
       &kCFTypeDictionaryValueCallBacks));

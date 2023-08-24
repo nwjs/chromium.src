@@ -755,7 +755,9 @@ class CONTENT_EXPORT RenderWidgetHostImpl
     return &render_frame_metadata_provider_;
   }
 
+  // SyntheticGestureController::Delegate overrides.
   bool HasGestureStopped() override;
+  bool IsHidden() const override;
 
   // Signals that a frame with token |frame_token| was finished processing. If
   // there are any queued messages belonging to it, they will be processed.
@@ -772,7 +774,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   blink::mojom::WidgetInputHandler* GetWidgetInputHandler() override;
   void OnImeCompositionRangeChanged(
       const gfx::Range& range,
-      const std::vector<gfx::Rect>& character_bounds) override;
+      const absl::optional<std::vector<gfx::Rect>>& character_bounds,
+      const absl::optional<std::vector<gfx::Rect>>& line_bounds) override;
   void OnImeCancelComposition() override;
   RenderWidgetHostViewBase* GetRenderWidgetHostViewBase() override;
   void OnStartStylusWriting() override;

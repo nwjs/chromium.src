@@ -22,8 +22,14 @@ void GameDashboardTestBase::SetUp() {
   base::SysInfo::SetChromeOSVersionInfoForTest(
       "CHROMEOS_RELEASE_TRACK=testimage-channel",
       base::SysInfo::GetLsbReleaseTime());
-  scoped_feature_list_.InitAndEnableFeature({features::kGameDashboard});
+  scoped_feature_list_.InitWithFeatures(
+      {features::kGameDashboard,
+       features::kFeatureManagementGameDashboardRecordGame},
+      {});
   AshTestBase::SetUp();
+  UpdateDisplay(base::StringPrintf("%d+%d-%dx%d", kScreenBounds.x(),
+                                   kScreenBounds.y(), kScreenBounds.width(),
+                                   kScreenBounds.height()));
   EXPECT_TRUE(features::IsGameDashboardEnabled());
 }
 

@@ -30,6 +30,8 @@ BASE_DECLARE_FEATURE(kDesktopPWAsAppHomePage);
 #endif  // !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_ANDROID)
 
 BASE_DECLARE_FEATURE(kChromeLabs);
+extern const char kChromeLabsActivationParameterName[];
+extern const base::FeatureParam<int> kChromeLabsActivationPercentage;
 
 BASE_DECLARE_FEATURE(kChromeWhatsNewUI);
 
@@ -51,6 +53,10 @@ BASE_DECLARE_FEATURE(kEvDetailsInPageInfo);
 BASE_DECLARE_FEATURE(kGetTheMostOutOfChrome);
 #endif
 
+#if !BUILDFLAG(IS_ANDROID)
+BASE_DECLARE_FEATURE(kHaTSWebUI);
+#endif
+
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 BASE_DECLARE_FEATURE(kLightweightExtensionOverrideConfirmations);
 #endif
@@ -58,6 +64,8 @@ BASE_DECLARE_FEATURE(kLightweightExtensionOverrideConfirmations);
 BASE_DECLARE_FEATURE(kPowerBookmarksSidePanel);
 
 BASE_DECLARE_FEATURE(kQuickCommands);
+
+BASE_DECLARE_FEATURE(kResponsiveToolbar);
 
 BASE_DECLARE_FEATURE(kScrollableTabStrip);
 extern const char kMinimumTabWidthFeatureParameterName[];

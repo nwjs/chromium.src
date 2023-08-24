@@ -29,9 +29,9 @@
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/testing/open_url_context.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
+// To get access to UseSessionSerializationOptimizations().
+// TODO(crbug.com/1383087): remove once the feature is fully launched.
+#import "ios/web/common/features.h"
 
 namespace chrome_test_util {
 
@@ -91,7 +91,7 @@ void SimulateAddAccountFromWeb() {
   id<ApplicationCommands, BrowserCommands> handler =
       chrome_test_util::HandlerForActiveBrowser();
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
-      initWithOperation:AuthenticationOperationAddAccount
+      initWithOperation:AuthenticationOperation::kAddAccount
             accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_UNKNOWN];
   UIViewController* baseViewController =
       GetForegroundActiveScene()
@@ -183,8 +183,10 @@ void CloseAllTabs() {
     DCHECK(browser);
     browser->GetWebStateList()->CloseAllWebStates(
         WebStateList::CLOSE_USER_ACTION);
-    SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(
-        /*immediately=*/true);
+    if (!web::features::UseSessionSerializationOptimizations()) {
+      SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(
+          /*immediately=*/true);
+    }
   }
   if (GetMainTabCount() && GetForegroundActiveScene()) {
     Browser* browser =
@@ -193,8 +195,10 @@ void CloseAllTabs() {
     DCHECK(browser);
     browser->GetWebStateList()->CloseAllWebStates(
         WebStateList::CLOSE_USER_ACTION);
-    SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(
-        /*immediately=*/true);
+    if (!web::features::UseSessionSerializationOptimizations()) {
+      SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(
+          /*immediately=*/true);
+    }
   }
   if (GetInactiveTabCount() && GetForegroundActiveScene()) {
     Browser* browser =
@@ -203,8 +207,10 @@ void CloseAllTabs() {
     DCHECK(browser);
     browser->GetWebStateList()->CloseAllWebStates(
         WebStateList::CLOSE_USER_ACTION);
-    SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(
-        /*immediately=*/true);
+    if (!web::features::UseSessionSerializationOptimizations()) {
+      SessionRestorationBrowserAgent::FromBrowser(browser)->SaveSession(
+          /*immediately=*/true);
+    }
   }
 }
 

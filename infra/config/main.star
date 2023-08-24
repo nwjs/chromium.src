@@ -10,7 +10,7 @@ load("//lib/branches.star", "branches")
 load("//project.star", "settings")
 
 lucicfg.check_version(
-    min = "1.38.1",
+    min = "1.39.10",
     message = "Update depot_tools",
 )
 
@@ -117,7 +117,7 @@ luci.project(
         # Role for builder health indicators
         luci.binding(
             roles = "role/buildbucket.healthUpdater",
-            users = ["guterman@google.com", "generate-builder@cr-builder-health-indicators.iam.gserviceaccount.com"],
+            users = ["guterman@google.com", "generate-builder@cr-builder-health-indicators.iam.gserviceaccount.com", "tne@google.com"],
         ),
     ],
 )
@@ -183,6 +183,34 @@ luci.realm(
                 # tasks in that pool tasks to create invocations.
                 "chromium-led-users",
                 "project-chromium-tryjob-access",
+            ],
+        ),
+    ],
+)
+
+# Allows builders to write baselines and query ResultDB for new tests.
+# TODO(crbug/1465953) @project is not available, and @root should inherit into
+# project so we'll do this for now until @project is supported.
+luci.realm(
+    name = "@root",
+    bindings = [
+        luci.binding(
+            roles = "role/resultdb.baselineWriter",
+            groups = [
+                "project-chromium-ci-task-accounts",
+                "project-chromium-try-task-accounts",
+            ],
+            users = [
+                "chromium-orchestrator@chops-service-accounts.iam.gserviceaccount.com",
+            ],
+        ),
+        luci.binding(
+            roles = "role/resultdb.baselineReader",
+            groups = [
+                "project-chromium-try-task-accounts",
+            ],
+            users = [
+                "chromium-orchestrator@chops-service-accounts.iam.gserviceaccount.com",
             ],
         ),
     ],

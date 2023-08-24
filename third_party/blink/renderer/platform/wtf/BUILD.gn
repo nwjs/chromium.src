@@ -246,7 +246,6 @@ component("wtf") {
       "text/string_apple.mm",
       "text/string_impl_apple.mm",
     ]
-    configs += [ "//build/config/compiler:enable_arc" ]
   }
 
   if (is_win) {
@@ -357,7 +356,6 @@ source_set("wtf_unittests_sources") {
     "//third_party/blink/renderer:config",
     "//third_party/blink/renderer:blink_pch",
   ]
-  defines = [ "ALLOW_IMPLICIT_ATOMIC_STRING_CONVERSIONS" ]
 
   deps = [
     ":wtf",

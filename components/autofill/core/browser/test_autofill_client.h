@@ -386,6 +386,8 @@ class TestAutofillClientTemplate : public T {
       AutofillClient::SaveAddressProfilePromptOptions options,
       AutofillClient::AddressProfileSavePromptCallback callback) override {}
 
+  void ShowDeleteAddressProfileDialog() override {}
+
   bool HasCreditCardScanFeature() override { return false; }
 
   void ScanCreditCard(
@@ -415,12 +417,14 @@ class TestAutofillClientTemplate : public T {
 
   void PinPopupView() override {}
 
-  AutofillClient::PopupOpenArgs GetReopenPopupArgs() const override {
+  AutofillClient::PopupOpenArgs GetReopenPopupArgs(
+      AutofillSuggestionTriggerSource trigger_source) const override {
     return {};
   }
 
   void UpdatePopup(const std::vector<Suggestion>& suggestions,
-                   PopupType popup_type) override {}
+                   PopupType popup_type,
+                   AutofillSuggestionTriggerSource trigger_source) override {}
 
   void HideAutofillPopup(PopupHidingReason reason) override {
     popup_hidden_reason_ = reason;
@@ -449,11 +453,11 @@ class TestAutofillClientTemplate : public T {
 
   bool IsPasswordManagerEnabled() override { return true; }
 
-  void PropagateAutofillPredictions(
+  void PropagateAutofillPredictionsDeprecated(
       AutofillDriver* driver,
       const std::vector<FormStructure*>& forms) override {}
 
-  void DidFillOrPreviewForm(mojom::RendererFormDataAction action,
+  void DidFillOrPreviewForm(mojom::AutofillActionPersistence action_persistence,
                             AutofillTriggerSource trigger_source,
                             bool is_refill) override {}
 
@@ -687,7 +691,6 @@ class TestAutofillClientTemplate : public T {
           std::make_unique<testing::NiceMock<MockAutofillOptimizationGuide>>();
   ::testing::NiceMock<MockAutocompleteHistoryManager>
       mock_autocomplete_history_manager_;
-  std::unique_ptr<testing::NiceMock<MockIBANManager>> mock_iban_manager_;
   ::testing::NiceMock<MockMerchantPromoCodeManager>
       mock_merchant_promo_code_manager_;
   ::testing::NiceMock<MockFastCheckoutClient> mock_fast_checkout_client_;
@@ -700,15 +703,18 @@ class TestAutofillClientTemplate : public T {
   // NULL by default.
   std::unique_ptr<PrefService> prefs_;
   std::unique_ptr<TestStrikeDatabase> test_strike_database_;
+
+  std::unique_ptr<TestPersonalDataManager> test_personal_data_manager_;
+  // The below objects must be destroyed before `TestPersonalDataManager`
+  // because they keep a reference to it.
+  std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<payments::PaymentsClient> payments_client_;
+  std::unique_ptr<testing::NiceMock<MockIBANManager>> mock_iban_manager_;
+
+  // The below objects must be destroyed before `PaymentsClient` because they
+  // (or their members) keep a reference to it.
   std::unique_ptr<CreditCardCvcAuthenticator> cvc_authenticator_;
   std::unique_ptr<CreditCardOtpAuthenticator> otp_authenticator_;
-
-  // AutofillOfferManager and TestFormDataImporter must be destroyed before
-  // TestPersonalDataManager, because the former's destructors refer to the
-  // latter.
-  std::unique_ptr<TestPersonalDataManager> test_personal_data_manager_;
-  std::unique_ptr<AutofillOfferManager> autofill_offer_manager_;
   std::unique_ptr<FormDataImporter> form_data_importer_;
 
   GURL form_origin_{"https://example.test"};

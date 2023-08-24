@@ -22,10 +22,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 typedef void (^ProceduralBlockWithItemArray)(NSArray<UIMenuElement*>*);
 typedef void (^ProceduralBlockWithBlockWithItemArray)(
@@ -213,7 +209,7 @@ void LogTrigger(bool incognito, bool search_engine_google) {
   [self.applicationCommandHandler openURLInNewTab:command];
 }
 
-#pragma mark - SearchWithDelegate
+#pragma mark - EditMenuProvider
 
 - (void)buildMenuWithBuilder:(id<UIMenuBuilder>)builder {
   if (![self canPerformSearch]) {

@@ -6,6 +6,7 @@
 
 #include <memory>
 
+#include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
@@ -100,8 +101,12 @@ void ScreenAIInstallState::AddObserver(
 
   // Adding an observer indicates that we need the component.
   SetLastUsageTime();
-  if (state_ == State::kNotDownloaded) {
-    DownloadComponent();
+  DownloadComponent();
+}
+
+void ScreenAIInstallState::DownloadComponent() {
+  if (MayTryDownload()) {
+    DownloadComponentInternal();
   }
 }
 
@@ -141,6 +146,13 @@ void ScreenAIInstallState::SetState(State state) {
     return;
   }
 
+  // Switching state from `Ready` to `Fail` is unexpected and requires
+  // investigation.
+  // TODO(crbug.com/1443345): Remove after verifying this case does not happen.
+  if (state == State::kFailed && state_ == State::kReady) {
+    base::debug::DumpWithoutCrashing();
+  }
+
   state_ = state;
   for (ScreenAIInstallState::Observer* observer : observers_) {
     observer->StateChanged(state_);
@@ -162,9 +174,26 @@ void ScreenAIInstallState::SetComponentReadyForTesting() {
   state_ = State::kReady;
 }
 
+bool ScreenAIInstallState::MayTryDownload() {
+  switch (state_) {
+    case State::kNotDownloaded:
+    case State::kFailed:
+      return true;
+
+    case State::kDownloading:
+    case State::kDownloaded:
+    case State::kReady:
+      return false;
+  }
+}
+
 void ScreenAIInstallState::ResetForTesting() {
   state_ = State::kNotDownloaded;
   component_binary_path_.clear();
+}
+
+void ScreenAIInstallState::SetStateForTesting(State state) {
+  state_ = state;
 }
 
 }  // namespace screen_ai

@@ -1447,6 +1447,54 @@ TEST_F(CompositorFrameSinkSupportTest,
   support_->SubmitCompositorFrame(local_surface_id, std::move(frame));
 }
 
+// Test that `PendingCopyOutputRequest` with `capture_exact_surface_id` set to
+// true can only be taken by the `Surface` with the exact same `SurfaceId`
+// requested.
+TEST_F(CompositorFrameSinkSupportTest,
+       OnlyExactSurfaceCanTakeExactOutputRequest) {
+  LocalSurfaceId local_surface_id1(1, kArbitraryToken);
+  LocalSurfaceId local_surface_id2(2, kArbitraryToken);
+  SurfaceId id1(support_->frame_sink_id(), local_surface_id1);
+  SurfaceId id2(support_->frame_sink_id(), local_surface_id2);
+
+  // Create Surface1.
+  support_->SubmitCompositorFrame(local_surface_id1,
+                                  MakeDefaultCompositorFrame());
+
+  // Create Surface2.
+  support_->SubmitCompositorFrame(local_surface_id2,
+                                  MakeDefaultCompositorFrame());
+
+  // Send a non-exact CopyOutputRequest. It can be picked up by either Surface1
+  // or Surface2.
+  support_->RequestCopyOfOutput(
+      {local_surface_id1, SubtreeCaptureId(),
+       std::make_unique<CopyOutputRequest>(
+           CopyOutputRequest::ResultFormat::RGBA,
+           CopyOutputRequest::ResultDestination::kSystemMemory,
+           base::BindOnce(StubResultCallback))});
+
+  // Send an exact CopyOutputRequest for Surface1. It can only be picked up by
+  // Surface1.
+  support_->RequestCopyOfOutput(
+      {local_surface_id1, SubtreeCaptureId(),
+       std::make_unique<CopyOutputRequest>(
+           CopyOutputRequest::ResultFormat::RGBA,
+           CopyOutputRequest::ResultDestination::kSystemMemory,
+           base::BindOnce(StubResultCallback)),
+       /*capture_exact_id=*/true});
+
+  // Surface2 picks up the non-exact CopyOutputRequest.
+  GetSurfaceForId(id2)->TakeCopyOutputRequestsFromClient();
+  EXPECT_FALSE(GetSurfaceForId(id1)->HasCopyOutputRequests());
+  EXPECT_TRUE(GetSurfaceForId(id2)->HasCopyOutputRequests());
+
+  // Surface1 picks up the exact CopyOutputRequest for Surface1.
+  GetSurfaceForId(id1)->TakeCopyOutputRequestsFromClient();
+  EXPECT_TRUE(GetSurfaceForId(id1)->HasCopyOutputRequests());
+  EXPECT_TRUE(GetSurfaceForId(id2)->HasCopyOutputRequests());
+}
+
 // Verify that FrameToken is sent to the client if and only if the frame is
 // active.
 TEST_F(CompositorFrameSinkSupportTest, OnFrameTokenUpdate) {
@@ -1726,7 +1774,10 @@ TEST_P(ThrottledBeginFrameCompositorFrameSinkSupportTest, BeginFrameInterval) {
   SurfaceId id(kAnotherArbitraryFrameSinkId, local_surface_id_);
   support->SetBeginFrameSource(&begin_frame_source);
   support->SetNeedsBeginFrame(true);
-  constexpr int fps = 5;
+
+  // We only throttle multiples of the refresh rate.
+  constexpr int fps = BeginFrameArgs::DefaultInterval().ToHz() / 2;
+
   constexpr base::TimeDelta throttled_interval = base::Seconds(1) / fps;
   support->ThrottleBeginFrame(throttled_interval);
 
@@ -1782,9 +1833,8 @@ TEST_P(ThrottledBeginFrameCompositorFrameSinkSupportTest, BeginFrameInterval) {
     }
     frame_time += interval;
   }
-  // In total 11 frames should have been sent (5fps x 2 seconds) + 1 frame at
-  // time 0.
-  EXPECT_EQ(sent_frames, 11);
+  // In total fps x 2 seconds + 1 frame at time 0.
+  EXPECT_EQ(sent_frames, 2 * fps + 1);
   support->SetNeedsBeginFrame(false);
 }
 

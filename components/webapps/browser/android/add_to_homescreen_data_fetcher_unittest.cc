@@ -175,8 +175,7 @@ class TestInstallableManager : public InstallableManager {
         {std::move(errors), GURL(kDefaultManifestUrl), *manifest_,
          params.valid_primary_icon ? primary_icon_url_ : GURL(),
          params.valid_primary_icon ? primary_icon_.get() : nullptr,
-         params.prefer_maskable_icon, GURL() /* splash_icon_url */,
-         nullptr /* splash_icon */, params.prefer_maskable_icon,
+         params.prefer_maskable_icon,
          std::vector<webapps::Screenshot>() /* screenshots */,
          params.valid_manifest ? is_installable : false,
          params.has_worker ? is_installable : true});
@@ -321,10 +320,23 @@ class AddToHomescreenDataFetcherTest
     NullLargeFaviconProvider() = default;
     virtual ~NullLargeFaviconProvider() = default;
 
-    base::CancelableTaskTracker::TaskId GetLargestRawFaviconForPageURL(
+    MOCK_METHOD5(GetLargeIconRawBitmapOrFallbackStyleForPageUrl,
+                 base::CancelableTaskTracker::TaskId(
+                     const GURL& page_url,
+                     int min_source_size_in_pixel,
+                     int desired_size_in_pixel,
+                     favicon_base::LargeIconCallback callback,
+                     base::CancelableTaskTracker* tracker));
+    MOCK_METHOD5(GetLargeIconImageOrFallbackStyleForPageUrl,
+                 base::CancelableTaskTracker::TaskId(
+                     const GURL& page_url,
+                     int min_source_size_in_pixel,
+                     int desired_size_in_pixel,
+                     favicon_base::LargeIconImageCallback callback,
+                     base::CancelableTaskTracker* tracker));
+    base::CancelableTaskTracker::TaskId GetLargeIconRawBitmapForPageUrl(
         const GURL& page_url,
-        const std::vector<favicon_base::IconTypeSet>& icon_types,
-        int minimum_size_in_pixels,
+        int min_source_size_in_pixel,
         favicon_base::FaviconRawBitmapCallback callback,
         base::CancelableTaskTracker* tracker) override {
       content::GetUIThreadTaskRunner({})->PostTask(

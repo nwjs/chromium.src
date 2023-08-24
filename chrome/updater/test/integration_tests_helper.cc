@@ -32,7 +32,7 @@
 #include "chrome/updater/ipc/ipc_support.h"
 #include "chrome/updater/test/integration_tests_impl.h"
 #include "chrome/updater/updater_scope.h"
-#include "chrome/updater/util/unittest_util.h"
+#include "chrome/updater/util/unit_test_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
@@ -278,6 +278,7 @@ void AppTestHelper::FirstTaskRun() {
                                                  Wrap(&EnterTestMode)))))},
     {"exit_test_mode", WithSystemScope(Wrap(&ExitTestMode))},
     {"set_group_policies", WithSwitch("values", Wrap(&SetGroupPolicies))},
+    {"set_machine_managed", WithSwitch("managed", Wrap(&SetMachineManaged))},
     {"fill_log", WithSystemScope(Wrap(&FillLog))},
     {"expect_log_rotated", WithSystemScope(Wrap(&ExpectLogRotated))},
     {"expect_registered",
@@ -349,7 +350,9 @@ void AppTestHelper::FirstTaskRun() {
     {"delete_updater_directory",
      WithSystemScope(Wrap(&DeleteUpdaterDirectory))},
     {"delete_file", (WithSwitch("path", WithSystemScope(Wrap(&DeleteFile))))},
-    {"install_app", WithSwitch("app_id", WithSystemScope(Wrap(&InstallApp)))},
+    {"install_app",
+     WithSwitch("version",
+                WithSwitch("app_id", WithSystemScope(Wrap(&InstallApp))))},
     {"uninstall_app",
      WithSwitch("app_id", WithSystemScope(Wrap(&UninstallApp)))},
     {"set_existence_checker_path",

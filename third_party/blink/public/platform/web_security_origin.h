@@ -134,7 +134,7 @@ class BLINK_PLATFORM_EXPORT WebSecurityOrigin {
 #endif
 
  private:
-  WebPrivatePtr<const SecurityOrigin> private_;
+  WebPrivatePtrForRefCounted<const SecurityOrigin> private_;
 };
 
 }  // namespace blink

@@ -35,8 +35,8 @@ StorageInfo CreateStorageInfo(const std::string& device_id,
                               const std::string& model_name,
                               const base::FilePath& mount_point,
                               uint64_t size_bytes) {
-  return StorageInfo(device_id, mount_point.value(), std::u16string(),
-                     std::u16string(), base::UTF8ToUTF16(model_name),
+  return StorageInfo(device_id, mount_point.value(), /*label=*/std::u16string(),
+                     /*vendor=*/std::u16string(), base::UTF8ToUTF16(model_name),
                      size_bytes);
 }
 
@@ -44,7 +44,7 @@ StorageInfo CreateStorageInfo(const std::string& device_id,
 
 class StorageMonitorMacTest : public testing::Test {
  public:
-  StorageMonitorMacTest() {}
+  StorageMonitorMacTest() = default;
 
   void SetUp() override {
     monitor_ = std::make_unique<StorageMonitorMac>();

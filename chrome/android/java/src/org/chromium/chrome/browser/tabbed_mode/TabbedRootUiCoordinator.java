@@ -9,12 +9,12 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.annotation.VisibleForTesting;
 import androidx.appcompat.app.AppCompatActivity;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.CommandLine;
+import org.chromium.base.ResettersForTesting;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -59,7 +59,6 @@ import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthCoordinatorFa
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthManager;
 import org.chromium.chrome.browser.incognito.reauth.IncognitoReauthTopToolbarDelegate;
 import org.chromium.chrome.browser.language.AppLanguagePromoDialog;
-import org.chromium.chrome.browser.language.LanguageAskPrompt;
 import org.chromium.chrome.browser.layouts.LayoutManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutType;
@@ -113,7 +112,6 @@ import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
-import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.InsetObserverView;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
@@ -135,7 +133,7 @@ import java.util.function.Function;
  * A {@link RootUiCoordinator} variant that controls tabbed-mode specific UI.
  */
 public class TabbedRootUiCoordinator extends RootUiCoordinator {
-    private static boolean sDisableStatusIndicatorAnimations;
+    private static boolean sDisableStatusIndicatorAnimationsForTesting;
     private final RootUiTabObserver mRootUiTabObserver;
     private TabbedSystemUiCoordinator mSystemUiCoordinator;
 
@@ -156,7 +154,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private NotificationPermissionController mNotificationPermissionController;
     private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
     private NavigationSheet mNavigationSheet;
-    private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
     private LayoutManagerImpl mLayoutManager;
     private CommerceSubscriptionsService mCommerceSubscriptionsService;
     private UndoGroupSnackbarController mUndoGroupSnackbarController;
@@ -326,6 +323,12 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         getAppBrowserControlsVisibilityDelegate().addDelegate(
                 browserControlsManager.getBrowserVisibilityDelegate());
         mRootUiTabObserver = new RootUiTabObserver(tabProvider);
+        mGestureNavLayoutObserver = new LayoutStateProvider.LayoutStateObserver() {
+            @Override
+            public void onStartedShowing(int layoutType) {
+                if (layoutType == LayoutType.TAB_SWITCHER) mHistoryNavigationCoordinator.reset();
+            }
+        };
     }
 
     @Override
@@ -497,12 +500,6 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 },
                 mCompositorViewHolderSupplier.get()::addTouchEventObserver,
                 mCompositorViewHolderSupplier.get()::removeTouchEventObserver, mLayoutManager);
-        mGestureNavLayoutObserver = new LayoutStateProvider.LayoutStateObserver() {
-            @Override
-            public void onStartedShowing(int layoutType) {
-                if (layoutType == LayoutType.TAB_SWITCHER) mHistoryNavigationCoordinator.reset();
-            }
-        };
         mRootUiTabObserver.swapToTab(mActivityTabProvider.get());
 
         if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
@@ -744,7 +741,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             }
             DesktopSiteSettingsIPHController.create(mActivity, mWindowAndroid, mActivityTabProvider,
                     Profile.getLastUsedRegularProfile(), getToolbarManager().getMenuButtonView(),
-                    mAppMenuCoordinator.getAppMenuHandler(), getPrimaryDisplaySizeInInches());
+                    mAppMenuCoordinator.getAppMenuHandler());
         }
         mPromoShownOneshotSupplier.set(didTriggerPromo);
 
@@ -861,7 +858,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
             @Override
             public void onStatusIndicatorHeightChanged(int indicatorHeight) {
                 mStatusIndicatorHeight = indicatorHeight;
-                boolean animate = sDisableStatusIndicatorAnimations ? false : true;
+                boolean animate = !sDisableStatusIndicatorAnimationsForTesting;
                 updateTopControlsHeight(animate);
             }
         };
@@ -894,27 +891,14 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         }
     }
 
-    /**
-     * @return {@link ComposedBrowserControlsVisibilityDelegate} object for tabbed activity.
-     */
-    public ComposedBrowserControlsVisibilityDelegate getAppBrowserControlsVisibilityDelegate() {
-        if (mAppBrowserControlsVisibilityDelegate == null) {
-            mAppBrowserControlsVisibilityDelegate = new ComposedBrowserControlsVisibilityDelegate();
-        }
-        return mAppBrowserControlsVisibilityDelegate;
-    }
-
-    @VisibleForTesting
     public StatusIndicatorCoordinator getStatusIndicatorCoordinatorForTesting() {
         return mStatusIndicatorCoordinator;
     }
 
-    @VisibleForTesting
     public HistoryNavigationCoordinator getHistoryNavigationCoordinatorForTesting() {
         return mHistoryNavigationCoordinator;
     }
 
-    @VisibleForTesting
     public NavigationSheet getNavigationSheetForTesting() {
         return mNavigationSheet;
     }
@@ -968,15 +952,12 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                     mActivity, mWindowAndroid, false /* ignoreMaxCount */)) {
             return true;
         }
-        if (AppLanguagePromoDialog.maybeShowPrompt(mActivity, mModalDialogManagerSupplier,
-                    () -> ApplicationLifetime.terminate(true))) {
-            return true;
-        }
-        return LanguageAskPrompt.maybeShowLanguageAskPrompt(mActivity, mModalDialogManagerSupplier);
+        return AppLanguagePromoDialog.maybeShowPrompt(
+                mActivity, mModalDialogManagerSupplier, () -> ApplicationLifetime.terminate(true));
     }
 
-    @VisibleForTesting
     public static void setDisableStatusIndicatorAnimationsForTesting(boolean disable) {
-        sDisableStatusIndicatorAnimations = disable;
+        sDisableStatusIndicatorAnimationsForTesting = disable;
+        ResettersForTesting.register(() -> sDisableStatusIndicatorAnimationsForTesting = false);
     }
 }

@@ -9,6 +9,8 @@
 #include "ash/capture_mode/capture_mode_session.h"
 #include "ash/capture_mode/capture_mode_session_focus_cycler.h"
 #include "ash/capture_mode/capture_mode_session_test_api.h"
+#include "ash/capture_mode/capture_mode_settings_test_api.h"
+#include "ash/capture_mode/capture_mode_settings_view.h"
 #include "ash/capture_mode/capture_mode_test_util.h"
 #include "ash/capture_mode/capture_mode_types.h"
 #include "ash/capture_mode/test_capture_mode_delegate.h"
@@ -426,8 +428,7 @@ TEST_F(GameDashboardCaptureModeTest, MultiDisplay) {
   VerifyCaptureBarPosition();
   // The current root window should not change if moving the cursor to a
   // different display as the game window.
-  MoveMouseToAndUpdateCursorDisplay(displays[1].bounds().CenterPoint(),
-                                    event_generator);
+  event_generator->MoveMouseTo(displays[1].bounds().CenterPoint());
   EXPECT_EQ(Shell::GetAllRootWindows()[0],
             capture_mode_session->current_root());
 
@@ -443,8 +444,7 @@ TEST_F(GameDashboardCaptureModeTest, MultiDisplay) {
   VerifyCaptureBarPosition();
   // The current root window should not change if moving the cursor to a
   // different display as the game window.
-  MoveMouseToAndUpdateCursorDisplay(displays[0].bounds().CenterPoint(),
-                                    event_generator);
+  event_generator->MoveMouseTo(displays[0].bounds().CenterPoint());
   EXPECT_EQ(Shell::GetAllRootWindows()[1],
             capture_mode_session->current_root());
 
@@ -458,6 +458,97 @@ TEST_F(GameDashboardCaptureModeTest, MultiDisplay) {
   EXPECT_EQ(Shell::GetAllRootWindows()[0],
             capture_mode_session->current_root());
   VerifyCaptureBarPosition();
+}
+
+TEST_F(GameDashboardCaptureModeTest, NoLabelInTabletMode) {
+  auto* controller = StartGameCaptureModeSession();
+
+  CaptureModeSession* session = controller->capture_mode_session();
+  ASSERT_EQ(game_window(), session->GetSelectedWindow());
+
+  SwitchToTabletMode();
+
+  views::Label* label_internal_view =
+      CaptureModeSessionTestApi(session).GetCaptureLabelInternalView();
+  EXPECT_FALSE(label_internal_view->GetVisible());
+}
+
+TEST_F(GameDashboardCaptureModeTest, SettingsMenuHeightFull) {
+  UpdateDisplay("1000x500");
+  game_window()->SetBounds(gfx::Rect(0, 50, 500, 450));
+  StartGameCaptureModeSession();
+  CaptureModeSession* session =
+      CaptureModeController::Get()->capture_mode_session();
+  ASSERT_TRUE(session);
+
+  // Open the settings menu.
+  ClickOnView(GetSettingsButton(), GetEventGenerator());
+  CaptureModeSessionTestApi test_api(session);
+  ASSERT_TRUE(test_api.GetCaptureModeSettingsWidget());
+
+  const gfx::Rect settings_bounds =
+      test_api.GetCaptureModeSettingsWidget()->GetWindowBoundsInScreen();
+
+  // There is space for the settings menu to take up its entire preferred size.
+  EXPECT_GE(settings_bounds.y(),
+            capture_mode::kMinDistanceFromSettingsToScreen);
+  EXPECT_EQ(settings_bounds.height(),
+            test_api.GetCaptureModeSettingsView()->GetPreferredSize().height());
+  EXPECT_EQ(
+      settings_bounds.size(),
+      CaptureModeSettingsTestApi().GetSettingsView()->GetVisibleRect().size());
+}
+
+TEST_F(GameDashboardCaptureModeTest, SettingsMenuHeightConstrained) {
+  UpdateDisplay("1000x250");
+  game_window()->SetBounds(gfx::Rect(0, 50, 500, 200));
+  StartGameCaptureModeSession();
+  CaptureModeSession* session =
+      CaptureModeController::Get()->capture_mode_session();
+  ASSERT_TRUE(session);
+
+  // Open the settings menu.
+  ClickOnView(GetSettingsButton(), GetEventGenerator());
+  CaptureModeSessionTestApi test_api(session);
+  ASSERT_TRUE(test_api.GetCaptureModeSettingsWidget());
+
+  const gfx::Rect settings_bounds =
+      test_api.GetCaptureModeSettingsWidget()->GetWindowBoundsInScreen();
+
+  // The menu height has been constrained, but has not reached its minimum size.
+  EXPECT_EQ(settings_bounds.y(),
+            capture_mode::kMinDistanceFromSettingsToScreen);
+  EXPECT_LT(settings_bounds.height(),
+            test_api.GetCaptureModeSettingsView()->GetPreferredSize().height());
+  EXPECT_GT(settings_bounds.height(), capture_mode::kSettingsMenuMinHeight);
+  EXPECT_EQ(
+      settings_bounds.size(),
+      CaptureModeSettingsTestApi().GetSettingsView()->GetVisibleRect().size());
+}
+
+TEST_F(GameDashboardCaptureModeTest, SettingsMenuHeightMinimum) {
+  UpdateDisplay("1000x80");
+  game_window()->SetBounds(gfx::Rect(0, 50, 500, 30));
+  StartGameCaptureModeSession();
+  CaptureModeSession* session =
+      CaptureModeController::Get()->capture_mode_session();
+  ASSERT_TRUE(session);
+
+  // Open the settings menu.
+  ClickOnView(GetSettingsButton(), GetEventGenerator());
+  CaptureModeSessionTestApi test_api(session);
+  ASSERT_TRUE(test_api.GetCaptureModeSettingsWidget());
+
+  const gfx::Rect settings_bounds =
+      test_api.GetCaptureModeSettingsWidget()->GetWindowBoundsInScreen();
+
+  // The menu is at its minimum size and height.
+  EXPECT_EQ(settings_bounds.y(),
+            capture_mode::kMinDistanceFromSettingsToScreen);
+  EXPECT_EQ(settings_bounds.height(), capture_mode::kSettingsMenuMinHeight);
+  EXPECT_EQ(
+      settings_bounds.size(),
+      CaptureModeSettingsTestApi().GetSettingsView()->GetVisibleRect().size());
 }
 
 // -----------------------------------------------------------------------------
@@ -488,19 +579,13 @@ TEST_P(GameDashboardCaptureModeHistogramTest,
        GameCaptureConfigurationHistogram) {
   constexpr char kCaptureConfigurationBase[] = "CaptureConfiguration";
   CaptureModeTestApi test_api;
-
-  // TODO(michelefan): Add metric test for `kImage` capture configuration for
-  // game dashboard capture mode once the default and game capture behaviors for
-  // taking instant screenshot APIs are separated.
   const std::string histogram_name =
       BuildHistogramName(kCaptureConfigurationBase,
                          test_api.GetBehavior(BehaviorType::kGameDashboard),
                          /*append_ui_mode_suffix=*/true);
   histogram_tester_.ExpectBucketCount(
-      histogram_name,
-      GetConfiguration(CaptureModeType::kVideo, CaptureModeSource::kWindow,
-                       RecordingType::kWebM),
-      0);
+      histogram_name, CaptureModeConfiguration::kWindowRecording, 0);
+
   auto* controller = StartGameCaptureModeSession();
   StartVideoRecordingImmediately();
   EXPECT_TRUE(controller->is_recording_in_progress());
@@ -508,10 +593,23 @@ TEST_P(GameDashboardCaptureModeHistogramTest,
   WaitForCaptureFileToBeSaved();
   EXPECT_FALSE(controller->is_recording_in_progress());
   histogram_tester_.ExpectBucketCount(
-      histogram_name,
-      GetConfiguration(CaptureModeType::kVideo, CaptureModeSource::kWindow,
-                       RecordingType::kWebM),
-      1);
+      histogram_name, CaptureModeConfiguration::kWindowRecording, 1);
+}
+
+TEST_P(GameDashboardCaptureModeHistogramTest,
+       GameCaptureConfigurationHistogramForInstantScreenshot) {
+  constexpr char kCaptureConfigurationBase[] = "CaptureConfiguration";
+  CaptureModeTestApi test_api;
+  const std::string histogram_name =
+      BuildHistogramName(kCaptureConfigurationBase,
+                         test_api.GetBehavior(BehaviorType::kGameDashboard),
+                         /*append_ui_mode_suffix=*/true);
+  histogram_tester_.ExpectBucketCount(
+      histogram_name, CaptureModeConfiguration::kWindowScreenshot, 0);
+
+  CaptureModeController::Get()->CaptureScreenshotOfGivenWindow(game_window());
+  histogram_tester_.ExpectBucketCount(
+      histogram_name, CaptureModeConfiguration::kWindowScreenshot, 1);
 }
 
 TEST_P(GameDashboardCaptureModeHistogramTest,

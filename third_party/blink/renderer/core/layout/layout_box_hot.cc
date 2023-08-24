@@ -17,30 +17,45 @@
 
 namespace blink {
 
+bool LayoutBox::HasHitTestableOverflow() const {
+  // See MayIntersect() for the reason of using HasVisualOverflow here.
+  if (!HasVisualOverflow()) {
+    return false;
+  }
+  if (!ShouldClipOverflowAlongBothAxis()) {
+    return true;
+  }
+  return ShouldApplyOverflowClipMargin() &&
+         StyleRef().OverflowClipMargin()->GetMargin() > 0;
+}
+
 // Hit Testing
 bool LayoutBox::MayIntersect(const HitTestResult& result,
                              const HitTestLocation& hit_test_location,
                              const PhysicalOffset& accumulated_offset) const {
   NOT_DESTROYED();
   // Check if we need to do anything at all.
-  // If we have clipping, then we can't have any spillout.
-  // TODO(pdr): Why is this optimization not valid for the effective root?
-  if (UNLIKELY(IsEffectiveRootScroller()))
+  // The root scroller always fills the whole view.
+  if (UNLIKELY(IsEffectiveRootScroller())) {
     return true;
+  }
 
   PhysicalRect overflow_box;
   if (UNLIKELY(result.GetHitTestRequest().IsHitTestVisualOverflow())) {
     overflow_box = PhysicalVisualOverflowRectIncludingFilters();
+  } else if (HasHitTestableOverflow()) {
+    // PhysicalVisualOverflowRect is an approximation of
+    // PhsyicalLayoutOverflowRect excluding self-painting descendants (which
+    // hit test by themselves), with false-positive (which won't cause any
+    // functional issues) when the point is only in visual overflow, but
+    // excluding self-painting descendants is more important for performance.
+    overflow_box = PhysicalVisualOverflowRect();
+    if (ShouldClipOverflowAlongEitherAxis()) {
+      overflow_box.Intersect(OverflowClipRect(PhysicalOffset()));
+    }
+    overflow_box.Unite(PhysicalBorderBoxRect());
   } else {
     overflow_box = PhysicalBorderBoxRect();
-    if (!ShouldClipOverflowAlongBothAxis() && HasVisualOverflow()) {
-      // PhysicalVisualOverflowRect is an approximation of
-      // PhsyicalLayoutOverflowRect excluding self-painting descendants (which
-      // hit test by themselves), with false-positive (which won't cause any
-      // functional issues) when the point is only in visual overflow, but
-      // excluding self-painting descendants is more important for performance.
-      overflow_box.Unite(PhysicalVisualOverflowRect());
-    }
   }
 
   overflow_box.Move(accumulated_offset);
@@ -88,8 +103,7 @@ const NGLayoutResult* LayoutBox::CachedLayoutResult(
   // re-layout when unlocking.
   bool is_blocked_by_display_lock = ChildLayoutBlockedByDisplayLock();
   bool child_needs_layout_unless_locked =
-      !is_blocked_by_display_lock &&
-      (PosChildNeedsLayout() || NormalChildNeedsLayout());
+      !is_blocked_by_display_lock && NormalChildNeedsLayout();
 
   const NGPhysicalBoxFragment& physical_fragment =
       To<NGPhysicalBoxFragment>(cached_layout_result->PhysicalFragment());
@@ -100,10 +114,8 @@ const NGLayoutResult* LayoutBox::CachedLayoutResult(
       (break_token && break_token->IsRepeated()))
     return nullptr;
 
-  if (SelfNeedsLayoutForStyle() || child_needs_layout_unless_locked ||
-      NeedsSimplifiedNormalFlowLayout() ||
-      (NeedsPositionedMovementLayout() &&
-       !NeedsPositionedMovementLayoutOnly())) {
+  if (SelfNeedsLayout() || child_needs_layout_unless_locked ||
+      NeedsSimplifiedNormalFlowLayout()) {
     if (!ChildrenInline()) {
       // Check if we only need "simplified" layout. We don't abort yet, as we
       // need to check if other things (like floats) will require us to perform
@@ -472,14 +484,6 @@ const NGLayoutResult* LayoutBox::CachedLayoutResult(
   physical_fragment.CheckType();
 
   DCHECK_EQ(*out_cache_status, NGLayoutCacheStatus::kHit);
-
-  // We can safely re-use this fragment if we are positioned, and only our
-  // position constraints changed (left/top/etc). However we need to clear the
-  // dirty layout bit(s). Note that we may be here because we are display locked
-  // and have cached a locked layout result. In that case, this function will
-  // not clear the child dirty bits.
-  if (NeedsLayout())
-    ClearNeedsLayout();
 
   // For example, for elements with a transform change we can re-use the cached
   // result but we still need to recalculate the layout overflow.

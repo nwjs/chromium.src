@@ -13,7 +13,7 @@
 #import "components/google/core/common/google_util.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync/base/command_line_switches.h"
-#import "components/sync/base/sync_prefs.h"
+#import "components/sync/service/sync_prefs.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/net/crurl.h"
@@ -38,10 +38,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace {
 
@@ -188,11 +184,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
         SyncCreatePassphraseTableViewController* controller =
             [[SyncCreatePassphraseTableViewController alloc]
                 initWithBrowser:self.browser];
-        if (controller) {
-          controller.dispatcher = self.dispatcher;
-          [self.navigationController pushViewController:controller
-                                               animated:YES];
-        }
+        controller.dispatcher = self.dispatcher;
+        [self.navigationController pushViewController:controller animated:YES];
       }
       break;
     }

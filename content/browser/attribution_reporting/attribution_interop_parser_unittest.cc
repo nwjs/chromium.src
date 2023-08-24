@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/strings/strcat.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/values_test_util.h"
 #include "base/time/time.h"
 #include "base/time/time_override.h"
@@ -25,7 +26,6 @@
 #include "content/browser/attribution_reporting/attribution_interop_parser.h"
 #include "content/browser/attribution_reporting/attribution_test_utils.h"
 #include "content/browser/attribution_reporting/common_source_info.h"
-#include "content/browser/attribution_reporting/destination_throttler.h"
 #include "content/browser/attribution_reporting/storable_source.h"
 #include "net/base/schemeful_site.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -90,11 +90,18 @@ bool operator==(const AttributionConfig::AggregateLimit& a,
   return tie(a) == tie(b);
 }
 
+bool operator==(const AttributionConfig::DestinationRateLimit& a,
+                const AttributionConfig::DestinationRateLimit& b) {
+  return a.max_total == b.max_total &&
+         a.max_per_reporting_site == b.max_per_reporting_site &&
+         a.rate_limit_window == b.rate_limit_window;
+}
+
 bool operator==(const AttributionConfig& a, const AttributionConfig& b) {
   const auto tie = [](const AttributionConfig& config) {
     return std::make_tuple(config.max_sources_per_origin, config.rate_limit,
                            config.event_level_limit, config.aggregate_limit,
-                           config.throttler_policy);
+                           config.destination_rate_limit);
   };
   return tie(a) == tie(b);
 }
@@ -119,9 +126,9 @@ TEST(AttributionInteropParserTest, EmptyInputParses) {
 
   for (const char* json : kTestCases) {
     base::Value::Dict value = base::test::ParseJsonDict(json);
-    auto result = ParseAttributionInteropInput(std::move(value), kOffsetTime);
-    ASSERT_TRUE(result.has_value()) << json;
-    EXPECT_THAT(*result, IsEmpty()) << json;
+    EXPECT_THAT(ParseAttributionInteropInput(std::move(value), kOffsetTime),
+                base::test::ValueIs(IsEmpty()))
+        << json;
   }
 }
 
@@ -164,17 +171,17 @@ TEST(AttributionInteropParserTest, ValidSourceParses) {
 
   base::Value::Dict value = base::test::ParseJsonDict(kJson);
 
-  auto result = ParseAttributionInteropInput(std::move(value), kOffsetTime);
-  ASSERT_TRUE(result.has_value()) << result.error();
-  ASSERT_EQ(result->size(), 2u);
+  ASSERT_OK_AND_ASSIGN(
+      auto result, ParseAttributionInteropInput(std::move(value), kOffsetTime));
+  ASSERT_EQ(result.size(), 2u);
 
-  const auto* source1 = absl::get_if<StorableSource>(&result->front().event);
+  const auto* source1 = absl::get_if<StorableSource>(&result.front().event);
   ASSERT_TRUE(source1);
 
-  const auto* source2 = absl::get_if<StorableSource>(&result->back().event);
+  const auto* source2 = absl::get_if<StorableSource>(&result.back().event);
   ASSERT_TRUE(source2);
 
-  EXPECT_EQ(result->front().time,
+  EXPECT_EQ(result.front().time,
             kOffsetTime + base::Milliseconds(1643235573123));
   EXPECT_EQ(source1->common_info().source_type(),
             attribution_reporting::mojom::SourceType::kNavigation);
@@ -185,9 +192,9 @@ TEST(AttributionInteropParserTest, ValidSourceParses) {
   EXPECT_THAT(source1->registration().destination_set.destinations(),
               ElementsAre(net::SchemefulSite::Deserialize("https://d.test")));
   EXPECT_FALSE(source1->is_within_fenced_frame());
-  EXPECT_TRUE(result->front().debug_permission);
+  EXPECT_TRUE(result.front().debug_permission);
 
-  EXPECT_EQ(result->back().time,
+  EXPECT_EQ(result.back().time,
             kOffsetTime + base::Milliseconds(1643235574123));
   EXPECT_EQ(source2->common_info().source_type(),
             attribution_reporting::mojom::SourceType::kEvent);
@@ -198,7 +205,7 @@ TEST(AttributionInteropParserTest, ValidSourceParses) {
   EXPECT_THAT(source2->registration().destination_set.destinations(),
               ElementsAre(net::SchemefulSite::Deserialize("https://d.test")));
   EXPECT_FALSE(source2->is_within_fenced_frame());
-  EXPECT_FALSE(result->back().debug_permission);
+  EXPECT_FALSE(result.back().debug_permission);
 }
 
 TEST(AttributionInteropParserTest, ValidTriggerParses) {
@@ -221,15 +228,14 @@ TEST(AttributionInteropParserTest, ValidTriggerParses) {
 
   base::Value::Dict value = base::test::ParseJsonDict(kJson);
 
-  auto result = ParseAttributionInteropInput(std::move(value), kOffsetTime);
-  ASSERT_TRUE(result.has_value());
-  ASSERT_EQ(result->size(), 1u);
+  ASSERT_OK_AND_ASSIGN(
+      auto result, ParseAttributionInteropInput(std::move(value), kOffsetTime));
+  ASSERT_EQ(result.size(), 1u);
 
-  const auto* trigger =
-      absl::get_if<AttributionTrigger>(&result->front().event);
+  const auto* trigger = absl::get_if<AttributionTrigger>(&result.front().event);
   ASSERT_TRUE(trigger);
 
-  EXPECT_EQ(result->front().time,
+  EXPECT_EQ(result.front().time,
             kOffsetTime + base::Milliseconds(1643235575123));
   EXPECT_EQ(trigger->reporting_origin(),
             *SuitableOrigin::Deserialize("https://a.r.test"));
@@ -237,7 +243,7 @@ TEST(AttributionInteropParserTest, ValidTriggerParses) {
             *SuitableOrigin::Deserialize("https://b.d.test"));
   EXPECT_THAT(trigger->verifications(), IsEmpty());
   EXPECT_FALSE(trigger->is_within_fenced_frame());
-  EXPECT_TRUE(result->front().debug_permission);
+  EXPECT_TRUE(result.front().debug_permission);
 }
 
 struct ParseErrorTestCase {
@@ -253,8 +259,8 @@ TEST_P(AttributionInteropParserInputErrorTest, InvalidInputFails) {
 
   base::Value::Dict value = base::test::ParseJsonDict(test_case.json);
   auto result = ParseAttributionInteropInput(std::move(value), kOffsetTime);
-  ASSERT_FALSE(result.has_value());
-  EXPECT_THAT(result.error(), HasSubstr(test_case.expected_failure_substr));
+  EXPECT_THAT(result, base::test::ErrorIs(
+                          HasSubstr(test_case.expected_failure_substr)));
 }
 
 const ParseErrorTestCase kParseErrorTestCases[] = {
@@ -595,11 +601,11 @@ TEST(AttributionInteropParserTest, ValidConfig) {
        })},
       {R"json({"max_destinations_per_rate_limit_window_reporting_site":"100"})json",
        false, AttributionConfigWith([](AttributionConfig& c) {
-         c.throttler_policy = {.max_per_reporting_site = 100};
+         c.destination_rate_limit = {.max_per_reporting_site = 100};
        })},
       {R"json({"max_destinations_per_rate_limit_window":"100"})json", false,
        AttributionConfigWith([](AttributionConfig& c) {
-         c.throttler_policy = {.max_total = 100};
+         c.destination_rate_limit = {.max_total = 100};
        })},
       {R"json({"rate_limit_time_window":"30"})json", false,
        AttributionConfigWith([](AttributionConfig& c) {
@@ -681,19 +687,31 @@ TEST(AttributionInteropParserTest, ValidConfig) {
        })},
       {R"json({"max_aggregatable_reports_per_destination":"10"})json", false,
        AttributionConfigWith([](AttributionConfig& c) {
-         c.aggregate_limit = {.max_reports_per_destination = 10};
+         c.aggregate_limit =
+             AggregateLimitWith([](AttributionConfig::AggregateLimit& a) {
+               a.max_reports_per_destination = 10;
+             });
        })},
       {R"json({"aggregatable_budget_per_source":"100"})json", false,
        AttributionConfigWith([](AttributionConfig& c) {
-         c.aggregate_limit = {.aggregatable_budget_per_source = 100};
+         c.aggregate_limit =
+             AggregateLimitWith([](AttributionConfig::AggregateLimit& a) {
+               a.aggregatable_budget_per_source = 100;
+             });
        })},
       {R"json({"aggregatable_report_min_delay":"0"})json", false,
        AttributionConfigWith([](AttributionConfig& c) {
-         c.aggregate_limit = {.min_delay = base::TimeDelta()};
+         c.aggregate_limit =
+             AggregateLimitWith([](AttributionConfig::AggregateLimit& a) {
+               a.min_delay = base::TimeDelta();
+             });
        })},
       {R"json({"aggregatable_report_delay_span":"0"})json", false,
        AttributionConfigWith([](AttributionConfig& c) {
-         c.aggregate_limit = {.delay_span = base::TimeDelta()};
+         c.aggregate_limit =
+             AggregateLimitWith([](AttributionConfig::AggregateLimit& a) {
+               a.delay_span = base::TimeDelta();
+             });
        })},
       {R"json({
         "max_sources_per_origin":"10",
@@ -735,20 +753,24 @@ TEST(AttributionInteropParserTest, ValidConfig) {
                e.max_reports_per_destination = 10;
                e.max_attributions_per_navigation_source = 5;
                e.max_attributions_per_event_source = 1;
-             }),
-         c.aggregate_limit = {.max_reports_per_destination = 10,
-                              .aggregatable_budget_per_source = 1000,
-                              .min_delay = base::Minutes(10),
-                              .delay_span = base::Minutes(20)},
-         c.throttler_policy = {.max_total = 2, .max_per_reporting_site = 1};
+             });
+         c.aggregate_limit =
+             AggregateLimitWith([](AttributionConfig::AggregateLimit& a) {
+               a.max_reports_per_destination = 10;
+               a.aggregatable_budget_per_source = 1000;
+               a.min_delay = base::Minutes(10);
+               a.delay_span = base::Minutes(20);
+             });
+         c.destination_rate_limit = {.max_total = 2,
+                                     .max_per_reporting_site = 1};
        })}};
 
   for (const auto& test_case : kTestCases) {
     base::Value::Dict json = base::test::ParseJsonDict(test_case.json);
     if (test_case.required) {
-      auto result = ParseAttributionConfig(json);
-      ASSERT_TRUE(result.has_value()) << json;
-      EXPECT_EQ(result, test_case.expected) << json;
+      EXPECT_THAT(ParseAttributionConfig(json),
+                  base::test::ValueIs(test_case.expected))
+          << json;
     } else {
       AttributionConfig config;
       EXPECT_EQ("", MergeAttributionConfig(json, config)) << json;
@@ -779,14 +801,11 @@ TEST(AttributionInteropParserTest, InvalidConfigPositiveIntegers) {
 
   {
     auto result = ParseAttributionConfig(base::Value::Dict());
-    ASSERT_FALSE(result.has_value());
-
     for (const char* field : kFields) {
-      EXPECT_THAT(
-          result.error(),
-          HasSubstr(base::StrCat(
-              {"[\"", field,
-               "\"]: must be a positive integer formatted as base-10 string"})))
+      EXPECT_THAT(result, base::test::ErrorIs(HasSubstr(
+                              base::StrCat({"[\"", field,
+                                            "\"]: must be a positive integer "
+                                            "formatted as base-10 string"}))))
           << field;
     }
   }
@@ -819,13 +838,11 @@ TEST(AttributionInteropParserTest, InvalidConfigNonNegativeIntegers) {
 
   {
     auto result = ParseAttributionConfig(base::Value::Dict());
-    ASSERT_FALSE(result.has_value());
-
     for (const char* field : kFields) {
-      EXPECT_THAT(result.error(),
-                  HasSubstr(base::StrCat({"[\"", field,
-                                          "\"]: must be a non-negative integer "
-                                          "formatted as base-10 string"})))
+      EXPECT_THAT(result, base::test::ErrorIs(HasSubstr(base::StrCat(
+                              {"[\"", field,
+                               "\"]: must be a non-negative integer "
+                               "formatted as base-10 string"}))))
           << field;
     }
   }
@@ -852,11 +869,10 @@ TEST(AttributionInteropParserTest, InvalidConfigNonNegativeIntegers) {
 TEST(AttributionInteropParserTest, InvalidConfigRandomizedResponseEpsilon) {
   {
     auto result = ParseAttributionConfig(base::Value::Dict());
-    ASSERT_FALSE(result.has_value());
-    EXPECT_THAT(
-        result.error(),
-        HasSubstr("[\"randomized_response_epsilon\"]: must be \"inf\" or a "
-                  "non-negative double formated as a base-10 string"));
+    EXPECT_THAT(result,
+                base::test::ErrorIs(HasSubstr(
+                    "[\"randomized_response_epsilon\"]: must be \"inf\" or a "
+                    "non-negative double formated as a base-10 string")));
   }
   {
     AttributionConfig config;

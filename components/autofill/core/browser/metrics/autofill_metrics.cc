@@ -122,6 +122,11 @@ enum FieldTypeGroupForMetrics {
   GROUP_ADDRESS_HOME_LANDMARK,
   GROUP_ADDRESS_HOME_BETWEEN_STREETS,
   GROUP_ADDRESS_HOME_ADMIN_LEVEL2,
+  GROUP_ADDRESS_HOME_STREET_LOCATION,
+  GROUP_ADDRESS_HOME_OVERFLOW,
+  GROUP_DELIVERY_INSTRUCTIONS,
+  GROUP_ADDRESS_HOME_OVERFLOW_AND_LANDMARK,
+  GROUP_ADDRESS_HOME_BETWEEN_STREETS_OR_LANDMARK,
   // Add new entries here and update enums.xml.
   NUM_FIELD_TYPE_GROUPS_FOR_METRICS
 };
@@ -247,10 +252,27 @@ int GetFieldTypeGroupPredictionQualityMetric(
           group = GROUP_ADDRESS_HOME_LANDMARK;
           break;
         case ADDRESS_HOME_BETWEEN_STREETS:
+        case ADDRESS_HOME_BETWEEN_STREETS_1:
+        case ADDRESS_HOME_BETWEEN_STREETS_2:
           group = GROUP_ADDRESS_HOME_BETWEEN_STREETS;
           break;
         case ADDRESS_HOME_ADMIN_LEVEL2:
           group = GROUP_ADDRESS_HOME_ADMIN_LEVEL2;
+          break;
+        case ADDRESS_HOME_OVERFLOW:
+          group = GROUP_ADDRESS_HOME_OVERFLOW;
+          break;
+        case ADDRESS_HOME_OVERFLOW_AND_LANDMARK:
+          group = GROUP_ADDRESS_HOME_OVERFLOW_AND_LANDMARK;
+          break;
+        case ADDRESS_HOME_BETWEEN_STREETS_OR_LANDMARK:
+          group = GROUP_ADDRESS_HOME_BETWEEN_STREETS_OR_LANDMARK;
+          break;
+        case ADDRESS_HOME_STREET_LOCATION:
+          group = GROUP_ADDRESS_HOME_STREET_LOCATION;
+          break;
+        case DELIVERY_INSTRUCTIONS:
+          group = GROUP_DELIVERY_INSTRUCTIONS;
           break;
         case UNKNOWN_TYPE:
           group = GROUP_UNKNOWN_TYPE;
@@ -318,6 +340,7 @@ int GetFieldTypeGroupPredictionQualityMetric(
         case IBAN_VALUE:
         case MAX_VALID_FIELD_TYPE:
         case CREDIT_CARD_STANDALONE_VERIFICATION_CODE:
+        case SINGLE_USERNAME_FORGOT_PASSWORD:
           NOTREACHED() << field_type << " type is not in that group.";
           group = GROUP_AMBIGUOUS;
           break;
@@ -358,6 +381,7 @@ int GetFieldTypeGroupPredictionQualityMetric(
           group = GROUP_CREDIT_CARD_DATE;
           break;
         case CREDIT_CARD_VERIFICATION_CODE:
+        case CREDIT_CARD_STANDALONE_VERIFICATION_CODE:
           group = GROUP_CREDIT_CARD_VERIFICATION;
           break;
         default:
@@ -1620,7 +1644,7 @@ void AutofillMetrics::LogStoredCreditCardMetrics(
   size_t virtual_card_enabled_card_count = base::ranges::count_if(
       server_cards, [](const std::unique_ptr<CreditCard>& card) {
         return card->virtual_card_enrollment_state() ==
-               CreditCard::VirtualCardEnrollmentState::ENROLLED;
+               CreditCard::VirtualCardEnrollmentState::kEnrolled;
       });
   base::UmaHistogramCounts1000(
       "Autofill.StoredCreditCardCount.Server.WithVirtualCardMetadata",
@@ -2290,16 +2314,18 @@ void AutofillMetrics::FormInteractionsUkmLogger::LogSuggestionsShown(
 }
 
 void AutofillMetrics::FormInteractionsUkmLogger::LogDidFillSuggestion(
-    int record_type,
-    bool is_for_credit_card,
+    absl::variant<AutofillProfile::RecordType, CreditCard::RecordType>
+        record_type,
     const FormStructure& form,
     const AutofillField& field) {
   if (!CanLog())
     return;
 
   ukm::builders::Autofill_SuggestionFilled(source_id_)
-      .SetRecordType(record_type)
-      .SetIsForCreditCard(is_for_credit_card)
+      .SetRecordType(absl::visit(
+          [](auto value) { return base::to_underlying(value); }, record_type))
+      .SetIsForCreditCard(
+          absl::holds_alternative<CreditCard::RecordType>(record_type))
       .SetMillisecondsSinceFormParsed(
           MillisecondsSinceFormParsed(form.form_parsed_timestamp()))
       .SetFormSignature(HashFormSignature(form.form_signature()))
@@ -2694,7 +2720,6 @@ void AutofillMetrics::FormInteractionsUkmLogger::
     LogAutofillFormSummaryAtFormRemove(
         const FormStructure& form_structure,
         FormEventSet form_events,
-        bool is_in_any_main_frame,
         const base::TimeTicks& initial_interaction_timestamp,
         const base::TimeTicks& form_submitted_timestamp) {
   if (!CanLog()) {
@@ -2711,7 +2736,6 @@ void AutofillMetrics::FormInteractionsUkmLogger::
       .SetFormSignature(HashFormSignature(form_structure.form_signature()))
       .SetAutofillFormEvents(form_events.data()[0])
       .SetAutofillFormEvents2(form_events.data()[1])
-      .SetIsInMainframe(is_in_any_main_frame)
       .SetWasSubmitted(!form_submitted_timestamp.is_null())
       .SetSampleRate(1);
 

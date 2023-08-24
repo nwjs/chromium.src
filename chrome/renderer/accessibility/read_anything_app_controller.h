@@ -40,7 +40,8 @@ class ReadAnythingAppControllerTest;
 // ReadAnythingAppController
 //
 //  A class that controls the Read Anything WebUI app. It serves two purposes:
-//  1. Communicate with ReadAnythingPageHandler (written in c++) via mojom.
+//  1. Communicate with ReadAnythingUntrustedPageHandler (written in c++) via
+//  mojom.
 //  2. Communicate with ReadAnythingApp (written in ts) via gin bindings.
 //  The ReadAnythingAppController unserializes the AXTreeUpdate and exposes
 //  methods on it to the ts resource for accessing information about the AXTree.
@@ -123,7 +124,8 @@ class ReadAnythingAppController
                          int anchor_offset,
                          ui::AXNodeID focus_node_id,
                          int focus_offset) const;
-  bool isSelectable() const;
+  bool IsSelectable() const;
+  bool IsWebUIToolbarEnabled() const;
 
   void Distill();
   void Draw();

@@ -24,10 +24,6 @@
 #include "testing/platform_test.h"
 #include "ui/shell_dialogs/select_file_policy.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 #define EXPECT_EQ_BOOL(a, b) \
   EXPECT_EQ(static_cast<bool>(a), static_cast<bool>(b))
 
@@ -457,15 +453,11 @@ TEST_F(SelectFileDialogMacTest, MultipleDialogs) {
 
   // In 10.15, file picker dialogs are remote, and the restriction of apps not
   // being allowed to OK their own file requests has been extended from just
-  // sandboxed apps to all apps. If we can test OK-ing our own dialogs, sure,
-  // but if not, at least try to close them all.
+  // sandboxed apps to all apps. Since the dialogs can't be OKed, at least close
+  // them all.
   base::RunLoop run_loop2;
   SetDialogClosedCallback(run_loop2.QuitClosure());
-  if (base::mac::IsAtMostOS10_14()) {
-    [panel2 ok:nil];
-  } else {
-    [panel2 cancel:nil];
-  }
+  [panel2 cancel:nil];
   run_loop2.Run();
   EXPECT_EQ(0lu, GetActivePanelCount());
 

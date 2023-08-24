@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/functional/callback.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "base/types/optional_ref.h"
@@ -76,6 +77,8 @@ std::unique_ptr<AuctionRunner> AuctionRunner::CreateAndStart(
     network::mojom::ClientSecurityStatePtr client_security_state,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     IsInterestGroupApiAllowedCallback is_interest_group_api_allowed_callback,
+    GetAdAuctionPageDataCallback get_page_data_callback,
+    AreReportingOriginsAttestedCallback attestation_callback,
     mojo::PendingReceiver<AbortableAdAuction> abort_receiver,
     RunAuctionCallback callback) {
   std::unique_ptr<AuctionRunner> instance(new AuctionRunner(
@@ -86,6 +89,7 @@ std::unique_ptr<AuctionRunner> AuctionRunner::CreateAndStart(
       frame_origin, ukm_source_id, std::move(client_security_state),
       std::move(url_loader_factory),
       std::move(is_interest_group_api_allowed_callback),
+      std::move(get_page_data_callback), std::move(attestation_callback),
       std::move(abort_receiver), std::move(callback)));
   instance->StartAuction();
   return instance;
@@ -259,6 +263,138 @@ void AuctionRunner::ResolvedDirectFromSellerSignalsPromise(
   NotifyPromiseResolved(auction_id.get(), config);
 }
 
+void AuctionRunner::ResolvedDirectFromSellerSignalsHeaderAdSlotPromise(
+    blink::mojom::AuctionAdConfigAuctionIdPtr auction_id,
+    const absl::optional<std::string>&
+        direct_from_seller_signals_header_ad_slot) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kFledgeDirectFromSellerSignalsHeaderAdSlot)) {
+    mojo::ReportBadMessage(
+        "ResolvedDirectFromSellerSignalsHeaderAdSlot with "
+        "FledgeDirectFromSellerSignalsHeaderAdSlot off");
+    return;
+  }
+
+  if (state_ == State::kFailed) {
+    return;
+  }
+
+  blink::AuctionConfig* config =
+      LookupAuction(*owned_auction_config_, auction_id);
+  if (!config) {
+    mojo::ReportBadMessage(
+        "Invalid auction ID in ResolvedDirectFromSellerSignalsHeaderAdSlot");
+    return;
+  }
+
+  if (!config->expects_direct_from_seller_signals_header_ad_slot) {
+    mojo::ReportBadMessage(
+        "ResolvedDirectFromSellerSignalsHeaderAdSlot updating non-promise");
+    return;
+  }
+
+  AdAuctionPageData* page_data = get_page_data_callback_.Run();
+  if (!page_data) {
+    // There's no page data attached so we can't find matching responses.
+    // There's no way the auction can proceed.
+    FailAuction(false);
+    return;
+  }
+
+  if (auction_id->is_main_auction()) {
+    auction_.NotifyDirectFromSellerSignalsHeaderAdSlotConfig(
+        page_data, std::move(direct_from_seller_signals_header_ad_slot));
+  } else {
+    auction_.NotifyComponentDirectFromSellerSignalsHeaderAdSlotConfig(
+        auction_id->get_component_auction(), page_data,
+        std::move(direct_from_seller_signals_header_ad_slot));
+  }
+
+  config->expects_direct_from_seller_signals_header_ad_slot = false;
+  NotifyPromiseResolved(auction_id.get(), config);
+}
+
+void AuctionRunner::ResolvedAuctionAdResponsePromise(
+    blink::mojom::AuctionAdConfigAuctionIdPtr auction_id,
+    mojo_base::BigBuffer response) {
+  if (state_ == State::kFailed) {
+    return;
+  }
+  blink::AuctionConfig* config =
+      LookupAuction(*owned_auction_config_, auction_id);
+  if (!config) {
+    mojo::ReportBadMessage(
+        "Invalid auction ID in ResolvedDirectFromSellerSignalsPromise");
+    return;
+  }
+  // If we aren't in B&A mode or we already have the response it's an error.
+  if (!config->server_response ||
+      (config->server_response && config->server_response->got_response)) {
+    mojo::ReportBadMessage(
+        "ResolvedAuctionAdResponsePromise updating non-promise");
+    return;
+  }
+  if (!auction_id->is_main_auction()) {
+    // TODO(1457241): Add support for multi-level auctions including server-side
+    // auctions.
+    mojo::ReportBadMessage(
+        "ResolvedAuctionAdResponsePromise only supported in main auction");
+    return;
+  }
+  config->server_response->got_response = true;
+  AdAuctionPageData* page_data = get_page_data_callback_.Run();
+  if (!page_data) {
+    // There's no page data attached so we can't decode the response. There's
+    // no way the auction can proceed.
+    FailAuction(false);
+    return;
+  }
+
+  state_ = State::kBiddingAndScoringPhase;
+  auction_.StartFromServerResponse(
+      std::move(response), page_data,
+      base::BindOnce(&AuctionRunner::OnServerResponseAuctionComplete,
+                     base::Unretained(this), base::TimeTicks::Now()));
+}
+
+void AuctionRunner::ResolvedAdditionalBids(
+    blink::mojom::AuctionAdConfigAuctionIdPtr auction_id,
+    std::vector<mojo_base::BigBuffer> additional_bids) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kFledgeNegativeTargeting)) {
+    mojo::ReportBadMessage(
+        "ResolvedAdditionalBids with FledgeNegativeTargeting off");
+    return;
+  }
+
+  if (state_ == State::kFailed) {
+    return;
+  }
+
+  blink::AuctionConfig* config =
+      LookupAuction(*owned_auction_config_, auction_id);
+  if (!config) {
+    mojo::ReportBadMessage("Invalid auction ID in ResolvedAdditionalBids");
+    return;
+  }
+
+  if (!config->expects_additional_bids) {
+    mojo::ReportBadMessage("ResolvedAdditionalBids updating non-promise");
+    return;
+  }
+
+  config->expects_additional_bids = false;
+
+  if (auction_id->is_main_auction()) {
+    auction_.NotifyAdditionalBidsConfig(std::move(additional_bids));
+  } else {
+    auction_.NotifyComponentAdditionalBidsConfig(
+        auction_id->get_component_auction(), std::move(additional_bids));
+  }
+
+  NotifyPromiseResolved(auction_id.get(), config);
+}
+
 void AuctionRunner::Abort() {
   // Don't abort if the auction already finished (either as success or failure;
   // this includes the case of multiple promise arguments rejecting).
@@ -325,6 +461,8 @@ AuctionRunner::AuctionRunner(
     network::mojom::ClientSecurityStatePtr client_security_state,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
     IsInterestGroupApiAllowedCallback is_interest_group_api_allowed_callback,
+    GetAdAuctionPageDataCallback get_page_data_callback,
+    AreReportingOriginsAttestedCallback attestation_callback,
     mojo::PendingReceiver<AbortableAdAuction> abort_receiver,
     RunAuctionCallback callback)
     : interest_group_manager_(interest_group_manager),
@@ -336,6 +474,8 @@ AuctionRunner::AuctionRunner(
       url_loader_factory_(std::move(url_loader_factory)),
       is_interest_group_api_allowed_callback_(
           is_interest_group_api_allowed_callback),
+      get_page_data_callback_(get_page_data_callback),
+      attestation_callback_(attestation_callback),
       abort_receiver_(this, std::move(abort_receiver)),
       kanon_mode_(kanon_mode),
       owned_auction_config_(
@@ -350,9 +490,15 @@ AuctionRunner::AuctionRunner(
                interest_group_manager,
                &auction_metrics_recorder_,
                /*auction_start_time=*/base::Time::Now(),
+               owned_auction_config_->non_shared_params.auction_nonce,
                std::move(log_private_aggregation_requests_callback)) {}
 
 void AuctionRunner::StartAuction() {
+  if (owned_auction_config_->server_response) {
+    // Entire auction is running server-side.
+    // Wait for promise with server response to resolve.
+    return;
+  }
   auction_.StartLoadInterestGroupsPhase(
       is_interest_group_api_allowed_callback_,
       base::BindOnce(&AuctionRunner::OnLoadInterestGroupsComplete,
@@ -408,6 +554,49 @@ void AuctionRunner::OnBidsGeneratedAndScored(bool success) {
       std::move(reporter));
 }
 
+void AuctionRunner::OnServerResponseAuctionComplete(base::TimeTicks start_time,
+                                                    bool success) {
+  DCHECK(callback_);
+
+  blink::InterestGroupSet interest_groups_that_bid;
+  auction_.GetInterestGroupsThatBidAndReportBidCounts(interest_groups_that_bid);
+  if (!success) {
+    FailAuction(/*manually_aborted=*/false,
+                std::move(interest_groups_that_bid));
+    return;
+  }
+  base::UmaHistogramTimes(
+      "Ads.InterestGroup.Auction.ParseBaServerResponseDuration",
+      base::TimeTicks::Now() - start_time);
+
+  DCHECK(auction_.top_bid()->bid->interest_group);
+  const blink::InterestGroup& winning_group =
+      *auction_.top_bid()->bid->interest_group;
+  blink::InterestGroupKey winning_group_key(
+      {winning_group.owner, winning_group.name});
+
+  UpdateInterestGroupsPostAuction();
+
+  auto errors = auction_.TakeErrors();
+
+  std::unique_ptr<InterestGroupAuctionReporter> reporter =
+      auction_.CreateReporter(
+          browser_context_, private_aggregation_manager_, url_loader_factory_,
+          std::move(owned_auction_config_), main_frame_origin_, frame_origin_,
+          client_security_state_.Clone(), std::move(interest_groups_that_bid));
+  DCHECK(reporter);
+
+  reporter->InitializeFromServerResponse(
+      auction_.TakeBiddingAndAuctionResponse());
+
+  state_ = State::kSucceeded;
+  std::move(callback_).Run(
+      this, /*manually_aborted=*/false, std::move(winning_group_key),
+      auction_.RequestedAdSize(), auction_.top_bid()->bid->ad_descriptor,
+      auction_.top_bid()->bid->ad_component_descriptors, std::move(errors),
+      std::move(reporter));
+}
+
 void AuctionRunner::UpdateInterestGroupsPostAuction() {
   std::vector<url::Origin> update_owners;
   auction_.TakePostAuctionUpdateOwners(update_owners);
@@ -424,7 +613,7 @@ void AuctionRunner::UpdateInterestGroupsPostAuction() {
   });
 
   interest_group_manager_->UpdateInterestGroupsOfOwners(
-      update_owners, client_security_state_.Clone());
+      update_owners, client_security_state_.Clone(), attestation_callback_);
 }
 
 void AuctionRunner::NotifyPromiseResolved(

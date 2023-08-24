@@ -43,11 +43,17 @@ BASE_FEATURE(kIPHDesktopTabGroupsNewGroupFeature,
 BASE_FEATURE(kIPHDesktopCustomizeChromeFeature,
              "IPH_DesktopCustomizeChrome",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature,
+             "IPH_DesktopCustomizeChromeRefresh",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDownloadToolbarButtonFeature,
              "IPH_DownloadToolbarButton",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHExtensionsMenuFeature,
              "IPH_ExtensionsMenu",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHExtensionsRequestAccessButtonFeature,
+             "IPH_ExtensionsRequestAccessButton",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHFocusHelpBubbleScreenReaderPromoFeature,
              "IPH_FocusHelpBubbleScreenReaderPromo",
@@ -90,6 +96,9 @@ BASE_FEATURE(kIPHPriceInsightsPageActionIconLabelFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPriceTrackingChipFeature,
              "IPH_PriceTrackingChipFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHPriceTrackingEmailConsentFeature,
+             "IPH_PriceTrackingEmailConsentFeature",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPriceTrackingPageActionIconLabelFeature,
              "IPH_PriceTrackingPageActionIconLabelFeature",
@@ -139,7 +148,6 @@ BASE_FEATURE(kIPHPriceTrackingInSidePanelFeature,
 BASE_FEATURE(kIPHBackNavigationMenuFeature,
              "IPH_BackNavigationMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
 
@@ -158,6 +166,9 @@ BASE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationTranslateFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationAddToBookmarksFeature,
              "IPH_AdaptiveButtonInTopToolbarCustomization_AddToBookmarks",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAdaptiveButtonInTopToolbarCustomizationReadAloudFeature,
+             "IPH_AdaptiveButtonInTopToolbarCustomization_ReadAloud",
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAddToHomescreenMessageFeature,
              "IPH_AddToHomescreenMessage",
@@ -239,9 +250,6 @@ BASE_FEATURE(kIPHRequestDesktopSiteOptInFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature,
              "IPH_RequestDesktopSiteExceptionsGeneric",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHRequestDesktopSiteExceptionsSpecificFeature,
-             "IPH_RequestDesktopSiteExceptionsSpecific",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListSaveFlowFeature,
              "IPH_ShoppingListSaveFlow",
@@ -512,8 +520,14 @@ BASE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature,
 BASE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature,
              "IPH_AutofillExternalAccountProfileSuggestion",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature,
+             "IPH_AutofillVirtualCardCVCSuggestion",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature,
              "IPH_AutofillVirtualCardSuggestion",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHCookieControlsFeature,
+             "IPH_CookieControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
@@ -525,6 +539,99 @@ BASE_FEATURE(kIPHGoogleOneOfferNotificationFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHLauncherSearchHelpUiFeature,
              "IPH_LauncherSearchHelpUi",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedOneFeature,
+             "IPH_ScalableIphTimerBasedOne",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedTwoFeature,
+             "IPH_ScalableIphTimerBasedTwo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedThreeFeature,
+             "IPH_ScalableIphTimerBasedThree",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedFourFeature,
+             "IPH_ScalableIphTimerBasedFour",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedFiveFeature,
+             "IPH_ScalableIphTimerBasedFive",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedSixFeature,
+             "IPH_ScalableIphTimerBasedSix",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedSevenFeature,
+             "IPH_ScalableIphTimerBasedSeven",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedEightFeature,
+             "IPH_ScalableIphTimerBasedEight",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedNineFeature,
+             "IPH_ScalableIphTimerBasedNine",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphTimerBasedTenFeature,
+             "IPH_ScalableIphTimerBasedTen",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedOneFeature,
+             "IPH_ScalableIphUnlockedBasedOne",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedTwoFeature,
+             "IPH_ScalableIphUnlockedBasedTwo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedThreeFeature,
+             "IPH_ScalableIphUnlockedBasedThree",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedFourFeature,
+             "IPH_ScalableIphUnlockedBasedFour",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedFiveFeature,
+             "IPH_ScalableIphUnlockedBasedFive",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedSixFeature,
+             "IPH_ScalableIphUnlockedBasedSix",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedSevenFeature,
+             "IPH_ScalableIphUnlockedBasedSeven",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedEightFeature,
+             "IPH_ScalableIphUnlockedBasedEight",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedNineFeature,
+             "IPH_ScalableIphUnlockedBasedNine",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphUnlockedBasedTenFeature,
+             "IPH_ScalableIphUnlockedBasedTen",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedNudgeFeature,
+             "IPH_ScalableIphHelpAppBasedNudge",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedOneFeature,
+             "IPH_ScalableIphHelpAppBasedOne",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedTwoFeature,
+             "IPH_ScalableIphHelpAppBasedTwo",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedThreeFeature,
+             "IPH_ScalableIphHelpAppBasedThree",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedFourFeature,
+             "IPH_ScalableIphHelpAppBasedFour",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedFiveFeature,
+             "IPH_ScalableIphHelpAppBasedFive",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedSixFeature,
+             "IPH_ScalableIphHelpAppBasedSix",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedSevenFeature,
+             "IPH_ScalableIphHelpAppBasedSeven",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedEightFeature,
+             "IPH_ScalableIphHelpAppBasedEight",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedNineFeature,
+             "IPH_ScalableIphHelpAppBasedNine",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphHelpAppBasedTenFeature,
+             "IPH_ScalableIphHelpAppBasedTen",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 

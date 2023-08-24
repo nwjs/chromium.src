@@ -14,14 +14,18 @@
 #include "base/containers/contains.h"
 #include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_util.h"
 #include "base/time/time.h"
+#include "base/uuid.h"
 #include "content/browser/attribution_reporting/attribution_manager.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/fenced_frame/fenced_frame_reporter.h"
 #include "content/browser/fenced_frame/fenced_frame_url_mapping.h"
 #include "content/browser/interest_group/ad_auction_document_data.h"
+#include "content/browser/interest_group/ad_auction_page_data.h"
 #include "content/browser/interest_group/ad_auction_result_metrics.h"
 #include "content/browser/interest_group/auction_runner.h"
 #include "content/browser/interest_group/auction_worklet_manager.h"
@@ -51,6 +55,7 @@
 #include "third_party/blink/public/common/fenced_frame/fenced_frame_utils.h"
 #include "third_party/blink/public/common/interest_group/auction_config.h"
 #include "third_party/blink/public/common/interest_group/interest_group.h"
+#include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/private_aggregation_host.mojom.h"
 #include "url/gurl.h"
@@ -84,11 +89,27 @@ bool IsAdRequestValid(const blink::mojom::AdRequestConfig& config) {
   return true;
 }
 
+bool AreAllowedReportingOriginsAttested(
+    BrowserContext* browser_context,
+    const std::vector<url::Origin>& origins) {
+  for (const auto& origin : origins) {
+    if (!GetContentClient()
+             ->browser()
+             ->IsPrivacySandboxReportingDestinationAttested(
+                 browser_context, origin,
+                 PrivacySandboxInvokingAPI::kProtectedAudience)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 AdAuctionServiceImpl::BiddingAndAuctionDataConstructionState::
     BiddingAndAuctionDataConstructionState()
-    : request_id(base::Uuid::GenerateRandomV4()) {}
+    : start_time(base::TimeTicks::Now()),
+      request_id(base::Uuid::GenerateRandomV4()) {}
 AdAuctionServiceImpl::BiddingAndAuctionDataConstructionState::
     BiddingAndAuctionDataConstructionState(
         BiddingAndAuctionDataConstructionState&& other) = default;
@@ -109,8 +130,9 @@ void AdAuctionServiceImpl::CreateMojoService(
 void AdAuctionServiceImpl::JoinInterestGroup(
     const blink::InterestGroup& group,
     JoinInterestGroupCallback callback) {
-  if (!JoinOrLeaveApiAllowedFromRenderer(group.owner))
+  if (!JoinOrLeaveApiAllowedFromRenderer(group.owner)) {
     return;
+  }
 
   // If the interest group API is not allowed for this origin, report the result
   // of the permissions check, but don't actually join the interest group.
@@ -122,21 +144,29 @@ void AdAuctionServiceImpl::JoinInterestGroup(
 
   blink::InterestGroup updated_group = group;
   base::Time max_expiry = base::Time::Now() + kMaxExpiry;
-  if (updated_group.expiry > max_expiry)
+  if (updated_group.expiry > max_expiry) {
     updated_group.expiry = max_expiry;
+  }
 
+  // `base::Unretained` is safe here since the `BrowserContext` owns the
+  // `StoragePartition` that owns the interest group manager.
   GetInterestGroupManager().CheckPermissionsAndJoinInterestGroup(
       std::move(updated_group), main_frame_url_, origin(),
       GetFrame()->GetNetworkIsolationKey(), report_result_only,
-      *GetFrameURLLoaderFactory(), std::move(callback));
+      *GetFrameURLLoaderFactory(),
+      base::BindRepeating(
+          &AreAllowedReportingOriginsAttested,
+          base::Unretained(render_frame_host().GetBrowserContext())),
+      std::move(callback));
 }
 
 void AdAuctionServiceImpl::LeaveInterestGroup(
     const url::Origin& owner,
     const std::string& name,
     LeaveInterestGroupCallback callback) {
-  if (!JoinOrLeaveApiAllowedFromRenderer(owner))
+  if (!JoinOrLeaveApiAllowedFromRenderer(owner)) {
     return;
+  }
 
   // If the interest group API is not allowed for this origin, report the result
   // of the permissions check, but don't actually join the interest group.
@@ -216,14 +246,38 @@ void AdAuctionServiceImpl::UpdateAdInterestGroups() {
           ContentBrowserClient::InterestGroupApiOperation::kUpdate, origin())) {
     return;
   }
+
+  // `base::Unretained` is safe here since the `BrowserContext` owns the
+  // `StoragePartition` that owns the interest group manager.
   GetInterestGroupManager().UpdateInterestGroupsOfOwner(
-      origin(), GetClientSecurityState());
+      origin(), GetClientSecurityState(),
+      base::BindRepeating(
+          &AreAllowedReportingOriginsAttested,
+          base::Unretained(render_frame_host().GetBrowserContext())));
+}
+
+void AdAuctionServiceImpl::CreateAuctionNonce(
+    CreateAuctionNonceCallback callback) {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kFledgeNegativeTargeting)) {
+    ReportBadMessageAndDeleteThis(
+        "CreateAuctionNonce with FledgeNegativeTargeting off");
+    return;
+  }
+  base::Uuid token = base::Uuid::GenerateRandomV4();
+  pending_auction_nonces_.insert(token);
+  std::move(callback).Run(token);
 }
 
 void AdAuctionServiceImpl::RunAdAuction(
     const blink::AuctionConfig& config,
     mojo::PendingReceiver<blink::mojom::AbortableAdAuction> abort_receiver,
     RunAdAuctionCallback callback) {
+  // Ensure the page is not in prerendering as code belows expect it, i.e.
+  // GetPageUkmSourceId() doesn't work with prerendering pages.
+  CHECK(!render_frame_host().IsInLifecycleState(
+      RenderFrameHost::LifecycleState::kPrerendering));
+
   // If the run ad auction API is not allowed for this context by Permissions
   // Policy, do nothing
   if (!render_frame_host().IsFeatureEnabled(
@@ -238,6 +292,32 @@ void AdAuctionServiceImpl::RunAdAuction(
     std::move(callback).Run(/*manually_aborted=*/false,
                             /*config=*/absl::nullopt);
     return;
+  }
+
+  if (config.non_shared_params.auction_nonce) {
+    if (!base::FeatureList::IsEnabled(
+            blink::features::kFledgeNegativeTargeting)) {
+      ReportBadMessageAndDeleteThis(
+          "auction_nonce set with FledgeNegativeTargeting off");
+      return;
+    }
+
+    if (auto nonce_iter = pending_auction_nonces_.find(
+            *config.non_shared_params.auction_nonce);
+        nonce_iter != pending_auction_nonces_.end()) {
+      pending_auction_nonces_.erase(nonce_iter);
+    } else {
+      // No matching auction nonce from a prior call to CreateAuctionNonce.
+      devtools_instrumentation::LogWorkletMessage(
+          *GetFrame(), blink::mojom::ConsoleMessageLevel::kError,
+          "Invalid AuctionConfig passed to runAdAuction. The config provided "
+          "an auctionNonce value that was _not_ created by a previous call to "
+          "createAuctionNonce. Aborting the auction.");
+
+      std::move(callback).Run(/*manually_aborted=*/false,
+                              /*config=*/absl::nullopt);
+      return;
+    }
   }
 
   FencedFrameURLMapping& fenced_frame_urls_map =
@@ -265,6 +345,11 @@ void AdAuctionServiceImpl::RunAdAuction(
       GetRefCountedTrustedURLLoaderFactory(),
       base::BindRepeating(&AdAuctionServiceImpl::IsInterestGroupAPIAllowed,
                           base::Unretained(this)),
+      base::BindRepeating(&AdAuctionServiceImpl::GetAdAuctionPageData,
+                          base::Unretained(this)),
+      base::BindRepeating(
+          &AreAllowedReportingOriginsAttested,
+          base::Unretained(render_frame_host().GetBrowserContext())),
       std::move(abort_receiver),
       base::BindOnce(&AdAuctionServiceImpl::OnAuctionComplete,
                      base::Unretained(this), std::move(callback),
@@ -292,8 +377,9 @@ class FencedFrameURLMappingObserver
     // FLEDGE URN URLs should already be mapped, so the observer will be called
     // synchronously.
     mapping.ConvertFencedFrameURNToURL(urn_url, &obs);
-    if (!obs.called_)
+    if (!obs.called_) {
       mapping.RemoveObserverForURN(urn_url, &obs);
+    }
     return mapped_url;
   }
 
@@ -372,12 +458,13 @@ void AdAuctionServiceImpl::GetInterestGroupAdAuctionData(
   // If the interest group API is not allowed for this origin do nothing.
   if (!IsInterestGroupAPIAllowed(
           ContentBrowserClient::InterestGroupApiOperation::kSell, origin())) {
-    std::move(callback).Run({}, "");
+    std::move(callback).Run({}, {});
     return;
   }
 
   BiddingAndAuctionDataConstructionState state;
   state.callback = std::move(callback);
+  state.seller = seller;
 
   GetInterestGroupManager().GetInterestGroupAdAuctionData(
       GetTopWindowOrigin(),
@@ -424,6 +511,11 @@ AdAuctionServiceImpl::GetFrameURLLoaderFactory() {
 
 network::mojom::URLLoaderFactory*
 AdAuctionServiceImpl::GetTrustedURLLoaderFactory() {
+  // Ensure the page is not in prerendering as code belows expect it, i.e.
+  // GetPageUkmSourceId() doesn't work with prerendering pages.
+  CHECK(!render_frame_host().IsInLifecycleState(
+      RenderFrameHost::LifecycleState::kPrerendering));
+
   if (!trusted_url_loader_factory_ ||
       !trusted_url_loader_factory_.is_connected()) {
     trusted_url_loader_factory_.reset();
@@ -550,6 +642,11 @@ bool AdAuctionServiceImpl::IsInterestGroupAPIAllowed(
       origin);
 }
 
+AdAuctionPageData* AdAuctionServiceImpl::GetAdAuctionPageData() {
+  return PageUserData<AdAuctionPageData>::GetForPage(
+      render_frame_host().GetPage());
+}
+
 void AdAuctionServiceImpl::OnAuctionComplete(
     RunAdAuctionCallback callback,
     GURL urn_uuid,
@@ -599,7 +696,7 @@ void AdAuctionServiceImpl::OnAuctionComplete(
   }
 
   DCHECK(reporter);
-  // Should always be present with a ad_descriptor->url.
+  // Should always be present with an ad_descriptor->url.
   DCHECK(winning_group_key);
   DCHECK(blink::IsValidFencedFrameURL(ad_descriptor->url));
   DCHECK(urn_uuid.is_valid());
@@ -711,7 +808,7 @@ void AdAuctionServiceImpl::OnGotAuctionData(
     BiddingAndAuctionDataConstructionState state,
     BiddingAndAuctionData data) {
   if (data.request.empty()) {
-    std::move(state.callback).Run({}, "");
+    std::move(state.callback).Run({}, {});
     return;
   }
 
@@ -726,7 +823,7 @@ void AdAuctionServiceImpl::OnGotBiddingAndAuctionServerKey(
     BiddingAndAuctionDataConstructionState state,
     absl::optional<BiddingAndAuctionServerKey> maybe_key) {
   if (!maybe_key) {
-    std::move(state.callback).Run({}, "");
+    std::move(state.callback).Run({}, {});
     return;
   }
 
@@ -738,19 +835,38 @@ void AdAuctionServiceImpl::OnGotBiddingAndAuctionServerKey(
   auto maybe_request =
       quiche::ObliviousHttpRequest::CreateClientObliviousRequest(
           std::string(state.data.request.begin(), state.data.request.end()),
-          maybe_key->key, maybe_key_config.value());
+          maybe_key->key, maybe_key_config.value(),
+          kBiddingAndAuctionEncryptionRequestMediaType.Get());
   if (!maybe_request.ok()) {
-    std::move(state.callback).Run({}, "");
+    std::move(state.callback).Run({}, {});
     return;
   }
 
   std::string data = maybe_request->EncapsulateAndSerialize();
   const auto* bytes = reinterpret_cast<const uint8_t*>(data.data());
+
+  AdAuctionPageData* ad_auction_page_data =
+      PageUserData<AdAuctionPageData>::GetOrCreateForPage(
+          render_frame_host().GetPage());
+
+  AdAuctionRequestContext context(std::move(state.seller),
+                                  std::move(state.data.group_names),
+                                  std::move(*maybe_request).ReleaseContext());
+  ad_auction_page_data->RegisterAdAuctionRequestContext(state.request_id,
+                                                        std::move(context));
+
   std::move(state.callback)
       .Run(mojo_base::BigBuffer(
                base::make_span(bytes, data.size() * sizeof(char))),
-           state.request_id.AsLowercaseString());
-  // TODO(behamilton): Save request context for decryption.
+           state.request_id);
+  // Request sizes only increase by factors of two so we only need to sample
+  // the powers of two. The maximum of 1 GB size is much larger than it should
+  // ever be.
+  base::UmaHistogramCustomCounts(/*name=*/"Ads.InterestGroup.BaDataSize",
+                                 /*sample=*/data.size(), /*min=*/1,
+                                 /*exclusive_max=*/1 << 30, /*buckets=*/30);
+  base::UmaHistogramTimes(/*name=*/"Ads.InterestGroup.BaDataConstructionTime",
+                          /*sample=*/base::TimeTicks::Now() - state.start_time);
 }
 
 InterestGroupManagerImpl& AdAuctionServiceImpl::GetInterestGroupManager()
@@ -760,8 +876,9 @@ InterestGroupManagerImpl& AdAuctionServiceImpl::GetInterestGroupManager()
 }
 
 url::Origin AdAuctionServiceImpl::GetTopWindowOrigin() const {
-  if (!render_frame_host().GetParent())
+  if (!render_frame_host().GetParent()) {
     return origin();
+  }
   return render_frame_host().GetMainFrame()->GetLastCommittedOrigin();
 }
 

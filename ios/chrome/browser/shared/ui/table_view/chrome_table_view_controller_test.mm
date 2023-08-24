@@ -14,10 +14,6 @@
 #import "testing/gtest_mac.h"
 #import "ui/base/l10n/l10n_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 // Add selectors to be tested in the helpers.
 @interface TableViewItem (ItemAddition)
 - (NSString*)text;
@@ -39,8 +35,7 @@ void ChromeTableViewControllerTest::TearDown() {
 void ChromeTableViewControllerTest::CreateController() {
   DCHECK(!controller_);
   controller_ = InstantiateController();
-  // Force the model to be loaded.
-  [controller_ loadModel];
+
   // Force the tableView to be built.
   EXPECT_TRUE([controller_ view]);
 }
@@ -162,6 +157,14 @@ void ChromeTableViewControllerTest::CheckURLCellTitleAndDetailText(
   ASSERT_TRUE([cell respondsToSelector:@selector(detailText)]);
   EXPECT_NSEQ(expected_title, [cell title]);
   EXPECT_NSEQ(expected_detail_text, [cell detailText]);
+}
+
+void ChromeTableViewControllerTest::CheckURLCellTitle(NSString* expected_title,
+                                                      int section,
+                                                      int item) {
+  id cell = GetTableViewItem(section, item);
+  ASSERT_TRUE([cell respondsToSelector:@selector(title)]);
+  EXPECT_NSEQ(expected_title, [cell title]);
 }
 
 void ChromeTableViewControllerTest::CheckDetailItemTextWithIds(

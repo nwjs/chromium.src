@@ -10,7 +10,9 @@
 
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/ptr_util.h"
 #include "base/memory/raw_ptr.h"
+#include "base/rand_util.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
@@ -48,6 +50,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/password_manager/content/browser/password_manager_log_router_factory.h"
 #include "components/password_manager/core/browser/affiliation/fake_affiliation_service.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/insecure_credentials_table.h"
 #include "components/password_manager/core/browser/mock_password_feature_manager.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -55,11 +58,15 @@
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/reauth_purpose.h"
+#include "components/password_manager/core/browser/sharing/password_sharing_recipients_downloader.h"
+#include "components/password_manager/core/browser/sharing/recipients_fetcher_impl.h"
 #include "components/password_manager/core/browser/test_password_store.h"
 #include "components/password_manager/core/browser/ui/import_results.h"
 #include "components/password_manager/core/common/password_manager_features.h"
 #include "components/signin/public/base/signin_metrics.h"
+#include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/sync/base/features.h"
+#include "components/sync/protocol/password_sharing_recipients.pb.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/webauthn/core/browser/test_passkey_model.h"
 #include "content/public/browser/browser_context.h"
@@ -80,10 +87,16 @@
 
 using MockReauthCallback = base::MockCallback<
     password_manager::PasswordAccessAuthenticator::ReauthCallback>;
+using extensions::api::passwords_private::FamilyFetchResults;
+using extensions::api::passwords_private::RecipientInfo;
 using password_manager::ReauthPurpose;
 using password_manager::TestPasswordStore;
 using ::testing::_;
+using ::testing::AllOf;
+using ::testing::ElementsAre;
 using ::testing::Eq;
+using ::testing::Field;
+using ::testing::IsEmpty;
 using ::testing::IsNull;
 using ::testing::Ne;
 using ::testing::Return;
@@ -315,19 +328,19 @@ sync_pb::WebauthnCredentialSpecifics CreatePasskey() {
 
 MATCHER_P(PasswordUiEntryDataEquals, expected, "") {
   return testing::Value(expected.get().is_passkey, arg.is_passkey) &&
-         testing::Value(expected.get().urls.link, arg.urls.link) &&
+         testing::Value(expected.get().affiliated_domains[0].signon_realm,
+                        arg.affiliated_domains[0].signon_realm) &&
          testing::Value(expected.get().username, arg.username) &&
          testing::Value(expected.get().display_name, arg.display_name) &&
-         testing::Value(expected.get().stored_in, arg.stored_in) &&
-         testing::Value(expected.get().is_android_credential,
-                        arg.is_android_credential);
+         testing::Value(expected.get().stored_in, arg.stored_in);
 }
 
 }  // namespace
 
 class PasswordsPrivateDelegateImplTest : public WebAppTest {
  public:
-  PasswordsPrivateDelegateImplTest() = default;
+  PasswordsPrivateDelegateImplTest()
+      : WebAppTest(WebAppTest::WithTestUrlLoaderFactory()) {}
 
   PasswordsPrivateDelegateImplTest(const PasswordsPrivateDelegateImplTest&) =
       delete;
@@ -537,13 +550,17 @@ TEST_F(PasswordsPrivateDelegateImplTest, AddPassword) {
 
   // Check that adding passwords got reflected in the passwords list.
   api::passwords_private::PasswordUiEntry expected_entry1;
-  expected_entry1.urls.link = "https://example1.com/";
+  expected_entry1.affiliated_domains.emplace_back();
+  expected_entry1.affiliated_domains.back().signon_realm =
+      "https://example1.com/";
   expected_entry1.username = "username1";
   expected_entry1.note.emplace();
   expected_entry1.stored_in =
       api::passwords_private::PASSWORD_STORE_SET_ACCOUNT;
   api::passwords_private::PasswordUiEntry expected_entry2;
-  expected_entry2.urls.link = "http://example2.com/login";
+  expected_entry2.affiliated_domains.emplace_back();
+  expected_entry2.affiliated_domains.back().signon_realm =
+      "http://example2.com/";
   expected_entry2.username = "";
   expected_entry2.note = "note";
   expected_entry2.stored_in = api::passwords_private::PASSWORD_STORE_SET_DEVICE;
@@ -760,118 +777,6 @@ TEST_F(PasswordsPrivateDelegateImplTest, ResetImporter) {
   delegate->ResetImporter(/*delete_file=*/false);
 }
 
-TEST_F(PasswordsPrivateDelegateImplTest, ChangeSavedPassword) {
-  password_manager::PasswordForm sample_form = CreateSampleForm();
-  SetUpPasswordStores({sample_form});
-  auto delegate = CreateDelegate();
-  // Spin the loop to allow PasswordStore tasks posted on the creation of
-  // |delegate| to be completed.
-  base::RunLoop().RunUntilIdle();
-
-  // Double check that the contents of the passwords list matches our
-  // expectation.
-  base::MockCallback<PasswordsPrivateDelegate::UiEntriesCallback> callback;
-  EXPECT_CALL(callback, Run(SizeIs(1)))
-      .WillOnce([&](const PasswordsPrivateDelegate::UiEntries& passwords) {
-        EXPECT_EQ(sample_form.username_value,
-                  base::UTF8ToUTF16(passwords[0].username));
-      });
-  delegate->GetSavedPasswordsList(callback.Get());
-  int sample_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(sample_form));
-
-  api::passwords_private::ChangeSavedPasswordParams params;
-  params.password = "new_pass";
-  params.username = "new_user";
-  params.note = "new note";
-
-  sample_form.username_value = u"new_user";
-  sample_form.password_value = u"new_pass";
-  int new_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(sample_form));
-
-  auto result = delegate->ChangeSavedPassword(sample_form_id, params);
-  EXPECT_EQ(result, new_form_id);
-
-  // Spin the loop to allow PasswordStore tasks posted when changing the
-  // password to be completed.
-  base::RunLoop().RunUntilIdle();
-
-  // Check that the changing the password got reflected in the passwords list.
-  // `note` field should not be filled when `GetSavedPasswordsList` is called.
-  EXPECT_CALL(callback, Run(SizeIs(1)))
-      .WillOnce([](const PasswordsPrivateDelegate::UiEntries& passwords) {
-        EXPECT_THAT(passwords[0].username, Eq("new_user"));
-        EXPECT_THAT(passwords[0].note, Eq(absl::nullopt));
-      });
-  delegate->GetSavedPasswordsList(callback.Get());
-}
-
-TEST_F(PasswordsPrivateDelegateImplTest, ChangeSavedPasswordInBothStores) {
-  password_manager::PasswordForm profile_form = CreateSampleForm();
-  password_manager::PasswordForm account_form = profile_form;
-  account_form.in_store = password_manager::PasswordForm::Store::kAccountStore;
-  SetUpPasswordStores({profile_form, account_form});
-
-  auto delegate = CreateDelegate();
-  // Spin the loop to allow PasswordStore tasks posted on the creation of
-  // |delegate| to be completed.
-  base::RunLoop().RunUntilIdle();
-
-  int profile_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(profile_form));
-  int account_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(account_form));
-
-  ASSERT_EQ(profile_form_id, account_form_id);
-
-  api::passwords_private::ChangeSavedPasswordParams params;
-  params.password = "new_pass";
-  params.username = "new_user";
-
-  profile_form.username_value = u"new_user";
-  profile_form.password_value = u"new_pass";
-  int new_profile_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(profile_form));
-  account_form.username_value = u"new_user";
-  account_form.password_value = u"new_pass";
-  int new_account_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(account_form));
-
-  ASSERT_EQ(new_profile_form_id, new_account_form_id);
-
-  EXPECT_EQ(new_profile_form_id,
-            delegate->ChangeSavedPassword(profile_form_id, params));
-}
-
-TEST_F(PasswordsPrivateDelegateImplTest, ChangeSavedPasswordInAccountStore) {
-  password_manager::PasswordForm profile_form = CreateSampleForm();
-  profile_form.password_value = u"different_pass";
-  password_manager::PasswordForm account_form = CreateSampleForm();
-  account_form.in_store = password_manager::PasswordForm::Store::kAccountStore;
-  SetUpPasswordStores({profile_form, account_form});
-
-  auto delegate = CreateDelegate();
-  // Spin the loop to allow PasswordStore tasks posted on the creation of
-  // |delegate| to be completed.
-  base::RunLoop().RunUntilIdle();
-
-  int account_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(account_form));
-
-  api::passwords_private::ChangeSavedPasswordParams params;
-  params.password = "new_pass";
-  params.username = "new_user";
-
-  account_form.username_value = u"new_user";
-  account_form.password_value = u"new_pass";
-  int new_account_form_id = delegate->GetIdForCredential(
-      password_manager::CredentialUIEntry(account_form));
-
-  auto result = delegate->ChangeSavedPassword(account_form_id, params);
-  EXPECT_THAT(result, new_account_form_id);
-}
-
 TEST_F(PasswordsPrivateDelegateImplTest, ChangeCredential_Password) {
   password_manager::PasswordForm sample_form = CreateSampleForm();
   SetUpPasswordStores({sample_form});
@@ -988,8 +893,7 @@ TEST_F(PasswordsPrivateDelegateImplTest,
 TEST_F(PasswordsPrivateDelegateImplTest, ChangeCredential_Passkey) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {password_manager::features::kPasswordsGrouping,
-       password_manager::features::kPasswordManagerPasskeys,
+      {password_manager::features::kPasswordManagerPasskeys,
        syncer::kSyncWebauthnCredentials},
       /*disabled_features=*/{});
 
@@ -1396,28 +1300,6 @@ TEST_F(PasswordsPrivateDelegateImplTest, TestMovePasswordsToAccountStore) {
       1);
 }
 
-TEST_F(PasswordsPrivateDelegateImplTest, AndroidCredential) {
-  auto delegate = CreateDelegate();
-
-  password_manager::PasswordForm android_form;
-  android_form.signon_realm = "android://hash@example.com";
-  android_form.username_value = u"test@gmail.com";
-  android_form.in_store = password_manager::PasswordForm::Store::kProfileStore;
-  SetUpPasswordStores({android_form});
-
-  base::MockCallback<PasswordsPrivateDelegate::UiEntriesCallback> callback;
-
-  api::passwords_private::PasswordUiEntry expected_entry;
-  expected_entry.urls.link =
-      "https://play.google.com/store/apps/details?id=example.com";
-  expected_entry.username = "test@gmail.com";
-  expected_entry.is_android_credential = true;
-  expected_entry.stored_in = api::passwords_private::PASSWORD_STORE_SET_DEVICE;
-  EXPECT_CALL(callback, Run(testing::ElementsAre(PasswordUiEntryDataEquals(
-                            testing::ByRef(expected_entry)))));
-  delegate->GetSavedPasswordsList(callback.Get());
-}
-
 TEST_F(PasswordsPrivateDelegateImplTest, VerifyCastingOfImportEntryStatus) {
   static_assert(
       static_cast<int>(api::passwords_private::ImportEntryStatus::
@@ -1641,10 +1523,6 @@ TEST_F(PasswordsPrivateDelegateImplTest, DISABLED_ShowAddShortcutDialog) {
 }
 
 TEST_F(PasswordsPrivateDelegateImplTest, GetCredentialGroups) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      password_manager::features::kPasswordsGrouping);
-
   auto delegate = CreateDelegate();
 
   password_manager::PasswordForm password1 = CreateSampleForm(
@@ -1661,11 +1539,13 @@ TEST_F(PasswordsPrivateDelegateImplTest, GetCredentialGroups) {
   EXPECT_EQ("https://abc1.com/favicon.ico", groups[0].icon_url);
 
   api::passwords_private::PasswordUiEntry expected_entry1;
-  expected_entry1.urls.link = "https://abc1.com/";
+  expected_entry1.affiliated_domains.emplace_back();
+  expected_entry1.affiliated_domains.back().signon_realm = "https://abc1.com";
   expected_entry1.username = "username1";
   expected_entry1.stored_in = api::passwords_private::PASSWORD_STORE_SET_DEVICE;
   api::passwords_private::PasswordUiEntry expected_entry2;
-  expected_entry2.urls.link = "https://abc1.com/";
+  expected_entry2.affiliated_domains.emplace_back();
+  expected_entry2.affiliated_domains.back().signon_realm = "https://abc1.com";
   expected_entry2.username = "username2";
   expected_entry2.stored_in = api::passwords_private::PASSWORD_STORE_SET_DEVICE;
   EXPECT_THAT(groups[0].entries,
@@ -1693,8 +1573,7 @@ TEST_F(PasswordsPrivateDelegateImplTest, PasswordManagerAppInstalled) {
 TEST_F(PasswordsPrivateDelegateImplTest, GetPasskeyInGroups) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {password_manager::features::kPasswordsGrouping,
-       password_manager::features::kPasswordManagerPasskeys,
+      {password_manager::features::kPasswordManagerPasskeys,
        syncer::kSyncWebauthnCredentials},
       /*disabled_features=*/{});
 
@@ -1718,12 +1597,14 @@ TEST_F(PasswordsPrivateDelegateImplTest, GetPasskeyInGroups) {
   EXPECT_EQ("https://abc1.com/favicon.ico", groups[0].icon_url);
 
   api::passwords_private::PasswordUiEntry expected_entry1;
-  expected_entry1.urls.link = "https://abc1.com/";
+  expected_entry1.affiliated_domains.emplace_back();
+  expected_entry1.affiliated_domains.back().signon_realm = "https://abc1.com";
   expected_entry1.username = "username1";
   expected_entry1.stored_in = api::passwords_private::PASSWORD_STORE_SET_DEVICE;
   api::passwords_private::PasswordUiEntry expected_entry2;
   expected_entry2.is_passkey = true;
-  expected_entry2.urls.link = "https://abc1.com/";
+  expected_entry2.affiliated_domains.emplace_back();
+  expected_entry2.affiliated_domains.back().signon_realm = "https://abc1.com";
   expected_entry2.username = passkey.user_name();
   expected_entry2.display_name = passkey.user_display_name();
   expected_entry2.stored_in =
@@ -1738,8 +1619,7 @@ TEST_F(PasswordsPrivateDelegateImplTest, RemovePasskey) {
   base::UserActionTester user_action_tester;
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {password_manager::features::kPasswordsGrouping,
-       password_manager::features::kPasswordManagerPasskeys,
+      {password_manager::features::kPasswordManagerPasskeys,
        syncer::kSyncWebauthnCredentials},
       /*disabled_features=*/{});
 
@@ -1772,6 +1652,160 @@ TEST_F(PasswordsPrivateDelegateImplTest, RemovePasskey) {
       api::passwords_private::PasswordStoreSet::PASSWORD_STORE_SET_ACCOUNT);
   EXPECT_EQ(user_action_tester.GetActionCount("PasswordManager_RemovePasskey"),
             1);
+}
+
+class PasswordsPrivateDelegateImplFetchFamilyMembersTest
+    : public PasswordsPrivateDelegateImplTest {
+ public:
+  PasswordsPrivateDelegateImplFetchFamilyMembersTest() = default;
+
+  void SetUp() override {
+    PasswordsPrivateDelegateImplTest::SetUp();
+    delegate_ = CreateDelegate();
+    delegate_->SetRecipientsFetcherForTesting(
+        std::make_unique<password_manager::RecipientsFetcherImpl>(
+            version_info::Channel::DEFAULT,
+            profile_url_loader_factory().GetSafeWeakWrapper(),
+            identity_test_env_.identity_manager()));
+    identity_test_env_.MakePrimaryAccountAvailable("test@email.com",
+                                                   signin::ConsentLevel::kSync);
+    identity_test_env_.SetAutomaticIssueOfAccessTokens(true);
+  }
+
+  void TearDown() override {
+    delegate_ = nullptr;
+    PasswordsPrivateDelegateImplTest::TearDown();
+  }
+
+ protected:
+  const std::string kTestUserId = "12345";
+  const std::string kTestUserName = "Theo Tester";
+  const std::string kTestEmail = "theo@example.com";
+  const std::string kTestProfileImageUrl =
+      "https://3837fjsdjaka.image.example.com";
+
+  void SetServerResponse(sync_pb::PasswordSharingRecipientsResponse::
+                             PasswordSharingRecipientsResult result,
+                         net::HttpStatusCode status = net::HTTP_OK) {
+    sync_pb::PasswordSharingRecipientsResponse response;
+    response.set_result(result);
+    if (result == sync_pb::PasswordSharingRecipientsResponse::SUCCESS) {
+      sync_pb::UserInfo* user_info = response.add_recipients();
+      user_info->set_user_id(kTestUserId);
+      user_info->mutable_user_display_info()->set_display_name(kTestUserName);
+      user_info->mutable_user_display_info()->set_email(kTestEmail);
+      user_info->mutable_user_display_info()->set_profile_image_url(
+          kTestProfileImageUrl);
+    }
+    profile_url_loader_factory().AddResponse(
+        password_manager::PasswordSharingRecipientsDownloader::
+            GetPasswordSharingRecipientsURL(version_info::Channel::DEFAULT)
+                .spec(),
+        response.SerializeAsString(), status);
+  }
+
+  PasswordsPrivateDelegateImpl* delegate() { return delegate_.get(); }
+
+ private:
+  signin::IdentityTestEnvironment identity_test_env_;
+  scoped_refptr<PasswordsPrivateDelegateImpl> delegate_;
+};
+
+TEST_F(PasswordsPrivateDelegateImplFetchFamilyMembersTest,
+       FetchFamilyMembersSucceeds) {
+  SetServerResponse(sync_pb::PasswordSharingRecipientsResponse::SUCCESS);
+
+  base::MockCallback<PasswordsPrivateDelegate::FetchFamilyResultsCallback>
+      callback;
+  EXPECT_CALL(
+      callback,
+      Run(AllOf(Field(&FamilyFetchResults::status,
+                      api::passwords_private::FAMILY_FETCH_STATUS_SUCCESS),
+                Field(&FamilyFetchResults::family_members,
+                      ElementsAre(AllOf(
+                          Field(&RecipientInfo::user_id, kTestUserId),
+                          Field(&RecipientInfo::display_name, kTestUserName),
+                          Field(&RecipientInfo::email, kTestEmail),
+                          Field(&RecipientInfo::profile_image_url,
+                                kTestProfileImageUrl)))))));
+
+  delegate()->FetchFamilyMembers(callback.Get());
+  task_environment()->RunUntilIdle();
+}
+
+TEST_F(PasswordsPrivateDelegateImplFetchFamilyMembersTest,
+       FetchFamilyMembersFailsWithUnknownError) {
+  SetServerResponse(sync_pb::PasswordSharingRecipientsResponse::UNKNOWN);
+
+  base::MockCallback<PasswordsPrivateDelegate::FetchFamilyResultsCallback>
+      callback;
+  EXPECT_CALL(
+      callback,
+      Run(AllOf(
+          Field(&FamilyFetchResults::status,
+                api::passwords_private::FAMILY_FETCH_STATUS_UNKNOWN_ERROR),
+          Field(&FamilyFetchResults::family_members, IsEmpty()))));
+
+  delegate()->FetchFamilyMembers(callback.Get());
+  task_environment()->RunUntilIdle();
+}
+
+TEST_F(PasswordsPrivateDelegateImplFetchFamilyMembersTest,
+       FetchFamilyMembersFailsWithNoFamilyMembersError) {
+  SetServerResponse(
+      sync_pb::PasswordSharingRecipientsResponse::NOT_FAMILY_MEMBER);
+
+  base::MockCallback<PasswordsPrivateDelegate::FetchFamilyResultsCallback>
+      callback;
+  EXPECT_CALL(
+      callback,
+      Run(AllOf(Field(&FamilyFetchResults::status,
+                      api::passwords_private::FAMILY_FETCH_STATUS_NO_MEMBERS),
+                Field(&FamilyFetchResults::family_members, IsEmpty()))));
+
+  delegate()->FetchFamilyMembers(callback.Get());
+  task_environment()->RunUntilIdle();
+}
+
+TEST_F(PasswordsPrivateDelegateImplFetchFamilyMembersTest,
+       FetchFamilyMembersFailsWithAnotherRequestInFlight) {
+  base::MockCallback<PasswordsPrivateDelegate::FetchFamilyResultsCallback>
+      callback1;
+  delegate()->FetchFamilyMembers(callback1.Get());
+
+  base::MockCallback<PasswordsPrivateDelegate::FetchFamilyResultsCallback>
+      callback2;
+  EXPECT_CALL(
+      callback2,
+      Run(AllOf(
+          Field(&FamilyFetchResults::status,
+                api::passwords_private::FAMILY_FETCH_STATUS_UNKNOWN_ERROR),
+          Field(&FamilyFetchResults::family_members, IsEmpty()))));
+  delegate()->FetchFamilyMembers(callback2.Get());
+
+  task_environment()->RunUntilIdle();
+}
+
+TEST_F(PasswordsPrivateDelegateImplFetchFamilyMembersTest,
+       FetchFamilyMembersFailsWithNetworkError) {
+  profile_url_loader_factory().AddResponse(
+      password_manager::PasswordSharingRecipientsDownloader::
+          GetPasswordSharingRecipientsURL(version_info::Channel::DEFAULT)
+              .spec(),
+      /*content=*/std::string(), net::HTTP_INTERNAL_SERVER_ERROR);
+
+  base::MockCallback<PasswordsPrivateDelegate::FetchFamilyResultsCallback>
+      callback;
+  FamilyFetchResults family_fetch_results;
+  EXPECT_CALL(
+      callback,
+      Run(AllOf(
+          Field(&FamilyFetchResults::status,
+                api::passwords_private::FAMILY_FETCH_STATUS_UNKNOWN_ERROR),
+          Field(&FamilyFetchResults::family_members, IsEmpty()))));
+
+  delegate()->FetchFamilyMembers(callback.Get());
+  task_environment()->RunUntilIdle();
 }
 
 }  // namespace extensions

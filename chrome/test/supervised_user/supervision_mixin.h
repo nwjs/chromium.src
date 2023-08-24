@@ -6,11 +6,11 @@
 #define CHROME_TEST_SUPERVISED_USER_SUPERVISION_MIXIN_H_
 
 #include <memory>
+#include <ostream>
 #include <string>
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
-#include "base/strings/string_piece.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/test/base/fake_gaia_mixin.h"
@@ -28,8 +28,9 @@ namespace supervised_user {
 // The account is identified by a supplied email (account name).
 class SupervisionMixin : public InProcessBrowserTestMixin {
  public:
-  // Indicates what account type to use for the signed-in user.
-  enum class AccountType {
+  // Indicates whether to sign-in, and with what type of account.
+  enum class SignInMode {
+    kSignedOut,
     kRegular,
     kSupervised,
   };
@@ -41,7 +42,7 @@ class SupervisionMixin : public InProcessBrowserTestMixin {
     // Account creation properties.
     signin::ConsentLevel consent_level = signin::ConsentLevel::kSignin;
     std::string email = "test@gmail.com";
-    AccountType account_type = AccountType::kRegular;
+    SignInMode sign_in_mode = SignInMode::kRegular;
 
     // Options for dependent mixins.
     EmbeddedTestServerSetupMixin::Options embedded_test_server_options = {};
@@ -69,10 +70,15 @@ class SupervisionMixin : public InProcessBrowserTestMixin {
 
   signin::IdentityTestEnvironment* GetIdentityTestEnvironment() const;
 
+  // ScopedFeatureList can be nested, but they must be destroyed in the reverse
+  // order of initialization (not declaration). The features are typically
+  // enabled by calling ScopedFeatureList::Init*() methods, expose this as well.
+  void InitFeatures();
+
  private:
   void SetUpTestServer();
   void SetUpIdentityTestEnvironment();
-  void LogInUser();
+  void ConfigureIdentityTestEnvironment();
 
   Profile* GetProfile() const;
 
@@ -87,8 +93,12 @@ class SupervisionMixin : public InProcessBrowserTestMixin {
   // Test harness properties.
   signin::ConsentLevel consent_level_;
   std::string email_;
-  AccountType account_type_;
+  SignInMode sign_in_mode_;
 };
+
+// Enables user-readable output from gtest (instead of binary streams).
+std::ostream& operator<<(std::ostream& stream,
+                         const SupervisionMixin::SignInMode& account_type);
 
 }  // namespace supervised_user
 

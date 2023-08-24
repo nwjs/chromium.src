@@ -153,7 +153,6 @@ class MockBrowserAutofillManager : public autofill::TestBrowserAutofillManager {
  public:
   using autofill::TestBrowserAutofillManager::TestBrowserAutofillManager;
 
-  MOCK_METHOD(void, SetShouldSuppressKeyboard, (bool), (override));
   MOCK_METHOD(void,
               TriggerFormExtractionInAllFrames,
               (base::OnceCallback<void(bool)>),

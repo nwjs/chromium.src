@@ -18,10 +18,6 @@
 #import "ios/chrome/common/ui/table_view/table_view_url_cell_favicon_badge_view.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace {
 // Default delimiter to use between the hostname and the supplemental URL text
 // if text is specified but not the delimiter.
@@ -188,6 +184,7 @@ const char kDefaultSupplementalURLTextDelimiter[] = "•";
     _metadataLabel.adjustsFontForContentSizeCategory = YES;
     _metadataLabel.hidden = YES;
     _metadataImage.contentMode = UIViewContentModeCenter;
+    _metadataImage.accessibilityIdentifier = kTableViewURLCellMetadataImageID;
 
     // Use stack views to layout the subviews except for the favicon.
     UIStackView* verticalStack = [[UIStackView alloc]

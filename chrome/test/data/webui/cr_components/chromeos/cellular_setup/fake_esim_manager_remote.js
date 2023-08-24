@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {ESimManagerObserverInterface, ESimOperationResult, ESimProfile, ESimProfileProperties, Euicc, EuiccProperties, ProfileInstallResult, ProfileState, QRCode} from 'chrome://resources/mojo/chromeos/ash/services/cellular_setup/public/mojom/esim_manager.mojom-webui.js';
+import {ESimManagerObserverInterface, ESimOperationResult, ESimProfile, ESimProfileProperties, Euicc, EuiccProperties, ProfileInstallMethod, ProfileInstallResult, ProfileState, QRCode} from 'chrome://resources/mojo/chromeos/ash/services/cellular_setup/public/mojom/esim_manager.mojom-webui.js';
 
 /** @implements {ESimProfile} */
 class FakeProfile {
@@ -204,6 +204,21 @@ class FakeEuicc {
 
   /**
    * @override
+   * @return {!Promise<{result:ESimOperationResult,
+   *     profiles:Array<!ESimProfileProperties>,}}
+   *
+   */
+  requestAvailableProfiles() {
+    return Promise.resolve({
+      result: this.requestPendingProfilesResult_,
+      profiles: this.profiles_.map(profile => {
+        return profile.properties;
+      }),
+    });
+  }
+
+  /**
+   * @override
    * @return {!Promise<{profiles: Array<!ESimProfile>,}>}
    */
   getProfileList() {
@@ -228,11 +243,11 @@ class FakeEuicc {
    * @override
    * @param {string} activationCode
    * @param {string} confirmationCode
-   * @param {boolean} isInstallViaQrCode
+   * @param {ProfileInstallMethod} installMethod
    * @return {!Promise<{result: ProfileInstallResult},}>}
    */
   installProfileFromActivationCode(
-      activationCode, confirmationCode, isInstallViaQrCode) {
+      activationCode, confirmationCode, installMethod) {
     this.notifyProfileListChangedForTest();
     return Promise.resolve({
       result: this.profileInstallResult_ ? this.profileInstallResult_ :

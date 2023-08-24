@@ -29,11 +29,6 @@ BASE_FEATURE(kWebViewCheckReturnResources,
              "WebViewCheckReturnResources",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Server side sampling switch.
-BASE_FEATURE(kWebViewServerSideSampling,
-             "WebViewServerSideSampling",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Whether to destroy the WebView rendering functor when after a WebView window
 // becomes invisible.
 BASE_FEATURE(kWebViewClearFunctorInBackground,
@@ -94,6 +89,12 @@ BASE_FEATURE(kWebViewJavaJsBridgeMojo,
              "WebViewJavaJsBridgeMojo",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enable reporting filtered metrics from webview clients used to be
+// out-sampled.
+BASE_FEATURE(kWebViewMetricsFiltering,
+             "WebViewMetricsFiltering",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Field trial feature for controlling support of Origin Trials on WebView.
 BASE_FEATURE(kWebViewOriginTrials,
              "WebViewOriginTrials",
@@ -121,7 +122,7 @@ BASE_FEATURE(kWebViewRestrictSensitiveContent,
 // a safe browsing check.
 BASE_FEATURE(kWebViewSafeBrowsingSafeMode,
              "WebViewSafeBrowsingSafeMode",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Disallows window.{alert, prompt, confirm} if triggered inside a subframe that
 // is not same origin with the main frame.
@@ -138,6 +139,11 @@ BASE_FEATURE(kWebViewTestFeature,
 // of sending it directly to GMS-core.
 BASE_FEATURE(kWebViewUseMetricsUploadService,
              "WebViewUseMetricsUploadService",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Propagate Android's network notification signals to networking stack
+BASE_FEATURE(kWebViewPropagateNetworkSignals,
+             "webViewPropagateNetworkSignals",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable raster in wide color gamut for apps that use webview in a wide color

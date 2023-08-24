@@ -6,6 +6,9 @@
 
 #include "base/metrics/histogram_functions.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/picture_in_picture/auto_pip_setting_overlay_view.h"
+#endif
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/ui/browser_content_setting_bubble_model_delegate.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -24,6 +27,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_constants.h"
+#include "third_party/blink/public/common/features.h"
 #include "ui/base/hit_test.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -40,6 +44,11 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/frame_background.h"
 #include "ui/views/window/window_shape.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "ui/base/win/hwnd_metrics.h"
+#include "ui/views/win/hwnd_util.h"
+#endif
 
 #if !BUILDFLAG(IS_MAC)
 // Mac does not use Aura
@@ -186,6 +195,17 @@ class WindowEventObserver : public ui::EventObserver {
   std::unique_ptr<views::EventMonitor> event_monitor_;
 };
 
+void DefinitelyExitPictureInPicture(
+    PictureInPictureBrowserFrameView& frame_view) {
+  if (!PictureInPictureWindowManager::GetInstance()->ExitPictureInPicture()) {
+    // If the picture-in-picture controller has been disconnected for
+    // some reason, then just manually close the window to prevent
+    // getting into a state where the back to tab button no longer
+    // closes the window.
+    frame_view.browser_view()->Close();
+  }
+}
+
 }  // namespace
 
 PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
@@ -317,8 +337,7 @@ PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
           [](PictureInPictureBrowserFrameView* frame_view) {
             frame_view->close_reason_ = CloseReason::kBackToTabButton;
             PictureInPictureWindowManager::GetInstance()->FocusInitiator();
-            PictureInPictureWindowManager::GetInstance()
-                ->ExitPictureInPicture();
+            DefinitelyExitPictureInPicture(*frame_view);
           },
           base::Unretained(this))));
 
@@ -327,8 +346,7 @@ PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
       std::make_unique<CloseImageButton>(base::BindRepeating(
           [](PictureInPictureBrowserFrameView* frame_view) {
             frame_view->close_reason_ = CloseReason::kCloseButton;
-            PictureInPictureWindowManager::GetInstance()
-                ->ExitPictureInPicture();
+            DefinitelyExitPictureInPicture(*frame_view);
           },
           base::Unretained(this))));
 
@@ -358,6 +376,18 @@ PictureInPictureBrowserFrameView::PictureInPictureBrowserFrameView(
   show_close_button_animation_.set_delegate(this);
   hide_close_button_animation_.set_continuous(false);
   hide_close_button_animation_.set_delegate(this);
+
+#if !BUILDFLAG(IS_ANDROID)
+  // TODO(crbug.com/1464066): Get the auto pip settings UI when needed, rather
+  // than create it here.
+  const bool is_auto_pip = base::FeatureList::IsEnabled(
+      blink::features::kMediaSessionEnterPictureInPicture);
+  const bool is_setting_ask = true;
+  if (is_auto_pip && is_setting_ask) {
+    auto_pip_setting_overlay_ = AddChildView(
+        std::make_unique<AutoPipSettingOverlayView>(base::DoNothing()));
+  }
+#endif
 
 #if BUILDFLAG(IS_LINUX)
   frame_background_ = std::make_unique<views::FrameBackground>();
@@ -404,6 +434,52 @@ int PictureInPictureBrowserFrameView::GetTopInset(bool restored) const {
 
 int PictureInPictureBrowserFrameView::GetThemeBackgroundXInset() const {
   return 0;
+}
+
+void PictureInPictureBrowserFrameView::OnBrowserViewInitViewsComplete() {
+  BrowserNonClientFrameView::OnBrowserViewInitViewsComplete();
+
+#if BUILDFLAG(IS_WIN)
+  const gfx::Insets insets = GetClientAreaInsets(
+      MonitorFromWindow(HWNDForView(this), MONITOR_DEFAULTTONEAREST));
+#else
+  const gfx::Insets insets;
+#endif
+
+  const gfx::Size initial_browser_size =
+      browser_view()->browser()->override_bounds().size();
+  if (initial_browser_size.width() >=
+          GetMinimumSize().width() + insets.width() &&
+      initial_browser_size.height() >=
+          GetMinimumSize().height() + insets.height()) {
+    return;
+  }
+
+  const absl::optional<blink::mojom::PictureInPictureWindowOptions>
+      pip_options = browser_view()->GetDocumentPictureInPictureOptions();
+
+  if (!pip_options.has_value()) {
+    return;
+  }
+
+  // Get the current display. This is needed by
+  // |AdjustPictureInPictureWindowBounds| to determine the work area
+  // dimensions and the allowed maximum window size.
+  const BrowserWindow* const browser_window =
+      browser_view()->browser()->window();
+  const gfx::NativeWindow native_window =
+      browser_window ? browser_window->GetNativeWindow() : gfx::NativeWindow();
+  const display::Screen* const screen = display::Screen::GetScreen();
+  const display::Display display =
+      browser_window ? screen->GetDisplayNearestWindow(native_window)
+                     : screen->GetDisplayForNewWindows();
+
+  const gfx::Rect window_bounds =
+      PictureInPictureWindowManager::AdjustPictureInPictureWindowBounds(
+          pip_options.value(), display,
+          GetMinimumSize() + gfx::Size(insets.width(), insets.height()));
+
+  browser_view()->browser()->set_override_bounds(window_bounds);
 }
 
 gfx::Rect PictureInPictureBrowserFrameView::GetBoundsForClientView() const {
@@ -502,10 +578,17 @@ void PictureInPictureBrowserFrameView::OnThemeChanged() {
 }
 
 void PictureInPictureBrowserFrameView::Layout() {
-  auto border_thickness = FrameBorderInsets();
-  top_bar_container_view_->SetBoundsRect(
-      gfx::Rect(border_thickness.left(), border_thickness.top(),
-                width() - border_thickness.width(), kTopControlsHeight));
+  gfx::Rect content_area = GetLocalBounds();
+  content_area.Inset(FrameBorderInsets());
+  gfx::Rect top_bar = content_area;
+  top_bar.set_height(kTopControlsHeight);
+  top_bar_container_view_->SetBoundsRect(top_bar);
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto_pip_setting_overlay_) {
+    auto_pip_setting_overlay_->SetBoundsRect(
+        gfx::SubtractRects(content_area, top_bar));
+  }
+#endif
 
   BrowserNonClientFrameView::Layout();
 }
@@ -931,6 +1014,15 @@ gfx::ShadowValues PictureInPictureBrowserFrameView::GetShadowValues() {
   int elevation = ChromeLayoutProvider::Get()->GetShadowElevationMetric(
       views::Emphasis::kMaximum);
   return gfx::ShadowValue::MakeMdShadowValues(elevation);
+}
+#endif
+
+#if BUILDFLAG(IS_WIN)
+gfx::Insets PictureInPictureBrowserFrameView::GetClientAreaInsets(
+    HMONITOR monitor) const {
+  const int frame_thickness = ui::GetFrameThickness(monitor);
+  return gfx::Insets::TLBR(0, frame_thickness, frame_thickness,
+                           frame_thickness);
 }
 #endif
 

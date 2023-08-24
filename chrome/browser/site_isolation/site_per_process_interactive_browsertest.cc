@@ -1135,12 +1135,9 @@ class SitePerProcessInteractivePDFTest
 
   void SetUpOnMainThread() override {
     SitePerProcessInteractiveBrowserTest::SetUpOnMainThread();
-    guest_view::GuestViewManager::set_factory_for_testing(&factory_);
-    test_guest_view_manager_ = static_cast<guest_view::TestGuestViewManager*>(
-        guest_view::GuestViewManager::CreateWithDelegate(
-            browser()->profile(),
-            extensions::ExtensionsAPIClient::Get()
-                ->CreateGuestViewManagerDelegate(browser()->profile())));
+    test_guest_view_manager_ = factory_.GetOrCreateTestGuestViewManager(
+        browser()->profile(), extensions::ExtensionsAPIClient::Get()
+                                  ->CreateGuestViewManagerDelegate());
   }
 
  protected:
@@ -1156,8 +1153,8 @@ class SitePerProcessInteractivePDFTest
 
 // This test loads a PDF inside an OOPIF and then verifies that context menu
 // shows up at the correct position.
-// Flaky on win-asan. See https://crbug.com/1423184
-#if BUILDFLAG(IS_WIN) && defined(ADDRESS_SANITIZER)
+// Flaky on win and linux asan. See https://crbug.com/1423184
+#if (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)) && defined(ADDRESS_SANITIZER)
 #define MAYBE_ContextMenuPositionForEmbeddedPDFInCrossOriginFrame \
   DISABLED_ContextMenuPositionForEmbeddedPDFInCrossOriginFrame
 #else

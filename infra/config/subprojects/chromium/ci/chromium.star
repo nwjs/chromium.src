@@ -22,6 +22,7 @@ ci.defaults.set(
     reclient_instance = reclient.instance.DEFAULT_TRUSTED,
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
+    shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
 )
 
 consoles.console_view(
@@ -437,9 +438,6 @@ ci.builder(
         category = "linux",
         short_name = "dbg",
     ),
-    reclient_bootstrap_env = {
-        "RBE_clang_depscan_archive": "true",
-    },
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -479,9 +477,6 @@ ci.builder(
             ],
         },
     },
-    reclient_bootstrap_env = {
-        "RBE_clang_depscan_archive": "true",
-    },
 )
 
 ci.builder(
@@ -513,8 +508,6 @@ ci.builder(
     health_spec = health_spec(
         build_time = struct(
             p50_mins = 240,
-            p95_mins = 300,
-            p99_mins = 360,
         ),
     ),
 )

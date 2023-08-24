@@ -70,7 +70,6 @@ class VideoFrame;
 
 namespace blink {
 
-class CanvasImageSource;
 class CanvasResourceProvider;
 class ComputedStyle;
 class Document;
@@ -149,9 +148,7 @@ class CORE_EXPORT CanvasRenderingContext
   // This is only used in WebGL
   void RecordUKMCanvasDrawnToRenderingAPI();
 
-  static CanvasRenderingAPI RenderingAPIFromId(
-      const String& id,
-      const ExecutionContext* execution_context);
+  static CanvasRenderingAPI RenderingAPIFromId(const String& id);
 
   CanvasRenderingContextHost* Host() const { return host_; }
   virtual SkColorInfo CanvasRenderingContextSkColorInfo() const;
@@ -274,9 +271,7 @@ class CORE_EXPORT CanvasRenderingContext
   }
 
   // WebGL & WebGPU-specific interface
-  virtual void SetHDRConfiguration(
-      gfx::HDRMode hdr_mode,
-      absl::optional<gfx::HDRMetadata> hdr_metadata) {}
+  virtual void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) {}
   virtual void SetFilterQuality(cc::PaintFlags::FilterQuality) { NOTREACHED(); }
   virtual void Reshape(int width, int height) {}
   virtual int ExternallyAllocatedBufferCountPerPixel() {
@@ -291,7 +286,6 @@ class CORE_EXPORT CanvasRenderingContext
   // Notification the color scheme of the HTMLCanvasElement may have changed.
   virtual void ColorSchemeMayHaveChanged() {}
 
-  bool WouldTaintOrigin(CanvasImageSource*);
   void DidMoveToNewDocument(Document*);
 
   void DetachHost() { host_ = nullptr; }

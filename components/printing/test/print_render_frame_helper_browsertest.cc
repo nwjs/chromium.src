@@ -250,7 +250,7 @@ class FakePrintPreviewUI : public mojom::PrintPreviewUI {
     RunQuitClosure();
   }
   void DidGetDefaultPageLayout(mojom::PageSizeMarginsPtr page_layout_in_points,
-                               const gfx::Rect& printable_area_in_points,
+                               const gfx::RectF& printable_area_in_points,
                                bool all_pages_have_custom_size,
                                bool all_pages_have_custom_orientation,
                                int32_t request_id) override {
@@ -410,14 +410,13 @@ class TestPrintManagerHost
     base::RunLoop().RunUntilIdle();
     std::move(callback).Run(preview_ui_->ShouldCancelRequest());
   }
-#endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
-#if BUILDFLAG(ENABLE_TAGGED_PDF)
+
   void SetAccessibilityTree(
       int32_t cookie,
       const ui::AXTreeUpdate& accessibility_tree) override {
     ++accessibility_tree_set_count_;
   }
-#endif
+#endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
 
   bool IsSetupScriptedPrintPreview() {
     return is_setup_scripted_print_preview_;
@@ -450,11 +449,9 @@ class TestPrintManagerHost
   }
 #endif
 
-#if BUILDFLAG(ENABLE_TAGGED_PDF)
   int accessibility_tree_set_count() const {
     return accessibility_tree_set_count_;
   }
-#endif
 
  private:
   void Init(content::RenderFrame* frame) {
@@ -484,9 +481,7 @@ class TestPrintManagerHost
   bool is_printing_enabled_ = true;
   // True to simulate user clicking print. False to cancel.
   bool print_dialog_user_response_ = true;
-#if BUILDFLAG(ENABLE_TAGGED_PDF)
   int accessibility_tree_set_count_ = 0;
-#endif
   mojo::AssociatedReceiver<mojom::PrintManagerHost> receiver_{this};
 };
 
@@ -835,6 +830,85 @@ TEST_F(MAYBE_PrintRenderFrameHelperTest, MonolithicAbsposOverflowingParent) {
   OnPrintPages();
 }
 
+TEST_F(MAYBE_PrintRenderFrameHelperTest, SpecifiedPageSize1) {
+  LoadHTML(R"HTML(
+    <style>
+      @page {
+        size: 400px 123px;
+        margin: 0;
+      }
+      body {
+        margin: 0;
+      }
+    </style>
+    <div style="width:400px; height:123px;"></div>
+  )HTML");
+
+  print_manager()->SetExpectedPagesCount(1);
+  OnPrintPages();
+  VerifyPagesPrinted(true);
+}
+
+// TODO(crbug.com/1444579): Fix the remaining issues, and enable this test.
+TEST_F(MAYBE_PrintRenderFrameHelperTest, DISABLED_SpecifiedPageSize2) {
+  LoadHTML(R"HTML(
+    <style>
+      @page {
+        size: 400px 123.1px;
+        margin: 0;
+      }
+      body {
+        margin: 0;
+      }
+    </style>
+    <div style="width:400px; height:123.1px;"></div>
+  )HTML");
+
+  print_manager()->SetExpectedPagesCount(1);
+  OnPrintPages();
+  VerifyPagesPrinted(true);
+}
+
+// TODO(crbug.com/1444579): Fix the remaining issues, and enable this test.
+TEST_F(MAYBE_PrintRenderFrameHelperTest, DISABLED_SpecifiedPageSize3) {
+  LoadHTML(R"HTML(
+    <style>
+      @page {
+        size: 400px 123.9px;
+        margin: 0;
+      }
+      body {
+        margin: 0;
+      }
+    </style>
+    <div style="width:400px; height:123.9px;"></div>
+  )HTML");
+
+  print_manager()->SetExpectedPagesCount(1);
+  OnPrintPages();
+  VerifyPagesPrinted(true);
+}
+
+TEST_F(MAYBE_PrintRenderFrameHelperTest, MediaQueryNoCSSPageMargins) {
+  // The default page size in these tests is US Letter.
+  LoadHTML(R"HTML(
+    <style>
+      @page {
+        margin: 0;
+      }
+      @media (width: 8.5in) and (height: 11in) {
+        div { break-before: page; }
+      }
+    </style>
+    First page
+    <div>Second page</div>
+  )HTML");
+
+  print_manager()->SetExpectedPagesCount(2);
+  OnPrintPages();
+  VerifyPagesPrinted(true);
+}
+
 #if BUILDFLAG(IS_APPLE)
 // TODO(estade): I don't think this test is worth porting to Linux. We will have
 // to rip out and replace most of the IPC code if we ever plan to improve
@@ -922,8 +996,6 @@ const TestPageData kTestPages[] = {
 // Same for printing via PDF on Windows.
 #if BUILDFLAG(IS_APPLE)
 TEST_F(MAYBE_PrintRenderFrameHelperTest, PrintLayoutTest) {
-  bool baseline = false;
-
   EXPECT_TRUE(printer());
   for (size_t i = 0; i < std::size(kTestPages); ++i) {
     // Load an HTML page and print it.
@@ -958,18 +1030,6 @@ TEST_F(MAYBE_PrintRenderFrameHelperTest, PrintLayoutTest) {
     EXPECT_TRUE(printer()->GetBitmapChecksum(0, &bitmap_actual));
     if (kTestPages[i].checksum)
       EXPECT_EQ(kTestPages[i].checksum, bitmap_actual);
-
-    if (baseline) {
-      // Save the source data and the bitmap data into temporary files to
-      // create base-line results.
-      base::FilePath source_path;
-      base::CreateTemporaryFile(&source_path);
-      printer()->SaveSource(0, source_path);
-
-      base::FilePath bitmap_path;
-      base::CreateTemporaryFile(&bitmap_path);
-      printer()->SaveBitmap(0, bitmap_path);
-    }
   }
 }
 #endif  // BUILDFLAG(IS_APPLE)
@@ -1020,6 +1080,10 @@ class PrintRenderFrameHelperPreviewTest
 
   void OnClosePrintPreviewDialog() {
     GetPrintRenderFrameHelper()->OnPrintPreviewDialogClosed();
+  }
+
+  void OnPrintForSystemDialog() {
+    GetPrintRenderFrameHelper()->PrintForSystemDialog();
   }
 
   void VerifyPreviewRequest(bool expect_request) {
@@ -1084,16 +1148,14 @@ class PrintRenderFrameHelperPreviewTest
       int expected_margin_right,
       bool expected_all_pages_have_custom_size,
       bool expected_all_pages_have_custom_orientation) {
-    EXPECT_NE(preview_ui()->page_layout(), nullptr);
-    EXPECT_EQ(expected_content_width,
-              preview_ui()->page_layout()->content_width);
-    EXPECT_EQ(expected_content_height,
-              preview_ui()->page_layout()->content_height);
-    EXPECT_EQ(expected_margin_top, preview_ui()->page_layout()->margin_top);
-    EXPECT_EQ(expected_margin_right, preview_ui()->page_layout()->margin_right);
-    EXPECT_EQ(expected_margin_left, preview_ui()->page_layout()->margin_left);
-    EXPECT_EQ(expected_margin_bottom,
-              preview_ui()->page_layout()->margin_bottom);
+    const mojom::PageSizeMargins* page_layout = preview_ui()->page_layout();
+    ASSERT_TRUE(page_layout);
+    EXPECT_EQ(expected_content_width, page_layout->content_width);
+    EXPECT_EQ(expected_content_height, page_layout->content_height);
+    EXPECT_EQ(expected_margin_top, page_layout->margin_top);
+    EXPECT_EQ(expected_margin_right, page_layout->margin_right);
+    EXPECT_EQ(expected_margin_left, page_layout->margin_left);
+    EXPECT_EQ(expected_margin_bottom, page_layout->margin_bottom);
     EXPECT_EQ(expected_all_pages_have_custom_size,
               preview_ui()->all_pages_have_custom_size());
     EXPECT_EQ(expected_all_pages_have_custom_orientation,
@@ -1104,41 +1166,41 @@ class PrintRenderFrameHelperPreviewTest
 
  private:
   void CreatePrintSettingsDictionary() {
-    print_settings_ = base::Value::Dict();
-    print_settings_.Set(kSettingLandscape, false);
-    print_settings_.Set(kSettingCollate, false);
-    print_settings_.Set(kSettingColor,
-                        static_cast<int>(mojom::ColorModel::kGray));
-    print_settings_.Set(kSettingPrinterType,
-                        static_cast<int>(mojom::PrinterType::kPdf));
-    print_settings_.Set(kSettingDuplexMode,
-                        static_cast<int>(mojom::DuplexMode::kSimplex));
-    print_settings_.Set(kSettingCopies, 1);
-    print_settings_.Set(kSettingDeviceName, "dummy");
-    print_settings_.Set(kSettingDpiHorizontal, 72);
-    print_settings_.Set(kSettingDpiVertical, 72);
-    print_settings_.Set(kPreviewUIID, 4);
-    print_settings_.Set(kSettingRasterizePdf, false);
-    print_settings_.Set(kPreviewRequestID, 12345);
-    print_settings_.Set(kSettingScaleFactor, 100);
-    print_settings_.Set(kIsFirstRequest, true);
-    print_settings_.Set(kSettingMarginsType,
-                        static_cast<int>(mojom::MarginType::kDefaultMargins));
-    print_settings_.Set(kSettingPagesPerSheet, 1);
-    print_settings_.Set(kSettingPreviewModifiable, true);
-    print_settings_.Set(kSettingPreviewIsFromArc, false);
-    print_settings_.Set(kSettingHeaderFooterEnabled, false);
-    print_settings_.Set(kSettingShouldPrintBackgrounds, false);
-    print_settings_.Set(kSettingShouldPrintSelectionOnly, false);
+    print_settings_ =
+        base::Value::Dict()
+            .Set(kSettingLandscape, false)
+            .Set(kSettingCollate, false)
+            .Set(kSettingColor, static_cast<int>(mojom::ColorModel::kGray))
+            .Set(kSettingPrinterType,
+                 static_cast<int>(mojom::PrinterType::kPdf))
+            .Set(kSettingDuplexMode,
+                 static_cast<int>(mojom::DuplexMode::kSimplex))
+            .Set(kSettingCopies, 1)
+            .Set(kSettingDeviceName, "dummy")
+            .Set(kSettingDpiHorizontal, 72)
+            .Set(kSettingDpiVertical, 72)
+            .Set(kPreviewUIID, 4)
+            .Set(kSettingRasterizePdf, false)
+            .Set(kPreviewRequestID, 12345)
+            .Set(kSettingScaleFactor, 100)
+            .Set(kIsFirstRequest, true)
+            .Set(kSettingMarginsType,
+                 static_cast<int>(mojom::MarginType::kDefaultMargins))
+            .Set(kSettingPagesPerSheet, 1)
+            .Set(kSettingPreviewModifiable, true)
+            .Set(kSettingPreviewIsFromArc, false)
+            .Set(kSettingHeaderFooterEnabled, false)
+            .Set(kSettingShouldPrintBackgrounds, false)
+            .Set(kSettingShouldPrintSelectionOnly, false);
 
     // Using a media size with realistic dimensions for a Letter paper.
-    base::Value::Dict media_size;
-    media_size.Set(kSettingMediaSizeWidthMicrons, 215900);
-    media_size.Set(kSettingMediaSizeHeightMicrons, 279400);
-    media_size.Set(kSettingsImageableAreaLeftMicrons, 12700);
-    media_size.Set(kSettingsImageableAreaBottomMicrons, 0);
-    media_size.Set(kSettingsImageableAreaRightMicrons, 209550);
-    media_size.Set(kSettingsImageableAreaTopMicrons, 254000);
+    auto media_size = base::Value::Dict()
+                          .Set(kSettingMediaSizeWidthMicrons, 215900)
+                          .Set(kSettingMediaSizeHeightMicrons, 279400)
+                          .Set(kSettingsImageableAreaLeftMicrons, 12700)
+                          .Set(kSettingsImageableAreaBottomMicrons, 0)
+                          .Set(kSettingsImageableAreaRightMicrons, 209550)
+                          .Set(kSettingsImageableAreaTopMicrons, 254000);
     print_settings_.Set(kSettingMediaSize, std::move(media_size));
   }
 
@@ -1913,6 +1975,31 @@ TEST_F(PrintRenderFrameHelperPreviewTest,
   OnClosePrintPreviewDialog();
 }
 
+TEST_F(PrintRenderFrameHelperPreviewTest, PrintForSystemDialog) {
+  LoadHTML(kHelloWorldHTML);
+
+  OnPrintPreview();
+
+  EXPECT_EQ(0u, preview_ui()->print_preview_pages_remaining());
+  VerifyDidPreviewPage(true, 0);
+  VerifyPreviewPageCount(1);
+  VerifyPrintPreviewCancelled(false);
+  VerifyPrintPreviewFailed(false);
+  VerifyPrintPreviewGenerated(true);
+  VerifyPagesPrinted(false);
+  VerifyPreviewPageCount(1);
+
+  // No need to call OnClosePrintPreviewDialog(), as OnPrintForSystemDialog()
+  // takes care of the Print Preview to system print dialog transition.
+  OnPrintForSystemDialog();
+
+  EXPECT_EQ(0u, preview_ui()->print_preview_pages_remaining());
+  VerifyPrintPreviewCancelled(false);
+  VerifyPrintPreviewFailed(false);
+  VerifyPrintPreviewGenerated(true);
+  VerifyPagesPrinted(true);
+}
+
 class PrintRenderFrameHelperTaggedPreviewTest
     : public PrintRenderFrameHelperPreviewTest,
       public testing::WithParamInterface<bool> {
@@ -1947,12 +2034,11 @@ TEST_P(PrintRenderFrameHelperTaggedPreviewTest,
   VerifyPrintPreviewFailed(false);
   VerifyPrintPreviewGenerated(true);
   VerifyPagesPrinted(false);
-#if BUILDFLAG(ENABLE_TAGGED_PDF)
+
   int expected_accessibility_tree_set_count =
       ExpectsSetAccessibilityTreeCalls() ? 1 : 0;
   EXPECT_EQ(expected_accessibility_tree_set_count,
             print_manager()->accessibility_tree_set_count());
-#endif
 
   print_settings().Set(kSettingScaleFactor, 200);
   OnPrintPreviewRerender();
@@ -1965,12 +2051,11 @@ TEST_P(PrintRenderFrameHelperTaggedPreviewTest,
   VerifyPrintPreviewFailed(false);
   VerifyPrintPreviewGenerated(true);
   VerifyPagesPrinted(false);
-#if BUILDFLAG(ENABLE_TAGGED_PDF)
+
   expected_accessibility_tree_set_count =
       ExpectsSetAccessibilityTreeCalls() ? 2 : 0;
   EXPECT_EQ(expected_accessibility_tree_set_count,
             print_manager()->accessibility_tree_set_count());
-#endif
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

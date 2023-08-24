@@ -9,7 +9,6 @@
 #include <string>
 #include <vector>
 
-#include "base/compiler_specific.h"
 #include "base/memory/raw_ptr.h"
 #include "components/autofill/content/common/mojom/autofill_agent.mojom.h"
 #include "components/autofill/content/common/mojom/autofill_driver.mojom.h"
@@ -83,7 +82,7 @@ class ContentPasswordManagerDriver
   void PreviewGenerationSuggestion(const std::u16string& password) override;
   void ClearPreviewedForm() override;
   void SetSuggestionAvailability(
-      autofill::FieldRendererId generation_element_id,
+      autofill::FieldRendererId element_id,
       const autofill::mojom::AutofillState state) override;
   PasswordGenerationFrameHelper* GetPasswordGenerationHelper() override;
   PasswordManager* GetPasswordManager() override;
@@ -138,12 +137,15 @@ class ContentPasswordManagerDriver
   void PasswordFormCleared(const autofill::FormData& form_data) override;
   void RecordSavePasswordProgress(const std::string& log) override;
   void UserModifiedPasswordField() override;
-  void UserModifiedNonPasswordField(
-      autofill::FieldRendererId renderer_id,
-      const std::u16string& field_name,
-      const std::u16string& value,
-      bool autocomplete_attribute_has_username) override;
-  void ShowPasswordSuggestions(base::i18n::TextDirection text_direction,
+  void UserModifiedNonPasswordField(autofill::FieldRendererId renderer_id,
+                                    const std::u16string& value,
+                                    bool autocomplete_attribute_has_username,
+                                    bool is_likely_otp) override;
+  void ShowPasswordSuggestions(autofill::FieldRendererId element_id,
+                               const autofill::FormData& form,
+                               uint64_t username_field_index,
+                               uint64_t password_field_index,
+                               base::i18n::TextDirection text_direction,
                                const std::u16string& typed_username,
                                int options,
                                const gfx::RectF& bounds) override;
@@ -170,8 +172,8 @@ class ContentPasswordManagerDriver
   const mojo::AssociatedRemote<autofill::mojom::PasswordGenerationAgent>&
   GetPasswordGenerationAgent();
 
-  raw_ptr<content::RenderFrameHost, DanglingUntriaged> render_frame_host_;
-  raw_ptr<PasswordManagerClient> client_;
+  const raw_ptr<content::RenderFrameHost> render_frame_host_;
+  const raw_ptr<PasswordManagerClient> client_;
   PasswordGenerationFrameHelper password_generation_helper_;
   PasswordAutofillManager password_autofill_manager_;
 

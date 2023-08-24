@@ -45,7 +45,15 @@ enum class StorageAccessResult {
   ACCESS_ALLOWED_STORAGE_ACCESS_GRANT = 2,
   ACCESS_ALLOWED_FORCED = 3,
   ACCESS_ALLOWED_TOP_LEVEL_STORAGE_ACCESS_GRANT = 4,
-  kMaxValue = ACCESS_ALLOWED_TOP_LEVEL_STORAGE_ACCESS_GRANT,
+  ACCESS_ALLOWED_3PCD = 5,
+  kMaxValue = ACCESS_ALLOWED_3PCD,
+};
+// This enum must match the numbering for BreakageIndicatorType in
+// histograms/enums.xml. Do not reorder or remove items, only add new items
+// at the end.
+enum class BreakageIndicatorType {
+  USER_RELOAD = 0,
+  kMaxValue = USER_RELOAD,
 };
 // Helper to fire telemetry indicating if a given request for storage was
 // allowed or not by the provided |result|.
@@ -296,14 +304,6 @@ ComputeFirstPartySetMetadataMaybeAsync(
 // representation.
 NET_EXPORT CookieOptions::SameSiteCookieContext::ContextMetadata::HttpMethod
 HttpMethodStringToEnum(const std::string& in);
-
-// Get the SameParty inclusion status. If the cookie is not SameParty, returns
-// kNoSamePartyEnforcement; if the cookie is SameParty but does not have a
-// valid context, returns kEnforceSamePartyExclude.
-NET_EXPORT CookieSamePartyStatus
-GetSamePartyStatus(const CanonicalCookie& cookie,
-                   const CookieOptions& options,
-                   bool same_party_attribute_enabled);
 
 // Takes a CookieAccessResult and returns a bool, returning true if the
 // CookieInclusionStatus in CookieAccessResult was set to "include", else

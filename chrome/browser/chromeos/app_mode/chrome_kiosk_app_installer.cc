@@ -110,8 +110,8 @@ void ChromeKioskAppInstaller::MaybeCheckExtensionUpdate() {
   SYSLOG(INFO) << "MaybeCheckExtensionUpdate";
 
   // Record update start time to calculate time consumed by update check. When
-  // |OnExtensionUpdateCheckFinished| is called the update is already finished
-  // because |extensions::ExtensionUpdater::CheckParams::install_immediately| is
+  // `OnExtensionUpdateCheckFinished` is called the update is already finished
+  // because `extensions::ExtensionUpdater::CheckParams::install_immediately` is
   // set to true.
   extension_update_start_time_ = base::Time::Now();
 
@@ -176,6 +176,7 @@ void ChromeKioskAppInstaller::FinalizeAppInstall() {
 
 void ChromeKioskAppInstaller::OnFinishCrxInstall(
     content::BrowserContext* context,
+    const extensions::CrxInstaller& installer,
     const std::string& extension_id,
     bool success) {
   DCHECK(!install_complete_);

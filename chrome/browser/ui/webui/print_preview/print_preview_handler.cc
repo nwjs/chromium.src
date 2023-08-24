@@ -6,7 +6,6 @@
 
 #include "base/no_destructor.h"
 #include "base/json/json_writer.h"
-#include <ctype.h>
 #include <stddef.h>
 
 #include <memory>
@@ -46,6 +45,7 @@
 #include "chrome/browser/ui/webui/print_preview/policy_settings.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_metrics.h"
 #include "chrome/browser/ui/webui/print_preview/print_preview_ui.h"
+#include "chrome/browser/ui/webui/print_preview/print_preview_utils.h"
 #include "chrome/browser/ui/webui/print_preview/printer_handler.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/crash_keys.h"
@@ -476,8 +476,8 @@ void PrintPreviewHandler::RegisterMessages() {
       "getPreview", base::BindRepeating(&PrintPreviewHandler::HandleGetPreview,
                                         base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
-      "print", base::BindRepeating(&PrintPreviewHandler::HandlePrint,
-                                   base::Unretained(this)));
+      "doPrint", base::BindRepeating(&PrintPreviewHandler::HandleDoPrint,
+                                     base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "getPrinterCapabilities",
       base::BindRepeating(&PrintPreviewHandler::HandleGetPrinterCapabilities,
@@ -785,7 +785,7 @@ void PrintPreviewHandler::HandleGetPreview(const base::Value::List& args) {
   last_preview_settings_ = std::move(settings);
 }
 
-void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
+void PrintPreviewHandler::HandleDoPrint(const base::Value::List& args) {
   CHECK(args[0].is_string());
   const std::string& callback_id = args[0].GetString();
   CHECK(!callback_id.empty());
@@ -845,6 +845,12 @@ void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
 #if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
   std::string device_name = *settings.FindString(kSettingDeviceName);
 
+  using enterprise_connectors::PrintScanningContext;
+  auto scan_context =
+      settings.FindBool(kSettingShowSystemDialog).value_or(false)
+          ? PrintScanningContext::kSystemPrintAfterPreview
+          : PrintScanningContext::kNormalPrintAfterPreview;
+
   auto on_verdict =
       base::BindOnce(&PrintPreviewHandler::OnVerdictByEnterprisePolicy,
                      weak_factory_.GetWeakPtr(), user_action,
@@ -854,11 +860,11 @@ void PrintPreviewHandler::HandlePrint(const base::Value::List& args) {
                                      weak_factory_.GetWeakPtr());
 
   enterprise_connectors::PrintIfAllowedByPolicy(
-      data, GetInitiator(), std::move(device_name), std::move(on_verdict),
-      std::move(hide_preview));
+      data, GetInitiator(), std::move(device_name), scan_context,
+      std::move(on_verdict), std::move(hide_preview));
 
 #else
-  FinishHandlePrint(user_action, std::move(settings), data, callback_id);
+  FinishHandleDoPrint(user_action, std::move(settings), data, callback_id);
 #endif  // BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
 }
 
@@ -870,7 +876,7 @@ void PrintPreviewHandler::OnVerdictByEnterprisePolicy(
     const std::string& callback_id,
     bool allowed) {
   if (allowed) {
-    FinishHandlePrint(user_action, std::move(settings), data, callback_id);
+    FinishHandleDoPrint(user_action, std::move(settings), data, callback_id);
   } else {
     OnPrintResult(callback_id, base::Value("NOT_ALLOWED"));
   }
@@ -881,7 +887,7 @@ void PrintPreviewHandler::OnHidePreviewDialog() {
 }
 #endif  // BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
 
-void PrintPreviewHandler::FinishHandlePrint(
+void PrintPreviewHandler::FinishHandleDoPrint(
     UserActionBuckets user_action,
     base::Value::Dict settings,
     scoped_refptr<base::RefCountedMemory> data,
@@ -1103,7 +1109,9 @@ void PrintPreviewHandler::SendPrinterCapabilities(
     const std::string& callback_id,
     base::Value::Dict settings_info) {
   // Check that |settings_info| is valid.
-  if (settings_info.FindDict(kSettingCapabilities)) {
+  base::Value::Dict* settings = settings_info.FindDict(kSettingCapabilities);
+  if (settings) {
+    FilterContinuousFeedMediaSizes(*settings);
     VLOG(1) << "Get printer capabilities finished";
     ResolveJavascriptCallback(base::Value(callback_id), settings_info);
     return;

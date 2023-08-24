@@ -45,7 +45,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   WebViewGuest& operator=(const WebViewGuest&) = delete;
 
   static std::unique_ptr<GuestViewBase> Create(
-      content::WebContents* owner_web_contents);
+      content::RenderFrameHost* owner_rfh);
   // Cleans up state when this GuestView is being destroyed.
   // Note that this cannot be done in the destructor since a GuestView could
   // potentially be created and destroyed in JavaScript before getting a
@@ -156,7 +156,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   }
 
  private:
-  explicit WebViewGuest(content::WebContents* owner_web_contents);
+  explicit WebViewGuest(content::RenderFrameHost* owner_rfh);
 
   void ClearCodeCache(base::Time remove_since,
                       uint32_t removal_mask,
@@ -185,7 +185,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   void DidAttachToEmbedder() final;
   void DidInitialize(const base::Value::Dict& create_params) final;
   void MaybeRecreateGuestContents(
-      content::WebContents* embedder_web_contents) final;
+      content::RenderFrameHost* outer_contents_frame) final;
   void EmbedderFullscreenToggled(bool entered_fullscreen) final;
   void FindReply(content::WebContents* source,
                  int request_id,

@@ -26,6 +26,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/thread_restrictions.h"
@@ -1758,6 +1759,18 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
                         extension_id, "/simple_test_page.html"}));
 }
 
+IN_PROC_BROWSER_TEST_F(DevToolsExtensionTest,
+                       CantInspectFileUrlWithoutFileAccess) {
+  LoadExtension("can_inspect_url");
+  std::string file_url =
+      net::FilePathToFileURL(
+          base::PathService::CheckedGet(base::DIR_SOURCE_ROOT)
+              .AppendASCII("content/test/data/devtools/navigation.html"))
+          .spec();
+  RunTest("waitForTestResultsAsMessage",
+          base::StrCat({kArbitraryPage, "#", file_url}));
+}
+
 class DevToolsExtensionSidePanelTest
     : public DevToolsExtensionTest,
       public ::testing::WithParamInterface<bool> {
@@ -2132,6 +2145,8 @@ class BrowserAutofillManagerTestDelegateDevtoolsImpl
                                 "console.log('didShowSuggestions');"));
   }
 
+  void DidHideSuggestions() override {}
+
   void OnTextFieldChanged() override {}
 
  private:
@@ -2179,6 +2194,14 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest, testForwardedKeysChanged) {
   OpenDevToolsWindow("about:blank", true);
   RunTestFunction(window_, "testForwardedKeysChanged");
   CloseDevToolsWindow();
+}
+
+IN_PROC_BROWSER_TEST_F(DevToolsTest, testCloseActionRecorded) {
+  base::UserActionTester user_action_tester;
+  OpenDevToolsWindow("about:blank", true);
+  CloseDevToolsWindow();
+
+  EXPECT_EQ(1, user_action_tester.GetActionCount("DevTools_Close"));
 }
 
 // Test that showing a certificate in devtools does not crash the process.
@@ -2801,7 +2824,15 @@ IN_PROC_BROWSER_TEST_F(DevToolsTest,
   DevToolsWindowTesting::CloseDevToolsWindowSync(window);
 }
 
-IN_PROC_BROWSER_TEST_F(DevToolsTest, TestRawHeadersWithRedirectAndHSTS) {
+// TODO(crbug.com/1471349): The bug is flaky on chromeos (mostly dbg).
+#if BUILDFLAG(IS_CHROMEOS)
+#define MAYBE_TestRawHeadersWithRedirectAndHSTS \
+  DISABLED_TestRawHeadersWithRedirectAndHSTS
+#else
+#define MAYBE_TestRawHeadersWithRedirectAndHSTS \
+  TestRawHeadersWithRedirectAndHSTS
+#endif
+IN_PROC_BROWSER_TEST_F(DevToolsTest, MAYBE_TestRawHeadersWithRedirectAndHSTS) {
   net::EmbeddedTestServer https_test_server(
       net::EmbeddedTestServer::TYPE_HTTPS);
   https_test_server.SetSSLConfig(
@@ -3506,7 +3537,30 @@ class DevToolsProcessPerSiteUpToMainFrameThresholdTest : public DevToolsTest {
 };
 
 IN_PROC_BROWSER_TEST_F(DevToolsProcessPerSiteUpToMainFrameThresholdTest,
-                       DontReuseProcess) {
+                       DevToolsWasAttachedBefore) {
+  const GURL url = embedded_test_server()->GetURL("foo.test", "/hello.html");
+
+  OpenDevToolsWindow(kDebuggerTestPage, false);
+
+  Browser* browser1 = CreateBrowser(browser()->profile());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser1, url));
+
+  Browser* browser2 = CreateBrowser(browser()->profile());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser2, url));
+
+  ASSERT_NE(browser1->tab_strip_model()
+                ->GetActiveWebContents()
+                ->GetPrimaryMainFrame()
+                ->GetProcess(),
+            browser2->tab_strip_model()
+                ->GetActiveWebContents()
+                ->GetPrimaryMainFrame()
+                ->GetProcess());
+}
+
+// TODO(crbug.com/1468206): The test is failing on multiple builders.
+IN_PROC_BROWSER_TEST_F(DevToolsProcessPerSiteUpToMainFrameThresholdTest,
+                       DISABLED_DontReuseProcess) {
   OpenDevToolsWindow(kDebuggerTestPage, false);
   DevToolsWindow* window =
       DevToolsWindowTesting::OpenDevToolsWindowSync(main_web_contents(), true);

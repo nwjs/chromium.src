@@ -34,10 +34,6 @@
 #import "third_party/abseil-cpp/absl/types/optional.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 namespace net {
 
 using CookieDeletionInfo = CookieDeletionInfo;
@@ -482,8 +478,7 @@ void CookieStoreIOS::DeleteCookiesMatchingInfoAsync(
             bool delegate_treats_url_as_trustworthy = false;
             net::CookieAccessParams params = {
                 net::CookieAccessSemantics::UNKNOWN,
-                delegate_treats_url_as_trustworthy,
-                net::CookieSamePartyStatus::kNoSamePartyEnforcement};
+                delegate_treats_url_as_trustworthy};
             return delete_info.Matches(cc, params);
           },
           std::move(delete_info)),

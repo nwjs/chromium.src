@@ -34,10 +34,6 @@
 #import "testing/platform_test.h"
 #import "third_party/ocmock/gtest_support.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 class FakeResultDelegate
     : public autofill::payments::FullCardRequest::ResultDelegate {
  public:
@@ -188,10 +184,9 @@ TEST_F(PaymentRequestFullCardRequesterTest, PresentAndDismissNewPrompt) {
 
   // Wait until the view controller is ordered to be dismissed and the animation
   // completes.
-  base::test::ios::WaitUntilCondition(
-      ^bool {
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::Seconds(10), true, ^bool {
         return !base_view_controller.presentedViewController;
-      },
-      true, base::Seconds(10));
+      }));
   EXPECT_EQ(nil, base_view_controller.presentedViewController);
 }

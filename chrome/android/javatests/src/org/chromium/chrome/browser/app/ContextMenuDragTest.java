@@ -115,13 +115,11 @@ public class ContextMenuDragTest {
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             if (mContextMenu != null) mContextMenu.dismiss();
         });
-        mTestServer.stopAndDestroyServer();
         sTestDragAndDropDelegate.reset();
     }
 
     @AfterClass
     public static void tearDownAfterClass() {
-        ViewAndroidDelegate.setDragAndDropDelegateForTest(null);
         TestThreadUtils.runOnUiThreadBlocking(() -> FirstRunStatus.setFirstRunFlowComplete(false));
     }
 

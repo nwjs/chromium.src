@@ -11,6 +11,7 @@
 #import "base/test/ios/wait_util.h"
 #import "base/time/time.h"
 #import "components/bookmarks/common/bookmark_pref_names.h"
+#import "components/bookmarks/common/storage_type.h"
 #import "ios/chrome/browser/metrics/metrics_app_interface.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/fake_system_identity.h"
@@ -45,10 +46,6 @@
 #import "net/base/mac/url_conversions.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 using base::test::ios::kWaitForUIElementTimeout;
 using chrome_test_util::TabGridOtherDevicesPanelButton;
@@ -117,25 +114,6 @@ id<GREYMatcher> SelectAllButton() {
 id<GREYMatcher> VisibleTabGridEditButton() {
   return grey_allOf(chrome_test_util::TabGridEditButton(),
                     grey_sufficientlyVisible(), nil);
-}
-
-void WaitForTabGridFullscreen() {
-  if (![ChromeEarlGrey isThumbstripEnabledForWindowWithNumber:0]) {
-    return;
-  }
-
-  // Check that the kRegularTabGridIdentifier is visible.
-  ConditionBlock condition = ^{
-    NSError* error = nil;
-    [[EarlGrey selectElementWithMatcher:grey_accessibilityID(
-                                            kRegularTabGridIdentifier)]
-        assertWithMatcher:grey_sufficientlyVisible()
-                    error:&error];
-    return error == nil;
-  };
-  bool fullscreenAchieved = base::test::ios::WaitUntilConditionOrTimeout(
-      base::test::ios::kWaitForUIElementTimeout, condition);
-  GREYAssertTrue(fullscreenAchieved, @"kRegularTabGridIdentifier not visible");
 }
 
 // Returns the matcher for the Recent Tabs table.
@@ -656,7 +634,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [ChromeEarlGrey loadURL:_URL1];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse1];
 
-  [BookmarkEarlGrey waitForBookmarkModelLoaded];
+  [BookmarkEarlGrey waitForBookmarkModelsLoaded];
   [ChromeEarlGreyUI openTabGrid];
 
   [self longPressTabWithTitle:kTitle1];
@@ -680,7 +658,9 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
   [BookmarkEarlGrey
       verifyExistenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL1.spec())
-                                  name:kTitle1];
+                                  name:kTitle1
+                             inStorage:bookmarks::StorageType::
+                                           kLocalOrSyncable];
 }
 
 // Tests that Add to Bookmarks action is greyed out when editBookmarksEnabled
@@ -740,7 +720,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
   [[EarlGrey selectElementWithMatcher:SelectTabsContextMenuItem()]
       performAction:grey_tap()];
-  WaitForTabGridFullscreen();
 
   // Wait for the select all button to appear to confirm that edit mode was
   // entered.
@@ -1224,7 +1203,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [[EarlGrey
       selectElementWithMatcher:chrome_test_util::TabGridSelectTabsMenuButton()]
       performAction:grey_tap()];
-  WaitForTabGridFullscreen();
 
   // Tap tab to select.
   [[EarlGrey selectElementWithMatcher:chrome_test_util::TabGridCellAtIndex(0)]
@@ -1374,7 +1352,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
   [ChromeEarlGrey loadURL:_URL4];
   [ChromeEarlGrey waitForWebStateContainingText:kResponse4];
 
-  [BookmarkEarlGrey waitForBookmarkModelLoaded];
+  [BookmarkEarlGrey waitForBookmarkModelsLoaded];
   [ChromeEarlGreyUI openTabGrid];
 
   [[EarlGrey selectElementWithMatcher:VisibleTabGridEditButton()]
@@ -1420,12 +1398,17 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
 
   [BookmarkEarlGrey
       verifyExistenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL1.spec())
-                                  name:kTitle1];
+                                  name:kTitle1
+                             inStorage:bookmarks::StorageType::
+                                           kLocalOrSyncable];
   [BookmarkEarlGrey
       verifyExistenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL4.spec())
-                                  name:kTitle4];
+                                  name:kTitle4
+                             inStorage:bookmarks::StorageType::
+                                           kLocalOrSyncable];
   [BookmarkEarlGrey
-      verifyAbsenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL2.spec())];
+      verifyAbsenceOfBookmarkWithURL:base::SysUTF8ToNSString(_URL2.spec())
+                           inStorage:bookmarks::StorageType::kLocalOrSyncable];
 }
 
 // Tests adding items to the readinglist from the tab grid edit mode.
@@ -1509,8 +1492,7 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
       selectElementWithMatcher:chrome_test_util::TabGridEditShareButton()]
       performAction:grey_tap()];
 
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::CopyActivityButton()]
-      performAction:grey_tap()];
+  [ChromeEarlGrey tapButtonInActivitySheetWithID:@"Copy"];
 
   NSString* URL1String = base::SysUTF8ToNSString(_URL1.spec());
   NSString* URL3String = base::SysUTF8ToNSString(_URL3.spec());
@@ -2539,45 +2521,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
           grey_accessibilityID(kTableViewActivityIndicatorHeaderFooterViewId)];
 }
 
-// Checks that tabs are sorted by their recency when the feature is enabled.
-- (void)testRecencySort {
-  if ([ChromeEarlGrey isIPadIdiom]) {
-    EARL_GREY_TEST_SKIPPED(@"Skipped for iPad. The RecencyTab Grid Recency Sort"
-                           @"feature is only supported on iPhone.");
-  }
-
-  [self relaunchAppWithTabGridRecencySortEnabled];
-  [self loadTestURLsInNewTabs];
-  [ChromeEarlGreyUI openTabGrid];
-
-  [self verifyVisibleTabsCount:4];
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle1, 0)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle2, 1)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  // Third tab has no title by design in this test class, so its URL is its
-  // fallback title. But since it depends on the port of the HTTP server
-  // underneath, it is not easily computable and checkable. So, don't check for
-  // it directly.
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle4, 3)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-
-  // Open the second tab.
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle2, 1)]
-      performAction:grey_tap()];
-
-  // Check that the order changed in the tab grid: 1, 3, 4, 2.
-  [ChromeEarlGreyUI openTabGrid];
-
-  [self verifyVisibleTabsCount:4];
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle1, 0)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle4, 2)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-  [[EarlGrey selectElementWithMatcher:TabWithTitleAndIndex(kTitle2, 3)]
-      assertWithMatcher:grey_sufficientlyVisible()];
-}
-
 // Tests that closing a tab works successfully in incognito search results.
 - (void)testLastIncognitoTabCloses {
   [ChromeEarlGrey openNewIncognitoTab];
@@ -2769,14 +2712,6 @@ void EchoURLDefaultSearchEngineResponseProvider::GetResponseHeadersAndBody(
       "--enable-features=" + std::string(kTabInactivityThreshold.name) + ":" +
       kTabInactivityThresholdParameterName + "/" +
       kTabInactivityThresholdImmediateDemoParam);
-  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
-}
-
-// Relaunches the app with tab-grid-recency-sort enabled.
-- (void)relaunchAppWithTabGridRecencySortEnabled {
-  AppLaunchConfiguration config;
-  config.relaunch_policy = ForceRelaunchByCleanShutdown;
-  config.features_enabled.push_back(kTabGridRecencySort);
   [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
 }
 

@@ -82,8 +82,9 @@ class TabletModeMultitaskMenuTest : public AshTestBase {
 
   void DismissMenu(TabletModeMultitaskMenu* multitask_menu) {
     GetEventGenerator()->GestureTapAt(
-        GetMultitaskMenuView(multitask_menu)->bounds().bottom_center() +
+        multitask_menu->widget()->GetWindowBoundsInScreen().bottom_center() +
         gfx::Vector2d(0, 10));
+
     DCHECK(!GetMultitaskMenu());
   }
 
@@ -781,6 +782,44 @@ TEST_F(TabletModeMultitaskMenuTest, NoCrashWhenExitingTabletMode) {
   TabletModeControllerTestApi().LeaveTabletMode();
 }
 
+// Test that the window is created on the target window. This can crash if
+// ET_SCROLL_FLING_START is sent quickly enough after ET_GESTURE_SCROLL_UPDATE,
+// causing the controller to create the menu on the split view divider
+// (b/293954921).
+TEST_F(TabletModeMultitaskMenuTest, NoCrashWhenDraggingSplitViewDivider) {
+  ui::ScopedAnimationDurationScaleMode test_duration_mode(
+      ui::ScopedAnimationDurationScaleMode::NON_ZERO_DURATION);
+  UpdateDisplay("1600x1000");
+  auto window = CreateAppWindow();
+  PressPartialPrimary(*window);
+
+  // Start dragging on the menu.
+  const gfx::Point center_point(window->bounds().CenterPoint().x(), 0);
+  auto* event_generator = GetEventGenerator();
+  event_generator->PressTouchId(/*touch_id=*/0, center_point);
+  event_generator->MoveTouchIdBy(/*touch_id=*/0, 0, 100);
+  ASSERT_TRUE(GetMultitaskMenu());
+
+  // Without releasing the first finger, start a fling on the divider and close
+  // the menu (this can happen when it loses focus from the second touch).
+  GetMultitaskMenu()->Reset();
+  auto* split_view_controller =
+      SplitViewController::Get(Shell::GetPrimaryRootWindow());
+  auto* split_view_divider = split_view_controller->split_view_divider();
+  const gfx::Point divider_center =
+      split_view_divider->GetDividerBoundsInScreen(/*is_dragging=*/false)
+          .CenterPoint();
+  event_generator->PressTouchId(/*touch_id=*/1, divider_center);
+  event_generator->MoveTouchIdBy(/*touch_id=*/1, -10, 0);
+  event_generator->ReleaseTouchId(/*touch_id=*/1);
+
+  // Test that, even though the target window is the divider, we don't try to
+  // create the menu on the split view divider.
+  CHECK_EQ(GetMultitaskMenuController()->target_window_for_test(),
+           split_view_divider->divider_widget()->GetNativeWindow());
+  EXPECT_FALSE(GetMultitaskMenu());
+}
+
 TEST_F(TabletModeMultitaskMenuTest, HidesWhenMinimized) {
   auto window = CreateAppWindow();
   ShowMultitaskMenu(*window);
@@ -789,6 +828,122 @@ TEST_F(TabletModeMultitaskMenuTest, HidesWhenMinimized) {
       AcceleratorAction::kWindowMinimize, {});
   ASSERT_TRUE(WindowState::Get(window.get())->IsMinimized());
   EXPECT_FALSE(GetMultitaskMenu());
+}
+
+TEST_F(TabletModeMultitaskMenuTest, NotShownInKioskMode) {
+  // Enter kiosk mode and try swiping down. The multitask menu and cue should
+  // not show.
+  LoginState::Get()->SetLoggedInState(LoginState::LOGGED_IN_ACTIVE,
+                                      LoginState::LOGGED_IN_USER_KIOSK);
+  auto window = CreateAppWindow(gfx::Rect(800, 600));
+  EXPECT_FALSE(
+      GetMultitaskMenuController()->multitask_cue_controller()->cue_layer());
+  ShowMultitaskMenu(*window);
+  EXPECT_FALSE(GetMultitaskMenu());
+}
+
+namespace {
+
+class TestHandler : public ui::EventHandler {
+ public:
+  TestHandler() = default;
+  TestHandler(const TestHandler&) = delete;
+  TestHandler& operator=(const TestHandler&) = delete;
+  ~TestHandler() override = default;
+
+  // ui::EventHandler:
+  void OnTouchEvent(ui::TouchEvent* event) override { flags_ = event->flags(); }
+  int GetFlagsAndReset() {
+    EXPECT_NE(-1, flags_);
+    int ret = flags_;
+    flags_ = -1;
+    return ret;
+  }
+
+  int flags() const { return flags_; }
+
+ private:
+  // latest flags.
+  int flags_ = -1;
+};
+
+}  // namespace
+
+// Make sure that swipe down will set the ui::EF_RESERVED_FOR_GESTURE flag
+// on touch event, while swipe right will not.
+TEST_F(TabletModeMultitaskMenuTest, BlockSwipeDown) {
+  auto* menu_controller = TabletModeControllerTestApi()
+                              .tablet_mode_window_manager()
+                              ->tablet_mode_multitask_menu_controller();
+
+  auto* root = Shell::GetPrimaryRootWindow();
+  TestHandler test_handler;
+  root->AddPreTargetHandler(&test_handler);
+
+  auto window = CreateAppWindow();
+  auto* generator = GetEventGenerator();
+
+  // Start slightly off the edge.
+  const gfx::Point starting_point(
+      display::Screen::GetScreen()->GetPrimaryDisplay().bounds().width() / 2,
+      3);
+  {
+    // Emulate swipe down by touches.
+
+    gfx::Point touch_point(starting_point);
+    generator->PressTouch(touch_point);
+    // Trigger Scroll Begin
+    touch_point.set_y(5);
+    generator->MoveTouch(touch_point);
+    EXPECT_FALSE(menu_controller->is_drag_active_for_test());
+    EXPECT_FALSE(menu_controller->reserved_for_gesture_sent_for_test());
+    EXPECT_FALSE(test_handler.GetFlagsAndReset() & ui::EF_RESERVED_FOR_GESTURE);
+
+    // Trigger Scroll Update which sets `is_drag_active` to true.
+    touch_point.set_y(10);
+    generator->MoveTouch(touch_point);
+    EXPECT_TRUE(menu_controller->is_drag_active_for_test());
+    EXPECT_FALSE(menu_controller->reserved_for_gesture_sent_for_test());
+    EXPECT_FALSE(test_handler.GetFlagsAndReset() & ui::EF_RESERVED_FOR_GESTURE);
+
+    // Next touch event should have the EF_RESERVED_FOR_GESTURE flag.
+    touch_point.set_y(15);
+    generator->MoveTouch(touch_point);
+    EXPECT_TRUE(menu_controller->reserved_for_gesture_sent_for_test());
+    EXPECT_TRUE(test_handler.GetFlagsAndReset() & ui::EF_RESERVED_FOR_GESTURE);
+
+    // After this, touches should be blocked.
+    touch_point.set_y(16);
+    generator->MoveTouch(touch_point);
+    EXPECT_EQ(-1, test_handler.flags());
+
+    generator->ReleaseTouch();
+
+    // The controller should be in clean state.
+    EXPECT_FALSE(menu_controller->is_drag_active_for_test());
+    EXPECT_FALSE(menu_controller->reserved_for_gesture_sent_for_test());
+    EXPECT_EQ(-1, test_handler.flags());
+  }
+
+  // Emulate swipe right by touches. It should never trigger drag nor
+  // set reserved_for_gesture_sent_for_test().
+  {
+    gfx::Point touch_point(starting_point);
+    generator->PressTouch(touch_point);
+
+    for (int i = 0; i < 3; i++) {
+      touch_point.set_x(touch_point.x() + 5);
+      generator->MoveTouch(touch_point);
+      EXPECT_FALSE(menu_controller->is_drag_active_for_test());
+      EXPECT_FALSE(menu_controller->reserved_for_gesture_sent_for_test());
+      EXPECT_FALSE(test_handler.GetFlagsAndReset() &
+                   ui::EF_RESERVED_FOR_GESTURE);
+    }
+    generator->ReleaseTouch();
+  }
+
+  // Cleanup
+  root->RemovePreTargetHandler(&test_handler);
 }
 
 }  // namespace ash

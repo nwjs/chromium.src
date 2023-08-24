@@ -5,6 +5,7 @@
 #include "ash/shell.h"
 
 #include <algorithm>
+#include <iterator>
 #include <memory>
 #include <string>
 #include <utility>
@@ -179,7 +180,6 @@
 #include "ash/system/video_conference/fake_video_conference_tray_controller.h"
 #include "ash/touch/ash_touch_transform_controller.h"
 #include "ash/touch/touch_devices_controller.h"
-#include "ash/touch/touch_selection_magnifier_runner_ash.h"
 #include "ash/tray_action/tray_action.h"
 #include "ash/user_education/user_education_controller.h"
 #include "ash/user_education/user_education_delegate.h"
@@ -226,6 +226,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/notreached.h"
+#include "base/ranges/algorithm.h"
 #include "base/system/sys_info.h"
 #include "base/trace_event/trace_event.h"
 #include "chromeos/ash/components/dbus/fwupd/fwupd_client.h"
@@ -698,7 +699,6 @@ Shell::~Shell() {
 
   // Observes `SessionController` and must be destroyed before it.
   privacy_hub_controller_.reset();
-  microphone_privacy_switch_controller_.reset();
 
   for (auto& observer : shell_observers_) {
     observer.OnShellDestroying();
@@ -1018,8 +1018,6 @@ Shell::~Shell() {
   projecting_observer_.reset();
 
   partial_magnifier_controller_.reset();
-
-  touch_selection_magnifier_runner_ash_.reset();
 
   laser_pointer_controller_.reset();
 
@@ -1466,11 +1464,6 @@ void Shell::Init(
   laser_pointer_controller_ = std::make_unique<LaserPointerController>();
   partial_magnifier_controller_ =
       std::make_unique<PartialMagnifierController>();
-  if (::features::IsTouchTextEditingRedesignEnabled()) {
-    touch_selection_magnifier_runner_ash_ =
-        std::make_unique<TouchSelectionMagnifierRunnerAsh>(
-            kShellWindowId_ImeWindowParentContainer);
-  }
 
   fullscreen_magnifier_controller_ =
       std::make_unique<FullscreenMagnifierController>();
@@ -1565,18 +1558,11 @@ void Shell::Init(
     system_sounds_delegate_->Init();
   }
 
+  // One of the subcontrollers accesses the SystemNotificationController.
   system_notification_controller_ =
       std::make_unique<SystemNotificationController>();
 
-  if (features::IsCrosPrivacyHubEnabled()) {
-    // One of the subcontrollers accesses the SystemNotificationController.
-    privacy_hub_controller_ = std::make_unique<PrivacyHubController>();
-  } else if (features::IsMicMuteNotificationsEnabled()) {
-    // TODO(b/264388354) Until PrivacyHub is enabled for all keep this around
-    // for the already existing microphone notifications to continue working.
-    microphone_privacy_switch_controller_ =
-        std::make_unique<MicrophonePrivacySwitchController>();
-  }
+  privacy_hub_controller_ = PrivacyHubController::CreatePrivacyHubController();
 
   // WmModeController should be created before initializing the window tree
   // hosts, since the latter will initialize the shelf on each display, which
@@ -1657,9 +1643,7 @@ void Shell::Init(
     glanceables_v2_controller_ = std::make_unique<GlanceablesV2Controller>();
   }
 
-  if (features::IsProjectorEnabled()) {
-    projector_controller_ = std::make_unique<ProjectorControllerImpl>();
-  }
+  projector_controller_ = std::make_unique<ProjectorControllerImpl>();
 
   if (chromeos::wm::features::IsWindowLayoutMenuEnabled()) {
     float_controller_ = std::make_unique<FloatController>();
@@ -1693,11 +1677,14 @@ void Shell::Init(
   // `clipboard_history_controller_` is destroyed.
   chromeos::clipboard_history::SetQueryItemDescriptorsImpl(base::BindRepeating(
       [](ClipboardHistoryControllerImpl* controller) {
+        std::vector<crosapi::mojom::ClipboardHistoryItemDescriptor> descriptors;
         if (clipboard_history_util::IsEnabledInCurrentMode()) {
-          return clipboard_history_util::GetItemDescriptorsFrom(
-              controller->history()->GetItems());
+          const auto& items = controller->history()->GetItems();
+          descriptors.reserve(items.size());
+          base::ranges::transform(items, std::back_inserter(descriptors),
+                                  &clipboard_history_util::ItemToDescriptor);
         }
-        return std::vector<crosapi::mojom::ClipboardHistoryItemDescriptor>();
+        return descriptors;
       },
       clipboard_history_controller_.get()));
   chromeos::clipboard_history::SetPasteClipboardItemByIdImpl(
@@ -1888,7 +1875,8 @@ void Shell::OnSessionStateChanged(session_manager::SessionState state) {
   // up earlier than expected and causes a delay during boot.
   // See b/250002264 for more details.
   if (is_session_active && !FwupdClient::Get() &&
-      !firmware_update_notification_controller_) {
+      !firmware_update_notification_controller_ &&
+      !features::IsBlockFwupdClientEnabled()) {
     chromeos::InitializeDBusClient<FwupdClient>(dbus_bus_.get());
     firmware_update_manager_ = std::make_unique<FirmwareUpdateManager>();
     // The notification controller is registered as an observer before

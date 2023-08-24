@@ -7,7 +7,6 @@ import("//build/config/chromeos/ui_mode.gni")
 import("//chrome/browser/buildflags.gni")
 import("//chrome/common/features.gni")
 import("//chrome/test/base/js2gtest.gni")
-import("//chrome/test/include_js_tests.gni")
 import("//components/signin/features.gni")
 import("//pdf/features.gni")
 import("//printing/buildflags/buildflags.gni")
@@ -74,10 +73,10 @@ group("resources") {
 
   if (is_chromeos_ash) {
     public_deps += [
+      "ash/settings:resources",
       "chromeos:resources",
       "nearby_internals:resources",
       "nearby_share:resources",
-      "settings/chromeos:resources",
     ]
   }
 
@@ -117,8 +116,8 @@ group("resources") {
     ]
   }
 
-  if (enable_waffle_desktop) {
-    public_deps += [ "waffle:resources" ]
+  if (enable_search_engine_choice) {
+    public_deps += [ "search_engine_choice:resources" ]
   }
 
   if (enable_webui_tab_strip) {
@@ -251,6 +250,10 @@ group("dev_ui_resources") {
     "//content/browser/webrtc/resources",
   ]
 
+  if (enable_vr) {
+    public_deps += [ "//content/browser/resources/webxr_internals:resources" ]
+  }
+
   if (is_android) {
     public_deps += [
       "//chrome/browser/resources/feed_internals:resources",
@@ -297,6 +300,10 @@ repack("dev_ui_paks") {
     "$root_gen_dir/content/process_resources.pak",
     "$root_gen_dir/content/service_worker_resources.pak",
   ]
+
+  if (enable_vr) {
+    sources += [ "$root_gen_dir/content/webxr_internals_resources.pak" ]
+  }
 
   if (is_android) {
     sources += [

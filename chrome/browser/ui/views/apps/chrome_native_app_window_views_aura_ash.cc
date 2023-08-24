@@ -278,9 +278,9 @@ void ChromeNativeAppWindowViewsAuraAsh::SetFullscreen(int fullscreen_types) {
   ChromeNativeAppWindowViewsAura::SetFullscreen(fullscreen_types);
   UpdateImmersiveMode();
 
-  // In a public session, display a toast with instructions on exiting
+  // In a managed guest session, display a toast with instructions on exiting
   // fullscreen.
-  if (profiles::IsPublicSession()) {
+  if (profiles::IsManagedGuestSession()) {
     UpdateExclusiveAccessExitBubbleContent(
         GURL(),
         fullscreen_types & (AppWindow::FULLSCREEN_TYPE_HTML_API |
@@ -292,10 +292,8 @@ void ChromeNativeAppWindowViewsAuraAsh::SetFullscreen(int fullscreen_types) {
         /*force_update=*/false);
   }
 
-  // Autohide the shelf instead of hiding the shelf completely when only in
-  // OS fullscreen or when in a public session.
+  // Autohide the shelf instead of hiding it completely for OS fullscreen.
   const bool should_hide_shelf =
-      !profiles::IsPublicSession() &&
       fullscreen_types != AppWindow::FULLSCREEN_TYPE_OS;
   widget()->GetNativeWindow()->SetProperty(
       chromeos::kHideShelfWhenFullscreenKey, should_hide_shelf);
@@ -380,7 +378,8 @@ void ChromeNativeAppWindowViewsAuraAsh::UpdateExclusiveAccessExitBubbleContent(
   }
 
   exclusive_access_bubble_ = std::make_unique<ExclusiveAccessBubbleViews>(
-      this, url, bubble_type, std::move(bubble_first_hide_callback));
+      this, url, bubble_type, notify_download,
+      std::move(bubble_first_hide_callback));
 }
 
 bool ChromeNativeAppWindowViewsAuraAsh::IsExclusiveAccessBubbleDisplayed()

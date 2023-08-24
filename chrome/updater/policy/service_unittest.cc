@@ -426,4 +426,52 @@ TEST(PolicyService, MultiplePolicyManagers_WithUnmanagedOnes) {
       "}\n");
 }
 
+struct PolicyServiceAreUpdatesSuppressedNowTestCase {
+  const UpdatesSuppressedTimes updates_suppressed_times;
+  const std::string now_string;
+  const bool expect_updates_suppressed;
+};
+
+class PolicyServiceAreUpdatesSuppressedNowTest
+    : public ::testing::TestWithParam<
+          PolicyServiceAreUpdatesSuppressedNowTestCase> {};
+
+INSTANTIATE_TEST_SUITE_P(
+    PolicyServiceAreUpdatesSuppressedNowTestCases,
+    PolicyServiceAreUpdatesSuppressedNowTest,
+    ::testing::ValuesIn(
+        std::vector<PolicyServiceAreUpdatesSuppressedNowTestCase>{
+            // Suppress starting 12:00 for 959 minutes.
+            {{12, 00, 959}, "Sat, 01 July 2023 01:15:00", true},
+
+            // Suppress starting 12:00 for 959 minutes.
+            {{12, 00, 959}, "Sat, 01 July 2023 04:15:00", false},
+
+            // Suppress starting 00:00 for 959 minutes.
+            {{00, 00, 959}, "Sat, 01 July 2023 04:15:00", true},
+
+            // Suppress starting 00:00 for 959 minutes.
+            {{00, 00, 959}, "Sat, 01 July 2023 16:15:00", false},
+
+            // Suppress starting 18:00 for 12 hours.
+            {{18, 00, 12 * 60}, "Sat, 01 July 2023 05:15:00", true},
+
+            // Suppress starting 18:00 for 12 hours.
+            {{18, 00, 12 * 60}, "Sat, 01 July 2023 06:15:00", false},
+        }));
+
+TEST_P(PolicyServiceAreUpdatesSuppressedNowTest, TestCases) {
+  auto manager = base::MakeRefCounted<FakePolicyManager>(true, "group_policy");
+  manager->SetUpdatesSuppressedTimes(GetParam().updates_suppressed_times);
+  PolicyService::PolicyManagerVector managers;
+  managers.push_back(std::move(manager));
+
+  base::Time now;
+  ASSERT_TRUE(base::Time::FromString(GetParam().now_string.c_str(), &now));
+  EXPECT_EQ(
+      GetParam().expect_updates_suppressed,
+      base::MakeRefCounted<PolicyService>(managers)->AreUpdatesSuppressedNow(
+          now));
+}
+
 }  // namespace updater

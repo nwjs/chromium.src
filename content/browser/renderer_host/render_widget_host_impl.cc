@@ -910,6 +910,12 @@ void RenderWidgetHostImpl::WasShown(
   // resize from SynchronizeVisualProperties is usually processed before the
   // renderer is painted.
   SynchronizeVisualProperties();
+
+  if (synthetic_gesture_controller_) {
+    // Synthetic gestures queued while hidden are deferred until the widget
+    // becomes visible.
+    synthetic_gesture_controller_->StartIfNeeded();
+  }
 }
 
 void RenderWidgetHostImpl::RequestSuccessfulPresentationTimeForNextFrame(
@@ -1041,17 +1047,6 @@ blink::VisualProperties RenderWidgetHostImpl::GetVisualProperties() {
   visual_properties.max_size_for_auto_resize = max_size_for_auto_resize_;
 
   visual_properties.new_size = view_->GetRequestedRendererSize();
-
-  // While in fullscreen, provide the view size as a ScreenInfo size override.
-  // This lets `window.screen` provide viewport dimensions while the frame is
-  // fullscreen as a speculative site compatibility measure, because web authors
-  // may assume that screen dimensions match window.innerWidth/innerHeight while
-  // a page is fullscreen, but that is not always true. crbug.com/1367416
-  if (visual_properties.is_fullscreen_granted &&
-      !base::FeatureList::IsEnabled(
-          blink::features::kFullscreenScreenSizeMatchesDisplay)) {
-    current_screen_info.size_override = visual_properties.new_size;
-  }
 
   // This widget is for a frame that is the main frame of the outermost frame
   // tree. That makes it the top-most frame. OR this is a non-frame widget.
@@ -2862,25 +2857,7 @@ void RenderWidgetHostImpl::StartDragging(
     const gfx::Vector2d& cursor_offset_in_dip,
     const gfx::Rect& drag_obj_rect_in_dip,
     blink::mojom::DragEventSourceInfoPtr event_info) {
-  RenderViewHostDelegateView* view = delegate_->GetDelegateView();
-  if (!view || !GetView()) {
-    // Need to clear drag and drop state in blink.
-    DragSourceSystemDragEnded();
-    return;
-  }
-
   DropData drop_data = DragDataToDropData(*drag_data);
-
-  if (frame_tree_) {
-    bool intercepted = false;
-    devtools_instrumentation::WillStartDragging(
-        frame_tree_->root(), std::move(drag_data), drag_operations_mask,
-        &intercepted);
-    if (intercepted) {
-      return;
-    }
-  }
-
   DropData filtered_data(drop_data);
   RenderProcessHost* process = GetProcess();
   ChildProcessSecurityPolicyImpl* policy =
@@ -2929,6 +2906,22 @@ void RenderWidgetHostImpl::StartDragging(
     }
   }
 
+  if (frame_tree_) {
+    bool intercepted = false;
+    devtools_instrumentation::WillStartDragging(
+        frame_tree_->root(), filtered_data, std::move(drag_data),
+        drag_operations_mask, &intercepted);
+    if (intercepted) {
+      return;
+    }
+  }
+
+  RenderViewHostDelegateView* view = delegate_->GetDelegateView();
+  if (!view || !GetView()) {
+    // Need to clear drag and drop state in blink.
+    DragSourceSystemDragEnded();
+    return;
+  }
   float scale = GetScaleFactorForView(GetView());
   gfx::ImageSkia image = gfx::ImageSkia::CreateFromBitmap(bitmap, scale);
   gfx::Vector2d offset = cursor_offset_in_dip;
@@ -2985,9 +2978,10 @@ void RenderWidgetHostImpl::TextInputStateChanged(
 
 void RenderWidgetHostImpl::OnImeCompositionRangeChanged(
     const gfx::Range& range,
-    const std::vector<gfx::Rect>& character_bounds) {
+    const absl::optional<std::vector<gfx::Rect>>& character_bounds,
+    const absl::optional<std::vector<gfx::Rect>>& line_bounds) {
   if (view_) {
-    view_->ImeCompositionRangeChanged(range, character_bounds);
+    view_->ImeCompositionRangeChanged(range, character_bounds, line_bounds);
   }
 }
 
@@ -3685,6 +3679,10 @@ bool RenderWidgetHostImpl::HasGestureStopped() {
   }
 
   return true;
+}
+
+bool RenderWidgetHostImpl::IsHidden() const {
+  return is_hidden_;
 }
 
 void RenderWidgetHostImpl::DidProcessFrame(uint32_t frame_token,

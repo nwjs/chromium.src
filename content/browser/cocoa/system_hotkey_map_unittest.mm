@@ -7,15 +7,10 @@
 
 #include "base/files/file_path.h"
 #import "base/mac/foundation_util.h"
-#include "base/mac/scoped_nsobject.h"
 #include "base/path_service.h"
 #import "content/browser/cocoa/system_hotkey_map.h"
 #include "content/public/common/content_paths.h"
 #include "testing/gtest/include/gtest/gtest.h"
-
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
 
 namespace content {
 

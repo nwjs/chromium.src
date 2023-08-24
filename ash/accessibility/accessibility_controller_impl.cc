@@ -53,6 +53,7 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr_exclusion.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
@@ -74,6 +75,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notifier_id.h"
+#include "ui/strings/grit/ui_strings.h"
 #include "ui/wm/core/cursor_manager.h"
 
 using session_manager::SessionState;
@@ -87,7 +89,9 @@ using FeatureType = A11yFeatureType;
 struct FeatureData {
   FeatureType type;
   const char* pref;
-  const gfx::VectorIcon* icon;
+  // This field is not a raw_ptr<> because it was filtered by the rewriter
+  // for: #global-scope
+  RAW_PTR_EXCLUSION const gfx::VectorIcon* icon;
   FeatureType conflicting_feature = FeatureType::kNoConflictingFeature;
 };
 
@@ -111,7 +115,7 @@ const FeatureData kFeatures[] = {
      nullptr},
     {FeatureType::kDictation, prefs::kAccessibilityDictationEnabled,
      &kDictationMenuIcon},
-    {FeatureType::kColorCorrection, prefs::kAccessibilityColorFiltering,
+    {FeatureType::kColorCorrection, prefs::kAccessibilityColorCorrectionEnabled,
      &kColorCorrectionIcon},
     {FeatureType::kFocusHighlight, prefs::kAccessibilityFocusHighlightEnabled,
      nullptr, /* conflicting_feature= */ FeatureType::kSpokenFeedback},
@@ -202,7 +206,7 @@ constexpr const char* const kCopiedOnSigninAccessibilityPrefs[]{
     prefs::kAccessibilityChromeVoxVirtualBrailleColumns,
     prefs::kAccessibilityChromeVoxVirtualBrailleRows,
     prefs::kAccessibilityChromeVoxVoiceName,
-    prefs::kAccessibilityColorFiltering,
+    prefs::kAccessibilityColorCorrectionEnabled,
     prefs::kAccessibilityCursorHighlightEnabled,
     prefs::kAccessibilityCursorColorEnabled,
     prefs::kAccessibilityCursorColor,
@@ -812,7 +816,7 @@ void AccessibilityControllerImpl::Feature::UpdateFromPref() {
   PrefService* prefs = owner_->active_user_prefs_;
   DCHECK(prefs);
 
-  if (pref_name_ == prefs::kAccessibilityColorFiltering &&
+  if (pref_name_ == prefs::kAccessibilityColorCorrectionEnabled &&
       !::features::
           AreExperimentalAccessibilityColorEnhancementSettingsEnabled()) {
     return;
@@ -893,6 +897,7 @@ void AccessibilityControllerImpl::FeatureWithDialog::SetEnabledWithDialog(
     Shell::Get()->accessibility_controller()->ShowConfirmationDialog(
         l10n_util::GetStringUTF16(dialog_.title_resource_id),
         l10n_util::GetStringUTF16(dialog_.body_resource_id),
+        l10n_util::GetStringUTF16(IDS_APP_CANCEL),
         // Callback for if the user accepts the dialog
         base::BindOnce(
             [](base::WeakPtr<AccessibilityControllerImpl> owner,
@@ -1032,11 +1037,12 @@ void AccessibilityControllerImpl::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kShouldAlwaysShowAccessibilityMenu,
                                 false);
 
-  registry->RegisterBooleanPref(prefs::kAccessibilityColorFiltering, false);
+  registry->RegisterBooleanPref(prefs::kAccessibilityColorCorrectionEnabled,
+                                false);
   if (::features::
           AreExperimentalAccessibilityColorEnhancementSettingsEnabled()) {
     registry->RegisterBooleanPref(
-        prefs::kAccessibilityColorFilteringHasBeenSetup, false);
+        prefs::kAccessibilityColorCorrectionHasBeenSetup, false);
   }
 
   // TODO(b/266816160): Make ChromeVox prefs are syncable, to so that ChromeOS
@@ -1226,8 +1232,8 @@ void AccessibilityControllerImpl::RegisterProfilePrefs(
         prefs::kAccessibilityColorVisionCorrectionAmount, 100,
         user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
     registry->RegisterIntegerPref(
-        prefs::kAccessibilityColorVisionDeficiencyType,
-        ColorVisionDeficiencyType::kDeuteranomaly,
+        prefs::kAccessibilityColorVisionCorrectionType,
+        ColorVisionCorrectionType::kDeuteranomaly,
         user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
   }
 }
@@ -1789,6 +1795,96 @@ void AccessibilityControllerImpl::ToggleDictationFromSource(
   ToggleDictation();
 }
 
+void AccessibilityControllerImpl::EnableOrToggleDictationFromSource(
+    DictationToggleSource source) {
+  if (::features::IsAccessibilityDictationKeyboardImprovementsEnabled()) {
+    if (dictation().enabled()) {
+      ToggleDictationFromSource(source);
+    } else if (source == DictationToggleSource::kKeyboard) {
+      // Only allow direct-enabling of Dictation from the keyboard. Show the
+      // confirmation dialog if it hasn't been accepted yet.
+      if (active_user_prefs_->GetBoolean(
+              prefs::kDictationAcceleratorDialogHasBeenAccepted)) {
+        OnDictationKeyboardDialogAccepted();
+      } else {
+        ShowDictationKeyboardDialog();
+      }
+    }
+    return;
+  }
+
+  if (dictation().enabled()) {
+    // If Dictation keyboard improvements aren't enabled, then only allow
+    // Dictation to be toggled if Dictation is already enabled.
+    ToggleDictationFromSource(source);
+  }
+}
+
+void AccessibilityControllerImpl::ShowDictationKeyboardDialog() {
+  if (!::features::IsAccessibilityDictationKeyboardImprovementsEnabled() ||
+      !client_) {
+    return;
+  }
+
+  dictation_keyboard_dialog_showing_for_testing_ = true;
+
+  std::string dictation_locale;
+  if (active_user_prefs_->GetString(prefs::kAccessibilityDictationLocale)
+          .empty()) {
+    dictation_locale = client_->GetDictationDefaultLocale(/*new_user=*/true);
+  } else {
+    dictation_locale =
+        active_user_prefs_->GetString(prefs::kAccessibilityDictationLocale);
+  }
+
+  std::u16string display_locale = l10n_util::GetDisplayNameForLocale(
+      /*locale=*/dictation_locale, /*display_locale=*/dictation_locale,
+      /*is_for_ui=*/true);
+  std::vector<std::u16string> replacements{display_locale};
+  std::u16string title =
+      l10n_util::GetStringUTF16(IDS_ASH_DICTATION_KEYBOARD_DIALOG_TITLE);
+  std::u16string description =
+      ::features::IsDictationOfflineAvailable()
+          ? l10n_util::GetStringFUTF16(
+                IDS_ASH_DICTATION_KEYBOARD_DIALOG_DESCRIPTION_SODA_AVAILABLE,
+                replacements, nullptr)
+          : l10n_util::GetStringFUTF16(
+                IDS_ASH_DICTATION_KEYBOARD_DIALOG_DESCRIPTION_SODA_NOT_AVAILABLE,
+                replacements, nullptr);
+  ShowConfirmationDialog(
+      title, description, l10n_util::GetStringUTF16(IDS_APP_CANCEL),
+      base::BindOnce(
+          &AccessibilityControllerImpl::OnDictationKeyboardDialogAccepted,
+          GetWeakPtr()),
+      base::BindOnce(
+          &AccessibilityControllerImpl::OnDictationKeyboardDialogDismissed,
+          GetWeakPtr()),
+      base::BindOnce(
+          &AccessibilityControllerImpl::OnDictationKeyboardDialogDismissed,
+          GetWeakPtr()));
+}
+
+void AccessibilityControllerImpl::OnDictationKeyboardDialogAccepted() {
+  if (!::features::IsAccessibilityDictationKeyboardImprovementsEnabled()) {
+    return;
+  }
+
+  dictation_keyboard_dialog_showing_for_testing_ = false;
+  active_user_prefs_->SetBoolean(
+      prefs::kDictationAcceleratorDialogHasBeenAccepted, true);
+  confirmation_dialog_.reset();
+  base::RecordAction(base::UserMetricsAction("Accel_Enable_Dictation"));
+  dictation().SetEnabled(true);
+}
+
+void AccessibilityControllerImpl::OnDictationKeyboardDialogDismissed() {
+  if (!::features::IsAccessibilityDictationKeyboardImprovementsEnabled()) {
+    return;
+  }
+
+  dictation_keyboard_dialog_showing_for_testing_ = false;
+}
+
 void AccessibilityControllerImpl::ShowDictationLanguageUpgradedNudge(
     const std::string& dictation_locale,
     const std::string& application_locale) {
@@ -2064,12 +2160,12 @@ void AccessibilityControllerImpl::ObservePrefs(PrefService* prefs) {
     pref_change_registrar_->Add(
         prefs::kAccessibilityColorVisionCorrectionAmount,
         base::BindRepeating(
-            &AccessibilityControllerImpl::UpdateColorFilteringFromPrefs,
+            &AccessibilityControllerImpl::UpdateColorCorrectionFromPrefs,
             base::Unretained(this)));
     pref_change_registrar_->Add(
-        prefs::kAccessibilityColorVisionDeficiencyType,
+        prefs::kAccessibilityColorVisionCorrectionType,
         base::BindRepeating(
-            &AccessibilityControllerImpl::UpdateColorFilteringFromPrefs,
+            &AccessibilityControllerImpl::UpdateColorCorrectionFromPrefs,
             base::Unretained(this)));
   }
 
@@ -2090,7 +2186,7 @@ void AccessibilityControllerImpl::ObservePrefs(PrefService* prefs) {
   UpdateShortcutsEnabledFromPref();
   UpdateTabletModeShelfNavigationButtonsFromPref();
   if (color_enhancement_feature_enabled) {
-    UpdateColorFilteringFromPrefs();
+    UpdateColorCorrectionFromPrefs();
   }
 }
 
@@ -2263,14 +2359,15 @@ void AccessibilityControllerImpl::UpdateCursorColorFromPrefs() {
   shell->UpdateCursorCompositingEnabled();
 }
 
-void AccessibilityControllerImpl::UpdateColorFilteringFromPrefs() {
+void AccessibilityControllerImpl::UpdateColorCorrectionFromPrefs() {
   DCHECK(active_user_prefs_);
 
   auto* color_enhancement_controller =
       Shell::Get()->color_enhancement_controller();
 
-  if (!active_user_prefs_->GetBoolean(prefs::kAccessibilityColorFiltering)) {
-    color_enhancement_controller->SetColorFilteringEnabledAndUpdateDisplays(
+  if (!active_user_prefs_->GetBoolean(
+          prefs::kAccessibilityColorCorrectionEnabled)) {
+    color_enhancement_controller->SetColorCorrectionEnabledAndUpdateDisplays(
         false);
     return;
   }
@@ -2279,14 +2376,15 @@ void AccessibilityControllerImpl::UpdateColorFilteringFromPrefs() {
       active_user_prefs_->GetInteger(
           prefs::kAccessibilityColorVisionCorrectionAmount) /
       100.0f;
-  ColorVisionDeficiencyType type =
-      static_cast<ColorVisionDeficiencyType>(active_user_prefs_->GetInteger(
-          prefs::kAccessibilityColorVisionDeficiencyType));
+  ColorVisionCorrectionType type =
+      static_cast<ColorVisionCorrectionType>(active_user_prefs_->GetInteger(
+          prefs::kAccessibilityColorVisionCorrectionType));
   color_enhancement_controller->SetColorVisionCorrectionFilter(
       type, cvd_correction_amount);
 
   // Ensure displays get updated.
-  color_enhancement_controller->SetColorFilteringEnabledAndUpdateDisplays(true);
+  color_enhancement_controller->SetColorCorrectionEnabledAndUpdateDisplays(
+      true);
 }
 
 void AccessibilityControllerImpl::UpdateAccessibilityHighlightingFromPrefs() {
@@ -2555,6 +2653,7 @@ void AccessibilityControllerImpl::EnableChromeVoxVolumeSlideGesture() {
 void AccessibilityControllerImpl::ShowConfirmationDialog(
     const std::u16string& title,
     const std::u16string& description,
+    const std::u16string& cancel_name,
     base::OnceClosure on_accept_callback,
     base::OnceClosure on_cancel_callback,
     base::OnceClosure on_close_callback) {
@@ -2567,7 +2666,7 @@ void AccessibilityControllerImpl::ShowConfirmationDialog(
     return;
   }
   auto* dialog = new AccessibilityConfirmationDialog(
-      title, description, std::move(on_accept_callback),
+      title, description, cancel_name, std::move(on_accept_callback),
       std::move(on_cancel_callback), std::move(on_close_callback));
   // Save the dialog so it doesn't go out of scope before it is
   // used and closed.
@@ -2733,15 +2832,15 @@ void AccessibilityControllerImpl::UpdateFeatureFromPref(FeatureType feature) {
       break;
     case FeatureType::kColorCorrection:
       if (enabled && !active_user_prefs_->GetBoolean(
-                         prefs::kAccessibilityColorFilteringHasBeenSetup)) {
+                         prefs::kAccessibilityColorCorrectionHasBeenSetup)) {
         Shell::Get()
             ->system_tray_model()
             ->client()
             ->ShowColorCorrectionSettings();
         active_user_prefs_->SetBoolean(
-            prefs::kAccessibilityColorFilteringHasBeenSetup, true);
+            prefs::kAccessibilityColorCorrectionHasBeenSetup, true);
       }
-      UpdateColorFilteringFromPrefs();
+      UpdateColorCorrectionFromPrefs();
       break;
     case FeatureType::kFeatureCount:
     case FeatureType::kNoConflictingFeature:

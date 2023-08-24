@@ -4,8 +4,6 @@
 
 #include "components/password_manager/core/browser/votes_uploader.h"
 
-#include <ctype.h>
-
 #include <iostream>
 #include <utility>
 
@@ -15,6 +13,7 @@
 #include "base/metrics/histogram_macros.h"
 #include "base/rand_util.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_download_manager.h"
@@ -27,7 +26,6 @@
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/password_manager/core/browser/browser_save_password_progress_logger.h"
-#include "components/password_manager/core/browser/field_info_manager.h"
 #include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -164,8 +162,17 @@ bool IsAddingUsernameToExistingMatch(
   if (credentials.username_value.empty())
     return false;
   const PasswordForm* match = FindFormByUsername(matches, std::u16string());
-  return match && !match->is_public_suffix_match &&
-         match->password_value == credentials.password_value;
+
+  if (!match) {
+    return false;
+  }
+
+  if (password_manager_util::GetMatchType(*match) ==
+      password_manager_util::GetLoginMatchType::kPSL) {
+    return false;
+  }
+
+  return match->password_value == credentials.password_value;
 }
 
 // Returns a uniformly distributed random symbol from the set of random symbols
@@ -333,9 +340,9 @@ void VotesUploader::SendVotesOnSave(
     UploadPasswordVote(*pending_credentials, submitted_form, autofill::PASSWORD,
                        std::string());
     if (username_correction_vote_) {
-      UploadPasswordVote(*username_correction_vote_, submitted_form,
-                         autofill::USERNAME,
-                         FormStructure(observed).FormSignatureAsStr());
+      UploadPasswordVote(
+          *username_correction_vote_, submitted_form, autofill::USERNAME,
+          base::NumberToString(*autofill::CalculateFormSignature(observed)));
       username_correction_vote_.reset();
     }
   } else {
@@ -610,10 +617,6 @@ void VotesUploader::MaybeSendSingleUsernameVote() {
   if (!single_username_vote_data_)
     return;
 
-  FieldInfoManager* field_info_manager = client_->GetFieldInfoManager();
-  if (!field_info_manager)
-    return;
-
   const FormPredictions& predictions =
       single_username_vote_data_->form_predictions;
   std::vector<FieldSignature> field_signatures;
@@ -634,12 +637,6 @@ void VotesUploader::MaybeSendSingleUsernameVote() {
     if (field_renderer_id != single_username_vote_data_->renderer_id) {
       field->set_possible_types({autofill::UNKNOWN_TYPE});
       continue;
-    }
-    if (field_info_manager->GetFieldType(predictions.form_signature,
-                                         predictions.fields[i].signature) !=
-        autofill::UNKNOWN_TYPE) {
-      // The vote for this field has been already sent. Don't send again.
-      break;
     }
     if (!SetSingleUsernameVoteOnUsernameForm(field, &available_field_types,
                                              predictions.form_signature)) {
@@ -899,15 +896,6 @@ bool VotesUploader::StartUploadRequest(
       nullptr);
 }
 
-void VotesUploader::SaveFieldVote(FormSignature form_signature,
-                                  FieldSignature field_signature,
-                                  autofill::ServerFieldType field_type) {
-  FieldInfoManager* field_info_manager = client_->GetFieldInfoManager();
-  if (!field_info_manager)
-    return;
-  field_info_manager->AddFieldType(form_signature, field_signature, field_type);
-}
-
 bool VotesUploader::SetSingleUsernameVoteOnUsernameForm(
     AutofillField* field,
     ServerFieldTypeSet* available_field_types,
@@ -943,7 +931,6 @@ bool VotesUploader::SetSingleUsernameVoteOnUsernameForm(
 #endif  // !BUILDFLAG(IS_ANDROID)
   }
   available_field_types->insert(type);
-  SaveFieldVote(form_signature, field->GetFieldSignature(), type);
   field->set_possible_types({type});
   field->set_single_username_vote_type(vote_type);
   return true;

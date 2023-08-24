@@ -26,6 +26,7 @@
 #include "chrome/browser/prefs/incognito_mode_prefs.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/chrome_pages.h"
@@ -55,6 +56,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/sync/test/test_sync_service.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/browser/translate_manager.h"
 #include "content/public/browser/global_routing_id.h"
@@ -79,7 +81,7 @@
 #include "chrome/browser/chromeos/policy/dlp/dlp_policy_constants.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_impl.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_test_utils.h"
+#include "chrome/browser/chromeos/policy/dlp/test/dlp_rules_manager_test_utils.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -89,6 +91,7 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "chromeos/ash/components/standalone_browser/feature_refs.h"
 #include "components/account_id/account_id.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/scoped_user_manager.h"
@@ -478,11 +481,7 @@ using RenderViewContextMenuDeveloperItemsTest = ChromeRenderViewHostTestHarness;
 TEST_F(RenderViewContextMenuDeveloperItemsTest,
        DeveloperItemsAreNotPresentByDefaultIfAshBrowserIsDisabled) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {ash::features::kLacrosSupport, ash::features::kLacrosPrimary,
-       ash::features::kLacrosOnly,
-       ash::features::kLacrosProfileMigrationForceOff},
-      {});
+  features.InitWithFeatures(ash::standalone_browser::GetFeatureRefs(), {});
 
   auto fake_user_manager = std::make_unique<user_manager::FakeUserManager>();
   auto* primary_user =
@@ -511,12 +510,10 @@ TEST_F(RenderViewContextMenuDeveloperItemsTest,
 TEST_F(RenderViewContextMenuDeveloperItemsTest,
        DeveloperItemsArePresentIfAshBrowserIsDisabledAndFlagIsEnabled) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {ash::features::kLacrosSupport, ash::features::kLacrosPrimary,
-       ash::features::kLacrosOnly,
-       ash::features::kLacrosProfileMigrationForceOff,
-       ash::features::kAllowDevtoolsInSystemUI},
-      {});
+  std::vector<base::test::FeatureRef> enabled =
+      ash::standalone_browser::GetFeatureRefs();
+  enabled.push_back(ash::features::kAllowDevtoolsInSystemUI);
+  features.InitWithFeatures(enabled, {});
 
   auto fake_user_manager = std::make_unique<user_manager::FakeUserManager>();
   auto* primary_user =
@@ -572,6 +569,12 @@ class RenderViewContextMenuPrefsTest : public ChromeRenderViewHostTestHarness {
         base::BindRepeating(&password_manager::BuildPasswordStoreInterface<
                             content::BrowserContext,
                             password_manager::MockPasswordStoreInterface>));
+    SyncServiceFactory::GetInstance()->SetTestingFactory(
+        GetBrowserContext(),
+        base::BindRepeating([](content::BrowserContext* context)
+                                -> std::unique_ptr<KeyedService> {
+          return std::make_unique<syncer::TestSyncService>();
+        }));
   }
 
   void TearDown() override {
@@ -891,7 +894,12 @@ TEST_F(RenderViewContextMenuPrefsTest,
   std::unique_ptr<TestRenderViewContextMenu> menu(
       CreateContextMenuOnChromeLink());
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // We hide the item for links to WebUI.
+#else
   ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD));
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
   EXPECT_FALSE(
       menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD));
 }
@@ -1131,62 +1139,6 @@ TEST_F(RenderViewContextMenuPrefsTest, FollowOrUnfollow) {
   }
 }
 
-class RenderViewContextMenuAutofillTest
-    : public RenderViewContextMenuPrefsTest,
-      public testing::WithParamInterface<bool> {
- public:
-  RenderViewContextMenuAutofillTest() = default;
-
-  void SetUp() override {
-    RenderViewContextMenuPrefsTest::SetUp();
-    if (IsIncognito()) {
-      SetContents(content::WebContentsTester::CreateTestWebContents(
-          profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true), nullptr));
-    }
-  }
-
- protected:
-  // Returns true if the test needs to run in incognito mode.
-  bool IsIncognito() const { return GetParam(); }
-
-  autofill::TestContentAutofillClient* autofill_client() {
-    return autofill_client_injector_[web_contents()];
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_{
-      autofill::features::kAutofillShowManualFallbackInContextMenu};
-  autofill::TestAutofillClientInjector<autofill::TestContentAutofillClient>
-      autofill_client_injector_;
-};
-
-// Verify that Autofill context menu items are displayed on a plain text field.
-TEST_P(RenderViewContextMenuAutofillTest, ShowAutofillOptions) {
-  autofill::PersonalDataManager* pdm =
-      autofill::PersonalDataManagerFactory::GetForProfile(
-          profile()->GetOriginalProfile());
-  DCHECK(pdm);
-  pdm->AddServerCreditCardForTest(
-      std::make_unique<autofill::CreditCard>(autofill::test::GetCreditCard()));
-
-  NavigateAndCommit(GURL("http://www.foo.com/"));
-  content::ContextMenuParams params = CreateParams(MenuItem::EDITABLE);
-  params.input_field_type =
-      blink::mojom::ContextMenuDataInputFieldType::kPlainText;
-
-  auto menu = std::make_unique<TestRenderViewContextMenu>(
-      *web_contents()->GetPrimaryMainFrame(), params);
-  menu->Init();
-
-  EXPECT_TRUE(
-      menu->IsItemInRangePresent(IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_FIRST,
-                                 IDC_CONTENT_CONTEXT_AUTOFILL_CUSTOM_LAST));
-}
-
-INSTANTIATE_TEST_SUITE_P(AutofillContextMenuTest,
-                         RenderViewContextMenuAutofillTest,
-                         testing::Bool());
-
 class RenderViewContextMenuHideAutofillPopupTest
     : public RenderViewContextMenuPrefsTest {
  public:
@@ -1289,12 +1241,12 @@ TEST_F(RenderViewContextMenuPrefsTest, LensImageSearchEnabled) {
 TEST_F(RenderViewContextMenuPrefsTest,
        LensImageSearchDisabledIfAshBrowserIsDisabled) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {lens::features::kLensStandalone, lens::features::kEnableImageTranslate,
-       ash::features::kLacrosSupport, ash::features::kLacrosPrimary,
-       ash::features::kLacrosOnly,
-       ash::features::kLacrosProfileMigrationForceOff},
-      {});
+  std::vector<base::test::FeatureRef> enabled =
+      ash::standalone_browser::GetFeatureRefs();
+  enabled.push_back(lens::features::kLensStandalone);
+  enabled.push_back(lens::features::kEnableImageTranslate);
+  features.InitWithFeatures(enabled, {});
+
   auto fake_user_manager = std::make_unique<user_manager::FakeUserManager>();
   auto* primary_user =
       fake_user_manager->AddUser(AccountId::FromUserEmail("test@test"));
@@ -1509,11 +1461,11 @@ TEST_F(RenderViewContextMenuPrefsTest, LensRegionSearch) {
 TEST_F(RenderViewContextMenuPrefsTest,
        LensRegionSearchDisabledIfAshBrowserIsDisabled) {
   base::test::ScopedFeatureList features;
-  features.InitWithFeatures(
-      {lens::features::kLensStandalone, ash::features::kLacrosSupport,
-       ash::features::kLacrosPrimary, ash::features::kLacrosOnly,
-       ash::features::kLacrosProfileMigrationForceOff},
-      {});
+  std::vector<base::test::FeatureRef> enabled =
+      ash::standalone_browser::GetFeatureRefs();
+  enabled.push_back(lens::features::kLensStandalone);
+  features.InitWithFeatures(enabled, {});
+
   auto fake_user_manager = std::make_unique<user_manager::FakeUserManager>();
   auto* primary_user =
       fake_user_manager->AddUser(AccountId::FromUserEmail("test@test"));

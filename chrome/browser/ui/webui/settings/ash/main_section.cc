@@ -199,6 +199,10 @@ void MainSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       "entryPointEnumSize",
       static_cast<int>(PersonalizationEntryPoint::kMaxValue) + 1);
 
+  html_source->AddString(
+      "chromeRefresh2023Attribute",
+      features::IsOsSettingsTestChromeRefresh() ? "chrome-refresh-2023" : "");
+
   AddSearchInSettingsStrings(html_source);
   AddChromeOSUserStrings(html_source);
   AddUpdateRequiredEolStrings(html_source);
@@ -235,9 +239,9 @@ mojom::SearchResultIcon MainSection::GetSectionIcon() const {
   return mojom::SearchResultIcon::kMinValue;
 }
 
-std::string MainSection::GetSectionPath() const {
+const char* MainSection::GetSectionPath() const {
   NOTIMPLEMENTED();
-  return std::string();
+  return "";
 }
 
 bool MainSection::LogMetric(mojom::Setting setting, base::Value& value) const {

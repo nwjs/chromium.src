@@ -297,6 +297,8 @@ void GridItemData::ComputeSetIndices(
   DCHECK(!IsOutOfFlow());
 
   const auto track_direction = track_collection.Direction();
+  DCHECK(MustCachePlacementIndices(track_direction));
+
   auto& range_indices = RangeIndices(track_direction);
 
 #if DCHECK_IS_ON()
@@ -404,6 +406,13 @@ void GridItemData::ComputeOutOfFlowItemPlacement(
                      : 0;
       end_offset -= track_collection.RangeStartLine(end_range_index);
     }
+  }
+}
+
+GridItems::GridItems(const GridItems& other) {
+  item_data_.ReserveInitialCapacity(other.item_data_.size());
+  for (const auto& grid_item : other.item_data_) {
+    item_data_.emplace_back(std::make_unique<GridItemData>(*grid_item));
   }
 }
 

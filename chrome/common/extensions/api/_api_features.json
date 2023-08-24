@@ -530,10 +530,6 @@
     "dependencies": ["permission:identity"],
     "contexts": ["blessed_extension"]
   },
-  "identityPrivate": {
-    "dependencies": ["permission:identityPrivate"],
-    "contexts": ["blessed_extension"]
-  },
   "idltest": {
     "dependencies": ["permission:idltest"],
     "contexts": ["blessed_extension"]
@@ -703,6 +699,11 @@
       "chrome://oobe/*"
     ],
     "platforms": ["chromeos", "lacros"]
+  },
+  "readingList": {
+    "dependencies": ["permission:readingList"],
+    "contexts": ["blessed_extension"],
+    "feature_flag": "ApiReadingList"
   },
   "resourcesPrivate": [{
     "dependencies": ["permission:resourcesPrivate"],

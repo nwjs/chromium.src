@@ -27,10 +27,6 @@
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/platform_test.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 // Test cases for the TwoScreensSigninCoordinator.
 class TwoScreensSigninCoordinatorTest : public PlatformTest {
  public:
@@ -60,6 +56,8 @@ class TwoScreensSigninCoordinatorTest : public PlatformTest {
                        promoAction:signin_metrics::PromoAction::
                                        PROMO_ACTION_NO_SIGNIN_PROMO];
   }
+
+  ~TwoScreensSigninCoordinatorTest() override { [coordinator_ stop]; }
 
   // Returns the presentedViewController.
   UIViewController* PresentedViewController() {
@@ -140,15 +138,15 @@ TEST_F(TwoScreensSigninCoordinatorTest, PresentScreens) {
   // Shut it down.
   __block BOOL interrupt_completion_done = NO;
   [coordinator_
-      interruptWithAction:SigninCoordinatorInterruptActionDismissWithAnimation
+      interruptWithAction:SigninCoordinatorInterrupt::DismissWithAnimation
                completion:^{
                  interrupt_completion_done = YES;
                }];
   auto completion_condition = ^{
     return completion_block_done && interrupt_completion_done;
   };
-  base::test::ios::WaitUntilCondition(completion_condition, true,
-                                      base::Seconds(1));
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::Seconds(1), true, completion_condition));
   EXPECT_EQ(signin_result, SigninCoordinatorResultInterrupted);
   EXPECT_EQ(signin_completion_info.identity, nil);
   EXPECT_EQ(signin_completion_info.signinCompletionAction,
@@ -201,8 +199,8 @@ TEST_F(TwoScreensSigninCoordinatorTest, CanceledByUser) {
   auto completion_condition = ^{
     return completion_block_done;
   };
-  base::test::ios::WaitUntilCondition(completion_condition, true,
-                                      base::Seconds(1));
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::Seconds(1), true, completion_condition));
   EXPECT_EQ(signin_result, SigninCoordinatorResultCanceledByUser);
   EXPECT_EQ(signin_completion_info.identity, nil);
   EXPECT_EQ(signin_completion_info.signinCompletionAction,
@@ -235,8 +233,8 @@ TEST_F(TwoScreensSigninCoordinatorTest, SwipeToDismiss) {
   auto completion_condition = ^{
     return completion_block_done;
   };
-  base::test::ios::WaitUntilCondition(completion_condition, true,
-                                      base::Seconds(1));
+  ASSERT_TRUE(base::test::ios::WaitUntilConditionOrTimeout(
+      base::Seconds(1), true, completion_condition));
   EXPECT_EQ(signin_result, SigninCoordinatorResultInterrupted);
   EXPECT_EQ(signin_completion_info.identity, nil);
   EXPECT_EQ(signin_completion_info.signinCompletionAction,

@@ -113,7 +113,8 @@ UserInfo TranslateCachedCard(const CachedServerCardInfo* data, bool enabled) {
 }
 
 bool ShouldCreateVirtualCard(const CreditCard* card) {
-  return card->virtual_card_enrollment_state() == CreditCard::ENROLLED;
+  return card->virtual_card_enrollment_state() ==
+         CreditCard::VirtualCardEnrollmentState::kEnrolled;
 }
 
 const CreditCard* UnwrapCardOrVirtualCard(
@@ -274,14 +275,13 @@ bool CreditCardAccessoryController::AllowedForWebContents(
     Profile* profile =
         Profile::FromBrowserContext(web_contents->GetBrowserContext());
     PersonalDataManager* personal_data_manager =
-        PersonalDataManagerFactory::GetForProfile(
-            profile->GetOriginalProfile());
+        PersonalDataManagerFactory::GetForProfile(profile);
     if (personal_data_manager) {
       std::vector<CreditCard*> cards =
           personal_data_manager->GetCreditCardsToSuggest();
       bool has_virtual_card = base::ranges::any_of(cards, [](const auto& card) {
         return card->virtual_card_enrollment_state() ==
-               CreditCard::VirtualCardEnrollmentState::ENROLLED;
+               CreditCard::VirtualCardEnrollmentState::kEnrolled;
       });
       if (has_virtual_card) {
         // Virtual cards are available. We should always show manual fallback
@@ -291,9 +291,7 @@ bool CreditCardAccessoryController::AllowedForWebContents(
     }
   }
 
-  // For non-virtual cards show the credit card accessory sheet only
-  // when both keyboard accessory and manual fallback flags are enabled.
-  return features::IsAutofillManualFallbackEnabled();
+  return true;
 }
 
 // static
@@ -422,14 +420,8 @@ CreditCardAccessoryControllerImpl::GetUnmaskedCreditCards() const {
     return std::vector<const CachedServerCardInfo*>();
   std::vector<const CachedServerCardInfo*> unmasked_cards =
       autofill_manager->GetCreditCardAccessManager()->GetCachedUnmaskedCards();
-  // If the feature to show unmasked cards in manual filling view is
-  // enabled, show all cards in the view. Even if not, still show
-  // virtual cards in the manual filling view if they exist. All other cards
-  // are dropped.
-  if (base::FeatureList::IsEnabled(
-          features::kAutofillShowUnmaskedCachedCardInManualFillingView)) {
-    return unmasked_cards;
-  }
+  // Show unmasked virtual cards in the manual filling view if they exist. All
+  // other cards are dropped.
   auto not_virtual_card = [](const CachedServerCardInfo* card_info) {
     return card_info->card.record_type() != CreditCard::VIRTUAL_CARD;
   };
@@ -446,7 +438,7 @@ CreditCardAccessoryControllerImpl::GetPromoCodeOffers() const {
 
   return personal_data_manager_->GetActiveAutofillPromoCodeOffersForOrigin(
       autofill_manager->client()
-          ->GetLastCommittedPrimaryMainFrameURL()
+          .GetLastCommittedPrimaryMainFrameURL()
           .DeprecatedGetOriginAsURL());
 }
 

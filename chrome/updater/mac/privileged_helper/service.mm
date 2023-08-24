@@ -36,10 +36,6 @@
 #include "chrome/updater/updater_branding.h"
 #include "chrome/updater/util/util.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 @interface PrivilegedHelperServiceImpl
     : NSObject <PrivilegedHelperServiceProtocol> {
   raw_ptr<updater::PrivilegedHelperService> _service;
@@ -219,9 +215,7 @@ bool VerifyUpdaterSignature(const base::FilePath& updater_app_bundle) {
   return true;
 }
 
-PrivilegedHelperService::PrivilegedHelperService()
-    : main_task_runner_(base::SequencedTaskRunner::GetCurrentDefault()) {}
-
+PrivilegedHelperService::PrivilegedHelperService() = default;
 PrivilegedHelperService::~PrivilegedHelperService() = default;
 
 void PrivilegedHelperService::SetupSystemUpdater(

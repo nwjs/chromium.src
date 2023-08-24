@@ -37,10 +37,6 @@
 #include "device/bluetooth/bluetooth_socket_mac.h"
 #include "device/bluetooth/public/cpp/bluetooth_address.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 extern "C" {
 // Undocumented IOBluetooth Preference API [1]. Used by `blueutil` [2] and
 // `Karabiner` [3] to programmatically control the Bluetooth state. Calling the
@@ -164,21 +160,15 @@ bool BluetoothAdapterMac::IsPresent() const {
 
 BluetoothAdapter::PermissionStatus BluetoothAdapterMac::GetOsPermissionStatus()
     const {
-  if (@available(macOS 10.15.0, *)) {
-    switch (CBCentralManager.authorization) {
-      case CBManagerAuthorizationNotDetermined:
-        return PermissionStatus::kUndetermined;
-      case CBManagerAuthorizationRestricted:
-      case CBManagerAuthorizationDenied:
-        return PermissionStatus::kDenied;
-      case CBManagerAuthorizationAllowedAlways:
-        return PermissionStatus::kAllowed;
-    }
+  switch (CBCentralManager.authorization) {
+    case CBManagerAuthorizationNotDetermined:
+      return PermissionStatus::kUndetermined;
+    case CBManagerAuthorizationRestricted:
+    case CBManagerAuthorizationDenied:
+      return PermissionStatus::kDenied;
+    case CBManagerAuthorizationAllowedAlways:
+      return PermissionStatus::kAllowed;
   }
-
-  // There are no Core Bluetooth permissions before macOS 10.15 so assume we
-  // always have permission.
-  return PermissionStatus::kAllowed;
 }
 
 bool BluetoothAdapterMac::IsPowered() const {

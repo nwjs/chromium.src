@@ -12,6 +12,7 @@
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
+#include "base/containers/contains.h"
 #include "base/containers/flat_map.h"
 #include "base/debug/alias.h"
 #include "base/debug/asan_invalid_access.h"
@@ -612,7 +613,6 @@ WebFrameLoadType NavigationTypeToLoadType(
     bool should_replace_current_entry) {
   switch (navigation_type) {
     case blink::mojom::NavigationType::RELOAD:
-    case blink::mojom::NavigationType::RELOAD_ORIGINAL_REQUEST_URL:
       return WebFrameLoadType::kReload;
 
     case blink::mojom::NavigationType::RELOAD_BYPASSING_CACHE:
@@ -857,9 +857,6 @@ std::unique_ptr<DocumentState> BuildDocumentStateFromParams(
 
   document_state->set_is_overriding_user_agent(
       commit_params.is_overriding_user_agent);
-  document_state->set_must_reset_scroll_and_scale_state(
-      common_params.navigation_type ==
-      blink::mojom::NavigationType::RELOAD_ORIGINAL_REQUEST_URL);
   document_state->set_request_id(request_id);
 
   // If this is a loadDataWithBaseURL request, save the commit URL so that we
@@ -1288,7 +1285,6 @@ class RenderFrameImpl::MHTMLBodyLoaderClient
                            int64_t total_encoded_data_length,
                            int64_t total_encoded_body_length,
                            int64_t total_decoded_body_length,
-                           bool should_report_corb_blocking,
                            const absl::optional<WebURLError>& error) override {
     committing_ = true;
     AssertNavigationCommits assert_navigation_commits(frame_);
@@ -1509,7 +1505,12 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
   web_frame_widget->ApplyVisualProperties(
       params->widget_params->visual_properties);
 
+  CHECK(!render_frame->in_frame_tree_);
   render_frame->in_frame_tree_ = true;
+#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+      (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
+  render_frame->added_to_frame_tree_stack_trace_.emplace();
+#endif
   render_frame->Initialize(nullptr);
 
   if (params->subresource_loader_factories
@@ -1617,7 +1618,12 @@ void RenderFrameImpl::CreateFrame(
 
     // The RenderFrame is created and inserted into the frame tree in the above
     // call to createLocalChild.
+    CHECK(!render_frame->in_frame_tree_);
     render_frame->in_frame_tree_ = true;
+#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+      (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
+    render_frame->added_to_frame_tree_stack_trace_.emplace();
+#endif
   } else {
     WebFrame* previous_web_frame =
         WebFrame::FromFrameToken(previous_frame_token.value());
@@ -2127,7 +2133,9 @@ void RenderFrameImpl::Unload(
   task_runner->PostTask(FROM_HERE, std::move(send_unload_ack));
 }
 
-void RenderFrameImpl::Delete(mojom::FrameDeleteIntention intent) {
+void RenderFrameImpl::Delete(
+    mojom::FrameDeleteIntention intent,
+    mojo::PendingRemote<mojom::DebugHelperForCrbug1425281> helper) {
   TRACE_EVENT(
       "navigation", "RenderFrameImpl::Delete", [&](perfetto::EventContext ctx) {
         auto* event = ctx.event<perfetto::protos::pbzero::ChromeTrackEvent>();
@@ -2171,11 +2179,32 @@ void RenderFrameImpl::Delete(mojom::FrameDeleteIntention intent) {
       // main frame when a commit (and ownership transfer) is imminent.
       // TODO(dcheng): This is the case of https://crbug.com/838348.
       DCHECK(is_main_frame_);
-#if !BUILDFLAG(IS_ANDROID)
-      // This check is not enabled on Android, since it seems like it's much
-      // easier to trigger data races there.
-      CHECK(!in_frame_tree_);
-#endif  // !BUILDFLAG(IS_ANDROID)
+      if (in_frame_tree_) {
+        // This remote should always be non-null when intent ==
+        // kSpeculativeMainFrameForNavigationCancelled.
+        mojo::Remote<mojom::DebugHelperForCrbug1425281> helper_remote(
+            std::move(helper));
+        size_t addresses_count = 0;
+        const void* const* addresses_ptr =
+            added_to_frame_tree_stack_trace_
+                ? added_to_frame_tree_stack_trace_->Addresses(&addresses_count)
+                : nullptr;
+        absl::optional<std::vector<uint64_t>> addresses;
+        if (addresses_ptr) {
+          addresses.emplace();
+          addresses->reserve(addresses_count);
+          for (size_t i = 0; i < addresses_count; ++i) {
+            addresses->push_back(reinterpret_cast<uintptr_t>(addresses_ptr[i]));
+          }
+        }
+        auto debug_info = mojom::Crbug1425281DebugInfo::New(
+            addresses, is_main_frame_, frame_->IsProvisional());
+        helper_remote->Failed(std::move(debug_info));
+        helper_remote.reset();
+      } else {
+        // No need to signal anything; only failure is signalled.
+        helper.reset();
+      }
       break;
   }
 
@@ -2254,13 +2283,14 @@ void RenderFrameImpl::DidMeaningfulLayout(
 
 void RenderFrameImpl::DidCommitAndDrawCompositorFrame() {
 #if BUILDFLAG(ENABLE_PPAPI)
-  // Notify all instances that we painted.  The same caveats apply as for
+  // Notify all instances that we painted. The same caveats apply as for
   // ViewFlushedPaint regarding instances closing themselves, so we take
   // similar precautions.
   PepperPluginSet plugins = active_pepper_instances_;
   for (auto* plugin : plugins) {
-    if (active_pepper_instances_.find(plugin) != active_pepper_instances_.end())
+    if (base::Contains(active_pepper_instances_, plugin)) {
       plugin->ViewInitiatedPaint();
+    }
   }
 #endif
 }
@@ -2782,16 +2812,17 @@ void RenderFrameImpl::CommitNavigationWithParams(
   if (commit_params->is_view_source)
     frame_->EnableViewSourceMode(true);
 
-  if (commit_params->not_restored_reasons) {
+  if (frame_->IsOutermostMainFrame()) {
     // Save the Back/Forward Cache NotRestoredReasons struct to WebLocalFrame to
     // report for PerformanceNavigationTiming API.
     frame_->SetNotRestoredReasons(
         std::move(commit_params->not_restored_reasons));
+  } else {
+    // NotRestoredReasons are only set for the outermost main frame.
+    CHECK(!commit_params->not_restored_reasons);
   }
 
-  if (commit_params->lcpp_hint) {
-    frame_->SetLCPPHint(std::move(commit_params->lcpp_hint));
-  }
+  frame_->SetLCPPHint(std::move(commit_params->lcpp_hint));
 
   // Note: this intentionally does not call |Detach()| before |reset()|. If
   // there is an active |MHTMLBodyLoaderClient|, the browser-side navigation
@@ -3555,7 +3586,12 @@ blink::WebLocalFrame* RenderFrameImpl::CreateChildFrame(
       child_render_frame->blink_interface_registry_.get(), frame_token);
   finish_creation(web_frame, document_token);
 
+  CHECK(!child_render_frame->in_frame_tree_);
   child_render_frame->in_frame_tree_ = true;
+#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+      (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
+  child_render_frame->added_to_frame_tree_stack_trace_.emplace();
+#endif
   child_render_frame->Initialize(/*parent=*/GetWebFrame());
 
   return web_frame;
@@ -4164,7 +4200,7 @@ base::UnguessableToken RenderFrameImpl::GetDevToolsFrameToken() {
 
 void RenderFrameImpl::AbortClientNavigation() {
   CHECK(in_frame_tree_);
-  browser_side_navigation_pending_ = false;
+  is_requesting_navigation_ = false;
   if (mhtml_body_loader_client_) {
     mhtml_body_loader_client_->Detach();
     mhtml_body_loader_client_.reset();
@@ -4581,7 +4617,7 @@ void RenderFrameImpl::RemoveObserver(RenderFrameObserver* observer) {
 }
 
 void RenderFrameImpl::OnDroppedNavigation() {
-  browser_side_navigation_pending_ = false;
+  is_requesting_navigation_ = false;
   frame_->DidDropNavigation();
 }
 
@@ -4872,10 +4908,6 @@ void RenderFrameImpl::UpdateStateForCommit(
 
   UpdateNavigationHistory(commit_type);
 
-  if (document_state->must_reset_scroll_and_scale_state()) {
-    GetWebView()->ResetScrollAndScaleState();
-    document_state->set_must_reset_scroll_and_scale_state(false);
-  }
   if (!frame_->Parent()) {  // Only for top frames.
     RenderThreadImpl* render_thread_impl = RenderThreadImpl::current();
     if (render_thread_impl) {  // Can be NULL in tests.
@@ -4973,7 +5005,7 @@ void RenderFrameImpl::DidCommitNavigationInternal(
 void RenderFrameImpl::PrepareFrameForCommit(
     const GURL& url,
     const blink::mojom::CommitNavigationParams& commit_params) {
-  browser_side_navigation_pending_ = false;
+  is_requesting_navigation_ = false;
   GetContentClient()->SetActiveURL(
       url, frame_->Top()->GetSecurityOrigin().ToString().Utf8());
 
@@ -5068,7 +5100,12 @@ bool RenderFrameImpl::SwapIn(WebFrame* previous_web_frame) {
 
   // `previous_web_frame` is now detached, and should no longer be referenced.
 
+  CHECK(!in_frame_tree_);
   in_frame_tree_ = true;
+#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+      (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
+  added_to_frame_tree_stack_trace_.emplace();
+#endif
 
   // If this is the main frame going from a remote frame to a local frame,
   // it needs to set RenderViewImpl's pointer for the main frame to itself.
@@ -5571,7 +5608,8 @@ void RenderFrameImpl::OpenURL(std::unique_ptr<blink::WebNavigationInfo> info) {
 
   params->initiator_activation_and_ad_status =
       blink::GetNavigationInitiatorActivationAndAdStatus(
-          info->url_request.HasUserGesture(), info->is_ad_script_in_stack);
+          info->url_request.HasUserGesture(), info->initiator_frame_is_ad,
+          info->is_ad_script_in_stack);
 
   GetFrameHost()->OpenURL(std::move(params));
 }
@@ -5749,7 +5787,7 @@ void RenderFrameImpl::BeginNavigationInternal(
 
   for (auto& observer : observers_)
     observer.DidStartNavigation(info->url_request.Url(), info->navigation_type);
-  browser_side_navigation_pending_ = true;
+  is_requesting_navigation_ = true;
 
   // Set SiteForCookies.
   WebDocument frame_document = frame_->GetDocument();
@@ -5835,7 +5873,8 @@ void RenderFrameImpl::BeginNavigationInternal(
   blink::mojom::NavigationInitiatorActivationAndAdStatus
       initiator_activation_and_ad_status =
           blink::GetNavigationInitiatorActivationAndAdStatus(
-              info->url_request.HasUserGesture(), info->is_ad_script_in_stack);
+              info->url_request.HasUserGesture(), info->initiator_frame_is_ad,
+              info->is_ad_script_in_stack);
 
   blink::mojom::BeginNavigationParamsPtr begin_navigation_params =
       blink::mojom::BeginNavigationParams::New(
@@ -6062,8 +6101,8 @@ void RenderFrameImpl::DraggableRegionsChanged() {
     observer.DraggableRegionsChanged();
 }
 
-bool RenderFrameImpl::IsBrowserSideNavigationPending() {
-  return browser_side_navigation_pending_;
+bool RenderFrameImpl::IsRequestingNavigation() {
+  return is_requesting_navigation_;
 }
 
 void RenderFrameImpl::LoadHTMLStringForTesting(const std::string& html,
@@ -6306,6 +6345,21 @@ WebView* RenderFrameImpl::CreateNewWindow(
   params->disposition = NavigationPolicyToDisposition(policy);
   if (!request.IsNull()) {
     params->target_url = request.Url();
+    // The browser process does not consider empty URLs as valid (partly due to
+    // a risk of treating them as a navigation to the privileged NTP in some
+    // cases), so treat an attempt to create a window with an empty URL as
+    // opening about:blank.
+    //
+    // Similarly, javascript: URLs should not be sent to the browser process,
+    // since they are either handled within the renderer process (if a window is
+    // created within the same browsing context group) or ignored (in the
+    // noopener case). Use about:blank for the URL in that case as well, to
+    // reduce the risk of running them incorrectly.
+    if (params->target_url.is_empty() ||
+        params->target_url.SchemeIs(url::kJavaScriptScheme)) {
+      params->target_url = GURL(url::kAboutBlankURL);
+    }
+
     params->referrer = blink::mojom::Referrer::New(
         blink::WebStringToGURL(request.ReferrerString()),
         request.GetReferrerPolicy());
@@ -6341,7 +6395,8 @@ WebView* RenderFrameImpl::CreateNewWindow(
 
   params->initiator_activation_and_ad_status =
       blink::GetNavigationInitiatorActivationAndAdStatus(
-          request.HasUserGesture(), GetWebFrame()->IsAdScriptInStack());
+          request.HasUserGesture(), GetWebFrame()->IsAdFrame(),
+          GetWebFrame()->IsAdScriptInStack());
 
   // We preserve this information before sending the message since |params| is
   // moved on send.
@@ -6374,8 +6429,14 @@ WebView* RenderFrameImpl::CreateNewWindow(
   // TODO(dcheng): It's awkward that this is plumbed into Blink but not really
   // used much in Blink, except to enable web testing... perhaps this should
   // be checked directly in the browser side.
-  if (status == mojom::CreateNewWindowStatus::kReuse)
+  if (status == mojom::CreateNewWindowStatus::kReuse) {
+    // In this case, treat javascript: URLs as blocked rather than running them
+    // in a reused main frame in Android WebView. See https://crbug.com/1083819.
+    if (!request.IsNull() && request.Url().ProtocolIs(url::kJavaScriptScheme)) {
+      return nullptr;
+    }
     return GetWebView();
+  }
 
   // Consume the transient user activation in the current renderer.
   consumed_user_gesture = GetWebFrame()->ConsumeTransientUserActivation(
@@ -6458,7 +6519,7 @@ void RenderFrameImpl::ResetMembersUsedForDurationOfCommit() {
   pending_code_cache_host_.reset();
   pending_cookie_manager_info_.reset();
   pending_storage_info_.reset();
-  browser_side_navigation_pending_ = false;
+  is_requesting_navigation_ = false;
 }
 
 }  // namespace content

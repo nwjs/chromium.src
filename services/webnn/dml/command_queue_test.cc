@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <d3d11.h>
 #include <wrl.h>
 
 #include "base/run_loop.h"
@@ -12,7 +11,6 @@
 #include "services/webnn/dml/command_queue.h"
 #include "services/webnn/dml/test_base.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "ui/gl/gl_angle_util_win.h"
 
 namespace webnn::dml {
 
@@ -29,14 +27,7 @@ class WebNNCommandQueueTest : public TestBase {
 void WebNNCommandQueueTest::SetUp() {
   SKIP_TEST_IF(!UseGPUInTests());
   ASSERT_TRUE(InitializeGLDisplay());
-  ComPtr<ID3D11Device> d3d11_device = gl::QueryD3D11DeviceObjectFromANGLE();
-  ASSERT_NE(d3d11_device.Get(), nullptr);
-  ComPtr<IDXGIDevice> dxgi_device;
-  d3d11_device.As(&dxgi_device);
-  ComPtr<IDXGIAdapter> dxgi_adapter;
-  dxgi_device->GetAdapter(&dxgi_adapter);
-  ASSERT_NE(dxgi_adapter.Get(), nullptr);
-  scoped_refptr<Adapter> adapter = Adapter::Create(dxgi_adapter);
+  scoped_refptr<Adapter> adapter = Adapter::GetInstance();
   ASSERT_NE(adapter.get(), nullptr);
   d3d12_device_ = adapter->d3d12_device();
 }
@@ -57,7 +48,7 @@ TEST_F(WebNNCommandQueueTest, WaitSyncForGpuWorkCompleted) {
                                              command_allocator.Get(), nullptr,
                                              IID_PPV_ARGS(&command_list)),
             S_OK);
-  std::unique_ptr<CommandQueue> command_queue =
+  scoped_refptr<CommandQueue> command_queue =
       CommandQueue::Create(d3d12_device_.Get());
   ASSERT_NE(command_queue.get(), nullptr);
   ASSERT_EQ(command_list->Close(), S_OK);
@@ -81,7 +72,7 @@ TEST_F(WebNNCommandQueueTest, WaitAsyncOnce) {
                                              command_allocator.Get(), nullptr,
                                              IID_PPV_ARGS(&command_list)),
             S_OK);
-  std::unique_ptr<CommandQueue> command_queue =
+  scoped_refptr<CommandQueue> command_queue =
       CommandQueue::Create(d3d12_device_.Get());
   ASSERT_NE(command_queue.get(), nullptr);
   ASSERT_EQ(command_list->Close(), S_OK);
@@ -115,7 +106,7 @@ TEST_F(WebNNCommandQueueTest, WaitAsyncMultipleTimesOnIncreasingFenceValue) {
                                              command_allocator.Get(), nullptr,
                                              IID_PPV_ARGS(&command_list)),
             S_OK);
-  std::unique_ptr<CommandQueue> command_queue =
+  scoped_refptr<CommandQueue> command_queue =
       CommandQueue::Create(d3d12_device_.Get());
   ASSERT_NE(command_queue.get(), nullptr);
   ASSERT_EQ(command_list->Close(), S_OK);
@@ -169,7 +160,7 @@ TEST_F(WebNNCommandQueueTest, WaitAsyncMultipleTimesOnSameFenceValue) {
                                              command_allocator.Get(), nullptr,
                                              IID_PPV_ARGS(&command_list)),
             S_OK);
-  std::unique_ptr<CommandQueue> command_queue =
+  scoped_refptr<CommandQueue> command_queue =
       CommandQueue::Create(d3d12_device_.Get());
   ASSERT_NE(command_queue.get(), nullptr);
   ASSERT_EQ(command_list->Close(), S_OK);
@@ -205,7 +196,7 @@ TEST_F(WebNNCommandQueueTest, WaitAsyncMultipleTimesOnSameFenceValue) {
 }
 
 TEST_F(WebNNCommandQueueTest, ReferenceAndRelease) {
-  std::unique_ptr<CommandQueue> command_queue =
+  scoped_refptr<CommandQueue> command_queue =
       CommandQueue::Create(d3d12_device_.Get());
   ASSERT_NE(command_queue.get(), nullptr);
 

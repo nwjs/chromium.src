@@ -125,15 +125,21 @@ class FencedFrameReporterTest : public RenderViewHostTestHarness {
 
   void ValidateRequest(const network::ResourceRequest& request,
                        const GURL& expected_url,
-                       const std::string& event_data) {
+                       const absl::optional<std::string>& event_data) {
     EXPECT_EQ(request.url, expected_url);
     EXPECT_EQ(request.mode, network::mojom::RequestMode::kCors);
     EXPECT_EQ(request.request_initiator,
               url::Origin::Create(request_initiator_));
     EXPECT_EQ(request.credentials_mode, network::mojom::CredentialsMode::kOmit);
-    EXPECT_EQ(request.method, net::HttpRequestHeaders::kPostMethod);
     EXPECT_TRUE(request.trusted_params->isolation_info.network_isolation_key()
                     .IsTransient());
+
+    if (!event_data.has_value()) {
+      EXPECT_EQ(request.method, net::HttpRequestHeaders::kGetMethod);
+      return;
+    }
+
+    EXPECT_EQ(request.method, net::HttpRequestHeaders::kPostMethod);
 
     std::string content_type;
     ASSERT_TRUE(request.headers.GetHeader(net::HttpRequestHeaders::kContentType,
@@ -147,7 +153,7 @@ class FencedFrameReporterTest : public RenderViewHostTestHarness {
     EXPECT_EQ((*request.request_body->elements())[0]
                   .As<network::DataElementBytes>()
                   .AsStringPiece(),
-              event_data);
+              *event_data);
   }
 
  protected:
@@ -190,36 +196,59 @@ TEST_F(FencedFrameReporterTest, NoReportNoMap) {
           shared_url_loader_factory(), browser_context(),
           /*reporting_url_map=*/{{"event_type", report_destination_}});
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
+
   // A Shared Storage FencedFrameReporter has no map for FLEDGE destinations.
   EXPECT_FALSE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_EQ(error_message,
             "This frame did not register reporting metadata for destination "
             "'Buyer'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
+
   EXPECT_FALSE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_EQ(error_message,
             "This frame did not register reporting metadata for destination "
             "'Seller'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
+
   EXPECT_FALSE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kDirectSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_EQ(error_message,
             "This frame did not register reporting metadata for destination "
             "'ComponentSeller'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
+
   EXPECT_FALSE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kComponentSeller,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(error_message,
             "This frame did not register reporting metadata for destination "
             "'ComponentSeller'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
+
+  EXPECT_FALSE(reporter->SendReport(
+      DestinationURLEvent(report_destination_),
+      blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
+  EXPECT_EQ(error_message,
+            "This frame did not register reporting metadata for destination "
+            "'Buyer'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
 
   // A FLEDGE FencedFrameReporter has no map for Shared Storage.
   reporter = FencedFrameReporter::CreateForFledge(
@@ -228,13 +257,14 @@ TEST_F(FencedFrameReporterTest, NoReportNoMap) {
       main_frame_origin_,
       /*winner_origin=*/report_destination_origin_);
   EXPECT_FALSE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(error_message,
             "This frame did not register reporting metadata for destination "
             "'SharedStorageSelectUrl'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
 
   // No requests should have been made.
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -247,14 +277,17 @@ TEST_F(FencedFrameReporterTest, NoReportEmptyMap) {
                                                   browser_context(),
                                                   /*reporting_url_map=*/{});
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_FALSE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(error_message,
             "This frame did not register reporting metadata for destination "
             "'SharedStorageSelectUrl'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
 
   // No requests should have been made.
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -268,15 +301,18 @@ TEST_F(FencedFrameReporterTest, NoReportEventTypeNotRegistered) {
           /*reporting_url_map=*/
           {{"registered_event_type", report_destination_}});
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_FALSE(reporter->SendReport(
-      "unregistered_event_type", "event_data",
+      DestinationEnumEvent("unregistered_event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(
       error_message,
       "This frame did not register reporting url for destination "
       "'SharedStorageSelectUrl' and event_type 'unregistered_event_type'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kWarning);
 
   // No requests should have been made.
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -291,22 +327,27 @@ TEST_F(FencedFrameReporterTest, NoReportBadUrl) {
           {{"no_url", GURL()},
            {"data_url", GURL("data:,only http is allowed")}});
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_FALSE(reporter->SendReport(
-      "no_url", "event_data",
+      DestinationEnumEvent("no_url", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(error_message,
             "This frame registered invalid reporting url for destination "
             "'SharedStorageSelectUrl' and event_type 'no_url'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kError);
+
   EXPECT_FALSE(reporter->SendReport(
-      "data_url", "event_data",
+      DestinationEnumEvent("data_url", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(error_message,
             "This frame registered invalid reporting url for destination "
             "'SharedStorageSelectUrl' and event_type 'data_url'.");
+  EXPECT_EQ(console_message_level, blink::mojom::ConsoleMessageLevel::kError);
 
   // No requests should have been made.
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
@@ -322,11 +363,13 @@ TEST_F(FencedFrameReporterTest, SendReports) {
 
   // Make a report.
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[0].request,
                   report_destination_, "event_data");
@@ -334,20 +377,20 @@ TEST_F(FencedFrameReporterTest, SendReports) {
   // Make another report to the same URL with different data. Should also
   // succeed.
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data2",
+      DestinationEnumEvent("event_type", "event_data2"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 2);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[1].request,
                   report_destination_, "event_data2");
 
   // Make a report using another event type.
   EXPECT_TRUE(reporter->SendReport(
-      "event_type2", "event_data3",
+      DestinationEnumEvent("event_type2", "event_data3"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 3);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[2].request,
                   report_destination2_, "event_data3");
@@ -378,38 +421,52 @@ TEST_F(FencedFrameReporterTest, SendFledgeReportsAfterMapsReceived) {
   // Make reports. Each should be sent immediately.
 
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[0].request,
                   report_destination_, "event_data");
 
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kComponentSeller,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 2);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[1].request,
                   report_destination2_, "event_data");
 
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 3);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[2].request,
                   report_destination3_, "event_data");
 
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kDirectSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 4);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[3].request,
                   report_destination2_, "event_data");
+
+  EXPECT_TRUE(reporter->SendReport(
+      DestinationURLEvent(report_destination_),
+      blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 5);
+  ValidateRequest((*test_url_loader_factory_.pending_requests())[4].request,
+                  report_destination_, absl::nullopt);
 }
 
 // Test reports in the FLEDGE case, where reporting URL maps are received after
@@ -425,23 +482,33 @@ TEST_F(FencedFrameReporterTest, SendReportsFledgeBeforeMapsReceived) {
   // Make reports. They should be queued, since mappings haven't been received
   // yet.
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kComponentSeller,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kDirectSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
+  EXPECT_TRUE(reporter->SendReport(
+      DestinationURLEvent(report_destination_),
+      blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
 
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
 
@@ -468,9 +535,12 @@ TEST_F(FencedFrameReporterTest, SendReportsFledgeBeforeMapsReceived) {
   reporter->OnUrlMappingReady(
       blink::FencedFrame::ReportingDestination::kBuyer,
       /*reporting_url_map=*/{{"event_type", report_destination3_}});
-  EXPECT_EQ(test_url_loader_factory_.NumPending(), 4);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 5);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[3].request,
                   report_destination3_, "event_data");
+  // This one is from the DestinationURLEvent report.
+  ValidateRequest((*test_url_loader_factory_.pending_requests())[4].request,
+                  report_destination_, absl::nullopt);
 }
 
 // Test reports in the FLEDGE case, where reporting URL maps are received after
@@ -505,10 +575,13 @@ TEST_F(FencedFrameReporterTest, SendFledgeReportsBeforeMapsReceivedWithErrors) {
   // SendReport() is called, and then a mapping is received that doesn't have
   // the report's event type. No request should be made.
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_TRUE(reporter->SendReport(
-      "event_type2", "event_data",
+      DestinationEnumEvent("event_type2", "event_data"),
       blink::FencedFrame::ReportingDestination::kSeller, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   reporter->OnUrlMappingReady(
       blink::FencedFrame::ReportingDestination::kSeller,
       /*reporting_url_map=*/{{"event_type", report_destination_}});
@@ -517,10 +590,10 @@ TEST_F(FencedFrameReporterTest, SendFledgeReportsBeforeMapsReceivedWithErrors) {
   // SendReport() is called, and then a mapping is received that maps the
   // report's event type to a data URL. No request should be made.
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kComponentSeller,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   reporter->OnUrlMappingReady(
       blink::FencedFrame::ReportingDestination::kComponentSeller,
       /*reporting_url_map=*/{
@@ -528,14 +601,22 @@ TEST_F(FencedFrameReporterTest, SendFledgeReportsBeforeMapsReceivedWithErrors) {
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
 
   // SendReport() is called, and then a mapping is received with an empty map.
-  // No request should be made.
+  // Only the DestinationURLEvent request should be sent.
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
-      network::AttributionReportingRuntimeFeatures(), error_message));
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
+  EXPECT_TRUE(reporter->SendReport(
+      DestinationURLEvent(report_destination_),
+      blink::FencedFrame::ReportingDestination::kBuyer, main_rfh_impl(),
+      network::AttributionReportingRuntimeFeatures(), error_message,
+      console_message_level));
   reporter->OnUrlMappingReady(blink::FencedFrame::ReportingDestination::kBuyer,
                               /*reporting_url_map=*/{});
-  EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
+  EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
+  ValidateRequest((*test_url_loader_factory_.pending_requests())[0].request,
+                  report_destination_, absl::nullopt);
 }
 
 // Test reports in the FLEDGE case, where reporting URL map is never received.
@@ -565,10 +646,13 @@ TEST_F(FencedFrameReporterTest, SendFledgeReportsNoMapReceived) {
 
     // SendReport() is called, but a mapping is never received.
     std::string error_message;
+    blink::mojom::ConsoleMessageLevel console_message_level =
+        blink::mojom::ConsoleMessageLevel::kError;
     EXPECT_TRUE(reporter->SendReport(
-        "event_type2", "event_data",
+        DestinationEnumEvent("event_type2", "event_data"),
         blink::FencedFrame::ReportingDestination::kSeller, main_rfh_impl(),
-        network::AttributionReportingRuntimeFeatures(), error_message));
+        network::AttributionReportingRuntimeFeatures(), error_message,
+        console_message_level));
     EXPECT_EQ(test_url_loader_factory_.NumPending(), 0);
   }
 }
@@ -778,11 +862,13 @@ TEST_F(FencedFrameReporterTest, AttributionManagerShutDown_NoCrash) {
 
   // Make a report.
   std::string error_message;
+  blink::mojom::ConsoleMessageLevel console_message_level =
+      blink::mojom::ConsoleMessageLevel::kError;
   EXPECT_TRUE(reporter->SendReport(
-      "event_type", "event_data",
+      DestinationEnumEvent("event_type", "event_data"),
       blink::FencedFrame::ReportingDestination::kSharedStorageSelectUrl,
       main_rfh_impl(), network::AttributionReportingRuntimeFeatures(),
-      error_message));
+      error_message, console_message_level));
   EXPECT_EQ(test_url_loader_factory_.NumPending(), 1);
   ValidateRequest((*test_url_loader_factory_.pending_requests())[0].request,
                   report_destination_, "event_data");

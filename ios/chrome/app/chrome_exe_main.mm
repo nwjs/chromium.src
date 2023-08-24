@@ -8,6 +8,7 @@
 #import "base/debug/crash_logging.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/component_updater/component_updater_paths.h"
+#import "ios/chrome/app/chrome_main_module_buildflags.h"
 #import "ios/chrome/app/startup/ios_chrome_main.h"
 #import "ios/chrome/app/startup/ios_enable_sandbox_dump_buildflags.h"
 #import "ios/chrome/browser/crash_report/crash_helper.h"
@@ -18,9 +19,12 @@
 #import "ios/chrome/app/startup/sandbox_dump.h"  // nogncheck
 #endif  // BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
+extern "C" {
+// This function must be marked with NO_STACK_PROTECTOR or it may crash on
+// return, see the --change-stack-guard-on-fork command line flag.
+__attribute__((visibility("default"))) int NO_STACK_PROTECTOR
+ChromeMain(int argc, char** argv);
+}
 
 namespace {
 
@@ -82,7 +86,7 @@ void RegisterPathProviders() {
 
 }  // namespace
 
-int main(int argc, char* argv[]) {
+int ChromeMain(int argc, char* argv[]) {
   IOSChromeMain::InitStartTime();
 
 #if BUILDFLAG(IOS_ENABLE_SANDBOX_DUMP)
@@ -119,3 +123,11 @@ int main(int argc, char* argv[]) {
 
   return RunUIApplicationMain(argc, argv);
 }
+
+#if !BUILDFLAG(USE_CHROME_MAIN_MODULE)
+int main(int argc, char* argv[]) {
+  // exit, don't return from main, to avoid the apparent removal of main from
+  // stack backtraces under tail call optimization.
+  exit(ChromeMain(argc, argv));
+}
+#endif  // !BUILDFLAG(USE_CHROME_MAIN_MODULE)

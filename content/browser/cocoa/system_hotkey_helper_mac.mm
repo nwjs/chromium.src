@@ -19,7 +19,7 @@ content::SystemHotkeyMap LoadSystemHotkeyMap() {
   auto* hotkey_plist_url = base::mac::FilePathToNSURL(
       base::mac::GetUserLibraryPath().Append(kSystemHotkeyPlistPath));
   NSDictionary* dictionary =
-      [NSDictionary dictionaryWithContentsOfURL:hotkey_plist_url];
+      [NSDictionary dictionaryWithContentsOfURL:hotkey_plist_url error:nil];
 
   content::SystemHotkeyMap map;
   bool success = map.ParseDictionary(dictionary);

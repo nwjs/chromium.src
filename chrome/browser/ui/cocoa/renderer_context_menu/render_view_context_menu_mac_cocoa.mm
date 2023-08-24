@@ -109,8 +109,7 @@ NSMenuItem* GetMenuItemByID(ui::MenuModel* model,
 }
 
 + (void)storeFilteredEntriesForTestingInArray:(NSMutableArray*)array {
-  [g_filtered_entries_array release];
-  g_filtered_entries_array = [array retain];
+  g_filtered_entries_array = array;
 }
 
 + (void)load {
@@ -157,7 +156,7 @@ NSMenuItem* GetMenuItemByID(ui::MenuModel* model,
 
 @end
 
-// OSX implemenation of the ToolkitDelegate.
+// macOS implementation of the ToolkitDelegate.
 // This simply (re)delegates calls to RVContextMenuMac because they do not
 // have to be componentized.
 class ToolkitDelegateMacCocoa : public RenderViewContextMenu::ToolkitDelegate {
@@ -208,16 +207,19 @@ RenderViewContextMenuMacCocoa::~RenderViewContextMenuMacCocoa() {
 void RenderViewContextMenuMacCocoa::Show() {
   views::Widget* widget = views::Widget::GetTopLevelWidgetForNativeView(
       source_web_contents_->GetNativeView());
-  const ui::ColorProvider* color_provider =
-      widget ? widget->GetColorProvider() : nullptr;
 
-  menu_controller_delegate_.reset(
-      [[MenuControllerCocoaDelegateImpl alloc] init]);
-  menu_controller_.reset([[MenuControllerCocoa alloc]
-               initWithModel:&menu_model_
-                    delegate:menu_controller_delegate_.get()
-               colorProvider:color_provider
-      useWithPopUpButtonCell:NO]);
+  if (!widget) {
+    return;
+  }
+
+  const ui::ColorProvider* color_provider = widget->GetColorProvider();
+
+  menu_controller_delegate_ = [[MenuControllerCocoaDelegateImpl alloc] init];
+  menu_controller_ =
+      [[MenuControllerCocoa alloc] initWithModel:&menu_model_
+                                        delegate:menu_controller_delegate_
+                                   colorProvider:color_provider
+                          useWithPopUpButtonCell:NO];
 
   gfx::Point params_position(params_.x, params_.y);
   // TODO(dfried): this is almost certainly wrong; let's fix it.
@@ -257,17 +259,12 @@ void RenderViewContextMenuMacCocoa::Show() {
     base::mac::ScopedSendingEvent sendingEventScoper;
 
     NSMenu* const menu = [menu_controller_ menu];
-    if (widget) {
-      ui::ElementTrackerMac::GetInstance()->NotifyMenuWillShow(
-          menu, views::ElementTrackerViews::GetContextForWidget(widget));
-    }
+    ui::ElementTrackerMac::GetInstance()->NotifyMenuWillShow(
+        menu, views::ElementTrackerViews::GetContextForWidget(widget));
 
     // Show the menu.
     [NSMenu popUpContextMenu:menu withEvent:clickEvent forView:parent_view_];
-
-    if (widget) {
-      ui::ElementTrackerMac::GetInstance()->NotifyMenuDoneShowing(menu);
-    }
+    ui::ElementTrackerMac::GetInstance()->NotifyMenuDoneShowing(menu);
   }
 }
 

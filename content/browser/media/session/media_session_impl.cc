@@ -26,6 +26,7 @@
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/media_session.h"
+#include "content/public/browser/media_session_client.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -36,6 +37,7 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "services/media_session/public/cpp/media_image_manager.h"
 #include "services/media_session/public/mojom/audio_focus.mojom.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/favicon/favicon_url.mojom.h"
 #include "third_party/blink/public/strings/grit/blink_strings.h"
 #include "ui/gfx/favicon_size.h"
@@ -1040,7 +1042,8 @@ MediaSessionImpl::GetMediaSessionInfoSync() {
   info->is_sensitive = web_contents()->GetBrowserContext()->IsOffTheRecord();
 
   info->picture_in_picture_state =
-      web_contents()->HasPictureInPictureVideo()
+      web_contents()->HasPictureInPictureVideo() ||
+              web_contents()->HasPictureInPictureDocument()
           ? media_session::mojom::MediaPictureInPictureState::
                 kInPictureInPicture
           : media_session::mojom::MediaPictureInPictureState::
@@ -1068,6 +1071,13 @@ MediaSessionImpl::GetMediaSessionInfoSync() {
   if (normal_players_.size() == 1u) {
     info->remote_playback_metadata = remote_playback_metadata_.Clone();
   }
+
+  MediaSessionClient* media_session_client = MediaSessionClient::Get();
+  info->hide_metadata = media_session_client
+                            ? media_session_client->ShouldHideMetadata(
+                                  web_contents()->GetBrowserContext())
+                            : false;
+
   return info;
 }
 
@@ -1179,10 +1189,15 @@ void MediaSessionImpl::ScrubTo(base::TimeDelta seek_time) {
 }
 
 void MediaSessionImpl::EnterPictureInPicture() {
-  if (ShouldRouteAction(
+  if (base::FeatureList::IsEnabled(
+          blink::features::kMediaSessionEnterPictureInPicture) &&
+      ShouldRouteAction(
           media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
     DidReceiveAction(
-        media_session::mojom::MediaSessionAction::kEnterPictureInPicture);
+        media_session::mojom::MediaSessionAction::kEnterPictureInPicture,
+        blink::mojom::MediaSessionActionDetails::NewPictureInPicture(
+            blink::mojom::MediaSessionPictureInPictureActionDetails::New(
+                /*automatic=*/false)));
     return;
   }
 
@@ -1193,17 +1208,24 @@ void MediaSessionImpl::EnterPictureInPicture() {
 }
 
 void MediaSessionImpl::ExitPictureInPicture() {
-  if (ShouldRouteAction(
-          media_session::mojom::MediaSessionAction::kExitPictureInPicture)) {
-    DidReceiveAction(
-        media_session::mojom::MediaSessionAction::kExitPictureInPicture);
+  static_cast<WebContentsImpl*>(web_contents())->ExitPictureInPicture();
+}
+
+void MediaSessionImpl::EnterAutoPictureInPicture() {
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kMediaSessionEnterPictureInPicture)) {
+    return;
+  }
+  if (!ShouldRouteAction(
+          media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
     return;
   }
 
-  // There should be one and only one player when we exit picture-in-picture.
-  DCHECK_EQ(normal_players_.size(), 1u);
-  normal_players_.begin()->first.observer->OnExitPictureInPicture(
-      normal_players_.begin()->first.player_id);
+  DidReceiveAction(
+      media_session::mojom::MediaSessionAction::kEnterPictureInPicture,
+      blink::mojom::MediaSessionActionDetails::NewPictureInPicture(
+          blink::mojom::MediaSessionPictureInPictureActionDetails::New(
+              /*automatic=*/true)));
 }
 
 void MediaSessionImpl::SetAudioSinkId(const absl::optional<std::string>& id) {
@@ -1550,6 +1572,16 @@ MediaSessionServiceImpl* MediaSessionImpl::ComputeServiceForRouting() {
     min_depth = depth;
   }
 
+  // If we don't have a suitable frame and the topmost frame has a
+  // MediaSessionService, then use that.
+  if (!best_frame && base::FeatureList::IsEnabled(
+                         blink::features::kMediaSessionEnterPictureInPicture)) {
+    RenderFrameHost* main_rfh = web_contents()->GetPrimaryMainFrame();
+    if (IsServiceActiveForRenderFrameHost(main_rfh)) {
+      best_frame = main_rfh;
+    }
+  }
+
   return best_frame ? services_[best_frame->GetGlobalId()] : nullptr;
 }
 
@@ -1619,6 +1651,17 @@ void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
     actions.insert(media_session::mojom::MediaSessionAction::kStop);
     actions.insert(media_session::mojom::MediaSessionAction::kSeekTo);
     actions.insert(media_session::mojom::MediaSessionAction::kScrubTo);
+  }
+
+  // If the website has specified an action handler for 'enterpictureinpicture',
+  // then we should expose EnterAutoPictureInPicture as an available action.
+  if (base::FeatureList::IsEnabled(
+          blink::features::kMediaSessionEnterPictureInPicture) &&
+      base::Contains(
+          actions,
+          media_session::mojom::MediaSessionAction::kEnterPictureInPicture)) {
+    actions.insert(
+        media_session::mojom::MediaSessionAction::kEnterAutoPictureInPicture);
   }
 
   if (base::FeatureList::IsEnabled(

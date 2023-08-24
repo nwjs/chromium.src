@@ -19,10 +19,6 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using base::RecordAction;
 using base::UserMetricsAction;
 using base::UmaHistogramEnumeration;
@@ -160,7 +156,7 @@ using l10n_util::GetNSString;
       UserMetricsAction("IOS.DefaultBrowserPromo.TailoredFullscreen.Appear"));
   base::UmaHistogramEnumeration("IOS.DefaultBrowserPromo.Shown",
                                 DefaultPromoTypeForUMA(_promoType));
-  LogDefaultBrowserPromoDisplayed();
+  LogFullscreenDefaultBrowserPromoDisplayed();
 
   ChromeBrowserState* browserState = self.browser->GetBrowserState();
   LogToFETDefaultBrowserPromoShown(

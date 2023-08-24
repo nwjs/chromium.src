@@ -445,13 +445,20 @@ TEST_F(WebViewUnitTest, ReparentingUpdatesParentAccessible) {
 
 // This tests that we don't crash if WebView doesn't have a Widget or a
 // Webcontents. https://crbug.com/1191999
-TEST_F(WebViewUnitTest, ChangeAXMode) {
+// TODO(crbug.com/1465744): Re-enable this test
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_ChangeAXMode DISABLED_ChangeAXMode
+#else
+#define MAYBE_ChangeAXMode ChangeAXMode
+#endif
+TEST_F(WebViewUnitTest, MAYBE_ChangeAXMode) {
   // Case 1: WebView has a Widget and no WebContents.
   SetAXMode(ui::AXMode::kFirstModeFlag);
 
   // Case 2: WebView has no Widget and a WebContents.
   View* contents_view = top_level_widget()->GetContentsView();
-  contents_view->RemoveChildView(web_view());
+  // Remove the view but make sure to delete it at the end of the test.
+  auto scoped_view = contents_view->RemoveChildViewT(web_view());
   const std::unique_ptr<content::WebContents> web_contents =
       CreateWebContents();
   web_view()->SetWebContents(web_contents.get());

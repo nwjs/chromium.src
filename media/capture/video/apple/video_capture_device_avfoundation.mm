@@ -35,8 +35,8 @@
 #import "media/capture/video/mac/video_capture_metrics_mac.h"
 #endif
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
+#if BUILDFLAG(IS_IOS)
+#import <UIKit/UIKit.h>
 #endif
 
 namespace {
@@ -168,6 +168,11 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   // The following attributes are set via -setCaptureHeight:width:frameRate:.
   float _frameRate;
 
+#if BUILDFLAG(IS_IOS)
+  UIDeviceOrientation _orientation;
+#endif
+  int _rotation;
+
   // Usage of GPU memory buffer is controlled by
   // `--disable-video-capture-use-gpu-memory-buffer` and
   // `--video-capture-use-gpu-memory-buffer` commandline switches. This flag
@@ -212,10 +217,7 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   // When enabled, converts captured frames to NV12.
   std::unique_ptr<media::SampleBufferTransformer> _sampleBufferTransformer;
 
-  // On macOS 10.15 or later, this has type AVCapturePhotoOutput.
-  // On earlier versions, this has type AVCaptureStillImageOutput.
-  // You say tomato, I say potato.
-  id __strong _photoOutput;
+  AVCapturePhotoOutput* __strong _photoOutput;
 
   // Only accessed on the main thread. The takePhoto() operation is considered
   // pending until we're ready to take another photo, which involves a PostTask
@@ -225,7 +227,6 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
 
   // For testing.
   base::RepeatingCallback<void()> _onPhotoOutputStopped;
-  bool _forceLegacyStillImageApi;
   absl::optional<bool> _isPortraitEffectSupportedForTesting;
   absl::optional<bool> _isPortraitEffectActiveForTesting;
 
@@ -260,6 +261,7 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
                               "SampleDeliveryDispatchQueue",
                               DISPATCH_QUEUE_SERIAL);
     DCHECK(frameReceiver);
+    _rotation = 0;
     _useGPUMemoryBuffer = true;
     _capturedFirstFrame = false;
     _weakPtrHolderForStallCheck.the_self = self;
@@ -267,9 +269,36 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
     [self setFrameReceiver:frameReceiver];
     _captureSession = [[AVCaptureSession alloc] init];
     _sampleBufferTransformer = media::SampleBufferTransformer::Create();
+
+#if BUILDFLAG(IS_IOS)
+    _orientation = UIDeviceOrientationUnknown;
+    [[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
+    [[NSNotificationCenter defaultCenter]
+        addObserver:self
+           selector:@selector(orientationChanged:)
+               name:UIDeviceOrientationDidChangeNotification
+             object:[UIDevice currentDevice]];
+#endif
   }
   return self;
 }
+
+#if BUILDFLAG(IS_IOS)
+- (void)orientationChanged:(NSNotification*)note {
+  UIDevice* device = note.object;
+  UIDeviceOrientation deviceOrientation = device.orientation;
+  AVCaptureConnection* captureConnection =
+      [_captureVideoDataOutput connectionWithMediaType:AVMediaTypeVideo];
+  if ([captureConnection isVideoOrientationSupported]) {
+    _orientation = deviceOrientation;
+    AVCaptureDevicePosition camera_position =
+        [[_captureDeviceInput device] position];
+    _rotation =
+        media::MaybeGetVideoRotation(_orientation, camera_position).value_or(0);
+    [self captureConfigurationChanged];
+  }
+}
+#endif
 
 - (void)dealloc {
   // Stopping a running photo output takes `_lock`. To avoid this happening
@@ -371,6 +400,18 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
                         context:(__bridge void*)_captureDevice];
   }
 
+#if BUILDFLAG(IS_IOS)
+  _orientation = [[UIDevice currentDevice] orientation];
+  if (_orientation == UIDeviceOrientationUnknown) {
+    _orientation = UIDeviceOrientationPortrait;
+  }
+
+  AVCaptureDevicePosition camera_position =
+      [[_captureDeviceInput device] position];
+  _rotation =
+      media::MaybeGetVideoRotation(_orientation, camera_position).value_or(0);
+#endif
+
   return YES;
 }
 
@@ -411,11 +452,14 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   // yes/no and preserve aspect ratio yes/no when scaling. Currently we set
   // cropping and preservation.
   NSDictionary* videoSettingsDictionary = @{
+#if BUILDFLAG(IS_MAC)
     (id)kCVPixelBufferWidthKey : @(width),
     (id)kCVPixelBufferHeightKey : @(height),
-    (id)kCVPixelBufferPixelFormatTypeKey : @(best_fourcc),
-    AVVideoScalingModeKey : AVVideoScalingModeResizeAspectFill
+    AVVideoScalingModeKey : AVVideoScalingModeResizeAspectFill,
+#endif
+    (id)kCVPixelBufferPixelFormatTypeKey : @(best_fourcc)
   };
+
   _captureVideoDataOutput.videoSettings = videoSettingsDictionary;
 
 #if (!defined(__IPHONE_7_0) || __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0)
@@ -487,17 +531,6 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   [NSNotificationCenter.defaultCenter removeObserver:self];
 }
 
-- (bool)useLegacyStillImageApi {
-  if (@available(macOS 10.15, *)) {
-    return _forceLegacyStillImageApi;
-  }
-  return true;
-}
-
-- (void)setForceLegacyStillImageApiForTesting:(bool)forceLegacyApi {
-  _forceLegacyStillImageApi = forceLegacyApi;
-}
-
 - (void)takePhoto {
   DCHECK(_mainThreadTaskRunner->BelongsToCurrentThread());
   DCHECK(_captureSession.running);
@@ -528,17 +561,7 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   {
     // `_lock` is needed since `_photoOutput` may be read from non-main thread.
     base::AutoLock lock(_lock);
-#if (!defined(__IPHONE_10_0) || \
-     __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0)
-    if ([self useLegacyStillImageApi]) {
-      _photoOutput = [[AVCaptureStillImageOutput alloc] init];
-    } else
-#endif
-        if (@available(macOS 10.15, iOS 10.0, *)) {
-      _photoOutput = [[AVCapturePhotoOutput alloc] init];
-    } else {
-      NOTREACHED();
-    }
+    _photoOutput = [[AVCapturePhotoOutput alloc] init];
   }
   if (![_captureSession canAddOutput:_photoOutput]) {
     {
@@ -581,88 +604,24 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   // takePhotoInternal() can only happen when we have a `_photoOutput` because
   // stopPhotoOutput() cancels in-flight operations by invalidating weak ptrs.
   DCHECK(_photoOutput);
-#if (!defined(__IPHONE_10_0) || \
-     __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_10_0)
-  if ([self useLegacyStillImageApi]) {
-    // `_photoOutput` is of type AVCaptureStillImageOutput. Note that this block
-    // retains `self` but that's fine because it's called one time and then
-    // discarded, not kept around.
-    const auto handler = ^(CMSampleBufferRef sampleBuffer, NSError* error) {
-      {
-        base::AutoLock lock(self->_lock);
-        if (self->_frameReceiver) {
-          if (error != nil) {
-            self->_frameReceiver->OnPhotoError();
-          } else {
-            // Recommended compressed pixel format is JPEG, we don't expect
-            // surprises.
-            // TODO(mcasas): Consider using [1] for merging EXIF output
-            // information:
-            // [1]
-            // +(NSData*)jpegStillImageNSDataRepresentation:jpegSampleBuffer;
-            DCHECK_EQ(kCMVideoCodecType_JPEG,
-                      CMFormatDescriptionGetMediaSubType(
-                          CMSampleBufferGetFormatDescription(sampleBuffer)));
-            char* baseAddress = nullptr;
-            size_t length = 0;
-            const bool sample_buffer_addressable =
-                media::ExtractBaseAddressAndLength(&baseAddress, &length,
-                                                   sampleBuffer);
-            DCHECK(sample_buffer_addressable);
-            if (sample_buffer_addressable) {
-              self->_frameReceiver->OnPhotoTaken(
-                  reinterpret_cast<uint8_t*>(baseAddress), length,
-                  "image/jpeg");
-            }
-          }
-        }
+  @try {
+    // Asynchronous success or failure is handled inside
+    // captureOutput:didFinishProcessingPhoto:error on an unknown thread.
+    // Synchronous failures are handled in the catch clause below.
+    [_photoOutput
+        capturePhotoWithSettings:[AVCapturePhotoSettings
+                                     photoSettingsWithFormat:@{
+                                       AVVideoCodecKey : AVVideoCodecTypeJPEG
+                                     }]
+                        delegate:self];
+  } @catch (id exception) {
+    {
+      base::AutoLock lock(_lock);
+      if (_frameReceiver) {
+        _frameReceiver->OnPhotoError();
       }
-      // Whether we succeeded or failed, we need to resolve the pending
-      // takePhoto() operation.
-      self->_mainThreadTaskRunner->PostTask(
-          FROM_HERE,
-          base::BindOnce(
-              [](base::WeakPtr<SelfHolder> weakSelf) {
-                if (!weakSelf.get()) {
-                  return;
-                }
-                [weakSelf.get()->the_self takePhotoResolved];
-              },
-              self->_weakPtrHolderForTakePhoto.weak_ptr_factory.GetWeakPtr()));
-    };
-    AVCaptureStillImageOutput* image_output =
-        static_cast<AVCaptureStillImageOutput*>(_photoOutput);
-    DCHECK(image_output.connections.count == 1);
-    AVCaptureConnection* const connection =
-        image_output.connections.firstObject;
-    DCHECK(connection);
-    [image_output captureStillImageAsynchronouslyFromConnection:connection
-                                              completionHandler:handler];
-  } else
-#endif
-      if (@available(macOS 10.15, iOS 10.0, *)) {
-    // `_photoOutput` is of type AVCapturePhotoOutput.
-    @try {
-      // Asynchronous success or failure is handled inside
-      // captureOutput:didFinishProcessingPhoto:error on an unknown thread.
-      // Synchronous failures are handled in the catch clause below.
-      [_photoOutput
-          capturePhotoWithSettings:[AVCapturePhotoSettings
-                                       photoSettingsWithFormat:@{
-                                         AVVideoCodecKey : AVVideoCodecTypeJPEG
-                                       }]
-                          delegate:self];
-    } @catch (id exception) {
-      {
-        base::AutoLock lock(_lock);
-        if (_frameReceiver) {
-          _frameReceiver->OnPhotoError();
-        }
-      }
-      [self takePhotoResolved];
     }
-  } else {
-    NOTREACHED();
+    [self takePhotoResolved];
   }
 }
 
@@ -670,41 +629,35 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
 - (void)captureOutput:(id)output        // AVCapturePhotoOutput*
     didFinishProcessingPhoto:(id)photo  // AVCapturePhoto*
                        error:(NSError*)error {
-  if (@available(macOS 10.15, iOS 10.0, *)) {
-    base::AutoLock lock(_lock);
-    // If `output` is no longer current, ignore the result of this operation.
-    // `_frameReceiver->OnPhotoError()` will already have been called inside
-    // stopPhotoOutput().
-    if (output != _photoOutput) {
-      return;
-    }
-    if (_frameReceiver) {
-      // Always non-nil according to Apple's documentation.
-      DCHECK(photo);
-      NSData* data = static_cast<AVCapturePhoto*>(photo).fileDataRepresentation;
-      if (!error && data) {
-        _frameReceiver->OnPhotoTaken(
-            reinterpret_cast<const uint8_t*>(data.bytes), data.length,
-            "image/jpeg");
-      } else {
-        _frameReceiver->OnPhotoError();
-      }
-    }
-    // Whether we succeeded or failed, we need to resolve the pending
-    // takePhoto() operation.
-    _mainThreadTaskRunner->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](base::WeakPtr<SelfHolder> weakSelf) {
-              if (!weakSelf.get()) {
-                return;
-              }
-              [weakSelf.get()->the_self takePhotoResolved];
-            },
-            _weakPtrHolderForTakePhoto.weak_ptr_factory.GetWeakPtr()));
-  } else {
-    NOTREACHED();
+  base::AutoLock lock(_lock);
+  // If `output` is no longer current, ignore the result of this operation.
+  // `_frameReceiver->OnPhotoError()` will already have been called inside
+  // stopPhotoOutput().
+  if (output != _photoOutput) {
+    return;
   }
+  if (_frameReceiver) {
+    // Always non-nil according to Apple's documentation.
+    DCHECK(photo);
+    NSData* data = static_cast<AVCapturePhoto*>(photo).fileDataRepresentation;
+    if (!error && data) {
+      _frameReceiver->OnPhotoTaken(reinterpret_cast<const uint8_t*>(data.bytes),
+                                   data.length, "image/jpeg");
+    } else {
+      _frameReceiver->OnPhotoError();
+    }
+  }
+  // Whether we succeeded or failed, we need to resolve the pending
+  // takePhoto() operation.
+  _mainThreadTaskRunner->PostTask(
+      FROM_HERE, base::BindOnce(
+                     [](base::WeakPtr<SelfHolder> weakSelf) {
+                       if (!weakSelf.get()) {
+                         return;
+                       }
+                       [weakSelf.get()->the_self takePhotoResolved];
+                     },
+                     _weakPtrHolderForTakePhoto.weak_ptr_factory.GetWeakPtr()));
 }
 
 - (void)takePhotoResolved {
@@ -786,7 +739,7 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
     if (safe_to_forward) {
       _frameReceiver->ReceiveFrame(
           reinterpret_cast<const uint8_t*>(baseAddress), frameSize,
-          captureFormat, colorSpace, 0, 0, timestamp);
+          captureFormat, colorSpace, 0, 0, timestamp, _rotation);
     }
   }
 }
@@ -899,7 +852,7 @@ AVCaptureDeviceFormat* FindBestCaptureFormat(
   _frameReceiver->ReceiveFrame(
       packedBufferCopy.empty() ? pixelBufferAddresses[0]
                                : packedBufferCopy.data(),
-      frameSize, captureFormat, colorSpace, 0, 0, timestamp);
+      frameSize, captureFormat, colorSpace, 0, 0, timestamp, _rotation);
   CVPixelBufferUnlockBaseAddress(pixelBuffer, kCVPixelBufferLock_ReadOnly);
   return YES;
 }

@@ -31,8 +31,10 @@
 #include "components/optimization_guide/content/browser/page_content_annotator.h"
 #include "components/optimization_guide/core/entity_metadata_provider.h"
 #include "components/optimization_guide/core/model_info.h"
+#include "components/optimization_guide/core/optimization_guide_decision.h"
 #include "components/optimization_guide/core/page_content_annotations_common.h"
 #include "components/optimization_guide/machine_learning_tflite_buildflags.h"
+#include "components/optimization_guide/proto/hints.pb.h"
 #include "components/optimization_guide/proto/page_entities_metadata.pb.h"
 #include "components/optimization_guide/proto/salient_image_metadata.pb.h"
 #include "components/search_engines/template_url_service.h"
@@ -51,7 +53,9 @@ class ProtoDatabaseProvider;
 
 namespace optimization_guide {
 
+class OptimizationGuideDecider;
 class OptimizationGuideModelProvider;
+class OptimizationMetadata;
 class PageContentAnnotationsModelManager;
 class PageContentAnnotationsServiceBrowserTest;
 class PageContentAnnotationsValidator;
@@ -132,6 +136,7 @@ class PageContentAnnotationsService : public KeyedService,
       leveldb_proto::ProtoDatabaseProvider* database_provider,
       const base::FilePath& database_dir,
       OptimizationGuideLogger* optimization_guide_logger,
+      OptimizationGuideDecider* optimization_guide_decider,
       scoped_refptr<base::SequencedTaskRunner> background_task_runner);
   ~PageContentAnnotationsService() override;
   PageContentAnnotationsService(const PageContentAnnotationsService&) = delete;
@@ -164,9 +169,11 @@ class PageContentAnnotationsService : public KeyedService,
       EntityMetadataRetrievedCallback callback) override;
 
   // history::HistoryServiceObserver:
-  void OnURLVisited(history::HistoryService* history_service,
-                    const history::URLRow& url_row,
-                    const history::VisitRow& visit_row) override;
+  void OnURLVisitedWithNavigationId(
+      history::HistoryService* history_service,
+      const history::URLRow& url_row,
+      const history::VisitRow& visit_row,
+      absl::optional<int64_t> local_navigation_id) override;
 
   // Overrides the PageContentAnnotator for testing. See
   // test_page_content_annotator.h for an implementation designed for testing.
@@ -313,6 +320,14 @@ class PageContentAnnotationsService : public KeyedService,
       const GURL& url,
       const PageContentAnnotationsResult& page_content_annotations_result);
 
+  // Callback invoked when a response for |optimization_type| has been received
+  // from |optimization_guide_decider_| for |visit|.
+  void OnOptimizationGuideResponseReceived(
+      const HistoryVisit& visit,
+      proto::OptimizationType optimization_type,
+      OptimizationGuideDecision decision,
+      const OptimizationMetadata& metadata);
+
   // Provider client instance used when parsing cached ZPS response data.
   std::unique_ptr<AutocompleteProviderClient> autocomplete_provider_client_;
 
@@ -369,6 +384,9 @@ class PageContentAnnotationsService : public KeyedService,
   std::unique_ptr<PageContentAnnotationsValidator> validator_;
 
   raw_ptr<OptimizationGuideLogger> optimization_guide_logger_ = nullptr;
+
+  // Not owned and must outlive |this|.
+  raw_ptr<OptimizationGuideDecider> optimization_guide_decider_;
 
   // Observers of PageContentAnnotations that have been registered per
   // AnnotationType.

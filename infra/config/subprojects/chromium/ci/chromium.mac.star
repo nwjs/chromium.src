@@ -22,6 +22,7 @@ ci.defaults.set(
     reclient_instance = reclient.instance.DEFAULT_TRUSTED,
     reclient_jobs = reclient.jobs.DEFAULT,
     service_account = ci.DEFAULT_SERVICE_ACCOUNT,
+    shadow_service_account = ci.DEFAULT_SHADOW_SERVICE_ACCOUNT,
     thin_tester_cores = 8,
 )
 
@@ -52,7 +53,7 @@ consoles.console_view(
 
 def ios_builder(*, name, **kwargs):
     kwargs.setdefault("sheriff_rotations", sheriff_rotations.IOS)
-    kwargs.setdefault("xcode", xcode.x14main)
+    kwargs.setdefault("xcode", xcode.x15main)
     return ci.builder(name = name, **kwargs)
 
 ci.builder(
@@ -271,63 +272,6 @@ ci.thin_tester(
 )
 
 ci.thin_tester(
-    name = "Mac10.13 Tests",
-    branch_selector = branches.selector.MAC_BRANCHES,
-    triggered_by = ["ci/Mac Builder"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "use_clang_coverage",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.MAC,
-        ),
-        build_gs_bucket = "chromium-mac-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "release",
-        short_name = "13",
-    ),
-    cq_mirrors_console_view = "mirrors",
-)
-
-ci.thin_tester(
-    name = "Mac10.14 Tests",
-    branch_selector = branches.selector.MAC_BRANCHES,
-    triggered_by = ["ci/Mac Builder"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.MAC,
-        ),
-        build_gs_bucket = "chromium-mac-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "release",
-        short_name = "14",
-    ),
-    cq_mirrors_console_view = "mirrors",
-)
-
-ci.thin_tester(
     name = "Mac10.15 Tests",
     branch_selector = branches.selector.MAC_BRANCHES,
     triggered_by = ["ci/Mac Builder"],
@@ -492,6 +436,10 @@ ios_builder(
             short_name = "ctl",
         ),
     ],
+
+    # TODO(crbug/1466746): Xcode 15 is broken due a bug in the SDK.
+    # Remove below once the issue is fixed.
+    xcode = xcode.x14main,
 )
 
 ios_builder(
@@ -618,6 +566,7 @@ ios_builder(
         ),
         build_gs_bucket = "chromium-mac-archive",
     ),
+    cpu = cpu.ARM64,
     console_view_entry = [
         consoles.console_view_entry(
             category = "ios|default",
@@ -630,7 +579,4 @@ ios_builder(
             short_name = "non",
         ),
     ],
-    # We don't have necessary capacity to run this configuration in CQ, but it
-    # is part of the main waterfall
-    xcode = xcode.x14main,
 )

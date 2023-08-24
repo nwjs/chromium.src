@@ -65,7 +65,8 @@ void OpenURLForItem(HistoryMenuBridge::HistoryItem node,
 }  // namespace
 
 @implementation HistoryMenuCocoaController {
-  raw_ptr<HistoryMenuBridge, DanglingUntriaged> _bridge;  // weak; owns us
+  raw_ptr<HistoryMenuBridge, AcrossTasksDanglingUntriaged>
+      _bridge;  // weak; owns us
 }
 
 - (instancetype)initWithBridge:(HistoryMenuBridge*)bridge {

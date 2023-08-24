@@ -4,25 +4,22 @@
 
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_two_origins_view.h"
 
+#include "base/metrics/histogram_functions.h"
+#include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/favicon/favicon_service_factory.h"
 #include "chrome/browser/ui/browser.h"
-#include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "components/favicon/core/favicon_service.h"
 #include "components/favicon_base/favicon_callback.h"
 #include "components/permissions/permission_util.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/url_formatter/elide_url.h"
 #include "ui/base/l10n/l10n_util.h"
-#include "ui/resources/grit/ui_resources.h"
 #include "ui/views/controls/image_view.h"
-#include "ui/views/layout/flex_layout.h"
-#include "ui/views/vector_icons.h"
+#include "ui/views/layout/layout_provider.h"
 
 namespace {
 
-// TODO(b/278181254): We might need to fetch larger icons on higher dpi
-// screens.
-constexpr int kDesiredFaviconSizeInPixel = 32;
+constexpr int kDesiredFaviconSizeInPixel = 28;
 // TODO(b/278181254): Add metrics for how long the favicons take to be fetched,
 // so we can adjust this delay accordingly.
 constexpr int kMaxShowDelayMs = 200;
@@ -77,6 +74,8 @@ PermissionPromptBubbleTwoOriginsView::PermissionPromptBubbleTwoOriginsView(
   favicon_tracker_ = std::make_unique<base::CancelableTaskTracker>();
 
   // Fetching requesting origin favicon.
+  // Fetch raw favicon to set |fallback_to_host|=true since we otherwise might
+  // not get a result if the user never visited the root URL of |site|.
   favicon_service->GetRawFaviconForPageURL(
       delegate->GetRequestingOrigin(), {favicon_base::IconType::kFavicon},
       kDesiredFaviconSizeInPixel, /*fallback_to_host=*/true,
@@ -141,12 +140,8 @@ void PermissionPromptBubbleTwoOriginsView::Show() {
 
 void PermissionPromptBubbleTwoOriginsView::CreateFaviconRow() {
   // Getting default favicon.
-  const ui::NativeTheme* native_theme =
-      ui::NativeTheme::GetInstanceForNativeUi();
-  bool is_dark = native_theme && native_theme->ShouldUseDarkColors();
-  int resource_id =
-      is_dark ? IDR_DEFAULT_FAVICON_DARK_32 : IDR_DEFAULT_FAVICON_32;
-  ui::ImageModel default_favicon_ = ui::ImageModel::FromResourceId(resource_id);
+  ui::ImageModel default_favicon_ = ui::ImageModel::FromVectorIcon(
+      kGlobeIcon, ui::kColorIcon, kDesiredFaviconSizeInPixel);
 
   const int favicon_margin = views::LayoutProvider::Get()->GetDistanceMetric(
       views::DISTANCE_VECTOR_ICON_PADDING);
@@ -157,14 +152,14 @@ void PermissionPromptBubbleTwoOriginsView::CreateFaviconRow() {
   favicon_container_->SetProperty(views::kMarginsKey,
                                   gfx::Insets().set_bottom(favicon_margin));
 
-  // Left favicon for embedding origin.
+  // Left favicon for requesting origin.
   favicon_left_ = favicon_container_->AddChildView(
       std::make_unique<views::ImageView>(default_favicon_));
   favicon_left_->SetVerticalAlignment(views::ImageView::Alignment::kLeading);
   favicon_left_->SetProperty(views::kMarginsKey,
                              gfx::Insets().set_right(favicon_margin));
 
-  // Right favicon for requesting origin.
+  // Right favicon for embedding origin.
   favicon_right_ = favicon_container_->AddChildView(
       std::make_unique<views::ImageView>(default_favicon_));
   favicon_right_->SetVerticalAlignment(views::ImageView::Alignment::kLeading);
@@ -174,10 +169,12 @@ void PermissionPromptBubbleTwoOriginsView::CreateFaviconRow() {
 
 void PermissionPromptBubbleTwoOriginsView::OnEmbeddingOriginFaviconLoaded(
     const favicon_base::FaviconRawBitmapResult& favicon_result) {
-  favicon_left_received_ = true;
+  favicon_right_received_ = true;
+  base::UmaHistogramBoolean("Permissions.Prompt.HasEmbeddingFavicon",
+                            favicon_result.is_valid());
 
   if (favicon_result.is_valid()) {
-    favicon_left_->SetImage(ui::ImageModel::FromImage(
+    favicon_right_->SetImage(ui::ImageModel::FromImage(
         gfx::Image::CreateFrom1xPNGBytes(favicon_result.bitmap_data->front(),
                                          favicon_result.bitmap_data->size())));
   }
@@ -186,10 +183,12 @@ void PermissionPromptBubbleTwoOriginsView::OnEmbeddingOriginFaviconLoaded(
 
 void PermissionPromptBubbleTwoOriginsView::OnRequestingOriginFaviconLoaded(
     const favicon_base::FaviconRawBitmapResult& favicon_result) {
-  favicon_right_received_ = true;
+  favicon_left_received_ = true;
+  base::UmaHistogramBoolean("Permissions.Prompt.HasRequestingFavicon",
+                            favicon_result.is_valid());
 
   if (favicon_result.is_valid()) {
-    favicon_right_->SetImage(ui::ImageModel::FromImage(
+    favicon_left_->SetImage(ui::ImageModel::FromImage(
         gfx::Image::CreateFrom1xPNGBytes(favicon_result.bitmap_data->front(),
                                          favicon_result.bitmap_data->size())));
   }

@@ -30,7 +30,7 @@ import androidx.preference.Preference;
 import androidx.preference.PreferenceFragmentCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.chromium.base.ApiCompatibilityUtils;
+import org.chromium.base.BuildInfo;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.supplier.OneshotSupplierImpl;
 import org.chromium.chrome.R;
@@ -39,6 +39,8 @@ import org.chromium.chrome.browser.ChromeBaseAppCompatActivity;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.LaunchIntentDispatcher;
 import org.chromium.chrome.browser.accessibility.settings.ChromeAccessibilitySettingsDelegate;
+import org.chromium.chrome.browser.autofill.options.AutofillOptionsCoordinator;
+import org.chromium.chrome.browser.autofill.options.AutofillOptionsFragment;
 import org.chromium.chrome.browser.back_press.BackPressHelper;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.back_press.SecondaryActivityBackPressUma.SecondaryActivity;
@@ -549,6 +551,9 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
         if (fragment instanceof PasswordSettings) {
             ((PasswordSettings) fragment).setBottomSheetController(mBottomSheetController);
         }
+        if (fragment instanceof AutofillOptionsFragment) {
+            AutofillOptionsCoordinator.createFor((AutofillOptionsFragment) fragment);
+        }
     }
 
     @Override
@@ -578,21 +583,20 @@ public class SettingsActivity extends ChromeBaseAppCompatActivity
      */
     private void setStatusBarColor() {
         // On P+, the status bar color is set via the XML theme.
-        if ((!DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)
-                    && VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                || (DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)
-                        && !ChromeFeatureList.sTabStripRedesign.isEnabled()
-                        && VERSION.SDK_INT >= Build.VERSION_CODES.P)) {
+        if (VERSION.SDK_INT >= Build.VERSION_CODES.P && !BuildInfo.getInstance().isAutomotive
+                && (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)
+                        || (DeviceFormFactor.isNonMultiDisplayContextOnTablet(this)
+                                && !ChromeFeatureList.sTabStripRedesign.isEnabled()))) {
             return;
         }
 
         if (UiUtils.isSystemUiThemingDisabled()) return;
 
         // Use transparent color, so the AppBarLayout can color the status bar on scroll.
-        ApiCompatibilityUtils.setStatusBarColor(getWindow(), Color.TRANSPARENT);
+        UiUtils.setStatusBarColor(getWindow(), Color.TRANSPARENT);
 
         // Set status bar icon color according to background color.
-        ApiCompatibilityUtils.setStatusBarIconColor(getWindow().getDecorView().getRootView(),
+        UiUtils.setStatusBarIconColor(getWindow().getDecorView().getRootView(),
                 getResources().getBoolean(R.bool.window_light_status_bar));
     }
 

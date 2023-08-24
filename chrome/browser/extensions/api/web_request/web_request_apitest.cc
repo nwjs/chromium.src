@@ -98,6 +98,7 @@
 #include "content/public/test/url_loader_interceptor.h"
 #include "content/public/test/url_loader_monitor.h"
 #include "content/public/test/web_transport_simple_test_server.h"
+#include "extensions/browser/api/web_request/extension_web_request_event_router.h"
 #include "extensions/browser/api/web_request/web_request_api.h"
 #include "extensions/browser/background_script_executor.h"
 #include "extensions/browser/blocked_action_type.h"
@@ -1290,8 +1291,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 // Check that reloading an extension that runs in incognito split mode and
 // has two active background pages with registered events does not crash the
 // browser. Regression test for http://crbug.com/224094
-// Flaky on linux-lacros. See http://crbug.com/1423252
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// Flaky on linux-lacros and Linux. See http://crbug.com/1423252
+#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_IncognitoSplitModeReload DISABLED_IncognitoSplitModeReload
 #else
 #define MAYBE_IncognitoSplitModeReload IncognitoSplitModeReload
@@ -3667,8 +3668,14 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 // Ensure we don't strip off initiator incorrectly in web request events when
 // both the normal and incognito contexts are active. Regression test for
 // crbug.com/934398.
+// Flaky on Linux. See http://crbug.com/1423252
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_Initiator_SplitIncognito DISABLED_Initiator_SplitIncognito
+#else
+#define MAYBE_Initiator_SplitIncognito Initiator_SplitIncognito
+#endif
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
-                       Initiator_SplitIncognito) {
+                       MAYBE_Initiator_SplitIncognito) {
   embedded_test_server()->ServeFilesFromSourceDirectory("chrome/test/data");
   ASSERT_TRUE(embedded_test_server()->Start());
 
@@ -5602,6 +5609,7 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, WebRequestBlocking) {
     EXPECT_EQ(net::OK, nav_observer.last_net_error_code());
   }
 
+  base::HistogramTester histogram_tester;
   // Now, navigate to block.example. This navigation should be blocked.
   {
     content::TestNavigationObserver nav_observer(web_contents);
@@ -5610,6 +5618,16 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, WebRequestBlocking) {
         embedded_test_server()->GetURL("block.example", "/simple.html")));
     EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT, nav_observer.last_net_error_code());
   }
+
+  // TODO(crbug.com/1441221): Create more targeted tests to confirm when metrics
+  // should be firing or not.
+  // Web request API events should not have metrics emitted for SW/MV3.
+  histogram_tester.ExpectTotalCount(
+      "Extensions.Events.DispatchToAckTime.ExtensionServiceWorker2",
+      /*expected_count=*/0);
+  histogram_tester.ExpectTotalCount(
+      "Extensions.Events.DispatchToAckLongTime.ExtensionServiceWorker2",
+      /*expected_count=*/0);
 }
 
 // Tests a service worker-based extension registering multiple webRequest events

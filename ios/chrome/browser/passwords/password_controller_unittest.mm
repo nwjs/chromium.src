@@ -15,6 +15,7 @@
 #import "base/memory/ref_counted.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
+#import "base/test/gmock_move_support.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
@@ -71,10 +72,6 @@
 #import "third_party/ocmock/OCMock/OCPartialMockObject.h"
 #import "url/gurl.h"
 
-#if !defined(__has_feature) || !__has_feature(objc_arc)
-#error "This file requires ARC support."
-#endif
-
 using autofill::FieldRendererId;
 using autofill::FormActivityParams;
 using autofill::FormData;
@@ -124,10 +121,10 @@ class MockPasswordManagerClient
   ~MockPasswordManagerClient() override = default;
 
   MOCK_METHOD(bool, IsOffTheRecord, (), (const override));
-  MOCK_METHOD(void,
-              PromptUserToSaveOrUpdatePasswordPtr,
-              (PasswordFormManagerForUI*),
-              ());
+  MOCK_METHOD(bool,
+              PromptUserToSaveOrUpdatePassword,
+              (std::unique_ptr<PasswordFormManagerForUI>, bool),
+              (override));
   MOCK_METHOD(bool, IsSavingAndFillingEnabled, (const GURL&), (const override));
 
   PrefService* GetPrefs() const override { return prefs_; }
@@ -141,23 +138,11 @@ class MockPasswordManagerClient
     return &network_context_;
   }
 
-  // Workaround for std::unique_ptr<> lacking a copy constructor.
-  bool PromptUserToSaveOrUpdatePassword(
-      std::unique_ptr<PasswordFormManagerForUI> manager,
-      bool update_password) override {
-    PromptUserToSaveOrUpdatePasswordPtr(manager.release());
-    return false;
-  }
-
  private:
   mutable FakeNetworkContext network_context_;
   raw_ptr<PrefService> const prefs_;
   password_manager::PasswordStoreInterface* const store_;
 };
-
-ACTION_P(SaveToScopedPtr, scoped) {
-  scoped->reset(arg0);
-}
 
 // Creates PasswordController with the given `pref_service`, `web_state` and a
 // mock client using the given `store`. If not null, `weak_client` is filled
@@ -190,6 +175,7 @@ PasswordForm CreatePasswordForm(const char* origin_url,
   form.username_value = ASCIIToUTF16(username_value);
   form.password_value = ASCIIToUTF16(password_value);
   form.in_store = password_manager::PasswordForm::Store::kProfileStore;
+  form.match_type = PasswordForm::MatchType::kExact;
   return form;
 }
 
@@ -677,6 +663,7 @@ PasswordForm MakeSimpleForm() {
   form.signon_realm = "http://www.google.com/";
   form.form_data = MakeSimpleFormData();
   form.in_store = password_manager::PasswordForm::Store::kProfileStore;
+  form.match_type = password_manager::PasswordForm::MatchType::kExact;
   return form;
 }
 
@@ -1328,10 +1315,10 @@ TEST_F(PasswordControllerTestSimple, SaveOnNonHTMLLandingPage) {
                                inFrame:main_web_frame];
 
   std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
 
-  // Save password prompt shpuld be shown after navigation to a non-HTML page.
+  // Save password prompt should be shown after navigation to a non-HTML page.
   web_state_.SetContentIsHTML(false);
   web_state_.SetCurrentURL(GURL("https://google.com/success"));
   [sharedPasswordController webState:&web_state_ didLoadPageWithSuccess:YES];
@@ -1418,8 +1405,8 @@ TEST_F(PasswordControllerTest, TouchendAsSubmissionIndicator) {
     WaitForFormManagersCreation();
 
     std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-        .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+        .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
 
     ExecuteJavaScript(
         @"document.getElementsByName('username')[0].value = 'user1';"
@@ -1455,8 +1442,8 @@ TEST_F(PasswordControllerTest, SavingFromSameOriginIframe) {
       .WillByDefault(WithArg<1>(InvokeEmptyConsumerWithForms(store_.get())));
 
   std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
 
   LoadHtml(@"<iframe id='frame1' name='frame1'></iframe>");
   ExecuteJavaScript(
@@ -1717,8 +1704,8 @@ TEST_F(PasswordControllerTest, ShowingSavingPromptOnSuccessfulSubmission) {
   WaitForFormManagersCreation();
 
   std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
   ExecuteJavaScript(
       @"document.getElementsByName('username')[0].value = 'user1';"
        "document.getElementsByName('password')[0].value = 'password1';"
@@ -1757,7 +1744,7 @@ TEST_F(PasswordControllerTest, NotShowingSavingPromptWithoutSubmission) {
   LoadHtml(SysUTF8ToNSString(kHtml));
   WaitForFormManagersCreation();
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
   ExecuteJavaScript(
       @"document.getElementsByName('username')[0].value = 'user1';"
        "document.getElementsByName('password')[0].value = 'password1';");
@@ -1789,7 +1776,7 @@ TEST_F(PasswordControllerTest, NotShowingSavingPromptWhileSavingIsDisabled) {
   LoadHtml(SysUTF8ToNSString(kHtml));
   WaitForFormManagersCreation();
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
   ExecuteJavaScript(
       @"document.getElementsByName('username')[0].value = 'user1';"
        "document.getElementsByName('password')[0].value = 'password1';"
@@ -1822,8 +1809,8 @@ TEST_F(PasswordControllerTest, ShowingUpdatePromptOnSuccessfulSubmission) {
   WaitForFormManagersCreation();
 
   std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
   ExecuteJavaScript(
       @"document.getElementsByName('Username')[0].value = 'googleuser';"
        "document.getElementsByName('Passwd')[0].value = 'new_password';"
@@ -1882,11 +1869,10 @@ TEST_F(PasswordControllerTest, SavingOnNavigateMainFrame) {
 
         std::unique_ptr<PasswordFormManagerForUI> form_manager;
         if (prompt_should_be_shown) {
-          EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-              .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager)));
+          EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+              .WillOnce(MoveArgAndReturn<0>(&form_manager, true));
         } else {
-          EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-              .Times(0);
+          EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
         }
         form_id.value() += 3;
         username_id.value() += 3;
@@ -1940,7 +1926,7 @@ TEST_F(PasswordControllerTest, NoSavingOnNavigateMainFrameFailedSubmission) {
   SimulateUserTyping("login_form", FormRendererId(1), "pw", FieldRendererId(3),
                      "password1", main_frame_id);
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
 
   web::FakeNavigationContext context;
   context.SetHasCommitted(true);
@@ -1993,8 +1979,8 @@ TEST_F(PasswordControllerTest, DetectSubmissionOnRemovedForm) {
                        mainFrameID);
 
     std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-        .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+        .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
 
     std::vector<FieldRendererId> removed_ids;
     if (!has_form_tag) {
@@ -2040,7 +2026,7 @@ TEST_F(PasswordControllerTest,
   SimulateUserTyping("login_form", FormRendererId(1), "pw", FieldRendererId(3),
                      "password1", mainFrameID);
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
 
   SimulateFormActivityObserverSignal("password_form_removed", FormRendererId(1),
                                      FieldRendererId(), std::string());
@@ -2055,7 +2041,7 @@ TEST_F(PasswordControllerTest,
   LoadHtml(kHtmlWithPasswordForm);
   WaitForFormManagersCreation();
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
 
   SimulateFormActivityObserverSignal("password_form_removed", FormRendererId(1),
                                      FieldRendererId(), std::string());
@@ -2081,7 +2067,7 @@ TEST_F(PasswordControllerTest,
   SimulateUserTyping("form1", FormRendererId(1), "one-time-code",
                      FieldRendererId(3), "123456", mainFrameID);
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
 
   SimulateFormActivityObserverSignal("password_form_removed", FormRendererId(1),
                                      FieldRendererId(), std::string());
@@ -2134,8 +2120,8 @@ TEST_F(PasswordControllerTest, DetectSubmissionOnIFrameDetach) {
                      "password1", iFrameID);
 
   std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
 
   ExecuteJavaScript(@"var frame1 = document.getElementById('frame1');"
                      "frame1.parentNode.removeChild(frame1);");
@@ -2188,7 +2174,7 @@ TEST_F(PasswordControllerTest,
 
   WaitForFormManagersCreation();
 
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr).Times(0);
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword).Times(0);
 
   ExecuteJavaScript(@"var frame1 = document.getElementById('frame1');"
                      "frame1.parentNode.removeChild(frame1);");
@@ -2221,8 +2207,9 @@ TEST_F(PasswordControllerTest, PasswordMetricsNoSavedCredentials) {
     WaitForFormManagersCreation();
 
     std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-        .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+    EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+        .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, false));
+    ;
 
     ExecuteJavaScript(
         @"document.getElementsByName('username')[0].value = 'user';"
@@ -2392,8 +2379,8 @@ TEST_F(PasswordControllerTest, SavingPasswordsOutsideTheFormTag) {
                      "password1", main_frame_id);
 
   __block std::unique_ptr<PasswordFormManagerForUI> form_manager;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager, true));
 
   // Simulate a renderer initiated navigation.
   web::FakeNavigationContext context;
@@ -2422,8 +2409,8 @@ TEST_F(PasswordControllerTest,
       .WillByDefault(WithArg<1>(InvokeEmptyConsumerWithForms(store_.get())));
 
   std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
-  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePasswordPtr)
-      .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+  EXPECT_CALL(*weak_client_, PromptUserToSaveOrUpdatePassword)
+      .WillOnce(MoveArgAndReturn<0>(&form_manager_to_save, true));
 
   LoadHtml(@""
             "<input id='un' type='text' name='u'>"
