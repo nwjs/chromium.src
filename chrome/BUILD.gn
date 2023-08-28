@@ -1253,7 +1253,7 @@ if (is_win || (is_linux && !is_component_build)) {
       ":chrome_dll_symbol_order",
       "//build/config/compiler:wexit_time_destructors",
     ]
-    if (!is_component_build && !using_sanitizer) {
+    if (false && !is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
     }
     configs += [ "//v8:external_startup_data" ]
@@ -1310,7 +1310,7 @@ if (is_win || (is_linux && !is_component_build)) {
     }
 
     configs += [ ":chrome_dll_symbol_order" ]
-    if (!is_component_build && !using_sanitizer) {
+    if (false && !is_component_build && !using_sanitizer) {
       configs += [ ":chrome_dll_symbol_exports" ]
     }
 
