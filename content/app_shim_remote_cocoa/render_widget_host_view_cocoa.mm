@@ -739,7 +739,7 @@ void ExtractUnderlines(NSAttributedString* string,
 
 - (void)drawRect:(NSRect)dirty {
   if (content::g_force_cpu_draw) {
-    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] CGContext];
     CGContextClipToRect(ctx, NSRectToCGRect(dirty));
     //High Sierra 10.13 fix, previously we use [self layer],
     //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,

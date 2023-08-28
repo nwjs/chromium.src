@@ -19,7 +19,6 @@
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_policy.h"
-#include "base/message_loop/timer_slack.h"
 #include "base/command_line.h"
 #include "base/run_loop.h"
 #include "base/time/time.h"
@@ -322,7 +321,8 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
 
   base::MessagePumpUVNSRunLoop* message_pump = static_cast<base::MessagePumpUVNSRunLoop*>(arg);
 
-  NSAutoreleasePool* pool = [NSAutoreleasePool new];  // To avoid the warning.
+  absl::optional<base::mac::ScopedNSAutoreleasePool> pool;
+  pool.emplace();
 
   while (true) {
     int nfds = g_kqueue_thread_pipe_fd + 1;
@@ -359,8 +359,6 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
       check_kqueue = msg == '~';  // ~ - start, ! - stop.
     }
   }
-
-  [pool drain];
 
 }
 

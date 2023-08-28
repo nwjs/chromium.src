@@ -37,7 +37,6 @@
 #include "third_party/node-nw/src/node_webkit.h"
 
 #include "base/memory/weak_ptr.h"
-#include "base/message_loop/timer_slack.h"
 
 #include "base/message_loop/message_pump_mac.h"
 
