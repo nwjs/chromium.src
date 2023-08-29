@@ -1428,15 +1428,15 @@ void ChromeMainDelegate::PreSandboxStartup() {
   if (str) {
     product_string = *str;
     std::string helperProcessExecutablePath = (product_string + " Helper.app/Contents/MacOS/" + product_string + " Helper");
-    base::PathService::Override(content::CHILD_PROCESS_EXE,
+    base::PathService::OverrideAndCreateIfNeeded(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()
                                 .Append("Helpers")
-                                .Append(helperProcessExecutablePath));
+                                .Append(helperProcessExecutablePath), true, false);
   }else{
-    base::PathService::Override(content::CHILD_PROCESS_EXE,
+    base::PathService::OverrideAndCreateIfNeeded(content::CHILD_PROCESS_EXE,
                                 chrome::GetFrameworkBundlePath()
                                 .Append("Helpers")
-                                .Append(chrome::kHelperProcessExecutablePath));
+                                .Append(chrome::kHelperProcessExecutablePath), true, false);
   }
 
   InitMacCrashReporter(command_line, process_type);
