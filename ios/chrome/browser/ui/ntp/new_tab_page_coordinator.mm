@@ -68,7 +68,6 @@
 #import "ios/chrome/browser/signin/system_identity_manager.h"
 #import "ios/chrome/browser/sync/sync_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/enterprise/enterprise_utils.h"
-#import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_cells_constants.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_coordinator.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
@@ -673,7 +672,7 @@
 
   // Feed top section visibility is based on feed visibility, so this should
   // always be below the block that sets `feedViewController`.
-  if ([self isFeedTopSectionVisible]) {
+  if ([self isFeedVisible]) {
     self.feedTopSectionCoordinator = [self createFeedTopSectionCoordinator];
   }
 }
@@ -716,6 +715,7 @@
   NewTabPageMediator* NTPMediator = self.NTPMediator;
   DCHECK(NTPMediator);
   NTPMediator.feedControlDelegate = self;
+  NTPMediator.NTPContentDelegate = self;
   NTPMediator.headerConsumer = self.headerViewController;
   NTPMediator.consumer = self.NTPViewController;
   [NTPMediator setUp];
@@ -742,7 +742,7 @@
       feedWrapperViewControllerWithDelegate:self
                          feedViewController:self.feedViewController];
 
-  if ([self isFeedTopSectionVisible]) {
+  if ([self isFeedVisible]) {
     self.NTPViewController.feedTopSectionViewController =
         self.feedTopSectionCoordinator.viewController;
   }
@@ -750,13 +750,14 @@
   self.NTPViewController.feedWrapperViewController =
       self.feedWrapperViewController;
   self.NTPViewController.overscrollDelegate = self;
-  self.NTPViewController.ntpContentDelegate = self;
+  self.NTPViewController.NTPContentDelegate = self;
 
   self.NTPViewController.headerViewController = self.headerViewController;
 
   [self configureMainViewControllerUsing:self.NTPViewController];
   self.NTPViewController.feedMetricsRecorder = self.feedMetricsRecorder;
   self.NTPViewController.bubblePresenter = self.bubblePresenter;
+  self.NTPViewController.mutator = self.NTPMediator;
 }
 
 // Configures the main ViewController managed by this Coordinator.
@@ -927,7 +928,7 @@
 
   // Scroll position resets when changing the feed, so we set it back to what it
   // was.
-  [self.NTPViewController setContentOffsetToTopOfFeed:scrollPosition];
+  [self.NTPViewController setContentOffsetToTopOfFeedOrLess:scrollPosition];
 }
 
 - (void)handleSortTypeForFollowingFeed:(FollowingFeedSortType)sortType {
@@ -951,7 +952,7 @@
 
   // Scroll position resets when changing the feed, so we set it back to what it
   // was.
-  [self.NTPViewController setContentOffsetToTopOfFeed:scrollPosition];
+  [self.NTPViewController setContentOffsetToTopOfFeedOrLess:scrollPosition];
 }
 
 - (BOOL)shouldFeedBeVisible {
@@ -1072,6 +1073,11 @@
          !IsStickyHeaderDisabledForFollowingFeed();
 }
 
+- (BOOL)isRecentTabTileVisible {
+  return [self.contentSuggestionsCoordinator.contentSuggestionsMediator
+              mostRecentTabStartSurfaceTileIsShowing];
+}
+
 - (void)signinPromoHasChangedVisibility:(BOOL)visible {
   [self.feedTopSectionCoordinator signinPromoHasChangedVisibility:visible];
 }
@@ -1092,6 +1098,26 @@
   id<FakeboxFocuser> fakeboxFocuserHandler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), FakeboxFocuser);
   [fakeboxFocuserHandler fakeboxFocused];
+}
+
+- (void)refreshNTPContent {
+  [self.contentSuggestionsCoordinator
+          .contentSuggestionsMediator refreshMostVisitedTiles];
+  self.discoverFeedService->RefreshFeed(
+      FeedRefreshTrigger::kForegroundFeedVisibleOther);
+}
+
+- (void)updateForSelectedFeed:(FeedType)selectedFeed {
+  [self selectFeedType:selectedFeed];
+  // Reassign the sort type in case it changed in another tab.
+  self.feedHeaderViewController.followingFeedSortType =
+      self.followingFeedSortType;
+  // Update the header so that it's synced with the currently selected
+  // feed, which could have been changed when a new web state was
+  // inserted.
+  [self.feedHeaderViewController updateForSelectedFeed];
+  self.feedMetricsRecorder.feedControlDelegate = self;
+  self.feedMetricsRecorder.followDelegate = self;
 }
 
 #pragma mark - NewTabPageDelegate
@@ -1138,6 +1164,23 @@
 
 - (void)handleFeedTopSectionClosed {
   [self.NTPViewController updateScrollPositionForFeedTopSectionClosed];
+}
+
+- (BOOL)isSignInAllowed {
+  AuthenticationService::ServiceStatus statusService =
+      self.authService->GetServiceStatus();
+  switch (statusService) {
+    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
+    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
+    case AuthenticationService::ServiceStatus::SigninDisabledByUser: {
+      return NO;
+    }
+    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
+    case AuthenticationService::ServiceStatus::SigninAllowed: {
+      break;
+    }
+  }
+  return YES;
 }
 
 #pragma mark - NewTabPageFollowDelegate
@@ -1229,8 +1272,7 @@
 
 - (UIView*)toolbarSnapshotViewForOverscrollActionsController:
     (OverscrollActionsController*)controller {
-  return [[self.headerViewController toolBarView]
-      snapshotViewAfterScreenUpdates:NO];
+  return nil;
 }
 
 - (UIView*)headerViewForOverscrollActionsController:
@@ -1415,7 +1457,7 @@
     self.feedHeaderViewController = nil;
   }
 
-  if ([self isFeedTopSectionVisible]) {
+  if ([self isFeedVisible]) {
     self.NTPViewController.feedTopSectionViewController =
         self.feedTopSectionCoordinator.viewController;
   }
@@ -1452,16 +1494,6 @@
 // Returns `YES` if the feed is currently visible on the NTP.
 - (BOOL)isFeedVisible {
   return [self shouldFeedBeVisible] && self.feedViewController;
-}
-
-// Whether the feed top section, which contains all content between the feed
-// header and the feed, is currently visible.
-// TODO(crbug.com/1331010): The feed top section may include content that is not
-// the signin promo, which may need to be visible when the user is signed in.
-- (BOOL)isFeedTopSectionVisible {
-  return IsDiscoverFeedTopSyncPromoEnabled() && [self isFeedVisible] &&
-         self.authService &&
-         !self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
 }
 
 // Creates, configures and returns a feed view controller configuration.
@@ -1608,24 +1640,6 @@
   }
 }
 
-// Returns whether sign-in is enabled for the user.
-- (BOOL)isSignInAllowed {
-  AuthenticationService::ServiceStatus statusService =
-      self.authService->GetServiceStatus();
-  switch (statusService) {
-    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
-    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
-    case AuthenticationService::ServiceStatus::SigninDisabledByUser: {
-      return NO;
-    }
-    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
-    case AuthenticationService::ServiceStatus::SigninAllowed: {
-      break;
-    }
-  }
-  return YES;
-}
-
 // Returns whether the user policies allow them to sync.
 - (BOOL)isSyncAllowed {
   if (self.prefService->FindPreference(policy::key::kSyncDisabled) &&
@@ -1650,73 +1664,13 @@
 
 // Saves the state of the NTP associated with `self.webState`.
 - (void)saveNTPState {
-  if (self.browser->GetBrowserState()->IsOffTheRecord()) {
-    return;
-  }
-
-  // Get scroll position to save, and remove additional offset from "Return to
-  // Recent tab tile" and focused omnibox shifting.
-  CGFloat scrollPosition = [self.NTPViewController scrollPosition];
-  if ([self.contentSuggestionsCoordinator.contentSuggestionsMediator
-              mostRecentTabStartSurfaceTileIsShowing]) {
-    CGFloat tileSectionHeight =
-        ReturnToRecentTabHeight() +
-        content_suggestions::kReturnToRecentTabSectionBottomMargin;
-    if (scrollPosition >
-        tileSectionHeight + [self.NTPViewController pinnedOffsetY]) {
-      scrollPosition -= tileSectionHeight;
-    }
-  }
-  scrollPosition -= self.NTPViewController.collectionShiftingOffset;
-
-  NewTabPageTabHelper::FromWebState(self.webState)
-      ->SetNTPState([[NewTabPageState alloc]
-          initWithScrollPosition:scrollPosition
-                    selectedFeed:self.selectedFeed]);
+  [self.NTPMediator saveNTPStateForWebState:self.webState];
 }
 
 // Restores the saved state of the NTP associated with `self.webState` if
 // necessary.
 - (void)restoreNTPState {
-  if (self.browser->GetBrowserState()->IsOffTheRecord()) {
-    return;
-  }
-
-  NewTabPageState* ntpState =
-      NewTabPageTabHelper::FromWebState(self.webState)->GetNTPState();
-
-  // Restore selected feed type and ensure that coordinator's properties are
-  // updated for current web state.
-  if ([self isFollowingFeedAvailable]) {
-    [self selectFeedType:ntpState.selectedFeed];
-    // Reassign the sort type in case it changed in another tab.
-    self.feedHeaderViewController.followingFeedSortType =
-        self.followingFeedSortType;
-    // Update the header so that it's synced with the currently selected
-    // feed, which could have been changed when a new web state was
-    // inserted.
-    [self.feedHeaderViewController updateForSelectedFeed];
-    self.feedMetricsRecorder.feedControlDelegate = self;
-    self.feedMetricsRecorder.followDelegate = self;
-  }
-
-  // Restore saved scroll position.
-  CGFloat minimumOffset = -[self.NTPViewController heightAboveFeed];
-  if (ntpState.scrollPosition > minimumOffset) {
-    [self.NTPViewController setSavedContentOffset:ntpState.scrollPosition];
-  } else {
-    // Remove this if NTPs are ever scoped back to the WebState.
-    [self.NTPViewController setContentOffsetToTop];
-    // Refresh NTP content if there is is no saved scrolled state or when a new
-    // NTP is opened. Since the same NTP is being shared across tabs, this
-    // ensures that new content is being fetched.
-    [self.contentSuggestionsCoordinator
-            .contentSuggestionsMediator refreshMostVisitedTiles];
-
-    // If the scroll position was not restored, attempt to refresh the feed.
-    self.discoverFeedService->RefreshFeed(
-        FeedRefreshTrigger::kForegroundFeedVisibleOther);
-  }
+  [self.NTPMediator restoreNTPStateForWebState:self.webState];
 }
 
 #pragma mark - FeedSignInPromoCoordinatorDelegate

@@ -269,6 +269,11 @@ NSString* GridCellAccessibilityIdentifier(NSUInteger index) {
       return [weakSelf headerForSectionAtIndexPath:indexPath];
     };
     collectionView.dataSource = self.diffableDataSource;
+
+    // UICollectionViewDropPlaceholder uses a GridCell and needs the class to be
+    // registered.
+    [collectionView registerClass:[GridCell class]
+        forCellWithReuseIdentifier:kCellIdentifier];
   } else {
     [collectionView registerClass:[GridCell class]
         forCellWithReuseIdentifier:kCellIdentifier];
@@ -721,10 +726,9 @@ NSString* GridCellAccessibilityIdentifier(NSUInteger index) {
     // collection is doing layout (potentially during rotation?). Fudge by
     // duplicating the last cell. The assumption is that there will be another,
     // correct layout shortly after the incorrect one.
-    // Keep array bounds valid, but dump without crashing to report.
+    // Keep array bounds valid.
     if (itemIndex >= self.items.count) {
       itemIndex = self.items.count - 1;
-      base::debug::DumpWithoutCrashing();
     }
 
     TabSwitcherItem* item = self.items[itemIndex];
@@ -980,10 +984,9 @@ NSString* GridCellAccessibilityIdentifier(NSUInteger index) {
   // collection is doing layout (potentially during rotation?). Fudge by
   // duplicating the last cell. The assumption is that there will be another,
   // correct layout shortly after the incorrect one.
-  // Keep array bounds valid, but dump without crashing to report.
+  // Keep array bounds valid.
   if (itemIndex >= self.items.count) {
     itemIndex = self.items.count - 1;
-    base::debug::DumpWithoutCrashing();
   }
 
   TabSwitcherItem* item = self.items[itemIndex];
@@ -1840,6 +1843,13 @@ NSString* GridCellAccessibilityIdentifier(NSUInteger index) {
 
   [self removeEmptyStateAnimated:YES];
   if (base::FeatureList::IsEnabled(kTabGridRefactoring)) {
+    // TODO(crbug.com/1473625): There are crash reports that show there could be
+    // cases where the open tabs section is not present in the snapshot. If so,
+    // don't perform the update.
+    if ([snapshot indexOfSectionIdentifier:kOpenTabsSectionIdentifier] ==
+        NSNotFound) {
+      return;
+    }
     // The snapshot API doesn't provide a way to insert at a given index (that's
     // its purpose actually), only before/after an existing item, or by
     // appending to an existing section.

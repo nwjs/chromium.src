@@ -275,6 +275,7 @@
           視未來的規格演進而定，這項政策可能會適用於向私人 IP 或 localhost 發出的所有跨來源要求。
 
           如果將這項政策設為 True，網站即可向任何網路端點發出要求，並且需通過其他跨來源檢查。</translation>
+<translation id="1240559668501539326">在安裝之前，設定 <ph name="PRODUCT_OS_NAME" /> 裝置上 Bruschetta VM 安裝程式使用的中繼資料。</translation>
 <translation id="1240722269871366886">這項政策可讓 <ph name="PRODUCT_OS_NAME" />在使用者透過虛擬或實體鍵盤輸入文字時提供表情符號建議。
       如果將這項政策設為 True，系統會啟用這項功能，且使用者將可變更這項設定。
       這項政策的預設值為 False，系統不會提供任何表情符號建議，且使用者無法覆寫這項設定。</translation>
@@ -627,6 +628,7 @@
 
 在 <ph name="MAC_OS_NAME" /> 上，這項政策適用的執行個體必須透過行動裝置管理 (MDM) 軟體管理、透過 MCX 加入網域，或者註冊 <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />。</translation>
 <translation id="1530812829012954197">一律在瀏覽器中算繪以下網址模式</translation>
+<translation id="1534007181698071943">允許在淘汰期間預設停用卸載事件處理常式</translation>
 <translation id="1542491165152947087">允許使用者在裝置上開啟或關閉 <ph name="PRIVACY_SANDBOX_NAME" /> 廣告主題設定。</translation>
 <translation id="1550295162561011575">如果設定這項政策，系統管理員將可指定要在 <ph name="PRODUCT_NAME" /> 裝置上自動啟動的應用程式。這些應用程式可在使用者登入時啟動，使用者也可以透過啟動器一起啟動這些應用程式。</translation>
 <translation id="1552418937045050762">如果啟用這項設定，使用者將可使用「鄰近分享」功能，與附近的使用者互相傳送檔案。
@@ -991,6 +993,14 @@
       * 允許 PIN 碼和指紋，請使用 ["PIN", "FINGERPRINT"]。
 
       如果不設定這項政策或設為空白清單，則受管理的裝置不可使用任何 WebAuthn 要素。</translation>
+<translation id="1881471688033371681"><ph name="UNLOAD_EVENT_NAME" />事件處理常式已遭淘汰。這類處理常式是否會觸發，取決於<ph name="UNLOAD_EVENT_NAME" />事件的「<ph name="PERMISSIONS_POLICY_NAME" />」。目前，政策預設為允許觸發，但日後會逐漸改為禁止觸發，而網站也必須透過「<ph name="PERMISSIONS_POLICY_NAME" />」標頭明確啟用這類處理常式。您可以透過這項企業政策，選擇不採用這個逐步淘汰機制，方法是強制將預設設定維持在啟用狀態。
+
+網頁可能會仰賴<ph name="UNLOAD_EVENT_NAME" />事件處理常式來儲存資料，或將使用者工作階段結束的信號傳送到伺服器，因此不建議採取這個方式；因為這不僅不可靠，還會導致系統封鎖 <ph name="PRODUCT_NAME" />，進而影響效能。雖然是有建議的替代做法，但使用<ph name="UNLOAD_EVENT_NAME" />事件已行之良久，因此有些應用程式仍可能需要使用這些事件。
+
+如果將這項政策設為 False 或未設定，當淘汰機制推出後，系統就會逐步淘汰<ph name="UNLOAD_EVENT_NAME" />事件處理常式，而未設定「<ph name="PERMISSIONS_POLICY_NAME" />」標頭的網站則將停止觸發「未載入」事件。
+
+如果將這項政策設為 True，在預設情況下，<ph name="UNLOAD_EVENT_NAME" />事件處理常式將繼續運作。
+</translation>
 <translation id="1883274744253492031">啟用複合型內容自動升級</translation>
 <translation id="1885782360784839335">允許顯示完整分頁宣傳內容</translation>
 <translation id="1888871729456797026">電腦上的雲端政策註冊憑證</translation>
@@ -1208,7 +1218,7 @@
 <translation id="2033784678146670379">如果將這項政策設為啟用，使用者可運用 <ph name="PRODUCT_OS_NAME" />裝置的硬體，透過 <ph name="ENTERPRISE_PLATFORM_KEYS_API" /> 的 <ph name="CHALLENGE_USER_KEY_FUNCTION" />，從遠端向隱私權憑證授權單位認證身分。
 
       如果將這項政策設為停用或不設定，將導致 API 呼叫失敗，並收到錯誤代碼。</translation>
-<translation id="2036522553891755455">如果將這項政策設為啟用，共用檔案搜尋功能 (在 <ph name="PRODUCT_NAME" />上為「網路檔案共用」功能) 會使用 <ph name="NETBIOS_PROTOCOL" /> 搜尋網路上的共用檔案。如果設為停用，共用檔案搜尋功能就不會使用這項通訊協定搜尋共用檔案。
+<translation id="2036522553891755455">如果將這項政策設為啟用，共用檔案搜尋功能 (在 <ph name="PRODUCT_NAME" />上為「網路檔案共用區」功能) 會使用 <ph name="NETBIOS_PROTOCOL" /> 搜尋網路上的共用檔案。如果設為停用，共用檔案搜尋功能就不會使用這項通訊協定搜尋共用檔案。
       如果不設定這項政策，系統預設會為受管理的使用者停用此通訊協定，其他使用者則會設為啟用。</translation>
 <translation id="2039801473506609891">在非預設連接埠停用 HTTP/0.9 支援功能</translation>
 <translation id="2040479044912658454">列印光柵化模式</translation>
@@ -1273,7 +1283,7 @@
           如果停用或不設定這項政策，系統不會將任何帳戶加入 Kerberos 帳戶設定，並會移除先前透過這項政策新增的所有帳戶。如果啟用「使用者可以新增 Kerberos 帳戶」政策，則使用者仍可以手動新增帳戶。</translation>
 <translation id="2104418465060359056">回報擴充功能和外掛程式資訊</translation>
 <translation id="2106627642643925514">覆寫預設的 PIN 碼列印模式。如果設定的模式不適用，系統會忽略這項政策。</translation>
-<translation id="2107563874993284076">如果將這項政策設為啟用，使用者將可在 <ph name="PRODUCT_NAME" />使用網路檔案共用功能。如果設為停用，使用者就無法使用這項功能</translation>
+<translation id="2107563874993284076">如果將這項政策設為啟用，使用者將可在 <ph name="PRODUCT_NAME" />使用網路檔案共用區功能。如果設為停用，使用者就無法使用這項功能</translation>
 <translation id="2107601598727098402">
         這項政策已於 M72 淘汰。請改用 CloudManagementEnrollmentToken。
         </translation>
@@ -1331,13 +1341,13 @@
 
       如果不設定這項政策，瀏覽器只會在偵測到電腦上的實體記憶體即將用盡時，才會開始嘗試節省記憶體。</translation>
 <translation id="2161348910646846717">允許使用者變更發布版本</translation>
-<translation id="2165567959657265531">針對符合這些模式的網域所設定的 Cookie 會還原成舊版的 <ph name="ATTRIBUTE_SAMESITE_NAME" /> 行為。還原成舊版的行為會導致系統將未指定 <ph name="ATTRIBUTE_SAMESITE_NAME" /> 屬性的 Cookie 視為「<ph name="ATTRIBUTE_VALUE_SAMESITE_NONE" />」，並移除「<ph name="ATTRIBUTE_VALUE_SAMESITE_NONE" />」Cookie 必須帶有「<ph name="ATTRIBUTE_SECURE_NAME" />」屬性的要求。此外，這也會讓系統在評估兩個網站是否相同時，略過網址架構的比較。如需完整說明，請前往 https://www.chromium.org/administrators/policy-list-3/cookie-legacy-samesite-policies。
+<translation id="2165567959657265531">針對符合這些模式的網域所設定的 Cookie 會還原成舊版的 <ph name="ATTRIBUTE_SAMESITE_NAME" /> 行為。還原成舊版的行為會導致系統將未指定 <ph name="ATTRIBUTE_SAMESITE_NAME" /> 屬性的 Cookie 視為「<ph name="ATTRIBUTE_VALUE_SAMESITE_NONE" />」，並移除「<ph name="ATTRIBUTE_VALUE_SAMESITE_NONE" />」Cookie 必須帶有「<ph name="ATTRIBUTE_SECURE_NAME" />」屬性的要求。此外，這也會讓系統在評估兩個網站是否相同時，略過網址配置的比較。如需完整說明，請前往 https://www.chromium.org/administrators/policy-list-3/cookie-legacy-samesite-policies。
 
           如果網域中的 Cookie 不符合此處指定的模式，系統會根據使用者的個人設定套用全域預設值。如果不設定這項政策，系統會為所有 Cookie 採用這種做法。
 
           如想進一步瞭解有效的模式，請前往 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns。
 
-          請注意，系統會將你在這裡列出的模式視為網域而非網址，因此你不應指定網址架構或通訊埠。</translation>
+          請注意，系統會將你在這裡列出的模式視為網域而非網址，因此你不應指定網址配置或通訊埠。</translation>
 <translation id="2166155400701622446"><ph name="PRODUCT_NAME" /> 內建一份受限通訊埠的清單，使用者將無法連上這些通訊埠。你可以透過這項設定略過該清單。設定值為一份逗號分隔的清單，其中可能包含零或多個對外連線能使用的通訊埠。
 
       限制通訊埠的目的是防止有人將 <ph name="PRODUCT_NAME" /> 做為媒介來利用各種網路安全漏洞。設定這項政策可能會導致你的網路遭受攻擊。這項政策是用來處理「ERR_UNSAFE_PORT」錯誤的暫時性解決方案，可協助將服務從受封鎖的通訊埠遷移至標準通訊埠 (即通訊埠 80 或 443)。
@@ -1572,6 +1582,7 @@
 <translation id="2366301887862414321">允許使用者層級和系統層級的原生訊息傳遞主機</translation>
 <translation id="2373014700224092497">允許使用者新增 Kerberos 帳戶</translation>
 <translation id="2376134474855349829">在登入畫面上停用螢幕小鍵盤，並允許使用者暫時啟用</translation>
+<translation id="2376151922689284770">安裝程式 UI 中顯示的名稱，例如 Happy VM。如未設定，系統會顯示備用名稱，可能是沿用 BruschettaVMConfiguration 政策的第一個 (依顯示順序) 項目，或使用一般名稱。</translation>
 <translation id="2382672620906337383">系統要在達到較高巢狀閾值後，才會延遲 JavaScript setTimeout()。</translation>
 <translation id="2384233438419344179">如果將這項政策設為啟用，網頁元素只要不屬於瀏覽器網址列中的網域，就無法設定 Cookie。如果將這項政策設為停用，這類元素將可設定 Cookie，且使用者無法變更這項設定。
 
@@ -1815,6 +1826,7 @@
 
       如果不設定這項政策，系統將套用 <ph name="PRINTERS_ALLOW_ALL" />。</translation>
 <translation id="2581338546762479588">允許在更新完成後自動重新啟動</translation>
+<translation id="2582855747769273665">此網址可讓使用者點選以瞭解詳情。如果未設定，安裝程式中就不會顯示「瞭解詳情」網址。</translation>
 <translation id="2586117300379904732">允許電源管理的 Wake Lock</translation>
 <translation id="2586231026319371211">以當地時間為準，格式為 24 時制。</translation>
 <translation id="2587719089023392205">將 <ph name="PRODUCT_NAME" /> 設為預設瀏覽器</translation>
@@ -2204,6 +2216,7 @@
 
       警告：請勿將 <ph name="PRODUCT_OS_NAME" />版本的控制權委派給資訊站應用程式，因為這項操作可能會讓裝置無法取得軟體更新和重大安全性修正項目。委派 <ph name="PRODUCT_OS_NAME" />版本的控制權可能會讓使用者面臨風險。</translation>
 <translation id="2989404644164421834">重新載入頁面</translation>
+<translation id="299104951237091027">chrome://history/2 的 Chrome 歷史記錄頁面不會依群組顯示內容。</translation>
 <translation id="299446489108785864">指定要套用 <ph name="AUTO_OPEN_FILE_TYPES_POLICY_NAME" /> 的網址清單。這項政策不會影響使用者設定的自動開啟值。
 
       如果設定這項政策，只有當網址列在這份清單中，且檔案類型列在 <ph name="AUTO_OPEN_FILE_TYPES_POLICY_NAME" /> 中時，系統才會依照政策規定自動開啟檔案。只要有任一條件不符，系統就不會依照政策規定自動開啟下載的內容。
@@ -2822,6 +2835,7 @@
       如果啟用或未設定這項政策，使用者將能透過列印管理應用程式或刪除瀏覽器記錄，刪除列印工作歷史記錄。
 
       如果停用這項政策，使用者將無法透過列印管理應用程式或刪除瀏覽器記錄，刪除列印工作歷史記錄。</translation>
+<translation id="3507745622376866366">強制在淘汰期間預設啟用卸載事件處理常式</translation>
 <translation id="350797926066071931">啟用翻譯</translation>
 <translation id="3513265258454735822">啟用瀏覽器記錄儲存功能</translation>
 <translation id="3513655665999652754">Quirks Server 會提供特定硬體的設定檔，例如可調整螢幕校正功能的
@@ -2914,6 +2928,7 @@
 
 提醒你，請勿一律讓這項政策保持啟用狀態，特別是在進行實際工作環境部署作業時。</translation>
 <translation id="357917253161699596">允許使用者管理使用者憑證</translation>
+<translation id="3579976772194405786">Bruschetta</translation>
 <translation id="3580414086211696382">控管使用 File System API 讀取的權限</translation>
 <translation id="3584194414857209694">啟用實驗性政策</translation>
 <translation id="3584722841530002134">你可以透過這項政策，指派 <ph name="PRODUCT_NAME" /> 可能會委派的目標伺服器。請以半形逗號分隔伺服器名稱，可使用萬用字元 (<ph name="WILDCARD_VALUE" />)。
@@ -2964,6 +2979,7 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 <translation id="3625900437628963632">是否要記住這個政策項目中設定的 Kerberos 密碼值。如果未設定或設為 True，系統會記住密碼。如果設為 False，系統就不會記住密碼。如果未指定這個帳戶的密碼欄位，系統會忽略這項設定。ChromeOS 自 116 版起支援這個欄位。</translation>
 <translation id="3627678165642179114">啟用或停用拼字檢查網路服務</translation>
 <translation id="3628480121685794414">啟用單面列印</translation>
+<translation id="3632122147977480546">chrome://history/2 的 Chrome 歷史記錄頁面會依群組顯示內容。</translation>
 <translation id="3634117682099473917">所需 DNS-over-HTTPS 解析器的 URI 範本。如要指定多個 DNS-over-HTTPS 解析器，請以半形空格分隔對應的 URI 範本。這項政策與 <ph name="DOH_TEMPLATES_POLICY_NAME" /> 很相似，如果指定這項政策，系統將覆寫後者。兩項政策的差異之處，在於前者支援指定身分資訊。
 
 如果將 <ph name="DOH_MODE_POLICY_NAME" /> 設為 <ph name="SECURE_DNS_MODE_SECURE" />，就必須設定這項政策或 <ph name="DOH_TEMPLATES_POLICY_NAME" />，且不得留空。
@@ -3208,6 +3224,7 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 <translation id="3838094946886335701">你可以透過這項政策 (只能設為「建議」) 註冊通訊協定處理常式的清單，其中的通訊協定處理常式會與使用者所註冊的合併，二種皆可供使用。請將「protocol」(通訊協定) 屬性設為「mailto」等類型的網路通訊協定配置，並將「URL」(網址) 屬性設為處理該網路通訊協定的應用程式所使用的網址模式 (這裡的網路通訊協定指的是「通訊協定」欄位中所指定的網路通訊協定配置)。模式可包含「%s」預留位置，將替換為受處理的網址。
 
       使用者無法移除透過政策註冊的通訊協定處理常式，但可透過安裝新的預設處理常式，變更透過政策安裝的通訊協定處理常式。</translation>
+<translation id="3846610415459148921">網站使用情況報表</translation>
 <translation id="3851443303439635700">控制巢狀閾值，系統會在達到此閾值之前延遲啟動 JavaScript setTimeout() 函式</translation>
 <translation id="3858128774616573616">如果將這項政策設為啟用，系統會在工具列或溢位選單上顯示 Cast 工具列圖示，且使用者無法將其移除。
 
@@ -3265,7 +3282,6 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
       將這項政策設為停用表示允許使用 SPDY。
 
       如果未設定這項政策，則可使用 SPDY。</translation>
-<translation id="3887529334667818189">系統預設會在 chrome://history/journeys 頁面上顯示瀏覽歷程，且使用者可以變更瀏覽歷程的顯示設定。</translation>
 <translation id="3889458462150559611">允許網站以不安全的方式向任何網路端點發出要求。</translation>
 <translation id="388999630001435491">僅允許 <ph name="PRODUCT_NAME" /> 透過私人 IP 位址連線到裝置</translation>
 <translation id="3891175633496805812">停用 wilco 診斷與遙測控制器</translation>
@@ -3390,7 +3406,6 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
       如果將這項政策設為 True，系統會在數秒後關閉隱私權警告通知。
 
       如果將這項政策設為 False 或不予設定，系統會持續顯示隱私權警告通知，直到使用者關閉為止。</translation>
-<translation id="4008395195135046807">瀏覽歷程會顯示在 chrome://history/journeys 頁面上。</translation>
 <translation id="4008507541867797979">如果將這項政策設為 true 或不予設定，<ph name="PRODUCT_OS_NAME" /> 會在登入畫面上顯示現有使用者並允許從中擇一登入。
 
       如果這項政策設為 false，除非已設定受管理工作階段，否則 <ph name="PRODUCT_OS_NAME" /> 不會在登入畫面上顯示現有使用者，而是顯示一般登入畫面 (提示輸入使用者電子郵件地址，以及密碼或電話號碼) 或 SAML 插頁式畫面 (如果透過 <ph name="LOGIN_AUTHENTICATION_BEHAVIOR_POLICY_NAME" /> 政策啟用的話)。設定受管理工作階段後，系統便只會顯示受管理工作階段帳戶並允許從中擇一登入。
@@ -3703,6 +3718,11 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 
       如果受管理的裝置上有多個使用者帳戶，只有當這項政策啟用時，系統才會顯示通知。</translation>
 <translation id="4298476374822550051">啟用符合傳輸層安全標準 (TLS) 的 Kyber 後量子金鑰協議</translation>
+<translation id="4298577205501733707">回報關聯使用者的網站活動資料。
+
+如果設定這項政策，就能控制是否針對已加入許可清單的網址回報網站網址的開啟和關閉事件。
+如果未設定，系統就不會回報任何網站事件。
+如要進一步瞭解有效的網址模式，請前往 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns。這項政策只允許 HTTP 和 HTTPS 網址配置。</translation>
 <translation id="4303167373847512281">允許使用開發人員模式</translation>
 <translation id="4307116964468610577">這項政策每天只會將電池充飽一次，藉此延長系統電池的使用壽命。在當天剩餘時間內，即使系統已接上電源，電池仍會保持在較低的充電狀態。
 
@@ -3953,6 +3973,7 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
       這項政策的影響範圍只有使用 GAIA 驗證 (未使用 SAML) 的使用者。
 
       指定政策值時需以天為單位。</translation>
+<translation id="4525328580251166229">控管 Bruschetta 子系統的相關政策。</translation>
 <translation id="453031441196755904">這項政策已遭到淘汰。</translation>
 <translation id="4531706050939927436">你可以在 Google 管理控制台中使用 Google Play 強制安裝 Android 應用程式 (不會使用這項政策)。</translation>
 <translation id="4534500438517478692">Android 限制名稱：</translation>
@@ -4236,6 +4257,7 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
       如果停用這項設定，使用者將無法開啟 Phone Hub 功能。
 
       如果不設定這項政策，在預設情況下，受企業管理的使用者將無法執行 Phone Hub 功能，其他一般使用者則可開啟這項功能。</translation>
+<translation id="4774499365794632139">chrome://history/2 的 Chrome 歷史記錄頁面預設會依群組顯示內容。</translation>
 <translation id="4783415902268741066">允許在瀏覽器側邊面板中顯示預設搜尋引擎的最新搜尋結果頁面</translation>
 <translation id="4786784434769279324">電腦閒置時要執行的動作</translation>
 <translation id="4787763197941188108">覆寫預設的列印頁面大小。
@@ -4516,6 +4538,17 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
       如果不設定或停用這項政策，永久類型的 webkitRequestFileSystem 將採用暫時配額運作。
       </translation>
 <translation id="5105313908130842249">在電池供電環境下執行時的螢幕鎖定延遲時間</translation>
+<translation id="510604120100968366">啟用低電量音效功能。
+
+          這項功能可以播放低電量音效。
+
+          如果將這項政策設為啟用，系統會在電池電量或剩餘時間降至門檻以下時播放低電量音效。
+
+          如果將這項政策設為停用，系統就不會播放低電量音效。
+
+          設好這項政策後，使用者即無法變更或覆寫設定。
+
+          如果不設定這項政策，系統會為現有使用者停用此功能，或是預設為在受管理的 <ph name="PRODUCT_OS_NAME" /> 裝置上為新使用者啟用功能，但使用者仍可隨時啟用/停用。</translation>
 <translation id="5108031557082757679">已停用企業裝置印表機</translation>
 <translation id="5109383437323376357">指定變化版本的可用性</translation>
 <translation id="5109866581154565900">這項政策可控管是否要在使用者第一次登入時顯示觸控板捲動方向畫面。
@@ -4538,7 +4571,6 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 <translation id="5130935469849337738">一律提供翻譯</translation>
 <translation id="5141670636904227950">設定啟用的螢幕放大鏡在登入畫面的預設類型</translation>
 <translation id="5142301680741828703">一律算繪下列 <ph name="PRODUCT_FRAME_NAME" /> 中的網址模式</translation>
-<translation id="5143258831402123447">瀏覽歷程不會顯示在 chrome://history/journeys 頁面上。</translation>
 <translation id="514870861066611127">這項政策可控管系統是否要回報能用於辨識使用者身分的資訊，例如 OS 登入資訊、<ph name="PRODUCT_NAME" /> 設定檔登入資訊、<ph name="PRODUCT_NAME" /> 設定檔名稱、<ph name="PRODUCT_NAME" /> 設定檔路徑和 <ph name="PRODUCT_NAME" /> 執行檔路徑。
 
       如果不設定 <ph name="CLOUD_REPORTING_ENABLED_POLICY_NAME" /> 政策或設為停用，系統會忽略這項政策。
@@ -4593,16 +4625,6 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 <translation id="5179853299156742425">可下載桌面範本的網址。</translation>
 <translation id="5182055907976889880">設定在 <ph name="PRODUCT_OS_NAME" /> 中使用 Google 雲端硬碟。</translation>
 <translation id="5182483318861266793">將檔案櫃放在畫面的右側</translation>
-<translation id="5184298474980725716">這項政策可控管 Chrome 歷史記錄頁面上的瀏覽歷程顯示設定。
-
-      如果將這項政策設為啟用，瀏覽歷程會顯示在 chrome://history/journeys 頁面上。
-
-      如果將這項政策設為停用，瀏覽歷程就不會顯示在 chrome://history/journeys 頁面上。
-
-      如果不設定這項政策，系統預設會在 chrome://history/journeys 頁面上顯示瀏覽歷程，且使用者可以變更瀏覽歷程的顯示設定。
-
-      請注意，如果 <ph name="COMPONENT_UPDATES_ENABLED_POLICY_NAME" /> 政策設為停用，但將 <ph name="HISTORY_CLUSTERS_VISIBLE_POLICY_NAME" /> 政策設為啟用或不設定，系統仍會在 chrome://history/journeys 頁面上顯示瀏覽歷程，但可能不會顯示在網址列中，且與使用者的關聯性也會降低。
-      </translation>
 <translation id="51859390023061147">停用完整還原功能。</translation>
 <translation id="5189360528842591274">僅允許連接至清單中的藍牙服務</translation>
 <translation id="5190426551516379357">如果設定這項政策，系統會在 YouTube 上強制執行低度的嚴格篩選模式，並禁止使用者選擇更寬鬆的模式。這項政策可設定的選項如下：
@@ -4885,6 +4907,9 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
           </translation>
 <translation id="5435888298115339571">啟用網址列和三點選單中的桌面分享功能</translation>
 <translation id="5441508088704391614">無特殊限制。這是預設設定。</translation>
+<translation id="5441642583310045749">對關聯使用者的已註冊裝置，執行網站使用情況遙測的收集率。下限值是 5 分鐘。
+
+如果未設定，系統會套用 15 分鐘的預設頻率。</translation>
 <translation id="5442026853063570579">這項政策也可以控制 Android 開發人員選項的存取權。如果將這項政策設為「DeveloperToolsDisallowed」(值 2)，使用者將無法存取開發人員選項。如果將這項政策設為其他值或不予設定，使用者只要在 Android 設定應用程式中輕觸版本號碼七次，即可存取開發人員選項。</translation>
 <translation id="5443582909255996887">如果將這項政策設為 Enabled，系統就會在 Android 裝置上隔離所有網站，讓每個網站以獨立程序執行，並禁止使用者停用這項設定。網站是指加上 eTLD+1 的配置 (例如 https://example.com)。請注意，自 <ph name="PRODUCT_NAME" /> 第 77 版起，Android 會預設隔離某些敏感網站，而這項政策會將這個預設的網站隔離模式應用於所有網站。
 
@@ -5089,6 +5114,14 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 <translation id="5608114828230655271">預設裝置行為</translation>
 <translation id="5611869109049836323">在本機新增的信任錨點強制執行限制</translation>
 <translation id="5614865701790130558">記錄以政策為根據的擴充功能安裝事件</translation>
+<translation id="561493980641967737">如果這項政策設為啟用，系統一律會開啟輸入網址匿名資料收集功能，將使用者造訪的網頁網址傳送給 Google，協助改善搜尋與瀏覽服務。
+
+如果設為停用，輸入網址匿名資料收集功能就會關閉。
+
+如果不設定這項政策，使用者可手動變更這項設定。
+
+在 <ph name="PRODUCT_OS_NAME" /> 資訊站中，這項政策不提供「允許使用者決定」選項。如果不設定 <ph name="PRODUCT_OS_NAME" /> 資訊站的這項政策，系統一律會開啟輸入網址匿名資料收集功能。
+如果為 <ph name="PRODUCT_OS_NAME" /> 資訊站設定這項政策，則會啟用資訊站應用程式的輸入網址指標收集功能。</translation>
 <translation id="5618398258385745432">我們先前曾以類似設定來控管使用者是否可查看密碼，但在新增重新驗證功能後，該設定與這項政策已不再適用於 Chrome 的運作方式。目前 Chrome 的運作方式，相當於這項政策禁止在密碼管理員設定頁面以純文字顯示密碼。也就是說，設定頁面只會顯示預留位置，使用者必須點選 [顯示] 並重新驗證 (如果適用)，Chrome 才會顯示密碼。這項政策的原始說明如下：
 
           管控使用者是否能在密碼管理員中看到實際的密碼內容。
@@ -5293,6 +5326,7 @@ Proxy 可讓瀏覽器以匿名方式將網址的部分雜湊值上傳至 Google�
 <translation id="5836064773277134605">限制遠端存取主機所使用的 UDP 連接埠範圍</translation>
 <translation id="583627479140113555">允許在第一次執行時匯入儲存的密碼</translation>
 <translation id="5838452040629810808">啟用游標醒目顯示功能</translation>
+<translation id="5841157246593092717">控管是否可停用<ph name="UNLOAD_EVENT_NAME" />事件處理常式。</translation>
 <translation id="5842283830553218200">根據預設，系統將使用在已停用的表單控制項上傳送事件的新行為。</translation>
 <translation id="5847509620317822100">這項功能已在 Chrome 100 版中移除。
 
@@ -5842,6 +5876,16 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
       如果停用這項政策或不去設定它，使用者就可以選擇是否要使用 <ph name="CHROME_SYNC_NAME" />。
 
       注意：若已啟用 <ph name="ROAMING_PROFILE_SUPPORT_ENABLED_POLICY_NAME" />，請不要啟用這項政策，因為兩者具備相同的用戶端功能。如果發生這種情況，Google 代管的同步功能會完全關閉。</translation>
+<translation id="6320186400425850182">這項政策可控管 Chrome 歷史記錄頁面是否依頁面群組顯示內容。
+
+      如果將這項政策設為啟用，chrome://history/2 的 Chrome 歷史記錄頁面就會依頁面群組顯示內容。
+
+      如果將這項政策設為停用，chrome://history/2 的 Chrome 歷史記錄頁面就不會依頁面群組顯示內容。
+
+      如果不設定這項政策，chrome://history/2 的 Chrome 歷史記錄頁面預設會依頁面群組顯示內容。
+
+      請注意，如果將 <ph name="COMPONENT_UPDATES_ENABLED_POLICY_NAME" /> 政策設為停用，但將 <ph name="HISTORY_CLUSTERS_VISIBLE_POLICY_NAME" /> 政策設為啟用或不設定，chrome://history/2 的 Chrome 歷史記錄頁面仍會依頁面群組顯示內容，但這些內容與使用者的關聯性會降低。
+</translation>
 <translation id="6320935916601887506">根據預設，系統會使用新的 offsetParent 行為。</translation>
 <translation id="6327643515544933974">網路 USB 設定</translation>
 <translation id="6330882599388782338">允許網站存取感應器</translation>
@@ -5943,7 +5987,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 <translation id="6401669939808766804">登出使用者</translation>
 <translation id="640244877779556713">啟用表情符號建議功能</translation>
 <translation id="6404064917675764807">不回報 CRD 工作階段事件</translation>
-<translation id="6404360891305375004">允許網路檔案共用</translation>
+<translation id="6404360891305375004">允許網路檔案共用區</translation>
 <translation id="6407093060083181305">設定擴充功能安裝封鎖清單</translation>
 <translation id="6407792833351198330">控制系統是否會根據網址，製作採用舊版技術的網頁報表。
 
@@ -6063,7 +6107,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 
           指定政策值時需以毫秒為單位。設定值必須小於閒置延遲時間。</translation>
 <translation id="6497085755801788141">使用內建憑證驗證器</translation>
-<translation id="6506486086262398387">如果將這項政策設為啟用，<ph name="PRODUCT_OS_NAME" />的網路檔案共用功能會在必要時對 SMB 共用檔案使用 NTLM 驗證機制。如果設為停用，將會關閉 SMB 共用檔案的 NTLM 驗證機制。
+<translation id="6506486086262398387">如果將這項政策設為啟用，<ph name="PRODUCT_OS_NAME" />的網路檔案共用區功能會在必要時對 SMB 共用檔案使用 NTLM 驗證機制。如果設為停用，將會關閉 SMB 共用檔案的 NTLM 驗證機制。
 
       如果不設定這項政策，系統預設會為受管理的使用者停用此機制，其他使用者則會設為啟用。</translation>
 <translation id="6509376413448002446">設定鎖定畫面的使用者螢幕保護程式。
@@ -6089,7 +6133,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
        * 設為 <ph name="POLICY_ENUM_SYSTEMTIMEZONEAUTOMATICDETECTION_TIMEZONEAUTOMATICDETECTIONDISABLED" />：系統會將自動偵測時區的功能保持停用。
        * 設為 <ph name="POLICY_ENUM_SYSTEMTIMEZONEAUTOMATICDETECTION_TTIMEZONEAUTOMATICDETECTIONIPONLY" />：系統會使用僅透過 IP 判斷的方法，將自動偵測時區的功能保持啟用。
        * 設為 <ph name="POLICY_ENUM_SYSTEMTIMEZONEAUTOMATICDETECTION_TIMEZONEAUTOMATICDETECTIONSENDWIFIACCESSPOINTS" />：系統會將自動偵測時區的功能保持啟用，並持續將可見的 WiFi 存取點清單傳送至 Geolocation API 伺服器，讓時區偵測結果更佳精確。
-       * 設為 <ph name="POLICY_ENUM_SYSTEMTIMEZONEAUTOMATICDETECTION_TIMEZONEAUTOMATICDETECTIONSENDALLLOCATIONINFO" />：系統會將自動偵測時區的功能保持啟用，並持續將將位置資訊 (例如 Wi-Fi 存取點、可建立連線的行動通信基地台和全球衛星定位系統) 傳送至伺服器，以得到最精確的時區偵測結果。
+       * 設為 <ph name="POLICY_ENUM_SYSTEMTIMEZONEAUTOMATICDETECTION_TIMEZONEAUTOMATICDETECTIONSENDALLLOCATIONINFO" />：系統會將自動偵測時區的功能保持啟用，並持續將將位置資訊 (例如 Wi-Fi 存取點、可建立連線的行動通信基地台和 GPS) 傳送至伺服器，以得到最精確的時區偵測結果。
 
       如果未設定、設為讓使用者決定或設為 None，使用者將可透過 chrome://settings 中的一般控制項來控制自動偵測時區的功能。</translation>
 <translation id="6532769014584932288">允許使用 Wake Lock</translation>
@@ -7114,7 +7158,6 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 在 <ph name="MS_WIN_NAME" /> 上，這項政策適用的執行個體必須加入 <ph name="MS_AD_NAME" /> 網域或 <ph name="MS_AAD_NAME" />，或者註冊 <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />。
 
 在 <ph name="MAC_OS_NAME" /> 上，這項政策適用的執行個體必須透過行動裝置管理 (MDM) 軟體管理、透過 MCX 加入網域，或者註冊 <ph name="CHROME_BROWSER_CLOUD_MANAGEMENT_NAME" />。</translation>
-<translation id="7403217961820363141">在 Chrome 歷史記錄頁面上顯示瀏覽歷程</translation>
 <translation id="7406039009275722824">停用 <ph name="CHROME_SYNC_NAME" />會造成 Android 備份與還原功能無法正常運作。</translation>
 <translation id="7406276857470642718">控制透過外部 IdP (使用 SAML) 進行驗證的使用者設定</translation>
 <translation id="7407441173422042771">這項政策可控管 <ph name="PRODUCT_NAME" /> 中的網路預測功能。這項設定會控管 DNS 預先擷取功能、TCP、SSL 預先連線和網頁預先轉譯機制。
@@ -7146,6 +7189,11 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 
       如果將這項政策設為啟用，即使有中間版位公告，新分頁還是不會加以顯示。
       </translation>
+<translation id="7458654009558330347">回報關聯使用者的網站使用情況遙測資料。
+
+如果設定這項政策，就能控制是否針對已加入許可清單的網址回報網站使用情況遙測資料。
+如果未設定，系統就不會回報任何網站使用情況遙測資料。
+如要進一步瞭解有效的網址模式，請前往 https://cloud.google.com/docs/chrome-enterprise/policies/url-patterns。這項政策只允許 HTTP 和 HTTPS 網址配置。</translation>
 <translation id="7459601923199346224">控管憑證管理的使用者和裝置政策。</translation>
 <translation id="7459633275230216698">允許顯示檔案選取對話方塊</translation>
 <translation id="7462256705280836453">選擇是否可停用 <ph name="PRIVACY_SANDBOX_NAME" /> 網站建議廣告設定</translation>
@@ -7268,6 +7316,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 
       如果不設定這項政策或設為空白清單，受管理的裝置將無法使用任何快速解鎖模式。</translation>
 <translation id="754176366378585605">控管 File Handling API 使用權限</translation>
+<translation id="754421082295668587">安裝程式中繼資料</translation>
 <translation id="7544392541165889987">如果啟用這項政策或不去設定它，<ph name="PRODUCT_NAME" /> 將成為 <ph name="CLOUD_PRINT_NAME" />和連接到電腦的舊款印表機之間的 Proxy。使用者可透過 Google 帳戶驗證來啟用雲端列印 Proxy。
 
       如果停用這項政策，則使用者無法啟用 Proxy，電腦也無法與 <ph name="CLOUD_PRINT_NAME" />共用印表機。</translation>
@@ -7411,6 +7460,17 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 如果停用這項政策，PDF 檢視器會使用目前的 AGG 轉譯器。
 
 如果不設定這項政策，瀏覽器會自動選擇 PDF 轉譯器。</translation>
+<translation id="7707869387893611318">啟用充電音效功能。
+
+          這項功能可以播放充電音效。
+
+          如果將這項政策設為啟用，系統會在裝置連接 AC 充電器時播放充電音效。
+
+          如果將這項政策設為停用，系統就不會播放充電音效。
+
+          設好這項政策後，使用者即無法變更或覆寫設定。
+
+          如果不設定這項政策，系統預設會在受管理的 <ph name="PRODUCT_OS_NAME" /> 裝置上停用此功能，但使用者隨時可以啟用/停用。</translation>
 <translation id="7708934468069982537"><ph name="PRODUCT_NAME" /> 已移除 DHE，因此這項政策已在 M58 中移除。
 
       如果未設定這項政策或設為 False，系統將不會啟用傳輸層安全標準 (TLS) 中的 DHE 加密套件。如要啟用 DHE 加密套件，政策值可設為 True，以便與過時伺服器維持相容性。這種做法只是權宜之計，正確的做法是重新設定伺服器。
@@ -8356,6 +8416,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 <translation id="8583509234908413302">允許在 WebRTC 中降級為舊版傳輸層安全標準 (TLS)/DTLS</translation>
 <translation id="8584279193368801689">限制 PIN 碼列印模式。如果不設定這項政策，系統會視為未設限制。如果設定的模式不適用，系統會忽略這項政策。請注意，印表機使用的通訊協定必須是 IPPS、HTTPS、USB 或 IPP 型 USB 的其中一種，才能啟用 PIN 碼列印功能。</translation>
 <translation id="8587229956764455752">允許建立新的使用者帳戶</translation>
+<translation id="8587388061942446874">回報網站活動</translation>
 <translation id="8591713876665299827">請注意，這項政策已遭淘汰，並將在 <ph name="PRODUCT_OS_NAME" />第 85 版中移除。請改用 <ph name="POWER_MANAGEMENT_IDLE_SETTINGS_POLICY_NAME" />。
 
           指定 AC 供電時的閒置時間長度。如果使用者在這段時間內沒有任何動作，系統就會執行閒置動作。
@@ -8406,6 +8467,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 <translation id="8633550872001751090">允許將 <ph name="PRODUCT_NAME" /> 資料納入備份內容</translation>
 <translation id="8634062512783775032">採用 <ph name="AES_KL_NAME" /> 做為加密使用者儲存空間的加密演算法 (如果支援)</translation>
 <translation id="8637566476051166626">明確允許的網路通訊埠</translation>
+<translation id="864092909205038982">網站使用情況遙測收集率 (以毫秒為單位)。</translation>
 <translation id="8643838501942693770">允許第三方 Cookie，但使用者可以變更這項設定</translation>
 <translation id="864611373241249369"><ph name="LACROS_NAME" /> 停用後，系統會嘗試遷移所有資料。</translation>
 <translation id="8648844602494595665">這項政策可控管網址列中鎖頭圖示的處理方式。
@@ -8414,6 +8476,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
        如果停用或不設定這項政策，Chrome 則會使用預設圖示代表安全連線。</translation>
 <translation id="8650974590712548439">Windows 用戶端的 Windows 登錄檔位置：</translation>
 <translation id="8653085952260859632">回報記憶體資訊</translation>
+<translation id="8653212052128283886">在 Chrome 歷史記錄檢視畫面中依群組顯示內容</translation>
 <translation id="8653561013005884087">將這項政策設為 True 時，系統會讓互動朗讀功能保持在啟用狀態。將這項政策設為 False 時，系統會讓互動朗讀功能保持在停用狀態。
 
       如果設定這項政策，使用者將無法變更。如果未設定，系統會先停用互動朗讀功能，但使用者隨時可以啟用。</translation>
@@ -9112,6 +9175,7 @@ Origin-Agent-Cluster HTTP 標頭會控制文件要在 origin-keyed 代理程式�
 
 <ph name="DEVICE_EPHEMERAL_USERS_ENABLED_POLICY_NAME" /> 啟用時，系統會忽略並一律停用 <ph name="REPORT_DEVICE_USERS_POLICY_NAME" />。</translation>
 <translation id="989197274317162189">這項政策已淘汰，因此系統不再支援，請改用「<ph name="URL_BLOCKLIST_POLICY_NAME" />」政策。</translation>
+<translation id="990830704772547092">在 <ph name="PRODUCT_OS_NAME" /> 裝置上設定 Bruschetta VM 的安裝程式</translation>
 <translation id="991560005425213776">將使用者名稱和檔案名稱傳送到原生印表機</translation>
 <translation id="99202634486128833">如果將這項政策設為 CopyCaCerts，ARC 應用程式可以使用所有已安裝 ONC 且具有 <ph name="WEB_TRUSTED_BIT" /> 的 CA 憑證。
 

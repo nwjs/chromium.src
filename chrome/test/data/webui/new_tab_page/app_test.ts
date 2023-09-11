@@ -164,10 +164,27 @@ suite('NewTabPageAppTest', () => {
     });
 
     test('Webstore toast works correctly', async () => {
+      const webstoreToast = $$<CrToastElement>(app, '#webstoreToast')!;
+      assertTrue(webstoreToast.hidden);
+
+      // Try to show webstore toast without opening side panel.
       callbackRouterRemote.showWebstoreToast();
       await callbackRouterRemote.$.flushForTesting();
 
-      const webstoreToast = $$<CrToastElement>(app, '#webstoreToast')!;
+      // The webstore toast should still be hidden.
+      assertTrue(webstoreToast.hidden);
+      assertFalse(webstoreToast.open);
+
+      // Open the side panel.
+      callbackRouterRemote.setCustomizeChromeSidePanelVisibility(true);
+      await callbackRouterRemote.$.flushForTesting();
+
+      // Try to show webstore toast again.
+      callbackRouterRemote.showWebstoreToast();
+      await callbackRouterRemote.$.flushForTesting();
+
+      // The webstore toast should be open.
+      assertFalse(webstoreToast.hidden);
       assertTrue(webstoreToast.open);
       assertTrue(!!webstoreToast.firstChild!.textContent);
     });

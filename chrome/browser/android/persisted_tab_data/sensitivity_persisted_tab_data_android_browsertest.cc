@@ -39,6 +39,7 @@ class SensitivityPersistedTabDataAndroidBrowserTest
   void SetUpOnMainThread() override {
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(embedded_test_server()->Start());
+    PersistedTabDataAndroid::OnDeferredStartup();
   }
 
   content::WebContents* web_contents() {
@@ -57,6 +58,23 @@ class SensitivityPersistedTabDataAndroidBrowserTest
   std::unique_ptr<const std::vector<uint8_t>> Serialize(
       SensitivityPersistedTabDataAndroid* sptda) {
     return sptda->Serialize();
+  }
+
+  void OnTabClose(TabAndroid* tab_android) {
+    PersistedTabDataAndroid::OnTabClose(tab_android);
+  }
+
+  void ExistsForTesting(TabAndroid* tab_android,
+                        bool expect_exists,
+                        base::RunLoop& run_loop) {
+    SensitivityPersistedTabDataAndroid::ExistsForTesting(
+        tab_android,
+        base::BindOnce(
+            [](base::OnceClosure done, bool expect_exists, bool exists) {
+              EXPECT_EQ(expect_exists, exists);
+              std::move(done).Run();
+            },
+            run_loop.QuitClosure(), expect_exists));
   }
 
  private:
@@ -97,8 +115,9 @@ IN_PROC_BROWSER_TEST_F(SensitivityPersistedTabDataAndroidBrowserTest,
   sptda.set_is_sensitive(true);
   std::unique_ptr<const std::vector<uint8_t>> serialized = Serialize(&sptda);
   SensitivityPersistedTabDataAndroid deserialized(tab_android);
-  EXPECT_TRUE(deserialized.is_sensitive());
+  EXPECT_FALSE(deserialized.is_sensitive());
   Deserialize(&deserialized, *serialized.get());
+  EXPECT_TRUE(deserialized.is_sensitive());
 }
 
 IN_PROC_BROWSER_TEST_F(SensitivityPersistedTabDataAndroidBrowserTest,
@@ -193,4 +212,26 @@ IN_PROC_BROWSER_TEST_F(SensitivityPersistedTabDataAndroidBrowserTest,
           },
           run_loop.QuitClosure()));
   run_loop.Run();
+}
+
+IN_PROC_BROWSER_TEST_F(SensitivityPersistedTabDataAndroidBrowserTest,
+                       TestOnComplete) {
+  base::RunLoop run_loop[3];
+  TabAndroid* tab_android = TabAndroid::FromWebContents(web_contents());
+  // Creates a SensitivityPersistedTabDataAndroid and stores on disk.
+  SensitivityPersistedTabDataAndroid::From(
+      tab_android, base::BindOnce(
+                       [](base::OnceClosure done,
+                          PersistedTabDataAndroid* persisted_tab_data) {
+                         EXPECT_NE(nullptr, persisted_tab_data);
+                         std::move(done).Run();
+                       },
+                       run_loop[0].QuitClosure()));
+  run_loop[0].Run();
+  ExistsForTesting(tab_android, true, run_loop[1]);
+  run_loop[1].Run();
+  // Should clean up SensitivityPersistedTabDataAndroid
+  OnTabClose(tab_android);
+  ExistsForTesting(tab_android, false, run_loop[2]);
+  run_loop[2].Run();
 }

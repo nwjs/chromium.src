@@ -8,6 +8,7 @@
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <memory>
 
+#import "base/debug/dump_without_crashing.h"
 #import "base/functional/bind.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/histogram_macros.h"
@@ -133,8 +134,6 @@ Browser* GetBrowserForTabWithId(BrowserList* browser_list,
                                 WebStateListObserving>
 // The browser state from the browser.
 @property(nonatomic, readonly) ChromeBrowserState* browserState;
-// The UI consumer to which updates are made.
-@property(nonatomic, weak) id<TabCollectionConsumer> consumer;
 
 @end
 
@@ -195,6 +194,11 @@ Browser* GetBrowserForTabWithId(BrowserList* browser_list,
       [self populateConsumerItems];
     }
   }
+}
+
+- (void)setConsumer:(id<TabCollectionConsumer>)consumer {
+  _consumer = consumer;
+  [self resetToAllItems];
 }
 
 #pragma mark - WebStateListObserving
@@ -399,10 +403,19 @@ Browser* GetBrowserForTabWithId(BrowserList* browser_list,
 #pragma mark - GridCommands
 
 - (void)addNewItem {
-  if (self.browserState) {
-    // Make sure that adding a new item is allowed by policy.
-    CHECK(IsAddNewTabAllowedByPolicy(self.browserState->GetPrefs(),
-                                     self.browserState->IsOffTheRecord()));
+  if (self.browserState &&
+      !IsAddNewTabAllowedByPolicy(self.browserState->GetPrefs(),
+                                  self.browserState->IsOffTheRecord())) {
+    // TODO(crbug.com/1471955): Try to show a notice to the user when this
+    // happens.
+    //
+    // Check that adding a new item is allowed by policy. It is an error to
+    // call -addNewItem when the corresponding browsing mode is disabled. The
+    // event is reported without crashing the browser and -addNewItem is
+    // softly cancelled without a notice (this approach is better than allowing
+    // a policy violation).
+    base::debug::DumpWithoutCrashing();
+    return;
   }
 
   NSUInteger itemIndex =

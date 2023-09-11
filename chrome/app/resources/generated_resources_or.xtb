@@ -14,6 +14,7 @@
 <translation id="1007057452468855774">Google Play Store ଚାଲୁ କରନ୍ତୁ</translation>
 <translation id="1008186147501209563">ବୁକମାର୍କଗୁଡ଼ିକ ଏକ୍ସପୋର୍ଟ କରନ୍ତୁ</translation>
 <translation id="1008261151167010035">ଆପଣ କିପରି ସାଇନ ଇନ କରିଛନ୍ତି ତାହା <ph name="BRAND" /> ମନେ ରଖେ ଏବଂ ସମ୍ଭବ ହେଲେ ଆପଣଙ୍କୁ ସ୍ୱତଃ ସାଇନ ଇନ କରାଏ। ବନ୍ଦ ଥିଲେ, ପ୍ରତ୍ୟେକ ଥର ଆପଣଙ୍କୁ ସୁନିଶ୍ଚିତ କରିବାକୁ କୁହାଯିବ।</translation>
+<translation id="1008544602823861396">ଏଥିରେ ଆପଣଙ୍କ ସୂଚନାକୁ ବ୍ୟବହାର କରିବାରୁ ବ୍ଲକ କରାଯାଇଛି</translation>
 <translation id="1008557486741366299">ଏବେ ନୁହେଁ</translation>
 <translation id="1009454959501038262">{NUM_SITES,plural, =1{ଆପଣଙ୍କ ଡାଟାକୁ ସୁରକ୍ଷିତ ରଖିବା ପାଇଁ ଆପଣ 2 ମାସ ହେଲା ଭିଜିଟ କରିନଥିବା ଏକ ସାଇଟରୁ ଅନୁମତିଗୁଡ଼ିକୁ କାଢ଼ି ଦିଆଯାଇଛି}other{ଆପଣଙ୍କ ଡାଟାକୁ ସୁରକ୍ଷିତ ରଖିବା ପାଇଁ ଆପଣ 2 ମାସ ହେଲା ଭିଜିଟ କରିନଥିବା ସାଇଟଗୁଡ଼ିକରୁ ଅନୁମତିଗୁଡ଼ିକୁ କାଢ଼ି ଦିଆଯାଇଛି}}</translation>
 <translation id="1009663062402466586">ବର୍ତ୍ତମାନ ଗେମ ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକ ଉପଲବ୍ଧ ଅଛି</translation>
@@ -38,6 +39,7 @@
 <translation id="1028604629594230522">ଆପଣ ଭିଜିଟ କରିବାର ସମ୍ଭାବନା ଥିବା ପୃଷ୍ଠାଗୁଡ଼ିକୁ Chrome ପ୍ରିଲୋଡ କରେ, ଯାହା ଫଳରେ ଆପଣ ସେହି ପୃଷ୍ଠାଗୁଡ଼ିକୁ ଭିଜିଟ କରିବା ବେଳେ ସେଗୁଡ଼ିକ ଖୁବ ଶୀଘ୍ର ଲୋଡ ହୁଏ।</translation>
 <translation id="1028700151766901954">କାରଣ: LBS ଡିଫଲ୍ଟ ଭାବେ <ph name="DEFAULT_OPEN_BROWSER" />ରେ ରହେ।</translation>
 <translation id="1029317248976101138">ଜୁମ୍ କରନ୍ତୁ</translation>
+<translation id="1029526375103058355">କ୍ଲିକ ପାଇଁ ଟାପ କରନ୍ତୁ</translation>
 <translation id="1031362278801463162">ପ୍ରିଭ୍ୟୁ ଲୋଡ୍ ହେଉଛି…</translation>
 <translation id="1032605640136438169">ଦୟାକରି ନୂଆ ସର୍ତ୍ତାବଳୀର ସମୀକ୍ଷା କରନ୍ତୁ</translation>
 <translation id="103279545524624934">Android ଆପ୍ସ ଲଞ୍ଚ କରିବାକୁ ଡିସ୍କରେ ସ୍ଥାନ ଖାଲି କରନ୍ତୁ</translation>
@@ -99,6 +101,7 @@
 <translation id="1071917609930274619">ଡାଟା ଏନ୍‍ସାଇଫର୍‌ମେଣ୍ଟ</translation>
 <translation id="1072700771426194907">USB ଡିଭାଇସ୍ ଚିହ୍ନଟ ହେଲା</translation>
 <translation id="107278043869924952">ପାସୱାର୍ଡ ଛଡ଼ା PIN ମଧ୍ୟ ବ୍ୟବହାର କରନ୍ତୁ</translation>
+<translation id="1075920807995555452">ଆପଣଙ୍କ <ph name="DEVICE_TYPE" />ରେ ଆପଣଙ୍କର ଏଣ୍ଟରପ୍ରାଇଜ ଦ୍ୱାରା ପରିଚାଳିତ ଏକ ପରିବେଶରେ ଟୁଲ, ଏଡିଟର ଏବଂ IDEଗୁଡ଼ିକ ଚଲାନ୍ତୁ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="1076176485976385390">ଏକ ଟେକ୍ସଟ୍ କର୍ସର୍ ସାହାଯ୍ୟରେ ପୃଷ୍ଠାଗୁଡ଼ିକୁ ନାଭିଗେଟ୍ କରନ୍ତୁ</translation>
 <translation id="1076382954055048850">ଅନ୍ୟ କାଷ୍ଟ ସେସନଗୁଡ଼ିକୁ ଦେଖାନ୍ତୁ</translation>
 <translation id="1076698951459398590">ଥିମ୍ ସକ୍ଷମ କରନ୍ତୁ</translation>
@@ -210,6 +213,7 @@
 <translation id="1162213688509394031">ଟାଇଟେଲ୍ ବାରକୁ ଲୁଚାନ୍ତୁ</translation>
 <translation id="1162479191445552288">ଷ୍ଟାର୍ଟଅପରେ ଲଞ୍ଚ କରନ୍ତୁ</translation>
 <translation id="1163931534039071049">&amp;ଫ୍ରେମ୍ ଉତ୍ସ ଦର୍ଶନ କରନ୍ତୁ</translation>
+<translation id="1164015913575846413">alt + କ୍ଲିକ</translation>
 <translation id="1164891049599601209">ପ୍ରତାରଣାମୂଳକ ସାଇଟରେ ଲେଖାଯାଇଥିଲା</translation>
 <translation id="1165039591588034296">ତ୍ରୁଟି</translation>
 <translation id="1166212789817575481">ଡାହାଣ ପାର୍ଶ୍ୱରେ ଥିବା ଟାବ୍‌ଗୁଡ଼ିକୁ ବନ୍ଦ କରନ୍ତୁ</translation>
@@ -352,6 +356,7 @@
 <translation id="1273937721055267968"><ph name="DOMAIN" />କୁ ବ୍ଲକ କରନ୍ତୁ</translation>
 <translation id="1274997165432133392">କୁକୀ ଏବଂ ଅନ୍ୟ ସାଇଟ୍‍ ଡାଟା</translation>
 <translation id="1275718070701477396">ଚୟନ କରାଯାଇଛି</translation>
+<translation id="1275936815032730048">ଲଞ୍ଚର + ଡାହାଣ ତୀର</translation>
 <translation id="1276994519141842946"><ph name="APP_NAME" />କୁ ଅନଇନଷ୍ଟଲ୍ କରାଯାଇପାରିଲା ନାହିଁ</translation>
 <translation id="1277020343994096713">ଆପଣଙ୍କ ବର୍ତ୍ତମାନର PIN ଠାରୁ ଭିନ୍ନ ଏକ ନୂଆ PIN ତିଆରି କରନ୍ତୁ</translation>
 <translation id="1277597051786235230">ନୂଆ ଟାବରେ “<ph name="SEARCH_TERMS" />” ପାଇଁ <ph name="SEARCH_ENGINE" />ରେ &amp;ସର୍ଚ୍ଚ କରନ୍ତୁ</translation>
@@ -575,6 +580,7 @@
 <translation id="1464781208867302907">ଡିଭାଇସ୍ ପସନ୍ଦଗୁଡ଼ିକ ପାଇଁ ସେଟିଂସ୍‍କୁ ଯାଆନ୍ତୁ।</translation>
 <translation id="1465176863081977902">&amp;ଅଡିଓ ଠିକଣା କପି କରନ୍ତୁ</translation>
 <translation id="1465827627707997754">ପିଜା ସ୍ଲାଇସ୍</translation>
+<translation id="1467005863208369884">ସୁରକ୍ଷିତ ବ୍ରାଉଜିଂ ବନ୍ଦ ଥିବା ଯୋଗୁଁ ଏହି ଫାଇଲକୁ ଯାଞ୍ଚ କରାଯାଇପାରିବ ନାହିଁ</translation>
 <translation id="1467432559032391204">ବାମ</translation>
 <translation id="1468571364034902819">ଏହି ପ୍ରୋଫାଇଲ୍‌ ବ୍ୟବହାର କରିପାରିବ ନାହିଁ</translation>
 <translation id="1470084204649225129">{NUM_TABS,plural, =1{ନୂଆ ଗୋଷ୍ଠୀକୁ ଟାବ୍ ଯୋଗ କରନ୍ତୁ}other{ନୂଆ ଗୋଷ୍ଠୀକୁ ଟାବଗୁଡ଼ିକ ଯୋଗ କରନ୍ତୁ}}</translation>
@@ -681,6 +687,7 @@
 <translation id="1549275686094429035">ARC ସକ୍ଷମ ଅଛି</translation>
 <translation id="1549788673239553762"><ph name="APP_NAME" />, <ph name="VOLUME_NAME" />କୁ ଆକ୍ସେସ୍ କରିବାକୁ ଚାହେଁ। ଏହା ଆପଣଙ୍କ ଫାଇଲ୍‌କୁ ସଂଶୋଧନ କିମ୍ବା ଡିଲିଟ୍‌ କରିପାରେ।</translation>
 <translation id="1549966883323105187">ଆପଣଙ୍କ ସେଭ କରାଯାଇଥିବା ପାସୱାର୍ଡ ପାଖରେ ଶୀଘ୍ର ପହଞ୍ଚନ୍ତୁ</translation>
+<translation id="1550656959113606473">ଡିଫଲ୍ଟ Chrome</translation>
 <translation id="1552301827267621511">"<ph name="EXTENSION_NAME" />" ଏକ୍ସଟେନସନ୍ <ph name="SEARCH_PROVIDER_DOMAIN" />କୁ ବ୍ୟବହାର କରିବା ପାଇଁ ସନ୍ଧାନକୁ ପରିବର୍ତ୍ତନ କରିଛି</translation>
 <translation id="1552752544932680961">ଏକ୍ସଟେନସନକୁ ପରିଚାଳନା କରନ୍ତୁ</translation>
 <translation id="1553538517812678578">ଅସୀମିତ</translation>
@@ -691,6 +698,7 @@
 <translation id="1558391695376153246">ଇନକଗ୍ନିଟୋ ଟାବଗୁଡ଼ିକ ବନ୍ଦ କର</translation>
 <translation id="155865706765934889">ଟଚ୍‌ପ୍ୟାଡ୍</translation>
 <translation id="1558671750917454373"><ph name="DEVICE_NAME" />ରେ କାଷ୍ଟ କରିବା ପୁଣି ଆରମ୍ଭ କରନ୍ତୁ</translation>
+<translation id="1561329796773556980">ଆମେ ଷ୍ଟୋରେଜ ସ୍ପେସ ଯାଞ୍ଚ କରିବା ପ୍ରକ୍ରିୟାରେ ଅଛୁ…</translation>
 <translation id="1562119309884184621">ଏହି ଯୋଗାଯୋଗକୁ ଯୋଗ କରିବା ଦ୍ୱାରା ପରବର୍ତ୍ତୀ ସମୟରେ ସେୟାର୍ କଲେ ତାଙ୍କୁ ମନେ ରଖାଯିବ</translation>
 <translation id="1563137369682381456">ମିଆଦ ଶେଷ ହେବାର ତାରିଖ</translation>
 <translation id="1563702743503072935">ଆପଣ ସାଇନ୍ ଇନ୍ କରିଥିବା ସମୟରେ ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରୁ ପାସୱାର୍ଡଗୁଡ଼ିକ ଏହି ଡିଭାଇସରେ ମଧ୍ୟ ଉପଲବ୍ଧ ହେବ</translation>
@@ -753,6 +761,7 @@
 <translation id="1603411913360944381"><ph name="DEVICE_NAME" />କୁ ଭୁଲି ଯାଆନ୍ତୁ</translation>
 <translation id="1603914832182249871">(ଇନ୍‌କଗ୍ନିଟୋ)</translation>
 <translation id="1604432177629086300">ପ୍ରିଣ୍ଟ କରାଯାଇପାରିଲା ନାହିଁ। ପ୍ରିଣ୍ଟର୍ ଯାଞ୍ଚ କରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
+<translation id="1604567162047669454">ଭିଜୁଆଲ ଲେଆଉଟ ସେମାଣ୍ଟିକ୍ସକୁ ଚିହ୍ନଟ କରନ୍ତୁ</translation>
 <translation id="1604774728851271529">Linuxକୁ ଅପଗ୍ରେଡ କରିବା ପାଇଁ ଆପଣ ଏକ ନେଟୱାର୍କ ସଂଯୋଗ ଆବଶ୍ୟକ କରନ୍ତି। ଇଣ୍ଟରନେଟ ସହ ସଂଯୋଗ କରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="1605744057217831567">ସମସ୍ତ ସାଇଟ୍ ଡାଟା ଏବଂ ଅନୁମତିକୁ ଦେଖନ୍ତୁ</translation>
 <translation id="1606077700029460857">ମାଉସ୍ ସେଟିଂସ୍ ପରିବର୍ତ୍ତନ କରନ୍ତୁ</translation>
@@ -796,6 +805,7 @@
 <translation id="1630768113285622200">ରିଷ୍ଟାର୍ଟ କରି ଜାରି ରଖନ୍ତୁ</translation>
 <translation id="1631503405579357839">ବର୍ଣ୍ଣାନ୍ଧତା</translation>
 <translation id="1632082166874334883">ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରେ ପାସୱାର୍ଡ ଷ୍ଟୋର୍ କରାଯାଇଛି</translation>
+<translation id="1632278969378690607">ସର୍ଚ୍ଚ + କ୍ଲିକ</translation>
 <translation id="1632756664321977232">କ୍ରପ ଟୁଲ</translation>
 <translation id="163309982320328737">ପ୍ରାରମ୍ଭିକ ଅକ୍ଷରର ଚଉଡ଼ା ପୂର୍ଣ୍ଣ ଅଛି</translation>
 <translation id="1633947793238301227">Google Assistant ଅକ୍ଷମ କରନ୍ତୁ</translation>
@@ -853,6 +863,7 @@
 <translation id="1676902103953506022"><ph name="DOMAIN" />ରେ <ph name="USERNAME" /> ପାଇଁ କ୍ରେଡେନସିଆଲର ବିବରଣୀ</translation>
 <translation id="1677306805708094828"><ph name="EXTENSION_TYPE_PARAMETER" />କୁ ଯୋଗ କରିପାରିବେ ନାହିଁ</translation>
 <translation id="1677472565718498478"><ph name="TIME" /> ବାକି ଅଛି</translation>
+<translation id="1678849866171627536">ସ୍କାନ ବିଫଳ ହୋଇଛି। ଏହି ଫାଇଲ ଏକ ଭାଇରସ କିମ୍ବା ମାଲୱେର ହୋଇଥାଇପାରେ।</translation>
 <translation id="1679068421605151609">ଡେଭେଲପର୍ ଟୁଲ୍</translation>
 <translation id="1679810534535368772">ଆପଣ ନିଶ୍ଚିତ ରୂପେ ବାହାରିବାକୁ ଚାହୁଁଛନ୍ତି କି?</translation>
 <translation id="167983332380191032">ପରିଚାଳନା ସେବା HTTP ତ୍ରୁଟି ପଠାଇଛନ୍ତି</translation>
@@ -898,6 +909,7 @@
 <translation id="1709916727352927457">ପାସକୀ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="1709972045049031556">ସେୟାର୍ କରାଯାଇପାରିବ ନାହିଁ</translation>
 <translation id="1714644264617423774">ଆପଣଙ୍କର ଡିଭାଇସ୍‍ର ବ୍ୟବହାରକୁ ସହଜ କରିବା ପାଇଁ ଆକ୍ସେସ୍‌ବିଲିଟୀ ଫିଚର୍‌ଗୁଡ଼ିକ ସକ୍ଷମ କରନ୍ତୁ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
+<translation id="1716034099915639464"><ph name="SITE_NAME" /> ଏବଂ ଏହାର ଇନଷ୍ଟଲ ହୋଇଥିବା ଆପ ପାଇଁ ସାଇଟ ଡାଟା ଓ ଅନୁମତିଗୁଡ଼ିକୁ ଡିଲିଟ କରିବେ?</translation>
 <translation id="1718835860248848330">ଶେଷ ଘଣ୍ଟାକର</translation>
 <translation id="1719312230114180055">ଟିପ୍ପଣୀ: ଆପଣଙ୍କର ଟିପଚିହ୍ନ ଏକ ଜଟିଳ ପାସ୍‍ୱର୍ଡ କିମ୍ବା PIN ଠାରୁ କମ୍ ସୁରକ୍ଷିତ ହୋଇପାରେ।</translation>
 <translation id="1720318856472900922">TLS WWW ସର୍ଭର୍‌ ପ୍ରାମାଣିକତା</translation>
@@ -987,6 +999,7 @@
 <translation id="1784849162047402014">ଡିଭାଇସ୍‌ରେ ସ୍ଥାନ କମ୍ ଅଛି</translation>
 <translation id="1784864038959330497">{NUM_SUB_APPS,plural, =1{"<ph name="APP_NAME" />"କୁ ଅନଇନଷ୍ଟଲ କରିବା ଫଳରେ ଏହି ଆପ ମଧ୍ୟ ଅନଇନଷ୍ଟଲ ହୋଇଯିବ:}other{"<ph name="APP_NAME" />"କୁ ଅନଇନଷ୍ଟଲ କରିବା ଫଳରେ ଏହି ଆପ୍ସ ମଧ୍ୟ ଅନଇନଷ୍ଟଲ ହୋଇଯିବ:}}</translation>
 <translation id="1786290960428378411">ପଢ଼ିବା ଏବଂ ପରିବର୍ତ୍ତନ କରିବାକୁ ଅନୁରୋଧ କରୁଛି</translation>
+<translation id="1786981253739345937">ଆପଣଙ୍କ ବିଷୟରେ ଏହି ସାଇଟଗୁଡ଼ିକ ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିବାରୁ ଆପଣ ସେଗୁଡ଼ିକୁ ବ୍ଲକ କରିଛନ୍ତି</translation>
 <translation id="1787350673646245458">ୟୁଜର ଇମେଜ</translation>
 <translation id="1790976235243700817">ଆକ୍ସେସ୍ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="1791662854739702043">ଇନ୍‍ଷ୍ଟଲ୍ କରାଯାଇଛି</translation>
@@ -1015,6 +1028,7 @@
     <ph name="LINE_BREAKS1" /> ମୁଭି, ଟିଭି ଶୋ, ସଙ୍ଗୀତ, ବହି କିମ୍ବା ଅନ୍ୟ ଇନ୍-ଆପ୍ କ୍ରୟଗୁଡ଼ିକ ପରି ଆପଣ କ୍ରୟ କରିଥିବା ବିଷୟବସ୍ତୁ ମଧ୍ୟ ଡିଲିଟ୍ ହୋଇଯାଇପାରେ।
     <ph name="LINE_BREAKS2" />ଏହା ଅନ୍ୟ ଡିଭାଇସଗୁଡ଼ିକରେ ଥିବା ଆପ୍ସ କିମ୍ବା ବିଷୟବସ୍ତୁକୁ ପ୍ରଭାବିତ କରେ ନାହିଁ।</translation>
 <translation id="1809734401532861917"><ph name="USER_EMAIL_ADDRESS" />ରେ ମୋର ବୁକ୍‍ମାର୍କ, ଇତିବୃତ୍ତି, ପାସ୍‌ୱର୍ଡ, ଏବଂ ଆନ୍ୟାନ୍ୟ ସେଟିଂସ୍‌କୁ ଯୋଗ କରନ୍ତୁ</translation>
+<translation id="1810070166657251157">ଆପଣଙ୍କ ଫୋନରେ ଆପଣଙ୍କର ସେଭ କରାଯାଇଥିବା ପାସୱାର୍ଡଗୁଡ଼ିକୁ ବ୍ୟବହାର କରିବାକୁ, QR କୋଡ ଫଲୋ କରନ୍ତୁ, iOS ପାଇଁ Chromeକୁ ଡାଉନଲୋଡ କରି ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରେ ସାଇନ ଇନ କରନ୍ତୁ।</translation>
 <translation id="1810366086647840386">ଇମେଜ ସର୍ଭର</translation>
 <translation id="1811908311154949291">ଇନକଗ୍ନିଟୋ ଫେନ୍ସଡ ଫ୍ରେମ: <ph name="FENCEDFRAME_SITE" /></translation>
 <translation id="1812284620455788548"><ph name="TAB_NAME" />କୁ କାଷ୍ଟ କରାଯାଉଛି</translation>
@@ -1065,6 +1079,7 @@
 <translation id="184183613002882946">ନା, 1ଟି ସ୍ୱିଚ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="184273675144259287">ଆପଣଙ୍କର Linux ଆପ୍ସ ଏବଂ ଫାଇଲ୍‌ଗୁଡ଼ିକ ପୂର୍ବବର୍ତ୍ତୀ ବ୍ୟାକ୍‌ଅପ୍ ସହିତ ବଦଳାନ୍ତୁ</translation>
 <translation id="1842766183094193446">ଆପଣ କ’ଣ ସୁନିଶ୍ଚିତ ଯେ ଆପଣ ଡେମୋ ମୋଡ୍‌ ସକ୍ଷମ କରିବାକୁ ଚାହୁଁଛନ୍ତି?</translation>
+<translation id="1845060436536902492">ChromeOS Flex, ChromeVoxରେ ସ୍କ୍ରିନ ରିଡର ମୁଖ୍ୟତଃ ଦୃଷ୍ଟିହୀନ କିମ୍ବା କମ ଦେଖାଯାଉଥିବା ଲୋକଙ୍କ ଦ୍ୱାରା ସ୍କ୍ରିନରେ ଡିସପ୍ଲେ କରାଯାଇଥିବା ଟେକ୍ସଟକୁ ସ୍ପିଚ ସିନ୍ଥେସାଇଜର ବା ବ୍ରେଲି ଡିସପ୍ଲେ ମାଧ୍ୟମରେ ପଢ଼ିବା ପାଇଁ ବ୍ୟବହାର କରାଯାଏ। ChromeVox ଚାଲୁ କରିବା ପାଇଁ ସ୍ପେସ ବାରକୁ ଦବାନ୍ତୁ। ChromeVox ସକ୍ରିୟ ହେଲେ ଏହା ବିଷୟରେ ଆପଣଙ୍କୁ ଏକ କୁଇକ ସୂଚନା ଦିଆଯିବ।</translation>
 <translation id="1845727111305721124">ସାଉଣ୍ଡ ଚଲାଇବାକୁ ଅନୁମତି ଦିଆଯାଇଛି</translation>
 <translation id="1846308012215045257"><ph name="PLUGIN_NAME" />କୁ ଚଲାଇବା ପାଇଁ Controlକୁ ଦବାଇ ଧରି କ୍ଲିକ୍ କରନ୍ତୁ</translation>
 <translation id="1848219224579402567">ଲିଡ୍ ବନ୍ଦ ହେବା ପରେ ସାଇନ୍ ଆଉଟ୍ କରନ୍ତୁ</translation>
@@ -1081,6 +1096,7 @@
 <translation id="1854180393107901205">କାଷ୍ଟ କରିବା ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="1856715684130786728">ଲୋକେସନ୍ ଯୋଗ କରନ୍ତୁ...</translation>
 <translation id="1858585891038687145">ସଫ୍ଟୱେୟାର୍ ନିର୍ମାତା ଚିହ୍ନଟ କରିବା ପାଇଁ ଏହି ସାର୍ଟିଫିକେଟ୍ ଉପରେ ବିଶ୍ଵାସ ରଖନ୍ତୁ</translation>
+<translation id="1859294693760125695">ଆଉ ଆଗ୍ରହୀ ନୁହଁନ୍ତି</translation>
 <translation id="1859339856433307593">ଏହି ଆକାଉଣ୍ଟ ପାଇଁ ଏକ ପାସୱାର୍ଡ ପୂର୍ବରୁ ଆପଣଙ୍କ <ph name="BRAND" /> (<ph name="USER_EMAIL" />)ରେ ସେଭ କରାଯାଇଛି</translation>
 <translation id="1861262398884155592">ଏହି ଫୋଲ୍ଡର୍‌ ଖାଲି ଅଟେ</translation>
 <translation id="1862311223300693744">ଆପଣ କୌଣସି ବିଶେଷ VPN, ପ୍ରକ୍ସି, ଫାୟାରୱାଲ୍ କିମ୍ବା NAS ସଫ୍ଟୱେର୍ ଇନଷ୍ଟଲ୍ କରିଛନ୍ତି କି?</translation>
@@ -1125,6 +1141,7 @@
 <translation id="1887442540531652736">ସାଇନ୍‍-ଇନ୍ କରିବାରେ ତ୍ରୁଟି</translation>
 <translation id="1887597546629269384">ପୁଣି "Hey Google" କୁହନ୍ତୁ</translation>
 <translation id="1889091146873278175">ଏକ ସାଇଡ ପେନେଲରେ ଅଧିକ ସର୍ଚ୍ଚ ଫଳାଫଳ ଦେଖିବାକୁ "G" ବଟନରେ କ୍ଲିକ କରନ୍ତୁ</translation>
+<translation id="1890026367080681123">ଏମ୍ବେଡ କରାଯାଇଥିବା ବିଷୟବସ୍ତୁ ସେଟିଂସକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="189035593835762169">ଚୁକ୍ତି ଓ ସର୍ତ୍ତାବଳୀ</translation>
 <translation id="1891362123137972260">ଡିସ୍କ ସ୍ପେସ୍ ଅତ୍ୟନ୍ତ କମ୍ ଅଛି। ଦୟାକରି ଡିସ୍କ ସ୍ପେସ୍ ଖାଲି କରନ୍ତୁ।</translation>
 <translation id="189210018541388520">ପୂର୍ଣ୍ଣ ସ୍କ୍ରିନ୍‌ ଖୋଲନ୍ତୁ</translation>
@@ -1133,9 +1150,11 @@
 <translation id="1895658205118569222">ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="1896043844785689584">ଟିପଚିହ୍ନ ସେଟ ଅପ କରିବା ପାଇଁ ଆପଣଙ୍କ ପିଲାକୁ କୀବୋର୍ଡର ନିମ୍ନ ଡାହାଣ କୋଣରେ ଥିବା ଟିପଚିହ୍ନ ସେନ୍ସରକୁ ସ୍ପର୍ଶ କରିବା ପାଇଁ ଦିଅନ୍ତୁ। ଆପଣଙ୍କ ପିଲାର ଟିପଚିହ୍ନ ଡାଟାକୁ ସୁରକ୍ଷିତ ଭାବେ ଷ୍ଟୋର କରାଯାଇଛି ଏବଂ ଏହାକୁ କେବେ ବି ଏହି <ph name="DEVICE_TYPE" />ରୁ କାଢ଼ି ଦିଆଯାଏ ନାହିଁ।</translation>
 <translation id="1897120393475391208">ଜଟିଳ ପାସୱାର୍ଡ ବ୍ୟବହାର କରନ୍ତୁ</translation>
+<translation id="1897860317037652061">ସ୍କାନ ବିଫଳ ହୋଇଛି</translation>
 <translation id="1900305421498694955">ବାହ୍ୟ ଷ୍ଟୋରେଜ୍ ଡିଭାଇସ୍‍ଗୁଡ଼ିକରେ ଥିବା ଫାଇଲ୍‍ଗୁଡ଼ିକୁ ପଢ଼ିବା ଏବଂ ଲେଖିବା ପାଇଁ Google Playରୁ ଆପ୍ଲିକେସନ୍‌ଗୁଡ଼ିକୁ ହୁଏତ ସମ୍ପୂର୍ଣ୍ଣ ଫାଇଲ୍ ସିଷ୍ଟମ୍ ଆକ୍ସେସ୍‍ର ଆବଶ୍ୟକତା ପଡ଼ିପାରେ। ଡିଭାଇସ୍‍‍ରେ ତିଆରି କରାଯାଇଥିବା ଫାଇଲ୍ ଓ ଫୋଲ୍ଡର୍‍ଗୁଡ଼ିକ ବାହ୍ୟ ଡ୍ରାଇଭ୍ ବ୍ୟବହାର କରୁଥିବା ଯେ କୌଣସି ବ୍ୟକ୍ତିଙ୍କୁ ଦୃଶ୍ୟମାନ ହୁଏ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="1901213235765457754">ଏହି ଆପକୁ ଅପଡେଟ କରିବା ପାଇଁ ଆପଣଙ୍କ ଆଡମିନଙ୍କୁ କୁହନ୍ତୁ</translation>
 <translation id="1901303067676059328">&amp;ସମସ୍ତ ଚୟନ କରନ୍ତୁ</translation>
+<translation id="1903542130902305074">ସେଟ ଅପ କରନ୍ତୁ</translation>
 <translation id="1903995858055162096">ଆପଣଙ୍କ ଡିଭାଇସ୍ ନୁହେଁ କି? <ph name="BEGIN_LINK" />ଅତିଥି ମୋଡ୍<ph name="END_LINK" /> ବ୍ୟବହାର କରନ୍ତୁ।</translation>
 <translation id="1904580727789512086">ଆପଣ ଭିଜିଟ କରିଥିବା URLଗୁଡ଼ିକ ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରେ ସେଭ ହୋଇଥାଏ</translation>
 <translation id="1905375423839394163">Chromebook ଡିଭାଇସ୍‌ର ନାମ</translation>
@@ -1215,6 +1234,7 @@
 <translation id="1969654639948595766">WebRTC ଟେକ୍ସଟ୍ ଲଗ୍‌ଗୁଡ଼ିକ (<ph name="WEBRTC_TEXT_LOG_COUNT" />)</translation>
 <translation id="1972325230031091483">ଆପଣଙ୍କ ବର୍ତ୍ତମାନର ୱେବପୃଷ୍ଠା ଭିଜିଟ ଆଧାରରେ ବିଷୟବସ୍ତୁ ଅଧିକ ସକ୍ରିୟ ଭାବେ ଲୋଡ କରାଯାଉଥିବା ଯୋଗୁଁ ଆପଣ ଶୀଘ୍ର ବ୍ରାଉଜ କରିବେ</translation>
 <translation id="197288927597451399">Keep</translation>
+<translation id="1973313062201924554"><ph name="APP_NAME" /> ପାଇଁ ଆପଣ ଦେଇଥିବା ଅନୁମତିଗୁଡ଼ିକ ଏହି ଆପ ପାଇଁ ମଧ୍ୟ ଲାଗୁ ହେବ।</translation>
 <translation id="1973763416111613016"><ph name="FILE_NAME" /> ସୁରକ୍ଷିତ ରୂପେ ଡାଉନଲୋଡ୍ କରାଯାଇପାରିବ ନାହିଁ। ଡାଉନଲୋଡ୍ ବାର୍ କ୍ଷେତ୍ରକୁ ଯିବାକୁ Shift+F6 ଦବାନ୍ତୁ।</translation>
 <translation id="1973886230221301399">ChromeVox</translation>
 <translation id="1974043046396539880">CRL ବିତରଣ ପଏଣ୍ଟ</translation>
@@ -1340,6 +1360,7 @@
 <translation id="2074263453710478603">ChromeOS Chrome ୟୁଜର ଲଗଗୁଡ଼ିକ</translation>
 <translation id="2075088158103027942">ସଦସ୍ୟତାକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="2075474481720804517"><ph name="BATTERY_PERCENTAGE" />% ବ୍ୟାଟେରୀ ଅଛି</translation>
+<translation id="2076228988744845354"><ph name="EXTENSION_NAME" /> ଏକ୍ସଟେନସନ ପାଇଁ ଅଧିକ କାର୍ଯ୍ୟ</translation>
 <translation id="2076269580855484719">ଏହି ପ୍ଲଗ୍‌ଇନ୍ ଲୁଚାନ୍ତୁ</translation>
 <translation id="2076672359661571384">ମଧ୍ୟମ ଧରଣ (ସୁପାରିଶ୍ କରାଯାଇଛି)</translation>
 <translation id="2077129598763517140">ଯେତେବେଳେ ଉପଲବ୍ଧ ଥାଏ, ସେତେବେଳେ ହାର୍ଡୱେୟାର୍ ଆକ୍ସଲରେସନ୍ ବ୍ୟବହାର କରନ୍ତୁ</translation>
@@ -1362,6 +1383,7 @@
 <translation id="2090165459409185032">ଆପଣଙ୍କର ଆକାଉଣ୍ଟ ସୂଚନା ପୁନରୁଦ୍ଧାର କରିବାକୁ, ଏଠାକୁ ଯାଆନ୍ତୁ: google.com/accounts/recovery</translation>
 <translation id="2090507354966565596">ଆପଣ ଲଗ୍ ଇନ୍ କଲେ ସ୍ୱଚାଳିତ ଭାବେ ସଂଯୋଗ ହୁଏ</translation>
 <translation id="2090876986345970080">ସିଷ୍ଟମ୍ ସୁରକ୍ଷା ସେଟିଂ</translation>
+<translation id="2091523941449737894">ଆପଣଙ୍କ ଟଚପେଡର ଦ୍ରୁତ ମୁଭମେଣ୍ଟ ଫଳରେ କର୍ସର ଆହୁରି ଦୂରକୁ ମୁଭ କରିବ</translation>
 <translation id="2091887806945687916">ଧ୍ୱନି</translation>
 <translation id="2092356157625807382"><ph name="BEGIN_H3" />ଡିବଗିଂ ଫିଚରଗୁଡ଼ିକ<ph name="END_H3" />
       <ph name="BR" />
@@ -1381,7 +1403,9 @@
       <ph name="BR" />
       <ph name="BR" />
       <ph name="BEGIN_BOLD" />ଧ୍ୟାନ ଦିଅନ୍ତୁ:<ph name="END_BOLD" />  ପ୍ରକ୍ରିୟା ଚାଲିଥିବା ସମୟରେ ସିଷ୍ଟମ ରିବୁଟ ହେବ।</translation>
+<translation id="2095479026080141189">କାହିଁକି <ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_BLOCKED_LEARN_MORE_LINK" /> ତାହା ଜାଣନ୍ତୁ</translation>
 <translation id="2095774564753225041">ସମର୍ଥିତ ଫାଇଲ ପ୍ରକାରଗୁଡ଼ିକ</translation>
+<translation id="2096716221239095980">ସମସ୍ତ ଡାଟାକୁ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="2097616539631531348">ଏହି ଟାବଟି ନିଷ୍କ୍ରିୟ ଥିବା ସମୟରେ, ମେମୋରୀ ସେଭର ଅନ୍ୟ ଟାସ୍କଗୁଡ଼ିକ ପାଇଁ ମେମୋରୀ ଖାଲି କରିଛି।</translation>
 <translation id="2097950021134740304">ସଦସ୍ୟତା କାଢ଼ି ଦେବା ବାତିଲ କରନ୍ତୁ</translation>
 <translation id="2098805196501063469">ଅବଶିଷ୍ଟ ପାସୱାର୍ଡଗୁଡ଼ିକୁ ଯାଞ୍ଚ କରନ୍ତୁ</translation>
@@ -1786,6 +1810,7 @@
 <translation id="2412015533711271895">ଏହି ଏକ୍ସଟେନସନ ବ୍ୟବହାର କରିବା ତୁମ ପାଇଁ ଠିକ ବୋଲି ତୁମ ବାପାମା କିମ୍ବା ଅଭିଭାବକ କହିବା ଆବଶ୍ୟକ</translation>
 <translation id="2412593942846481727">ଅପ୍‍‍ଡେଟ୍ ଉପଲବ୍ଧ ଅଛି</translation>
 <translation id="2412753904894530585">Kerberos</translation>
+<translation id="2414159296888870200"><ph name="MODULE_TITLE" /> ପାଇଁ ବ୍ରାଉଜ କରିବା ପୁଣି ଆରମ୍ଭ କରନ୍ତୁ</translation>
 <translation id="2414886740292270097">ଗାଢ଼</translation>
 <translation id="2416435988630956212">କୀବୋର୍ଡ ଫଙ୍କସନ୍ କୀଗୁଡ଼ିକ</translation>
 <translation id="2418307627282545839">ଜିନିଷଗୁଡ଼ିକୁ ଉଜ୍ଜ୍ୱଳ ଏବଂ ଖୋଲା ଖୋଲା ରଖନ୍ତୁ</translation>
@@ -1856,6 +1881,7 @@
 <translation id="2459703812219683497">ସକ୍ରିୟକରଣ କୋଡକୁ ଚିହ୍ନଟ କରାଯାଇଛି</translation>
 <translation id="2459706890611560967"><ph name="DEVICE_NAME" />ରେ ଟାବ କାଷ୍ଟ କରିବା ପୁଣି ଆରମ୍ଭ କରନ୍ତୁ</translation>
 <translation id="2460356425461033301">ଆପଣଙ୍କ ବ୍ରାଉଜର ଷ୍ଟଫର ବେକଅପ ନେଇ ଯେ କୌଣସି ଡିଭାଇସରେ ଏହାକୁ ବ୍ୟବହାର କରନ୍ତୁ</translation>
+<translation id="2460482211073772897">ଅନ୍ୟ ଫୋଲ୍ଡରଗୁଡ଼ିକରେ</translation>
 <translation id="2462332841984057083">Steamକୁ ପୂର୍ବରୁ ସେଟ ଅପ କରାଯାଇଛି। ସେଟଅପ ସମ୍ପୂର୍ଣ୍ଣ ହେବା ପର୍ଯ୍ୟନ୍ତ ଅପେକ୍ଷା କରନ୍ତୁ।</translation>
 <translation id="2462724976360937186">ସାର୍ଟିଫିକେଟ୍ କର୍ତ୍ତୁପକ୍ଷ କୀ' ID</translation>
 <translation id="2462752602710430187"><ph name="PRINTER_NAME" />କୁ ଯୋଗ କରାଗଲା</translation>
@@ -1924,11 +1950,17 @@
 <translation id="2509566264613697683">8x</translation>
 <translation id="2512065992892294946"><ph name="LANGUAGE" /> (ଚୟନ କରାଯାଇଛି)</translation>
 <translation id="2513396635448525189">ଲଗଇନ୍ ଛବି</translation>
+<translation id="251425554130284360">ଆପଣ ଆପଣଙ୍କ ବର୍ତ୍ତମାନର କାର୍ଯ୍ୟକଳାପକୁ ସହଜରେ ଫେରିବାରେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିବା ପାଇଁ ଆପଣ ଭିଜିଟ କରିଥିବା ପୃଷ୍ଠା ଏବଂ ପରାମର୍ଶ କରାଯାଇଥିବା ସର୍ଚ୍ଚଗୁଡ଼ିକୁ ଦେଖୁଛନ୍ତି।
+        <ph name="BREAK" />
+        <ph name="BREAK" />
+        ଆପଣ କାର୍ଡ ମେନୁରୁ ସେଟିଂସକୁ ପରିଚାଳନା କରିପାରିବେ କିମ୍ବା "Chromeକୁ କଷ୍ଟମାଇଜ କରନ୍ତୁ"ରେ ଅଧିକ ବିକଳ୍ପ ଦେଖିପାରିବେ।</translation>
 <translation id="2514326558286966059">ଆପଣଙ୍କ ଟିପଚିହ୍ନ ସହ ଶୀଘ୍ର ଅନଲକ୍ କରନ୍ତୁ</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="251722524540674480">ଆପଣଙ୍କ ଉପଯୋଗକର୍ତ୍ତାନାମ ସୁନିଶ୍ଚିତ କରନ୍ତୁ</translation>
 <translation id="2517472476991765520">ସ୍କାନ୍ କରନ୍ତୁ</translation>
+<translation id="2517890781170832772">ଆପଣଙ୍କ ବିଷୟରେ ଏହି ସାଇଟଗୁଡ଼ିକ ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିବା ପାଇଁ ଆପଣ ସେଗୁଡ଼ିକୁ ଅନୁମତି ଦେଇଛନ୍ତି</translation>
 <translation id="2518024842978892609">ଆପଣଙ୍କ କ୍ଲାଏଣ୍ଟର ସାର୍ଟିଫିକେଟ୍‍ଗୁଡ଼ିକ ବ୍ୟବହାର କରନ୍ତୁ</translation>
+<translation id="2519250377986324805">କିପରି କରିବେ ତାହା ଦେଖନ୍ତୁ</translation>
 <translation id="2519517390894391510">ସାର୍ଟିଫିକେଟ୍ ପ୍ରୋଫାଇଲ୍ ନାମ</translation>
 <translation id="2520644704042891903">ଉପଲବ୍ଧ ଥିବା ସକେଟ୍‍ ପାଇଁ ଅପେକ୍ଷାରତ...</translation>
 <translation id="2521854691574443804"><ph name="FILE_NAME" />କୁ ଆପଣଙ୍କ ସଂସ୍ଥାର ସୁରକ୍ଷା ନୀତିଗୁଡ଼ିକ ସହ ଯାଞ୍ଚ କରାଯାଉଛି...</translation>
@@ -2212,6 +2244,7 @@
 <translation id="2749756011735116528"><ph name="PRODUCT_NAME" />ରେ ସାଇନ୍‍ ଇନ୍‍ କରନ୍ତୁ</translation>
 <translation id="2749836841884031656">SIM</translation>
 <translation id="2749881179542288782">ବନାନ ସହିତ ବ୍ୟାକରଣର ଯାଞ୍ଚ କରନ୍ତୁ</translation>
+<translation id="2750602041558385535">ଯାଞ୍ଚ ହୋଇନଥିବା ଡାଉନଲୋଡକୁ ବ୍ଲକ କରାଯାଇଛି</translation>
 <translation id="2754226775788136540"><ph name="PRIMARY_EMAIL" />ରେ ସେଭ କରାଯାଇଥିବା ଫାଷ୍ଟ ପେୟାର ଡିଭାଇସଗୁଡ଼ିକୁ ଖୋଜାଯାଉଛି</translation>
 <translation id="2754825024506485820">ଉତ୍ପାଦନକ୍ଷମତାରୁ ମନୋରଞ୍ଜନ ପର୍ଯ୍ୟନ୍ତ ଆପଣ ଆବଶ୍ୟକ କରୁଥିବା ଆପ୍ସକୁ Google Play Storeରେ ପାଆନ୍ତୁ। ଆପଣ ଯେ କୌଣସି ସମୟରେ ଆପ୍ସ ଇନଷ୍ଟଲ କରିପାରିବେ।</translation>
 <translation id="2755349111255270002">ଏହି <ph name="DEVICE_TYPE" />କୁ ରିସେଟ୍ କରନ୍ତୁ</translation>
@@ -2226,6 +2259,7 @@
 <translation id="2764920001292228569">ଏକ ପ୍ରୋଫାଇଲ ନାମ ଲେଖନ୍ତୁ</translation>
 <translation id="2765100602267695013">ଆପଣଙ୍କ ମୋବାଇଲ ସେବା ପ୍ରଦାନକାରୀଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ</translation>
 <translation id="2765217105034171413">ଛୋଟ</translation>
+<translation id="2765606672116865966">ଆପଣ ଠିକଣା ବାର କିମ୍ବା ସର୍ଚ୍ଚ ବାକ୍ସରେ କ୍ଲିକ ବା ଟାଇପ କଲେ, ଆପଣ ଆପଣଙ୍କ ଡିଫଲ୍ଟ ସର୍ଚ୍ଚ ଇଞ୍ଜିନରୁ ପରାମର୍ଶଗୁଡ଼ିକୁ ଦେଖିବେ। ଏହା ଇନକଗ୍ନିଟୋ ମୋଡରେ ବନ୍ଦ ଥାଏ।</translation>
 <translation id="2766006623206032690">ଲେ&amp;ପନ କରନ୍ତୁ ଓ ଯାଆନ୍ତୁ</translation>
 <translation id="2766161002040448006">ଜଣେ ବାପା କିମ୍ବା ମା'ଙ୍କୁ ପଚାରନ୍ତୁ</translation>
 <translation id="2767077837043621282">ଆପଣଙ୍କ Chromebook ଅପଡେଟ୍ କରାଯାଇପାରିଲା ନାହିଁ। ଦୟାକରି ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
@@ -2243,6 +2277,7 @@
 <translation id="2775104091073479743">ଟିପଚିହ୍ନ ଏଡିଟ୍ କରନ୍ତୁ</translation>
 <translation id="2775420101802644975">{NUM_CONNECTION,plural, =0{ଡିଭାଇସଗୁଡ଼ିକୁ "<ph name="EXTENSION" />" ଏକ୍ସଟେନସନ ଆକ୍ସେସ କରୁଥିଲା}=1{"<ph name="EXTENSION" />" ଏକ୍ସଟେନସନ {0}ଟି ଡିଭାଇସକୁ ଆକ୍ସେସ କରୁଛି}other{"<ph name="EXTENSION" />" ଏକ୍ସଟେନସନ {0}ଟି ଡିଭାଇସକୁ ଆକ୍ସେସ କରୁଛି}}</translation>
 <translation id="2775858145769350417">{NUM_APPS,plural, =1{1ଟି ଅସମର୍ଥିତ ଆପକୁ କାଢ଼ି ଦିଅନ୍ତୁ}other{#ଟି ଅସମର୍ଥିତ ଆପକୁ କାଢ଼ି ଦିଅନ୍ତୁ}}</translation>
+<translation id="2776515114087183002">ସାଇଟଗୁଡ଼ିକ ଦେଖାନ୍ତୁ</translation>
 <translation id="2776560192867872731"><ph name="DEVICE_NAME" /> ପାଇଁ ଡିଭାଇସ୍ ନାମ ବଦଳାନ୍ତୁ</translation>
 <translation id="2777251078198759550">ଏହି କଣ୍ଟେନରକୁ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="2777525873368474674">ଇମେଜ ଲିଙ୍କ ପେଷ୍ଟ କରନ୍ତୁ</translation>
@@ -2352,6 +2387,7 @@
 <translation id="2861402191395139055">Passpoint ସଦସ୍ୟତା</translation>
 <translation id="2861941300086904918">ମୂଳ କ୍ଲାଏଣ୍ଟ ସୁରକ୍ଷା ପରିଚାଳକ</translation>
 <translation id="2862815659905780618">Linux ଡେଭଲପମେଣ୍ଟ ପରିବେଶକୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
+<translation id="2862986593239703553">ଏହି କାର୍ଡ</translation>
 <translation id="2864601841139725659">ଆପଣଙ୍କ ପ୍ରୋଫାଇଲ୍ ଛବି ସେଟ୍ କରନ୍ତୁ</translation>
 <translation id="2865057607286263192">ଆକ୍ସେଣ୍ଟ ମାର୍କ ଏବଂ ବିଶେଷ କେରେକ୍ଟରଗୁଡ଼ିକ ଦେଖିବା ପାଇଁ କୀବୋର୍ଡ କୀ'ଗୁଡ଼ିକୁ ଦବାଇ ଧରି ରଖନ୍ତୁ। ଏହା ବର୍ଣ୍ଣମାଳା କୀ'ଗୁଡ଼ିକ ପାଇଁ 'କୀ ଦବାଇବା ରିପିଟ କରନ୍ତୁ'କୁ ବନ୍ଦ କରେ। କେବଳ ଇଂରାଜୀ (ଯୁକ୍ତରାଷ୍ଟ୍ର ଆମେରିକା) ପାଇଁ ଉପଲବ୍ଧ।</translation>
 <translation id="2865919525181940183">ବର୍ତ୍ତମାନ ସ୍କ୍ରିନ୍‍‍ରେ ଥିବା ପ୍ରୋଗ୍ରାମ୍‍ଗୁଡ଼ିକର ସ୍କ୍ରିନ୍‍ସଟ୍</translation>
@@ -2379,6 +2415,7 @@
 <translation id="2881076733170862447">ଆପଣ ଯେତେବେଳେ ଏକ୍ସଟେନ୍‌ସନ୍‌କୁ କ୍ଲିକ୍ କରିବେ</translation>
 <translation id="2882943222317434580"><ph name="IDS_SHORT_PRODUCT_NAME" /> କ୍ଷଣସ୍ଥାୟୀ ଭାବରେ ରିଷ୍ଟାର୍ଟ ଏବଂ ରିସେଟ୍ ହେବ</translation>
 <translation id="2883470649061584386">ଫିଡ</translation>
+<translation id="2884070497102362193">ଆପଣଙ୍କ ବେଟେରୀ, CPU, ମେମୋରୀ, କନେକ୍ଟିଭିଟି ଏବଂ ଆହୁରି ଅନେକ କିଛିକୁ ଟେଷ୍ଟ କରନ୍ତୁ</translation>
 <translation id="2885378588091291677">ଟାସ୍କ ପରିଚାଳକ</translation>
 <translation id="2885729872133513017">ସର୍ଭର୍ ପ୍ରତିକ୍ରିୟାକୁ ଡିକୋଡ୍‌କରିବା ସମୟରେ ଏକ ସମସ୍ୟା ହୋଇଛି।</translation>
 <translation id="2886119409731773154">ଏଥିପାଇଁ 30 ମିନିଟ ପର୍ଯ୍ୟନ୍ତ ସମୟ ଲାଗିପାରେ</translation>
@@ -2484,6 +2521,7 @@
 <translation id="2973324205039581528">ସାଇଟ୍‌କୁ ମ୍ୟୁଟ୍ କରନ୍ତୁ</translation>
 <translation id="2975761176769946178">ଏକ URL ଆବଶ୍ୟକ</translation>
 <translation id="2976557544729462544">ସଠିକ୍ ଭାବରେ କିମ୍ବା ସମ୍ପୂର୍ଣ୍ଣ ପରଫରମାନ୍ସ ସହିତ କାର୍ଯ୍ୟ କରିବା ନିମନ୍ତେ କିଛି ଡିଭାଇସ୍ ପାଇଁ ଆପଣଙ୍କୁ ଡାଟା ଆକ୍ସେସ୍ ସୁରକ୍ଷା ଅକ୍ଷମ କରିବାର ଆବଶ୍ୟକତା ଅଛି।</translation>
+<translation id="2976639738101799892">ଆପଣ ପ୍ରତ୍ୟେକ ଥର ବ୍ରାଉଜ କରିବା ସମୟରେ Google Search ଏବଂ Google ସ୍ମାର୍ଟ ପାଆନ୍ତୁ</translation>
 <translation id="2977480621796371840">ଗୋଷ୍ଠୀରୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="2979639724566107830">ନୂତନ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="2979893796619951531">ସାଇଟକୁ ବାଦ ଦିଅନ୍ତୁ</translation>
@@ -2491,6 +2529,7 @@
 <translation id="2983102365694924129">କୌଣସି ସାଇଟରେ ଆପଣଙ୍କ କାର୍ଯ୍ୟକଳାପ ଆଧାରରେ। ଏହି ସେଟିଂ ବନ୍ଦ ଅଛି।</translation>
 <translation id="2983373101216420412">କେସର ବ୍ୟାଟେରୀ ଲେଭେଲ <ph name="PERCENTAGE" />%।</translation>
 <translation id="2985348301114641460">"<ph name="EXTENSION_NAME" />"କୁ ଇନଷ୍ଟଲ୍ କରିବା ପାଇଁ ଆପଣଙ୍କର ଆଡମିନିଷ୍ଟ୍ରେଟରଙ୍କୁ ଏକ ଅନୁରୋଧ ପଠାଇବେ?</translation>
+<translation id="2985476671756533899">{NUM_SUB_APPS,plural, =1{<ph name="APP_NAME" /> ଏକ ଆପକୁ ଅନଇନଷ୍ଟଲ କରିଛି}other{<ph name="APP_NAME" /> # ଆପ୍ସକୁ ଅନଇନଷ୍ଟଲ କରିଛି}}</translation>
 <translation id="2987620471460279764">ଅନ୍ୟ ଡିଭାଇସ୍ ଠାରୁ ଟେକ୍ସଟ୍ ସେୟାର୍ କରାଯାଇଛି</translation>
 <translation id="2988018669686457659">ଅତିରିକ୍ତ ରେଣ୍ଡରର୍</translation>
 <translation id="2988328607561082373">ଆପଣ କୌଣସି ପାସୱାର୍ଡ ପୁଣି ବ୍ୟବହାର କରୁନାହାଁନ୍ତି</translation>
@@ -2568,6 +2607,7 @@
 <translation id="3030311804857586740">{NUM_DAYS,plural, =1{<ph name="MANAGER" /> ପାଇଁ ଆପଣଙ୍କୁ ଆଜି ଏକ ଅପଡେଟ୍ ଡାଉନଲୋଡ୍ କରିବାର ଆବଶ୍ୟକତା ଅଛି। ଯେତେବେଳେ ଆପଣ ଇଣ୍ଟରନେଟ୍ ସଂଯୋଗ କରନ୍ତି ଏହି ଅପଡେଟ୍ ସ୍ୱଚାଳିତ ଭାବେ ଡାଉନଲୋଡ୍ ହେବ।}other{<ph name="MANAGER" /> ପାଇଁ ଆପଣଙ୍କୁ ସମୟସୀମା ପୂର୍ବରୁ ଏକ ଅପଡେଟ୍ ଡାଉନଲୋଡ୍ କରିବା ଆବଶ୍ୟକ। ଯେତେବେଳେ ଆପଣ ଇଣ୍ଟରନେଟ୍ ସଂଯୋଗ କରନ୍ତି ଏହି ଅପଡେଟ୍ ସ୍ୱଚାଳିତ ଭାବେ ଡାଉନଲୋଡ୍ ହେବ।}}</translation>
 <translation id="3030967311408872958">ସୂର୍ଯ୍ୟାସ୍ତରୁ ସୂର୍ଯ୍ୟୋଦୟ</translation>
 <translation id="3031417829280473749">ଏଜେଣ୍ଟ X</translation>
+<translation id="3031532026314193077">ଡାହାଣ-କ୍ଲିକ କରିବା ପାଇଁ ଟଚପେଡ ଏବଂ କୀବୋର୍ଡ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="3031557471081358569">ଆମଦାନି କରିବା ଲାଗି ଆଇଟମଗୁଡିକ ଚୟନ କରନ୍ତୁ:</translation>
 <translation id="3032204772252313646">ଅଟୋ କ୍ୟାପସନ</translation>
 <translation id="3033348223765101500">ଆପଣଙ୍କ ଡାଟା ନିୟନ୍ତ୍ରଣ କରନ୍ତୁ</translation>
@@ -2635,6 +2675,7 @@
 <translation id="3090871774332213558">"<ph name="DEVICE_NAME" />" ପେୟାର୍‌ ହୋ‍ଇଛି</translation>
 <translation id="3093714882666365141">ପେମେଣ୍ଟ ହ୍ୟାଣ୍ଡଲର୍ ଇନଷ୍ଟଲ୍ କରିବାକୁ ସାଇଟଗୁଡ଼ିକୁ ଅନୁମତି ଦିଅନ୍ତୁ ନାହିଁ</translation>
 <translation id="3094141017404513551">ଏହା ଆପଣଙ୍କ ବ୍ରାଉଜିଂକୁ <ph name="EXISTING_USER" />ଠାରୁ ଅଲଗା କରିବ</translation>
+<translation id="3094223846531205616">{COUNT,plural, =0{ଆଜି ମିଆଦ ଶେଷ ହେବ}=1{ଆସନ୍ତାକାଲି ମିଆଦ ଶେଷ ହେବ}other{# ଦିନରେ ମିଆଦ ଶେଷ ହେବ}}</translation>
 <translation id="3094521107841754472">ମୂଲ୍ୟ <ph name="PREVIOUS_PRICE" />ରୁ <ph name="CURRENT_PRICE" />କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି।</translation>
 <translation id="3095871294753148861">ବୁକମାର୍କ, ପାସୱାର୍ଡ ଏବଂ ଅନ୍ୟ ବ୍ରାଉଜର୍ ଡାଟା ପ୍ରାଥମିକ ଆକାଉଣ୍ଟ ସହିତ ସିଙ୍କ୍ କରାଯାଇଛି।</translation>
 <translation id="3099836255427453137">{NUM_EXTENSIONS,plural, =1{1ଟି ସମ୍ଭାବ୍ୟ କ୍ଷତିକାରକ ଏକ୍ସଟେନସନ୍ ବନ୍ଦ ଅଛି। ଆପଣ ଏହାକୁ ମଧ୍ୟ କାଢ଼ି ପାରିବେ।}other{{NUM_EXTENSIONS}ଟି ସମ୍ଭାବ୍ୟ କ୍ଷତିକାରକ ଏକ୍ସଟେନସନ୍ ବନ୍ଦ ଅଛି। ଆପଣ ସେଗୁଡ଼ିକୁ ମଧ୍ୟ କାଢ଼ି ପାରିବେ।}}</translation>
@@ -2740,6 +2781,10 @@
 <translation id="3202499879214571401"><ph name="DEVICE_NAME" />ରେ ସ୍କ୍ରିନ କାଷ୍ଟ କରିବା ବିରତ କରନ୍ତୁ</translation>
 <translation id="3202578601642193415">ନୂତନତ୍ତମ</translation>
 <translation id="3204648577100496185">ଏହି ଆପ ସହ ସମ୍ବନ୍ଧିତ ଡାଟାକୁ ଏହି ଡିଭାଇସରୁ କାଢ଼ି ଦିଆଯାଇପାରେ</translation>
+<translation id="3207344462385471911">ଆପଣ ଆପଣଙ୍କ ବର୍ତ୍ତମାନର କାର୍ଯ୍ୟକଳାପ ଆଧାରରେ ଆପଣଙ୍କର ରୁଚି ଥିବା ପ୍ରସ୍ତାବିତ ସର୍ଚ୍ଚ ଏବଂ ସପିଂ ରିହାତିଗୁଡ଼ିକ ଦେଖୁଛନ୍ତି।
+        <ph name="BREAK" />
+        <ph name="BREAK" />
+        ଆପଣ ଯେ କୌଣସି ସମୟରେ ଏହି କାର୍ଡରୁ ସେଟିଂସକୁ ପରିଚାଳନା କରିପାରିବେ କିମ୍ବା "Chromeକୁ କଷ୍ଟମାଇଜ କରନ୍ତୁ"ରେ ଅଧିକ ବିକଳ୍ପ ଦେଖିପାରିବେ।</translation>
 <translation id="3207960819495026254">ବୁକ୍‍ମାର୍କ କରାଯାଇଛି</translation>
 <translation id="3208321278970793882">ଆପ୍</translation>
 <translation id="3208584281581115441">ଏବେ ଯାଞ୍ଚ କରନ୍ତୁ</translation>
@@ -2762,12 +2807,14 @@
 <translation id="3226487301970807183">ବାମକୁ ଆଲାଇନ୍ କରାଯାଇଥିବା ସାଇଡ୍ ପ୍ୟାନେଲକୁ ଟୋଗଲ୍ କରନ୍ତୁ</translation>
 <translation id="322708765617468434">ସେଟଅପ ପରେ ଆପଣ ସର୍ବଦା ଅନ୍ୟ ଜଣେ ବ୍ୟକ୍ତିଙ୍କୁ ଡିଭାଇସରେ ଯୋଗ କରିପାରିବେ। ପ୍ରତ୍ୟେକ ବ୍ୟକ୍ତି ତାଙ୍କ ଅନୁଭୂତିକୁ ପର୍ସନାଲାଇଜ କରିପାରିବେ ଏବଂ ଡାଟାକୁ ପ୍ରାଇଭେଟ ରଖିପାରିବେ।</translation>
 <translation id="3227137524299004712">ମାଇକ୍ରୋଫୋନ୍</translation>
+<translation id="3230539834943294477">ସହାୟତା ଆର୍ଟିକିଲଗୁଡ଼ିକୁ ଭ୍ୟୁ କରନ୍ତୁ କିମ୍ବା ଡିଭାଇସ ସହାୟତା ଖୋଜନ୍ତୁ</translation>
 <translation id="3232168089952388105">ଆପଣଙ୍କ ଡିଭାଇସ ବିଷୟରେ ସୂଚନା ସେୟାର କରିବେ?</translation>
 <translation id="3232558119926886907">ଡାହାଣକୁ ଆଲାଇନ କରନ୍ତୁ</translation>
 <translation id="3232754137068452469">ୱେବ୍ ଆପ୍</translation>
 <translation id="3233271424239923319">Linux ଆପ୍ସ ଏବଂ ଫାଇଲ୍‌ଗୁଡ଼ିକର ବ୍ୟାକ୍‍ଅପ୍ ନିଅନ୍ତୁ</translation>
 <translation id="3234251228180563751">ଉପଯୋଗକର୍ତ୍ତାନାମରେ 1000ରୁ ଅଧିକ କେରେକ୍ଟର ଅଛି</translation>
 <translation id="3234978181857588512">ଡିଭାଇସରେ ସେଭ୍ କରନ୍ତୁ</translation>
+<translation id="3237871032310650497"><ph name="PARTITION_SITE_NAME" />ରେ ପାର୍ଟିସନ କରାଯାଇଥିବା <ph name="SITE_NAME" /> ପାଇଁ ସାଇଟ ଡାଟା ଡିଲିଟ କରିବେ?</translation>
 <translation id="3238192140106069382">ସଂଯୋଗ ଓ ଯାଞ୍ଚ କରାଯାଉଛି</translation>
 <translation id="3239373508713281971"><ph name="APP_NAME" /> ପାଇଁ ସମୟ ସୀମା କଢ଼ାଯାଇଛି</translation>
 <translation id="3240426699337459095">ଲିଙ୍କ୍ କପି ହୋଇଛି</translation>
@@ -2948,6 +2995,7 @@
 <translation id="3388788256054548012">ଏହି ଫାଇଲଟି ଏନକ୍ରିପ୍ଟ କରାଯାଇଛି। ଏହାର ମାଲିକଙ୍କୁ ଡିକ୍ରିପ୍ଟ କରିବାକୁ କୁହନ୍ତୁ।</translation>
 <translation id="3390013585654699824">ଆପ୍ ବିବରଣୀ</translation>
 <translation id="3390530051434634135">ନୋଟ: <ph name="NOTE" /></translation>
+<translation id="3391721320619127327">ChromeOS Flex, ChromeVoxରେ ସ୍କ୍ରିନ ରିଡର ମୁଖ୍ୟତଃ ଦୃଷ୍ଟିହୀନ କିମ୍ବା କମ ଦେଖାଯାଉଥିବା ଲୋକଙ୍କ ଦ୍ୱାରା ସ୍କ୍ରିନରେ ଡିସପ୍ଲେ କରାଯାଇଥିବା ଟେକ୍ସଟକୁ ସ୍ପିଚ ସିନ୍ଥେସାଇଜର ବା ବ୍ରେଲି ଡିସପ୍ଲେ ମାଧ୍ୟମରେ ପଢ଼ିବା ପାଇଁ ବ୍ୟବହାର କରାଯାଏ। ChromeVox ଚାଲୁ କରିବାକୁ ପାଞ୍ଚ ସେକେଣ୍ଡ ପାଇଁ ଉଭୟ ଭଲ୍ୟୁମ କୀ’କୁ ଦବାଇ ଧରି ରଖନ୍ତୁ। ChromeVox ସକ୍ରିୟ ହେଲେ ଏହା ବିଷୟରେ ଆପଣଙ୍କୁ ଏକ କୁଇକ ସୂଚନା ଦିଆଯିବ।</translation>
 <translation id="3393554941209044235">Chrome ଡକ୍ୟୁମେଣ୍ଟ ବିଶ୍ଳେଷଣ</translation>
 <translation id="3393582007140394275">ସ୍କ୍ରିନ କାଷ୍ଟ କରିବାରେ ଅସମର୍ଥ।</translation>
 <translation id="3394850431319394743">ସୁରକ୍ଷିତ ବିଷୟବସ୍ତୁକୁ ଚଲାଇବା ପାଇଁ ଚିହ୍ନଟକାରୀଗୁଡ଼ିକୁ ବ୍ୟବହାର କରିବାକୁ ଅନୁମତି ଦିଆଯାଇଛି</translation>
@@ -2981,6 +3029,7 @@
 <translation id="3420501302812554910">ଇଣ୍ଟର୍ନଲ୍ ସୁରକ୍ଷା କୀ ରିସେଟ୍ ଆବଶ୍ୟକ କରୁଛି</translation>
 <translation id="3421387094817716717">ଏଲିପ୍‌ଟିକ୍ କର୍ଭ ପବ୍ଲିକ୍ କୀ</translation>
 <translation id="3421672904902642628"><ph name="BEGIN_BOLD" />ଧ୍ୟାନ ଦିଅନ୍ତୁ:<ph name="END_BOLD" /> ଏକ ସମାନ ଭଏସ୍ କିମ୍ବା ରେକର୍ଡିଂ ଆପଣଙ୍କ ବ୍ୟକ୍ତିଗତ ଫଳାଫଳକୁ କିମ୍ବା ଆପଣଙ୍କ Assistantକୁ ଆକ୍ସେସ୍ କରିବାରେ ସମର୍ଥ ହୋଇପାରେ।</translation>
+<translation id="3423111258700187173"><ph name="FOLDER_TITLE" />ରେ ଫଳାଫଳ ମିଳିଛି</translation>
 <translation id="3423463006624419153">ଆପଣଙ୍କର '<ph name="PHONE_NAME_1" />' ଏବଂ '<ph name="PHONE_NAME_2" />'ରେ:</translation>
 <translation id="3423858849633684918">ଦୟାକରି <ph name="PRODUCT_NAME" /> ପୁଣି ଲଞ୍ଚ କରନ୍ତୁ</translation>
 <translation id="3424969259347320884">ଯେତେବେଳେ ଟାବ୍ କ୍ରାସ୍ ହୋ‍ଇଥିଲା ଆପଣ କ’ଣ କରୁଥିଲେ ତାହା ବର୍ଣ୍ଣନା କରନ୍ତୁ</translation>
@@ -3221,6 +3270,7 @@
 <translation id="3615596877979647433">କୀ ଉପଲବ୍ଧ ନାହିଁ। କଷ୍ଟମାଇଜ କରିବା ପାଇଁ ଏକ କୀବୋର୍ଡ କୀକୁ ଦବାନ୍ତୁ</translation>
 <translation id="3616113530831147358">ଅଡିଓ</translation>
 <translation id="3616741288025931835">&amp;ବ୍ରାଉଜିଂ ଡାଟା ଖାଲି କରନ୍ତୁ...</translation>
+<translation id="3617062258679844578">କ୍ଲିକ କରିବା ପାଇଁ, ଆପଣଙ୍କ ଟଚପେଡକୁ ଦବାଇବା ପରିବର୍ତ୍ତେ ଏଥିରେ ଟାପ କରନ୍ତୁ</translation>
 <translation id="3617891479562106823">ପୃଷ୍ଠଭୂମି ଉପଲବ୍ଧ ନାହିଁ। ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="3618286417582819036">କ୍ଷମା କରିବେ, ଏକ ତ୍ରୁଟି ହୋଇଛି</translation>
 <translation id="3619115746895587757">କ୍ୟାପାଚିନୋ</translation>
@@ -3229,6 +3279,7 @@
 <translation id="3621807901162200696">ChromeOSର ଫିଚରଗୁଡ଼ିକ ଏବଂ ପରଫରମାନ୍ସକୁ ଉନ୍ନତ କରିବାରେ ସାହାଯ୍ୟ କରନ୍ତୁ</translation>
 <translation id="362266093274784978">{COUNT,plural, =1{ଏକ ଆପ୍}other{#ଟି ଆପ୍}}</translation>
 <translation id="362333465072914957">ଏକ ସାର୍ଟିଫିକେଟ୍ ଜାରି କରିବାକୁ CA ପାଇଁ ଅପେକ୍ଷା କରାଯାଉଛି</translation>
+<translation id="3623598555687153298">ଏହା ଡିସପ୍ଲେ ହୋଇଥିବା ସାଇଟଗୁଡ଼ିକ ଦ୍ୱାରା ଷ୍ଟୋର କରାଯାଇଥିବା <ph name="TOTAL_USAGE" /> ଡାଟାକୁ ଡିଲିଟ କରିଦେବ</translation>
 <translation id="3624567683873126087">ଡିଭାଇସ୍ ଅନ୍‌ଲକ୍ କରନ୍ତୁ ଏବଂ Google ଆକାଉଣ୍ଟକୁ ସାଇନ୍ ଇନ୍ କରନ୍ତୁ</translation>
 <translation id="3624583033347146597">ଆପଣଙ୍କ ତୃତୀୟ-ପକ୍ଷ କୁକୀ ପସନ୍ଦଗୁଡ଼ିକୁ ବାଛନ୍ତୁ</translation>
 <translation id="3625481642044239431">ଅବୈଧ ଫାଇଲ୍ ବଛାଯାଇଛି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
@@ -3276,6 +3327,7 @@
 <translation id="3660234220361471169">ଭରସାଯୋଗ୍ୟ ନୁହେଁ</translation>
 <translation id="3661297433172569100">{NUM_PASSWORDS,plural, =1{1ଟି ପୂର୍ବରୁ ଥିବା ପାସୱାର୍ଡ ମିଳିଲା}other{{NUM_PASSWORDS}ଟି ପୂର୍ବରୁ ଥିବା ପାସୱାର୍ଡ ମିଳିଲା}}</translation>
 <translation id="3664511988987167893">ଏକ୍ସଟେନ୍‌ସନ୍ ଆଇକନ୍</translation>
+<translation id="3665301845536101715">ସାଇଡ ପେନେଲରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="3665589677786828986">Chrome ଚିହ୍ନଟ କରିଛି କି ଅନ୍ୟ କୌଣସି ପ୍ରୋଗ୍ରାମ୍ ଦ୍ବାରା ଆପଣଙ୍କର କିଛି ସେଟିଂସ୍ ନଷ୍ଟ ହୋଇଯାଇଥିଲା ଏବଂ ସେଗୁଡ଼ିକୁ ସେମାନଙ୍କର ମୂଳ ଡିଫଲ୍ଟରେ ପୁନଃସେଟ୍ କରନ୍ତୁ।</translation>
 <translation id="3665919494326051362">ବର୍ତ୍ତମାନର ସଂସ୍କରଣ ହେଉଛି <ph name="CURRENT_VERSION" /></translation>
 <translation id="3666196264870170605">Intel WiFi NIC ଡିବଗ ଡମ୍ପ</translation>
@@ -3312,6 +3364,7 @@
 <translation id="369489984217678710">ପାସ୍‍ୱର୍ଡ ଓ ଅନ୍ୟ ସାଇନ୍-ଇନ୍ ଡାଟା</translation>
 <translation id="369522892592566391">{NUM_FILES,plural, =0{ସୁରକ୍ଷା ଯାଞ୍ଚଗୁଡ଼ିକ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି। ଆପଣଙ୍କ ଡାଟା ଅପଲୋଡ୍ ହୋଇଯିବ।}=1{ସୁରକ୍ଷା ଯାଞ୍ଚଗୁଡ଼ିକ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି। ଆପଣଙ୍କ ଫାଇଲ୍ ଅପଲୋଡ୍ ହୋଇଯିବ।}other{ସୁରକ୍ଷା ଯାଞ୍ଚଗୁଡ଼ିକ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି। ଆପଣଙ୍କ ଫାଇଲଗୁଡ଼ିକ ଅପଲୋଡ୍ ହୋଇଯିବ।}}</translation>
 <translation id="3696817060563289264">ଟେକ୍ସଟ ଚିହ୍ନଟକରଣ ଫାଇଲଗୁଡ଼ିକୁ ଡାଉନଲୋଡ କରାଯାଇଛି</translation>
+<translation id="369736917241079046">ଲଞ୍ଚର + ବାମ ତୀର</translation>
 <translation id="3697716475445175867">ଗତ ଥର ଖୋଲାଯାଇଥିବା</translation>
 <translation id="3697952514309507634">ଅନ୍ୟ Chrome ପ୍ରୋଫାଇଲଗୁଡ଼ିକ</translation>
 <translation id="3698471669415859717">ସମୀକ୍ଷା ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି</translation>
@@ -3413,6 +3466,7 @@
 <translation id="3764583730281406327">{NUM_DEVICES,plural, =1{ଏକ USB ଡିଭାଇସ୍ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ}other{#ଟି USB ଡିଭାଇସ୍ ସହିତ ଯୋଗାଯୋଗ କରନ୍ତୁ}}</translation>
 <translation id="3764753550716962406">ଉପଲବ୍ଧ ରିହାତିଗୁଡ଼ିକୁ ପାଇବା ପାଇଁ Googleକୁ ଆପଣଙ୍କ କାର୍ଟ ବ୍ୟବହାର କରିବାକୁ ଅନୁମତି ଦେବେ?</translation>
 <translation id="3764974059056958214">{COUNT,plural, =1{<ph name="DEVICE_NAME" />କୁ <ph name="ATTACHMENTS" /> ପଠାଯାଉଛି}other{<ph name="DEVICE_NAME" />କୁ <ph name="ATTACHMENTS" /> ପଠାଯାଉଛି}}</translation>
+<translation id="3765055238058255342">ଏହି ପ୍ରକାରର କାର୍ଡ</translation>
 <translation id="3765246971671567135">ଅଫ୍‌ଲାଇନ୍‌ ଡେମୋ ମୋଡ୍‌ ନୀତି ପଢାଯାଇପାରିଲା ନାହିଁ।</translation>
 <translation id="3765696567014520261">ବିଜ୍ଞାପନଗୁଡ଼ିକୁ ପର୍ସନାଲାଇଜ କରିବା ପରି ବିଭିନ୍ନ ସାଇଟରେ ଆପଣଙ୍କ ବ୍ରାଉଜିଂ କାର୍ଯ୍ୟକଳାପକୁ ଦେଖିବା ପାଇଁ ସାଇଟଗୁଡ଼ିକ ଆପଣଙ୍କ କୁକୀଗୁଡ଼ିକୁ ବ୍ୟବହାର କରିପାରିବ ନାହିଁ। କିଛି ସାଇଟରେ ଫିଚରଗୁଡ଼ିକ କାମ କରିନପାରେ</translation>
 <translation id="3766687283066842296">ଫୋନ ହବ ବିଷୟରେ ଅଧିକ ଜାଣନ୍ତୁ</translation>
@@ -3517,6 +3571,7 @@
 <translation id="3834775135533257713">"<ph name="TO_INSTALL_APP_NAME" />" ଆପ୍ଲିକେସନ୍ ଯୋଗ କରାଯାଇପାରିଲା ନାହିଁ କାରଣ ଏହାର "<ph name="INSTALLED_APP_NAME" />" ସହିତ କିଛି ବିବାଦ ଅଛି।</translation>
 <translation id="3835904559946595746">Linux ବ୍ୟାକଅପକୁ ରିଷ୍ଟୋର କରାଯାଇପାରିଲା ନାହିଁ</translation>
 <translation id="383669374481694771">ଏହି ଡିଭାଇସ୍ ଓ ଏହାକୁ କିପରି ବ୍ୟବହାର କରାଯାଇଛି (ଯେପରି ବ୍ୟାଟେରୀ ସ୍ତର, ସିଷ୍ଟମ୍ ଓ ଆପ୍ କାର୍ଯ୍ୟକଳାପ ଏବଂ ତ୍ରୁଟିଗୁଡ଼ିକ) ସେ ବିଷୟରେ ଏହା ସାଧାରଣ ସୂଚନା ଅଟେ। Androidକୁ ଉନ୍ନତ କରିବା ପାଇଁ ଏହି ଡାଟାକୁ ବ୍ୟବହାର କରାଯିବ ଏବଂ କିଛି ଏକତ୍ରିତ ସୂଚନା Google ଆପ୍ ଏବଂ Android ଡେଭଲପର୍ ପରି ଏହାର ପାର୍ଟନରଗୁଡ଼ିକୁ ମଧ୍ୟ ସେଗୁଡ଼ିକର ଆପ୍ ଓ ପ୍ରଡକ୍ଟଗୁଡ଼ିକ ଉନ୍ନତ କରିବାରେ ସାହାଯ୍ୟ କରିବ।</translation>
+<translation id="3837569373891539515">ଆପଣ ଲାଗୁ ହେଉଥିବା ସମସ୍ତ ବିକଳ୍ପକୁ ଚୟନ କରିପାରିବେ। ଆପଣ ଆପଣଙ୍କ <ph name="DEVICE_TYPE" /> ସେଟ ଅପ କରିବା ସମ୍ପୂର୍ଣ୍ଣ କରିବା ପରେ ସେଟିଂସରେ ଏହି ବିକଳ୍ପଗୁଡ଼ିକୁ ମଧ୍ୟ ଖୋଜିପାରିବେ।</translation>
 <translation id="3838085852053358637">ଏକ୍ସଟେନ୍‍ସନ୍ ଲୋଡ୍ କରିହେଲା ନାହିଁ</translation>
 <translation id="3838486795898716504">ଅଧିକ <ph name="PAGE_TITLE" /></translation>
 <translation id="383891835335927981">କୌଣସି ସାଇଟ୍‌କୁ ଜୁମ୍ ଇନ୍ ବା ଆଉଟ୍ କରାଯାଇନାହିଁ</translation>
@@ -3658,6 +3713,7 @@
 <translation id="3948334586359655083">ଏହି ଟାବ ଅଡିଓ ପ୍ଲେ କରୁଛି</translation>
 <translation id="3948507072814225786">ନିମ୍ନୋକ୍ତ ଫୋଲ୍ଡର୍‌ଗୁଡ଼ିକରେ <ph name="ORIGIN" /> ଫାଇଲ୍‌ଗୁଡ଼ିକୁ ଏଡିଟ୍ କରିପାରିବ</translation>
 <translation id="394984172568887996">IE ରୁ ଆମଦାନି କରାଗଲା</translation>
+<translation id="3949999964543783947">ଫାଇଲ ଡାଉନଲୋଡ କରିବାକୁ ଅଧିକ ସୁରକ୍ଷିତ କରିବା ପାଇଁ <ph name="IDS_DOWNLOAD_BUBBLE_SUBPAGE_SUMMARY_WARNING_SAFE_BROWSING_SETTING_LINK" /></translation>
 <translation id="3950820424414687140">ସାଇନ୍ ଇନ୍ କରନ୍ତୁ</translation>
 <translation id="3950841222883198950">ଭଏସ ଟାଇପିଂ</translation>
 <translation id="3953834000574892725">ମୋ ଆକାଉଣ୍ଟଗୁଡ଼ିକ</translation>
@@ -3688,6 +3744,7 @@
 <translation id="3971764089670057203">ଏହି ସୁରକ୍ଷା କୀ’ରେ ଥିବା ଟିପଚିହ୍ନଗୁଡ଼ିକ</translation>
 <translation id="3973005893595042880">ୟୁଜରଙ୍କୁ ଅନୁମତି ଦିଆଯାଇନାହିଁ</translation>
 <translation id="3973660817924297510">ପାସୱାର୍ଡ ଯାଞ୍ଚ କରାଯାଉଛି (<ph name="TOTAL_PASSWORDS" />ଟିରୁ <ph name="CHECKED_PASSWORDS" />)…</translation>
+<translation id="3974105241379491420">ସାଇଟଗୁଡ଼ିକ ଆପଣଙ୍କ ବିଷୟରେ ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିବା ପାଇଁ ପଚାରିପାରିବ</translation>
 <translation id="3974514184580396500">ସ୍କ୍ରିନ ଉପରେ ଆପଣଙ୍କ ଫୋକସ ଆଗକୁ ମୁଭ କରିବା ପାଇଁ “ପରବର୍ତ୍ତୀ”କୁ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="3975201861340929143">ବ୍ୟାଖ୍ୟା</translation>
 <translation id="3975565978598857337">ଏହି କ୍ଷେତ୍ର ପାଇଁ ଯୋଗାଯୋଗ ସର୍ଭର୍ ବିଫଳ ହୋଇଛି</translation>
@@ -3751,6 +3808,7 @@
 <translation id="402707738228916911"><ph name="AUTHORIZE_INSTRUCTION_NAME" /> ନିର୍ଦ୍ଦେଶ ପ୍ରାପ୍ତ କରାଯାଇଛି</translation>
 <translation id="4027569221211770437"><ph name="FOLDER_TITLE" /> ଫୋଲ୍ଡର</translation>
 <translation id="4028467762035011525">ଇନପୁଟ୍ ପଦ୍ଧତିଗୁଡ଼ିକୁ ଯୋଗ କରନ୍ତୁ</translation>
+<translation id="4029024445166427442">ଲଞ୍ଚର + Shift + Backspace</translation>
 <translation id="4029556917477724407"><ph name="PAGE_TITLE" /> ପୃଷ୍ଠାରୁ ପୂର୍ବବର୍ତ୍ତୀ ପୃଷ୍ଠାକୁ ଫେରନ୍ତୁ</translation>
 <translation id="403088439874411464">ଟେକ୍ସଟ ଚିହ୍ନଟକରଣ ଫାଇଲଗୁଡ଼ିକୁ ଡାଉନଲୋଡ କରାଯାଉଛି</translation>
 <translation id="4031179711345676612">ମାଇକ୍ରୋଫୋନ୍‌କୁ ଅନୁମତି ଦିଆଯାଇଛି</translation>
@@ -3779,6 +3837,7 @@
 <translation id="4045196801416070837">ଡିଭାଇସ ସାଉଣ୍ଡଗୁଡ଼ିକ</translation>
 <translation id="4046013316139505482">ଏହି ଏକ୍ସଟେନସେନଗୁଡ଼ିକୁ ଏହି ସାଇଟରେ ସୂଚନା ଦେଖିବା ଏବଂ ପରିବର୍ତ୍ତନ କରିବାର ଆବଶ୍ୟକତା ନାହିଁ।</translation>
 <translation id="4046123991198612571">ପରବର୍ତ୍ତୀ ଟ୍ରାକ୍</translation>
+<translation id="4046655456159965535">ଡିସପ୍ଲେ କରାଯାଇଥିବା ଡାଟାକୁ ଡିଲିଟ କରିବେ?</translation>
 <translation id="4047345532928475040">N/A</translation>
 <translation id="4047581153955375979">USB4</translation>
 <translation id="4047726037116394521">ମୂଳପୃଷ୍ଠାକୁ ଯାଆନ୍ତୁ</translation>
@@ -3813,9 +3872,11 @@
 <translation id="4078738236287221428">ଆଗ୍ରେସିଭ୍</translation>
 <translation id="4078903002989614318">ସର୍ଟିଂ ଏବଂ ତାଲିକା ବିକଳ୍ପଗୁଡ଼ିକ</translation>
 <translation id="4079140982534148664">ଉନ୍ନତ ବନାନ ଯାଞ୍ଚ ବ୍ୟବହାର କରନ୍ତୁ</translation>
+<translation id="4084582735848141214">{COUNT,plural, =1{1 ସାଇଟକୁ ଅନୁମତି ଦିଆଯାଇଛି}other{# ସାଇଟକୁ ଅନୁମତି ଦିଆଯାଇଛି}}</translation>
 <translation id="4084682180776658562">ବୁକମାର୍କ</translation>
 <translation id="4084835346725913160"><ph name="TAB_NAME" /> ବନ୍ଦ କରନ୍ତୁ</translation>
 <translation id="4085298594534903246">ଏହି ପୃଷ୍ଠାରେ JavaScriptକୁ ଅବରୋଧ କରାଯାଇଛି।</translation>
+<translation id="4085566053793776107">ଥିମଗୁଡ଼ିକୁ କଷ୍ଟମାଇଜ କରନ୍ତୁ</translation>
 <translation id="4085620044235559093"><ph name="FILE_TYPE" /> ଫାଇଲଗୁଡ଼ିକୁ ଖୋଲିବା ପାଇଁ ଏକ ଆପ ବାଛନ୍ତୁ</translation>
 <translation id="4087089424473531098">ଏକ୍ସଟେନ୍‌ସନ୍‌ ତିଆରି କରାଗଲା
 
@@ -3896,6 +3957,7 @@
 <translation id="4146785383423576110">ରିସେଟ୍ କରି ଖାଲି କରନ୍ତୁ</translation>
 <translation id="4147099377280085053">ଏକ ବ୍ରେଲି ଟେବୁଲ ଚୟନ କରନ୍ତୁ</translation>
 <translation id="4147911968024186208">ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ। ଯଦି ଆପଣ ପୁଣି ଏହି ତ୍ରୁଟି ଦେଖନ୍ତି, ତେବେ ଆପଣଙ୍କ ସହଯୋଗ ପ୍ରତିନିଧିଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।</translation>
+<translation id="414800391140809654">ଆପଣ ବ୍ରାଉଜ କରିବା ସମୟରେ ଆପଣଙ୍କ ସୂଚନାକୁ ବ୍ୟବହାର କରିପାରିବେ</translation>
 <translation id="4150201353443180367">ଡିସ୍‌ପ୍ଲେ</translation>
 <translation id="4150569944729499860">ସ୍କ୍ରିନ୍ ପ୍ରସଙ୍ଗ</translation>
 <translation id="4151449637210235443">ଆପଣଙ୍କ ବର୍ତ୍ତମାନର ଗେମପ୍ଲେ ବିଷୟରେ ଆମକୁ କୁହନ୍ତୁ</translation>
@@ -3940,6 +4002,7 @@
 <translation id="4193836101014293726">ଏହି ପ୍ରୋଫାଇଲକୁ ଡିଲିଟ କରାଯାଇପାରିବ ନାହିଁ</translation>
 <translation id="419427585139779713">ଥରକେ ଗୋଟିଏ ଶବ୍ଦାଂଶ ଇନପୁଟ୍ କରନ୍ତୁ</translation>
 <translation id="4194570336751258953">'କ୍ଲିକ୍ ପାଇଁ ଟାପ୍ କରନ୍ତୁ' ବଟନ୍‌କୁ ସକ୍ଷମ କରନ୍ତୁ</translation>
+<translation id="4195001808989442226">Steam for Chromebook (ବିଟା) ଖୋଲା ଯାଇପାରିବ ନାହିଁ</translation>
 <translation id="4195378859392041564">ଆପଣଙ୍କ ମାଉସ ବ୍ୟବହାର କରି ଯେ କୌଣସି କୀ ଉପରେ କ୍ଲିକ କରନ୍ତୁ, ତା'ପରେ କଷ୍ଟମାଇଜ କରିବା ପାଇଁ ଏକ କୀବୋର୍ଡ କୀକୁ ଦବାନ୍ତୁ</translation>
 <translation id="4195643157523330669">ନୂତନ ଟ୍ୟାବରେ ଖୋଲନ୍ତୁ</translation>
 <translation id="4195814663415092787">ଆପଣ ଯେଉଁଠାରୁ ଛାଡ଼ିଥିଲେ ସେହିଠାରୁ ଚେଷ୍ଟା କରନ୍ତୁ</translation>
@@ -3987,6 +4050,7 @@
 <translation id="4242145785130247982">ଏକାଧିକ କ୍ଲାଏଣ୍ଟ ସାର୍ଟିଫିକେଟ୍ ସମର୍ଥନ କରେ ନାହିଁ</translation>
 <translation id="4242533952199664413">ସେଟିଂସ୍‌ ଖୋଲନ୍ତୁ</translation>
 <translation id="4242577469625748426">ଡିଭାଇସ୍‌ରେ ନୀତି ସେଟିଂସ୍ ଇନ୍‍ଷ୍ଟଲ୍‌ କରିବାରେ ବିଫଳ ହୋ‍ଇଛି: <ph name="VALIDATION_ERROR" />।</translation>
+<translation id="4242825475818569385"><ph name="DOMAIN" /> ଦ୍ୱାରା ଆପଣଙ୍କ <ph name="BEGIN_LINK" />ବ୍ରାଉଜର ଏବଂ ପ୍ରୋଫାଇଲ ପରିଚାଳିତ ହୋଇଥାଏ<ph name="END_LINK" /></translation>
 <translation id="4243504193894350135">ପ୍ରିଣ୍ଟରକୁ ବିରତ କରାଯାଇଛି</translation>
 <translation id="4243624244759495699"><ph name="LOCALE" />, ଗ୍ରେଡ୍ <ph name="GRADE" /></translation>
 <translation id="4244238649050961491">ଆହୁରି ଷ୍ଟାଇଲସ୍ ଆପ୍‌ଗୁଡ଼ିକ ଖୋଜନ୍ତୁ</translation>
@@ -4023,6 +4087,7 @@
 <translation id="4267924571297947682">ଅନୁମତି ପାଇଁ ଜଣେ ବାପା କିମ୍ବା ମା'ଙ୍କୁ ପଚାରନ୍ତୁ</translation>
 <translation id="4267953847983678297">ସେଲ୍ୟୁଲାର୍ ନେଟ୍‌ୱାର୍କ ସହ ସ୍ୱଚାଳିତ ଭାବେ ସଂଯୋଗ କରନ୍ତୁ</translation>
 <translation id="4268025649754414643">କୀ ଏନ୍‍ସାଇଫର୍‌ମେଣ୍ଟ</translation>
+<translation id="4268516942564021145">ଆପଣଙ୍କ ଆକାଉଣ୍ଟ ପାଇଁ ଏହି ସେଟିଂ ଉପଲବ୍ଧ ନାହିଁ।</translation>
 <translation id="4270393598798225102"><ph name="NUMBER" /> ସଂସ୍କରଣ</translation>
 <translation id="4274604968379621964">ଗୋଷ୍ଠୀ ସେଭ୍ କରନ୍ତୁ</translation>
 <translation id="4274667386947315930">ସାଇନ୍ ଇନ୍ କରିବା ପାଇଁ ଡାଟା</translation>
@@ -4047,6 +4112,7 @@
 <translation id="4287157641315808225">ହଁ, ChromeVoxକୁ ସକ୍ରିୟ କରନ୍ତୁ</translation>
 <translation id="4287502603002637393">{MUTED_NOTIFICATIONS_COUNT,plural, =1{ଦେଖାନ୍ତୁ}other{ସବୁ ଦେଖାନ୍ତୁ}}</translation>
 <translation id="4289540628985791613">ଅବଲୋକନ</translation>
+<translation id="428963538941819373">ଆପଣ <ph name="HOST" />କୁ ବ୍ରାଉଜ କରିବା ସମୟରେ ଏହି ସାଇଟଗୁଡ଼ିକ ଆପଣଙ୍କ ବିଷୟରେ ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିପାରିବ</translation>
 <translation id="4289732974614035569">ଏକ PIN ବାଛନ୍ତୁ</translation>
 <translation id="4290791284969893584">ଏକ ପୃଷ୍ଠାକୁ ବନ୍ଦ କରିବା ପରେ, ଆପଣ ଆରମ୍ଭ କରିଥିବା ଟାସ୍କଗୁଡ଼ିକ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇନପାରେ</translation>
 <translation id="4291265871880246274">ଲଗଇନ ଡାଏଲଗ</translation>
@@ -4094,6 +4160,7 @@
 <translation id="4330387663455830245"><ph name="LANGUAGE" />କୁ କେବେ ହେଲେ ଅନୁବାଦ କରନ୍ତୁ ନାହିଁ</translation>
 <translation id="4332976768901252016">ବାପାମାଙ୍କ ନିୟନ୍ତ୍ରଣ ସେଟ୍ ଅପ୍ କରନ୍ତୁ</translation>
 <translation id="4333854382783149454">RSA ଏନକ୍ରିପ୍ସନ୍ ସହିତ PKCS #1 SHA-1</translation>
+<translation id="4334768748331667190">ଆପଣ <ph name="MODULE_NAME" />କୁ ପୁଣି ଦେଖିବେ ନାହିଁ</translation>
 <translation id="4339203724549370495">ଆପ୍ ଅନଇନଷ୍ଟଲ୍ କରନ୍ତୁ</translation>
 <translation id="4340125850502689798">ଉପଯୋଗକର୍ତ୍ତାଙ୍କ ନାମ ଅବୈଧ ଅଟେ</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" />, "<ph name="EXTENSION_NAME" />" ଆପ୍ ସହିତ ବାର୍ତ୍ତାଳାପ କରିବାକୁ ଚାହୁଁଛନ୍ତି</translation>
@@ -4115,6 +4182,7 @@
 <translation id="4351770750390404505"><ph name="BEGIN_PARAGRAPH1" />ସର୍ବୋତ୍ତମ ଅନୁଭୂତି ପ୍ରଦାନ କରିବାକୁ, <ph name="DEVICE_OS" /> ଡିଭାଇସଗୁଡ଼ିକ ବିଷୟରେ ହାର୍ଡୱେର ଡାଟା ସଂଗ୍ରହ କରେ ଏବଂ କେଉଁ ଅପଡେଟଗୁଡ଼ିକୁ ଡେଲିଭର କରିବା ଉଚିତ ତାହା ସ୍ଥିର କରିବା ପାଇଁ ଏହାକୁ Google ସହ ସେୟାର କରେ। ବୈକଳ୍ପିକ ଭାବେ, <ph name="DEVICE_OS" />ର ଅନୁଭୂତି ଏବଂ ସେବାରେ ସହାୟତା ଓ ଉନ୍ନତି କରିବା ପରି ଅତିରିକ୍ତ ଉଦ୍ଦେଶ୍ୟରେ ଏହି ଡାଟାକୁ ବ୍ୟବହାର କରିବା ପାଇଁ ଆପଣ Googleକୁ ଅନୁମତି ଦେଇପାରିବେ।<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />ଫିଲ୍ଟର ଅପଡେଟ କରିବା ଏବଂ Google ସହ ଡାଟା ସେୟାର କରିବାକୁ ଆପଣ ବାଛିଥିବା ଅନ୍ୟ ଇନଷ୍ଟାନ୍ସଗୁଡ଼ିକ ପାଇଁ Googleକୁ ପଠାଯାଇଥିବା ଡାଟା ଦେଖିବାକୁ ଆପଣ ଏହି ଡିଭାଇସରେ ଲଗ ଇନ କରି chrome://systemରେ ଥିବା CHROMEOSFLEX_HARDWARE_INFO ବିଭାଗକୁ ଭିଜିଟ କରିପାରିବେ।<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />Google ସହ କେଉଁ ଡାଟାକୁ <ph name="DEVICE_OS" /> ସେୟାର କରିପାରେ ଏବଂ ଏହାକୁ କିପରି ବ୍ୟବହାର କରାଯାଏ ସେ ବିଷୟରେ ଅଧିକ ବିବରଣୀ ପାଇଁ g.co/flex/HWDataCollectionକୁ ଭିଜିଟ କରନ୍ତୁ।<ph name="END_PARAGRAPH3" /></translation>
+<translation id="435185728237714178">ଇନଷ୍ଟଲ ହୋଇଥିବା ଏବଂ ଷ୍ଟ୍ରିମ କରାଯାଇଥିବା ଆପ୍ସକୁ ପରିଚାଳନା କରିବା ପାଇଁ "<ph name="APP_NAME" />" ଆପକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="4354073718307267720">କୌଣସି ସାଇଟ୍ ଆପଣଙ୍କ ପରିପାର୍ଶ୍ୱର ଏକ 3D ମ୍ୟାପ୍ ତିଆରି କରିବା ଏବଂ କ୍ୟାମେରା ସ୍ଥିତି ଟ୍ରାକ୍ କରିବାକୁ ଚାହିଁଲେ ପଚାରନ୍ତୁ</translation>
 <translation id="4354344420232759511">ଆପଣ ଦେଖିଥିବା ସାଇଟ୍‌ଗୁଡ଼ିକ ଏଠାରେ ଦେଖାଯିବ</translation>
 <translation id="435527878592612277">ଆପଣଙ୍କର ଫଟୋ ଚୟନ କରନ୍ତୁ</translation>
@@ -4193,6 +4261,7 @@
 <translation id="4410545552906060960">ଆପଣଙ୍କର ଡିଭାଇସ୍ ଅନ୍‌ଲକ୍ କରିବା ପାଇଁ ଏକ ପାସ୍‌ୱର୍ଡ ବଦଳରେ ଏକ ନମ୍ବର (PIN) ବ୍ୟବହାର କରନ୍ତୁ। ପରେ ଆପଣଙ୍କ PIN ସେଟ୍ କରିବା ପାଇଁ, ସେଟିଂସ୍‌କୁ ଯାଆନ୍ତୁ।</translation>
 <translation id="4411578466613447185">କୋଡ୍ ସାଇନର୍</translation>
 <translation id="4411719918614785832">ଏହି ପାସକୀଗୁଡ଼ିକୁ ଏଇ କମ୍ପ୍ୟୁଟରରେ ଥିବା Windows Helloରେ ସେଭ କରାଯାଏ। ସେଗୁଡ଼ିକୁ ଆପଣଙ୍କ Google Accountରେ ସେଭ କରାଯାଏ ନାହିଁ।</translation>
+<translation id="4412547955014928315"><ph name="SITE_NAME" /> ଏବଂ ଏହା ଅଧୀନରେ ଥିବା ସମସ୍ତ ସାଇଟ ପାଇଁ ସାଇଟ ଡାଟା ଓ ଅନୁମତିଗୁଡ଼ିକୁ ଡିଲିଟ କରିବେ?</translation>
 <translation id="4412632005703201014">Chrome ଆପ୍ସ ପ୍ରୋଗ୍ରେସିଭ ୱେବ ଆପ୍ସକୁ ସ୍ଥାନାନ୍ତରିତ ହେଉଛି। ଏହି Chrome ଆପଟି ଆପଣଙ୍କର ସଂସ୍ଥା ଦ୍ୱାରା ଆପଣଙ୍କ ବ୍ରାଉଜରରେ ଇନଷ୍ଟଲ କରାଯାଇଛି। ଆପ୍ସ ତାଲିକାରୁ ପ୍ରୋଗ୍ରେସିଭ ୱେବ ଆପ ଖୋଲିବାକୁ, ପ୍ରଥମେ ଆପଣଙ୍କ ଆଡମିନିଷ୍ଟ୍ରେଟରଙ୍କ ସହ କଣ୍ଟାକ୍ଟ କରନ୍ତୁ ଏବଂ Chrome ଆପଟି ଅନଇନଷ୍ଟଲ କରିବା ପାଇଁ ତାଙ୍କୁ କୁହନ୍ତୁ। ଇତିମଧ୍ୟରେ, ଆପଣ ୱେବରେ <ph name="EXTENSION_NAME" /> ଖୋଲିବାକୁ <ph name="EXTENSION_LAUNCH_URL" />କୁ ଭିଜିଟ କରିପାରିବେ।</translation>
 <translation id="4412698727486357573">ସହାୟତା କେନ୍ଦ୍ର</translation>
 <translation id="4412992751769744546">ତୃତୀୟ-ପକ୍ଷ କୁକୀଗୁଡ଼ିକୁ ଅନୁମତି ଦିଅନ୍ତୁ</translation>
@@ -4214,6 +4283,7 @@
     <ph name="BEGIN_PARAGRAPH2" />ଆପଣ ଆପଣଙ୍କ Chrome ଡିଭାଇସ ସେଟିଂସରେ ଯେ କୌଣସି ସମୟରେ ଏହି ରିପୋର୍ଟଗୁଡ଼ିକୁ ଅନୁମତି ଦେବା ଆରମ୍ଭ କିମ୍ବା ବନ୍ଦ କରିପାରିବେ। ଯଦି ଆପଣ ଜଣେ ଡୋମେନ ଆଡମିନିଷ୍ଟ୍ରେଟର ଅଟନ୍ତି, ତେବେ ଆପଣ ଆଡମିନ କନସୋଲରେ ଏହି ସେଟିଂକୁ ପରିବର୍ତ୍ତନ କରିପାରିବେ।<ph name="END_PARAGRAPH2" /></translation>
 <translation id="4426268963847471040"><ph name="FILE_NAME" />କୁ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="4426464032773610160">ଆରମ୍ଭ କରିବା ପାଇଁ ଦୟାକରି ଆପଣଙ୍କ USB କିମ୍ବା ବ୍ଲୁଟୁଥ୍ ସୁଇଚ୍ ଆପଣଙ୍କର Chromebook ସହ ସଂଯୋଗ ହୋଇଥିବା ସୁନିଶ୍ଚିତ କରନ୍ତୁ। ଆପଣ କୀ'ବୋର୍ଡର କୀ'ଗୁଡ଼ିକୁ ମଧ୍ୟ ବ୍ୟବହାର କରିପାରିବେ।</translation>
+<translation id="4426490308207168518">ମତାମତ ସେୟାର କରନ୍ତୁ କିମ୍ବା ସମସ୍ୟାର ରିପୋର୍ଟ କରନ୍ତୁ</translation>
 <translation id="4426508677408162512">ସମସ୍ତ ବୁକମାର୍କ</translation>
 <translation id="4427306783828095590">ଉନ୍ନତ ସୁରକ୍ଷା ଫିସିଂ ଓ ମାଲୱେୟାରକୁ ବ୍ଲକ୍ କରିବାକୁ ଅନେକ କିଛି କରେ</translation>
 <translation id="4427365070557649936">ସୁନିଶ୍ଚିତକରଣ କୋଡ୍ ଯାଞ୍ଚ କରାଯାଉଛି…</translation>
@@ -4379,6 +4449,7 @@
 <translation id="4563382028841851106">ଆକାଉଣ୍ଟରୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="4563880231729913339">ଟିପଚିହ୍ନ 3</translation>
 <translation id="4564245002465020751">ଆପଣଙ୍କ ଫୋନରେ ସେଟ ଅପ କରିବା ସମ୍ପୂର୍ଣ୍ଣ କରନ୍ତୁ</translation>
+<translation id="456449593072900590">'ବାହାରି ଯାଆନ୍ତୁ'ରେ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="4565377596337484307">ପାସୱାର୍ଡ୍ ଲୁଚାନ୍ତୁ</translation>
 <translation id="4565917129334815774">ସିଷ୍ଟମ୍ ଲଗଗୁଡ଼ିକ ଷ୍ଟୋର୍ କରନ୍ତୁ</translation>
 <translation id="4566170377336116390">ଯଦି ଆପଣ ପଞ୍ଜିକରଣ ପରେ ସ୍ୱିଚ କରିବାକୁ ଚାହାଁନ୍ତି, ତେବେ ଆପଣଙ୍କୁ ଆପଣଙ୍କ ଡିଭାଇସରେ ଫ୍ୟାକ୍ଟୋରୀ ରିସେଟ (ପାୱାରୱାସ) କରିବାକୁ ହେବ।</translation>
@@ -4522,6 +4593,7 @@
 <translation id="4681453295291708042">Nearby Share ଅକ୍ଷମ କରନ୍ତୁ</translation>
 <translation id="4681512854288453141">ସୋର୍ସ ନୀତି</translation>
 <translation id="4681930562518940301">ନୂଆ ଟାବ୍‌ରେ ମୂଳ &amp;ଛବି ଖୋଲନ୍ତୁ</translation>
+<translation id="4682481611456523884">ଏହି ସାଇଟରେ ଏମ୍ବେଡ କରାଯାଇଥିବା ବିଷୟବସ୍ତୁ, ଆପଣଙ୍କ ବିଷୟରେ ଏହା ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିପାରିବ ନାହିଁ</translation>
 <translation id="4682830185876172415">ବର୍ତ୍ତମାନର ଡାଉନଲୋଡଗୁଡ଼ିକ</translation>
 <translation id="4683629100208651599">ଲୋୟରକେସ କରନ୍ତୁ</translation>
 <translation id="4683947955326903992"><ph name="PERCENTAGE" />% (ଡିଫଲ୍ଟ)</translation>
@@ -4587,6 +4659,7 @@
 <translation id="4742334355511750246">ଛବିଗୁଡ଼ିକୁ ଦେଖାଇବାକୁ ଅନୁମତି ଦିଆଯାଇନାହିଁ</translation>
 <translation id="4742970037960872810">ହାଇଲାଇଟ୍ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="4743260470722568160"><ph name="BEGIN_LINK" /> ଏହା ଜାଣନ୍ତୁ ଯେ କିପରି ଆପ୍ଲିକେସନ୍‌ଗୁଡ଼ିକୁ ଅପ୍‌ଡେଟ୍ କରିବେ<ph name="END_LINK" /></translation>
+<translation id="4743664893327841597">ଆପଣ ଠିକଣା ବାର କିମ୍ବା ସର୍ଚ୍ଚ ବାକ୍ସରେ ଯାହା ଟାଇପ କରନ୍ତି ତାହା ଆପଣଙ୍କ ଡିଫଲ୍ଟ ସର୍ଚ୍ଚ ଇଞ୍ଜିନକୁ ପଠାଯାଏ</translation>
 <translation id="4744268813103118742">ସାଇଟକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="4744571849207727284">Excel</translation>
 <translation id="4744981231093950366">{NUM_TABS,plural, =1{ସାଇଟ୍ ଅନ୍‌ମ୍ୟୁଟ୍ କରନ୍ତୁ}other{ସାଇଟ୍‌ଗୁଡ଼ିକୁ ଅନ୍‌ମ୍ୟୁଟ୍ କରନ୍ତୁ}}</translation>
@@ -4654,6 +4727,7 @@
 <translation id="4804827417948292437">ଆଭୋକାଡୋ</translation>
 <translation id="4806457879608775995">ଏହି ସର୍ତ୍ତାବଳୀର ସମୀକ୍ଷା କରି ଆପଣଙ୍କ ଡାଟାକୁ ନିୟନ୍ତ୍ରଣ କରନ୍ତୁ</translation>
 <translation id="4807098396393229769">କାର୍ଡରେ ଥିବା ନାମ</translation>
+<translation id="4807122856660838973">ସୁରକ୍ଷିତ ବ୍ରାଉଜିଂକୁ ଚାଲୁ କରନ୍ତୁ</translation>
 <translation id="4807514039636325497">DBus ବିବରଣୀ</translation>
 <translation id="4808667324955055115">ପପ୍-ଅପ୍‌ଗୁଡିକ ଅବରୋଧ ହୋଇଛି:</translation>
 <translation id="4808711719757110498">{NUM_EXTENSIONS,plural, =1{Chrome ୱେବ ଷ୍ଟୋରରୁ ନିଆଯାଇଥିବା <ph name="BEGIN_BOLD" />1ଟି ଏକ୍ସଟେନସନ<ph name="END_BOLD" />ର ସମୀକ୍ଷା କରନ୍ତୁ}other{Chrome ୱେବ ଷ୍ଟୋରରୁ ନିଆଯାଇଥିବା <ph name="BEGIN_BOLD" />{NUM_EXTENSIONS}ଟି ଏକ୍ସଟେନସନ<ph name="END_BOLD" />ର ସମୀକ୍ଷା କରନ୍ତୁ}}</translation>
@@ -4834,6 +4908,7 @@
 <translation id="4944310289250773232"><ph name="SAML_DOMAIN" /> ଦ୍ୱାରା ପ୍ରାମାଣିକତା ସେବା ହୋଷ୍ଟ କରାଯାଇଛି</translation>
 <translation id="4945439665401275950">ଟିପଚିହ୍ନ ସେଟଅପ୍ କରିବା ପାଇଁ ଆପଣଙ୍କ ପିଲାକୁ ପାୱାର ବଟନ୍ ସ୍ପର୍ଶ କରିବାକୁ ଦିଅନ୍ତୁ। ଆପଣଙ୍କ ପିଲାର ଟିପଚିହ୍ନ ସମ୍ବନ୍ଧିତ ଡାଟା ସୁରକ୍ଷିତ ଭାବେ ଷ୍ଟୋର୍ କରାଯାଇଛି ଏବଂ ଏହା କେବେ ବି ଏହି <ph name="DEVICE_TYPE" />ରୁ କାଢ଼ି ଦିଆଯାଏ ନାହିଁ।</translation>
 <translation id="4946459324029651239">ଆପଣ ଷ୍ଟାଣ୍ଡାର୍ଡ ସୁରକ୍ଷା ପାଉଛନ୍ତି</translation>
+<translation id="4946998421534856407">ଲଞ୍ଚର + ଉପର ତୀର</translation>
 <translation id="4950993567860689081">ଆପଣଙ୍କ ସେସନ ଆପଣଙ୍କ ସଂସ୍ଥା ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି। ଆଡମିନିଷ୍ଟ୍ରେଟରମାନେ ଆପଣଙ୍କ ପ୍ରୋଫାଇଲକୁ ଡିଲିଟ କରିପାରିବେ ଏବଂ ଆପଣଙ୍କ ନେଟୱାର୍କ ଟ୍ରାଫିକକୁ ମଧ୍ୟ ମନିଟର କରିପାରିବେ।</translation>
 <translation id="495164417696120157">{COUNT,plural, =1{ଏକ ଫାଇଲ୍}other{#ଟି ଫାଇଲ୍}}</translation>
 <translation id="495170559598752135">କାର୍ଯ୍ୟ</translation>
@@ -4937,6 +5012,7 @@
 <translation id="5049614114599109018">ଇନପୁଟ ଇତିହାସକୁ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="5050063070033073713">{NUM_SITES,plural, =1{ବର୍ତ୍ତମାନ ଏହି ସାଇଟ ଅନେକ ବିଜ୍ଞପ୍ତି ପଠାଇଛି। ଭବିଷ୍ୟତରେ ବିଜ୍ଞପ୍ତି ପଠାଇବାରୁ ଆପଣ ଏହାକୁ ବନ୍ଦ କରିପାରିବେ।}other{ବର୍ତ୍ତମାନ ଏହି ସାଇଟଗୁଡ଼ିକ ଅନେକ ବିଜ୍ଞପ୍ତି ପଠାଇଛି। ଭବିଷ୍ୟତରେ ବିଜ୍ଞପ୍ତି ପଠାଇବାରୁ ଆପଣ ସେଗୁଡ଼ିକୁ ବନ୍ଦ କରିପାରିବେ।}}</translation>
 <translation id="5050330054928994520">TTS</translation>
+<translation id="5051461727068120271">ଯାଞ୍ଚ ହୋଇନଥିବା ଫାଇଲକୁ ଡାଉନଲୋଡ କରନ୍ତୁ</translation>
 <translation id="5051836348807686060">ଆପଣ ଚୟନ କରିଥିବା ଭାଷାଗୁଡ଼ିକ ପାଇଁ ବନାନ ଯାଞ୍ଚ ସମର୍ଥନ ନାହିଁ</translation>
 <translation id="5052499409147950210">ସାଇଟ୍‌ ଏଡିଟ୍‌ କରନ୍ତୁ</translation>
 <translation id="505347685865235222">ବେନାମୀ ଗୋଷ୍ଠୀ - <ph name="GROUP_CONTENT_STRING" /></translation>
@@ -5087,6 +5163,7 @@
 <translation id="5176787661653201403">ଭିଡିଓ ଫ୍ରେମ କ&amp;ପି କରନ୍ତୁ</translation>
 <translation id="5177479852722101802">କ୍ୟାମେରା ଓ ମାଇକ୍ରୋଫୋନ୍ ଆକ୍ସେସ୍‍କୁ ବ୍ଲକ୍ କରିବା ଜାରି ରଖନ୍ତୁ</translation>
 <translation id="5177549709747445269">ଆପଣ ମୋବାଇଲ୍‌ ଡାଟା ବ୍ୟବହାର କରୁଛନ୍ତି</translation>
+<translation id="5178106147333214179">ସୁରକ୍ଷା ହବକୁ ଯାଆନ୍ତୁ</translation>
 <translation id="5178667623289523808">ପୂର୍ବରୁ ଥିବା ଆଇଟମ୍‌ ଖୋଜନ୍ତୁ</translation>
 <translation id="5181140330217080051">ଡାଉନ୍‍‍ଲୋଡ୍ ହେଉଛି</translation>
 <translation id="5181172023548002891"><ph name="ACCOUNT" />ର Google ପାସୱାର୍ଡ ମ୍ୟାନେଜରରେ</translation>
@@ -5147,6 +5224,7 @@
 <translation id="5233231016133573565">ID ପ୍ରକ୍ରିୟା କରନ୍ତୁ</translation>
 <translation id="5233638681132016545">ନୂତନ ଟ୍ୟାବ୍</translation>
 <translation id="5233736638227740678">&amp;ପେଷ୍ଟ</translation>
+<translation id="5234523649284990414">ChromeOS, ChromeVoxରେ ସ୍କ୍ରିନ ରିଡର ମୁଖ୍ୟତଃ ଦୃଷ୍ଟିହୀନ କିମ୍ବା କମ ଦେଖାଯାଉଥିବା ଲୋକଙ୍କ ଦ୍ୱାରା ସ୍କ୍ରିନରେ ଡିସପ୍ଲେ କରାଯାଇଥିବା ଟେକ୍ସଟକୁ ସ୍ପିଚ ସିନ୍ଥେସାଇଜର ବା ବ୍ରେଲି ଡିସପ୍ଲେ ମାଧ୍ୟମରେ ପଢ଼ିବା ପାଇଁ ବ୍ୟବହାର କରାଯାଏ। ChromeVox ଚାଲୁ କରିବା ପାଇଁ ସ୍ପେସ ବାରକୁ ଦବାନ୍ତୁ। ChromeVox ସକ୍ରିୟ ହେଲେ ଏହା ବିଷୟରେ ଆପଣଙ୍କୁ ଏକ କୁଇକ ସୂଚନା ଦିଆଯିବ।</translation>
 <translation id="5234764350956374838">ଖାରଜ କରନ୍ତୁ</translation>
 <translation id="5235050375939235066">ଆପ୍ ଅନ୍‍ଇନ୍‍ଷ୍ଟଲ୍ କରିବେ?</translation>
 <translation id="523505283826916779">ଆକ୍ସେସିବିଲିଟୀ ସେଟିଂସ୍‌</translation>
@@ -5258,6 +5336,7 @@
 <translation id="5320135788267874712">ନୂଆ ଡିଭାଇସର ନାମ</translation>
 <translation id="5320261549977878764">ଗୋଷ୍ଠୀକୁ ଅନସେଭ କରନ୍ତୁ</translation>
 <translation id="532247166573571973">ସର୍ଭର୍ ହୁଏତ ପହଞ୍ଚଯୋଗ୍ୟ ନୁହେଁ। ପରେ ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
+<translation id="5323328004379641163">Chrome ଏବଂ ଏହି ପୃଷ୍ଠାର ଏପିଏରେନ୍ସକୁ କଷ୍ଟମାଇଜ କରନ୍ତୁ</translation>
 <translation id="5324300749339591280">ଆପଗୁଡ଼ିକର ତାଲିକା</translation>
 <translation id="5324780743567488672">ଆପଣଙ୍କର ଲୋକେସନ୍‌ ବ୍ୟବହାର କରି ସ୍ୱଚାଳିତ ଭାବେ ସମୟ କ୍ଷେତ୍ର ସେଟ୍‌ କରନ୍ତୁ</translation>
 <translation id="5327248766486351172">ନାମ</translation>
@@ -5327,6 +5406,7 @@
 <translation id="5383740867328871413">ବେନାମୀ ଗୋଷ୍ଠୀ - <ph name="GROUP_CONTENTS" /> - <ph name="COLLAPSED_STATE" /></translation>
 <translation id="538822246583124912">ଏଣ୍ଟରପ୍ରାଇଜ୍ ନୀତିକୁ ପରିବର୍ତ୍ତନ କରାଯାଇଛି। ଟୁଲବାରରେ ପରୀକ୍ଷଣ ବଟନକୁ ଯୋଗ କରାଯାଇଛି। ପରୀକ୍ଷଣଗୁଡ଼ିକୁ ସକ୍ଷମ କରିବା ପାଇଁ ଏକ ଡାଏଲଗ୍ ଖୋଲିବାକୁ ବଟନରେ କ୍ଲିକ୍ କରନ୍ତୁ।</translation>
 <translation id="5388885445722491159">ପେୟାର୍‌ ହୋଇଛି</translation>
+<translation id="5389626883706033615">ଆପଣଙ୍କ ବିଷୟରେ ସାଇଟଗୁଡ଼ିକ ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିବା ପାଇଁ ଆପଣଙ୍କୁ ଅନୁମତି ମାଗିବାରୁ ସେଗୁଡ଼ିକୁ ବ୍ଲକ କରାଯାଇଛି</translation>
 <translation id="5390112241331447203">ମତାମତ ରିପୋର୍ଟଗୁଡ଼ିକରେ ପଠାଯାଇଥିବା system_logs.txt ଫାଇଲ୍ ସାମିଲ କରନ୍ତୁ।</translation>
 <translation id="5390677308841849479">ଗାଢ଼ ଲାଲ ଓ କମଳା</translation>
 <translation id="5390743329570580756">ଏହା ପାଇଁ ପଠାନ୍ତୁ</translation>
@@ -5407,6 +5487,7 @@
 <translation id="5449551289610225147">ଅବୈଧ ପାସ୍‌ୱର୍ଡ</translation>
 <translation id="5449588825071916739">ସମସ୍ତ ଟାବ୍‌କୁ ବୁକ୍‌ମାର୍କ କରନ୍ତୁ</translation>
 <translation id="5449716055534515760">Win&amp;dow ବନ୍ଦ କରନ୍ତୁ</translation>
+<translation id="5450469615146335984">ପ୍ରତ୍ୟେକ କାର୍ଯ୍ୟ ପାଇଁ ଏକ ସର୍ଟକଟ ଚୟନ କରନ୍ତୁ</translation>
 <translation id="545133051331995777">କୌଣସି ନେଟୱାର୍କ କନେକ୍ସନ ନାହିଁ</translation>
 <translation id="5452446625764825792">ଆପଣ ବର୍ତ୍ତମାନ ଆପଣଙ୍କ ଫୋନରେ ଥିବା ବର୍ତ୍ତମାନର ଫଟୋ, ମିଡିଆ ଏବଂ ଆପ୍ସକୁ ଦେଖିପାରିବେ</translation>
 <translation id="5452976525201205853"><ph name="LANGUAGE" /> (ଅଫଲାଇନରେ କାମ କରେ)</translation>
@@ -5549,6 +5630,7 @@
 <translation id="5563234215388768762">Googleରେ ଖୋଜନ୍ତୁ କିମ୍ବା ଗୋଟିଏ URL ଲେଖନ୍ତୁ</translation>
 <translation id="5565735124758917034">ସକ୍ରିୟ ଅଛି</translation>
 <translation id="5568069709869097550">ସାଇନ୍ ଇନ୍ କରିପାରିବ ନାହିଁ</translation>
+<translation id="5568525251731145240"><ph name="SITE_NAME" />, ଏହା ଅଧୀନରେ ଥିବା ସମସ୍ତ ସାଇଟ ଏବଂ ଇନଷ୍ଟଲ କରାଯାଇଥିବା ଆପ୍ସ ପାଇଁ ସାଇଟ ଡାଟା ଓ ଅନୁମତିଗୁଡ଼ିକୁ ଡିଲିଟ କରିବେ?</translation>
 <translation id="5571066253365925590">ବ୍ଲୁଟୁଥ୍‌ ସକ୍ଷମ ଅଛି</translation>
 <translation id="5571092938913434726">ଗ୍ଲୋବାଲ୍ ମିଡିଆ ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକ</translation>
 <translation id="5571832155627049070">ଆପଣଙ୍କ ପ୍ରୋଫାଇଲ୍ କଷ୍ଟମାଇଜ୍ କରନ୍ତୁ</translation>
@@ -5763,6 +5845,7 @@
 <translation id="5765425701854290211">କ୍ଷମା କରିବେ, କିଛି ଫାଇଲ୍ ନଷ୍ଟ ହୋଇଯାଇଥିଲା ଏବଂ ଅପ୍‌ଡେଟ୍ ପ୍ରକ୍ରିୟା ସଫଳ ହେଲା ନାହିଁ। ଆପଣଙ୍କର ସିଙ୍କ୍ ହୋଇଥିବା ଫାଇଲ୍‍ଗୁଡ଼ିକ ସୁରକ୍ଷିତ ଅଛି।</translation>
 <translation id="5765491088802881382">କୌଣସି ନେଟ୍‍ୱର୍କ ଉପଲବ୍ଧ ନାହିଁ</translation>
 <translation id="5766243637773654698"><ph name="FILE_NAME" /> ବିପଦଜନକ ହୋଇପାରେ। ସ୍କାନିଂ ପାଇଁ Googleକୁ ପଠାଇବେ? ଡାଉନଲୋଡ୍ ବାର୍ ଏରିଆକୁ ଯିବା ପାଇଁ Shift+F6 କୀ'କୁ ଦବାନ୍ତୁ।</translation>
+<translation id="5767099457279594162">ପାସୱାର୍ଡ ସେୟାର କରାଯାଇନାହିଁ</translation>
 <translation id="5770125698810550803">ନାଭିଗେସନ୍ ବଟନଗୁଡ଼ିକ ଦେଖାନ୍ତୁ</translation>
 <translation id="5771816112378578655">ସେଟ୍‌ ଅପ୍‌ ପ୍ରକ୍ରିୟାରତ ଅଛି...</translation>
 <translation id="5772114492540073460"><ph name="PARALLELS_NAME" /> ଆପଣଙ୍କ Chromebookରେ Windows® ଆପଗୁଡ଼ିକ ଚଲାଇବାକୁ ଆପଣଙ୍କୁ ଅନୁମତି ଦିଏ। ଇନଷ୍ଟଲେସନ୍ ପାଇଁ <ph name="MINIMUM_SPACE" /> ଖାଲି ସ୍ଥାନର ସୁପାରିଶ କରାଯାଇଛି।</translation>
@@ -5840,6 +5923,7 @@
 <translation id="5828633471261496623">ପ୍ରିଣ୍ଟିଂ...</translation>
 <translation id="5830205393314753525"><ph name="APP_NAME" />କୁ ଖୋଲା ଯାଇପାରିବ ନାହିଁ</translation>
 <translation id="5830720307094128296">&amp;ଏହି ଭାବେ ପୃଷ୍ଠା ସେଭ୍ କରନ୍ତୁ...</translation>
+<translation id="5831950941058843834"><ph name="SITE_NAME" />, ଏହା ଅଧୀନରେ ଥିବା ସମସ୍ତ ସାଇଟ ଏବଂ ଏହାର ଇନଷ୍ଟଲ ହୋଇଥିବା ଆପ ପାଇଁ ସାଇଟ ଡାଟା ଓ ଅନୁମତିଗୁଡ଼ିକୁ ଡିଲିଟ କରିବେ?</translation>
 <translation id="5832813618714645810">ପ୍ରୋଫାଇଲଗୁଡ଼ିକ</translation>
 <translation id="583281660410589416">ଅଜ୍ଞାତ</translation>
 <translation id="5832970156002835240">ସମସ୍ତ ସାଇଟରେ ଅନୁମତି ଦିଅନ୍ତୁ</translation>
@@ -5903,6 +5987,7 @@
     <ph name="BR" />
     ଆଖପାଖର ଡିଭାଇସଗୁଡ଼ିକୁ <ph name="QUICK_START_DEVICE_DISPLAY_NAME" /> ଭାବେ ଦେଖାଯିବ...</translation>
 <translation id="5868434909835797817">ଆପଣଙ୍କ ଡିଭାଇସରେ ମାଇକ୍ରୋଫୋନ ବନ୍ଦ ଅଛି</translation>
+<translation id="5868822853313956582">ଡିଭାଇସର ରଙ୍ଗଗୁଡ଼ିକୁ ଫଲୋ କରନ୍ତୁ</translation>
 <translation id="5869029295770560994">ଠିକ୍ ଅଛି, ବୁଝିଗଲି</translation>
 <translation id="5869522115854928033">ସଞ୍ଚିତ ପାସୱାର୍ଡସମୂହ</translation>
 <translation id="5870086504539785141">ଆକ୍ସେସିବିଲିଟୀ ମେନୁ ବନ୍ଦ କରନ୍ତୁ</translation>
@@ -5925,6 +6010,7 @@
 <translation id="5888889603768021126">ଏହା ମାଧ୍ୟମରେ ସାଇନ ଇନ କରିଛନ୍ତି</translation>
 <translation id="5889282057229379085">ମଧ୍ୟବର୍ତ୍ତୀ CAsର ସର୍ବାଧିକ ସଂଖ୍ୟା: <ph name="NUM_INTERMEDIATE_CA" /></translation>
 <translation id="5889629805140803638">ଆପଣଙ୍କ ନିଜର <ph name="BEGIN_LINK" />ସିଙ୍କ ପାସଫ୍ରେଜ<ph name="END_LINK" /> ସହ ସିଙ୍କ କରାଯାଇଥିବା ଡାଟାକୁ ଏନକ୍ରିପ୍ଟ କରନ୍ତୁ। ପେମେଣ୍ଟ ପଦ୍ଧତି ଏବଂ Google Payରୁ ଠିକଣାଗୁଡ଼ିକୁ ଏନକ୍ରିପ୍ଟ କରାଯିବ ନାହିଁ। Chromeରୁ ବ୍ରାଉଜିଂ ଇତିହାସ ସିଙ୍କ ହେବ ନାହିଁ।</translation>
+<translation id="5891084409170578560">ଆପଣ ଭିଜିଟ କରୁଥିବା ସାଇଟଗୁଡ଼ିକ ଅନ୍ୟ ସାଇଟଗୁଡ଼ିକରୁ ବିଷୟବସ୍ତୁକୁ ଏମ୍ବେଡ କରିପାରିବ, ଉଦାହରଣ ସ୍ୱରୂପ, ଇମେଜ, ବିଜ୍ଞାପନ ଏବଂ ଟେକ୍ସଟ। ଆପଣ ଏହି ଅନ୍ୟ ସାଇଟଗୁଡ଼ିକୁ ବ୍ରାଉଜ କରିବା ସମୟରେ ସେଗୁଡ଼ିକ ଆପଣଙ୍କ ବିଷୟରେ ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିବା ପାଇଁ ଅନୁମତି ମାଗିପାରିବ।</translation>
 <translation id="5891688036610113830">ପସନ୍ଦ କରାଯାଇଥିବା ୱାଇ-ଫାଇ ନେଟୱାର୍କଗୁଡ଼ିକ</translation>
 <translation id="5894056653502215961"><ph name="FOLDER_TITLE" /> ଫୋଲ୍ଡରକୁ ଅଚୟନ କରନ୍ତୁ</translation>
 <translation id="5895138241574237353">ପୁନଃଆରମ୍ଭ</translation>
@@ -6013,7 +6099,9 @@
 <translation id="5963413905009737549">ବିଭାଗ</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> ବ୍ୟସ୍ତ ସମୟ)</translation>
 <translation id="5964113968897211042">{COUNT,plural, =0{ସମସ୍ତ URLକୁ &amp;ନୂଆ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ}=1{&amp;ନୂଆ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ}other{ସମସ୍ତ ({COUNT})ଟି &amp;ନୂଆ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ}}</translation>
+<translation id="5964247741333118902">ଏମ୍ବେଡ କରାଯାଇଥିବା ବିଷୟବସ୍ତୁ</translation>
 <translation id="5965661248935608907">ଆପଣ ହୋମ୍ ବଟନ୍‍କୁ କ୍ଲିକ୍ କରନ୍ତି କିମ୍ବା ଓମ୍ନିବକ୍ସରୁ ସନ୍ଧାନ କରନ୍ତି, ସେତେବେଳେ କେଉଁ ପୃଷ୍ଠାଗୁଡ଼ିକ ଦେଖାଯିବ, ତାହା ମଧ୍ୟ ଏହାଦ୍ୱାରା ନିୟନ୍ତ୍ରିତ ହୋଇଥାଏ।</translation>
+<translation id="5966511985653515929">ଆପଣ ସମସ୍ତ ୱିଣ୍ଡୋ ବନ୍ଦ କଲେ ଆପଣଙ୍କ ଡିଭାଇସରୁ ସାଇଟ ଡାଟାକୁ ଡିଲିଟ କରାଯାଏ</translation>
 <translation id="5968022600320704045">କୌଣସି ସର୍ଚ୍ଚ ଫଳାଫଳ ନାହିଁ</translation>
 <translation id="5969364029958154283">ରିସେଟିଂ ସେଟିଂସ ବିଷୟରେ ଅଧିକ ଜାଣନ୍ତୁ</translation>
 <translation id="5969419185858894314"><ph name="FOLDERNAME" />ରେ <ph name="ORIGIN" /> ଫାଇଲ୍‌ଗୁଡ଼ିକୁ ଦେଖିପାରିବ</translation>
@@ -6192,6 +6280,7 @@
 <translation id="6112727384379533756">ଏକ ଟିକେଟ୍ ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="6112931163620622315">ଆପଣଙ୍କର ଫୋନ୍ ଦେଖନ୍ତୁ</translation>
 <translation id="6113434369102685411">Chrome ବ୍ରାଉଜର୍ ଏବଂ <ph name="DEVICE_TYPE" /> ଲଞ୍ଚର୍ ପାଇଁ ଆପଣଙ୍କ ଡିଫଲ୍ଟ ସନ୍ଧାନ ଇଞ୍ଜିନ୍ ସେଟ୍ କରନ୍ତୁ</translation>
+<translation id="6113832060210023016">ଲଞ୍ଚର + କ୍ଲିକ</translation>
 <translation id="6113942107547980621">ସ୍ମାର୍ଟ ଲକ ବ୍ୟବହାର କରିବାକୁ, ଆପଣଙ୍କ ଫୋନରେ ପ୍ରାଥମିକ ୟୁଜର ପ୍ରୋଫାଇଲକୁ ସ୍ୱିଚ କରନ୍ତୁ</translation>
 <translation id="6116921718742659598">ଭାଷା ଓ ଇନ୍‌ପୁଟ୍ ସେଟିଂସ୍ ବଦଳାନ୍ତୁ</translation>
 <translation id="6119008366402292080">କୌଣସି ପ୍ରିଣ୍ଟର ଉପଲବ୍ଧ ନାହିଁ</translation>
@@ -6384,6 +6473,7 @@
 <translation id="6270770586500173387"><ph name="BEGIN_LINK1" />ସିଷ୍ଟମ୍‌ ଏବଂ ଆପ୍‌ ସୂଚନା <ph name="END_LINK1" /> ଏବଂ <ph name="BEGIN_LINK2" />ମେଟ୍ରିକ୍ସ<ph name="END_LINK2" /> ପଠାନ୍ତୁ</translation>
 <translation id="6270896861225278704">ଯାତ୍ରା କାର୍ଡ</translation>
 <translation id="6271348838875430303">ସଂଶୋଧନ କରାଯାଇଥିବା ଟେକ୍ସଟକୁ ପୂର୍ବାବସ୍ଥାକୁ ଫେରାଇ ନିଆଯାଇଛି</translation>
+<translation id="6271824294945464304">ପାସୱାର୍ଡ ସେୟାର କରାଯାଉଛି</translation>
 <translation id="6273677812470008672">ଗୁଣବତ୍ତା</translation>
 <translation id="6274202259872570803">ସ୍କ୍ରିନକାଷ୍ଟ</translation>
 <translation id="6276210637549544171">ପ୍ରକ୍ସି <ph name="PROXY_SERVER" /> ପାଇଁ ଏକ ଉପଯୋଗକର୍ତ୍ତାନାମ ଓ ପାସୱାର୍ଡ ଆବଶ୍ୟକ।</translation>
@@ -6395,6 +6485,7 @@
 <translation id="6280215091796946657">ଏକ ଭିନ୍ନ ଆକାଉଣ୍ଟ ସାହାଯ୍ୟରେ ସାଇନ୍ ଇନ୍ କରନ୍ତୁ</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6282180787514676874">{COUNT,plural, =1{କାଗଜର 1ଟି ସିଟର ସୀମା ଅତିକ୍ରମ ହୋଇଛି}other{କାଗଜର {COUNT}ଟି ସିଟର ସୀମା ଅତିକ୍ରମ ହୋଇଛି}}</translation>
+<translation id="6282490239556659745"><ph name="SITE" />ରୁ <ph name="EMBEDDED_SITE" />କୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="6283438600881103103">ବର୍ତ୍ତମାନ ଆପଣ ସ୍ୱଚାଳିତ ଭାବେ ସାଇନ୍ ଆଉଟ୍ ହୋଇଯିବେ।
 <ph name="DOMAIN" /> ପାଇଁ ଆପଣ ଆପଣଙ୍କ ସ୍ମାର୍ଟ କାର୍ଡକୁ ଇନସାର୍ଟ କରି ରଖିବା ଆବଶ୍ୟକ।</translation>
 <translation id="628352644014831790">4 ସେକେଣ୍ଡ</translation>
@@ -6474,6 +6565,7 @@
 <translation id="6355395056805388423">Google ଆକାଉଣ୍ଟ ସୂଚନା ପାଉଛନ୍ତି...</translation>
 <translation id="635609604405270300">ଡିଭାଇସ୍‌କୁ ଚାଲୁ ଅବସ୍ଥାରେ ରଖନ୍ତୁ</translation>
 <translation id="63566973648609420">ଆପଣଙ୍କ ଏନ୍‌କ୍ରିପ୍ଟ ହୋଇଥିବା ଡାଟାକୁ କେବଳ ଆପଣଙ୍କ ପାସ୍‍‍ଫ୍ରେଜ୍ ଥିବା ଜଣେ ବ୍ୟକ୍ତି ପଢ଼ିପାରିବେ। Google ଦ୍ବାରା ପାସ୍‍‍ଫ୍ରେଜ୍ ପଠାଯାଏ ନାହିଁ ବା ଷ୍ଟୋର୍ କରାଯାଏନାହିଁ। ଯଦି ଆପଣ ନିଜର ପାସ୍‍‍ଫ୍ରେଜ୍ ଭୁଲିଯାଇଛନ୍ତି କିମ୍ବା ଏହି ସେଟିଂ ପରିବର୍ତ୍ତନ କରିବାକୁ ଚାହୁଁଛନ୍ତି, ତେବେ ଆପଣଙ୍କୁ <ph name="BEGIN_LINK" />ସିଙ୍କ୍ ରିସେଟ୍<ph name="END_LINK" /> କରିବାକୁ ହେବ।</translation>
+<translation id="6356718524173428713">ପୃଷ୍ଠାକୁ ତଳକୁ ମୁଭ କରିବା ପାଇଁ ଉପରକୁ ସ୍କ୍ରୋଲ କରନ୍ତୁ</translation>
 <translation id="6357305427698525450">କିଛି ସମର୍ଥିତ ଲିଙ୍କ ଏବେ ବି <ph name="APP_NAME" /> କିମ୍ବା <ph name="APP_NAME_2" />ରେ ଖୋଲିବ।</translation>
 <translation id="6357750620525943720">ଅନ୍ୟ ସ୍ଥିର ଚିହ୍ନଟକାରୀଗୁଡ଼ିକ (ଉ.ଦା., ହାସ କିମ୍ବା UUIDଗୁଡ଼ିକ)</translation>
 <translation id="6358884629796491903">ଡ୍ରାଗନ୍</translation>
@@ -6564,6 +6656,7 @@
 <translation id="6436778875248895551">ଆପଣଙ୍କ ଆଡମିନିଷ୍ଟ୍ରେଟରଙ୍କ ଦ୍ୱାରା "<ph name="EXTENSION_NAME" />" ଏକ୍ସଟେନସନକୁ ବ୍ଲକ୍ କରାଯାଇଥିଲା</translation>
 <translation id="6438234780621650381">ସେଟିଂସ୍ ରିସେଟ୍ କରନ୍ତୁ</translation>
 <translation id="6438475350605608554">ଆପଣ ପୂର୍ବରୁ ଅନ୍ୟ ଏକ ଟାବରେ ପାସୱାର୍ଡଗୁଡ଼ିକୁ ଇମ୍ପୋର୍ଟ କରିସାରିଛନ୍ତି</translation>
+<translation id="6438480100790416671">ଷ୍ଟୋରେଜ ସ୍ପେସ ଯାଞ୍ଚ କରାଯାଉଛି…</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> - ଅଡିଓ ବାଜୁଛି</translation>
 <translation id="6441377161852435370">ପଢ଼ିବା ତାଲିକାରେ ଟାବ୍ ଯୋଗ କରନ୍ତୁ</translation>
 <translation id="6442187272350399447">ବହୁତ ବଢ଼ିଆ</translation>
@@ -6705,6 +6798,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="6548945820758901244">Google Search ସାଇଡ ପେନେଲକୁ ଖୋଲନ୍ତୁ</translation>
 <translation id="6549038875972762904">ପୁଣି ସେଟଅପ କରନ୍ତୁ</translation>
 <translation id="6550675742724504774">ବିକଳ୍ପଗୁଡ଼ିକ</translation>
+<translation id="6550790536557204077"><ph name="MANAGER" /> ଦ୍ୱାରା ଆପଣଙ୍କ <ph name="BEGIN_LINK" />ପ୍ରୋଫାଇଲ ପରିଚାଳିତ ହୋଇଥାଏ<ph name="END_LINK" /></translation>
 <translation id="65513682072153627">ଆପଣଙ୍କ ଆଡମିନିଷ୍ଟ୍ରେଟରଙ୍କ ଦ୍ୱାରା ଏକ ସେଟିଂ କିମ୍ବା ଫିଚର ପରିଚାଳନା କରାଯିବା ସମୟରେ ଆପଣ ଏହି ପରିଚାଳିତ ଆଇକନଟି ଦେଖିବେ।</translation>
 <translation id="6551508934388063976">କମାଣ୍ଡ ଉପଲବ୍ଧ ନାହିଁ। ଗୋଟିଏ ନୂଆ ୱିଣ୍ଡୋ ଖୋଲିବା ପାଇଁ control-N ଦବାନ୍ତୁ।</translation>
 <translation id="6551606359270386381">ଏଲିପସେ ଟୁଲ</translation>
@@ -6841,6 +6935,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="6669195257625975787">ଆପଣ ଦେଖୁଥିବା ସାଇଟ ପରି ସମାନ ଢଙ୍ଗରେ ଡାଟାକୁ ବିଚାର କରାଯାଏ</translation>
 <translation id="6670142487971298264"><ph name="APP_NAME" /> ବର୍ତ୍ତମାନ ଉପଲବ୍ଧ ଅଛି</translation>
 <translation id="6670767097276846646">କିଛି ଏକ୍ସଟେନସନ୍ Chromeରେ ସନ୍ଧାନ ଇଞ୍ଜିନଗୁଡ଼ିକ ଯୋଗ କରିପାରେ</translation>
+<translation id="6670983860904543332">ସ୍ୱତଃ ଅପଡେଟ ଆପଣଙ୍କୁ ନବୀନତମ ଫିଚରଗୁଡ଼ିକ ପ୍ରଦାନ କରେ। ବର୍ତ୍ତମାନର ଅପଡେଟଗୁଡ଼ିକରୁ ହାଇଲାଇଟ୍ସ ଏକ୍ସପ୍ଲୋର କରନ୍ତୁ।</translation>
 <translation id="6671320560732140690">{COUNT,plural, =1{ଏକ ଠିକଣା}other{#ଟି ଠିକଣା}}</translation>
 <translation id="6671497123040790595"><ph name="MANAGER" /> ଦ୍ୱାରା ପରିଚାଳନା ସେଟ୍ ଅପ୍ କରାଯାଉଛି</translation>
 <translation id="6672917148207387131"><ph name="DOMAIN" /> ଯୋଗ କରନ୍ତୁ</translation>
@@ -6895,6 +6990,7 @@ Google Chrome ଆପଣଙ୍କ ମୋବାଇଲ୍ ଡାଟା ବ୍ୟବ
 <translation id="6713668088933662563">ଏହି ଭାଷାଗୁଡ଼ିକର ଅନୁବାଦ କରିବାକୁ କେବେ ବି ଅଫର କରନ୍ତୁ ନାହିଁ</translation>
 <translation id="6715803357256707211">ଆପଣଙ୍କ Linux ଆପ୍ଲିକେସନ୍‍ର ଇନ୍‌ଷ୍ଟଲେସନ୍ ସମୟରେ ଏକ ତ୍ରୁଟି ଦେଖାଦେଲା। ବିବରଣୀ ପାଇଁ ବିଜ୍ଞପ୍ତିରେ କ୍ଲିକ୍ କରନ୍ତୁ।</translation>
 <translation id="6716798148881908873">ନେଟୱାର୍କ ସଂଯୋଗ ବିଚ୍ଛିନ୍ନ ହୋଇଛି। ଆପଣଙ୍କ ନେଟୱାର୍କ ସଂଯୋଗ ଯାଞ୍ଚ କରନ୍ତୁ କିମ୍ବା ଅନ୍ୟ ଏକ ୱାଇ-ଫାଇ ନେଟୱାର୍କ ବ୍ୟବହାର କରି ଦେଖନ୍ତୁ।</translation>
+<translation id="6718849325281682232">ଆପଣ ଡାର୍କ ମୋଡ କିମ୍ବା ଲାଇଟ ମୋଡରେ ଥାଆନ୍ତୁ ନା କାହିଁକି, ସମସ୍ତଙ୍କ ପାଇଁ ଆହୁରି ଭଲ ଭାବରେ କାମ କରିବାକୁ Chromeର ଥିମ ରଙ୍ଗକୁ ରିଫ୍ରେସ କରାଯାଇଛି</translation>
 <translation id="671928215901716392">ଲକ୍ ସ୍କ୍ରୀନ୍</translation>
 <translation id="6721744718589119342">ଅଧିକ ସୂଚନା କିମ୍ବା ଅପଡେଟ ପାଇଁ ଆମେ ଆପଣଙ୍କୁ ଇମେଲ କରିପାରୁ</translation>
 <translation id="6721972322305477112">&amp;ଫାଇଲ୍</translation>
@@ -7163,6 +7259,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="6930161297841867798">{NUM_EXTENSIONS,plural, =1{ଏକ ଏକ୍ସଟେନସନ୍ ଅଗ୍ରାହ୍ୟ କରାଯାଇଛି}other{#ଟି ଏକ୍ସଟେନସନ୍ ଅଗ୍ରାହ୍ୟ କରାଯାଇଛି}}</translation>
 <translation id="6931690462168617033">କ୍ଲିକର କ୍ଷମତା</translation>
 <translation id="6933321725007230600">&amp;ସିଙ୍କ ଚାଲୁ କରନ୍ତୁ...</translation>
+<translation id="6935031746833428401">ଡିଭାଇସ ମେନେଜମେଣ୍ଟ ବିଷୟରେ ଅଧିକ ଜାଣନ୍ତୁ</translation>
 <translation id="6935286146439255109">ଏକ ପେପର୍ ଟ୍ରେ ଉପଲବ୍ଧ ନାହିଁ</translation>
 <translation id="6938386202199793006">ଆପଣଙ୍କ ପାଖରେ 1ଟି ସେଭ୍ କରାଯାଇଥିବା ପ୍ରିଣ୍ଟର୍ ଅଛି।</translation>
 <translation id="6938387822292071111">ଟାବ ପ୍ରିଭ୍ୟୁ ହୋଭର କାର୍ଡରେ ଇମେଜଗୁଡ଼ିକୁ ଦେଖାନ୍ତୁ</translation>
@@ -7284,6 +7381,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7017354871202642555">ୱିଣ୍ଡୋ ସେଟ୍ ହେବା ପରେ ମୋଡ୍ ସେଟ୍ ହୋଇପାରିବ ନାହିଁ।</translation>
 <translation id="7019546817926942979">ଆପଣଙ୍କ ଡିଭାଇସକୁ ପ୍ଲଗ ଇନ କରାଯିବା ଆବଶ୍ୟକ। Linuxକୁ ଅପଗ୍ରେଡ କରିବା ଦ୍ଵାରା ଆପଣଙ୍କ ବ୍ୟାଟେରୀର ଚାର୍ଜ ବହୁତ ଶୀଘ୍ର ସରିଯାଇପାରେ। ଆପଣଙ୍କ ଡିଭାଇସକୁ ଏକ ଚାର୍ଜର ସହ ସଂଯୋଗ କରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="7019805045859631636">ଦ୍ରୁତ</translation>
+<translation id="7021524108486027008">ଆପଣଙ୍କ <ph name="DEVICE_TYPE" />ରେ ଆପଣଙ୍କର ଏଣ୍ଟରପ୍ରାଇଜ ଦ୍ୱାରା ପରିଚାଳିତ ଏକ ପରିବେଶରେ ଟୁଲ, ଏଡିଟର ଏବଂ IDEଗୁଡ଼ିକ ଚଲାନ୍ତୁ।</translation>
 <translation id="7022562585984256452">ଆପଣଙ୍କ ମୂଳ ପୃଷ୍ଠାକୁ ସେଟ୍ କରାଯାଇଛି।</translation>
 <translation id="7025082428878635038">ଜେଶ୍ଚର୍ ମାଧ୍ୟମରେ ନାଭିଗେଟ୍ କରିବାକୁ ଏକ ନୂତନ ଉପାୟ ପ୍ରସ୍ତୁତ କରାଯାଉଛି</translation>
 <translation id="7025190659207909717">ମୋବାଇଲ୍ ଡାଟା ସେବା ପରିଚାଳନା</translation>
@@ -7407,6 +7505,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7134098520442464001">କ୍ଷୁଦ୍ରତର ଟେକ୍ସଟ୍‍ ତିଆରି କରନ୍ତୁ</translation>
 <translation id="7135729336746831607">ବ୍ଲୁଟୁଥ୍ ଚାଲୁ କରିବେ କି?</translation>
 <translation id="7136694880210472378">ଡିଫଲ୍ଟ କରନ୍ତୁ</translation>
+<translation id="7137771508221868414">ଏହା ସାଇଟ ଏବଂ ଇନଷ୍ଟଲ କରାଯାଇଥିବା ଆପ୍ସ ଦ୍ୱାରା ଷ୍ଟୋର କରାଯାଇଥିବା <ph name="TOTAL_USAGE" /> ଡାଟାକୁ ଡିଲିଟ କରିଦେବ</translation>
 <translation id="7138678301420049075">ଅନ୍ୟ</translation>
 <translation id="7139627972753429585"><ph name="APP_NAME" /> ଆପଣଙ୍କ ମାଇକ୍ରୋଫୋନକୁ ବ୍ୟବହାର କରୁଛି</translation>
 <translation id="7141105143012495934">ଆପଣଙ୍କର ଆକାଉଣ୍ଟ ବିବରଣୀ ପୁନରୁଦ୍ଧାର ହୋଇନଥିବାରୁ ସାଇନ୍ ଇନ୍ ବିଫଳ ହୋଇଛି। ଦୟାକରି ଆପଣଙ୍କ ବ୍ୟବସ୍ଥାପକଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ ବା ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
@@ -7477,12 +7576,14 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7207457272187520234">ବ୍ୟବହାର ଏବଂ ଡାଏଗ୍ନୋଷ୍ଟିକ୍ ଡାଟା ପଠାନ୍ତୁ। ଏହି ଡିଭାଇସ୍ ବର୍ତ୍ତମାନ ସ୍ୱଚାଳିତ ରୂପେ ଡାଏଗ୍ନୋଷ୍ଟିକ୍, ଡିଭାଇସ୍ ଏବଂ ଆପ୍ ବ୍ୟବହାର ଡାଟା Googleକୁ ପଠାଉଛି। ସିଷ୍ଟମ୍ ଓ ଆପର ସ୍ଥିରତା ଏବଂ ଅନ୍ୟ ଉନ୍ନତିଗୁଡ଼ିକରେ ଏହା ସାହାଯ୍ୟ କରିବ। କିଛି ଏକତ୍ରିତ ଡାଟା Google ଆପ୍ ଓ Android ଡେଭଲପର୍ ପରି ଏହାର ପାର୍ଟନରଗୁଡ଼ିକୁ ମଧ୍ୟ ସାହାଯ୍ୟ କରିବ। ଏହି ସେଟିଂ ମାଲିକଙ୍କ ଦ୍ୱାରା ଲାଗୁ କରାଯାଇଛି। ଯଦି ଆପଣଙ୍କର ଅତିରିକ୍ତ ୱେବ୍ ଓ ଆପ୍ କାର୍ଯ୍ୟକଳାପ ସେଟିଂ ଚାଲୁ ଅଛି, ତେବେ ଏହି ଡାଟା ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରେ ସେଭ୍ ହୋଇପାରେ।</translation>
 <translation id="7207631048330366454">ଆପ୍ସ ସର୍ଚ୍ଚ କରନ୍ତୁ</translation>
 <translation id="7210257969463271891">ଆପଣ ଇନଷ୍ଟଲ କରିଥିବା ୱେବ ଆପ୍ସ ଏଠାରେ ଦେଖାଯାଏ</translation>
+<translation id="7210432570808024354">ଆଇଟମଗୁଡ଼ିକୁ ମୁଭ କରିବା ପାଇଁ ଟାପ କରି ଡ୍ରାଗ କରନ୍ତୁ</translation>
 <translation id="7210471695184432500">ଏହି ଡିଭାଇସରେ Google Password Managerକୁ ପାସୱାର୍ଡଗୁଡ଼ିକ ଇମ୍ପୋର୍ଟ କରିବା ପାଇଁ ଏକ CSV ଫାଇଲ ଚୟନ କରନ୍ତୁ</translation>
 <translation id="7210499381659830293">ଏକ୍ସଟେନ୍‌ସନ୍ ପ୍ରିଣ୍ଟର୍‌</translation>
 <translation id="7211783048245131419">ଏ ପର୍ଯ୍ୟନ୍ତ କୌଣସି ସ୍ୱିଚକୁ ଆସାଇନ୍ କରାଯାଇନାହିଁ</translation>
 <translation id="7212097698621322584">ଏହାକୁ ପରିବର୍ତ୍ତନ କରିବା ପାଇଁ ବର୍ତ୍ତମାନର ପିନ୍ ଲେଖନ୍ତୁ। ଯଦି ଆପଣ ନିଜର ପିନ୍ ଜାଣିନାହାନ୍ତି, ତେବେ ଆପଣଙ୍କୁ ସୁରକ୍ଷା କୀ ରିସେଟ୍ କରିବା ଆବଶ୍ୟକ, ଏହା ପରେ ଗୋଟିଏ ନୂଆ ପିନ୍ ତିଆରି କରନ୍ତୁ।</translation>
 <translation id="721490496276866468">ପାସୱାର୍ଡଗୁଡ଼ିକୁ ଇମ୍ପୋର୍ଟ କରନ୍ତୁ</translation>
 <translation id="7218514093816577632">ଆପଣଙ୍କ <ph name="DEVICE_NAME" />ରେ ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକ ଚାଲୁ ଅଛି ବୋଲି ସୁନିଶ୍ଚିତ କରନ୍ତୁ।</translation>
+<translation id="7219254577985949841">ସାଇଟ ଡାଟା ଡିଲିଟ କରିବେ?</translation>
 <translation id="7219473482981809164">ଆମକୁ ଡାଉନଲୋଡ୍ କରିବା ପାଇଁ ଉପଲବ୍ଧ ଥିବା ଏକାଧିକ ପ୍ରୋଫାଇଲ୍ ମିଳିଛି। ଆଗକୁ ବଢ଼ିବା ପୂର୍ବରୁ ଆପଣ ଡାଉନଲୋଡ୍ କରିବାକୁ ଚାହୁଁଥିବା ପ୍ରୋଫାଇଲଗୁଡ଼ିକୁ ବାଛନ୍ତୁ।</translation>
 <translation id="7219762788664143869">{NUM_WEAK,plural, =0{କୌଣସି ଦୁର୍ବଳ ପାସୱାର୍ଡ ନାହିଁ}=1{1ଟି ଦୁର୍ବଳ ପାସୱାର୍ଡ}other{{NUM_WEAK}ଟି ଦୁର୍ବଳ ପାସୱାର୍ଡ}}</translation>
 <translation id="7220019174139618249">ପାସ୍‍ୱାର୍ଡଗୁଡ଼ିକୁ "<ph name="FOLDER" />"କୁ ଏକ୍ସପୋର୍ଟ କରାଯାଇପାରିବ ନାହିଁ</translation>
@@ -7574,6 +7675,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7288676996127329262"><ph name="HORIZONTAL_DPI" />x<ph name="VERTICAL_DPI" /> dpi</translation>
 <translation id="7289386924227731009"><ph name="WINDOW_TITLE" /> - ଅନୁମତି ପାଇଁ ଅନୁରୋଧ କରାଯାଇଛି, ଉତ୍ତର ଦେବାକୁ F6 ଦବାନ୍ତୁ</translation>
 <translation id="7290242001003353852"><ph name="SAML_DOMAIN" /> ଦ୍ବାରା ହୋଷ୍ଟ କରାଯାଇଥିବା, ଏହି ସାଇନ୍ ଇନ୍ ସେବା, ଆପଣଙ୍କ କ୍ଯାମେରାକୁ ଆକ୍ସେସ୍ କରୁଛି।</translation>
+<translation id="7292067737327289208">ଆପଣଙ୍କ ସଂସ୍ଥା ଦ୍ୱାରା ଆପଣଙ୍କର <ph name="BEGIN_LINK" />ବ୍ରାଉଜର ପରିଚାଳିତ ହୋଇଥାଏ<ph name="END_LINK" /> ଏବଂ <ph name="PROFILE_DOMAIN" /> ଦ୍ୱାରା ଆପଣଙ୍କ <ph name="BEGIN_LINK" />ପ୍ରୋଫାଇଲ ପରିଚାଳିତ ହୋଇଥାଏ<ph name="END_LINK" /></translation>
 <translation id="7292195267473691167"><ph name="LOCALE" /> (<ph name="VARIANT" />)</translation>
 <translation id="7295614427631867477">ଧ୍ୟାନ ଦିଅନ୍ତୁ ଯେ Android, Play ଏବଂ ସମ୍ବନ୍ଧିତ ଆପ୍‌ଗୁଡ଼ିକ ସେମାନଙ୍କ ନିଜର ଡାଟା ସଂଗ୍ରହ ଦ୍ଵାରା ନିୟନ୍ତ୍ରିତ ହୋଇଥାନ୍ତି ଏବଂ ନୀତିଗୁଡ଼ିକର ବ୍ୟବହାର କରନ୍ତି।</translation>
 <translation id="729583233778673644">AES ଓ RC4 ଏନ୍‌କ୍ରିପ୍ସନ୍ ପାଇଁ ଅନୁମତି ଦିଅନ୍ତୁ। RC4 ସଂକେତାକ୍ଷରଗୁଡ଼ିକ ଅସୁରକ୍ଷିତ ଥିବାରୁ ଏହି ବିକଳ୍ପର ବ୍ୟବହାର ଆପଣଙ୍କର ବିପଦ ବଢ଼ାଇଥାଏ।</translation>
@@ -7599,6 +7701,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7311244614769792472">କୌଣସି ଫଳାଫଳ ମିଳିଲା ନାହିଁ</translation>
 <translation id="7312210124139670355">ଆପଣଙ୍କ ଆଡମିନଷ୍ଟ୍ରେଟର ଆପଣଙ୍କର eSIMକୁ ରିସେଟ କରୁଛନ୍ତି। ଏଥିପାଇଁ କିଛି ସମୟ ଲାଗିପାରେ।</translation>
 <translation id="7317831949569936035">ସ୍କୁଲ ପଞ୍ଜିକରଣ</translation>
+<translation id="7319320447721994672">ଯଦି ଆପଣ କୁକୀଗୁଡ଼ିକୁ ବ୍ୟବହାର କରୁଥିବା ଏକ ସାଇଟକୁ ଭିଜିଟ କରନ୍ତି ତେବେ ସାଇଟର ସମସ୍ତ ଫିଚର କାମ କରିବା ପାଇଁ ଆପଣଙ୍କୁ ଅସ୍ଥାୟୀ ଭାବରେ କୁକୀଗୁଡ଼ିକୁ ସକ୍ଷମ କରିବାର ଆବଶ୍ୟକତା ହୋଇପାରେ।</translation>
 <translation id="7320213904474460808">ନେଟୱାର୍କ ପାଇଁ ଡିଫଲ୍ଟ</translation>
 <translation id="7321545336522791733">ସର୍ଭର୍ ଅପହଞ୍ଚ ଦୂରତାରେ ଅଛି</translation>
 <translation id="7322515217754205362">ସାଇଟ ପାଇଁ ଅନୁମତିଗୁଡ଼ିକ</translation>
@@ -7640,6 +7743,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7353261921908507769">ଆପଣଙ୍କ ଯୋଗାଯୋଗଗୁଡ଼ିକ ଆଖପାଖରେ ଥିଲେ ସେମାନେ ଆପଣଙ୍କ ସହିତ ସେୟାର୍ କରିପାରିବେ। ଆପଣ ଗ୍ରହଣ ନକରିବା ପର୍ଯ୍ୟନ୍ତ ସ୍ଥାନାନ୍ତର ଆରମ୍ଭ ହେବ ନାହିଁ।</translation>
 <translation id="735361434055555355">Linux ଇନ୍‌ଷ୍ଟଲ୍ କରାଯାଉଛି...</translation>
 <translation id="7354120289251608189">ବର୍ତ୍ତମାନ ଆପଣ ଯେ କୌଣସି ସମୟରେ ଆପଣଙ୍କ ବ୍ରାଉଜରକୁ ଏକ ନୂଆ ଲୁକ ଦେଇପାରିବେ।</translation>
+<translation id="7356696499551368971">ଆପଣ ବାଛିଥିବା ଅନୁମତିଗୁଡ଼ିକୁ କାଢ଼ି ଦିଆଯିବ</translation>
 <translation id="7356908624372060336">ନେଟୱାର୍କ ଲଗଗୁଡ଼ିକ</translation>
 <translation id="7357271391997763660">ପାସୱାର୍ଡ ଯାଞ୍ଚ କରିବେ?</translation>
 <translation id="735745346212279324">VPN ବିଚ୍ଛିନ୍ନ ହୋଇଛି</translation>
@@ -7661,6 +7765,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7366415735885268578">ଏକ ସାଇଟ୍ ଯୋଗକରନ୍ତୁ</translation>
 <translation id="7366909168761621528">ବ୍ରାଉଜିଂ ଡାଟା</translation>
 <translation id="7367714965999718019">QR କୋଡ୍ ଜେନେରେଟର</translation>
+<translation id="7368695150573390554">ଯେ କୌଣସି ଅଫଲାଇନ ଡାଟା ଡିଲିଟ ହୋଇଯିବ</translation>
 <translation id="736877393389250337"><ph name="ALTERNATIVE_BROWSER_NAME" />ରେ <ph name="URL" /> ଖୋଲିହେବ ନାହିଁ । ଦୟାକରି, ଆପଣଙ୍କର ସିଷ୍ଟମ୍ ଆଡମିନିଷ୍ଟ୍ରେଟର୍‍ଙ୍କୁ ଯୋଗାଯୋଗ କରନ୍ତୁ।</translation>
 <translation id="7370592524170198497">ଇଥରନେଟ୍ EAP:</translation>
 <translation id="7371490947952970241">ଆପଣ ଏହି ଡିଭାଇସରେ ଥିବା ମୁଖ୍ୟ ଲୋକେସନ ସେଟିଂ ବନ୍ଦ କରି ଲୋକେସନକୁ ବନ୍ଦ କରିପାରିବେ। ଆପଣ ଲୋକେସନ୍ ସେଟିଂସରେ ଲୋକେସନ୍ ପାଇଁ ୱାଇ-ଫାଇ, ମୋବାଇଲ୍ ନେଟୱାର୍କ ଓ ସେନ୍ସରଗୁଡ଼ିକର ବ୍ୟବହାର ମଧ୍ୟ ବନ୍ଦ କରିପାରିବେ।</translation>
@@ -7699,6 +7804,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7396017167185131589">ସେୟାର୍ କରାଯାଇଥିବା ଫୋଲ୍ଡରଗୁଡ଼ିକ ଏଠାରେ ଦେଖାଯିବ</translation>
 <translation id="7396845648024431313"><ph name="APP_NAME" /> ସିଷ୍ଟମ୍‍ ଆରମ୍ଭରେ ଲଞ୍ଚ ହେବ ଏବଂ ଆପଣ ଅନ୍ୟ ସମସ୍ତ <ph name="PRODUCT_NAME" /> ୱିଣ୍ଡୋକୁ ବନ୍ଦ କରିବା ପରେ ମଧ୍ୟ ପୃଷ୍ଠଭୂମିରେ ଚାଲିବା ଜାରି ରହିବ।</translation>
 <translation id="7399045143794278225">ସିଙ୍କକୁ କଷ୍ଟମାଇଜ୍ କରନ୍ତୁ</translation>
+<translation id="7399616692258236448">ଆପଣ ଅନୁମତି ଦେଇଥିବା ସାଇଟଗୁଡ଼ିକ ବ୍ୟତୀତ ସମସ୍ତ ସାଇଟ ପାଇଁ ଲୋକେସନ ଅନୁରୋଧ ସ୍ୱତଃ ବ୍ଲକ ହୋଇଥାଏ</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7400447915166857470"><ph name="OLD_SEARCH_PROVIDER" />କୁ ପୁଣି ପରିବର୍ତ୍ତନ କରିବାକୁ ଚାହାଁନ୍ତି କି?</translation>
 <translation id="7400839060291901923">ଆପଣଙ୍କର <ph name="PHONE_NAME" />ରେ ସଂଯୋଗ ସେଟ୍ ଅପ୍ କରନ୍ତୁ</translation>
@@ -7727,6 +7833,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7412226954991670867">GPU ମେମୋରୀ</translation>
 <translation id="7414464185801331860">18x</translation>
 <translation id="7415454883318062233">ସେଟଅପ୍ ସମ୍ପୁର୍ଣ୍ଣ ହୋଇଛି</translation>
+<translation id="7415997299997664304">ଭିଜୁଆଲ ଲେଆଉଟ ସେମାଣ୍ଟିକ୍ସକୁ ଚିହ୍ନଟ କରନ୍ତୁ</translation>
 <translation id="7416091793702109803"><ph name="FILE_NAME" />ର ସମୀକ୍ଷା କରନ୍ତୁ</translation>
 <translation id="7416263748877373774">ସେବାର ସର୍ତ୍ତାବଳୀ ଲୋଡ କରାଯାଇପାରିବ ନାହିଁ। ଦୟାକରି ଆପଣଙ୍କ ନେଟୱାର୍କ ସଂଯୋଗ ଯାଞ୍ଚ କରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
 <translation id="7416362041876611053">ଅଜଣା ନେଟ୍‌ୱାର୍କ ତ୍ରୁଟି।</translation>
@@ -7792,16 +7899,19 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7464637891177137294">ଏହାକୁ ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟ, <ph name="ACCOUNT" />ରେ ସେଭ୍ କରନ୍ତୁ</translation>
 <translation id="7465522323587461835">{NUM_OPEN_TABS,plural, =1{#ଟି ଖୋଲା ଟାବ୍, ଟାବ୍ ଷ୍ଟ୍ରିପ୍‍କୁ ଟୋଗଲ୍ କରିବା ପାଇଁ ଦବାନ୍ତୁ}other{# ଟି ଖୋଲା ଟାବ୍, ଟାବ୍ ଷ୍ଟ୍ରିପ୍‍କୁ ଟୋଗଲ୍ କରିବା ପାଇଁ ଦବାନ୍ତୁ}}</translation>
 <translation id="7465635034594602553">କିଛି ତ୍ରୁଟି ହୋଇଗଲା। ଦୟାକରି କିଛି ସମୟ ପାଇଁ ଅପେକ୍ଷା କରି <ph name="APP_NAME" /> ପୁଣି ଚଲାନ୍ତୁ।</translation>
+<translation id="7465777686629334728">ପରିଚାଳିତ ଡେଭଲପମେଣ୍ଟ ପରିବେଶ (<ph name="SPECIFIC_NAME" />)କୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="7465778193084373987">Netscape ସାର୍ଟିଫିକେଟ୍ ପ୍ରତ୍ୟାହାର URL</translation>
 <translation id="7466431077154602932">କମ୍ପାକ୍ଟ ଭ୍ୟୁ</translation>
 <translation id="746861123368584540">ଏକ୍ସଟେନସନକୁ ଲୋଡ୍ କରାଯାଇଛି</translation>
 <translation id="7470424110735398630">ଆପଣଙ୍କ କ୍ଲିପବୋର୍ଡ ଦେଖିବାକୁ ଅନୁମତି ଦିଆଯାଇଛି</translation>
 <translation id="747114903913869239">ତ୍ରୁଟି: ଏକ୍ସଟେନ୍‌ସନ୍ ଡିକୋଡ୍ କରିବାରେ ଅକ୍ଷମ</translation>
 <translation id="7471520329163184433">ଆହୁରି ଧୀର</translation>
+<translation id="747312361841682912">ଡିସପ୍ଲେ କରାଯାଇଥିବା ଡାଟାକୁ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="7473891865547856676">ନାହିଁ, ଧନ୍ୟବାଦ</translation>
 <translation id="747459581954555080">ସବୁ ରିଷ୍ଟୋର୍ କରନ୍ତୁ</translation>
 <translation id="747507174130726364">{NUM_DAYS,plural, =1{ତୁରନ୍ତ ଫେରସ୍ତ କରିବା ଆବଶ୍ୟକ}other{{NUM_DAYS} ଦିନ ଭିତରେ <ph name="DEVICE_TYPE" />କୁ ଫେରସ୍ତ କରନ୍ତୁ}}</translation>
 <translation id="7475671414023905704">Netscape ପାସ୍‍ୱର୍ଡର URL ହଜାଇଦେ‍ଇଛି</translation>
+<translation id="7475742997309661417">ChromeOS, ChromeVoxରେ ସ୍କ୍ରିନ ରିଡର ମୁଖ୍ୟତଃ ଦୃଷ୍ଟିହୀନ କିମ୍ବା କମ ଦେଖାଯାଉଥିବା ଲୋକଙ୍କ ଦ୍ୱାରା ସ୍କ୍ରିନରେ ଡିସପ୍ଲେ କରାଯାଇଥିବା ଟେକ୍ସଟକୁ ସ୍ପିଚ ସିନ୍ଥେସାଇଜର ବା ବ୍ରେଲି ଡିସପ୍ଲେ ମାଧ୍ୟମରେ ପଢ଼ିବା ପାଇଁ ବ୍ୟବହାର କରାଯାଏ। ChromeVox ଚାଲୁ କରିବାକୁ ପାଞ୍ଚ ସେକେଣ୍ଡ ପାଇଁ ଉଭୟ ଭଲ୍ୟୁମ କୀ’କୁ ଦବାଇ ଧରି ରଖନ୍ତୁ। ChromeVox ସକ୍ରିୟ ହେଲେ ଏହା ବିଷୟରେ ଆପଣଙ୍କୁ ଏକ କୁଇକ ସୂଚନା ଦିଆଯିବ।</translation>
 <translation id="7476454130948140105">ଅପ୍‌ଡ଼େଟ୍ ପାଇଁ ବ୍ୟାଟେରୀ ବହୁତ କମ୍ ଅଛି (<ph name="BATTERY_PERCENT" />%)</translation>
 <translation id="7476989672001283112"><ph name="PERMISSION" /> ଏବଂ ଅଧିକ <ph name="COUNT" />ଟି ସ୍ୱଚାଳିତ ଭାବେ ବ୍ଲକ୍ ହୋଇଛି</translation>
 <translation id="7477599578899108080">ଅଧିକ ମେମୋରୀ ବ୍ୟବହାର: <ph name="MEMORY_USAGE" /></translation>
@@ -7848,6 +7958,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7509097596023256288">ପରିଚାଳନା ସେଟ୍ ଅପ୍ କରାଯାଉଛି</translation>
 <translation id="7509246181739783082">ଆପଣଙ୍କ ପରିଚୟ ଯାଞ୍ଚ କରନ୍ତୁ</translation>
 <translation id="7509539379068593709">ଆପ୍ ଅନଇନଷ୍ଟଲ୍ କରନ୍ତୁ</translation>
+<translation id="7509653797310675541">Lacros</translation>
 <translation id="7514239104543605883">ଆପଣଙ୍କର ଡିଭାଇସ୍‍କୁ କପି କରନ୍ତୁ</translation>
 <translation id="7514365320538308">ଡାଉନ୍‌‌ଲୋଡ୍‌ କରନ୍ତୁ</translation>
 <translation id="7514417110442087199">ଆସାଇନମ୍ୟାଣ୍ଟ ଯୋଗ କରନ୍ତୁ</translation>
@@ -7860,6 +7971,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7522255036471229694">"Ok Google" କୁହନ୍ତୁ</translation>
 <translation id="7523117833414447032">ବଡ଼ ଅକ୍ଷରଗୁଡ଼ିକୁ ପଢ଼ିବା ବେଳେ</translation>
 <translation id="7523585675576642403">ପ୍ରୋଫାଇଲର ନାମ ବଦଳାନ୍ତୁ</translation>
+<translation id="7524849817690367493">ସୁରକ୍ଷା ହବ</translation>
 <translation id="7525067979554623046">ତିଆରି କରନ୍ତୁ</translation>
 <translation id="7526989658317409655">ପ୍ଲେସହୋଲ୍ଡର୍</translation>
 <translation id="7527758104894292229">ଏହାକୁ ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟ, <ph name="ACCOUNT" />ରେ ଅପଡେଟ୍ କରନ୍ତୁ</translation>
@@ -7977,6 +8089,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7628201176665550262">ରିଫ୍ରେସ୍ ରେଟ୍</translation>
 <translation id="7628392600831846024">ପ୍ରତୀକ ଷ୍ଟାଇଲ</translation>
 <translation id="7628927569678398026"><ph name="LOCALE" /> (<ph name="VARIANT" />), ଗ୍ରେଡ୍ <ph name="GRADE" /></translation>
+<translation id="762917478230183172">ପ୍ରତ୍ୟେକ କୀ ପାଇଁ ଏକ କାର୍ଯ୍ୟ ଚୟନ କରନ୍ତୁ</translation>
 <translation id="7629827748548208700">ଟ୍ୟାବ୍: <ph name="TAB_NAME" /></translation>
 <translation id="7630426712700473382">ଏହି ଡିଭାଇସ <ph name="MANAGER" /> ଦ୍ୱାରା ପରିଚାଳିତ ହେଉଛି ଏବଂ ଆପଣଙ୍କୁ ପ୍ରତ୍ୟେକ ଥର ଆପଣ ସାଇନ ଇନ କରିବାର ଆବଶ୍ୟକତା ଅଛି।</translation>
 <translation id="7631014249255418691">Linux ଆପ୍ସ ଏବଂ ଫାଇଲ୍ସର ସଫଳତାପୂର୍ବକ ବ୍ୟାକ୍ ଅପ୍ ନିଆଯାଇଛି</translation>
@@ -8116,6 +8229,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7721237513035801311"><ph name="SWITCH" /> (<ph name="DEVICE_TYPE" />)</translation>
 <translation id="7721258531237831532">ଆପଣଙ୍କ ସଂସ୍ଥା ପାଇଁ ଏକ ପ୍ରୋଫାଇଲର ଆବଶ୍ୟକତା ଅଛି</translation>
 <translation id="7722040605881499779">ଅପ୍‌ଡେଟ୍ କରିବାର ଆବଶ୍ୟକତା ଅଛି: <ph name="NECESSARY_SPACE" /></translation>
+<translation id="7723388585204724670">ଡିଫଲ୍ଟ Chromeରେ ରିସେଟ କରନ୍ତୁ</translation>
 <translation id="7724603315864178912">Cut</translation>
 <translation id="7726391492136714301">ଆପଣଙ୍କ ଫୋନର ବିଜ୍ଞପ୍ତି ଏବଂ ଆପ୍ସକୁ ଦେଖନ୍ତୁ</translation>
 <translation id="7728465250249629478">ଡିଭାଇସର ଭାଷା ବଦଳାନ୍ତୁ</translation>
@@ -8177,6 +8291,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7770072242481632881">ସାଇଡ ପେନେଲ ଚୟନକାରୀ</translation>
 <translation id="7770450735129978837">ମାଉସର ଡାହାଣ କ୍ଲିକ</translation>
 <translation id="7770612696274572992">ଅନ୍ୟ ଡିଭାଇସରୁ କପି କରାଯାଇଥିବା ଛବି</translation>
+<translation id="7770827449915784217">ଫାର୍ମୱେର ଅପଟୁଡେଟ ଅଛି</translation>
 <translation id="7771452384635174008">ଲେଆଉଟ୍</translation>
 <translation id="7772032839648071052">ପାସ୍‍‍ଫ୍ରେଜ୍ ସୁନିଶ୍ଚିତ କରନ୍ତୁ</translation>
 <translation id="7772127298218883077"><ph name="PRODUCT_NAME" /> ବିଷୟରେ</translation>
@@ -8287,6 +8402,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7857949311770343000">ଏହା କ'ଣ ଆପଣ ପ୍ରତ୍ୟାଶିତ କରୁଥିବା ନୂଆ ଟାବ୍ ପୃଷ୍ଠା ଅଟେ?</translation>
 <translation id="7858120906780498731">ChromeOS ସହ କନେକ୍ଟ ହୋଇଥିବା ଇନପୁଟ ଡିଭାଇସଗୁଡ଼ିକ</translation>
 <translation id="7858328180167661092"><ph name="APP_NAME" /> (Windows)</translation>
+<translation id="7859560813397128941"><ph name="EXTENSION_NAME" /> ଏକ୍ସଟେନସନକୁ କାଢ଼ି ଦିଅନ୍ତୁ</translation>
 <translation id="786073089922909430">ସେବା: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;ଡାଉନଲୋଡସମୂହ</translation>
 <translation id="7861846108263890455">Google ଆକାଉଣ୍ଟର ଭାଷା</translation>
@@ -8327,6 +8443,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="7893008570150657497">ଆପଣଙ୍କ କମ୍ପ୍ୟୁଟର୍‍ରୁ ଫଟୋ, ସଙ୍ଗୀତ ଓ ଅନ୍ୟ ମିଡିଆ ଆକ୍ସେସ୍‌ କରନ୍ତୁ</translation>
 <translation id="7893153962594818789">ଏହି <ph name="DEVICE_TYPE" />ରେ ବ୍ଲୁଟୁଥ୍‌ ବନ୍ଦ ଅଛି। ଆପଣଙ୍କର ପାସ୍‌ୱର୍ଡ ଲେଖନ୍ତୁ ଏବଂ ବ୍ଲୁଟୁଥ୍‌ ଚାଲୁ କରନ୍ତୁ।</translation>
 <translation id="7893393459573308604"><ph name="ENGINE_NAME" /> (ଡିଫଲ୍ଟ)</translation>
+<translation id="7894382333736164977">ଆମେ ଷ୍ଟୋରେଜ ସ୍ପେସ ଯାଞ୍ଚ କରିବା ପ୍ରକ୍ରିୟାରେ ଅଛୁ। <ph name="ITEMS_FOUND" /> ଆଇଟମ ମିଳିଲା।</translation>
 <translation id="7896292361319775586"><ph name="FILE" /> ସେଭ କରିବେ?</translation>
 <translation id="789722939441020330">ଏକାଧିକ ଫାଇଲକୁ ସ୍ୱଚାଳିତ ଭାବେ ଡାଉନଲୋଡ୍ କରିବା ପାଇଁ ସାଇଟଗୁଡ଼ିକୁ ଅନୁମତି ଦିଅନ୍ତୁ ନାହିଁ</translation>
 <translation id="7897900149154324287">ଭବିଷ୍ୟତରେ, ଆପଣଙ୍କର ଅପସାରଣଯୋଗ୍ୟ ଡିଭାଇସ୍‌ଟିକୁ ଅନ୍‌ପ୍ଲଗ୍ କରିବା ପୂର୍ବରୁ ଏହାକୁ ଫାଇଲ୍ସ ଆପ୍‌ରୁ ବାହାର କରିଦେଇଥିବା ସୁନିଶ୍ଚିତ କରିନିଅନ୍ତୁ। ଅନ୍ୟଥା, ଆପଣ ହୁଏତ ଡାଟା ହରାଇପାରନ୍ତି।</translation>
@@ -8632,12 +8749,14 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8139447493436036221">Google Drive ଫାଇଲଗୁଡ଼ିକ</translation>
 <translation id="8139643636835015859">ଏହା ଆପଣଙ୍କ ଅଫଲାଇନ ଫାଇଲଗୁଡ଼ିକ ଦ୍ୱାରା ବ୍ୟବହୃତ <ph name="OFFLINE_STORAGE_SIZE" /> ସ୍ପେସକୁ କାଢ଼ି ଦେବ। କିଛି ଫାଇଲ ଏବେ ବି ଅଫଲାଇନରେ ଉପଲବ୍ଧ ହେବ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="8140070492745508800"><ph name="FIRST_DEVICE" />, <ph name="SECOND_DEVICE" /></translation>
+<translation id="8140108728130537923"><ph name="BROWSER_DOMAIN" /> ଦ୍ୱାରା ଆପଣଙ୍କ <ph name="BEGIN_LINK" />ବ୍ରାଉଜର ପରିଚାଳିତ ହୋଇଥାଏ<ph name="END_LINK" /> ଏବଂ <ph name="PROFILE_DOMAIN" /> ଦ୍ୱାରା ଆପଣଙ୍କ <ph name="BEGIN_LINK" />ପ୍ରୋଫାଇଲ ପରିଚାଳିତ ହୋଇଥାଏ<ph name="END_LINK" /></translation>
 <translation id="8141418916163800697">ଆପଣ ଫୋନ ହବ ସେଟିଂସରେ ଅଧିକ ଫିଚର ସେଟ ଅପ କରିପାରିବେ</translation>
 <translation id="8141584439523427891">ବର୍ତ୍ତମାନ ବିକଳ୍ପ ବ୍ରାଉଜର୍‌ରେ ଖୋଲୁଛି</translation>
 <translation id="8141725884565838206">ଆପଣଙ୍କର ପାସ୍‌ୱର୍ଡଗୁଡ଼ିକ ପରିଚାଳିତ କରନ୍ତୁ</translation>
 <translation id="814204052173971714">{COUNT,plural, =1{ଏକ ଭିଡିଓ}other{#ଟି ଭିଡିଓ}}</translation>
 <translation id="8143442547342702591">ଅବୈଧ ଆପ୍ଲିକେସନ୍</translation>
 <translation id="8143609395536282994">ଆପଣ ଆପଣଙ୍କ ଡାଟାକୁ କିପରି ପରିଚାଳନା କରିପାରିବେ:</translation>
+<translation id="8144429778087524791">ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଯାଇଛି ଭାବେ ଚିହ୍ନଟ କରି ଲୁଚାନ୍ତୁ</translation>
 <translation id="8145170459658034418">ମେମୋରୀ ସେଭର</translation>
 <translation id="8146177459103116374">ଯଦି ଆପଣ ଆଗରୁ ଏହି ଡିଭାଇସ୍‌ରେ ପଞ୍ଜିକୃତ କରିସାରିଛନ୍ତି, ତେବେ ଆପଣ <ph name="LINK2_START" />ଜଣେ ବିଦ୍ୟମାନ ଉପଯୋଗକର୍ତ୍ତା ଭାବରେ ସାଇନ୍ ଇନ୍<ph name="LINK2_END" /> କରିପାରିବେ।</translation>
 <translation id="8146287226035613638">ଆପଣଙ୍କ ପସନ୍ଦର ଭାଷାକୁ ଯୋଗ କରନ୍ତୁ ଏବଂ ସେଗୁଡ଼ିକୁ ରେଙ୍କ ଦିଅନ୍ତୁ। ଯେତେବେଳେ ସମ୍ଭବ ହେବ, ସେତେବେଳେ ୱେବସାଇଟଗୁଡ଼ିକ ଆପଣଙ୍କ ପସନ୍ଦର ଭାଷାଗୁଡ଼ିକରେ ଦେଖାଯିବ। ଆପଣଙ୍କ ବ୍ରାଉଜର୍ ସେଟିଂସ୍ ସହିତ ଏହି ପସନ୍ଦଗୁଡ଼ିକୁ ସିଙ୍କ୍ କରାଯାଇଛି। <ph name="BEGIN_LINK_LEARN_MORE" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="END_LINK_LEARN_MORE" /></translation>
@@ -8646,6 +8765,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8147900440966275470"><ph name="NUM" />ଟି ଟାବ୍ ମିଳିଲା</translation>
 <translation id="8148760431881541277">ସାଇନ୍-ଇନ୍ ସୀମିତ କରନ୍ତୁ</translation>
 <translation id="8149564499626272569">ଏକ USB କେବୁଲ୍ ସହ ଆପଣଙ୍କ ଫୋନ୍ ମାଧ୍ୟମରେ ଯାଞ୍ଚ କରନ୍ତୁ</translation>
+<translation id="8149870652370242480">ଆପଣଙ୍କ ଫୋନରେ ଆପଣଙ୍କର ସେଭ କରାଯାଇଥିବା ପାସୱାର୍ଡଗୁଡ଼ିକୁ ବ୍ୟବହାର କରିବାକୁ iOS ପାଇଁ Chromeକୁ ଡାଉନଲୋଡ କରି ଆପଣଙ୍କ Google ଆକାଉଣ୍ଟରେ ସାଇନ ଇନ କରନ୍ତୁ।</translation>
 <translation id="815114315010033526">ଏହା ପରିବର୍ତ୍ତେ QR କୋଡ ବ୍ୟବହାର କରନ୍ତୁ</translation>
 <translation id="8151638057146502721">କନ୍‍ଫିଗର୍ କରନ୍ତୁ</translation>
 <translation id="8154790740888707867">କୌଣସି ଫାଇଲ୍‌ ନାହିଁ</translation>
@@ -8711,6 +8831,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8203152941016626022">Nearby Share ଡିଭାଇସ୍ ନାମ</translation>
 <translation id="8203732864715032075">ମେସେଜ୍ ପାଇଁ ଏହି କମ୍ପ୍ୟୁଟର୍ ଡିଫଲ୍ଟ ଅଟେ, ତାହା ମନେରଖିବାକୁ ଆପଣଙ୍କୁ ବିଜ୍ଞପ୍ତି ପଠାଏ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="8205432712228803050">ଆପଣଙ୍କ ଡିସପ୍ଲେ ଏବଂ ପେରିଫେରାଲଗୁଡ଼ିକ ଅଳ୍ପ ସମୟରେ ରିସେଟ୍ ହୋଇପାରେ। ଏହି ପରିବର୍ତ୍ତନକୁ କାର୍ଯ୍ୟକାରୀ କରିବା ପାଇଁ, ଆପଣଙ୍କ ପେରିଫେରାଲଗୁଡ଼ିକୁ ଅନପ୍ଲଗ୍ କରି ପୁଣି ପ୍ଲଗ୍ ଇନ୍ କରନ୍ତୁ।</translation>
+<translation id="8205478243727418828">ଲଞ୍ଚର + ତଳ ତୀର</translation>
 <translation id="820568752112382238">ଅଧିକ ଦେଖାଯାଇଥିବା ସାଇଟ୍‍ଗୁଡ଼ିକ</translation>
 <translation id="8206267832882844324">ନୋଟକୁ ଏଡିଟ କରନ୍ତୁ</translation>
 <translation id="8206745257863499010">ବ୍ଲୁସୀ</translation>
@@ -8956,6 +9077,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8398877366907290961">ଯେକୌଣସି ପ୍ରକାରେ ଆଗେଇ ଚାଲନ୍ତୁ</translation>
 <translation id="8399282673057829204">ପାସୱାର୍ଡ ଦେଖନ୍ତୁ</translation>
 <translation id="8401432541486058167">ଆପଣଙ୍କର ସ୍ମାର୍ଟ କାର୍ଡ ସହିତ ସମ୍ବନ୍ଧିତ ଥିବା PIN ପ୍ରଦାନ କରନ୍ତୁ।</translation>
+<translation id="8401772916834964810">{COUNT,plural, =0{Chrome ଆଜି ପୁଣି କୁକୀଗୁଡ଼ିକୁ ବ୍ଲକ କରିବ}=1{Chrome କାଲି ପୁଣି କୁକୀଗୁଡ଼ିକୁ ବ୍ଲକ କରିବ}other{Chrome # ଦିନରେ ପୁଣି କୁକୀଗୁଡ଼ିକୁ ବ୍ଲକ କରିବ}}</translation>
 <translation id="8403618281196981152">Chromeରେ ଥିବା ଆପଣଙ୍କ ଡାଟା</translation>
 <translation id="8403807918453631441">ଆପଣ ଆପଣଙ୍କ ପାସୱାର୍ଡଗୁଡ଼ିକୁ ସେଭ କଲେ <ph name="BRAND" /> ସେଗୁଡ଼ିକୁ ଯାଞ୍ଚ କରିପାରିବ</translation>
 <translation id="8405046151008197676">ନବୀନତମ ଅପ୍‌ଡେଟ୍‍ରୁ ହାଇଲାଇଟ୍ସ ପାଆନ୍ତୁ</translation>
@@ -9006,13 +9128,17 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8449008133205184768">ପେଷ୍ଟ କରନ୍ତୁ ଏବଂ ଷ୍ଟାଇଲ୍ ମେଳ କରନ୍ତୁ</translation>
 <translation id="8449036207308062757">ଷ୍ଟୋରେଜ୍‌ ପରିଚାଳନା କରନ୍ତୁ</translation>
 <translation id="8449836157089738489">ସମସ୍ତ URLକୁ ନୂଆ ଟାବ ଗ୍ରୁପରେ ଖୋଲନ୍ତୁ</translation>
+<translation id="8449869326050867919">ପାସୱାର୍ଡ ସେୟାର କରାଯାଇଛି</translation>
 <translation id="8451512073679317615">Assistant</translation>
 <translation id="8452105022015742247">ଆପଣଙ୍କ Android ଫୋନରୁ Google ଆକାଉଣ୍ଟ ସୂଚନା ଟ୍ରାନ୍ସଫର କରାଯାଉଛି</translation>
+<translation id="8456067150616457342">ଆପଣଙ୍କ ଡିଫଲ୍ଟ ବ୍ରାଉଜର ସେଟ କରନ୍ତୁ</translation>
 <translation id="845702320058262034">ସଂଯୋଗ କରିପାରିବ ନାହିଁ। ଏହା ସୁନିଶ୍ଚିତ କରନ୍ତୁ ଯେ ଆପଣଙ୍କ ଫୋନ୍‍ର ବ୍ଲୁଟୁଥ୍ ଚାଲୁ ଅଛି।</translation>
 <translation id="8457251154056341970">ଆପଣ ଏହି ପୃଷ୍ଠାରେ <ph name="MODULE_NAME" />କୁ ପୁଣି ଦେଖିବେ ନାହିଁ</translation>
 <translation id="8457451314607652708">ବୁକ୍‍ମାର୍କଗୁଡିକୁ ଇମ୍ପୋର୍ଟ କରନ୍ତୁ</translation>
 <translation id="8458341576712814616">ସର୍ଟକଟ୍</translation>
 <translation id="8458627787104127436">ସମସ୍ତ (<ph name="URL_COUNT" />)ଟି URL ନୂଆ ୱିଣ୍ଡୋରେ ଖୋଲନ୍ତୁ</translation>
+<translation id="8459023460357294721">ଯେ କୌଣସି ମତେ <ph name="FILE_NAME" /> ଖୋଲନ୍ତୁ</translation>
+<translation id="8459333762072051247">ସାଇନ ଇନର ସ୍ଥିତି</translation>
 <translation id="8460448946170646641">ମୁଖ୍ୟ ଗୋପନୀୟତା ଏବଂ ସୁରକ୍ଷା ନିୟନ୍ତ୍ରଣଗୁଡ଼ିକର ସମୀକ୍ଷା କରନ୍ତୁ</translation>
 <translation id="8460490661223303637">ମେମୋରୀ ସେଭ୍ କରିବା ପାଇଁ, Chrome କିଛି ବିଷୟବସ୍ତୁକୁ କାଢ଼ି ଦେଇଛି</translation>
 <translation id="8460932807646981183">ସନ୍ଧାନ ଇଞ୍ଜିନ୍ ଏବଂ ସାଇଟ୍ ସନ୍ଧାନକୁ ପରିଚାଳନା କରନ୍ତୁ</translation>
@@ -9041,6 +9167,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8476491056950015181"><ph name="BEGIN_PARAGRAPH1" />ChromeOS ଡିଭାଇସଗୁଡ଼ିକୁ ସ୍ୱଚାଳିତ ଭାବେ ରିପୋର୍ଟଗୁଡ଼ିକ ପଠାଇବାକୁ ଅନୁମତି ଦେବା ଫଳରେ, ChromeOSରେ କେଉଁ ସମସ୍ୟାକୁ ଠିକ୍ କରାଯିବ ଏବଂ ଏଥିରେ କଣ ଉନ୍ନତି କରାଯିବ, ତାକୁ ପ୍ରାଥମିକତା ଦେବାରେ ଏହା ଆମକୁ ସାହାଯ୍ୟ କରେ। ଏହି ରିପୋର୍ଟଗୁଡ଼ିକରେ କେତେବେଳେ ChromeOS କ୍ରାସ ହୁଏ, କେଉଁ ଫିଚରଗୁଡ଼ିକୁ ବ୍ୟବହାର କରାଯାଇଛି, ସାଧାରଣତଃ କେତେ ମେମୋରୀ ବ୍ୟବହୃତ ହୋଇଛି ଏବଂ Android ଆପ ଡାଏଗ୍ନୋଷ୍ଟିକ ଓ ବ୍ୟବହାର ଡାଟା ପରି ସୂଚନା ଅନ୍ତର୍ଭୁକ୍ତ ହୋଇପାରେ। କିଛି ଏକତ୍ରିତ ଡାଟା Google ଆପ୍ସ ଓ Android ଡେଭେଲପରମାନଙ୍କ ପରି ଏହାର ପାର୍ଟନରଗୁଡ଼ିକୁ ମଧ୍ୟ ସାହାଯ୍ୟ କରିବ।<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />ଆପଣ ଆପଣଙ୍କ ପିଲାର ChromeOS ଡିଭାଇସ ସେଟିଂସରେ ଯେ କୌଣସି ସମୟରେ ଏହି ରିପୋର୍ଟଗୁଡ଼ିକୁ ଅନୁମତି ଦେବା ଆରମ୍ଭ କିମ୍ବା ବନ୍ଦ କରିପାରିବେ। ଯଦି ଆପଣ ଜଣେ ଡୋମେନ ଆଡମିନିଷ୍ଟ୍ରେଟର ଅଟନ୍ତି, ତେବେ ଆପଣ ଆଡମିନ କନସୋଲରେ ଏହି ସେଟିଂକୁ ପରିବର୍ତ୍ତନ କରିପାରିବେ।<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH4" />ଯଦି ଆପଣଙ୍କ ପିଲାର Google ଆକାଉଣ୍ଟ ପାଇଁ ୱେବ ଓ ଆପ କାର୍ଯ୍ୟକଳାପ ସେଟିଂ ଚାଲୁ ଅଛି, ତେବେ ଆପଣଙ୍କ ପିଲାର ଡାଟାକୁ ତା'ର Google ଆକାଉଣ୍ଟରେ ସେଭ କରାଯାଇପାରେ। ଏହି ସେଟିଂସ ଏବଂ ସେଗୁଡ଼ିକୁ କିପରି ଆଡଜଷ୍ଟ କରାଯାଏ, ସେ ବିଷୟରେ families.google.comରେ ଅଧିକ ଜାଣନ୍ତୁ।<ph name="END_PARAGRAPH4" /></translation>
+<translation id="8477178913400731244">ଡାଟାକୁ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="8477241577829954800">ଏହି ସ୍ଥାନ ଅଧିକାର କଲା</translation>
 <translation id="8477384620836102176">&amp;ସାଧାରଣ</translation>
 <translation id="8479176401914456949">ଅବୈଧ କୋଡ୍। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।</translation>
@@ -9160,6 +9287,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="859246725979739260">ଆପଣଙ୍କ ଲୋକେସନ୍ ଆକ୍ସେସ୍ କରିବାରୁ ଏହି ସାଇଟକୁ ବ୍ଲକ୍ କରାଯାଇଛି।</translation>
 <translation id="8593121833493516339">ବ୍ୟବହାର ଓ ଡାଏଗ୍ନୋଷ୍ଟିକ୍ ଡାଟା ପଠାନ୍ତୁ। ସ୍ଵଚାଳିତ ଭାବେ ଡାଏଗ୍ନୋଷ୍ଟିକ୍, ଡିଭାଇସ୍ ଓ ଆପ୍ ବ୍ୟବହାର ଡାଟାକୁ Googleକୁ ପଠାଇ ଆପଣଙ୍କ ପିଲାର Android ଅନୁଭବକୁ ଉନ୍ନତ କରିବାରେ ସାହାଯ୍ୟ କରନ୍ତୁ। ଆପଣଙ୍କ ପିଲାକୁ ଚିହ୍ନଟ କରିବାରେ ଏହାକୁ ବ୍ୟବହାର କରାଯାଇପାରିବ ନାହିଁ ଏବଂ ସିଷ୍ଟମ୍ ଓ ଆପ୍‌ରେ ସ୍ଥିରତା ତଥା ଅନ୍ୟ ଉନ୍ନତିଗୁଡ଼ିକ ଆଣିବାରେ ସାହାଯ୍ୟ କରିବ। କିଛି ଏକତ୍ରିତ ଡାଟା Google ଆପ୍ସ ଏବଂ ତାହାର ସହଭାଗୀ, ଯେପରିକି Android ଡେଭଲପର୍‌କୁ ମଧ୍ୟ ସାହାଯ୍ୟ କରିବ। ଯଦି ଅତିରିକ୍ତ ୱେବ୍ ଓ ଆପ୍ କାର୍ଯ୍ୟକଳାପକୁ ଆପଣଙ୍କ ପିଲା ପାଇଁ ଚାଲୁ କରାଯାଏ, ତେବେ ଏହି ଡାଟା ସେମାନଙ୍କ Google ଆକାଉଣ୍ଟରେ ସେଭ୍ ହୋ‍ଇପାରେ। <ph name="BEGIN_LINK1" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="END_LINK1" /></translation>
 <translation id="8593450223647418235">ସେଟଅପ ସମ୍ପୂର୍ଣ୍ଣ ନହେବା ପର୍ଯ୍ୟନ୍ତ ଆପଣ Microsoft 365ରେ ଫାଇଲ ଖୋଲିବାକୁ ସକ୍ଷମ ହେବେ ନାହିଁ।</translation>
+<translation id="8594585498253980290">{COUNT,plural, =1{1 ସାଇଟକୁ ବ୍ଲକ କରାଯାଇଛି}other{# ସାଇଟକୁ ବ୍ଲକ କରାଯାଇଛି}}</translation>
 <translation id="8596540852772265699">କଷ୍ଟମ୍ ଫାଇଲ୍ସ</translation>
 <translation id="8597845839771543242">ପ୍ରପର୍ଟି ଫର୍ମାଟ୍:</translation>
 <translation id="8599681327221583254">ଏକ କିମ୍ବା ଅଧିକ ନୀତିକୁ ସଠିକ୍ ଭାବରେ କନଫିଗର୍ କରାଯାଇନାହିଁ। ଦୟାକରି ଆପଣଙ୍କ ଆଡମିନିଷ୍ଟ୍ରେଟରଙ୍କ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ</translation>
@@ -9179,6 +9307,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8613786722548417558">ସୁରକ୍ଷା ଯାଞ୍ଚ ପାଇଁ <ph name="FILE_NAME" /> ବହୁତ ବଡ଼ ଅଟେ। ଆପଣ 50 MB ପର୍ଯ୍ୟନ୍ତ ଫାଇଲଗୁଡ଼ିକୁ ଖୋଲି ପାରିବେ।</translation>
 <translation id="8615618338313291042">ଇନ୍‌କଗ୍ନିଟୋ ଆପ୍: <ph name="APP_NAME" /></translation>
 <translation id="8616441548384109662">ଆପଣଙ୍କ ଯୋଗାଯୋଗରେ <ph name="CONTACT_NAME" />ଙ୍କୁ ଯୋଗ କରନ୍ତୁ</translation>
+<translation id="8617601976406256334"><ph name="SITE_NAME" /> ପାଇଁ ସାଇଟ ଡାଟା ଓ ଅନୁମତିଗୁଡ଼ିକୁ ଡିଲିଟ କରିବେ?</translation>
 <translation id="8617748779076050570">ସୁରକ୍ଷିତ ସଂଯୋଗ ID: <ph name="CONNECTION_ID" /></translation>
 <translation id="8619000641825875669">OneDrive</translation>
 <translation id="8619803522055190423">ଡ୍ରପ୍ ଶାଡୋ</translation>
@@ -9295,6 +9424,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="869891660844655955">ମିଆଦ ଶେଷ ହେଉଥିବା ତାରିଖ</translation>
 <translation id="8699188901396699995"><ph name="PRINTER_NAME" /> ପାଇଁ PPD</translation>
 <translation id="8700066369485012242">ଏହି ସାଇଟରେ ତୃତୀୟ-ପକ୍ଷ କୁକୀଗୁଡ଼ିକୁ ଆପଣ କାହିଁକି ଅନୁମତି ଦେଇଛନ୍ତି ତାହା ଆମକୁ କୁହନ୍ତୁ</translation>
+<translation id="8700416429250425628">ଲଞ୍ଚର + Backspace</translation>
 <translation id="8702278591052316269">ସେଭ କରାଯାଇଥିବା ଲୁକ୍କାୟିତ ଟାବ ଗ୍ରୁପଗୁଡ଼ିକ ଥିବା ମେନୁ</translation>
 <translation id="8702825062053163569">ଆପଣଙ୍କର <ph name="DEVICE_TYPE" /> ଲକ୍ ହୋଇଯାଇଛି।</translation>
 <translation id="8703166594516496633">ଫଣ୍ଟ-ଆକାର କମାନ୍ତୁ</translation>
@@ -9308,6 +9438,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8708000541097332489">ପ୍ରସ୍ଥାନରେ ଖାଲି କରନ୍ତୁ</translation>
 <translation id="870805141700401153">Microsoft ବ୍ୟକ୍ତିଗତ କୋଡ୍ ଦସ୍ତଖତ</translation>
 <translation id="8708671767545720562">&amp;ଅଧିକ ସୂଚନା</translation>
+<translation id="8709368517685334931">ଆପଣ Chrome Web Storeରେ ପୁରୁଣା ରଙ୍ଗଗୁଡ଼ିକୁ ଖୋଜିପାରିବେ</translation>
 <translation id="8711402221661888347">ପିକ୍‌ଲ୍ସ</translation>
 <translation id="8711538096655725662">ଆପଣ ଭିଜିଟ କରୁଥିବା ସମସ୍ତ ସାଇଟରେ ସ୍ୱତଃ ଚାଲେ</translation>
 <translation id="8712637175834984815">ବୁଝିଗଲି</translation>
@@ -9322,6 +9453,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8719472795285728850">ଏକ୍ସଟେନ୍‌ସନ୍ କାର୍ଯ୍ୟକଳାପଗୁଡ଼ିକ ଶୁଣିବା ପାଇଁ...</translation>
 <translation id="8720200012906404956">ଗୋଟିଏ ମୋବାଇଲ୍ ନେଟ୍‌ୱର୍କ ଖୋଜୁଛି। <ph name="BEGIN_LINK" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="END_LINK" /></translation>
 <translation id="8720816553731218127">ଇନ୍‌ଷ୍ଟଲେସନ୍ ସମୟ ବିଶେଷତାଗୁଡ଼ିକ ଆରମ୍ଭ କରିବାର ସମୟ ଅବଧି ଶେଷ ହୋଇଗଲା।</translation>
+<translation id="8721093493695533465">ଏହା ଡିସପ୍ଲେ ହୋଇଥିବା ସାଇଟ ଏବଂ ଇନଷ୍ଟଲ କରାଯାଇଥିବା ଆପ୍ସ ଦ୍ୱାରା ଷ୍ଟୋର କରାଯାଇଥିବା <ph name="TOTAL_USAGE" /> ଡାଟାକୁ ଡିଲିଟ କରିଦେବ</translation>
 <translation id="8722912030556880711">ବ୍ୟବହାର ଓ ଡାଏଗ୍ନୋଷ୍ଟିକ୍ ଡାଟା ପଠାନ୍ତୁ। ଏହି ଡିଭାଇସ୍ ବର୍ତ୍ତମାନ ସ୍ୱଚାଳିତ ରୂପେ ଡାଏଗ୍ନୋଷ୍ଟିକ୍, ଆପ୍ ଓ ଆପ୍ ବ୍ୟବହାର ଡାଟା Googleକୁ ପଠାଉଛି। ଏହା ସିଷ୍ଟମ୍ ଓ ଆପ୍‌ର ସ୍ଥିରତା ତଥା ଅନ୍ୟାନ୍ୟ ଉନ୍ନତି ଆଣିବାରେ ସାହାଯ୍ୟ କରିବ। କିଛି ଏକତ୍ରିତ ଡାଟା, Google ଆପ୍ସ ଓ ତାହାର ସହଭାଗୀମାନଙ୍କୁ ମଧ୍ୟ ସାହାଯ୍ୟ କରିବ, ଯେପରିକି Android ଡେଭଲପର୍। ଯଦି ଆପଣଙ୍କର ଅତିରିକ୍ତ ୱେବ୍ ଓ ଆପ୍ ଗତିବିଧି ସେଟିଂ ଚାଲୁ କରାଯାଏ, ତେବେ ଏହି ଡାଟା ଆପଣଙ୍କର Google ଆକାଉଣ୍ଟରେ ସେଭ୍ ହୋ‍ଇପାରେ। <ph name="BEGIN_LINK2" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="END_LINK2" /></translation>
 <translation id="8724405322205516354">ଆପଣ ଯେତେବେଳେ ଏହି ଆଇକନ୍‌କୁ ଦେଖନ୍ତି, ଚିହ୍ନଟକରଣ ପାଇଁ କିମ୍ବା କ୍ରୟଗୁଡିକୁ ଅନୁମୋଦନ କରିବା ପାଇଁ ଆପଣଙ୍କର ଟିପ ଚିହ୍ନ ବ୍ୟବହାର କରନ୍ତୁ।</translation>
 <translation id="8724409975248965964">ଟିପଚିହ୍ନ ଯୋଗ କରାଯାଇଛି</translation>
@@ -9381,6 +9513,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8766796754185931010">କୋଟୋଏରି</translation>
 <translation id="8767069439158587614"><ph name="QUERY_CLUSTER_NAME" /> ପାଇଁ ସମସ୍ତ ସର୍ଚ୍ଚ ଦେଖାନ୍ତୁ</translation>
 <translation id="8767621466733104912">ସମସ୍ତ ଉପଯୋଗକର୍ତ୍ତାଙ୍କ ପାଇଁ ସ୍ୱଚାଳିତ ଭାବେ Chrome ଅପ୍‌ଡେଟ୍‌ କରେ</translation>
+<translation id="876956356450740926">ଡେଭେଲପର ଟୁଲ, IDE ଏବଂ ଏଡିଟରଗୁଡ଼ିକୁ ଚଲାନ୍ତୁ। <ph name="LINK_BEGIN" />ଅଧିକ ଜାଣନ୍ତୁ<ph name="LINK_END" /></translation>
 <translation id="8770406935328356739">ଏକ୍ସଣ୍ଟେନ୍‌ସନ୍ ରୁଟ୍ ଡିରେକ୍ଟୋରୀ</translation>
 <translation id="8771300903067484968">ପ୍ରାରମ୍ଭ ପୃଷ୍ଠାର ବ୍ୟାକ୍‌ଗ୍ରାଉଣ୍ଡକୁ ଡିଫଲ୍ଟ ବ୍ୟାକ୍‌ଗ୍ରାଉଣ୍ଡରେ ରିସେଟ୍‍ କରାଯାଇଛି।</translation>
 <translation id="8773280816776735812">IBANର ମୂଲ୍ୟ ଦେଖାନ୍ତୁ</translation>
@@ -9539,6 +9672,8 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8893928184421379330">କ୍ଷମା କରିବେ, <ph name="DEVICE_LABEL" /> ଡିଭାଇସ୍ ଚିହ୍ନଟ କରାଯାଇପାରିଲା ନାହିଁ।</translation>
 <translation id="8894761918470382415">ପେରିଫେରାଲଗୁଡ଼ିକ ପାଇଁ ଡାଟା ଆକ୍ସେସ୍ ସୁରକ୍ଷା</translation>
 <translation id="8895454554629927345">ବୁକ୍‌ମାର୍କ ତାଲିକା</translation>
+<translation id="8896830132794747524">ମାଉସର ଦ୍ରୁତ ମୁଭମେଣ୍ଟ ଫଳରେ କର୍ସର ଆହୁରି ଦୂରକୁ ମୁଭ କରିବ</translation>
+<translation id="8898140163781851592">ପ୍ରାଥମିକ ମାଉସ ବଟନ</translation>
 <translation id="8898786835233784856">ପରବର୍ତ୍ତୀ ଟାବ୍ ଚୟନ କରନ୍ତୁ</translation>
 <translation id="8898822736010347272">ନୂଆ ବିପଦଗୁଡ଼ିକୁ ଖୋଜି ପାଇବାରେ ଏବଂ ୱେବରେ ସମସ୍ତଙ୍କୁ ସୁରକ୍ଷା ଦେବାରେ ସାହାଯ୍ୟ କରିବାକୁ, ଆପଣ ଭିଜିଟ୍ କରୁଥିବା କିଛି ୱେବପୃଷ୍ଠାର URLଗୁଡ଼ିକ, ସୀମିତ ସିଷ୍ଟମ୍ ସୂଚନା ଏବଂ କିଛି ୱେବପୃଷ୍ଠାର ବିଷୟବସ୍ତୁ Googleକୁ ପଠାଏ।</translation>
 <translation id="8899851313684471736">ନୂତନ ୱିଣ୍ଡୋରେ ଲିଙ୍କଗୁଡିକ ଖୋଲନ୍ତୁ</translation>
@@ -9558,6 +9693,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8916476537757519021">ଇନ୍‌କଗ୍ନିଟୋ ସବଫ୍ରେମ୍: <ph name="SUBFRAME_SITE" /></translation>
 <translation id="8917490105272468696">ହଁ, ମୁଁ ରାଜି ଅଛି</translation>
 <translation id="8918637186205009138"><ph name="GIVEN_NAME" />ଙ୍କ <ph name="DEVICE_TYPE" /></translation>
+<translation id="891931289445130855">ଡାଟା ଏବଂ ଅନୁମତିଗୁଡ଼ିକୁ ଡିଲିଟ କରନ୍ତୁ</translation>
 <translation id="8922624386829239660">ମାଉସ୍ ସ୍କ୍ରିନର ଧାରଗୁଡ଼ିକୁ ସ୍ପର୍ଶ କରିବା ସମୟରେ ସ୍କ୍ରିନକୁ ମୁଭ୍ କରନ୍ତୁ</translation>
 <translation id="8923880975836399332">ଗାଢ଼ ଟିଲ୍</translation>
 <translation id="8925124370124776087">ଟାଇଟେଲ ବାର ବର୍ତ୍ତମାନ ଲୁକ୍କାୟିତ ଅଛି</translation>
@@ -9600,6 +9736,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="8952831374766033534">କନଫିଗ୍‌ରେସନ୍ ବିକଳ୍ପ ସମର୍ଥିତ ନୁହେଁ: <ph name="ERROR_LINE" /></translation>
 <translation id="8953476467359856141">ଚାର୍ଜ ହେଉଥିବା ସମୟରେ</translation>
 <translation id="895347679606913382">ଆରମ୍ଭ ହେଉଛି...</translation>
+<translation id="8955174612586215829">ଥିମଗୁଡ଼ିକ ଖୋଜନ୍ତୁ</translation>
 <translation id="8957757410289731985">ପ୍ରୋଫାଇଲକୁ କଷ୍ଟମାଇଜ୍ କରନ୍ତୁ</translation>
 <translation id="8959144235813727886">ସାଇଟ ଏବଂ ଆପ୍ସ</translation>
 <translation id="895944840846194039">JavaScript ମେମୋରୀ</translation>
@@ -9754,6 +9891,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="9068298336633421551">ଲୋକେସନ ଅନୁମତି ଥିବା Android ଆପ ଓ ସେବାଗୁଡ଼ିକୁ ଏହି ଡିଭାଇସର ଲୋକେସନ ବ୍ୟବହାର କରିବା ପାଇଁ ଅନୁମତି ଦିଅନ୍ତୁ। ସମୟ ସମୟରେ Google ଲୋକେସନ ଡାଟା ସଂଗ୍ରହ କରିପାରେ ଏବଂ ଏକ ବେନାମୀ ଉପାୟରେ ଏହି ଡାଟାକୁ ଲୋକେସନ ସଠିକତା ତଥା ଲୋକେସନ-ଆଧାରିତ ସେବାଗୁଡ଼ିକରେ ଉନ୍ନତି ଆଣିବାକୁ ବ୍ୟବହାର କରିପାରେ।</translation>
 <translation id="9068598199622656904">ସମାନ ସମୟରେ କୀ'ଗୁଡ଼ିକୁ ଧରି ରଖିବା ପରିବର୍ତ୍ତେ କୀବୋର୍ଡ ସର୍ଟକର୍ଟଗୁଡ଼ିକ ପାଇଁ ଥରକେ ଗୋଟିଏ କୀ ଦବାନ୍ତୁ</translation>
 <translation id="9068878141610261315">ଅସମର୍ଥିତ ଫାଇଲର ପ୍ରକାର</translation>
+<translation id="9069417381769492963">ଆପଣଙ୍କ ସର୍ଚ୍ଚ ସହ ମେଳ ହେଉଥିବା କୌଣସି ବୁକମାର୍କ ନାହିଁ</translation>
 <translation id="9069665781180028115">ଏହି Chromebookରେ ଚୟନିତ ଆଇଟମଗୁଡ଼ିକ ଉପଲବ୍ଧ ହେବ। ଯଦି ଆପଣ Chromebookରେ ନୂଆ ଅଟନ୍ତି, ତେବେ ସମସ୍ତ ଆଇଟମକୁ ସିଙ୍କ କରନ୍ତୁ ଯାହା ଫଳରେ ଆପଣଙ୍କ ପସନ୍ଦଗୁଡ଼ିକର ବେକଅପ ନିଆଯିବ। ଯେ କୌଣସି ସମୟରେ ସେଟିଂସ &gt; ଆକାଉଣ୍ଟଗୁଡ଼ିକରେ ପରିବର୍ତ୍ତନ କରନ୍ତୁ।</translation>
 <translation id="9070231741075992882"><ph name="APP_NAME" /> ପାଇଁ ଆପଣ ଦେଇଥିବା ଅନୁମତିଗୁଡ଼ିକୁ ଏହାର ଇନଷ୍ଟଲ ଏବଂ ଷ୍ଟ୍ରିମ କରାଯାଇଥିବା ଆପ୍ସ ପାଇଁ ମଧ୍ୟ ଦିଆଯିବ।</translation>
 <translation id="9070342919388027491">ବାମକୁ ଟାବ୍ ମୁଭ୍ କରାଯାଇଛି</translation>
@@ -9834,6 +9972,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="9128335130883257666"><ph name="INPUT_METHOD_NAME" /> ପାଇଁ ସେଟିଂସ୍ ପୃଷ୍ଠା ଖୋଲନ୍ତୁ</translation>
 <translation id="9128870381267983090">ନେଟ୍‌ୱର୍କ ସହ ସଂଯୋଗ କରନ୍ତୁ</translation>
 <translation id="9130015405878219958">ଅବୈଧ ମୋଡ୍ ଏଣ୍ଟର୍ ହୋଇଛି।</translation>
+<translation id="9130364135697530260">ଏହି ସାଇଟରେ ଏମ୍ବେଡ କରାଯାଇଥିବା ବିଷୟବସ୍ତୁ, ଆପଣଙ୍କ ବିଷୟରେ ଏହା ସେଭ କରିଥିବା ସୂଚନାକୁ ବ୍ୟବହାର କରିପାରିବ</translation>
 <translation id="9131209053278896908">ଏଠାରେ ବ୍ଲକ କରାଯାଇଥିବା ସାଇଟଗୁଡ଼ିକ ଦେଖାଯାଏ</translation>
 <translation id="9131487537093447019">ବ୍ଲୁଟୁଥ୍ ଡିଭାଇସ୍‍ଗୁଡ଼ିକୁ ମେସେଜ୍ ପଠାନ୍ତୁ ଏବଂ ସେଥିରୁ ମେସେଜ୍ ପ୍ରାପ୍ତ କରନ୍ତୁ।</translation>
 <translation id="9133568201369135151">ଡାଏଗ୍ନୋଷ୍ଟିକ ଡାଟା ସଂଗ୍ରହ ସମ୍ପୂର୍ଣ୍ଣ ହୋଇଛି। ଏହି ଡାଟାରେ ଆପଣଙ୍କର କିଛି ବ୍ୟକ୍ତିଗତ ସୂଚନା ଅନ୍ତର୍ଭୁକ୍ତ।</translation>
@@ -9858,6 +9997,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="9150079578948279438">ପ୍ରୋଫାଇଲକୁ କାଢ଼ି ଦିଆଯାଇପାରିଲା ନାହିଁ। ଦୟାକରି ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ କିମ୍ବା ଟେକନିକାଲ୍ ସପୋର୍ଟ ପାଇଁ ଆପଣଙ୍କ କ୍ୟାରିଅର୍ ସହ ଯୋଗାଯୋଗ କରନ୍ତୁ।</translation>
 <translation id="9150860646299915960">ଆପଣଙ୍କ Linux କଣ୍ଟେନରକୁ ଅପଗ୍ରେଡ କରନ୍ତୁ</translation>
 <translation id="9151249085738989067">ଭାଷାର ଆଧାରରେ ChromeVox ଭଏସ୍‍କୁ ସ୍ୱଚାଳିତ ଭାବେ ସ୍ୱିଚ୍ କରନ୍ତୁ</translation>
+<translation id="9153274276370926498">Lacros ସିଷ୍ଟମ ସୂଚନା</translation>
 <translation id="9154082578438716291">ଆପଣ Chrome ଜର୍ନିରେ ଆପଣଙ୍କ ବର୍ତ୍ତମାନର କାର୍ଯ୍ୟକଳାପକୁ ସହଜରେ ଫେରିବାରେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିବା ପାଇଁ ଆପଣ ଭିଜିଟ କରିଥିବା ପୃଷ୍ଠା ଏବଂ ପରାମର୍ଶ କରାଯାଇଥିବା ସର୍ଚ୍ଚଗୁଡ଼ିକୁ ଦେଖୁଛନ୍ତି।
         <ph name="BREAK" />
         <ph name="BREAK" />
@@ -9934,6 +10074,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="923900195646492191">{NUM_EXTENSIONS,plural, =1{ଏହାକୁ ପରିଚାଳନା କରିବା ପାଇଁ ଏକ୍ସଟେନସନ ଖୋଲନ୍ତୁ}other{ଏହାକୁ ପରିଚାଳନା କରିବା ପାଇଁ ଏକ୍ସଟେନସନ ଖୋଲନ୍ତୁ}}</translation>
 <translation id="924818813611903184">ChromeOS ସେଟିଂସରେ ଭାଷାଗୁଡ଼ିକୁ ପରିଚାଳନା କରନ୍ତୁ</translation>
 <translation id="925270020047573546">ଏହି ଡିଭାଇସରେ ଡେସ୍କଟପ ଅଡିଓ କାଷ୍ଟ କରିବା ସମର୍ଥିତ ନୁହେଁ।</translation>
+<translation id="925575170771547168">ଏହା ସାଇଟଗୁଡ଼ିକ ଦ୍ୱାରା ଷ୍ଟୋର କରାଯାଇଥିବା <ph name="TOTAL_USAGE" /> ଡାଟାକୁ ଡିଲିଟ କରିଦେବ</translation>
 <translation id="930268624053534560">ବିବରଣୀ ସହିତ ଟାଇମ୍‌ଷ୍ଟାମ୍ପସ୍‍</translation>
 <translation id="930551443325541578">କୀ ଏବଂ ଆକ୍ସେଣ୍ଟ ମାର୍କଗୁଡ଼ିକୁ ରିପିଟ କରନ୍ତୁ</translation>
 <translation id="930893132043726269">ବର୍ତ୍ତମାନ ରୋମିଂରେ ଅଛନ୍ତି</translation>
@@ -9953,6 +10094,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="938568644810664664">“Hey Google, ଏହା କେଉଁ ଗୀତ?” କିମ୍ବା “Hey Google, ମୋ ସ୍କ୍ରିନରେ କଣ ଅଛି?” ବୋଲି କହି ଦେଖନ୍ତୁ</translation>
 <translation id="938623846785894166">ଅସାଧାରଣ ଫାଇଲ</translation>
 <translation id="939401694733344652">ଏହି ଆକାଉଣ୍ଟଗୁଡ଼ିକ ବର୍ତ୍ତମାନ Android ଆପ୍ସରେ ବ୍ୟବହାର କରାଯାଉନାହିଁ। ଯଦି ଆପଣ ଏହି Android ଆପ ସହ ବ୍ୟବହାର କରିବା ପାଇଁ ଏକ ଆକାଉଣ୍ଟ ଚୟନ କରନ୍ତି, ତେବେ ଅନ୍ୟ Android ଆପ୍ସ ସହିତ ମଧ୍ୟ ଆକାଉଣ୍ଟଟି ବ୍ୟବହାର କରାଯାଇପାରିବ। ଆପଣ <ph name="LINK_BEGIN" />ସେଟିଂସ &gt; ଆକାଉଣ୍ଟଗୁଡ଼ିକ<ph name="LINK_END" />ରେ Android ଆପର ଆକ୍ସେସ ପରିବର୍ତ୍ତନ କରିପାରିବେ।</translation>
+<translation id="939553663881639126">ଅତିରିକ୍ତ ସର୍ଚ୍ଚ ପରାମର୍ଶ ପାଇବେ ନା ନାହିଁ ତାହା ବାଛନ୍ତୁ</translation>
 <translation id="939598580284253335">ପାସ୍‌-ଫ୍ରେଜ୍ ଲେଖନ୍ତୁ</translation>
 <translation id="939736085109172342">ନୂତନ ଫୋଲ୍ଡର</translation>
 <translation id="940212040923880623">&amp;ଖୋଜି ଏଡିଟ କରନ୍ତୁ</translation>
@@ -9996,6 +10138,7 @@ Voice Match ଆପଣଙ୍କ Assistantକୁ ଆପଣଙ୍କୁ ଚିହ�
 <translation id="975893173032473675">ଏହି ଭାଷାରେ ଅନୁବାଦ କରାଯିବ</translation>
 <translation id="976499800099896273"><ph name="TYPED_WORD" />କୁ ସଂଶୋଧନ କରି <ph name="CORRECTED_WORD" /> କରିବା ପାଇଁ 'ସ୍ୱତଃସଂଶୋଧନକୁ ପୂର୍ବବତ୍ କରନ୍ତୁ' ଡାଏଲଗ୍ ଦେଖାଯାଇଛି।  ଆକ୍ସେସ୍ କରିବାକୁ ଅପ୍ ତୀର କୀ, ଅଣଦେଖା କରିବାକୁ Escape କୀ ଦବାନ୍ତୁ।</translation>
 <translation id="978146274692397928">ପ୍ରାରମ୍ଭିକ ବିରାମ ଚିହ୍ନର ଚଉଡ଼ା ପୂର୍ଣ୍ଣ ଅଛି</translation>
+<translation id="978978324795544535">କୌଣସି ଆଇଟମରେ ଦୁଇ-ଥର ଟାପ କରନ୍ତୁ, ଦ୍ୱିତୀୟ ଥର ଟାପ କରି ଏହାକୁ ଦବାଇ ଧରନ୍ତୁ ଏବଂ ତା'ପରେ ଆଇଟମକୁ ମୁଭ କରିବା ପାଇଁ ଏହାକୁ ଡ୍ରାଗ କରନ୍ତୁ</translation>
 <translation id="97905529126098460">ବାତିଲ୍ ହୋଇସାରିବା ପରେ ଏହି ୱିଣ୍ଡୋ ବନ୍ଦ ହୋଇଯିବ।</translation>
 <translation id="980731642137034229">କାର୍ଯ୍ୟ ମେନୁ ବଟନ୍</translation>
 <translation id="981121421437150478">ଅଫ୍‍ଲାଇନ୍</translation>

@@ -94,6 +94,7 @@
 <translation id="174937106936716857">ការរាប់ឯកសារសរុប</translation>
 <translation id="1755345808328621801">ឯកសារនេះ​ត្រូវបានរចនាឡើង​សម្រាប់កុំព្យូទ័រ​ដែលប្រើកម្មវិធី Windows។ វាមិនត្រូវគ្នា​ជាមួយ​ឧបករណ៍​របស់អ្នក​ដែលដំណើរការ ChromeOS ទេ។ សូមស្វែងរក​កម្មវិធីជំនួសដែលសមស្រប​នៅលើ Chrome Web Store។</translation>
 <translation id="1757915090001272240">ឡាតាំងធំ</translation>
+<translation id="1761091787730831947">ចែក​រំលែក​ជា​មួយ <ph name="VM_NAME" /></translation>
 <translation id="1773212559869067373">វិញ្ញាបនប័ត្រសម្គាល់អត្តសញ្ញាណបានបដិសេធជាមូលដ្ឋាន</translation>
 <translation id="1775381402323441512">ព័ត៌មានអំពី​​វីដេអូ</translation>
 <translation id="180035236176489073">អ្នកត្រូវតែមានអ៊ីនធឺណិតដើម្បីចូលប្រើឯកសារទាំងនេះ។</translation>
@@ -170,6 +171,7 @@
 <translation id="23721837607121582">ទាញយក​កម្រងព័ត៌មាន​ឧបករណ៍​ចល័ត បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" /></translation>
 <translation id="2377319039870049694">ប្ដូរ​ទៅ​ទិដ្ឋភាពជាបញ្ជី</translation>
 <translation id="2377590462528165447">ថត <ph name="NUMBER_OF_ITEMS" /> ដែលបាន​ចែករំលែកជាមួយ Linux</translation>
+<translation id="2379576081295865700">កំពុង​ពិនិត្យមើល​ទំហំផ្ទុក… បានរកឃើញ​ធាតុ 1</translation>
 <translation id="2383454254762599978">ផ្លាស់ទី​ទៅក្នុង​ធុងសំរាម</translation>
 <translation id="2387458720915042159">ប្រភេទ​នៃការ​តភ្ជាប់​ប្រូកស៊ី</translation>
 <translation id="2389832672041313158">ភាសា​ភូមា/មីយ៉ាន់ម៉ា</translation>
@@ -211,6 +213,7 @@
 <translation id="2718540689505416944">ដំឡើង​កម្មវិធី​តាមរយៈ Linux</translation>
 <translation id="2719020180254996569">បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="CONNECTION_STATUS" />, ព័ត៌មាន​លម្អិត</translation>
 <translation id="2724954091494693138">ភាសាតួកគី​ដែលប្រើ​ក្ដារចុច F</translation>
+<translation id="2732288874651063549">គ្រប់គ្រង​ការចែករំលែក​ជាមួយ <ph name="VM_NAME" /></translation>
 <translation id="2732839045120506979">ភាសាវៀតណាម VNI</translation>
 <translation id="2735623501230989521">ផ្ដល់ការអនុញ្ញាតឱ្យ Parallels Desktop ចូលប្រើឯកសារ​នៅក្នុងថត <ph name="FOLDER_NAME" /></translation>
 <translation id="2764206540577097904">អ្នកបានប្រើទំហំផ្ទុក Google Workspace បុគ្គលរបស់អ្នកអស់ហើយ។</translation>
@@ -305,6 +308,7 @@
 <translation id="3509680540198371098">បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, <ph name="SECURITY_STATUS" />, <ph name="CONNECTION_STATUS" />, កម្លាំងរលកសញ្ញា <ph name="SIGNAL_STRENGTH" />%, ព័ត៌មានលម្អិត</translation>
 <translation id="3511705761158917664">កំពុង​រៀបចំ​ធ្វើ​សមកាលកម្មធាតុ <ph name="NUMBER_OF_ITEMS" />...</translation>
 <translation id="3522708245912499433">ភាសាប៉ទុយកាល់</translation>
+<translation id="3523225005467146490">បានចែករំលែក​ថត 1 ជាមួយ <ph name="VM_NAME" /></translation>
 <translation id="3524311639100184459">ប្រុងប្រយ័ត្ន៖ ឯកសារទាំងនេះ​គឺជាឯកសារ​បណ្ដោះអាសន្ន និងអាចត្រូវបានលុប​ដោយស្វ័យប្រវត្តិ ដើម្បីបង្កើន​ទំហំផ្ទុកថាស។  <ph name="BEGIN_LINK" />ស្វែងយល់បន្ថែម<ph name="END_LINK" /></translation>
 <translation id="3527085408025491307">ថតឯកសារ</translation>
 <translation id="3548125359243647069">បានបញ្ចូលកូដ PIN មិនត្រឹមត្រូវច្រើនដងពេក។</translation>
@@ -663,6 +667,8 @@
 <translation id="6164412158936057769">មេអំបៅ</translation>
 <translation id="6165508094623778733">ស្វែងយល់​បន្ថែម</translation>
 <translation id="6170470584681422115">សាំងវិច</translation>
+<translation id="6177854567773392726">កំពុង​ពិនិត្យមើល​ទំហំផ្ទុក… បាន​រកឃើញ​ធាតុ <ph name="ITEMS_FOUND" /></translation>
+<translation id="6181912134988520389">ផ្ដល់​ការអនុញ្ញាតឱ្យ <ph name="VM_NAME" /> ចូលប្រើ​ឯកសារ​នៅក្នុង Google ថាស​របស់អ្នក។ ការផ្លាស់ប្ដូរនឹង​ធ្វើសមកាលកម្ម​ទៅឧបករណ៍​ផ្សេងទៀត​របស់អ្នក។</translation>
 <translation id="6187719147498869044">ភាសា​ហុងគ្រី</translation>
 <translation id="6198252989419008588">ប្តូរលេខសម្គាល់</translation>
 <translation id="6199801702437275229">កំពុងរង់ចាំព័ត៌មានចន្លោះផ្ទុក...</translation>
@@ -766,6 +772,7 @@
 <translation id="6989942356279143254">ភាសា​ស៊ុយអែត</translation>
 <translation id="6990081529015358884">អ្នកអស់ចន្លោះផ្ទុកហើយ</translation>
 <translation id="6993826899923627728">ធាតុទាំងនេះស្ថិតនៅក្នុងធុងសំរាមរបស់អ្នក</translation>
+<translation id="6996593023542748157">ចែករំលែក​ថត​ជាមួយ <ph name="VM_NAME" /></translation>
 <translation id="7008426324576352165">ស្ថាប័នរបស់អ្នកតម្រូវ​ឱ្យ​មាន​ទំហំផ្ទុកបន្ថែម ដើម្បីបញ្ចប់ការបង្ហោះ។</translation>
 <translation id="7009985720488544166">ការផ្លាស់ទី​ឯកសារ <ph name="COUNT" /> ត្រូវបាន​ទប់ស្កាត់​ដោយ​គោលការណ៍​របស់​អ្នក​គ្រប់គ្រង</translation>
 <translation id="7012943028104619157"><ph name="ROOT_TITLE" /> (<ph name="ROOT_SUMMARY" />)</translation>
@@ -951,6 +958,7 @@
 <translation id="8335837413233998004">ភាសា​បេឡារុស</translation>
 <translation id="8336153091935557858">ម្សិលមិញ <ph name="YESTERDAY_DAYTIME" /></translation>
 <translation id="8342318071240498787">មានឯកសារ ឬថតឯកសារដែលមានឈ្មោះដូចនេះមានរួចទៅហើយ។</translation>
+<translation id="83651606385705612">ផ្ដល់​ការអនុញ្ញាតឱ្យ <ph name="VM_NAME" /> ចូលប្រើ​ឯកសារ​នៅក្នុង​ថត <ph name="FOLDER_NAME" /></translation>
 <translation id="8372369524088641025">សោ WEP មិនល្អ</translation>
 <translation id="8372852072747894550">ភាសា​ក្រិក</translation>
 <translation id="8386903983509584791">ការស្កេនបានបញ្ចប់</translation>
@@ -960,6 +968,7 @@
 <translation id="8408068190360279472">បណ្ដាញ <ph name="NETWORK_TYPE" />, កំពុង​ភ្ជាប់</translation>
 <translation id="8425213833346101688">ប្តូរ</translation>
 <translation id="8428213095426709021">ការកំណត់</translation>
+<translation id="8429998526804961548">បានចែករំលែក​ថត <ph name="NUMBER_OF_ITEMS" /> ជាមួយ <ph name="VM_NAME" /></translation>
 <translation id="8431909052837336408">ប្ដូរកូដ PIN ស៊ីមកាត</translation>
 <translation id="8437209419043462667">អាមេរិក</translation>
 <translation id="8452135315243592079">បាត់ស៊ីមកាត</translation>

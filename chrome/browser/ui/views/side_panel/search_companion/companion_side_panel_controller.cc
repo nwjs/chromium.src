@@ -21,8 +21,10 @@
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/google/core/common/google_util.h"
+#include "components/lens/lens_url_utils.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "third_party/blink/public/mojom/frame/user_activation_notification_type.mojom.h"
+#include "ui/webui/webui_allowlist.h"
 
 namespace companion {
 
@@ -56,6 +58,14 @@ void CompanionSidePanelController::CreateAndRegisterEntry() {
           base::Unretained(this)));
   registry->Register(std::move(entry));
   AddObserver();
+
+  // Give Search Companion Server 3P Cookie Permissions
+  auto* webui_allowlist = WebUIAllowlist::GetOrCreate(browser->profile());
+  const url::Origin companion_origin = url::Origin::Create(
+      GURL(chrome::kChromeUIUntrustedCompanionSidePanelURL));
+  webui_allowlist->RegisterAutoGrantedThirdPartyCookies(
+      companion_origin,
+      {ContentSettingsPattern::FromURL(GURL(GetHomepageURLForCompanion()))});
 }
 
 void CompanionSidePanelController::DeregisterEntry() {
@@ -142,6 +152,10 @@ CompanionSidePanelController::CreateCompanionWebView() {
 }
 
 GURL CompanionSidePanelController::GetOpenInNewTabUrl() {
+  // The start time needs to be updated when the url is fetched for opening
+  // to properly log the loading latency in Lens.
+  open_in_new_tab_url_ =
+      lens::AppendOrReplaceStartTimeIfLensRequest(open_in_new_tab_url_);
   return open_in_new_tab_url_;
 }
 

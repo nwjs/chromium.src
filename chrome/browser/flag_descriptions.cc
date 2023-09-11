@@ -2035,6 +2035,9 @@ const char kJavascriptExperimentalSharedMemoryDescription[] =
 const char kJourneysName[] = "History Journeys";
 const char kJourneysDescription[] = "Enables the History Journeys UI.";
 
+const char kRenameJourneysName[] = "Rename History Journeys";
+const char kRenameJourneysDescription[] = "Renames History Journeys in the UI.";
+
 const char kJourneysContentClusteringName[] =
     "History Journeys Content Clustering";
 const char kJourneysContentClusteringDescription[] =
@@ -4737,6 +4740,11 @@ const char kNtpDriveModuleSegmentationName[] = "NTP Drive Module Segmentation";
 const char kNtpDriveModuleSegmentationDescription[] =
     "Uses segmentation data to decide whether to show the Drive module on the "
     "New Tab Page.";
+
+const char kNtpDriveModuleShowSixFilesName[] =
+    "NTP Drive Module Show Six Files";
+const char kNtpDriveModuleShowSixFilesDescription[] =
+    "Shows six files in the NTP Drive module, instead of three.";
 
 #if !defined(OFFICIAL_BUILD)
 const char kNtpDummyModulesName[] = "NTP Dummy Modules";

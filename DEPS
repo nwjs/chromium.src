@@ -311,19 +311,19 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'src_internal_revision': 'b84e43d83ab980c97bc68cafeed2e0e944542818',
+  'src_internal_revision': '94eb1850f71b23dcd9381450289a4f629b2738de',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '26ce945468bd635624e76ff8a1f964284f16b33f',
+  'skia_revision': 'beb4d7d77fba1e7c44b82653090e176bac161d63',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '69685db936e838acb1764879ec768e12926973ce',
+  'v8_revision': '374ca7a87c62a2b7367da819068ae012ea5272e1',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': '0581a81c8f3ee9409c5564352246cb4ddf18e0a1',
+  'angle_revision': '90a3029d0521a1185a1b7454261ef9a5083a830f',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -406,7 +406,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling devtools-frontend
   # and whatever else without interference from each other.
-  'devtools_frontend_revision': 'c80c942e26c32cd9dea0c92b4178c398c7878d0f',
+  'devtools_frontend_revision': '785d618a9556d5b6e8b3423721a93391afb8e519',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling libprotobuf-mutator
   # and whatever else without interference from each other.
@@ -446,7 +446,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
-  'dawn_revision': '807bd98a3f1ab689ef076475c489bf3b126c825c',
+  'dawn_revision': 'fca0526469a1bd3e42cff1a2a048816126aa9aa5',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling feed
   # and whatever else without interference from each other.
@@ -841,7 +841,7 @@ deps = {
 
   'src/clank': {
     'url': Var('chrome_git') + '/clank/internal/apps.git' + '@' +
-    '2d7369cf17a064a0c1ae2ab4b0ec5e115888421e',
+    '89b9098c870dda804bd659d38566b3c164da47c3',
     'condition': 'checkout_android and checkout_src_internal',
   },
 
@@ -1286,7 +1286,7 @@ deps = {
     Var('chromium_git') + '/devtools/devtools-frontend' + '@' + Var('devtools_frontend_revision'),
 
   'src/third_party/devtools-frontend-internal': {
-      'url': Var('chrome_git') + '/devtools/devtools-internal.git' + '@' + '24876cfd76a27d3daede91c19f9b94bc604e08bb',
+      'url': Var('chrome_git') + '/devtools/devtools-internal.git' + '@' + '700b3923e4dae373b5051dbf1e7e438c93d94069',
     'condition': 'checkout_src_internal',
   },
 
@@ -1940,7 +1940,7 @@ deps = {
     Var('chromium_git') + '/external/github.com/gpuweb/cts.git' + '@' + '92fcd38d6833d602ebd9400b680033ef676d95cb',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '82e5f91a2bdf955aa870142008fbdc9ac12f6acd',
+    Var('webrtc_git') + '/src.git' + '@' + '70aa7e99e4af06e9a2273793179dfcfddad11898',
 
   # Wuffs' canonical repository is at github.com/google/wuffs, but we use
   # Skia's mirror of Wuffs, the same as in upstream Skia's DEPS file.
@@ -2074,7 +2074,7 @@ deps = {
     'packages': [
       {
         'package': 'chromeos_internal/apps/media_app/app',
-        'version': 'MKqaNEW875fU0Q18ZbOWoKLKPPiB497qqR8ma0SNKZIC',
+        'version': 'ifJNEik-AAR4l1m2Iuz5bXc_mgfKAqgOJjcaYSVLep0C',
       },
     ],
     'condition': 'checkout_chromeos and checkout_src_internal',
@@ -2128,21 +2128,6 @@ deps = {
   'src/third_party/android_prebuilts/build_tools': {
       'url': Var('android_git') + '/platform/prebuilts/build-tools.git' + '@' + '673c20b524a83b662d8c1057fd3eec8fd0f93f9d',
       'condition': 'checkout_android_prebuilts_build_tools',
-  },
-
-  # TODO(crbug.com/1290782): This should ideally be replaced with recursdeps,
-  # but that arises concern which revision of devtools-frontend we should use
-  # between public and internal build. So we have copy of CIPD deps from
-  # devtools-frontend for now here.
-  'src/third_party/devtools-frontend/src/third_party/esbuild': {
-      'packages': [
-          {
-              'package': 'infra/3pp/tools/esbuild/${{platform}}',
-              # This should be synced with devtools-frontend DEPS.
-              'version': 'version:2@0.14.13.chromium.2',
-          },
-      ],
-      'dep_type': 'cipd',
   },
 
   # === ANDROID_DEPS Generated Code Start ===
@@ -4238,7 +4223,7 @@ deps = {
 
   'src/ios_internal':  {
       'url': Var('chrome_git') + '/chrome/ios_internal.git' + '@' +
-        '798e1953b496160f43bc7683618cc01799eb7b1d',
+        '1a610ac86a0ab2d3ec725312230b5c691dbe93f9',
       'condition': 'checkout_ios and checkout_src_internal',
   },
 
@@ -5728,6 +5713,7 @@ recursedeps = [
   'src/third_party/devtools-frontend-internal',
   'src/third_party/openscreen/src',
   'src/third_party/vulkan-deps',
+  'src/third_party/devtools-frontend/src',
   # clank has its own DEPS file, does not need to be in trybot_analyze_config
   # since the roller does not run tests.
   'src/clank',

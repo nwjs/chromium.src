@@ -266,6 +266,7 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     public static final Set<String> TABBED_MODE_COMPONENT_NAMES = Set.of(
             ChromeTabbedActivity.class.getName(), MultiInstanceChromeTabbedActivity.class.getName(),
             ChromeTabbedActivity2.class.getName(), MAIN_LAUNCHER_ACTIVITY_NAME);
+    private static final String TAG_MULTI_INSTANCE = "MultiInstance";
 
     /**
      * Identifies a histogram to use in {@link #maybeDispatchExplicitMainViewIntent(Intent, int)}.
@@ -452,12 +453,12 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
         // available.
         // clang-format off
         mAppLaunchDrawBlocker = new AppLaunchDrawBlocker(getLifecycleDispatcher(),
-                () -> findViewById(android.R.id.content),
-                this::getIntent, this::shouldIgnoreIntent, this::isTablet,
-                this::shouldShowOverviewPageOnStart, this::isInstantStartEnabled,
-                mTabModelProfileSupplier,
-                new IncognitoRestoreAppLaunchDrawBlockerFactory(this::getSavedInstanceState,
-                        getTabModelSelectorSupplier()));
+            () -> findViewById(android.R.id.content),
+            this::getIntent, this::shouldIgnoreIntent, this::isTablet,
+            this::shouldShowOverviewPageOnStart, this::isInstantStartEnabled,
+            mTabModelProfileSupplier,
+            new IncognitoRestoreAppLaunchDrawBlockerFactory(this::getSavedInstanceState,
+                getTabModelSelectorSupplier()));
         // clang-format on
     }
 
@@ -658,8 +659,8 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
             // clang-format off
             mLayoutManager = new LayoutManagerChromePhone(compositorViewHolder, mContentContainer,
-                    mStartSurfaceSupplier, mTabSwitcherSupplier, getBrowserControlsManager(),
-                    getTabContentManagerSupplier(), mRootUiCoordinator::getTopUiThemeColorProvider);
+                mStartSurfaceSupplier, mTabSwitcherSupplier, getBrowserControlsManager(),
+                getTabContentManagerSupplier(), mRootUiCoordinator::getTopUiThemeColorProvider);
             mLayoutStateProviderSupplier.set(mLayoutManager);
             // clang-format on
         }
@@ -910,19 +911,6 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
 
             mIntentHandlingTimeMs = SystemClock.uptimeMillis();
             super.onNewIntent(intent);
-
-            // When onNewIntent() comes, calling launchIntent() may trigger a static layout is
-            // showing without even canceling the overview layout which is about to show. It
-            // leaves the StartSurfaceState to be SHOWING_START instead of NOT_SHOWN, since
-            // hiding the overview layout won't be called. Thus we need to reset the
-            // StartSurfaceState to prevent it being a wrong state. See crbug.com/1298740.
-            if (ReturnToChromeUtil.isStartSurfaceEnabled(this)
-                    && getCurrentTabModel().getCount() > 0 && !isTablet()
-                    && !shouldShowOverviewPageOnStart() && !isInOverviewMode()
-                    && mStartSurfaceSupplier.get() != null) {
-                mStartSurfaceSupplier.get().setStartSurfaceState(
-                        StartSurfaceState.NOT_SHOWN, NewTabPageLaunchOrigin.UNKNOWN);
-            }
 
             boolean shouldShowRegularOverviewMode = IntentUtils.safeGetBooleanExtra(
                     intent, IntentHandler.EXTRA_OPEN_REGULAR_OVERVIEW_MODE, false);
@@ -1693,8 +1681,21 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
                           : OmniboxFocusReason.UNFOCUS);
 
             if (tabModel.getCount() > 0 && isInOverviewMode() && !isTablet()
-                    && !shouldShowOverviewPageOnStart()) {
-                mLayoutManager.showLayout(LayoutType.BROWSING, true);
+                    && !shouldShowOverviewPageOnStart(intent)) {
+                boolean wasStartSurfaceHomepageShowing = mStartSurfaceSupplier.hasValue()
+                        && mStartSurfaceSupplier.get().isHomepageShown();
+
+                // Hides the overview page if we want to navigate the URL in the current Tab which
+                // isn't visible.
+                if (tabOpenType == TabOpenType.CLOBBER_CURRENT_TAB) {
+                    hideOverview();
+                }
+
+                // If the Start Surface was showing, the ContentView for the currently selected Tab
+                // behind the Start Surface may not yet be attached and therefore the Tab may not
+                // be interactive. Notify CompositorViewHolder that content has changed, which
+                // will cause the Tab's ContentView to be attached. See https://crbug.com/1457603.
+                if (wasStartSurfaceHomepageShowing) mCompositorViewHolder.onContentChanged();
             }
         }
 
@@ -2139,12 +2140,21 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             boolean preferNew = getExtraPreferNewFromIntent(intent);
             mWindowId = mMultiInstanceManager.allocInstanceId(
                     windowId, ApplicationStatus.getTaskId(this), preferNew);
+            Log.i(TAG_MULTI_INSTANCE,
+                    "Intent info -  has FLAG_ACTIVITY_MULTIPLE_TASK: "
+                            + ((intent.getFlags() & Intent.FLAG_ACTIVITY_MULTIPLE_TASK) != 0)
+                            + " , is from self: " + IntentUtils.isTrustedIntentFromSelf(intent)
+                            + " , has launcher category: "
+                            + intent.hasCategory(Intent.CATEGORY_LAUNCHER)
+                            + " , has activity referrer: " + getReferrer());
         }
         if (mWindowId == INVALID_WINDOW_ID) {
             Log.i(TAG, "Window ID not allocated. Finishing the activity");
             Toast.makeText(this, R.string.max_number_of_windows, Toast.LENGTH_LONG).show();
             recordMaxWindowLimitExceededHistogram(/*limitExceeded=*/true);
             return false;
+        } else {
+            Log.i(TAG_MULTI_INSTANCE, "Window ID allocated: " + mWindowId);
         }
 
         if (mMultiInstanceManager != null
@@ -2295,8 +2305,14 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
             assert !mTabModelSelector.getCurrentModel().isIncognito()
                 : "Quick delete is not supported in Incognito.";
 
-            QuickDeleteMetricsDelegate.recordHistogram(
-                    QuickDeleteMetricsDelegate.QuickDeleteAction.MENU_ITEM_CLICKED);
+            if (getLayoutManager().getActiveLayoutType() == LayoutType.TAB_SWITCHER) {
+                QuickDeleteMetricsDelegate.recordHistogram(
+                        QuickDeleteMetricsDelegate.QuickDeleteAction
+                                .TAB_SWITCHER_MENU_ITEM_CLICKED);
+            } else {
+                QuickDeleteMetricsDelegate.recordHistogram(
+                        QuickDeleteMetricsDelegate.QuickDeleteAction.MENU_ITEM_CLICKED);
+            }
 
             new QuickDeleteController(this, new QuickDeleteDelegateImpl(), getModalDialogManager(),
                     getSnackbarManager(), getLayoutManager(), mTabModelSelector);
@@ -2974,11 +2990,15 @@ public class ChromeTabbedActivity extends ChromeActivity<ChromeActivityComponent
     }
 
     @Override
-    public boolean shouldShowOverviewPageOnStart() {
+    public boolean shouldShowOverviewPageOnStart(Intent intent) {
         assert mInactivityTracker != null;
         assert getTabModelSelector() != null;
         return ReturnToChromeUtil.shouldShowOverviewPageOnStart(
-                this, getIntent(), getTabModelSelector(), mInactivityTracker, isTablet());
+                this, intent, getTabModelSelector(), mInactivityTracker, isTablet());
+    }
+
+    private boolean shouldShowOverviewPageOnStart() {
+        return shouldShowOverviewPageOnStart(getIntent());
     }
 
     @Override

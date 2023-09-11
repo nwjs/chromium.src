@@ -7725,6 +7725,7 @@
                         "TabInactivityThreshold"
                     ],
                     "disable_features": [
+                        "InactiveTabsMoveLimit",
                         "ShowInactiveTabsCount"
                     ]
                 }

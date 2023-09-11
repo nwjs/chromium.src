@@ -471,6 +471,36 @@ TEST_F(AttributionStorageTest,
             MaybeCreateAndStoreEventLevelReport(DefaultTrigger()));
 }
 
+TEST_F(AttributionStorageTest,
+       ImpressionWithReportWindowsOverDefault_WindowsTruncated) {
+  storage()->StoreSource(
+      SourceBuilder()
+          .SetEventReportWindows(
+              *attribution_reporting::EventReportWindows::Create(
+                  base::Seconds(0), {base::Days(10)}))
+          .SetExpiry(base::Days(10))
+          .SetEventReportWindow(base::Days(5))
+          .Build());
+
+  ASSERT_THAT(storage()->GetActiveSources(),
+              ElementsAre(EventReportWindowsIs(
+                  attribution_reporting::EventReportWindows::Create(
+                      base::Seconds(0), {base::Days(5)}))));
+}
+
+TEST_F(AttributionStorageTest,
+       ImpressionWithReportWindowsStartOverDefaultEnd_RegistrationFailure) {
+  auto source = SourceBuilder()
+                    .SetEventReportWindows(
+                        *attribution_reporting::EventReportWindows::Create(
+                            base::Days(2), {base::Days(5)}))
+                    .SetExpiry(base::Days(1))
+                    .SetEventReportWindow(base::Days(1))
+                    .Build();
+  EXPECT_EQ(storage()->StoreSource(source).status,
+            StorableSource::Result::kEventReportWindowsInvalidStartTime);
+}
+
 TEST_F(AttributionStorageTest, OneConversion_OneReportScheduled) {
   auto conversion = DefaultTrigger();
 
@@ -704,10 +734,15 @@ TEST_F(AttributionStorageTest, GetAttributionReportsMultipleTimes_SameResult) {
 }
 
 TEST_F(AttributionStorageTest, ExceedsChannelCapacity) {
-  delegate()->set_channel_capacity(2);
+  delegate()->set_channel_capacity(6.51);
 
-  auto source = SourceBuilder().SetSourceType(SourceType::kEvent).Build();
-  EXPECT_EQ(storage()->StoreSource(source).status,
+  EXPECT_EQ(storage()->StoreSource(SourceBuilder().Build()).status,
+            StorableSource::Result::kSuccess);
+
+  EXPECT_EQ(storage()
+                ->StoreSource(
+                    SourceBuilder().SetSourceType(SourceType::kEvent).Build())
+                .status,
             StorableSource::Result::kExceedsMaxChannelCapacity);
 }
 
@@ -2412,7 +2447,7 @@ TEST_F(AttributionStorageTest, AggregatableDedupKeysFiltering) {
           false,
       },
       {
-          "negated filters match",
+          "negated filters false",
           attribution_reporting::AggregatableDedupKey(
               /*dedup_key=*/123,
               FilterPair(
@@ -2422,36 +2457,36 @@ TEST_F(AttributionStorageTest, AggregatableDedupKeysFiltering) {
           false,
       },
       {
-          "negated filters match with lookback_window",
+          "negated filters false due to lookback_window",
           attribution_reporting::AggregatableDedupKey(
               /*dedup_key=*/123,
               FilterPair(
                   /*positive=*/{},
                   /*negative=*/attribution_reporting::FiltersForSourceType(
-                      SourceType::kNavigation,
+                      SourceType::kEvent,
                       /*lookback_window=*/kReportDelay))),
           false,
       },
       {
-          "negated filters mismatch due to lookback_window",
-          attribution_reporting::AggregatableDedupKey(
-              /*dedup_key=*/123,
-              FilterPair(
-                  /*positive=*/{},
-                  /*negative=*/attribution_reporting::FiltersForSourceType(
-                      SourceType::kNavigation,
-                      /*lookback_window=*/kReportDelay -
-                          base::Microseconds(1)))),
-          true,
-      },
-      {
-          "negated filters mismatch",
+          "negated filters true",
           attribution_reporting::AggregatableDedupKey(
               /*dedup_key=*/123,
               FilterPair(
                   /*positive=*/{},
                   /*negative=*/attribution_reporting::FiltersForSourceType(
                       SourceType::kEvent))),
+          true,
+      },
+      {
+          "negated filters true with lookback_window",
+          attribution_reporting::AggregatableDedupKey(
+              /*dedup_key=*/123,
+              FilterPair(
+                  /*positive=*/{},
+                  /*negative=*/attribution_reporting::FiltersForSourceType(
+                      SourceType::kEvent,
+                      /*lookback_window=*/kReportDelay -
+                          base::Microseconds(1)))),
           true,
       },
       {

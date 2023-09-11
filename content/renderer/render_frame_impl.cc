@@ -1507,7 +1507,7 @@ RenderFrameImpl* RenderFrameImpl::CreateMainFrame(
 
   CHECK(!render_frame->in_frame_tree_);
   render_frame->in_frame_tree_ = true;
-#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+#if !(BUILDFLAG(IS_ANDROID) || \
       (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
   render_frame->added_to_frame_tree_stack_trace_.emplace();
 #endif
@@ -1620,7 +1620,7 @@ void RenderFrameImpl::CreateFrame(
     // call to createLocalChild.
     CHECK(!render_frame->in_frame_tree_);
     render_frame->in_frame_tree_ = true;
-#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+#if !(BUILDFLAG(IS_ANDROID) || \
       (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
     render_frame->added_to_frame_tree_stack_trace_.emplace();
 #endif
@@ -3588,7 +3588,7 @@ blink::WebLocalFrame* RenderFrameImpl::CreateChildFrame(
 
   CHECK(!child_render_frame->in_frame_tree_);
   child_render_frame->in_frame_tree_ = true;
-#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+#if !(BUILDFLAG(IS_ANDROID) || \
       (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
   child_render_frame->added_to_frame_tree_stack_trace_.emplace();
 #endif
@@ -5102,7 +5102,7 @@ bool RenderFrameImpl::SwapIn(WebFrame* previous_web_frame) {
 
   CHECK(!in_frame_tree_);
   in_frame_tree_ = true;
-#if !((BUILDFLAG(IS_ANDROID) && defined(ARCH_CPU_32_BITS)) || \
+#if !(BUILDFLAG(IS_ANDROID) || \
       (BUILDFLAG(IS_CHROMEOS) && defined(ARCH_CPU_ARM64)))
   added_to_frame_tree_stack_trace_.emplace();
 #endif
@@ -5369,6 +5369,16 @@ void RenderFrameImpl::BeginNavigation(
       !info->is_fullscreen_requested;
 
   if (should_do_synchronous_about_blank_navigation) {
+    if (!IsMainFrame()) {
+      // Synchronous about:blank commits on iframes should only be triggered
+      // when first creating the iframe with an unset/about:blank URL, which
+      // means the origin should inherit from the parent.
+      WebLocalFrame* parent = static_cast<WebLocalFrame*>(frame_->Parent());
+      CHECK(parent);
+      CHECK(parent->GetDocument().GetSecurityOrigin().IsSameOriginWith(
+          info->url_request.RequestorOrigin()));
+    }
+
     for (auto& observer : observers_)
       observer.DidStartNavigation(url, info->navigation_type);
     SynchronouslyCommitAboutBlankForBug778318(std::move(info));
@@ -6144,7 +6154,7 @@ int RenderFrameImpl::GetEnabledBindings() {
 }
 
 void RenderFrameImpl::SetAccessibilityModeForTest(ui::AXMode new_mode) {
-  render_accessibility_manager_->SetMode(new_mode);
+  render_accessibility_manager_->SetMode(new_mode, 1);
 }
 
 const RenderFrameMediaPlaybackOptions&

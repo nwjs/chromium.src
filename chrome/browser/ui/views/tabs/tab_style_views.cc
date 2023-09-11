@@ -239,7 +239,8 @@ SkPath GM2TabStyleViews::GetPath(TabStyle::PathType path_type,
   // Calculate the bounds of the actual path.
   const float left = aligned_bounds.x();
   const float right = aligned_bounds.right();
-  float tab_top = aligned_bounds.y();
+  float tab_top =
+      aligned_bounds.y() + GetLayoutConstant(TAB_STRIP_PADDING) * scale;
   float tab_left = left + extension;
   float tab_right = right - extension;
 
@@ -604,12 +605,15 @@ TabStyle::SeparatorBounds GM2TabStyleViews::GetSeparatorBounds(
 
   TabStyle::SeparatorBounds separator_bounds;
 
+  const int extra_vertical_space =
+      aligned_bounds.height() -
+      (separator_size.height() + separator_margin.bottom() +
+       separator_margin.top());
+
   separator_bounds.leading = gfx::RectF(
       aligned_bounds.x() + corner_radius - separator_margin.right() -
           separator_size.width(),
-      aligned_bounds.y() + (aligned_bounds.height() - separator_size.height() -
-                            separator_margin.bottom()) /
-                               2,
+      aligned_bounds.y() + extra_vertical_space / 2 + separator_margin.top(),
       separator_size.width(), separator_size.height());
 
   separator_bounds.trailing = separator_bounds.leading;
@@ -1154,15 +1158,25 @@ SkPath ChromeRefresh2023TabStyleViews::GetPath(
     // The tab displays favicon animations that can emerge from the toolbar. The
     // interior clip needs to extend the entire height of the toolbar to support
     // this. Detached tab shapes do not need to respect this.
-    if (path_type != TabStyle::PathType::kInteriorClip ||
-        path_type == TabStyle::PathType::kHitTest) {
+    if (path_type != TabStyle::PathType::kInteriorClip &&
+        path_type != TabStyle::PathType::kHitTest) {
       tab_height -= GetLayoutConstant(TAB_STRIP_PADDING) * scale;
+      tab_height -= GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP) * scale;
     }
 
     int left = aligned_bounds.x() + extension_corner_radius;
-    const int top = aligned_bounds.y();
+    int top = aligned_bounds.y() + GetLayoutConstant(TAB_STRIP_PADDING) * scale;
     int right = aligned_bounds.right() - extension_corner_radius;
     const int bottom = top + tab_height;
+
+    // For maximized and fullscreen windows, extend the tab hit test to the top
+    // of the tab, encompassing the top padding. This makes it easy to click on
+    // tabs by moving the mouse to the top of the screen.
+    if (path_type == TabStyle::PathType::kHitTest &&
+        (tab()->GetWidget()->IsMaximized() ||
+         tab()->GetWidget()->IsFullscreen())) {
+      top -= GetLayoutConstant(TAB_STRIP_PADDING) * scale;
+    }
 
     // if the size of the space for the path is smaller than the size of a
     // favicon or if we are building a path for the hit test, expand to take the

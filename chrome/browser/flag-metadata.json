@@ -1271,7 +1271,7 @@
       "basiaz@google.com",
       "chrome-language@google.com"
     ],
-    "expiry_milestone": 117
+    "expiry_milestone": 120
   },
   {
     "name": "content-suggestions-magic-stack",
@@ -1831,12 +1831,12 @@
   {
     "name": "download-bubble",
     "owners": [ "chlily", "chrome-counter-abuse-alerts@google.com" ],
-    "expiry_milestone": 117
+    "expiry_milestone": 118
   },
   {
     "name": "download-bubble-v2",
     "owners": [ "chlily", "chrome-counter-abuse-alerts@google.com" ],
-    "expiry_milestone": 117
+    "expiry_milestone": 118
   },
   {
     "name": "download-later",
@@ -2736,12 +2736,12 @@
   {
     "name": "enable-fenced-frames",
     "owners": [ "dom", "shivanisha", "chrome-fenced-frames@google.com" ],
-    "expiry_milestone": 117
+    "expiry_milestone": 130
   },
   {
     "name": "enable-fenced-frames-developer-mode",
     "owners": [ "dom", "shivanisha", "chrome-fenced-frames@google.com" ],
-    "expiry_milestone": 119
+    "expiry_milestone": 130
   },
   {
     "name": "enable-file-backed-blob-factory",
@@ -2932,6 +2932,11 @@
     "name": "enable-immersive-fullscreen-toolbar",
     "owners": [ "bur", "chrome-mac-dev@google.com" ],
     "expiry_milestone": 119
+  },
+  {
+    "name": "enable-inactive-tabs-limit",
+    "owners": ["alionadangla", "lpromero", "bling-flags@google.com"],
+    "expiry_milestone": 121
   },
   {
     "name": "enable-input-device-settings-split",
@@ -5691,6 +5696,11 @@
     "expiry_milestone": 125
   },
   {
+    "name": "ntp-drive-module-show-six-files",
+    "owners": [ "pauladedeji", "tiborg" ],
+    "expiry_milestone": 125
+  },
+  {
     "name": "ntp-dummy-modules",
     "owners": [ "pauladedeji", "tiborg" ],
     "expiry_milestone": 108
@@ -6521,7 +6531,7 @@
   {
     "name": "password-generation-experiment",
     "owners": ["rgod@google.com", "chrome-password-manager-team@google.com"],
-    "expiry_milestone": 117
+    "expiry_milestone": 120
   },
   {
     "name": "password-notes",
@@ -6992,6 +7002,11 @@
     // This is required by test teams to verify functionality on dev/beta
     // channels on devices which have no access to commandline flags.
     "expiry_milestone": -1
+  },
+  {
+    "name": "rename-history-journeys",
+    "owners": [ "mahmadi", "chrome-journeys@google.com" ],
+    "expiry_milestone": 120
   },
   {
     "name": "render-arc-notifications-by-chrome",
@@ -7871,7 +7886,7 @@
       "basiaz@google.com",
       "chrome-language@google.com"
     ],
-    "expiry_milestone": 117
+    "expiry_milestone": 120
   },
   {
     "name": "twa-post-message",
@@ -8072,8 +8087,8 @@
   },
   {
     "name": "use-winrt-midi-api",
-    "owners": [ "toyoshim", "mjwilson", "deviceapi-team@google.com" ],
-    "expiry_milestone": 117
+    "owners": [ "//third_party/blink/renderer/modules/webaudio/OWNERS", "toyoshim", "mjwilson" ],
+    "expiry_milestone": 130
   },
   {
     "name": "use-xps-for-printing",

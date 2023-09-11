@@ -3597,7 +3597,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Conversions.AndroidRegistrationResult.{Type}"
+<histogram name="Conversions.AndroidRegistrationResult.{Type}2"
     enum="ConversionAndroidRegistrationResult" expires_after="M121">
   <owner>linnan@chromium.org</owner>
   <owner>johnidel@chromium.org</owner>
@@ -3820,6 +3820,20 @@ chromium-metrics-reviews@google.com.
     filter data in source, top-level trigger, event-level and aggregatable
     trigger data. Recorded once for each filter data when parsed from the
     attributionsrc response.
+  </summary>
+</histogram>
+
+<histogram name="Conversions.GetMeasurementStatusTime" units="ms"
+    expires_after="M121">
+  <owner>linnan@chromium.org</owner>
+  <owner>johnidel@chromium.org</owner>
+  <owner>measurement-api-dev+metrics@google.com</owner>
+  <summary>
+    Records the time it took to go througth JNI to invoke Android API to get
+    measurement status. Only recorded on Android when the
+    AttributionReportingCrossAppWeb feature is enabled. Recorded once per
+    browser session when the browser starts up. Only recorded if
+    base::ThreadTicks is suppported.
   </summary>
 </histogram>
 
@@ -4137,7 +4151,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Conversions.SourceRegistrationError4"
+<histogram name="Conversions.SourceRegistrationError5"
     enum="ConversionSourceRegistrationError" expires_after="M121">
   <owner>tquintanilla@chromium.org</owner>
   <owner>linnan@chromium.org</owner>
@@ -4148,7 +4162,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Conversions.SourceStoredStatus5"
+<histogram name="Conversions.SourceStoredStatus6"
     enum="ConversionStorageSourceStatus" expires_after="M121">
   <owner>tquintanilla@chromium.org</owner>
   <owner>anthonygarant@chromium.org</owner>

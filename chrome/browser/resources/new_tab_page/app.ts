@@ -427,7 +427,13 @@ export class AppElement extends AppElementBase {
     this.showWebstoreToastListenerId_ =
         NewTabPageProxy.getInstance()
             .callbackRouter.showWebstoreToast.addListener(() => {
-              $$<CrToastElement>(this, '#webstoreToast')!.show();
+              if (this.showCustomize_) {
+                const toast = $$<CrToastElement>(this, '#webstoreToast');
+                if (toast) {
+                  toast!.hidden = false;
+                  toast!.show();
+                }
+              }
             });
 
     // Open Customize Chrome if there are Customize Chrome URL params.
@@ -466,6 +472,9 @@ export class AppElement extends AppElementBase {
                   'background-image-loaded',
                   this.backgroundImageLoadStart_ + duration);
             }
+          },
+          () => {
+              // Ignore. Failed to capture background image load time.
           });
     }
     FocusOutlineManager.forDocument(document);

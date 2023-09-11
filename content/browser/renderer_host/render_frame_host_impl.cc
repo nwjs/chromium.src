@@ -408,7 +408,7 @@ const void* const kRenderFrameHostAndroidKey = &kRenderFrameHostAndroidKey;
 #endif  // BUILDFLAG(IS_ANDROID)
 
 // The next value to use for the accessibility reset token.
-int g_next_accessibility_reset_token = 1;
+uint32_t g_accessibility_reset_token = 0;
 
 // Whether to allow injecting javascript into any kind of frame, for Android
 // WebView, WebLayer, Fuchsia web.ContextProvider and CastOS content shell.
@@ -1719,17 +1719,6 @@ RenderFrameHostImpl::~RenderFrameHostImpl() {
         CHECK(navigation_request->IsServedFromBackForwardCache());
         frame_tree_node_->RestartBackForwardCachedNavigationAsync(
             navigation_request->nav_entry_id());
-        // TODO(crbug.com/1468984): Remove.
-        // Before the RFH restored from BFCache is destroyed, the BFCache
-        // NavigationRequest should be reset already. Record the some crash keys
-        // here for further investigation.
-        SCOPED_CRASH_KEY_NUMBER("Bug1468984", "navigation_request_state",
-                                navigation_request->state());
-        SCOPED_CRASH_KEY_BOOL("Bug1468984", "frame_tree_being_destroyed",
-                              frame_tree_->IsBeingDestroyed());
-        SCOPED_CRASH_KEY_BOOL("Bug1468984", "is_evicted_from_bfcache",
-                              is_evicted_from_back_forward_cache());
-        base::debug::DumpWithoutCrashing();
       } else if (navigation_request->state() >=
                      NavigationRequest::WILL_PROCESS_RESPONSE &&
                  navigation_request->GetRenderFrameHost() == this) {
@@ -2901,15 +2890,16 @@ void RenderFrameHostImpl::AccessibilityReset() {
   if (!render_accessibility_)
     return;
 
-  accessibility_reset_token_ = g_next_accessibility_reset_token++;
-  render_accessibility_->Reset(accessibility_reset_token_);
+  accessibility_reset_token_ = ++g_accessibility_reset_token;
+  render_accessibility_->Reset(*accessibility_reset_token_);
 }
 
 void RenderFrameHostImpl::AccessibilityFatalError() {
   CHECK(!BrowserAccessibilityManager::IsFailFastMode());
   browser_accessibility_manager_.reset();
-  if (accessibility_reset_token_ || !render_accessibility_)
+  if (!render_accessibility_) {
     return;
+  }
 
   accessibility_fatal_error_count_++;
   if (accessibility_fatal_error_count_ > max_accessibility_resets_) {
@@ -7038,8 +7028,9 @@ bool RenderFrameHostImpl::Reload() {
 
 void RenderFrameHostImpl::SendAccessibilityEventsToManager(
     const AXEventNotificationDetails& details) {
-  if (!browser_accessibility_manager_)
+  if (!browser_accessibility_manager_) {
     return;
+  }
 
   DCHECK(delegate_->GetAccessibilityMode().has_mode(ui::AXMode::kNativeAPIs));
   if (!browser_accessibility_manager_->OnAccessibilityEvents(details)) {
@@ -8615,22 +8606,17 @@ void RenderFrameHostImpl::MaybeSendFencedFrameReportingBeacon(
 
   // Automatic beacons can only be sent if the initiating frame had transient
   // user activation when it navigated. For navigations originating from the
-  // contextual menu (i.e. "Open Link in X"), the navigation initiator
-  // activation status will not be set, so we check the initiator frame's user
-  // activation directly.
-  // For navigations originating from clicking a link directly, the navigation
-  // initiator will be set, but the initiator frame's transient user activation
-  // might have been consumed by navigation commit time, so we check the
-  // navigation request's initiator navigation status.
+  // contextual menu (i.e. "Open Link in X"), or for navigations originating
+  // from clicking a link directly, the navigation initiator activation status
+  // will not be set, so we check the initiator frame's user activation directly
+  // through the navigation request's common parameters.
   // It is safe to check both values at once. If one is not properly set, it
   // will always be set to a false negative and not a false positive, so there
   // is no way for that to cause an accidental beacon to be sent.
   if (navigation_request.GetNavigationInitiatorActivationAndAdStatus() ==
           blink::mojom::NavigationInitiatorActivationAndAdStatus::
               kDidNotStartWithTransientActivation &&
-      !initiator_rfh->HasTransientUserActivation() &&
-      navigation_request.commit_params().was_activated !=
-          blink::mojom::WasActivatedOption::kYes) {
+      !navigation_request.common_params().has_user_gesture) {
     return;
   }
 
@@ -9091,7 +9077,7 @@ void RenderFrameHostImpl::ResourceLoadComplete(
 void RenderFrameHostImpl::HandleAXEvents(
     const ui::AXTreeID& tree_id,
     blink::mojom::AXUpdatesAndEventsPtr updates_and_events,
-    int32_t reset_token) {
+    uint32_t reset_token) {
   TRACE_EVENT0("accessibility", "RenderFrameHostImpl::HandleAXEvents");
   SCOPED_UMA_HISTOGRAM_TIMER("Accessibility.Performance.HandleAXEvents");
 
@@ -9108,10 +9094,12 @@ void RenderFrameHostImpl::HandleAXEvents(
   // Don't process this IPC if either we're waiting on a reset and this IPC
   // doesn't have the matching token ID, or if we're not waiting on a reset but
   // this message includes a reset token.
-  if (accessibility_reset_token_ != reset_token) {
+  // The token prevents obsolete data from being processed.
+  CHECK(accessibility_reset_token_);
+  if (*accessibility_reset_token_ != reset_token) {
+    DVLOG(1) << "Ignoring obsolete accessibility data.";
     return;
   }
-  accessibility_reset_token_ = 0;
 
   ui::AXMode accessibility_mode = delegate_->GetAccessibilityMode();
 
@@ -9180,17 +9168,24 @@ void RenderFrameHostImpl::HandleAXEvents(
 
 void RenderFrameHostImpl::HandleAXLocationChanges(
     const ui::AXTreeID& tree_id,
-    std::vector<blink::mojom::LocationChangesPtr> changes) {
+    std::vector<blink::mojom::LocationChangesPtr> changes,
+    uint32_t reset_token) {
   if (tree_id != GetAXTreeID()) {
     // The message has arrived after the frame has navigated which means its
     // changes are no longer relevant and can be discarded.
     return;
   }
 
-  if (accessibility_reset_token_ ||
-      IsInactiveAndDisallowActivation(
-          DisallowActivationReasonId::kAXLocationChange))
+  CHECK(accessibility_reset_token_);
+  if (*accessibility_reset_token_ != reset_token) {
+    DVLOG(1) << "Ignoring obsolete accessibility data.";
     return;
+  }
+
+  if (IsInactiveAndDisallowActivation(
+          DisallowActivationReasonId::kAXLocationChange)) {
+    return;
+  }
 
   BrowserAccessibilityManager* manager =
       GetOrCreateBrowserAccessibilityManager();
@@ -10749,7 +10744,8 @@ void RenderFrameHostImpl::UpdateAccessibilityMode() {
       GetRemoteAssociatedInterfaces()->GetInterface(&render_accessibility_);
       DCHECK(render_accessibility_);
     }
-    render_accessibility_->SetMode(ax_mode);
+    accessibility_reset_token_ = ++g_accessibility_reset_token;
+    render_accessibility_->SetMode(ax_mode, *accessibility_reset_token_);
   } else {
     // Resetting the Remote signals the renderer to shutdown accessibility
     // in the renderer.
@@ -12387,7 +12383,8 @@ bool RenderFrameHostImpl::ValidateDidCommitParams(
 
   if (!bypass_checks_for_error_page &&
       !ValidateURLAndOrigin(params->url, params->origin,
-                            is_same_document_navigation, navigation_request)) {
+                            is_same_document_navigation, navigation_request,
+                            params->origin_calculation_debug_info)) {
     return false;
   }
 
@@ -12505,7 +12502,8 @@ bool RenderFrameHostImpl::ValidateURLAndOrigin(
     const GURL& url,
     const url::Origin& origin,
     bool is_same_document_navigation,
-    NavigationRequest* navigation_request) {
+    NavigationRequest* navigation_request,
+    std::string origin_calculation_debug_info) {
   // file: URLs can be allowed to access any other origin, based on settings.
   if (origin.scheme() == url::kFileScheme) {
     auto prefs = GetOrCreateWebPreferences();
@@ -12559,7 +12557,8 @@ bool RenderFrameHostImpl::ValidateURLAndOrigin(
                   << " lock '" << process->GetProcessLock().ToString() << "'";
       VLOG(1) << "Blocked URL " << url.spec();
       LogCannotCommitUrlCrashKeys(url, is_same_document_navigation,
-                                  navigation_request);
+                                  navigation_request,
+                                  origin_calculation_debug_info);
 
       // Kills the process.
       bad_message::ReceivedBadMessage(process,
@@ -12741,7 +12740,8 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
     // TODO(https://crbug.com/1131832): Make this a CHECK instead once we're
     // sure we never hit this case.
     LogCannotCommitUrlCrashKeys(params->url, is_same_document_navigation,
-                                navigation_request.get());
+                                navigation_request.get(),
+                                params->origin_calculation_debug_info);
     base::debug::DumpWithoutCrashing();
   }
 
@@ -12765,7 +12765,8 @@ bool RenderFrameHostImpl::DidCommitNavigationInternal(
   if (!navigation_request && !is_synchronous_about_blank_commit &&
       !is_same_document_navigation) {
     LogCannotCommitUrlCrashKeys(params->url, is_same_document_navigation,
-                                navigation_request.get());
+                                navigation_request.get(),
+                                params->origin_calculation_debug_info);
 
     bad_message::ReceivedBadMessage(
         GetProcess(),
@@ -13918,7 +13919,8 @@ void RenderFrameHostImpl::AddMessageToConsoleImpl(
 void RenderFrameHostImpl::LogCannotCommitUrlCrashKeys(
     const GURL& url,
     bool is_same_document_navigation,
-    NavigationRequest* navigation_request) {
+    NavigationRequest* navigation_request,
+    std::string& origin_calculation_debug_info) {
   LogRendererKillCrashKeys(GetSiteInstance()->GetSiteInfo());
 
   // Temporary instrumentation to debug the root cause of renderer process
@@ -13995,6 +13997,19 @@ void RenderFrameHostImpl::LogCannotCommitUrlCrashKeys(
   base::debug::SetCrashKeyString(
       last_successful_url_origin_key,
       last_successful_url().DeprecatedGetOriginAsURL().spec());
+
+  static auto* const is_on_initial_empty_document_key =
+      base::debug::AllocateCrashKeyString("is_on_initial_empty_doc",
+                                          base::debug::CrashKeySize::Size32);
+  base::debug::SetCrashKeyString(
+      is_on_initial_empty_document_key,
+      bool_to_crash_key(frame_tree_node_->is_on_initial_empty_document()));
+
+  static auto* const origin_calculation_debug_info_key =
+      base::debug::AllocateCrashKeyString("origin_calculation_debug_info",
+                                          base::debug::CrashKeySize::Size256);
+  base::debug::SetCrashKeyString(origin_calculation_debug_info_key,
+                                 origin_calculation_debug_info);
 
   if (navigation_request && navigation_request->IsNavigationStarted()) {
     static auto* const is_renderer_initiated_key =

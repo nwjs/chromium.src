@@ -3454,6 +3454,7 @@ crbug.com/1335889 external/wpt/css/css-grid/grid-model/grid-areas-overflowing-gr
 
 # Simple to fix - but blocked on performance regression requiring cache logic change.
 crbug.com/1272533 external/wpt/css/css-grid/layout-algorithm/grid-intrinsic-size-dynamic-block-size.html [ Failure ]
+crbug.com/1272533 external/wpt/css/css-flexbox/intrinsic-size/col-wrap-009.html [ Failure ]
 
 # Baseline Content-Alignment is not implemented yet for CSS Grid Layout
 crbug.com/764235 external/wpt/css/css-grid/alignment/grid-item-content-baseline-001.html [ Crash Failure Pass Timeout ]
@@ -3515,6 +3516,11 @@ crbug.com/849670 http/tests/devtools/service-workers/service-worker-v8-cache.js 
 
 # ====== Tests from enabling .any.js/.worker.js tests begin here ======
 crbug.com/709227 external/wpt/html/browsers/history/the-location-interface/per-global.window.html [ Failure ]
+crbug.com/709227 external/wpt/html/canvas/offscreen/path-objects/2d.path.stroke.prune.arc.worker.html [ Failure ]
+crbug.com/709227 external/wpt/html/canvas/offscreen/path-objects/2d.path.stroke.prune.closed.worker.html [ Failure ]
+crbug.com/709227 external/wpt/html/canvas/offscreen/path-objects/2d.path.stroke.prune.curve.worker.html [ Failure ]
+crbug.com/709227 external/wpt/html/canvas/offscreen/path-objects/2d.path.stroke.prune.line.worker.html [ Failure ]
+crbug.com/709227 external/wpt/html/canvas/offscreen/path-objects/2d.path.stroke.prune.rect.worker.html [ Failure ]
 
 # ====== Tests from enabling .any.js/.worker.js tests end here ========
 
@@ -6622,3 +6628,9 @@ crbug.com/626703 external/wpt/html/semantics/scripting-1/the-script-element/json
 crbug.com/626703 virtual/orb-v02/external/wpt/fetch/api/basic/request-forbidden-headers.any.serviceworker.html [ Failure Pass ]
 
 crbug.com/1471020 http/tests/devtools/network/request-name-path.js [ Failure Pass ]
+
+# Disable the following tests to land and reenable after the land.
+crbug.com/1471336 http/tests/devtools/application-panel/resources-panel-on-navigation.js [ Failure Pass ]
+crbug.com/1471336 http/tests/devtools/application-panel/resources-panel-resource-preview.js [ Failure Pass ]
+crbug.com/1471336 http/tests/devtools/application-panel/resources-panel-selection-on-reload.js [ Failure Pass ]
+crbug.com/1471336 http/tests/devtools/application-panel/resources-panel-websql.js [ Failure Pass ]

@@ -331,6 +331,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                     : "Disable was called, but Auto-disable accessibility is not enabled.";
                 TraceEvent.begin(
                         "WebContentsAccessibilityImpl.AutoDisableAccessibilityHandler.onDisabled");
+                mHistogramRecorder.onDisableCalled(mAutoDisableUsageCounter == 0);
                 // If the Auto-disable timer has expired, begin disabling the renderer, and clearing
                 // the Java-side caches. Changing AXModes must be done on the main thread.
                 WebContentsAccessibilityImplJni.get().disableRendererAccessibility(mNativeObj);
@@ -503,6 +504,10 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 mNativeObj);
     }
 
+    public void forceAutoDisableAccessibilityForTesting() {
+        mAutoDisableAccessibilityHandler.notifyDisable();
+    }
+
     public void setAccessibilityTrackerForTesting(AccessibilityActionAndEventTracker tracker) {
         mHistogramRecorder.updateTimeOfFirstShown();
         var oldValue = mTracker;
@@ -559,7 +564,17 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
                 // Accessibility state may have changed while |this| was not shown, so refresh.
                 refreshNativeState();
-                if (isNativeInitialized()) mHistogramRecorder.updateTimeOfNativeInitialization();
+                if (isNativeInitialized()) {
+                    // When we are in an initialized state, accessibility may be disabled. In that
+                    // case, we should not update the time of native initialization, and instead
+                    // only update the time of the last disabled call so we don't count any time
+                    // while this instance was hidden/backgrounded.
+                    if (mIsCurrentlyAutoDisabled) {
+                        mHistogramRecorder.showAutoDisabledInstance();
+                    } else {
+                        mHistogramRecorder.updateTimeOfNativeInitialization();
+                    }
+                }
             }
 
             @Override
@@ -568,6 +583,18 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 // backgrounded Chrome, opened Settings, etc. Record usage times and reset state.
                 super.wasHidden();
                 mHistogramRecorder.recordAccessibilityUsageHistograms();
+
+                // When the native code was initialized, also record performance metrics.
+                if (isNativeInitialized()) {
+                    mHistogramRecorder.recordAccessibilityPerformanceHistograms();
+                    // When we are in an initialized state, accessibility may be disabled. In that
+                    // case, we should keep an on-going sum of the time spent disabled (without
+                    // counting time while hidden/backgrounded).
+                    if (mIsCurrentlyAutoDisabled) {
+                        mHistogramRecorder.hideAutoDisabledInstance();
+                    }
+                    mAutoDisableAccessibilityHandler.cancelDisableTimer();
+                }
             }
         };
     }
@@ -576,21 +603,34 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
 
     @Override
     public void onDetachedFromWindow() {
-        mCaptioningController.stopListening();
+        try (TraceEvent te =
+                        TraceEvent.scoped("WebContentsAccessibilityImpl.onDetachedFromWindow")) {
+            mCaptioningController.stopListening();
 
-        // Destroy the WebContentsObserver if |this| is no longer attached to a Window, but first
-        // record whatever data we have collected since #wasHidden may not have been called, for
-        // example when opening the Tab Switcher. Timers will restart during the next onAttach.
-        if (mWebContentsObserver != null) {
-            mHistogramRecorder.recordAccessibilityUsageHistograms();
-            mWebContentsObserver.destroy();
-            mWebContentsObserver = null;
+            // Destroy the WebContentsObserver if |this| is no longer attached to a Window, but
+            // first record whatever data we have collected since #wasHidden may not have been
+            // called, for example when opening the Tab Switcher. Timers will restart during the
+            // next onAttach.
+            if (mWebContentsObserver != null) {
+                mHistogramRecorder.recordAccessibilityUsageHistograms();
+                mWebContentsObserver.destroy();
+                mWebContentsObserver = null;
+            }
+
+            // When the native code was initialized, also record performance metrics unregister
+            // our broadcast receiver.
+            if (isNativeInitialized()) {
+                ContextUtils.getApplicationContext().unregisterReceiver(mBroadcastReceiver);
+                mHistogramRecorder.recordAccessibilityPerformanceHistograms();
+                // When we are in an initialized state, accessibility may be disabled. In that
+                // case, we should keep an on-going sum of the time spent disabled (without
+                // counting time while hidden/backgrounded).
+                if (mIsCurrentlyAutoDisabled) {
+                    mHistogramRecorder.hideAutoDisabledInstance();
+                }
+                mAutoDisableAccessibilityHandler.cancelDisableTimer();
+            }
         }
-
-        if (!isNativeInitialized()) return;
-        ContextUtils.getApplicationContext().unregisterReceiver(mBroadcastReceiver);
-        mHistogramRecorder.recordAccessibilityPerformanceHistograms();
-        mAutoDisableAccessibilityHandler.cancelDisableTimer();
     }
 
     @Override
@@ -727,6 +767,9 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
                 // {@link web_contents_accessibility_android.h}.
                 if (!isRootManagerConnected()) return;
 
+                // If accessibility was auto-disabled, then we do not want to restart a new timer.
+                if (mIsCurrentlyAutoDisabled) return;
+
                 if (!AccessibilityState.isAnyAccessibilityServiceEnabled()) {
                     mAutoDisableAccessibilityHandler.cancelDisableTimer();
                     mAutoDisableAccessibilityHandler.startDisableTimer(
@@ -764,6 +807,7 @@ public class WebContentsAccessibilityImpl extends AccessibilityNodeProviderCompa
         // requires a reference to the webContents.
         if (mIsCurrentlyAutoDisabled) {
             TraceEvent.begin("WebContentsAccessibilityImpl.reEnableRendererAccessibility");
+            mHistogramRecorder.onReEnableCalled(mAutoDisableUsageCounter == 0);
             WebContentsAccessibilityImplJni.get().reEnableRendererAccessibility(
                     mNativeObj, mDelegate.getWebContents());
             mIsCurrentlyAutoDisabled = false;
