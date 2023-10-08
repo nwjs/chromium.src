@@ -13,13 +13,13 @@
 #include <utility>
 
 #include "base/apple/owned_objc.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/mac/mac_util.h"
-#include "base/mac/scoped_cftyperef.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #import "base/task/single_thread_task_runner.h"
@@ -47,9 +47,9 @@
 #include "content/browser/renderer_host/visible_time_request_trigger.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_plugin_guest_manager.h"
-#include "content/public/browser/native_web_keyboard_event.h"
 #include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/common/input/native_web_keyboard_event.h"
 #include "content/public/common/page_visibility_state.h"
 #include "media/base/media_switches.h"
 #include "skia/ext/platform_canvas.h"
@@ -61,6 +61,8 @@
 #import "ui/base/clipboard/clipboard_util_mac.h"
 #include "ui/base/cocoa/animation_utils.h"
 #include "ui/base/cocoa/cocoa_base_utils.h"
+#include "ui/base/cocoa/cursor_accessibility_scale_factor_observer.h"
+#include "ui/base/cocoa/cursor_utils.h"
 #include "ui/base/cocoa/remote_accessibility_api.h"
 #import "ui/base/cocoa/secure_password_input.h"
 #include "ui/base/cocoa/text_services_context_menu.h"
@@ -89,6 +91,18 @@ namespace content {
 }
 
 namespace content {
+
+namespace {
+
+// If enabled, when the text input state changes `[NSApp updateWindows]` is
+// called after a delay. This is done as `updateWindows` can be quite
+// costly, and if the text input state is changing rapidly there is no need to
+// update it immediately.
+BASE_FEATURE(kDelayUpdateWindowsAfterTextInputStateChanged,
+             "DelayUpdateWindowsAfterTextInputStateChanged",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+}  // namespace
 
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserCompositorMacClient, public:
@@ -213,13 +227,6 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
       screen->GetDisplayNearestWindow([NSApp keyWindow]).id());
   original_screen_infos_ = screen_infos_;
 
-  // TODO(crbug.com/1457025): Fix isInternal inaccuracies and remove logging.
-  DISPLAY_LOG(DEBUG) << "RWHVMac ScreenInfos initialized, count: "
-                     << screen_infos_.screen_infos.size();
-  for (const auto& screen_info : screen_infos_.screen_infos) {
-    DISPLAY_LOG(DEBUG) << screen_info.ToString();
-  }
-
   viz::FrameSinkId frame_sink_id = host()->GetFrameSinkId();
 
   browser_compositor_ = std::make_unique<BrowserCompositorMac>(
@@ -245,6 +252,14 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget)
   }
 
   cursor_manager_ = std::make_unique<CursorManager>(this);
+  // Start observing changes to the system's cursor accessibility scale factor.
+  __block auto render_widget_host_view_mac = this;
+  cursor_scale_observer_ =
+      [[CursorAccessibilityScaleFactorObserver alloc] initWithHandler:^{
+        ui::GetCursorAccessibilityScaleFactor(/*force_update=*/true);
+        // Notify renderers of the new system cursor accessibility scale factor.
+        render_widget_host_view_mac->host()->SynchronizeVisualProperties();
+      }];
 
   if (GetTextInputManager())
     GetTextInputManager()->AddObserver(this);
@@ -322,6 +337,12 @@ void RenderWidgetHostViewMac::MigrateNSViewBridge(
       ns_view_id_, std::move(stub_client), std::move(stub_bridge_receiver));
 
   ns_view_ = remote_ns_view_.get();
+
+  // New remote NSViews start out as visible, make sure we hide it if it is
+  // supposed to be hidden already.
+  if (!is_visible_) {
+    remote_ns_view_->SetVisible(false);
+  }
 
   // End local display::Screen observation via `in_process_ns_view_bridge_`;
   // the remote NSWindow's display::Screen information will be sent by Mojo.
@@ -685,7 +706,13 @@ void RenderWidgetHostViewMac::OnUpdateTextInputStateCalled(
 
     // Let AppKit cache the new input context to make IMEs happy.
     // See http://crbug.com/73039.
-    [NSApp updateWindows];
+    if (base::FeatureList::IsEnabled(
+            kDelayUpdateWindowsAfterTextInputStateChanged)) {
+      update_windows_timer_.Start(FROM_HERE, base::Milliseconds(100), this,
+                                  &RenderWidgetHostViewMac::UpdateWindowsNow);
+    } else {
+      [NSApp updateWindows];
+    }
   }
 }
 
@@ -891,15 +918,6 @@ void RenderWidgetHostViewMac::UpdateScreenInfo() {
   if (dip_size_changed || current_display_changed) {
     browser_compositor_->UpdateSurfaceFromNSView(
         view_bounds_in_window_dip_.size());
-  }
-
-  // TODO(crbug.com/1457025): Fix isInternal innacuracies and remove logging.
-  if (any_display_changed) {
-    DISPLAY_LOG(DEBUG) << "RWHVMac ScreenInfos updated, count: "
-                       << screen_infos_.screen_infos.size();
-    for (const auto& screen_info : screen_infos_.screen_infos) {
-      DISPLAY_LOG(DEBUG) << screen_info.ToString();
-    }
   }
 
   // TODO(crbug.com/1169312): Unify display info caching and change detection.
@@ -1452,7 +1470,7 @@ void RenderWidgetHostViewMac::ProcessAckedTouchEvent(
       ack_result == blink::mojom::InputEventResultState::kConsumed;
   gesture_provider_.OnTouchEventAck(
       touch.event.unique_touch_event_id, event_consumed,
-      InputEventResultStateIsSetNonBlocking(ack_result));
+      InputEventResultStateIsSetBlocking(ack_result));
   if (touch.event.touch_start_or_first_touch_move && event_consumed &&
       host()->delegate() && host()->delegate()->GetInputEventRouter()) {
     host()
@@ -1481,6 +1499,10 @@ RenderWidgetHostViewMac::CreateSyntheticGestureTarget() {
 
 const viz::LocalSurfaceId& RenderWidgetHostViewMac::GetLocalSurfaceId() const {
   return browser_compositor_->GetRendererLocalSurfaceId();
+}
+
+void RenderWidgetHostViewMac::InvalidateLocalSurfaceIdAndAllocationGroup() {
+  browser_compositor_->InvalidateSurfaceAllocationGroup();
 }
 
 const viz::FrameSinkId& RenderWidgetHostViewMac::GetFrameSinkId() const {
@@ -1642,6 +1664,7 @@ void RenderWidgetHostViewMac::SetTextInputActive(bool active) {
   } else {
     password_input_enabler_.reset();
   }
+  update_windows_timer_.Stop();
 }
 
 MouseWheelPhaseHandler* RenderWidgetHostViewMac::GetMouseWheelPhaseHandler() {
@@ -2196,7 +2219,7 @@ void RenderWidgetHostViewMac::SetRemoteAccessibilityWindowToken(
 void RenderWidgetHostViewMac::ForwardKeyboardEventWithCommands(
     std::unique_ptr<blink::WebCoalescedInputEvent> input_event,
     const std::vector<uint8_t>& native_event_data,
-    bool skip_in_browser,
+    bool skip_if_unhandled,
     std::vector<blink::mojom::EditCommandPtr> edit_commands) {
   if (!input_event || !blink::WebInputEvent::IsKeyboardEventType(
                           input_event->Event().GetType())) {
@@ -2206,7 +2229,7 @@ void RenderWidgetHostViewMac::ForwardKeyboardEventWithCommands(
   const blink::WebKeyboardEvent& keyboard_event =
       static_cast<const blink::WebKeyboardEvent&>(input_event->Event());
   NativeWebKeyboardEvent native_event(keyboard_event, nil);
-  native_event.skip_in_browser = skip_in_browser;
+  native_event.skip_if_unhandled = skip_if_unhandled;
   // The NSEvent constructed from the InputEvent sent over mojo is not even
   // close to the original NSEvent, resulting in all sorts of bugs. Use the
   // native event serialization to reconstruct the NSEvent.
@@ -2380,6 +2403,10 @@ void RenderWidgetHostViewMac::SetTooltipText(
   ns_view_->SetTooltipText(tooltip_text);
   if (tooltip_observer_for_testing_)
     tooltip_observer_for_testing_->OnTooltipTextUpdated(tooltip_text);
+}
+
+void RenderWidgetHostViewMac::UpdateWindowsNow() {
+  [NSApp updateWindows];
 }
 
 Class GetRenderWidgetHostViewCocoaClassForTesting() {

@@ -76,6 +76,8 @@ import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.util.ColorUtils;
 import org.chromium.url.GURL;
 
+import java.nio.ByteBuffer;
+
 /**
  * Implementation of the interface {@link Tab}. Contains and manages a {@link ContentView}.
  * This class is not intended to be extended.
@@ -330,6 +332,12 @@ public class TabImpl implements Tab {
         }
 
         updateInteractableState();
+    }
+
+    public void didChangeCloseSignalInterceptStatus() {
+        for (TabObserver observer : mObservers) {
+            observer.onDidChangeCloseSignalInterceptStatus();
+        }
     }
 
     /**
@@ -983,8 +991,9 @@ public class TabImpl implements Tab {
                 mIsTabSaveEnabledSupplier);
     }
 
+    // TODO(b/298056319) deprecate usages of CriticalPersistedTabData in TabImpl.
     private boolean useCriticalPersistedTabData() {
-        return ChromeFeatureList.sCriticalPersistedTabData.isEnabled();
+        return false;
     }
 
     @Nullable
@@ -1001,6 +1010,8 @@ public class TabImpl implements Tab {
         assert state != null;
         CriticalPersistedTabData.from(this).setWebContentsState(state.contentsState);
         CriticalPersistedTabData.from(this).setTimestampMillis(state.timestampMillis);
+        CriticalPersistedTabData.from(this).setLastNavigationCommittedTimestampMillis(
+                state.lastNavigationCommittedTimestampMillis);
         CriticalPersistedTabData.from(this).setUrl(
                 new GURL(state.contentsState.getVirtualUrlFromState()));
         CriticalPersistedTabData.from(this).setTitle(
@@ -1345,7 +1356,10 @@ public class TabImpl implements Tab {
      * Builds the native counterpart to this class.
      */
     private void initializeNative() {
-        if (mNativeTabAndroid == 0) TabImplJni.get().init(TabImpl.this, mId);
+        if (mNativeTabAndroid == 0) {
+            TabImplJni.get().init(TabImpl.this,
+                    IncognitoUtils.getProfileFromWindowAndroid(mWindowAndroid, isIncognito()), mId);
+        }
         assert mNativeTabAndroid != 0;
     }
 
@@ -1384,6 +1398,27 @@ public class TabImpl implements Tab {
             tabsPtrArray[i] = ((TabImpl) tabsArray[i]).getNativePtr();
         }
         return tabsPtrArray;
+    }
+
+    @CalledByNative
+    private ByteBuffer getWebContentsStateByteBuffer() {
+        WebContentsState webContentsState =
+                CriticalPersistedTabData.from(this).getWebContentsState();
+
+        // Return a temp byte buffer if the state is null.
+        if (webContentsState == null) {
+            byte[] bytes = new byte[0];
+            return ByteBuffer.wrap(bytes);
+        }
+        return webContentsState.buffer();
+    }
+
+    @CalledByNative
+    private int getWebContentsStateSavedStateVersion() {
+        WebContentsState webContentsState =
+                CriticalPersistedTabData.from(this).getWebContentsState();
+        // Return an invalid saved state version if the state is null.
+        return webContentsState == null ? -1 : webContentsState.version();
     }
 
     /**
@@ -1733,9 +1768,11 @@ public class TabImpl implements Tab {
         boolean alwaysRequestDesktopSite =
                 commandLine.hasSwitch(ChromeSwitches.REQUEST_DESKTOP_SITES);
 
-        boolean shouldRequestDesktopSite =
-                TabUtils.readRequestDesktopSiteContentSettings(profile, url)
-                || alwaysRequestDesktopSite;
+        boolean shouldRequestDesktopSite = alwaysRequestDesktopSite
+                || (TabUtils.readRequestDesktopSiteContentSettings(profile, url)
+                        && !RequestDesktopUtils.shouldApplyWindowSetting(
+                                profile, url, getContext()));
+
         if (!shouldRequestDesktopSite
                 && ContentFeatureMap.isEnabled(ContentFeatureList.REQUEST_DESKTOP_SITE_ADDITIONS)) {
             // TODO(shuyng): Make additional setting compatible with site level setting.
@@ -1776,7 +1813,7 @@ public class TabImpl implements Tab {
     @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
     public interface Natives {
         TabImpl fromWebContents(WebContents webContents);
-        void init(TabImpl caller, int id);
+        void init(TabImpl caller, Profile profile, int id);
         void destroy(long nativeTabAndroid);
         void initWebContents(long nativeTabAndroid, boolean incognito, boolean isBackgroundTab,
                 WebContents webContents, TabWebContentsDelegateAndroidImpl delegate,

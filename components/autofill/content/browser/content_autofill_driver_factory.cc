@@ -6,10 +6,9 @@
 
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "base/feature_list.h"
-#include "base/functional/bind.h"
-#include "base/memory/ptr_util.h"
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/core/browser/browser_autofill_manager.h"
@@ -22,6 +21,8 @@
 #include "third_party/blink/public/common/features.h"
 
 namespace autofill {
+
+class ScopedAutofillManagersObservation;
 
 namespace {
 
@@ -155,22 +156,9 @@ void ContentAutofillDriverFactory::RenderFrameDeleted(
   DCHECK(driver);
 
   if (!render_frame_host->IsInLifecycleState(
-          content::RenderFrameHost::LifecycleState::kPrerendering) &&
-      driver->autofill_manager()) {
-    driver->autofill_manager()->ReportAutofillWebOTPMetrics(
+          content::RenderFrameHost::LifecycleState::kPrerendering)) {
+    driver->GetAutofillManager().ReportAutofillWebOTPMetrics(
         render_frame_host->DocumentUsedWebOTP());
-  }
-
-  // If the popup menu has been triggered from within an iframe and that
-  // frame is deleted, hide the popup. This is necessary because the popup
-  // may actually be shown by the AutofillExternalDelegate of an ancestor
-  // frame, which is not notified about |render_frame_host|'s destruction
-  // and therefore won't close the popup.
-  bool is_iframe = !driver->IsInAnyMainFrame();
-  if (is_iframe && router_.last_queried_source() == driver) {
-    DCHECK(!render_frame_host->IsInLifecycleState(
-        content::RenderFrameHost::LifecycleState::kPrerendering));
-    driver->renderer_events().HidePopup();
   }
 
   for (Observer& observer : observers_) {
@@ -242,11 +230,17 @@ void ContentAutofillDriverFactory::DidFinishNavigation(
   driver->Reset();
 }
 
-void ContentAutofillDriverFactory::OnVisibilityChanged(
-    content::Visibility visibility) {
-  if (visibility == content::Visibility::HIDDEN) {
-    client_->HideAutofillPopup(PopupHidingReason::kTabGone);
+std::vector<ContentAutofillDriver*>
+ContentAutofillDriverFactory::GetExistingDrivers(
+    base::PassKey<ScopedAutofillManagersObservation>) {
+  std::vector<ContentAutofillDriver*> drivers;
+  drivers.reserve(driver_map_.size());
+  for (const std::pair<content::RenderFrameHost*,
+                       std::unique_ptr<ContentAutofillDriver>>& entry :
+       driver_map_) {
+    drivers.push_back(entry.second.get());
   }
+  return drivers;
 }
 
 }  // namespace autofill

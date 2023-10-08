@@ -184,7 +184,7 @@ struct FormFieldData {
 
   // An identifier of the renderer form that contained this field.
   // This may be different from the browser form that contains this field in the
-  // case of a frame-transcending form. See ContentAutofillRouter and
+  // case of a frame-transcending form. See AutofillDriverRouter and
   // internal::FormForest for details on the distinction between renderer and
   // browser forms.
   FormGlobalId renderer_form_id() const { return {host_frame, host_form_id}; }
@@ -202,12 +202,6 @@ struct FormFieldData {
   // Strictly weaker than SameFieldAs().
   bool SimilarFieldAs(const FormFieldData& field) const;
 
-  // TODO(crbug/1211834): This function is deprecated.
-  // Returns true if both forms are equivalent from the POV of dynamic refills.
-  // Strictly weaker than SameFieldAs(): replaces equality of |is_focusable| and
-  // |role| with equality of IsVisible().
-  bool DynamicallySameFieldAs(const FormFieldData& field) const;
-
   // Returns true for all of textfield-looking types: text, password,
   // search, email, url, and number. It must work the same way as Blink function
   // WebInputElement::IsTextField(), and it returns false if |*this| represents
@@ -216,7 +210,7 @@ struct FormFieldData {
 
   bool IsPasswordInputElement() const;
 
-  // <select> and <selectmenu> are treated the same in Autofill except that
+  // <select> and <selectlist> are treated the same in Autofill except that
   // <select> gets special handling when it comes to unfocusable fields. The
   // motivation for this exception is that synthetic select fields often come
   // with an unfocusable <select> element.
@@ -228,8 +222,8 @@ struct FormFieldData {
   // support synthetic select fields, Autofill intentionally fills unfocusable
   // <select> elements.
   bool IsSelectElement() const;
-  bool IsSelectMenuElement() const;
-  bool IsSelectOrSelectMenuElement() const;
+  bool IsSelectListElement() const;
+  bool IsSelectOrSelectListElement() const;
 
   // Returns true if the field is focusable to the user.
   // This is an approximation of visibility with false positives.
@@ -281,7 +275,7 @@ struct FormFieldData {
 
   // The signature of the field's renderer form, that is, the signature of the
   // FormData that contained this field when it was received by the
-  // AutofillDriver (see ContentAutofillRouter and internal::FormForest
+  // AutofillDriver (see AutofillDriverRouter and internal::FormForest
   // for details on the distinction between renderer and browser forms).
   // Currently, the value is only set in ContentAutofillDriver; it's null on iOS
   // and in the Password Manager.

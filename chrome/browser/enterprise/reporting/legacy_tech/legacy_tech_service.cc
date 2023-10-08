@@ -27,6 +27,9 @@ void LegacyTechService::ReportEvent(const std::string& type,
                                     uint64_t line,
                                     uint64_t column) const {
   absl::optional<std::string> matched_url = url_matcher_.GetMatchedURL(url);
+  VLOG(2) << "Get report for URL " << url
+          << (matched_url ? " and matches a policy."
+                          : " without matching any policie.");
   if (!matched_url) {
     return;
   }
@@ -55,7 +58,8 @@ LegacyTechService* LegacyTechServiceFactory::GetForProfile(Profile* profile) {
       GetInstance()->GetServiceForBrowserContext(profile, /*create=*/true));
 }
 
-KeyedService* LegacyTechServiceFactory::BuildServiceInstanceFor(
+std::unique_ptr<KeyedService>
+LegacyTechServiceFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
 
@@ -63,7 +67,7 @@ KeyedService* LegacyTechServiceFactory::BuildServiceInstanceFor(
   // any report created.
   // Report uploading will be decided individually for every single report.
   // Use base::Unretained as the factory is base::NoDestructor.
-  return new LegacyTechService(
+  return std::make_unique<LegacyTechService>(
       profile, base::BindRepeating(&LegacyTechServiceFactory::ReportEventImpl,
                                    base::Unretained(GetInstance())));
 }

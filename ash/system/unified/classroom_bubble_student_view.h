@@ -7,6 +7,9 @@
 
 #include "ash/system/unified/classroom_bubble_base_view.h"
 
+class PrefRegistrySimple;
+class PrefService;
+
 namespace ash {
 
 // class ClassroomBubbleStudentView : public views::View {
@@ -20,12 +23,18 @@ class ASH_EXPORT ClassroomBubbleStudentView : public ClassroomBubbleBaseView {
       delete;
   ~ClassroomBubbleStudentView() override;
 
+  // Registers syncable user profile prefs with the specified `registry`.
+  static void RegisterUserProfilePrefs(PrefRegistrySimple* registry);
+
+  // Clears any student glanceables state from user `pref_services`.
+  static void ClearUserStatePrefs(PrefService* pref_service);
+
  private:
   // ClassroomBubbleBaseView:
   void OnSeeAllPressed() override;
 
   // Handle switching between assignment lists.
-  void SelectedAssignmentListChanged();
+  void SelectedAssignmentListChanged(bool initial_update);
 
   base::WeakPtrFactory<ClassroomBubbleStudentView> weak_ptr_factory_{this};
 };

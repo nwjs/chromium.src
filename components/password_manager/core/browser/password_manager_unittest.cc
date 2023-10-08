@@ -35,6 +35,7 @@
 #include "components/password_manager/core/browser/affiliation/fake_affiliation_service.h"
 #include "components/password_manager/core/browser/affiliation/mock_affiliated_match_helper.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+#include "components/password_manager/core/browser/field_info_manager.h"
 #include "components/password_manager/core/browser/form_fetcher_impl.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check_factory.h"
@@ -244,6 +245,7 @@ class MockPasswordManagerClient : public StubPasswordManagerClient {
               RefreshPasswordManagerSettingsIfNeeded,
               (),
               (const, override));
+  MOCK_METHOD(FieldInfoManager*, GetFieldInfoManager, (), (const, override));
   MOCK_METHOD(WebAuthnCredentialsDelegate*,
               GetWebAuthnCredentialsDelegateForDriver,
               (PasswordManagerDriver*),
@@ -435,6 +437,10 @@ class PasswordManagerTest : public testing::Test {
 #endif
     ON_CALL(client_, GetPrefs()).WillByDefault(Return(prefs_.get()));
 
+    field_info_manager_ = std::make_unique<FieldInfoManager>(task_runner_);
+    ON_CALL(client_, GetFieldInfoManager())
+        .WillByDefault(Return(field_info_manager_.get()));
+
     // When waiting for predictions is on, it makes tests more complicated.
     // Disable waiting, since most tests have nothing to do with predictions.
     // All tests that test working with prediction should explicitly turn
@@ -560,15 +566,11 @@ class PasswordManagerTest : public testing::Test {
     return android_form;
   }
 
-  PasswordForm MakeSimpleFormWithOnlyUsernameField() {
-    PasswordForm form;
-    form.url = test_form_url_;
-    form.username_element = u"Email";
-    form.submit_element = u"signIn";
-    form.signon_realm = test_signon_realm_;
-    form.form_data.name = u"username_only_form";
-    form.form_data.url = form.url;
-    form.form_data.unique_renderer_id = FormRendererId(30);
+  FormData MakeSingleUsernameFormData() {
+    FormData form_data;
+    form_data.name = u"username_only_form";
+    form_data.url = test_form_url_;
+    form_data.unique_renderer_id = FormRendererId(30);
 
     FormFieldData field;
     field.name = u"Email";
@@ -576,8 +578,17 @@ class PasswordManagerTest : public testing::Test {
     field.name_attribute = field.name;
     field.form_control_type = "text";
     field.unique_renderer_id = FieldRendererId(31);
-    form.form_data.fields.push_back(field);
+    form_data.fields.push_back(field);
+    return form_data;
+  }
 
+  PasswordForm MakeSimpleFormWithOnlyUsernameField() {
+    PasswordForm form;
+    form.url = test_form_url_;
+    form.username_element = u"Email";
+    form.submit_element = u"signIn";
+    form.signon_realm = test_signon_realm_;
+    form.form_data = MakeSingleUsernameFormData();
     return form;
   }
 
@@ -642,6 +653,7 @@ class PasswordManagerTest : public testing::Test {
   std::unique_ptr<TestingPrefServiceSimple> prefs_;
   std::unique_ptr<PasswordAutofillManager> password_autofill_manager_;
   std::unique_ptr<PasswordManager> manager_;
+  std::unique_ptr<FieldInfoManager> field_info_manager_;
   scoped_refptr<TestMockTimeTaskRunner> task_runner_;
 };
 
@@ -3647,21 +3659,14 @@ TEST_F(PasswordManagerTest, StartLeakDetection) {
 #if !BUILDFLAG(IS_IOS)
 // Check that a non-password form with SINGLE_USERNAME prediction is filled.
 TEST_F(PasswordManagerTest, FillSingleUsername) {
+  base::HistogramTester histogram_tester;
   PasswordFormManager::set_wait_for_server_predictions_for_filling(true);
   EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
   const PasswordForm saved_match(MakeSavedForm());
   store_->AddLogin(saved_match);
 
   // Create FormData for a form with 1 text field.
-  FormData form_data;
-  constexpr FormRendererId form_id(1001);
-  form_data.unique_renderer_id = form_id;
-  form_data.url = saved_match.url;
-  FormFieldData field;
-  field.form_control_type = "text";
-  constexpr FieldRendererId field_id(10);
-  field.unique_renderer_id = field_id;
-  form_data.fields.push_back(field);
+  FormData form_data = MakeSingleUsernameFormData();
 
   PasswordFormFillData fill_data;
   EXPECT_CALL(driver_, SetPasswordFillData).WillOnce(SaveArg<0>(&fill_data));
@@ -3671,13 +3676,54 @@ TEST_F(PasswordManagerTest, FillSingleUsername) {
       CreateServerPredictions(form_data,
                               {{0, ServerFieldType::SINGLE_USERNAME}}));
   task_environment_.RunUntilIdle();
-  EXPECT_EQ(form_id, fill_data.form_renderer_id);
+  EXPECT_EQ(form_data.unique_renderer_id, fill_data.form_renderer_id);
   EXPECT_EQ(saved_match.username_value,
             fill_data.preferred_login.username_value);
-  EXPECT_EQ(field_id, fill_data.username_element_renderer_id);
+  EXPECT_EQ(form_data.fields[0].unique_renderer_id,
+            fill_data.username_element_renderer_id);
   EXPECT_EQ(saved_match.password_value,
             fill_data.preferred_login.password_value);
   EXPECT_TRUE(fill_data.password_element_renderer_id.is_null());
+
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.SingleUsername.ForgotPasswordServerPredictionUsed",
+      false, 1);
+}
+
+// Check that a non-password form with SINGLE_USERNAME_FORGOT_PASSWORD
+// prediction is filled.
+TEST_F(PasswordManagerTest, FillSingleUsernameForgotPassword) {
+  feature_list_.InitAndEnableFeature(
+      password_manager::features::kForgotPasswordFormSupport);
+  base::HistogramTester histogram_tester;
+  PasswordFormManager::set_wait_for_server_predictions_for_filling(true);
+  EXPECT_CALL(client_, IsSavingAndFillingEnabled).WillRepeatedly(Return(true));
+  const PasswordForm saved_match(MakeSavedForm());
+  store_->AddLogin(saved_match);
+
+  // Create FormData for a form with 1 text field.
+  FormData form_data = MakeSingleUsernameFormData();
+
+  PasswordFormFillData fill_data;
+  EXPECT_CALL(driver_, SetPasswordFillData).WillOnce(SaveArg<0>(&fill_data));
+  std::vector<const FormData*> forms = {&form_data};
+  manager()->ProcessAutofillPredictions(
+      &driver_, forms,
+      CreateServerPredictions(
+          form_data, {{0, ServerFieldType::SINGLE_USERNAME_FORGOT_PASSWORD}}));
+  task_environment_.RunUntilIdle();
+  EXPECT_EQ(form_data.unique_renderer_id, fill_data.form_renderer_id);
+  EXPECT_EQ(saved_match.username_value,
+            fill_data.preferred_login.username_value);
+  EXPECT_EQ(form_data.fields[0].unique_renderer_id,
+            fill_data.username_element_renderer_id);
+  EXPECT_EQ(saved_match.password_value,
+            fill_data.preferred_login.password_value);
+  EXPECT_TRUE(fill_data.password_element_renderer_id.is_null());
+
+  histogram_tester.ExpectUniqueSample(
+      "PasswordManager.SingleUsername.ForgotPasswordServerPredictionUsed", true,
+      1);
 }
 #endif  // !BUILDFLAG(IS_IOS)
 
@@ -4521,6 +4567,74 @@ TEST_F(PasswordManagerTest, HaveFormManagersReceivedDataDependsOnDriver) {
 
   EXPECT_TRUE(manager()->HaveFormManagersReceivedData(&driver_));
   EXPECT_FALSE(manager()->HaveFormManagersReceivedData(&other_driver));
+}
+
+TEST_F(PasswordManagerTest,
+       FieldInfoManagerHasDataPredictionsInitiallyAvailable) {
+  feature_list_.InitAndEnableFeature(
+      password_manager::features::kForgotPasswordFormSupport);
+
+  // Process server predictions.
+  PasswordForm username_form(MakeSimpleFormWithOnlyUsernameField());
+  std::vector<const FormData*> forms = {&username_form.form_data};
+  const ServerFieldType kFieldType =
+      ServerFieldType::SINGLE_USERNAME_FORGOT_PASSWORD;
+  manager()->ProcessAutofillPredictions(
+      &driver_, forms,
+      CreateServerPredictions(username_form.form_data, {{0, kFieldType}}));
+
+  // Simulate the user typed in a text field..
+  ON_CALL(driver_, GetLastCommittedURL())
+      .WillByDefault(ReturnRef(username_form.url));
+  std::u16string potential_username_value = u"is_that_a_username?";
+  manager()->OnUserModifiedNonPasswordField(
+      &driver_, username_form.form_data.fields[0].unique_renderer_id,
+      /*value=*/potential_username_value,
+      /*autocomplete_attribute_has_username=*/false, /*is_likely_otp=*/false);
+
+  std::string signon_realm = GetSignonRealm(username_form.url);
+  ASSERT_EQ(field_info_manager_->GetFieldInfo(signon_realm).size(), 1u);
+
+  FieldInfo info = field_info_manager_->GetFieldInfo(signon_realm)[0];
+  EXPECT_EQ(info.driver_id, driver_.GetId());
+  EXPECT_EQ(info.field_id,
+            username_form.form_data.fields[0].unique_renderer_id);
+  EXPECT_EQ(info.signon_realm, signon_realm);
+  EXPECT_EQ(info.value, potential_username_value);
+  EXPECT_EQ(info.type, kFieldType);
+}
+
+TEST_F(PasswordManagerTest, FieldInfoManagerHasDataPredictionsPropagatedLater) {
+  feature_list_.InitAndEnableFeature(
+      password_manager::features::kForgotPasswordFormSupport);
+
+  // Simulate the user typed in a text field.
+  PasswordForm username_form(MakeSimpleFormWithOnlyUsernameField());
+  ON_CALL(driver_, GetLastCommittedURL())
+      .WillByDefault(ReturnRef(username_form.url));
+  std::u16string potential_username_value = u"is_that_a_username?";
+  manager()->OnUserModifiedNonPasswordField(
+      &driver_, username_form.form_data.fields[0].unique_renderer_id,
+      /*value=*/potential_username_value,
+      /*autocomplete_attribute_has_username=*/false, /*is_likely_otp=*/false);
+
+  // Process server predictions.
+  std::vector<const FormData*> forms = {&username_form.form_data};
+  const ServerFieldType kFieldType =
+      ServerFieldType::SINGLE_USERNAME_FORGOT_PASSWORD;
+  manager()->ProcessAutofillPredictions(
+      &driver_, forms,
+      CreateServerPredictions(username_form.form_data, {{0, kFieldType}}));
+
+  std::string signon_realm = GetSignonRealm(username_form.url);
+  ASSERT_EQ(field_info_manager_->GetFieldInfo(signon_realm).size(), 1u);
+  FieldInfo info = field_info_manager_->GetFieldInfo(signon_realm)[0];
+  EXPECT_EQ(info.driver_id, driver_.GetId());
+  EXPECT_EQ(info.field_id,
+            username_form.form_data.fields[0].unique_renderer_id);
+  EXPECT_EQ(info.signon_realm, signon_realm);
+  EXPECT_EQ(info.value, potential_username_value);
+  EXPECT_EQ(info.type, kFieldType);
 }
 
 enum class PredictionSource {

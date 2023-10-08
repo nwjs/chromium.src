@@ -6,6 +6,7 @@
 
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
+#include "components/privacy_sandbox/tracking_protection_prefs.h"
 
 namespace privacy_sandbox {
 
@@ -28,7 +29,6 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterBooleanPref(prefs::kPrivacySandboxM1AdMeasurementEnabled,
                                 false);
   registry->RegisterBooleanPref(prefs::kPrivacySandboxM1Restricted, false);
-  registry->RegisterBooleanPref(prefs::kPrivacySandboxM1Unrestricted, false);
 
   registry->RegisterBooleanPref(
       prefs::kPrivacySandboxManuallyControlled, false,
@@ -72,6 +72,9 @@ void RegisterProfilePrefs(PrefRegistrySimple* registry) {
       prefs::kPrivacySandboxTopicsConsentTextAtLastUpdate, "");
   registry->RegisterBooleanPref(prefs::kPrivacySandboxAntiAbuseInitialized,
                                 false);
+
+  // Register prefs for tracking protection.
+  tracking_protection::RegisterProfilePrefs(registry);
 }
 
 }  // namespace privacy_sandbox

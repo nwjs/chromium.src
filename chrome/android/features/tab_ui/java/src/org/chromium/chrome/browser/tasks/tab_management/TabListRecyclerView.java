@@ -451,13 +451,7 @@ class TabListRecyclerView
     }
 
     private float getMaxDutyCycle() {
-        String maxDutyCycle = ChromeFeatureList.getFieldTrialParamByFeature(
-                ChromeFeatureList.TAB_GRID_LAYOUT_ANDROID, MAX_DUTY_CYCLE_PARAM);
-        try {
-            return Float.valueOf(maxDutyCycle);
-        } catch (NumberFormatException e) {
-            return DEFAULT_MAX_DUTY_CYCLE;
-        }
+        return DEFAULT_MAX_DUTY_CYCLE;
     }
 
     private void registerDynamicView() {
@@ -600,37 +594,6 @@ class TabListRecyclerView
         // Get the relative position.
         componentRect.offset(-recyclerViewRect.left, -recyclerViewRect.top);
         return componentRect;
-    }
-
-    /**
-     * A structure for holding the a recycler view position and offset.
-     */
-    public static class RecyclerViewPosition {
-        private int mPosition;
-        private int mOffset;
-
-        /**
-         * @param position The position of the first visible item in the recyclerView.
-         * @param offset The scroll offset of the recyclerView;
-         */
-        public RecyclerViewPosition(int position, int offset) {
-            mPosition = position;
-            mOffset = offset;
-        }
-
-        /**
-         * @return the position of the first visible item in the RecyclerView.
-         */
-        public int getPosition() {
-            return mPosition;
-        }
-
-        /**
-         * @return the offset from the first item in the RecyclerView.
-         */
-        public int getOffset() {
-            return mOffset;
-        }
     }
 
     /**

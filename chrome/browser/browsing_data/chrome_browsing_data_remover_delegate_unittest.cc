@@ -135,6 +135,8 @@
 #include "components/permissions/permission_uma_util.h"
 #include "components/permissions/permission_util.h"
 #include "components/permissions/request_type.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/scoped_privacy_sandbox_attestations.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
 #include "components/safe_browsing/core/browser/verdict_cache_manager.h"
 #include "components/security_interstitials/content/stateful_ssl_host_state_delegate.h"
@@ -142,6 +144,7 @@
 #include "components/site_engagement/content/site_engagement_service.h"
 #include "components/site_isolation/pref_names.h"
 #include "components/ukm/test_ukm_recorder.h"
+#include "content/public/browser/background_tracing_manager.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
@@ -1232,6 +1235,8 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
     // Make sure the Network Service is started before making a NetworkContext.
     content::GetNetworkService();
     task_environment_.RunUntilIdle();
+    background_tracing_manager_ =
+        content::BackgroundTracingManager::CreateInstance();
 
     // This needs to be done after the test constructor, so that subclasses
     // that initialize a ScopedFeatureList in their constructors can do so
@@ -1326,6 +1331,8 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
     // the message loop is cleared out, before destroying the threads and loop.
     // Otherwise we leak memory.
     profile_manager_.reset();
+
+    background_tracing_manager_.reset();
     base::RunLoop().RunUntilIdle();
 
     TestingBrowserProcess::GetGlobal()->SetLocalState(nullptr);
@@ -1434,6 +1441,9 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
  private:
   // Cached pointer to BrowsingDataRemover for access to testing methods.
   raw_ptr<content::BrowsingDataRemover> remover_;
+
+  std::unique_ptr<content::BackgroundTracingManager>
+      background_tracing_manager_;
 
 #if BUILDFLAG(ENABLE_NACL)
   ScopedNaClBrowserDelegate nacl_browser_delegate_;
@@ -1707,14 +1717,14 @@ TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest, ClearData) {
           RemovalInfo{DATA_TYPE_SITE_DATA},
           RemovalInfo{DATA_TYPE_ON_STORAGE_PARTITION & DATA_TYPE_SITE_DATA,
                       iwa_url_info1.storage_partition_config(GetProfile())},
-          RemovalInfo{DATA_TYPE_ON_STORAGE_PARTITION,
+          RemovalInfo{DATA_TYPE_ON_STORAGE_PARTITION & DATA_TYPE_SITE_DATA,
                       controlled_frame_partition1},
           RemovalInfo{DATA_TYPE_ON_STORAGE_PARTITION & DATA_TYPE_SITE_DATA,
                       iwa_url_info2.storage_partition_config(GetProfile())}));
 }
 
 TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest,
-       ControlledFramesNotClearedIfNotInFilter) {
+       ForwardClearDataParameterToControlledFrame) {
   const GURL iwa_url(
       "isolated-app://"
       "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic");
@@ -1732,7 +1742,8 @@ TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest,
       UnorderedElementsAre(
           RemovalInfo{DATA_TYPE_INDEXED_DB},
           RemovalInfo{DATA_TYPE_INDEXED_DB,
-                      iwa_url_info.storage_partition_config(GetProfile())}));
+                      iwa_url_info.storage_partition_config(GetProfile())},
+          RemovalInfo{DATA_TYPE_INDEXED_DB, controlled_frame_partition}));
 }
 
 TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest,
@@ -1786,33 +1797,6 @@ TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest, AppCookiesDeleted) {
 }
 
 TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest,
-       ControlledFramesIgnoreFilter) {
-  const GURL iwa_url(
-      "isolated-app://"
-      "berugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic");
-  web_app::IsolatedWebAppUrlInfo iwa_url_info = InstallIsolatedWebApp(iwa_url);
-  content::StoragePartitionConfig controlled_frame_partition =
-      CreateControlledFrameStoragePartition(iwa_url_info, "controlled_frame");
-
-  std::vector<RemovalInfo> removal_tasks =
-      ClearDataAndWait(base::Time(), base::Time::Max(),
-                       DATA_TYPE_INDEXED_DB | constants::DATA_TYPE_HISTORY |
-                           constants::DATA_TYPE_CONTROLLED_FRAME,
-                       BrowsingDataFilterBuilder::Create(
-                           BrowsingDataFilterBuilder::Mode::kPreserve));
-
-  EXPECT_THAT(
-      removal_tasks,
-      UnorderedElementsAre(
-          RemovalInfo{DATA_TYPE_INDEXED_DB | constants::DATA_TYPE_HISTORY |
-                      constants::DATA_TYPE_CONTROLLED_FRAME},
-          RemovalInfo{DATA_TYPE_INDEXED_DB,
-                      iwa_url_info.storage_partition_config(GetProfile())},
-          RemovalInfo{DATA_TYPE_ON_STORAGE_PARTITION,
-                      controlled_frame_partition}));
-}
-
-TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest,
        TimeRangeSpecified) {
   const GURL iwa_url(
       "isolated-app://"
@@ -1821,21 +1805,18 @@ TEST_F(IsolatedWebAppChromeBrowsingDataRemoverDelegateTest,
   content::StoragePartitionConfig controlled_frame_partition =
       CreateControlledFrameStoragePartition(iwa_url_info, "controlled_frame");
 
-  std::vector<RemovalInfo> removal_tasks = ClearDataAndWait(
-      AnHourAgo(), base::Time::Max(),
-      DATA_TYPE_INDEXED_DB | constants::DATA_TYPE_CONTROLLED_FRAME,
-      BrowsingDataFilterBuilder::Create(
-          BrowsingDataFilterBuilder::Mode::kPreserve));
+  std::vector<RemovalInfo> removal_tasks =
+      ClearDataAndWait(AnHourAgo(), base::Time::Max(), DATA_TYPE_INDEXED_DB,
+                       BrowsingDataFilterBuilder::Create(
+                           BrowsingDataFilterBuilder::Mode::kPreserve));
 
   EXPECT_THAT(
       removal_tasks,
       UnorderedElementsAre(
-          RemovalInfo{DATA_TYPE_INDEXED_DB |
-                      constants::DATA_TYPE_CONTROLLED_FRAME},
+          RemovalInfo{DATA_TYPE_INDEXED_DB},
           RemovalInfo{DATA_TYPE_INDEXED_DB,
                       iwa_url_info.storage_partition_config(GetProfile())},
-          RemovalInfo{DATA_TYPE_ON_STORAGE_PARTITION,
-                      controlled_frame_partition}));
+          RemovalInfo{DATA_TYPE_INDEXED_DB, controlled_frame_partition}));
 }
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS_LACROS)
 
@@ -3224,6 +3205,13 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, RemoveFledgeJoinSettings) {
       PrivacySandboxSettingsFactory::GetForProfile(GetProfile());
   privacy_sandbox_settings->SetAllPrivacySandboxAllowedForTesting();
 
+  privacy_sandbox::ScopedPrivacySandboxAttestations scoped_attestations(
+      privacy_sandbox::PrivacySandboxAttestations::CreateForTesting());
+  // Mark all Privacy Sandbox APIs as attested since the test case is testing
+  // behaviors not related to attestations.
+  privacy_sandbox::PrivacySandboxAttestations::GetInstance()
+      ->SetAllPrivacySandboxAttestedForTesting(true);
+
   auto auction_party = url::Origin::Create(GURL("https://auction-party.com"));
 
   const std::string etld_one = "example.com";
@@ -3820,7 +3808,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AllTypesAreGettingDeleted) {
                                        some_value.Clone());
 
     // Check that the exception was created.
-    base::Value value = map->GetWebsiteSetting(url, url, info->type(), nullptr);
+    base::Value value = map->GetWebsiteSetting(url, url, info->type());
     EXPECT_FALSE(value.is_none()) << "Not created: " << info->name();
     EXPECT_EQ(some_value, value) << "Not created: " << info->name();
   }
@@ -3837,7 +3825,7 @@ TEST_F(ChromeBrowsingDataRemoverDelegateTest, AllTypesAreGettingDeleted) {
     if (base::Contains(non_deletable_types, info->type())) {
       continue;
     }
-    base::Value value = map->GetWebsiteSetting(url, url, info->type(), nullptr);
+    base::Value value = map->GetWebsiteSetting(url, url, info->type());
 
     if (value.is_int()) {
       EXPECT_EQ(CONTENT_SETTING_BLOCK, value.GetInt())

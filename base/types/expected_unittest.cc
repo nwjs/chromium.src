@@ -871,7 +871,7 @@ TEST(Expected, EqualityOperators) {
   EXPECT_NE(unexpected(123), ExInt(123));
 }
 
-TEST(ExpectedTest, DeathTests) {
+TEST(ExpectedDeathTest, UseAfterMove) {
   using ExpectedInt = expected<int, int>;
   using ExpectedDouble = expected<double, double>;
 

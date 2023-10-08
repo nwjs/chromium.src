@@ -126,7 +126,6 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSDefaultBrowserOverflowMenuBadgeFeature,
     &kIPHiOSDefaultBrowserSettingsBadgeFeature,
     &kIPHiOSPromoAppStoreFeature,
-    &kIPHTabPinnedFeature,
     &kIPHiOSPromoWhatsNewFeature,
     &kIPHiOSPromoPostRestoreFeature,
     &kIPHiOSPromoCredentialProviderExtensionFeature,
@@ -137,6 +136,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHiOSShareToolbarItemFeature,
     &kIPHiOSDefaultBrowserVideoPromoTriggerFeature,
     &kIPHiOSPromoPostRestoreDefaultBrowserFeature,
+    &kIPHiOSPromoPasswordManagerWidgetFeature,
 #endif  // BUILDFLAG(IS_IOS)
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
@@ -170,6 +170,7 @@ const base::Feature* const kAllFeatures[] = {
     &kIPHReadingListEntryPointFeature,
     &kIPHReadingListInSidePanelFeature,
     &kIPHReadingModeSidePanelFeature,
+    &kIPHShoppingCollectionFeature,
     &kIPHSideSearchAutoTriggeringFeature,
     &kIPHSideSearchFeature,
     &kIPHSideSearchPageActionLabelFeature,

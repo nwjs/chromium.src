@@ -16,8 +16,10 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/common_export.h"
 #include "third_party/blink/public/common/interest_group/ad_display_size.h"
+#include "third_party/blink/public/common/interest_group/auction_server_request_flags.h"
 #include "third_party/blink/public/common/interest_group/seller_capabilities.h"
 #include "third_party/blink/public/mojom/interest_group/interest_group_types.mojom-shared.h"
+#include "third_party/boringssl/src/include/openssl/curve25519.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -32,6 +34,7 @@ namespace blink {
 // https://github.com/WICG/turtledove/blob/main/FLEDGE.md#11-joining-interest-groups
 struct BLINK_COMMON_EXPORT InterestGroup {
   using ExecutionMode = blink::mojom::InterestGroup_ExecutionMode;
+  using AdditionalBidKey = std::array<uint8_t, ED25519_PUBLIC_KEY_LEN>;
   // An advertisement to display for an interest group. Typemapped to
   // blink::mojom::InterestGroupAd.
   // https://github.com/WICG/turtledove/blob/main/FLEDGE.md#12-interest-group-attributes
@@ -78,35 +81,6 @@ struct BLINK_COMMON_EXPORT InterestGroup {
   };
 
   InterestGroup();
-
-  // Constructor takes arguments by value. They're unlikely to be independently
-  // useful at the point of construction, so caller can std::move() them when
-  // invoking the constructor.
-  InterestGroup(
-      base::Time expiry,
-      url::Origin owner,
-      std::string name,
-      double priority,
-      bool enable_bidding_signals_prioritization,
-      absl::optional<base::flat_map<std::string, double>> priority_vector,
-      absl::optional<base::flat_map<std::string, double>>
-          priority_signals_overrides,
-      absl::optional<base::flat_map<url::Origin, SellerCapabilitiesType>>
-          seller_capabilities,
-      SellerCapabilitiesType all_sellers_capabilities,
-      ExecutionMode execution_mode,
-      absl::optional<GURL> bidding_url,
-      absl::optional<GURL> bidding_wasm_helper_url,
-      absl::optional<GURL> update_url,
-      absl::optional<GURL> trusted_bidding_signals_url,
-      absl::optional<std::vector<std::string>> trusted_bidding_signals_keys,
-      absl::optional<std::string> user_bidding_signals,
-      absl::optional<std::vector<InterestGroup::Ad>> ads,
-      absl::optional<std::vector<InterestGroup::Ad>> ad_components,
-      absl::optional<base::flat_map<std::string, blink::AdSize>> ad_sizes,
-      absl::optional<base::flat_map<std::string, std::vector<std::string>>>
-          size_groups);
-
   ~InterestGroup();
 
   // Checks for validity. Performs same checks as IsBlinkInterestGroupValid().
@@ -144,7 +118,11 @@ struct BLINK_COMMON_EXPORT InterestGroup {
   absl::optional<base::flat_map<std::string, std::vector<std::string>>>
       size_groups;
 
-  static_assert(__LINE__ == 147, R"(
+  AuctionServerRequestFlags auction_server_request_flags;
+
+  absl::optional<AdditionalBidKey> additional_bid_key;
+
+  static_assert(__LINE__ == 125, R"(
 If modifying InterestGroup fields, make sure to also modify:
 
 * IsValid(), EstimateSize(), and IsEqualForTesting() in this class

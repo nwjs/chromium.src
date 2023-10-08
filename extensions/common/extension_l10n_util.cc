@@ -385,7 +385,7 @@ bool AddLocale(const std::set<std::string>& chrome_locales,
   // locales.
   if (base::StartsWith(locale_name, ".", base::CompareCase::SENSITIVE))
     return true;
-  if (chrome_locales.find(locale_name) == chrome_locales.end()) {
+  if (!base::Contains(chrome_locales, locale_name)) {
     // Warn if there is an extension locale that's not in the Chrome list,
     // but don't fail.
     DLOG(WARNING) << base::StringPrintf("Supplied locale %s is not supported.",
@@ -416,9 +416,9 @@ void GetAllLocales(std::set<std::string>* all_locales) {
       l10n_util::GetAvailableICULocales();
   // Add all parents of the current locale to the available locales set.
   // I.e. for sr_Cyrl_RS we add sr_Cyrl_RS, sr_Cyrl and sr.
-  for (size_t i = 0; i < available_locales.size(); ++i) {
+  for (const auto& locale : available_locales) {
     std::vector<std::string> result;
-    l10n_util::GetParentLocales(available_locales[i], &result);
+    l10n_util::GetParentLocales(locale, &result);
     all_locales->insert(result.begin(), result.end());
   }
 }
@@ -516,8 +516,8 @@ bool ValidateExtensionLocales(const base::FilePath& extension_path,
   if (!GetValidLocales(locale_path, &valid_locales, error))
     return false;
 
-  // Load each available localization file and check for errors within.
-  // This entire method only gets called when reloading unpacked extensions.
+  // Load each available localization file and check for errors within. This
+  // entire method only gets used when reloading unpacked or packing extensions.
   // Performance thus isn't of utmost importance here, but gathering all errors
   // in all languages at once provides a comprehensive view to extension devs.
   for (const auto& locale : valid_locales) {

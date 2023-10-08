@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_line_breaker.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_line_info.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_offset_mapping.h"
+#include "third_party/blink/renderer/core/layout/ng/inline/text_auto_space.h"
 #include "third_party/blink/renderer/core/layout/ng/legacy_layout_tree_walking.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_inline_list_item.h"
 #include "third_party/blink/renderer/core/layout/ng/list/layout_ng_list_item.h"
@@ -527,6 +528,7 @@ void NGInlineNode::PrepareLayout(NGInlineNodeData* previous_data) const {
   SegmentText(data);
   ShapeTextIncludingFirstLine(
       data, previous_data ? &previous_data->text_content : nullptr, nullptr);
+
   AssociateItemsWithInlines(data);
   DCHECK_EQ(data, MutableData());
 
@@ -1280,9 +1282,11 @@ void NGInlineNode::ShapeText(NGInlineItemsData* data,
   HeapVector<NGInlineItem>* items = &data->items;
 
   ShapeResultSpacing<String> spacing(text_content, IsSvgText());
+  TextAutoSpace auto_space(*data);
 
   const bool allow_shape_cache =
-      IsNGShapeCacheAllowed(text_content, override_font, *items, spacing);
+      IsNGShapeCacheAllowed(text_content, override_font, *items, spacing) &&
+      !auto_space.MayApply();
 
   // Provide full context of the entire node to the shaper.
   ReusingTextShaper shaper(data, previous_items, allow_shape_cache);
@@ -1473,6 +1477,8 @@ void NGInlineNode::ShapeText(NGInlineItemsData* data,
     shape_result->CopyRanges(text_item_ranges.data(), text_item_ranges.size());
   }
 
+  auto_space.ApplyIfNeeded(*data);
+
 #if DCHECK_IS_ON()
   for (const NGInlineItem& item : *items) {
     if (item.Type() == NGInlineItem::kText && item.Length()) {
@@ -1521,6 +1527,9 @@ void NGInlineNode::ShapeTextForFirstLineIfNeeded(NGInlineNodeData* data) const {
   first_line_items->items.AppendVector(data->items);
   for (auto& item : first_line_items->items) {
     item.SetStyleVariant(NGStyleVariant::kFirstLine);
+  }
+  if (data->segments) {
+    first_line_items->segments = data->segments->Clone();
   }
 
   // Re-shape if the font is different.
@@ -1682,7 +1691,7 @@ static LayoutUnit ComputeContentSize(
       EFloat previous_float_type = EFloat::kNone;
       for (const auto& floating_object : floating_objects_) {
         const EClear float_clear =
-            floating_object.float_style.Clear(floating_object.style);
+            floating_object.float_style->Clear(*floating_object.style);
 
         // If this float clears the previous float we start a new "line".
         // This is subtly different to block layout which will only reset either
@@ -1701,7 +1710,7 @@ static LayoutUnit ComputeContentSize(
         floats_inline_size_ += floating_object.float_inline_max_size_with_margin
                                    .ClampNegativeToZero();
         previous_float_type =
-            floating_object.float_style.Floating(floating_object.style);
+            floating_object.float_style->Floating(*floating_object.style);
       }
       max_inline_size =
           std::max(max_inline_size, line_inline_size + floats_inline_size_);

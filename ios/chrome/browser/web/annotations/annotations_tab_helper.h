@@ -38,10 +38,15 @@ class AnnotationsTabHelper : public web::AnnotationsTextObserver,
   // Sets the MiniMapCommands that can display mini maps.
   void SetMiniMapCommands(id<MiniMapCommands> mini_map_handler);
 
+  // Returns pointer to latest metadata extracted or `nullptr`. See
+  // i/w/p/a/annotations_text_observer.h for metadata key/pair values.
+  base::Value::Dict* GetMetadata() { return metadata_.get(); }
+
   // AnnotationsTextObserver methods:
   void OnTextExtracted(web::WebState* web_state,
                        const std::string& text,
-                       int seq_id) override;
+                       int seq_id,
+                       const base::Value::Dict& metadata) override;
   void OnDecorated(web::WebState* web_state,
                    int successes,
                    int annotations) override;
@@ -72,6 +77,8 @@ class AnnotationsTabHelper : public web::AnnotationsTextObserver,
   id<MiniMapCommands> mini_map_handler_ = nil;
 
   web::WebState* web_state_ = nullptr;
+
+  std::unique_ptr<base::Value::Dict> metadata_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

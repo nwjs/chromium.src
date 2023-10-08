@@ -181,7 +181,7 @@
   },
   'chrome-refresh-2023': {
     'args': [
-      '--enable-features=ChromeRefresh2023,ChromeRefreshSecondary2023,ChromeWebuiRefresh2023,Cr2023ActionChips,Cr2023ActionChipsIcons,kOmniboxCR23SteadyStateIcons,OmniboxExpandedLayout,OmniboxExpandedStateColors,OmniboxExpandedStateHeight,OmniboxExpandedStateShape,OmniboxExpandedStateSuggestIcons,OmniboxSteadyStateBackgroundColor,OmniboxSteadyStateHeight,OmniboxSteadyStateTextColor,OmniboxSuggestionHoverFillShape',
+      '--enable-features=ChromeRefresh2023,ChromeRefreshSecondary2023,ChromeWebuiRefresh2023,Cr2023ActionChips,Cr2023ActionChipsIcons,kOmniboxCR23SteadyStateIcons,OmniboxExpandedLayout,OmniboxExpandedStateColors,OmniboxExpandedStateHeight,OmniboxExpandedStateShape,OmniboxExpandedStateSuggestIcons,OmniboxSteadyStateBackgroundColor,OmniboxSteadyStateHeight,OmniboxSteadyStateTextColor,OmniboxSuggestionHoverFillShape,IPH_DesktopCustomizeChromeRefresh',
     ],
   },
   'chrome-swarming-pool': {
@@ -342,9 +342,6 @@
       '--test-launcher-batch-limit=512',
     ],
   },
-  'disable_check_flakiness_web_tests': {
-    'check_flakiness_for_new_tests': False,
-  },
   'disable_field_trial_config_for_earl_grey': {
     'args': [
       '--extra-app-args=--disable-field-trial-config',
@@ -401,6 +398,14 @@
     'args': [
       '--everlasting',
     ],
+    'swarming': {
+      'named_caches': [
+        {
+          'name': 'fuchsia_emulator_cache',
+          'path': '.fuchsia_emulator/fuchsia-everlasting-emulator',
+        },
+      ],
+    },
   },
   'fuchsia_logs': {
     'args': [
@@ -643,22 +648,6 @@
       'dimensions': {
         'cpu': 'x86-64',
         'os': 'Mac-12',
-      },
-    },
-  },
-  'mac_13.4_arm64': {
-    'swarming': {
-      'dimensions': {
-        'cpu': 'arm64',
-        'os': 'Mac-13.4',
-      },
-    },
-  },
-  'mac_13.4_x64': {
-    'swarming': {
-      'dimensions': {
-        'cpu': 'x86-64',
-        'os': 'Mac-13.4',
       },
     },
   },
@@ -926,6 +915,14 @@
     },
   },
   'oreo_fleet': {
+    'swarming': {
+      'dimensions': {
+        'device_os': 'OPR4.170623.020',
+        'device_os_flavor': 'google',
+      },
+    },
+  },
+  'oreo_mr1_fleet': {
     'swarming': {
       'dimensions': {
         'device_os': 'OPM4.171019.021.P2',
@@ -1207,12 +1204,12 @@
   'xcode_15_beta': {
     'args': [
       '--xcode-build-version',
-      '15a5209g',
+      '15a5229m',
     ],
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_15a5209g',
+          'name': 'xcode_ios_15a5229m',
           'path': 'Xcode.app',
         },
       ],
@@ -1221,12 +1218,12 @@
   'xcode_15_main': {
     'args': [
       '--xcode-build-version',
-      '15a5209g',
+      '15a5229m',
     ],
     'swarming': {
       'named_caches': [
         {
-          'name': 'xcode_ios_15a5209g',
+          'name': 'xcode_ios_15a5229m',
           'path': 'Xcode.app',
         },
       ],

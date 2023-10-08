@@ -25,6 +25,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/hash/sha1.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -51,6 +52,7 @@
 #include "chrome/browser/ash/child_accounts/child_policy_observer.h"
 #include "chrome/browser/ash/crosapi/browser_data_back_migrator.h"
 #include "chrome/browser/ash/crosapi/browser_data_migrator.h"
+#include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/eol_notification.h"
 #include "chrome/browser/ash/first_run/first_run.h"
 #include "chrome/browser/ash/floating_workspace/floating_workspace_service.h"
@@ -131,6 +133,7 @@
 #include "chromeos/ash/components/login/auth/auth_session_authenticator.h"
 #include "chromeos/ash/components/login/auth/challenge_response/known_user_pref_utils.h"
 #include "chromeos/ash/components/login/auth/stub_authenticator_builder.h"
+#include "chromeos/ash/components/login/hibernate/hibernate_manager.h"
 #include "chromeos/ash/components/login/session/session_termination_manager.h"
 #include "chromeos/ash/components/network/portal_detector/network_portal_detector.h"
 #include "chromeos/ash/components/settings/cros_settings_names.h"
@@ -561,6 +564,13 @@ void MaybeSaveSessionStartedTimeBeforeRestart(Profile* profile) {
   if (user_manager->IsCurrentUserNew()) {
     prefs->SetBoolean(ash::prefs::kAshLoginSessionStartedIsFirstSession, true);
   }
+}
+
+// Returns a Base16 encoded SHA1 digest of `data`.
+std::string Sha1Digest(const std::string& data) {
+  const base::SHA1Digest hash =
+      base::SHA1HashSpan(base::as_bytes(base::make_span(data)));
+  return base::HexEncode(hash);
 }
 
 }  // namespace
@@ -1011,10 +1021,18 @@ bool UserSessionManager::RespectLocalePreference(
 bool UserSessionManager::RestartToApplyPerSessionFlagsIfNeed(
     Profile* profile,
     bool early_restart) {
-  if (!SessionManagerClient::Get()->SupportsBrowserRestart())
-    return false;
-
   if (!ProfileHelper::IsUserProfile(profile)) {
+    return false;
+  }
+
+  if (ash::HibernateManager::IsHibernateSupported()) {
+    // No need to do anything if Hibernate isn't even supported on this
+    // device.
+    flags_ui::PrefServiceFlagsStorage flags_storage(profile->GetPrefs());
+    ash::HibernateManager::Get()->MaybeResume(flags_storage.GetFlags());
+  }
+
+  if (!SessionManagerClient::Get()->SupportsBrowserRestart()) {
     return false;
   }
 
@@ -1605,6 +1623,7 @@ void UserSessionManager::InitProfilePreferences(
 
 void UserSessionManager::UserProfileInitialized(Profile* profile,
                                                 const AccountId& account_id) {
+  TRACE_EVENT0("login", "UserSessionManager::UserProfileInitialized");
   // Check whether this `profile` was already initialized.
   if (user_profile_initialized_called_.contains(profile))
     return;
@@ -1693,6 +1712,8 @@ void UserSessionManager::UserProfileInitialized(Profile* profile,
 
 void UserSessionManager::CompleteProfileCreateAfterAuthTransfer(
     Profile* profile) {
+  TRACE_EVENT0("login",
+               "UserSessionManager::CompleteProfileCreateAfterAuthTransfer");
   RestoreAuthSessionImpl(profile, has_auth_cookies_);
   BootTimesRecorder::Get()->AddLoginTimeMarker("TPMOwn-Start", false);
   PrepareTpm(base::BindOnce(OnPrepareTpmDeviceFinished));
@@ -1700,6 +1721,7 @@ void UserSessionManager::CompleteProfileCreateAfterAuthTransfer(
 }
 
 void UserSessionManager::FinalizePrepareProfile(Profile* profile) {
+  TRACE_EVENT0("login", "UserSessionManager::FinalizePrepareProfile");
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   user_manager::User* user = ProfileHelper::Get()->GetUserByProfile(profile);
   user_manager::KnownUser known_user(g_browser_process->local_state());
@@ -2078,9 +2100,10 @@ void UserSessionManager::NotifyUserProfileLoaded(
       if (!token_handle_util_->HasToken(user_context_.GetAccountId())) {
         // New user.
         token_handle_fetcher_ = std::make_unique<TokenHandleFetcher>(
-            token_handle_util_.get(), user_context_.GetAccountId());
+            profile, token_handle_util_.get(), user_context_.GetAccountId());
         token_handle_fetcher_->FillForNewUser(
             user_context_.GetAccessToken(),
+            Sha1Digest(user_context_.GetRefreshToken()),
             base::BindOnce(&UserSessionManager::OnTokenHandleObtained,
                            GetUserSessionManagerAsWeakPtr()));
       } else {
@@ -2137,7 +2160,7 @@ void UserSessionManager::PerformPostBrowserLaunchOOBEActions(Profile* profile) {
   if (features::IsOobeDisplaySizeEnabled()) {
     DisplaySizeScreen::MaybeUpdateZoomFactor(profile);
   }
-  if (features::IsOobeDrivePinningEnabled()) {
+  if (drive::util::IsOobeDrivePinningEnabled(profile)) {
     DrivePinningScreen::ApplyDrivePinningPref(profile);
   }
 }
@@ -2298,6 +2321,7 @@ void UserSessionManager::CheckEolInfo(Profile* profile) {
 
 void UserSessionManager::DoBrowserLaunchInternal(Profile* profile,
                                                  bool locale_pref_checked) {
+  TRACE_EVENT0("login", "UserSessionManager::DoBrowserLaunchInternal");
   if (browser_shutdown::IsTryingToQuit() ||
       chrome::IsSendingStopRequestToSessionManager())
     return;
@@ -2599,10 +2623,10 @@ void UserSessionManager::UpdateTokenHandleIfRequired(
 void UserSessionManager::UpdateTokenHandle(Profile* const profile,
                                            const AccountId& account_id) {
   token_handle_fetcher_ = std::make_unique<TokenHandleFetcher>(
-      token_handle_util_.get(), account_id);
+      profile, token_handle_util_.get(), account_id);
   token_handle_fetcher_->BackfillToken(
-      profile, base::BindOnce(&UserSessionManager::OnTokenHandleObtained,
-                              GetUserSessionManagerAsWeakPtr()));
+      base::BindOnce(&UserSessionManager::OnTokenHandleObtained,
+                     GetUserSessionManagerAsWeakPtr()));
   token_handle_backfill_tried_for_testing_ = true;
 }
 

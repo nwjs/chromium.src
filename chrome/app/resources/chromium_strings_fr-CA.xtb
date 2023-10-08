@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">Reprendre l'installation</translation>
 <translation id="1029669172902658969">Relancer Chromium OS pour le mettre à jour</translation>
 <translation id="1040916596585577953">Chromium vous recommande d'examiner cette extension</translation>
+<translation id="1042552502243217427">Lorsqu'un site demande de précharger des liens en privé sur sa page, Chromium utilise les serveurs de Google. Ceci permet de masquer votre identité au site préchargé et permet à Google de savoir quels sites sont préchargés.</translation>
 <translation id="1065672644894730302">Échec de lecture de vos préférences.
 
 Certaines fonctionnalités ne seront peut-être pas disponibles et les modifications apportées à vos préférences ne seront pas enregistrées.</translation>
@@ -130,6 +131,8 @@ Les autorisations que vous avez déjà accordées à des sites Web et à des app
 <translation id="370962675267501463">{COUNT,plural, =0{Votre administrateur vous recommande de relancer Chromium pour appliquer cette mise à jour}=1{Votre administrateur vous recommande de relancer Chromium pour appliquer cette mise à jour. Votre fenêtre de navigation privée ne sera pas rouverte.}one{Votre administrateur vous recommande de relancer Chromium pour appliquer cette mise à jour. Votre fenêtre de navigation privée ne sera pas rouverte.}other{Votre administrateur vous recommande de relancer Chromium pour appliquer cette mise à jour. Vos # fenêtres de navigation privée ne seront pas rouvertes.}}</translation>
 <translation id="3713809861844741608">Ouvrir le lien dans un nouvel ongle&amp;t Chromium</translation>
 <translation id="378917192836375108">Google Chrome vous permet de cliquer sur un numéro de téléphone dans une page Web pour faire un appel avec Skype!</translation>
+<translation id="3790262771324122253">Découvrir pourquoi Chromium bloque certains téléchargements</translation>
+<translation id="3802055581630249637">Chromium précharge les pages que vous êtes susceptible de visiter, afin qu'elles se chargent plus rapidement lorsque vous le faites.</translation>
 <translation id="3830894615770080216">Système Chromium OS</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
 <translation id="386822487697155367">Obtenir de l'aide pour Chromium OS</translation>
@@ -155,6 +158,7 @@ Les autorisations que vous avez déjà accordées à des sites Web et à des app
 <translation id="4216212958613226427">Cette langue est utilisée pour afficher l'IU de Chromium</translation>
 <translation id="4222932583846282852">Annulation en cours…</translation>
 <translation id="4230135487732243613">Associer vos données de Chromium à ce compte?</translation>
+<translation id="4251772536351901305">Vous avertit des sites dangereux, même ceux que Google ne connaissait pas auparavant, en analysant plus de données provenant des sites que la protection standard. Vous pouvez choisir d'ignorer les avertissements de Chromium.</translation>
 <translation id="4271805377592243930">Obtenir de l'aide pour Chromium</translation>
 <translation id="4281844954008187215">Conditions d'utilisation</translation>
 <translation id="4285930937574705105">Échec de l'installation suite à une erreur non spécifiée. Si Chromium est en cours d'exécution, veuillez le fermer, puis réessayer.</translation>
@@ -226,7 +230,6 @@ Les autorisations que vous avez déjà accordées à des sites Web et à des app
 <translation id="5988505247484123880">Les sites que vous visitez mémorisent couramment les sujets qui vous intéressent afin de personnaliser votre expérience. Les sites peuvent également stocker des renseignements sur vos centres d'intérêt dans Chromium.</translation>
 <translation id="6003112304606738118">Téléchargement en cours… <ph name="HOURS" /> heure(s) restante(s)</translation>
 <translation id="6040143037577758943">Fermer</translation>
-<translation id="6055611795418209449">Chromium bloque certains téléchargements</translation>
 <translation id="6055895534982063517">Une nouvelle version de Google Chrome est maintenant offerte. Il est plus rapide que jamais.</translation>
 <translation id="6063093106622310249">&amp;Ouvrir dans Chromium</translation>
 <translation id="6072279588547424923">L'extension « <ph name="EXTENSION_NAME" /> » a été ajoutée à Chromium</translation>
@@ -240,6 +243,7 @@ Les autorisations que vous avez déjà accordées à des sites Web et à des app
 <translation id="6132897690380286411">Chromium va bientôt se fermer et supprimer des données</translation>
 <translation id="6134968993075716475">La navigation sécurisée est désactivée. Chromium vous recommande de l'activer.</translation>
 <translation id="6145820983052037069">Vous pouvez basculer entre les profils Chromium ici</translation>
+<translation id="615103374448673771">Si vous autorisez les témoins, Chromium peut les utiliser pour procéder au préchargement.</translation>
 <translation id="6175304430031192654">Selon vos paramètres, Chromium peut également envoyer des témoins et votre URL actuelle</translation>
 <translation id="6183079672144801177">Assurez-vous d'être connecté à Chromium sur votre <ph name="TARGET_DEVICE_NAME" />, puis essayez de l'envoyer à nouveau.</translation>
 <translation id="6212496753309875659">Cet ordinateur dispose déjà d'une version plus récente de Chromium. Si le logiciel ne fonctionne pas, veuillez le désinstaller, puis réessayer.</translation>
@@ -264,12 +268,14 @@ Les autorisations que vous avez déjà accordées à des sites Web et à des app
 <translation id="6400112897226594999">Logo de Chromium à l'intérieur d'un écran d'ordinateur.</translation>
 <translation id="6403826409255603130">Chromium est un navigateur Web qui exécute les pages Web et les applications à une vitesse fulgurante. Il est rapide, stable et simple d'utilisation. Naviguez sur Internet en toute sécurité, en bénéficiant de la protection offerte par Chromium contre les logiciels malveillants et l'hameçonnage.</translation>
 <translation id="6442900851116057561">Redémarrer Chromium OS</translation>
+<translation id="6443470774889161065">Chromium précharge encore plus de pages que vous êtes susceptible de visiter, afin qu'elles se chargent plus rapidement lorsque vous le faites.</translation>
 <translation id="6455857529632101747">Bienvenue dans les profils Chromium</translation>
 <translation id="6475912303565314141">Elle gère également la page qui s'affiche au démarrage de Chromium.</translation>
 <translation id="648319183876919572">La navigation sécurisée améliorée vous protège davantage contre les sites Web et les téléchargements dangereux</translation>
 <translation id="6510925080656968729">Désinstaller Chromium</translation>
 <translation id="6539122709674868420">Votre organisation ferme Chromium lorsqu'il n'est pas utilisé pendant <ph name="TIMEOUT_DURATION" />. Les données de navigation ont été supprimées. Cela peut inclure l'historique, le remplissage automatique et les téléchargements.</translation>
 <translation id="6542839706527980775">Chaque profil Chromium contient ses propres données, comme les favoris, l'historique, les mots de passe, etc.</translation>
+<translation id="6563921047760808519">En savoir plus sur la <ph name="BEGIN_LINK" />manière dont Chromium préserve la confidentialité de vos données<ph name="END_LINK" /></translation>
 <translation id="656935081669708576">Vous pouvez passer à un autre profil Chromium pour voir les mots de passe</translation>
 <translation id="6570579332384693436">Pour corriger les fautes d'orthographe, Chromium envoie le texte que vous entrez dans des zones de texte à Google</translation>
 <translation id="6598877126913850652">Accéder aux paramètres de notification Chromium</translation>

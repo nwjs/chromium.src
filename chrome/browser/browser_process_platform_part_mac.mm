@@ -7,7 +7,7 @@
 #include "base/feature_list.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 
-#include "base/mac/foundation_util.h"
+#include "base/apple/foundation_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/time/time.h"
 #import "chrome/browser/app_controller_mac.h"
@@ -21,11 +21,6 @@
 BrowserProcessPlatformPart::BrowserProcessPlatformPart() = default;
 
 BrowserProcessPlatformPart::~BrowserProcessPlatformPart() = default;
-
-void BrowserProcessPlatformPart::BeginStartTearDown() {
-  if (app_shim_manager_)
-    app_shim_manager_->OnBeginTearDown();
-}
 
 void BrowserProcessPlatformPart::StartTearDown() {
   app_shim_listener_ = nullptr;

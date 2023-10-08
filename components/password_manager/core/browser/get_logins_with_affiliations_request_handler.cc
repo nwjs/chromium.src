@@ -20,6 +20,7 @@
 #include "components/password_manager/core/browser/affiliation/affiliation_utils.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/password_form.h"
+#include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_store_backend.h"
 #include "components/password_manager/core/browser/password_store_consumer.h"
@@ -121,7 +122,8 @@ class GetLoginsHelper : public base::RefCounted<GetLoginsHelper> {
  public:
   GetLoginsHelper(PasswordFormDigest requested_digest,
                   PasswordStoreBackend* backend)
-      : requested_digest_(std::move(requested_digest)), backend_(backend) {}
+      : requested_digest_(std::move(requested_digest)),
+        backend_(backend->AsWeakPtr()) {}
 
   void Init(AffiliatedMatchHelper* affiliated_match_helper,
             LoginsOrErrorReply callback);
@@ -156,7 +158,7 @@ class GetLoginsHelper : public base::RefCounted<GetLoginsHelper> {
   // The group realms for 'requested_digest_'.
   base::flat_set<std::string> group_;
 
-  raw_ptr<PasswordStoreBackend, AcrossTasksDanglingUntriaged> backend_;
+  base::WeakPtr<PasswordStoreBackend> backend_;
 };
 
 void GetLoginsHelper::Init(AffiliatedMatchHelper* affiliated_match_helper,
@@ -195,6 +197,9 @@ void GetLoginsHelper::Init(AffiliatedMatchHelper* affiliated_match_helper,
 void GetLoginsHelper::OnPSLExtensionsReceived(
     base::RepeatingCallback<void(LoginsResultOrError)> forms_received_callback,
     const base::flat_set<std::string>& psl_extensions) {
+  if (!backend_) {
+    return;
+  }
   backend_->FillMatchingLoginsAsync(
       base::BindOnce(&ProccessExactAndPSLForms, requested_digest_,
                      psl_extensions)
@@ -206,6 +211,10 @@ void GetLoginsHelper::HandleAffiliationsAndGroupsReceived(
     base::RepeatingCallback<void(LoginsResultOrError)> forms_received_callback,
     std::vector<std::string> affiliated_realms,
     std::vector<std::string> grouped_realms) {
+  if (!backend_) {
+    return;
+  }
+
   affiliations_ = base::flat_set<std::string>(
       std::make_move_iterator(affiliated_realms.begin()),
       std::make_move_iterator(affiliated_realms.end()));
@@ -268,9 +277,6 @@ LoginsResultOrError GetLoginsHelper::MergeResults(
         }
         if (base::Contains(group_, signon_realm)) {
           form->match_type |= PasswordForm::MatchType::kGrouped;
-          // TODO(crbug.com/1432264): Delete after proper handling of
-          // affiliated groups filling is implemented.
-          form->match_type |= PasswordForm::MatchType::kAffiliated;
         }
         break;
       }
@@ -279,6 +285,15 @@ LoginsResultOrError GetLoginsHelper::MergeResults(
   }
 
   password_manager_util::TrimUsernameOnlyCredentials(&final_result);
+  password_manager::metrics_util::LogGroupedPasswordsResults(final_result);
+  // Remove grouped only matches if filling across groups is disabled.
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kFillingAcrossGroupedSites)) {
+    base::EraseIf(final_result, [](const auto& form) {
+      return form->match_type == PasswordForm::MatchType::kGrouped;
+    });
+  }
+
   return final_result;
 }
 

@@ -14,12 +14,12 @@
 #include <memory>
 
 #include "base/apple/bridging.h"
+#include "base/apple/foundation_util.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
-#include "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
-#include "base/mac/scoped_cftyperef.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/timer/timer.h"
 #include "base/trace_event/trace_event.h"
@@ -119,7 +119,7 @@ DisplayMac BuildDisplayForScreen(NSScreen* screen) {
   {
     CGColorSpaceRef cg_color_space = screen.colorSpace.CGColorSpace;
     if (cg_color_space) {
-      base::ScopedCFTypeRef<CFDataRef> cf_icc_profile(
+      base::apple::ScopedCFTypeRef<CFDataRef> cf_icc_profile(
           CGColorSpaceCopyICCData(cg_color_space));
       if (cf_icc_profile) {
         icc_profile = gfx::ICCProfile::FromData(
@@ -183,8 +183,10 @@ DisplayMac BuildDisplayForScreen(NSScreen* screen) {
   display.SetRotationAsDegree(static_cast<int>(CGDisplayRotation(display_id)));
 
   // TODO(crbug.com/1078903): Support multiple internal displays.
-  if (CGDisplayIsBuiltin(display_id))
+  // CGDisplayIsBuiltin may return -1 on [dis]connect; see crbug.com/1457025.
+  if (CGDisplayIsBuiltin(display_id) == YES) {
     SetInternalDisplayIds({display_id});
+  }
 
   display.set_label(base::SysNSStringToUTF8(screen.localizedName));
 
@@ -459,9 +461,8 @@ class ScreenMac : public Screen {
     }
     // In theory, this should not be reached, but in practice, on Catalina, it
     // has been observed that -[NSScreen screens] changes before any
-    // notifications are received.
-    // https://crbug.com/1021340.
-    DLOG(ERROR) << "Value of -[NSScreen screens] changed before notification.";
+    // notifications are received. See crbug.com/1021340 and crbug.com/1352564
+    DISPLAY_LOG(DEBUG) << "-[NSScreen screens] changed before notification.";
     return BuildDisplayForScreen(screen).display;
   }
 

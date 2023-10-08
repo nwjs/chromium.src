@@ -34,6 +34,7 @@ BASE_DECLARE_FEATURE(kPageEntitiesPageContentAnnotations);
 BASE_DECLARE_FEATURE(kPageEntitiesModelBypassFilters);
 BASE_DECLARE_FEATURE(kPageEntitiesModelResetOnShutdown);
 BASE_DECLARE_FEATURE(kPageVisibilityPageContentAnnotations);
+BASE_DECLARE_FEATURE(kTextEmbeddingPageContentAnnotations);
 BASE_DECLARE_FEATURE(kPageTextExtraction);
 BASE_DECLARE_FEATURE(kPushNotifications);
 BASE_DECLARE_FEATURE(kOptimizationGuideMetadataValidation);
@@ -50,11 +51,19 @@ BASE_DECLARE_FEATURE(kExtractRelatedSearchesFromPrefetchedZPSResponse);
 BASE_DECLARE_FEATURE(kPageContentAnnotationsPersistSalientImageMetadata);
 BASE_DECLARE_FEATURE(kModelStoreUseRelativePath);
 BASE_DECLARE_FEATURE(kOptimizationGuidePersonalizedFetching);
+BASE_DECLARE_FEATURE(kOptimizationGuideHintsURLKeyedCacheDropFragments);
+BASE_DECLARE_FEATURE(kQueryInMemoryTextEmbeddings);
+BASE_DECLARE_FEATURE(kOptimizationGuidePredictionModelKillswitch);
 
 // Enables use of task runner with trait CONTINUE_ON_SHUTDOWN for page content
 // annotations on-device models.
 BASE_DECLARE_FEATURE(
     kOptimizationGuideUseContinueOnShutdownForPageContentAnnotations);
+
+// The maximum number of "related searches" entries allowed to be maintained in
+// a least-recently-used cache for "related searches" data obtained via ZPS
+// prefetch logic.
+size_t MaxRelatedSearchesCacheSize();
 
 // The grace period duration for how long to give outstanding page text dump
 // requests to respond after DidFinishLoad.
@@ -169,6 +178,10 @@ base::TimeDelta StoredModelsValidDuration();
 // allowed to be used and not be purged.
 base::TimeDelta URLKeyedHintValidCacheDuration();
 
+// The amount of time the PCAService will wait for the title of a page to be
+// modified.
+base::TimeDelta PCAServiceWaitForTitleDelayDuration();
+
 // The maximum number of hosts allowed to be requested by the client to the
 // remote Optimization Guide Service for use by prediction models.
 size_t MaxHostsForOptimizationGuideServiceModelsFetch();
@@ -195,11 +208,12 @@ bool ShouldPersistHintsToDisk();
 bool ShouldOverrideOptimizationTargetDecisionForMetricsPurposes(
     proto::OptimizationTarget optimization_target);
 
-// Returns which OAuth scopes to use for personalized metadata.
-base::flat_set<std::string> OAuthScopesForPersonalizedMetadata();
+// Returns whether personalized metadata should be enabled for
+// |request_context|.
+bool ShouldEnablePersonalizedMetadata(proto::RequestContext request_context);
 
-// Returns whether personalized metadata is enabled for |request_context|.
-bool EnabledPersonalizedMetadata(proto::RequestContext request_context);
+// Returns the OAuth scopes to use for personalized metadata.
+std::set<std::string> GetOAuthScopesForPersonalizedMetadata();
 
 // Returns the minimum number of seconds to randomly delay before starting to
 // fetch for prediction models and host model features.
@@ -265,6 +279,10 @@ bool ShouldExecutePageEntitiesModelOnPageContent(const std::string& locale);
 // Returns whether the page visibility model should be executed on page content
 // for a user using |locale| as their browser language.
 bool ShouldExecutePageVisibilityModelOnPageContent(const std::string& locale);
+
+// Returns whether the text embedding model should be executed on page content
+// for a user using |locale| as their browser language.
+bool ShouldExecuteTextEmbeddingModelOnPageContent(const std::string& locale);
 
 // Returns whether page metadata should be retrieved from the remote
 // Optimization Guide service.
@@ -332,6 +350,17 @@ bool IsInstallWideModelStoreEnabled();
 
 // Whether to persist salient image metadata for each visit.
 bool ShouldPersistSalientImageMetadata();
+
+// Whether to drop fragments for the URL-keyed hint cache key.
+bool ShouldDropFragmentsForURLKeyedHintCacheKey();
+
+// Returns whether to query text embeddings coming from history service.
+bool ShouldQueryEmbeddings();
+
+// Returns whether the `model_version` for `opt_target` is part of emergency
+// killswitch, and this model should be stopped serving immediately.
+std::map<proto::OptimizationTarget, std::set<int64_t>>
+GetPredictionModelVersionsInKillSwitch();
 
 }  // namespace features
 }  // namespace optimization_guide

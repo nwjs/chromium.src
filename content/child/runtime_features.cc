@@ -221,7 +221,12 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableDocumentPolicyNegotiation,
      raw_ref(features::kDocumentPolicyNegotiation)},
     {wf::EnableFedCm, raw_ref(features::kFedCm), kSetOnlyIfOverridden},
+    {wf::EnableFedCmAccountAutoSelectedFlag,
+     raw_ref(features::kFedCmAccountAutoSelectedFlag), kSetOnlyIfOverridden},
     {wf::EnableFedCmAuthz, raw_ref(features::kFedCmAuthz), kDefault},
+    {wf::EnableFedCmError, raw_ref(features::kFedCmError), kDefault},
+    {wf::EnableFedCmHostedDomain, raw_ref(features::kFedCmHostedDomain),
+     kSetOnlyIfOverridden},
     {wf::EnableFedCmIdPRegistration, raw_ref(features::kFedCmIdPRegistration),
      kDefault},
     {wf::EnableFedCmIdpSigninStatus,
@@ -279,7 +284,9 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
     {wf::EnableSharedArrayBuffer, raw_ref(features::kSharedArrayBuffer)},
     {wf::EnableSharedArrayBufferOnDesktop,
      raw_ref(features::kSharedArrayBufferOnDesktop)},
-    {wf::EnableSharedAutofill, raw_ref(features::kAutofillSharedAutofill)},
+#if BUILDFLAG(IS_ANDROID)
+    {wf::EnableSmartZoom, raw_ref(features::kSmartZoom)},
+#endif
     {wf::EnableTouchDragAndContextMenu,
      raw_ref(features::kTouchDragAndContextMenu)},
     {wf::EnableUserActivationSameOriginVisibility,
@@ -354,17 +361,14 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
      raw_ref(network::features::kCompressionDictionaryTransport)},
     {"CompressionDictionaryTransportBackend",
      raw_ref(network::features::kCompressionDictionaryTransportBackend)},
+    {"CookieDeprecationFacilitatedTestingLabels",
+     raw_ref(net::features::kCookieDeprecationFacilitatedTestingLabels)},
     {"Database", raw_ref(blink::features::kWebSQLAccess), kSetOnlyIfOverridden},
     {"Fledge", raw_ref(blink::features::kFledge), kSetOnlyIfOverridden},
     {"Fledge", raw_ref(features::kPrivacySandboxAdsAPIsOverride),
      kSetOnlyIfOverridden},
     {"Fledge", raw_ref(features::kPrivacySandboxAdsAPIsM1Override),
      kSetOnlyIfOverridden},
-    {"FledgeBiddingAndAuctionServer",
-     raw_ref(blink::features::kFledgeBiddingAndAuctionServer),
-     kSetOnlyIfOverridden},
-    {"FledgeBiddingAndAuctionServer",
-     raw_ref(features::kPrivacySandboxAdsAPIsOverride), kSetOnlyIfOverridden},
 #if BUILDFLAG(USE_FONTATIONS_BACKEND)
     {"FontationsFontBackend", raw_ref(blink::features::kFontationsFontBackend)},
 #endif
@@ -387,9 +391,6 @@ void SetRuntimeFeaturesFromChromiumFeatures() {
      kSetOnlyIfOverridden},
     {"TouchTextEditingRedesign", raw_ref(features::kTouchTextEditingRedesign)},
     {"TrustedTypesFromLiteral", raw_ref(features::kTrustedTypesFromLiteral)},
-    {"WebAppTabStrip", raw_ref(features::kDesktopPWAsTabStrip)},
-    {"WebAppTabStripCustomizations",
-     raw_ref(blink::features::kDesktopPWAsTabStripCustomizations)},
     {"WebSerialBluetooth",
      raw_ref(features::kEnableBluetoothSerialPortProfileInSerialApi)},
     {"MediaStreamTrackTransfer", raw_ref(features::kMediaStreamTrackTransfer)},
@@ -547,17 +548,6 @@ void SetCustomizedRuntimeFeaturesFromCombinedArgs(
     const base::CommandLine& command_line) {
   // CAUTION: Only add custom enabling logic here if it cannot
   // be covered by the other functions.
-
-  if (!command_line.HasSwitch(switches::kDisableYUVImageDecoding) &&
-      base::FeatureList::IsEnabled(
-          blink::features::kDecodeJpeg420ImagesToYUV)) {
-    WebRuntimeFeatures::EnableDecodeJpeg420ImagesToYUV(true);
-  }
-  if (!command_line.HasSwitch(switches::kDisableYUVImageDecoding) &&
-      base::FeatureList::IsEnabled(
-          blink::features::kDecodeLossyWebPImagesToYUV)) {
-    WebRuntimeFeatures::EnableDecodeLossyWebPImagesToYUV(true);
-  }
 
   // These checks are custom wrappers around base::FeatureList::IsEnabled
   // They're moved here to distinguish them from actual base checks
@@ -724,16 +714,6 @@ void ResolveInvalidConfigurations() {
         << blink::features::kInterestGroupStorage.name << " in addition.";
     WebRuntimeFeatures::EnableAdInterestGroupAPI(false);
     WebRuntimeFeatures::EnableFledge(false);
-  } else if (!base::FeatureList::IsEnabled(
-                 blink::features::kFledgeBiddingAndAuctionServer)) {
-    LOG_IF(WARNING,
-           WebRuntimeFeatures::IsFledgeBiddingAndAuctionServerEnabled())
-        << "FledgeBiddingAndAuctionServer cannot be enabled in this "
-           "configuration. Use --"
-        << switches::kEnableFeatures << "="
-        << blink::features::kFledgeBiddingAndAuctionServer.name
-        << " in addition.";
-    WebRuntimeFeatures::EnableFledgeBiddingAndAuctionServer(false);
   }
 }
 

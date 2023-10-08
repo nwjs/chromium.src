@@ -77,6 +77,7 @@
     case START_LENS_FROM_APP_ICON_LONG_PRESS:
     case START_LENS_FROM_HOME_SCREEN_WIDGET:
     case START_LENS_FROM_SPOTLIGHT:
+    case START_LENS_FROM_INTENTS:
       [description appendString:@", should launch Lens"];
       break;
     case START_VOICE_SEARCH:
@@ -84,6 +85,42 @@
       break;
     case FOCUS_OMNIBOX:
       [description appendString:@", should focus omnibox"];
+      break;
+    case OPEN_READING_LIST:
+      [description appendString:@", should open reading list"];
+      break;
+    case OPEN_BOOKMARKS:
+      [description appendString:@", should open bookmarks"];
+      break;
+    case OPEN_RECENT_TABS:
+      [description appendString:@", should open recent tabs"];
+      break;
+    case OPEN_TAB_GRID:
+      [description appendString:@", should open tab grid"];
+      break;
+    case SET_CHROME_DEFAULT_BROWSER:
+      [description appendString:@", should open set chrome default browser"];
+      break;
+    case VIEW_HISTORY:
+      [description appendString:@", should open history"];
+      break;
+    case OPEN_PAYMENT_METHODS:
+      [description appendString:@", should open payment methods"];
+      break;
+    case RUN_SAFETY_CHECK:
+      [description appendString:@", should run safety check"];
+      break;
+    case MANAGE_PASSWORDS:
+      [description appendString:@", should open manage passwords setting page"];
+      break;
+    case MANAGE_SETTINGS:
+      [description appendString:@", should open settings page"];
+      break;
+    case OPEN_LATEST_TAB:
+      [description appendString:@", should resume latest tab"];
+      break;
+    case OPEN_CLEAR_BROWSING_DATA_DIALOG:
+      [description appendString:@", should open Clear Browsing Data dialog"];
       break;
     default:
       break;
@@ -105,7 +142,8 @@
 
 - (BOOL)isValidPostOpeningAction:(TabOpeningPostOpeningAction)action {
   switch (action) {
-      // NO_ACTION and SHOW_DEFAULT_BROWSER_SETTINGS are  allowed on any URL.
+      // NO_ACTION , SHOW_DEFAULT_BROWSER_SETTINGS and SEARCH_PASSWORDS are
+      // allowed on any URL.
     case NO_ACTION:
     case SHOW_DEFAULT_BROWSER_SETTINGS:
     case SEARCH_PASSWORDS:
@@ -116,6 +154,8 @@
     case START_LENS_FROM_APP_ICON_LONG_PRESS:
     case START_LENS_FROM_HOME_SCREEN_WIDGET:
     case START_LENS_FROM_SPOTLIGHT:
+    case OPEN_LATEST_TAB:
+    case START_LENS_FROM_INTENTS:
       if (_externalURL.is_empty()) {
         return YES;
       }

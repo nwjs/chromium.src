@@ -177,13 +177,10 @@ if (!is_android && !is_mac) {
 
       if (is_chromeos_ash) {
         data_deps += [
-          "//components/variations/cros:evaluate_seed",
+          "//components/variations/cros_evaluate_seed:evaluate_seed",
           "//sandbox/linux:chrome_sandbox",
         ]
-        deps += [
-          "//components/exo/wayland:ui_controls_protocol_stub",
-          "//components/exo/wayland:weston_test_stub",
-        ]
+        deps += [ "//components/exo/wayland:ui_controls_protocol_stub" ]
       }
 
       if (also_build_lacros_chrome_for_architecture != "") {
@@ -299,6 +296,7 @@ if (!is_android && !is_mac) {
           # On Linux, link the dependencies (libraries) that make up actual
           # Chromium functionality directly into the executable.
           ":dependencies",
+          "//chrome/common:version_header",
 
           # For the sampling profiler.
           "//chrome/common/profiler",
@@ -457,6 +455,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//chrome/app:chrome_dll_resources",
       "//chrome/app:command_ids",
       "//chrome/common:buildflags",
+      "//chrome/common:version_header",
       "//chrome/common/profiler",
     ]
 
@@ -576,7 +575,7 @@ if (is_win || (is_linux && !is_component_build)) {
       ":chrome_app_strings_bundle_data",
       ":chrome_resources",
       ":chrome_versioned_bundle_data",
-      "//base/allocator:early_zone_registration_mac",
+      "//base/allocator:early_zone_registration_apple",
       "//build:branding_buildflags",
       "//chrome/common:buildflags",
       "//chrome/common:version_header",
@@ -668,11 +667,7 @@ if (is_win || (is_linux && !is_component_build)) {
           "main",
         ] + platform_pak_locales
 
-    if (is_chrome_branded) {
-      deps = [ "//chrome/app:google_chrome_strings" ]
-    } else {
-      deps = [ "//chrome/app:chromium_strings" ]
-    }
+    deps = [ "//chrome/app:chromium_strings" ]
   }
 
   foreach(locale, locales_as_apple_outputs) {
@@ -817,7 +812,7 @@ if (is_win || (is_linux && !is_component_build)) {
       defines = [ "HELPER_EXECUTABLE" ]
 
       deps = [
-        "//base/allocator:early_zone_registration_mac",
+        "//base/allocator:early_zone_registration_apple",
         "//build:branding_buildflags",
         "//chrome/common:version_header",
         "//sandbox/mac:seatbelt",
@@ -1232,6 +1227,7 @@ if (is_win || (is_linux && !is_component_build)) {
       "//chrome/app:command_ids",
       "//chrome/app:notification_metrics",
       "//chrome/common:buildflags",
+      "//chrome/common:version_header",
       "//chrome/common/profiler",
       "//components/crash/core/app",
       "//components/memory_system",
@@ -1737,7 +1733,6 @@ group("strings") {
   public_deps = [
     "//chrome/app:chromium_strings",
     "//chrome/app:generated_resources",
-    "//chrome/app:google_chrome_strings",
     "//chrome/app/resources:locale_settings",
   ]
 }
@@ -1789,6 +1784,7 @@ if (is_android) {
       "//chrome/browser/ui",
       "//chrome/child",
       "//chrome/common",
+      "//chrome/common:version_header",
       "//chrome/common/profiler",
       "//chrome/gpu",
       "//chrome/renderer",

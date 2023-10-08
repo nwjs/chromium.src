@@ -6,8 +6,8 @@
 
 #include <string>
 
-#include "base/allocator/partition_allocator/pointers/raw_ptr.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/browser_process.h"
@@ -66,7 +66,7 @@ TEST_F(SaveUpdateAddressProfileBubbleControllerImplTest,
       Run(AutofillClient::SaveAddressProfileOfferUserDecision::kAccepted,
           profile));
   controller()->OnUserDecision(
-      AutofillClient::SaveAddressProfileOfferUserDecision::kAccepted);
+      AutofillClient::SaveAddressProfileOfferUserDecision::kAccepted, profile);
 }
 
 TEST_F(SaveUpdateAddressProfileBubbleControllerImplTest,
@@ -83,7 +83,7 @@ TEST_F(SaveUpdateAddressProfileBubbleControllerImplTest,
       Run(AutofillClient::SaveAddressProfileOfferUserDecision::kDeclined,
           testing::_));
   controller()->OnUserDecision(
-      AutofillClient::SaveAddressProfileOfferUserDecision::kDeclined);
+      AutofillClient::SaveAddressProfileOfferUserDecision::kDeclined, profile);
 }
 
 // This is testing that closing all tabs (which effectively destroys the web

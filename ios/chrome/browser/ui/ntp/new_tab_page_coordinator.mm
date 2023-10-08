@@ -27,6 +27,7 @@
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "components/sync/base/features.h"
+#import "components/sync/service/sync_service.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/browser/discover_feed/discover_feed_observer_bridge.h"
 #import "ios/chrome/browser/discover_feed/discover_feed_service.h"
@@ -61,6 +62,7 @@
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/signin/authentication_service.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/authentication_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/capabilities_types.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
@@ -117,6 +119,7 @@
 #import "ui/base/l10n/l10n_util_mac.h"
 
 @interface NewTabPageCoordinator () <AppStateObserver,
+                                     AuthenticationServiceObserving,
                                      BooleanObserver,
                                      DiscoverFeedObserverBridgeDelegate,
                                      DiscoverFeedPreviewDelegate,
@@ -146,6 +149,10 @@
 
   // Observes changes in the DiscoverFeed.
   std::unique_ptr<DiscoverFeedObserverBridge> _discoverFeedObserverBridge;
+
+  // Observer for auth service status changes.
+  std::unique_ptr<AuthenticationServiceObserverBridge>
+      _authServiceObserverBridge;
 }
 
 // Coordinator for the ContentSuggestions.
@@ -407,6 +414,7 @@
   _prefObserverBridge.reset();
   _discoverFeedObserverBridge.reset();
   _identityObserverBridge.reset();
+  _authServiceObserverBridge.reset();
 
   self.started = NO;
 }
@@ -589,6 +597,11 @@
   // Start observing DiscoverFeedService.
   _discoverFeedObserverBridge = std::make_unique<DiscoverFeedObserverBridge>(
       self, self.discoverFeedService);
+
+  // Start observing Authentication service.
+  _authServiceObserverBridge =
+      std::make_unique<AuthenticationServiceObserverBridge>(self.authService,
+                                                            self);
 }
 
 // Creates all the NTP components.
@@ -641,28 +654,21 @@
   self.feedHeaderViewController.feedControlDelegate = self;
   self.feedHeaderViewController.ntpDelegate = self;
   self.feedHeaderViewController.feedMetricsRecorder = self.feedMetricsRecorder;
-  self.feedHeaderViewController.followingFeedSortType =
-      self.followingFeedSortType;
+  if (!IsFollowUIUpdateEnabled()) {
+    self.feedHeaderViewController.followingFeedSortType =
+        self.followingFeedSortType;
+  }
   self.NTPViewController.feedHeaderViewController =
       self.feedHeaderViewController;
 
   // Requests feeds here if the correct flags and prefs are enabled.
   if ([self shouldFeedBeVisible]) {
-    if ([self isFollowingFeedAvailable]) {
-      switch (self.selectedFeed) {
-        case FeedTypeDiscover:
-          self.feedViewController = [self.componentFactory
-                   discoverFeedForBrowser:self.browser
-              viewControllerConfiguration:[self
-                                              feedViewControllerConfiguration]];
-          break;
-        case FeedTypeFollowing:
-          self.feedViewController = [self.componentFactory
-                  followingFeedForBrowser:self.browser
-              viewControllerConfiguration:[self feedViewControllerConfiguration]
-                                 sortType:self.followingFeedSortType];
-          break;
-      }
+    if ([self isFollowingFeedAvailable] &&
+        self.selectedFeed == FeedTypeFollowing) {
+      self.feedViewController = [self.componentFactory
+              followingFeedForBrowser:self.browser
+          viewControllerConfiguration:[self feedViewControllerConfiguration]
+                             sortType:self.followingFeedSortType];
     } else {
       self.feedViewController = [self.componentFactory
                discoverFeedForBrowser:self.browser
@@ -816,26 +822,16 @@
       self.browser->GetCommandDispatcher(), ApplicationCommands);
   BOOL isSignedIn =
       self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin);
-  BOOL isSigninNotAllowed = self.authService->GetServiceStatus() !=
-                            AuthenticationService::ServiceStatus::SigninAllowed;
-  BOOL isSyncDisabled = IsSyncDisabledByPolicy(
-      SyncServiceFactory::GetForBrowserState(self.browser->GetBrowserState()));
-  if (isSignedIn || isSigninNotAllowed ||
-      (isSyncDisabled && !base::FeatureList::IsEnabled(
-                             syncer::kReplaceSyncPromosWithSignInPromos))) {
+  if (isSignedIn || ![self isSignInAllowed] ||
+      (![self isSyncAllowedByPolicy] &&
+       !base::FeatureList::IsEnabled(
+           syncer::kReplaceSyncPromosWithSignInPromos))) {
     [handler showSettingsFromViewController:self.baseViewController];
   } else {
-    // If there are 0 identities, kInstantSignin requires less taps.
-    AuthenticationOperation operation = AuthenticationOperation::kSigninAndSync;
-    if (base::FeatureList::IsEnabled(
-            syncer::kReplaceSyncPromosWithSignInPromos)) {
-      ChromeBrowserState* browserState = self.browser->GetBrowserState();
-      operation =
-          ChromeAccountManagerServiceFactory::GetForBrowserState(browserState)
-                  ->HasIdentities()
-              ? AuthenticationOperation::kSigninOnly
-              : AuthenticationOperation::kInstantSignin;
-    }
+    AuthenticationOperation operation =
+        base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos)
+            ? AuthenticationOperation::kSheetSigninAndHistorySync
+            : AuthenticationOperation::kSigninAndSync;
     ShowSigninCommand* const showSigninCommand = [[ShowSigninCommand alloc]
         initWithOperation:operation
               accessPoint:signin_metrics::AccessPoint::
@@ -977,58 +973,99 @@
 #pragma mark - FeedSignInPromoDelegate
 
 - (void)showSignInPromoUI {
-  ChromeAccountManagerService* accountManagerService =
+  // Both possible flows (sign-in only and sign-in + sync) involve sign-in. So
+  // they shouldn't be offered if sign-in is disallowed.
+  if (![self isSignInAllowed]) {
+    [self showSignInDisableMessage];
+    [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
+                                  feed::FeedSignInUI::kShowSignInDisableToast];
+    return;
+  }
+
+  // At this point, the class wants show a sign-in only flow, since the feed
+  // doesn't care about sync. But support for 0-account users in such flow is
+  // guarded by IsConsistencyNewAccountInterfaceEnabled(), currently being
+  // rolled out. So check.
+  BOOL hasUserIdentities =
       ChromeAccountManagerServiceFactory::GetForBrowserState(
-          self.browser->GetBrowserState());
-
-  BOOL hasUserIdentities = accountManagerService->HasIdentities();
-
-  if ([self isSignInAllowed] &&
-      (IsConsistencyNewAccountInterfaceEnabled() || hasUserIdentities)) {
-    // Show Sign-In only flow, since Sync is not needed for this feature.
-    // TODO(crbug.com/1382615): Currently we show sign-in only UI when it's
-    // enabled, or when the user has one or more device-level user identities,
-    // and when sign-in is allowed. Remove the user identity check when sign-in
-    // only flow is fully launched.
-    const signin_metrics::AccessPoint access_point =
-        signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_CARD_MENU_PROMO;
+          self.browser->GetBrowserState())
+          ->HasIdentities();
+  if (hasUserIdentities || IsConsistencyNewAccountInterfaceEnabled()) {
     id<ApplicationCommands> handler = HandlerForProtocol(
         self.browser->GetCommandDispatcher(), ApplicationCommands);
     ShowSigninCommand* command = [[ShowSigninCommand alloc]
         initWithOperation:AuthenticationOperation::kSigninOnly
-              accessPoint:access_point];
-    signin_metrics::RecordSigninUserActionForAccessPoint(access_point);
+              accessPoint:signin_metrics::AccessPoint::
+                              ACCESS_POINT_NTP_FEED_CARD_MENU_PROMO];
     [handler showSignin:command baseViewController:self.NTPViewController];
-    [self.feedMetricsRecorder
-        recordShowSignInOnlyUIWithUserId:hasUserIdentities];
     [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
                                   feed::FeedSignInUI::kShowSignInOnlyFlow];
-  } else if ([self isSignInAllowed] && [self isSyncAllowed]) {
-    // Show a sign-in promo half sheet for feed BoC sign-in promo when the
-    // condition of showing sign-in only flow is not fulfilled. This UI will
-    // lead to sync flow,
-    // TODO(crbug.com/1382615): remove this else if block and
-    // FeedSignInPromoCoordinator class when sign-in only flow is fully
-    // launched.
-    self.feedSignInPromoCoordinator = [[FeedSignInPromoCoordinator alloc]
-        initWithBaseViewController:self.NTPViewController
-                           browser:self.browser];
-    self.feedSignInPromoCoordinator.delegate = self;
-    [self.feedSignInPromoCoordinator start];
-    [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
-                                  feed::FeedSignInUI::kShowSyncHalfSheet];
-  } else {
-    // Show a snackbar message if sign-in or sync is disabled and the above UI
-    // shouldn't be shown.
+    [self.feedMetricsRecorder
+        recordShowSignInOnlyUIWithUserId:hasUserIdentities];
+    signin_metrics::RecordSigninUserActionForAccessPoint(
+        signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_CARD_MENU_PROMO);
+    return;
+  }
+
+  // If the sign-in only flow can't be shown, fall back to a sync flow. But not
+  // if sync is disallowed by policy.
+  if (![self isSyncAllowedByPolicy]) {
     [self showSignInDisableMessage];
     [self.feedMetricsRecorder recordShowSignInRelatedUIWithType:
                                   feed::FeedSignInUI::kShowSignInDisableToast];
+    return;
   }
+
+  // Show the sync flow.
+  self.feedSignInPromoCoordinator = [[FeedSignInPromoCoordinator alloc]
+      initWithBaseViewController:self.NTPViewController
+                         browser:self.browser];
+  self.feedSignInPromoCoordinator.delegate = self;
+  [self.feedSignInPromoCoordinator start];
+  [self.feedMetricsRecorder
+      recordShowSignInRelatedUIWithType:feed::FeedSignInUI::kShowSyncHalfSheet];
 }
 
 - (void)showSignInUI {
-  // Show a snackbar message if sign-in or sync is disabled.
-  if (![self isSignInAllowed] || ![self isSyncAllowed]) {
+  // Both possible flows (sign-in only and sign-in + sync) involve sign-in. So
+  // they shouldn't be offered if sign-in is disallowed.
+  if (![self isSignInAllowed]) {
+    [self showSignInDisableMessage];
+    [self.feedMetricsRecorder recordShowSyncnRelatedUIWithType:
+                                  feed::FeedSyncPromo::kShowDisableToast];
+    return;
+  }
+
+  // If kReplaceSyncPromosWithSignInPromos is enabled, show a sign-in only flow.
+  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+  id<ApplicationCommands> handler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), ApplicationCommands);
+  if (base::FeatureList::IsEnabled(
+          syncer::kReplaceSyncPromosWithSignInPromos)) {
+    // If there are 0 identities, kInstantSignin requires less taps.
+    auto operation =
+        ChromeAccountManagerServiceFactory::GetForBrowserState(browserState)
+                ->HasIdentities()
+            ? AuthenticationOperation::kSigninOnly
+            : AuthenticationOperation::kInstantSignin;
+    ShowSigninCommand* command = [[ShowSigninCommand alloc]
+        initWithOperation:operation
+              accessPoint:signin_metrics::AccessPoint::
+                              ACCESS_POINT_NTP_FEED_BOTTOM_PROMO];
+    [handler showSignin:command baseViewController:self.NTPViewController];
+    // TODO(crbug.com/1455963): Strictly speaking this should record a bucket
+    // other than kShowSyncFlow. But I don't think we care too much about this
+    // particular histogram, just rename the bucket after launch.
+    [self.feedMetricsRecorder
+        recordShowSyncnRelatedUIWithType:feed::FeedSyncPromo::kShowSyncFlow];
+    signin_metrics::RecordSigninUserActionForAccessPoint(
+        signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_BOTTOM_PROMO);
+    return;
+  }
+
+  // kReplaceSyncPromosWithSignInPromos is disabled, the promo wants to offer
+  // the old sync flow. That shouldn't happen if sync is disallowed by policy.
+  if (![self isSyncAllowedByPolicy]) {
     [self showSignInDisableMessage];
     [self.feedMetricsRecorder recordShowSyncnRelatedUIWithType:
                                   feed::FeedSyncPromo::kShowDisableToast];
@@ -1036,28 +1073,15 @@
   }
 
   // Show sync flow.
-  const signin_metrics::AccessPoint access_point =
-      signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_BOTTOM_PROMO;
-  id<ApplicationCommands> handler = HandlerForProtocol(
-      self.browser->GetCommandDispatcher(), ApplicationCommands);
-  // If there are 0 identities, kInstantSignin requires less taps.
-  AuthenticationOperation operation = AuthenticationOperation::kSigninAndSync;
-  if (base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
-    ChromeBrowserState* browserState = self.browser->GetBrowserState();
-    operation =
-        ChromeAccountManagerServiceFactory::GetForBrowserState(browserState)
-                ->HasIdentities()
-            ? AuthenticationOperation::kSigninOnly
-            : AuthenticationOperation::kInstantSignin;
-  }
-  ShowSigninCommand* command =
-      [[ShowSigninCommand alloc] initWithOperation:operation
-                                       accessPoint:access_point];
-  signin_metrics::RecordSigninUserActionForAccessPoint(access_point);
+  ShowSigninCommand* command = [[ShowSigninCommand alloc]
+      initWithOperation:AuthenticationOperation::kSigninAndSync
+            accessPoint:signin_metrics::AccessPoint::
+                            ACCESS_POINT_NTP_FEED_BOTTOM_PROMO];
   [handler showSignin:command baseViewController:self.NTPViewController];
   [self.feedMetricsRecorder
       recordShowSyncnRelatedUIWithType:feed::FeedSyncPromo::kShowSyncFlow];
+  signin_metrics::RecordSigninUserActionForAccessPoint(
+      signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_BOTTOM_PROMO);
 }
 
 #pragma mark - FeedWrapperViewControllerDelegate
@@ -1109,9 +1133,11 @@
 
 - (void)updateForSelectedFeed:(FeedType)selectedFeed {
   [self selectFeedType:selectedFeed];
-  // Reassign the sort type in case it changed in another tab.
-  self.feedHeaderViewController.followingFeedSortType =
-      self.followingFeedSortType;
+  if (!IsFollowUIUpdateEnabled()) {
+    // Reassign the sort type in case it changed in another tab.
+    self.feedHeaderViewController.followingFeedSortType =
+        self.followingFeedSortType;
+  }
   // Update the header so that it's synced with the currently selected
   // feed, which could have been changed when a new web state was
   // inserted.
@@ -1352,6 +1378,24 @@
     }
     case signin::PrimaryAccountChangeEvent::Type::kNone:
       break;
+  }
+}
+
+#pragma mark - AuthenticationServiceObserving
+
+- (void)onServiceStatusChanged {
+  switch (self.authService->GetServiceStatus()) {
+    case AuthenticationService::ServiceStatus::SigninForcedByPolicy:
+    case AuthenticationService::ServiceStatus::SigninAllowed:
+      break;
+    case AuthenticationService::ServiceStatus::SigninDisabledByUser:
+    case AuthenticationService::ServiceStatus::SigninDisabledByPolicy:
+    case AuthenticationService::ServiceStatus::SigninDisabledByInternal:
+      // If sign-in becomes disabled, the sign-in promo must be disabled too.
+      // TODO(crbug.com/1479446): The sign-in promo should just be hidden
+      // instead of resetting the hierarchy.
+      [self updateNTPForFeed];
+      [self setContentOffsetToTop];
   }
 }
 
@@ -1641,13 +1685,11 @@
 }
 
 // Returns whether the user policies allow them to sync.
-- (BOOL)isSyncAllowed {
-  if (self.prefService->FindPreference(policy::key::kSyncDisabled) &&
-      self.prefService->GetBoolean(policy::key::kSyncDisabled)) {
-    return NO;
-  }
-
-  return YES;
+- (BOOL)isSyncAllowedByPolicy {
+  return !SyncServiceFactory::GetForBrowserState(
+              self.browser->GetBrowserState())
+              ->HasDisableReason(
+                  syncer::SyncService::DISABLE_REASON_ENTERPRISE_POLICY);
 }
 
 // Shows sign-in disabled snackbar message.

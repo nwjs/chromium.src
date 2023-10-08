@@ -108,10 +108,13 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="2775140325783767197">Chrome ne peut pas vérifier vos mots de passe. Essayez de vérifier votre connexion Internet.</translation>
 <translation id="2799223571221894425">Redémarrer</translation>
 <translation id="2847461019998147611">Afficher Google Chrome dans cette langue</translation>
+<translation id="2853415089995957805">Chrome précharge les pages que vous êtes susceptible de visiter, afin qu'elles se chargent plus rapidement lorsque vous les visitez</translation>
 <translation id="2857540653560290388">Lancement de Chrome en cours…</translation>
 <translation id="2857972467023607093">Un profil Chrome associé à ce compte existe déjà</translation>
+<translation id="286025080868315611">Découvrir pourquoi Chromium bloque certains téléchargements</translation>
 <translation id="2861074815332034794">Mise à jour de Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="2871893339301912279">Vous êtes connecté à Google Chrome!</translation>
+<translation id="2876628302275096482">En savoir plus sur la <ph name="BEGIN_LINK" />manière dont Chrome préserve la confidentialité de vos données<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">Moniteur d'activité</translation>
 <translation id="2888126860611144412">À propos de Google Chrome</translation>
 <translation id="2915996080311180594">Redémarrer plus tard</translation>
@@ -230,6 +233,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles et les modificat
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5003967926796347400">Cliquez sur « Gestionnaire de mots de passe Google »</translation>
 <translation id="5098668839038261629">Si ce paramètre est activé, vous serez aussi déconnecté de Chrome</translation>
+<translation id="5126049312684316860">Chrome précharge encore plus de pages que vous êtes susceptible de visiter, afin qu'elles se chargent plus rapidement lorsque vous le faites.</translation>
 <translation id="5132929315877954718">Découvrez des applications, des jeux, des extensions et des thèmes exceptionnels conçus pour Google Chrome.</translation>
 <translation id="5139423532931106058">Personnaliser votre profil Chrome</translation>
 <translation id="5163087008893166964">Bienvenue à Chrome, une nouvelle fenêtre de navigateur a été ouverte</translation>
@@ -239,6 +243,7 @@ Certaines fonctionnalités peuvent être inaccessibles. Veuillez spécifier un r
 <translation id="521447420733633466">Si vous partagez un appareil avec vos proches, ceux-ci peuvent configurer Google Chrome comme bon leur semble et naviguer sur le Web de façon autonome.</translation>
 <translation id="5239627039202700673">Utilisez Chrome chaque fois que vous cliquez sur des liens dans des messages, des documents et d'autres applications</translation>
 <translation id="5251420635869119124">Les invités peuvent utiliser Google Chrome sans rien laisser derrière eux.</translation>
+<translation id="5320351714793324716">Si vous autorisez les témoins, Chrome peut les utiliser pour procéder au préchargement</translation>
 <translation id="5334309298019785904">Chrome OS n'a pas pu synchroniser vos données parce que cette fonctionnalité n'est pas offerte pour votre domaine.</translation>
 <translation id="5334487786912937552">Chrome requiert l'autorisation d'accéder à l'espace de stockage pour télécharger des fichiers</translation>
 <translation id="5337648990166757586">Facultatif : aidez-nous à améliorer les fonctionnalités ainsi que la performance de Chrome OS en envoyant automatiquement des données d'utilisation et de diagnostic à Google.</translation>
@@ -254,7 +259,6 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598">Chrome a bloqué le fichier <ph name="FILE_NAME" />, car il peut être dangereux.</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{Votre administrateur vous recommande de relancer Chrome pour appliquer cette mise à jour}=1{Votre administrateur vous recommande de relancer Chrome pour appliquer cette mise à jour. Votre fenêtre de navigation privée ne sera pas rouverte.}one{Votre administrateur vous recommande de relancer Chrome pour appliquer cette mise à jour. Votre fenêtre de navigation privée ne sera pas rouverte.}other{Votre administrateur vous recommande de relancer Chrome pour appliquer cette mise à jour. Vos # fenêtres de navigation privée ne seront pas rouvertes.}}</translation>
-<translation id="5682679001737420487">Chrome bloque certains téléchargements</translation>
 <translation id="5686916850681061684">Personnaliser et gérer Google Chrome. Votre attention est requise – cliquez pour plus de détails.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="570005089986962444">Lorsque ce mode est activé, Chrome libère de la mémoire à partir des onglets inactifs. Cela donne aux onglets actifs et aux autres applications plus de ressources informatiques et assure la rapidité de Chrome. Vos onglets inactifs redeviennent automatiquement actifs lorsque vous y revenez.</translation>
@@ -287,6 +291,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="6235018212288296708">Règle de trafic entrant pour Google Chrome autorisant le trafic mDNS.</translation>
 <translation id="624230925347970731">Chrome se fermera bientôt</translation>
 <translation id="6247557882553405851">Gestionnaire de mots de passe Google</translation>
+<translation id="6251759518630934363">Vous avertit des sites dangereux, même ceux que Google ne connaissait pas auparavant, en analysant plus de données provenant des sites que la protection standard. Vous pouvez choisir d'ignorer les avertissements de Chrome.</translation>
 <translation id="6273793429163604305">À vos marques…</translation>
 <translation id="6277547788421725101">Ton parent a désactivé le paramètre « Autorisations pour les sites, les applications et les extensions » dans Chrome</translation>
 <translation id="6291089322031436445">Applications Chrome Dev</translation>
@@ -391,6 +396,7 @@ Les autorisations que vous avez déjà accordées à des sites Web et à des app
 <translation id="8286862437124483331">Google Chrome tente d'afficher les mots de passe. Pour autoriser cette action, entrez votre mot de passe Windows.</translation>
 <translation id="8290100596633877290">Google Chrome a planté. Voulez-vous le relancer maintenant?</translation>
 <translation id="829923460755755423">Ajouter un raccourci vers le gestionnaire de mots de passe Google</translation>
+<translation id="8336463659890584292">Lorsqu'un site demande de précharger des liens en privé sur sa page, Chrome utilise les serveurs de Google. Ceci permet de masquer votre identité au site préchargé et permet à Google de savoir quels sites sont préchargés.</translation>
 <translation id="8342675569599923794">Chrome a bloqué ce fichier, car il est dangereux.</translation>
 <translation id="8349795646647783032"><ph name="BEGIN_BOLD" />Comment nous utilisons ces données :<ph name="END_BOLD" /> les sites peuvent stocker des renseignements sur vos centres d'intérêt dans Chrome. Par exemple, si vous visitez un site pour acheter des chaussures pour un marathon, le site pourrait définir votre centre d'intérêt comme la course de marathons. Ultérieurement, si vous visitez un autre site pour vous inscrire à une course, celui-ci peut vous montrer une annonce pour des chaussures de course en fonction de vos centres d'intérêt.</translation>
 <translation id="8370517070665726704">© <ph name="YEAR" /> Google LLC. Tous droits réservés.</translation>

@@ -88,6 +88,10 @@ void PriceInsightsIconView::HidePageActionLabel() {
 }
 
 bool PriceInsightsIconView::MaybeShowPageActionLabel() {
+  if (!base::FeatureList::IsEnabled(commerce::kCommerceAllowChipExpansion)) {
+    return false;
+  }
+
   auto* tracker =
       feature_engagement::TrackerFactory::GetForBrowserContext(profile_);
 

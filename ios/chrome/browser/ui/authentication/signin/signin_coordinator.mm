@@ -6,6 +6,7 @@
 
 #import "base/feature_list.h"
 #import "base/notreached.h"
+#import "base/strings/sys_string_conversions.h"
 #import "components/pref_registry/pref_registry_syncable.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
@@ -22,6 +23,7 @@
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_promo_signin_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/forced_signin/forced_signin_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/instant_signin/instant_signin_coordinator.h"
+#import "ios/chrome/browser/ui/authentication/signin/signin_history_sync/signin_and_history_sync_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_screen_provider.h"
 #import "ios/chrome/browser/ui/authentication/signin/trusted_vault_reauthentication/trusted_vault_reauthentication_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/two_screens_signin/two_screens_signin_coordinator.h"
@@ -67,12 +69,15 @@ using signin_metrics::PromoAction;
                                            browser:(Browser*)browser
                                           identity:(id<SystemIdentity>)identity
                                        accessPoint:(signin_metrics::AccessPoint)
-                                                       accessPoint {
+                                                       accessPoint
+                                       promoAction:(signin_metrics::PromoAction)
+                                                       promoAction {
   return [[InstantSigninCoordinator alloc]
       initWithBaseViewController:viewController
                          browser:browser
                         identity:identity
-                     accessPoint:accessPoint];
+                     accessPoint:accessPoint
+                     promoAction:promoAction];
 }
 
 + (instancetype)forcedSigninCoordinatorWithBaseViewController:
@@ -210,34 +215,36 @@ using signin_metrics::PromoAction;
                                                 accessPoint:(signin_metrics::
                                                                  AccessPoint)
                                                                 accessPoint {
-  ChromeBrowserState* browserState = browser->GetBrowserState();
-  ChromeAccountManagerService* accountManagerService =
-      ChromeAccountManagerServiceFactory::GetForBrowserState(browserState);
-  BOOL canShowWithZeroIdentities =
-      accessPoint != signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN &&
-      IsConsistencyNewAccountInterfaceEnabled();
-  if (!accountManagerService->HasIdentities() && !canShowWithZeroIdentities) {
-    RecordConsistencyPromoUserAction(
-        signin_metrics::AccountConsistencyPromoAction::SUPPRESSED_NO_ACCOUNTS,
-        accessPoint);
-    return nil;
-  }
-  return [[ConsistencyPromoSigninCoordinator alloc]
+  return [ConsistencyPromoSigninCoordinator
+      coordinatorWithBaseViewController:viewController
+                                browser:browser
+                            accessPoint:accessPoint];
+}
+
++ (instancetype)
+    sheetSigninAndHistorySyncCoordinatorWithBaseViewController:
+        (UIViewController*)viewController
+                                                       browser:(Browser*)browser
+                                                   accessPoint:(signin_metrics::
+                                                                    AccessPoint)
+                                                                   accessPoint
+                                                   promoAction:(PromoAction)
+                                                                   promoAction {
+  return [[SignInAndHistorySyncCoordinator alloc]
       initWithBaseViewController:viewController
                          browser:browser
-                     accessPoint:accessPoint];
+                     accessPoint:accessPoint
+                     promoAction:promoAction];
 }
 
 - (void)dealloc {
   // -[SigninCoordinator runCompletionCallbackWithSigninResult:completionInfo:]
   // has to be called by the subclass before the coordinator is deallocated.
-  DCHECK(!self.signinCompletion);
+  DCHECK(!self.signinCompletion) << base::SysNSStringToUTF8([self description]);
 }
 
 - (void)interruptWithAction:(SigninCoordinatorInterrupt)action
                  completion:(ProceduralBlock)completion {
-  // This method needs to be implemented in the subclass.
-  NOTREACHED();
 }
 
 #pragma mark - SigninCoordinator

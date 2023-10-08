@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">Naghahanap ng mga mobile network</translation>
 <translation id="1293556467332435079">Mga File</translation>
 <translation id="1297922636971898492">Hindi available sa ngayon ang Google Drive. Awtomatikong magre-restart ang pag-a-upload sa sandaling bumalik na ang Google Drive.</translation>
+<translation id="1306130176943817227">Hindi ma-delete. Ginagamit ang item.</translation>
 <translation id="1307931752636661898">Hindi matingnan ang mga Linux file</translation>
 <translation id="1313405956111467313">Awtomatikong proxy configuration</translation>
 <translation id="134645005685694099">Walang sapat na storage space ang iyong device para mapanatiling naka-on ang pag-sync ng file. Hindi na awtomatikong masi-sync ang mga bagong file.</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">Pakwan</translation>
 <translation id="1924372192547904021">Na-format ang <ph name="DRIVE_NAME" /></translation>
 <translation id="1931134289871235022">Slovak</translation>
-<translation id="1933345018156373194">Hindi nailipat, nagkaroon ng hindi inaasahang error: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">Finnish</translation>
 <translation id="1942765061641586207">Resolution ng larawan</translation>
 <translation id="1972984168337863910">I-expand ang mga panel ng feedback ng mga file</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">Konteksto</translation>
 <translation id="3272909651715601089">Hindi mabuksan ang "<ph name="PATH" />"</translation>
 <translation id="3280431534455935878">Ihinahanda</translation>
+<translation id="3280719573299097127">Nasa nakametrong network ka. Na-pause ang pag-sync ng file.</translation>
 <translation id="3280987981688031357">Vinyl record</translation>
 <translation id="3290356915286466215">Hindi secure</translation>
 <translation id="3291218047831493686">Kumonekta sa network na ito para baguhin ang setting ng lock ng SIM</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">Album</translation>
 <translation id="4972330214479971536">Hindi matapos ang pag-set up ng pag-sync ng file</translation>
 <translation id="4973523518332075481">Gumamit ng pangalang may <ph name="MAX_LENGTH" /> (na) character o mas kaunti</translation>
-<translation id="4973970068702235170">Hindi na-zip, nagkaroon ng hindi inaasahang error: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">Japanese</translation>
 <translation id="4987699874727873250">English (India)</translation>
 <translation id="4988205478593450158">Sigurado ka bang gusto mong i-delete ang "<ph name="FILE_NAME" />"?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">Swiss French</translation>
 <translation id="5234764350956374838">Huwag pansinin</translation>
 <translation id="5253070652067921974">Ginawa ni</translation>
+<translation id="5254207638927440400">Hindi mailipat ang file. Ginagamit ang file.</translation>
 <translation id="5257456363153333584">Tutubi</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Mag-access ng mga file kahit saan, kahit offline.<ph name="MARKUP_2" />
     Napapanahon ang mga file sa Google Drive at available sa anumang device.<ph name="MARKUP_3" />
@@ -632,13 +633,13 @@
 <translation id="5838451609423551646">Inalis ang lahat ng entry sa pagpipilian.</translation>
 <translation id="5838825566232597749">US Workman international</translation>
 <translation id="5845721951356578987">Nurse</translation>
+<translation id="5858478190805449225">Naka-on ang battery saver mode. Subukan ulit kapag naka-off ang battery saver mode.</translation>
 <translation id="5860491529813859533">I-on</translation>
 <translation id="5861477046012235702">Gamer</translation>
 <translation id="5864471791310927901">Nabigo ang paghanap ng DHCP</translation>
 <translation id="5896749729057314184">Network <ph name="NETWORK_INDEX" /> sa <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, Hindi Naka-activate, Lakas ng Signal <ph name="SIGNAL_STRENGTH" />%, Mga Detalye</translation>
 <translation id="5911887972742538906">Nagkaroon ng error habang ini-install ang iyong Linux application.</translation>
 <translation id="5912396950572065471">Format</translation>
-<translation id="5913638992615760742">Hindi nakopya, nagkaroon ng hindi inaasahang error: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="5918480239180455431">Available na ang mga bagong feature sa paghahanap</translation>
 <translation id="5926082595146149752">Dutch (Netherlands) na may US International PC keyboard</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -646,7 +647,6 @@
 <translation id="5955954492236143329"><ph name="NUMBER_OF_ITEMS" /> item</translation>
 <translation id="5957366693331451795">Mga Chromebox</translation>
 <translation id="5982621672636444458">Mga opsyon sa pag-uuri</translation>
-<translation id="6007237601604674381">Nabigo ang paglipat. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="6011074160056912900">Ethernet network</translation>
 <translation id="60357267506638014">Czech QWERTY</translation>
 <translation id="603895874132768835">Hindi mo magagamit ang network na ito hanggang sa mag-set up ka ng bagong PIN</translation>
@@ -863,6 +863,7 @@
 <translation id="76959938259365003">Hindi naalis ang laman ng trash.</translation>
 <translation id="770015031906360009">Greko</translation>
 <translation id="7705251383879779343">Nakopya ang <ph name="FILE_NAME" />.</translation>
+<translation id="7707941139430559579">Hindi mailipat ang file. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">Para magamit ang network na ito, kailangan mong ilagay ang 8-digit na Personal Unblocking Key (PUK) na ibinigay ng carrier.</translation>
 <translation id="7711920809702896782">Impormasyon ng larawan</translation>
 <translation id="7724603315864178912">I-cut</translation>
@@ -899,7 +900,6 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">Awtomatikong masi-sync sa iyong Chromebook ang mga file mo sa Aking Drive para ma-access mo ang mga ito nang walang koneksyon sa internet.</translation>
 <translation id="7925247922861151263">Nabigo ang pagsusuri sa AAA</translation>
-<translation id="7925686952655276919">Huwag gumamit ng data sa mobile para sa pag-sync</translation>
 <translation id="7928710562641958568">I-eject ang device</translation>
 <translation id="7933875256234974853">Naghahandang mag-sync ng mga file sa Drive...</translation>
 <translation id="7943385054491506837">US Colemak</translation>
@@ -922,6 +922,7 @@
 <translation id="8087576439476816834">I-download, <ph name="PROFILE_NAME" /></translation>
 <translation id="8106045200081704138">Ibinahagi sa akin</translation>
 <translation id="8116072619078571545">Tubig na may yelo</translation>
+<translation id="8120392982188717723">Payagan ang pag-sync sa mga nakametrong network</translation>
 <translation id="8124093710070495550">Isyu sa pag-sync</translation>
 <translation id="8128733386027980860">English (UK) na may Dvorak keyboard</translation>
 <translation id="8137331602592933310">Ibinahagi sa iyo ang "<ph name="FILENAME" />." Hindi mo ito matatanggal dahil hindi mo ito pagmamay-ari.</translation>
@@ -1050,6 +1051,7 @@
 <translation id="9038620279323455325">Mayroon nang file na may pangalang "<ph name="FILE_NAME" />." Pumili ng ibang pangalan.</translation>
 <translation id="9046895021617826162">Nabigo ang pagkonekta</translation>
 <translation id="9065512565307033593">Kung hindi ka makakapag-verify, madi-disable ang iyong access sa network.</translation>
+<translation id="9083722265619106011">{0,plural, =1{1 babala.}one{<ph name="COUNT" /> babala.}other{<ph name="COUNT" /> na babala.}}</translation>
 <translation id="908378762078012445">Russian na may Phonetic AATSEEL keyboard</translation>
 <translation id="9086302186042011942">Nagsi-sync</translation>
 <translation id="9099674669267916096">Bilang ng page</translation>

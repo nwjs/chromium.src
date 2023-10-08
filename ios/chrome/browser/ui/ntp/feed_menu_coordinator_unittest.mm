@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/ui/ntp/feed_menu_coordinator.h"
 
-#import "base/mac/foundation_util.h"
+#import "base/apple/foundation_util.h"
 #import "base/test/scoped_feature_list.h"
 #import "components/feed/core/v2/public/ios/pref_names.h"
 #import "components/prefs/pref_service.h"
@@ -100,7 +100,7 @@ class FeedMenuCoordinatorTest : public PlatformTest {
   UIAlertController* GetAlertController() {
     EXPECT_TRUE([base_view_controller_.presentedViewController
         isKindOfClass:[UIAlertController class]]);
-    return base::mac::ObjCCastStrict<UIAlertController>(
+    return base::apple::ObjCCastStrict<UIAlertController>(
         base_view_controller_.presentedViewController);
   }
 
@@ -149,20 +149,6 @@ TEST_F(FeedMenuCoordinatorTest, FeedOff) {
 
 // Tests the menu actions when the user is signed-in.
 TEST_F(FeedMenuCoordinatorTest, SignedIn) {
-  SetFeedEnabled(true);
-  SignInFakeIdentity();
-  OpenFeedMenu();
-  ExpectActions({{IDS_IOS_DISCOVER_FEED_MENU_TURN_OFF_ITEM,
-                  UIAlertActionStyleDestructive},
-                 {IDS_IOS_DISCOVER_FEED_MENU_MANAGE_ACTIVITY_ITEM},
-                 {IDS_IOS_DISCOVER_FEED_MENU_MANAGE_INTERESTS_ITEM},
-                 {IDS_IOS_DISCOVER_FEED_MENU_LEARN_MORE_ITEM},
-                 {IDS_APP_CANCEL, UIAlertActionStyleCancel}});
-}
-
-// Tests the menu actions when the user is signed-in.
-TEST_F(FeedMenuCoordinatorTest, SignedInFollowFeedEnabled) {
-  scoped_feature_list_.InitWithFeatures({kEnableWebChannels}, {});
   SetFeedEnabled(true);
   SignInFakeIdentity();
   OpenFeedMenu();

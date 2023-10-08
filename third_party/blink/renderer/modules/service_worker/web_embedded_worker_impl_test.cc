@@ -86,7 +86,7 @@ class FakeURLLoader final : public URLLoader {
       response.SetMimeType("text/javascript");
       response.SetHttpStatusCode(404);
       client->DidReceiveResponse(response);
-      client->DidFinishLoading(base::TimeTicks(), 0, 0, 0);
+      client->DidFinishLoading(base::TimeTicks(), 0, 0, 0, false);
       return;
     }
     // Don't handle other requests intentionally to emulate ongoing load.
@@ -108,7 +108,8 @@ class FakeURLLoaderFactory final : public URLLoaderFactory {
       scoped_refptr<base::SingleThreadTaskRunner>,
       scoped_refptr<base::SingleThreadTaskRunner>,
       mojo::PendingRemote<mojom::blink::KeepAliveHandle>,
-      BackForwardCacheLoaderHelper*) override {
+      BackForwardCacheLoaderHelper*,
+      Vector<std::unique_ptr<URLLoaderThrottle>> throttles) override {
     return std::make_unique<FakeURLLoader>();
   }
 };
@@ -129,6 +130,11 @@ class FakeWebServiceWorkerFetchContext final
     return nullptr;
   }
   void WillSendRequest(WebURLRequest&) override {}
+  WebVector<std::unique_ptr<URLLoaderThrottle>> CreateThrottles(
+      const WebURLRequest& request) override {
+    return {};
+  }
+
   mojom::ControllerServiceWorkerMode GetControllerServiceWorkerMode()
       const override {
     return mojom::ControllerServiceWorkerMode::kNoController;

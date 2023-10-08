@@ -9,6 +9,7 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "content/nw/src/nw_content.h"
 #include "content/nw/src/nw_base.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 
 #include "base/command_line.h"
 #include "base/feature_list.h"

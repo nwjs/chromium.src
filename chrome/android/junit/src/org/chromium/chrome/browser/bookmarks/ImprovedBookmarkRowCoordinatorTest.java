@@ -36,10 +36,15 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.JniMocker;
 import org.chromium.chrome.browser.bookmarks.BookmarkUiPrefs.BookmarkRowDisplayPref;
+import org.chromium.chrome.browser.commerce.ShoppingFeatures;
 import org.chromium.components.bookmarks.BookmarkId;
 import org.chromium.components.bookmarks.BookmarkItem;
 import org.chromium.components.bookmarks.BookmarkType;
 import org.chromium.components.commerce.core.ShoppingService;
+import org.chromium.components.payments.CurrencyFormatter;
+import org.chromium.components.payments.CurrencyFormatterJni;
+import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
+import org.chromium.components.power_bookmarks.ShoppingSpecifics;
 import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.components.url_formatter.UrlFormatterJni;
 import org.chromium.ui.base.TestActivity;
@@ -72,13 +77,11 @@ public class ImprovedBookmarkRowCoordinatorTest {
     private final BookmarkItem mFolderItem =
             new BookmarkItem(mFolderId, "User folder", null, true, null, true, false, 0, false, 0);
     private final BookmarkItem mBookmarkItem = new BookmarkItem(mBookmarkId, "Bookmark",
-            JUnitTestGURLs.getGURL(JUnitTestGURLs.EXAMPLE_URL), false, mFolderId, true, false, 0,
-            false, 0);
+            JUnitTestGURLs.EXAMPLE_URL, false, mFolderId, true, false, 0, false, 0);
     private final BookmarkItem mReadingListFolderItem = new BookmarkItem(
             mReadingListFolderId, "Reading List", null, true, null, true, false, 0, false, 0);
     private final BookmarkItem mReadingListItem = new BookmarkItem(mReadingListId, "ReadingList",
-            JUnitTestGURLs.getGURL(JUnitTestGURLs.EXAMPLE_URL), false, mReadingListFolderId, true,
-            false, 0, false, 0);
+            JUnitTestGURLs.EXAMPLE_URL, false, mReadingListFolderId, true, false, 0, false, 0);
 
     @Mock
     private UrlFormatter.Natives mUrlFormatterJniMock;
@@ -94,6 +97,8 @@ public class ImprovedBookmarkRowCoordinatorTest {
     private BookmarkUiPrefs mBookmarkUiPrefs;
     @Mock
     private ShoppingService mShoppingService;
+    @Mock
+    private CurrencyFormatter.Natives mCurrencyFormatterJniMock;
 
     private Activity mActivity;
     private ImprovedBookmarkRow mImprovedBookmarkRow;
@@ -127,6 +132,15 @@ public class ImprovedBookmarkRowCoordinatorTest {
                         -> callback.onResult(new Pair<>(mDrawable, mDrawable)))
                 .when(mBookmarkImageFetcher)
                 .fetchFirstTwoImagesForFolder(any(), any());
+        doCallback(1, (Callback<Drawable> callback) -> callback.onResult(mDrawable))
+                .when(mBookmarkImageFetcher)
+                .fetchImageForBookmarkWithFaviconFallback(any(), any());
+        doCallback(1, (Callback<Drawable> callback) -> callback.onResult(mDrawable))
+                .when(mBookmarkImageFetcher)
+                .fetchFaviconForBookmark(any(), any());
+
+        // Setup CurrencyFormatter.
+        mJniMocker.mock(CurrencyFormatterJni.TEST_HOOKS, mCurrencyFormatterJniMock);
 
         mCoordinator = new ImprovedBookmarkRowCoordinator(mActivity, mBookmarkImageFetcher,
                 mBookmarkModel, mBookmarkUiPrefs, mShoppingService);
@@ -171,6 +185,24 @@ public class ImprovedBookmarkRowCoordinatorTest {
         assertEquals(
                 "https://www.example.com/", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
         assertNull(model.get(ImprovedBookmarkRowProperties.FOLDER_COORDINATOR));
+        assertEquals(mDrawable, model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
+    }
+
+    @Test
+    public void testBookmark_visal_nullOutImageWhenBound() {
+        doCallback(1, (Callback<Pair<Drawable, Drawable>> callback) -> {})
+                .when(mBookmarkImageFetcher)
+                .fetchImageForBookmarkWithFaviconFallback(any(), any());
+
+        doReturn(BookmarkRowDisplayPref.VISUAL).when(mBookmarkUiPrefs).getBookmarkRowDisplayPref();
+        PropertyModel model = mCoordinator.createBasePropertyModel(mBookmarkId);
+
+        assertEquals("Bookmark", model.get(ImprovedBookmarkRowProperties.TITLE));
+        assertTrue(model.get(ImprovedBookmarkRowProperties.DESCRIPTION_VISIBLE));
+        assertEquals(
+                "https://www.example.com/", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
+        assertNull(model.get(ImprovedBookmarkRowProperties.FOLDER_COORDINATOR));
+        assertNull(model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
     }
 
     @Test
@@ -183,5 +215,60 @@ public class ImprovedBookmarkRowCoordinatorTest {
         assertEquals(
                 "https://www.example.com/", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
         assertNull(model.get(ImprovedBookmarkRowProperties.FOLDER_COORDINATOR));
+    }
+
+    @Test
+    public void testBookmark_compact_nullOutImageWhenBoun() {
+        doCallback(1, (Callback<Pair<Drawable, Drawable>> callback) -> {})
+                .when(mBookmarkImageFetcher)
+                .fetchFaviconForBookmark(any(), any());
+
+        doReturn(BookmarkRowDisplayPref.COMPACT).when(mBookmarkUiPrefs).getBookmarkRowDisplayPref();
+        PropertyModel model = mCoordinator.createBasePropertyModel(mBookmarkId);
+
+        assertEquals("Bookmark", model.get(ImprovedBookmarkRowProperties.TITLE));
+        assertTrue(model.get(ImprovedBookmarkRowProperties.DESCRIPTION_VISIBLE));
+        assertEquals(
+                "https://www.example.com/", model.get(ImprovedBookmarkRowProperties.DESCRIPTION));
+        assertNull(model.get(ImprovedBookmarkRowProperties.FOLDER_COORDINATOR));
+        assertNull(model.get(ImprovedBookmarkRowProperties.START_ICON_DRAWABLE));
+    }
+
+    @Test
+    public void testShoppingCoordinator() {
+        ShoppingFeatures.setShoppingListEligibleForTesting(true);
+
+        ShoppingSpecifics specifics = ShoppingSpecifics.newBuilder().setProductClusterId(1).build();
+        PowerBookmarkMeta meta =
+                PowerBookmarkMeta.newBuilder().setShoppingSpecifics(specifics).build();
+        doReturn(true)
+                .when(mShoppingService)
+                .isSubscribedFromCache(
+                        PowerBookmarkUtils.createCommerceSubscriptionForShoppingSpecifics(
+                                specifics));
+        doReturn(meta).when(mBookmarkModel).getPowerBookmarkMeta(mBookmarkId);
+
+        PropertyModel model = mCoordinator.createBasePropertyModel(mBookmarkId);
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.SHOPPING_ACCESSORY_COORDINATOR));
+        assertNotNull(model.get(ImprovedBookmarkRowProperties.ACCESSORY_VIEW));
+    }
+
+    @Test
+    public void testShoppingCoordinator_nullWhenShoppingListNotEligible() {
+        ShoppingFeatures.setShoppingListEligibleForTesting(false);
+
+        ShoppingSpecifics specifics = ShoppingSpecifics.newBuilder().setProductClusterId(1).build();
+        PowerBookmarkMeta meta =
+                PowerBookmarkMeta.newBuilder().setShoppingSpecifics(specifics).build();
+        doReturn(true)
+                .when(mShoppingService)
+                .isSubscribedFromCache(
+                        PowerBookmarkUtils.createCommerceSubscriptionForShoppingSpecifics(
+                                specifics));
+        doReturn(meta).when(mBookmarkModel).getPowerBookmarkMeta(mBookmarkId);
+
+        PropertyModel model = mCoordinator.createBasePropertyModel(mBookmarkId);
+        assertNull(model.get(ImprovedBookmarkRowProperties.SHOPPING_ACCESSORY_COORDINATOR));
+        assertNull(model.get(ImprovedBookmarkRowProperties.ACCESSORY_VIEW));
     }
 }

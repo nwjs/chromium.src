@@ -59,15 +59,6 @@ chromium-metrics-reviews@google.com.
                get real interactable content displayed."/>
 </variants>
 
-<variants name="Tabs_TabUsageIntervalLength">
-  <variant name="_30" summary="30 seconds"/>
-  <variant name="_60" summary="1 minute"/>
-  <variant name="_600" summary="10 minutes"/>
-  <variant name="_3600" summary="1 hour"/>
-  <variant name="_18000" summary="5 hours"/>
-  <variant name="_43200" summary="12 hours"/>
-</variants>
-
 <histogram name="Discarding.DailyDiscards{TabDiscardReason}" units="tabs"
     expires_after="2024-02-22">
   <owner>vovoy@chromium.org</owner>
@@ -93,7 +84,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Discarding.DiscardCandidatesCount" units="tabs"
-    expires_after="2023-12-18">
+    expires_after="2024-02-20">
   <owner>chrisha@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -142,7 +133,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tab.AgeAtDeletion" units="ms" expires_after="2023-12-13">
+<histogram name="Tab.AgeAtDeletion" units="ms" expires_after="2024-02-11">
   <owner>ewannpv@chromium.org</owner>
   <owner>gambard@chromium.org</owner>
   <owner>bling-team@google.com</owner>
@@ -253,7 +244,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tab.NewTab" enum="NewTabType" expires_after="2023-12-24">
+<histogram name="Tab.NewTab" enum="NewTabType" expires_after="2024-02-25">
   <owner>tbergquist@chromium.org</owner>
   <owner>bsep@chromium.org</owner>
   <summary>
@@ -497,7 +488,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.CollapsedGroupCountPerLoad" units="groups"
-    expires_after="2023-12-24">
+    expires_after="2024-02-25">
   <owner>dpenning@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -527,7 +518,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupAge" units="minutes"
-    expires_after="2023-12-27">
+    expires_after="2024-03-03">
   <owner>dljames@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -538,7 +529,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupCount" units="groups"
-    expires_after="2023-12-27">
+    expires_after="2024-03-03">
   <owner>dljames@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -560,7 +551,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.SavedTabGroupTabCount" units="tabs"
-    expires_after="2023-12-27">
+    expires_after="2024-02-25">
   <owner>dljames@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -593,20 +584,8 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="TabGroups.SessionsPerGroup" units="sessions"
-    expires_after="2023-12-24">
-  <owner>yusufo@chromium.org</owner>
-  <owner>wychen@chromium.org</owner>
-  <summary>
-    This histogram records the number of sessions of a selected tab group
-    whenever Chrome comes to the foreground, or switch tab in the tab switcher.
-    This number is accumulated until that group id is outdated, meaning all the
-    tabs with that group id has been closed.
-  </summary>
-</histogram>
-
 <histogram name="TabGroups.TabGroupBubble.TabCount" units="tabs"
-    expires_after="2023-12-27">
+    expires_after="2024-02-25">
   <owner>sophiechang@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -636,7 +615,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UnsavedTabGroupCount" units="groups"
-    expires_after="2023-12-27">
+    expires_after="2024-02-25">
   <owner>dljames@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -647,7 +626,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UnsavedTabGroupTabCount" units="tabs"
-    expires_after="2023-12-27">
+    expires_after="2024-02-25">
   <owner>dljames@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -668,9 +647,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UserGroupCount" units="groups"
-    expires_after="2024-01-14">
-  <owner>yusufo@chromium.org</owner>
-  <owner>wychen@chromium.org</owner>
+    expires_after="2024-07-14">
+  <owner>ckitagawa@chromium.org</owner>
+  <owner>meiliang@chromium.org</owner>
   <summary>
     This histogram records the number of tab groups whenever Chrome comes to the
     foreground.
@@ -678,22 +657,12 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabGroups.UserGroupCountPerLoad" units="groups"
-    expires_after="2023-12-24">
+    expires_after="2024-02-25">
   <owner>dpenning@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
     The number of tabs groups open in all browsers (counting app-mode windows)
     when a load completes.
-  </summary>
-</histogram>
-
-<histogram name="TabGroups.UserNamedGroupCount" units="groups"
-    expires_after="2024-01-14">
-  <owner>yusufo@chromium.org</owner>
-  <owner>wychen@chromium.org</owner>
-  <summary>
-    This histogram records the number of tab groups that have customized group
-    name whenever Chrome comes to the foreground.
   </summary>
 </histogram>
 
@@ -1002,7 +971,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabManager.Discarding.DiscardToReloadTime" units="ms"
-    expires_after="2023-12-10">
+    expires_after="2024-02-11">
   <owner>chrisha@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -1091,7 +1060,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabRestore.{RestoreType}.TimeBetweenClosedAndRestored"
-    units="ms" expires_after="2023-12-10">
+    units="ms" expires_after="2024-02-20">
   <owner>sreejakshetty@chromium.org</owner>
   <owner>chrome-brapp-loading@google.com</owner>
   <summary>
@@ -1127,7 +1096,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.ActiveCountAtStartup" units="tabs"
-    expires_after="2023-12-10">
+    expires_after="2024-02-11">
   <owner>alionadangla@chromium.org</owner>
   <owner>lpromero@chromium.org</owner>
   <owner>chromeleon@google.com</owner>
@@ -1190,7 +1159,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.InactiveCountAtStartup" units="tabs"
-    expires_after="2023-12-10">
+    expires_after="2024-02-11">
   <owner>alionadangla@chromium.org</owner>
   <owner>lpromero@chromium.org</owner>
   <owner>chromeleon@google.com</owner>
@@ -1267,7 +1236,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.NewNavigationWithSameOriginTab" enum="Boolean"
-    expires_after="2023-12-10">
+    expires_after="2024-02-11">
   <owner>gjc@google.com</owner>
   <owner>blink-network-dev@chromium.org</owner>
   <summary>
@@ -1309,7 +1278,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.OldCountAtStartup" units="tabs"
-    expires_after="2023-12-10">
+    expires_after="2024-02-11">
   <owner>alionadangla@chromium.org</owner>
   <owner>lpromero@chromium.org</owner>
   <owner>chromeleon@google.com</owner>
@@ -1319,7 +1288,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.PageLoad.TimeSinceActive" units="ms"
-    expires_after="2023-12-31">
+    expires_after="2024-03-03">
   <owner>emshack@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -1329,7 +1298,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.PageLoad.TimeSinceCreated" units="ms"
-    expires_after="2023-12-31">
+    expires_after="2024-03-03">
   <owner>emshack@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>
@@ -1633,27 +1602,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tabs.SavedTabLoadTime.{SavedTabMethod}.{SavedTabLoadResult}"
-    units="ms" expires_after="2024-05-22">
-  <owner>davidjm@chromium.org</owner>
-  <owner>nyquist@chromium.org</owner>
-  <owner>dtrainor@chromium.org</owner>
-  <owner>yusufo@chromium.org</owner>
-  <summary>
-    Records load time of a Tab using {SavedTabMethod} storage and whether the
-    {SavedTabLoadResult}
-  </summary>
-  <token key="SavedTabMethod">
-    <variant name="CriticalPersistedTabData"
-        summary="CriticalPersistedTabData"/>
-    <variant name="TabState" summary="TabState"/>
-  </token>
-  <token key="SavedTabLoadResult">
-    <variant name="Exists" summary="Tab storage file was found."/>
-    <variant name="Null" summary="Tab storage file was not found."/>
-  </token>
-</histogram>
-
 <histogram name="Tabs.ScrubbedInInterval.KeyPress" units="tabs"
     expires_after="2023-05-07">
   <owner>corising@chromium.org</owner>
@@ -1903,6 +1851,21 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Tabs.TabSearch.BubbleWidgetInitializationTime" units="ms"
+    expires_after="2024-08-03">
+  <owner>temao@chromium.org</owner>
+  <owner>tluk@chromium.org</owner>
+  <owner>robliao@chromium.org</owner>
+  <summary>
+    Tab Search is a feature that allows users to better search for and switch to
+    their desired tabs. The Tab Search UI is shown in a bubble anchored to an
+    element of the UI in the browser window.
+
+    This metric measures the time it takes for the Tab Search bubble widget to
+    be initialized.
+  </summary>
+</histogram>
+
 <histogram name="Tabs.TabSearch.ButtonPressedToNextFramePresented" units="ms"
     expires_after="2024-07-27">
   <owner>temao@chromium.org</owner>
@@ -2007,7 +1970,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.NumTabsOnOpen" units="tabs"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -2045,7 +2008,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.PageHandlerConstructionDelay" units="ms"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -2122,7 +2085,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WebUI.LoadCompletedTime" units="ms"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -2133,7 +2096,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WebUI.LoadDocumentTime" units="ms"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <summary>
@@ -2170,7 +2133,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WebUI.TabListDataReceived" units="ms"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -2267,7 +2230,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WindowTimeToShowCachedWebView" units="ms"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -2286,7 +2249,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.TabSearch.WindowTimeToShowUncachedWebView" units="ms"
-    expires_after="2023-12-13">
+    expires_after="2024-02-11">
   <owner>tluk@chromium.org</owner>
   <owner>robliao@chromium.org</owner>
   <owner>yuhengh@chromium.org</owner>
@@ -2311,7 +2274,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Tabs.TabState.LoadTime" units="ms" expires_after="2023-12-04">
+<histogram name="Tabs.TabState.LoadTime" units="ms" expires_after="2024-02-05">
   <owner>yusufo@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <owner>dtrainor@chromium.org</owner>
@@ -2363,21 +2326,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram
-    name="Tabs.UnusedAndClosedInInterval.Count{Tabs_TabUsageIntervalLength}"
-    units="tabs" expires_after="M95">
-  <owner>chrisha@chromium.org</owner>
-  <owner>fdoray@chromium.org</owner>
-  <owner>catan-team@chromium.org</owner>
-  <summary>
-    The number of tabs that haven't been interacted with, visible or audible
-    over a given interval time, but which no longer exist at all at the end of
-    this interval. {Tabs_TabUsageIntervalLength}
-  </summary>
-  <token key="Tabs_TabUsageIntervalLength"
-      variants="Tabs_TabUsageIntervalLength"/>
-</histogram>
-
 <histogram name="Tabs.UnusedCountAtStartup" units="tabs"
     expires_after="2024-01-15">
   <owner>pakzhygitov@google.com</owner>
@@ -2386,49 +2334,6 @@ chromium-metrics-reviews@google.com.
     [iOS] The number of old/unused tabs opened at cold launch. Inactive tab is a
     tab that has been not interacted with for more than 7 days.
   </summary>
-</histogram>
-
-<histogram name="Tabs.UnusedInInterval.Count{Tabs_TabUsageIntervalLength}"
-    units="tabs" expires_after="M95">
-  <owner>chrisha@chromium.org</owner>
-  <owner>fdoray@chromium.org</owner>
-  <owner>catan-team@chromium.org</owner>
-  <summary>
-    The number of tabs that haven't been interacted with, visible or audible or
-    visible during a given interval of time and still exist at the end of this
-    interval. {Tabs_TabUsageIntervalLength}
-  </summary>
-  <token key="Tabs_TabUsageIntervalLength"
-      variants="Tabs_TabUsageIntervalLength"/>
-</histogram>
-
-<histogram
-    name="Tabs.UsedAndClosedInInterval.Count{Tabs_TabUsageIntervalLength}"
-    units="tabs" expires_after="M95">
-  <owner>chrisha@chromium.org</owner>
-  <owner>fdoray@chromium.org</owner>
-  <owner>catan-team@chromium.org</owner>
-  <summary>
-    The number of tabs that have been interacted with, visible or audible over a
-    given interval of time, but which no longer exist at all at the end of this
-    interval. {Tabs_TabUsageIntervalLength}
-  </summary>
-  <token key="Tabs_TabUsageIntervalLength"
-      variants="Tabs_TabUsageIntervalLength"/>
-</histogram>
-
-<histogram name="Tabs.UsedInInterval.Count{Tabs_TabUsageIntervalLength}"
-    units="tabs" expires_after="M95">
-  <owner>chrisha@chromium.org</owner>
-  <owner>fdoray@chromium.org</owner>
-  <owner>catan-team@chromium.org</owner>
-  <summary>
-    The number of tabs that have been interacted with, visible or audible during
-    a given interval of time, includes tabs that don't exist at the end of this
-    interval. {Tabs_TabUsageIntervalLength}
-  </summary>
-  <token key="Tabs_TabUsageIntervalLength"
-      variants="Tabs_TabUsageIntervalLength"/>
 </histogram>
 
 <histogram name="Tabs.WindowCount{BatteryState}" units="windows"
@@ -2453,7 +2358,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Tabs.{TabActiveState}TabWidth" units="px"
-    expires_after="2023-12-01">
+    expires_after="2024-02-20">
   <owner>dpenning@chromium.org</owner>
   <owner>tbergquist@chromium.org</owner>
   <summary>
@@ -2477,7 +2382,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="TabStrip.Tab.{Framework}.ActivationAction"
-    enum="TabActivationTypes" expires_after="2023-12-13">
+    enum="TabActivationTypes" expires_after="2024-02-20">
   <owner>yuhengh@chromium.org</owner>
   <owner>tluk@chromium.org</owner>
   <owner>romanarora@chromium.org</owner>
@@ -2513,7 +2418,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="TabStrip.TimeToSwitch" units="ms" expires_after="2023-12-24">
+<histogram name="TabStrip.TimeToSwitch" units="ms" expires_after="2024-02-25">
   <owner>dpenning@chromium.org</owner>
   <owner>chrome-desktop-ui-sea@google.com</owner>
   <summary>

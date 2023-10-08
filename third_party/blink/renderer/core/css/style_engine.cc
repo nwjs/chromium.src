@@ -2420,9 +2420,8 @@ void StyleEngine::ApplyUserRuleSetChanges(
   if (changed_rule_flags & kLayerRules) {
     // Rebuild cascade layer map in all cases, because a newly inserted
     // sub-layer can precede an original layer in the final ordering.
-    LayerMap mapping_unused;
     user_cascade_layer_map_ =
-        MakeGarbageCollected<CascadeLayerMap>(new_style_sheets, mapping_unused);
+        MakeGarbageCollected<CascadeLayerMap>(new_style_sheets);
 
     if (resolver_) {
       resolver_->InvalidateMatchedPropertiesCache();
@@ -2517,6 +2516,9 @@ void StyleEngine::ApplyUserRuleSetChanges(
     MarkPositionFallbackStylesDirty();
   }
 
+  // TODO(crbug.com/1463966): @view-transitions doesn't yet work from user
+  // stylesheets.
+
   InvalidateForRuleSetChanges(GetDocument(), changed_rule_sets,
                               changed_rule_flags, kInvalidateAllScopes);
 }
@@ -2578,33 +2580,6 @@ void StyleEngine::ApplyRuleSetChanges(
       rebuild_cascade_layer_map = (changed_rule_flags & kLayerRules) ||
                                   scoped_resolver->HasCascadeLayerMap();
       scoped_resolver->ResetStyle();
-    }
-  }
-
-  if (RuntimeEnabledFeatures::CSSSuperRulesetsEnabled()) {
-    if (new_style_sheets.size() <= 1) {
-      // Superrulesets are disabled, or we don't need one.
-      if (scoped_resolver) {
-        scoped_resolver->ClearSuperRuleset();
-      }
-    } else {
-      scoped_resolver = &tree_scope.EnsureScopedStyleResolver();
-      if (change == kActiveSheetsAppended &&
-          scoped_resolver->HasSuperRuleset()) {
-        // We can use the existing superruleset, just append the new ones.
-        for (wtf_size_t i = old_style_sheets.size();
-             i < new_style_sheets.size(); ++i) {
-          scoped_resolver->AppendToSuperRuleset(new_style_sheets[i]);
-        }
-      } else {
-        if (append_start_index > 0 && !scoped_resolver->HasSuperRuleset()) {
-          // The cascade layer map is built from a normal RuleSet,
-          // which is now being absorbed into (replaced by) the superruleset,
-          // so we can't just refresh the layer map; it needs a full update.
-          rebuild_cascade_layer_map = true;
-        }
-        scoped_resolver->RebuildSuperRuleset(new_style_sheets);
-      }
     }
   }
 
@@ -3769,12 +3744,11 @@ void StyleEngine::UpdateViewportStyle() {
     return;
   }
 
-  scoped_refptr<const ComputedStyle> viewport_style =
-      resolver_->StyleForViewport();
+  const ComputedStyle* viewport_style = resolver_->StyleForViewport();
   if (ComputedStyle::ComputeDifference(
-          viewport_style.get(), GetDocument().GetLayoutView()->Style()) !=
+          viewport_style, GetDocument().GetLayoutView()->Style()) !=
       ComputedStyle::Difference::kEqual) {
-    GetDocument().GetLayoutView()->SetStyle(std::move(viewport_style));
+    GetDocument().GetLayoutView()->SetStyle(viewport_style);
   }
 }
 

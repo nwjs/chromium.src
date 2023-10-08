@@ -105,3 +105,21 @@ BASE_FEATURE(kVerifyRequestInitiatorForMirrorHeaders,
 BASE_FEATURE(kProfilesReordering,
              "ProfilesReordering",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kForceSigninFlowInProfilePicker,
+             "ForceSigninFlowInProfilePicker",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGaiaSigninUrlEmbedded,
+             "GaiaSigninUrlEmbedded",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Complimentary switch to `switches::kEnableBoundSessionCredentials` to enable
+// the bound session credentials feature in DICE profiles. For this switch to
+// have an effect, `switches::kEnableBoundSessionCredentials` should also be
+// enabled.
+#if BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
+BASE_FEATURE(kEnableBoundSessionCredentialsOnDiceProfiles,
+             "EnableBoundSessionCredentialsOnDiceProfiles",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif

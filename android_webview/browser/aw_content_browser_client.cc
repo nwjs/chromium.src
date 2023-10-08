@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "android_webview/browser/aw_browser_context.h"
+#include "android_webview/browser/aw_browser_context_store.h"
 #include "android_webview/browser/aw_browser_main_parts.h"
 #include "android_webview/browser/aw_browser_process.h"
 #include "android_webview/browser/aw_client_hints_controller_delegate.h"
@@ -31,10 +32,13 @@
 #include "android_webview/browser/network_service/aw_url_loader_throttle.h"
 #include "android_webview/browser/safe_browsing/aw_safe_browsing_navigation_throttle.h"
 #include "android_webview/browser/safe_browsing/aw_url_checker_delegate_impl.h"
+#include "android_webview/browser/supervised_user/aw_supervised_user_throttle.h"
+#include "android_webview/browser/supervised_user/aw_supervised_user_url_classifier.h"
 #include "android_webview/browser/tracing/aw_tracing_delegate.h"
 #include "android_webview/common/aw_content_client.h"
 #include "android_webview/common/aw_descriptors.h"
 #include "android_webview/common/aw_features.h"
+#include "android_webview/common/aw_paths.h"
 #include "android_webview/common/aw_switches.h"
 #include "android_webview/common/mojom/render_message_filter.mojom.h"
 #include "android_webview/common/url_constants.h"
@@ -43,6 +47,7 @@
 #include "base/base_paths_android.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/containers/contains.h"
 #include "base/feature_list.h"
 #include "base/files/scoped_file.h"
 #include "base/functional/bind.h"
@@ -206,7 +211,7 @@ std::string AwContentBrowserClient::GetAcceptLangsImpl() {
 
   // If accept languages do not contain en-US, add in en-US which will be
   // used with a lower q-value.
-  if (locales_string.find("en-US") == std::string::npos) {
+  if (!base::Contains(locales_string, "en-US")) {
     locales_string += ",en-US";
   }
   return locales_string;
@@ -284,8 +289,7 @@ void AwContentBrowserClient::ConfigureNetworkContextParams(
 }
 
 AwBrowserContext* AwContentBrowserClient::InitBrowserContext() {
-  browser_context_ = std::make_unique<AwBrowserContext>();
-  return browser_context_.get();
+  return AwBrowserContextStore::GetOrCreateInstance()->GetDefault();
 }
 
 std::unique_ptr<content::BrowserMainParts>
@@ -401,8 +405,8 @@ AwContentBrowserClient::GetGeneratedCodeCacheSettings(
   // roughly 2x what it was before the code cache was implemented.
   // TODO(crbug/893318): webview should have smarter cache sizing logic.
   AwBrowserContext* browser_context = static_cast<AwBrowserContext*>(context);
-  return content::GeneratedCodeCacheSettings(true, 10 * 1024 * 1024,
-                                             browser_context->GetCacheDir());
+  return content::GeneratedCodeCacheSettings(
+      true, 10 * 1024 * 1024, browser_context->GetHttpCachePath());
 }
 
 void AwContentBrowserClient::AllowCertificateError(
@@ -492,6 +496,17 @@ std::string AwContentBrowserClient::GetDefaultDownloadName() {
   return std::string();
 }
 
+absl::optional<base::FilePath>
+AwContentBrowserClient::GetLocalTracesDirectory() {
+  base::FilePath user_data_dir;
+  if (!base::PathService::Get(android_webview::DIR_LOCAL_TRACES,
+                              &user_data_dir)) {
+    return absl::nullopt;
+  }
+  DCHECK(!user_data_dir.empty());
+  return user_data_dir;
+}
+
 void AwContentBrowserClient::DidCreatePpapiPlugin(
     content::BrowserPpapiHost* browser_host) {
   NOTREACHED() << "Android WebView does not support plugins";
@@ -523,12 +538,21 @@ void AwContentBrowserClient::GetAdditionalMappedFilesForChildProcess(
     content::PosixFileDescriptorInfo* mappings) {
   base::MemoryMappedFile::Region region;
   int fd = ui::GetMainAndroidPackFd(&region);
+  if (base::FeatureList::IsEnabled(features::kWebViewCheckPakFileDescriptors)) {
+    CHECK_GE(fd, 0);
+  }
   mappings->ShareWithRegion(kAndroidWebViewMainPakDescriptor, fd, region);
 
   fd = ui::GetCommonResourcesPackFd(&region);
+  if (base::FeatureList::IsEnabled(features::kWebViewCheckPakFileDescriptors)) {
+    CHECK_GE(fd, 0);
+  }
   mappings->ShareWithRegion(kAndroidWebView100PercentPakDescriptor, fd, region);
 
   fd = ui::GetLocalePackFd(&region);
+  if (base::FeatureList::IsEnabled(features::kWebViewCheckPakFileDescriptors)) {
+    CHECK_GE(fd, 0);
+  }
   mappings->ShareWithRegion(kAndroidWebViewLocalePakDescriptor, fd, region);
 
   int crash_signal_fd =
@@ -633,6 +657,17 @@ AwContentBrowserClient::CreateURLLoaderThrottles(
       result.push_back(
           std::make_unique<AwURLLoaderThrottle>(static_cast<AwBrowserContext*>(
               browser_context)));
+    }
+  }
+
+  if ((request.destination == network::mojom::RequestDestination::kDocument ||
+       request.destination == network::mojom::RequestDestination::kIframe) &&
+      request.url.SchemeIsHTTPOrHTTPS()) {
+    AwSupervisedUserUrlClassifier* urlClassifier =
+        AwSupervisedUserUrlClassifier::GetInstance();
+    if (urlClassifier->ShouldCreateThrottle()) {
+      result.push_back(
+          std::make_unique<AwSupervisedUserThrottle>(urlClassifier));
     }
   }
 
@@ -1078,14 +1113,16 @@ void AwContentBrowserClient::LogWebFeatureForCurrentPage(
       render_frame_host, feature);
 }
 
-bool AwContentBrowserClient::ShouldAllowInsecurePrivateNetworkRequests(
+content::ContentBrowserClient::PrivateNetworkRequestPolicyOverride
+AwContentBrowserClient::ShouldOverridePrivateNetworkRequestPolicy(
     content::BrowserContext* browser_context,
     const url::Origin& origin) {
   // Webview does not implement support for deprecation trials, so webview apps
   // broken by Private Network Access restrictions cannot help themselves by
   // registering for the trial.
   // See crbug.com/1255675.
-  return true;
+  return content::ContentBrowserClient::PrivateNetworkRequestPolicyOverride::
+      kForceAllow;
 }
 
 content::SpeechRecognitionManagerDelegate*

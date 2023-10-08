@@ -5,15 +5,11 @@
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_ANDROID_PASSWORD_ACCESSORY_CONTROLLER_IMPL_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_ANDROID_PASSWORD_ACCESSORY_CONTROLLER_IMPL_H_
 
-#include <map>
 #include <memory>
-#include <utility>
-#include <vector>
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/task/cancelable_task_tracker.h"
 #include "chrome/browser/password_manager/android/all_passwords_bottom_sheet_helper.h"
 #include "chrome/browser/password_manager/android/password_accessory_controller.h"
 #include "components/autofill/core/browser/ui/accessory_sheet_data.h"
@@ -28,7 +24,6 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "ui/gfx/native_widget_types.h"
-#include "url/gurl.h"
 
 class ManualFillingController;
 class AllPasswordsBottomSheetController;
@@ -64,6 +59,7 @@ class PasswordAccessoryControllerImpl
   void OnFillingTriggered(
       autofill::FieldGlobalId focused_field_id,
       const autofill::AccessorySheetField& selection) override;
+  void OnPasskeySelected(const std::vector<uint8_t>& passkey_id) override;
   void OnOptionSelected(autofill::AccessoryAction selected_action) override;
   void OnToggleChanged(autofill::AccessoryAction toggled_action,
                        bool enabled) override;

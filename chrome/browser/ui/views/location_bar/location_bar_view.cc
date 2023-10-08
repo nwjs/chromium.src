@@ -293,8 +293,7 @@ void LocationBarView::Init() {
   }
 
   selected_keyword_view_ = AddChildView(std::make_unique<SelectedKeywordView>(
-      this, TemplateURLServiceFactory::GetForProfile(profile_),
-      omnibox_chip_font_list));
+      this, TemplateURLServiceFactory::GetForProfile(profile_), font_list));
 
   if (browser_ && apps::features::LinkCapturingUiUpdateEnabled()) {
     intent_chip_ =
@@ -323,9 +322,8 @@ void LocationBarView::Init() {
     // icons and determine a way to handle simultaneous icon animations.
     if (base::FeatureList::IsEnabled(commerce::kPriceInsights)) {
       params.types_enabled.push_back(PageActionIconType::kPriceInsights);
-    } else {
-      params.types_enabled.push_back(PageActionIconType::kPriceTracking);
     }
+    params.types_enabled.push_back(PageActionIconType::kPriceTracking);
 
     if (side_search::IsEnabledForBrowser(browser_)) {
       params.types_enabled.push_back(PageActionIconType::kSideSearch);
@@ -421,14 +419,16 @@ std::unique_ptr<views::Background> LocationBarView::CreateRoundRectBackground(
     SkColor background_color,
     SkColor stroke_color,
     SkBlendMode blend_mode,
-    bool antialias) const {
+    bool antialias,
+    bool should_border_scale) const {
   const int radius = GetBorderRadius();
   auto painter =
       stroke_color == SK_ColorTRANSPARENT
           ? views::Painter::CreateSolidRoundRectPainter(
                 background_color, radius, gfx::Insets(), blend_mode, antialias)
           : views::Painter::CreateRoundRectWith1PxBorderPainter(
-                background_color, stroke_color, radius, blend_mode, antialias);
+                background_color, stroke_color, radius, blend_mode, antialias,
+                should_border_scale);
   std::unique_ptr<views::Background> background =
       CreateBackgroundFromPainter(std::move(painter));
   background->SetNativeControlColor(background_color);
@@ -644,7 +644,7 @@ void LocationBarView::Layout() {
     text_left = 8;
     icon_indent = 7;
     text_indent = 6;
-    icon_keyword_indent = 3;
+    icon_keyword_indent = 9;
     text_keyword_indent = -9;
   } else if (OmniboxFieldTrial::IsChromeRefreshIconsEnabled()) {
     icon_left = 5;
@@ -1174,7 +1174,9 @@ void LocationBarView::RefreshBackground() {
   if (is_popup_mode_) {
     SetBackground(views::CreateSolidBackground(background_color));
   } else {
-    SetBackground(CreateRoundRectBackground(background_color, border_color));
+    SetBackground(CreateRoundRectBackground(
+        background_color, border_color, /*blend_mode=*/SkBlendMode::kSrcOver,
+        /*antialias=*/true, /*should_border_scale=*/true));
   }
 
   // Keep the views::Textfield in sync. It needs an opaque background to

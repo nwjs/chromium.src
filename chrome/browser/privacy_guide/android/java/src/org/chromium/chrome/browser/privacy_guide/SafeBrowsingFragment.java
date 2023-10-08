@@ -50,9 +50,19 @@ public class SafeBrowsingFragment extends Fragment
         mStandardProtectionFriendlier =
                 (RadioButtonWithDescription) view.findViewById(R.id.standard_option_friendlier);
 
+        // The enhanced protection description is being overwritten when the flag is enabled
+        if (ChromeFeatureList.sFriendlierSafeBrowsingSettingsEnhancedProtection.isEnabled()) {
+            mEnhancedProtection.setDescriptionText(getContext().getString(
+                    R.string.safe_browsing_enhanced_protection_summary_updated));
+        }
+
         if (ChromeFeatureList.sFriendlierSafeBrowsingSettingsStandardProtection.isEnabled()) {
             mStandardProtection.setVisibility(View.GONE);
             mStandardProtectionFriendlier.setVisibility(View.VISIBLE);
+            if (SafeBrowsingBridge.isHashRealTimeLookupEligibleInSession()) {
+                mStandardProtectionFriendlier.setDescriptionText(getContext().getString(
+                        R.string.safe_browsing_standard_protection_summary_updated_proxy));
+            }
         } else {
             mStandardProtection.setAuxButtonClickedListener(this);
             mStandardProtection.setVisibility(View.VISIBLE);
@@ -88,11 +98,28 @@ public class SafeBrowsingFragment extends Fragment
     public void onAuxButtonClicked(int clickedButtonId) {
         LayoutInflater inflater = LayoutInflater.from(getView().getContext());
         if (clickedButtonId == mEnhancedProtection.getId()) {
-            displayBottomSheet(
-                    inflater.inflate(R.layout.privacy_guide_sb_enhanced_explanation, null));
+            if (ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.FRIENDLIER_SAFE_BROWSING_SETTINGS_ENHANCED_PROTECTION)) {
+                displayBottomSheet(inflater.inflate(
+                        R.layout.privacy_guide_sb_enhanced_explanation_updated, null));
+            } else {
+                displayBottomSheet(
+                        inflater.inflate(R.layout.privacy_guide_sb_enhanced_explanation, null));
+            }
         } else if (clickedButtonId == mStandardProtection.getId()) {
-            displayBottomSheet(
-                    inflater.inflate(R.layout.privacy_guide_sb_standard_explanation, null));
+            View sheetContent =
+                    inflater.inflate(R.layout.privacy_guide_sb_standard_explanation, null);
+            if (SafeBrowsingBridge.isHashRealTimeLookupEligibleInSession()) {
+                PrivacyGuideExplanationItem itemTwo =
+                        sheetContent.findViewById(R.id.sb_standard_item_two);
+                itemTwo.setSummaryText(
+                        getContext().getString(R.string.privacy_guide_sb_standard_item_two_proxy));
+                PrivacyGuideExplanationItem itemThree =
+                        sheetContent.findViewById(R.id.sb_standard_item_three);
+                itemThree.setSummaryText(getContext().getString(
+                        R.string.privacy_guide_sb_standard_item_three_proxy));
+            }
+            displayBottomSheet(sheetContent);
         } else {
             assert false : "Unknown Aux clickedButtonId " + clickedButtonId;
         }
@@ -115,7 +142,16 @@ public class SafeBrowsingFragment extends Fragment
     }
 
     private void displayBottomSheet(View sheetContent) {
-        mBottomSheetView = new PrivacyGuideBottomSheetView(sheetContent, this::closeBottomSheet);
+        if (ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.FRIENDLIER_SAFE_BROWSING_SETTINGS_ENHANCED_PROTECTION)
+                && ChromeFeatureList.isEnabled(
+                        ChromeFeatureList.FRIENDLIER_SAFE_BROWSING_SETTINGS_STANDARD_PROTECTION)) {
+            mBottomSheetView = new PrivacyGuideBottomSheetView(
+                    sheetContent, this::closeBottomSheet, 0.9f, 1.0f);
+        } else {
+            mBottomSheetView =
+                    new PrivacyGuideBottomSheetView(sheetContent, this::closeBottomSheet);
+        }
         // TODO(crbug.com/1287979): Re-enable animation once bug is fixed
         if (mBottomSheetController != null) {
             mBottomSheetController.requestShowContent(mBottomSheetView, false);

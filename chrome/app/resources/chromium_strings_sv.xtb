@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">Återuppta installationen</translation>
 <translation id="1029669172902658969">Starta om för att uppdatera &amp;Chromium OS</translation>
 <translation id="1040916596585577953">Du rekommenderas av Chromium att granska detta tillägg</translation>
+<translation id="1042552502243217427">När en webbplats frågar om dess länkar ska läsas in privat i förväg använder Chromium Googles servrar. Det innebär att din identitet döljs från den förinlästa webbplatsen, men Google får reda på vilka webbplatser som läses in i förväg.</translation>
 <translation id="1065672644894730302">Det går inte att läsa inställningarna.
 
 Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna sparas inte.</translation>
@@ -130,6 +131,8 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="370962675267501463">{COUNT,plural, =0{Administratören meddelar att du bör starta om Chromium så att uppdateringen tillämpas}=1{Administratören meddelar att du bör starta om Chromium så att uppdateringen tillämpas. Inkognitofönstret öppnas inte igen.}other{Administratören meddelar att du bör starta om Chromium så att uppdateringen tillämpas. De # inkognitofönstren öppnas inte igen.}}</translation>
 <translation id="3713809861844741608">Öppna länken i en ny &amp;flik i Chromium</translation>
 <translation id="378917192836375108">I Chromium kan du klicka på ett telefonnummer på nätet och ringa det med Skype!</translation>
+<translation id="3790262771324122253">Läs mer om varför vissa nedladdningar blockeras i Chromium</translation>
+<translation id="3802055581630249637">Sidor som du troligen kommer att besöka läses in i förväg i Chromium så att de läses in snabbare när du besöker dem</translation>
 <translation id="3830894615770080216">Chromium OS-system</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
 <translation id="386822487697155367">Få hjälp med Chromium OS</translation>
@@ -155,6 +158,7 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="4216212958613226427">Användargränssnittet i Chromium visas på det här språket</translation>
 <translation id="4222932583846282852">Avbryter …</translation>
 <translation id="4230135487732243613">Vill du koppla dina uppgifter i Chromium till det här kontot?</translation>
+<translation id="4251772536351901305">Varnar dig om farliga webbplatser, även sådana som Google inte kände till tidigare, genom att analysera mer data från webbplatser än standardskyddet. Du kan välja att hoppa över Chromium-varningar.</translation>
 <translation id="4271805377592243930">Få hjälp med Chromium</translation>
 <translation id="4281844954008187215">Användarvillkor</translation>
 <translation id="4285930937574705105">Installationen misslyckades på grund av ett ospecificerat fel. Stäng Chromium om det är igång och försök sedan igen.</translation>
@@ -226,7 +230,6 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="5988505247484123880">Det är vanligt att webbplatser du besöker kommer ihåg sådant som intresserar dig för att anpassa din upplevelse. Webbplatser kan även lagra information om dina intressen i Chromium.</translation>
 <translation id="6003112304606738118">Laddar ned … <ph name="HOURS" /> timme/timmar kvar</translation>
 <translation id="6040143037577758943">Stäng</translation>
-<translation id="6055611795418209449">Chromium blockerar vissa nedladdningar</translation>
 <translation id="6055895534982063517">Det finns en ny version av Chromium och den är snabbare än någonsin.</translation>
 <translation id="6063093106622310249">&amp;Öppna i Chromium</translation>
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> har lagts till i Chromium</translation>
@@ -240,6 +243,7 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="6132897690380286411">Chromium avslutas snart och data raderas</translation>
 <translation id="6134968993075716475">Säker webbsökning har inaktiverats. Du rekommenderas att aktivera funktionen i Chromium.</translation>
 <translation id="6145820983052037069">Du kan byta mellan Chromium-profiler här</translation>
+<translation id="615103374448673771">Om du tillåter cookies kan Chromium använda dem när innehåll läses in i förväg</translation>
 <translation id="6175304430031192654">Beroende på dina inställningar kan Chromium även skicka cookies och din nuvarande webbadress</translation>
 <translation id="6183079672144801177">Se till att du är inloggad i Chromium på <ph name="TARGET_DEVICE_NAME" /> och försök skicka igen.</translation>
 <translation id="6212496753309875659">Det finns redan en nyare version av Chromium på den här datorn. Avinstallera Chromium och försök igen om programvaran inte fungerar.</translation>
@@ -264,12 +268,14 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="6400112897226594999">Chromium-logotyp på en datorskärm.</translation>
 <translation id="6403826409255603130">Chromium är en webbläsare som kör webbsidor och appar blixtsnabbt. Den är snabb, stabil och lätt att använda. Surfa säkrare med Chromiums skydd mot skadliga program och lösenordsfiske.</translation>
 <translation id="6442900851116057561">Starta om Chromium OS</translation>
+<translation id="6443470774889161065">Chromium läser in ännu fler sidor i förväg som du troligen kommer att besöka, så att de läses in snabbare när du besöker dem</translation>
 <translation id="6455857529632101747">Välkommen till Chromium-profiler</translation>
 <translation id="6475912303565314141">Det styr också vilken sida som visas när du startar Chromium.</translation>
 <translation id="648319183876919572">Förbättrad säker webbsökning gör mer för att skydda dig mot farliga webbplatser och nedladdningar</translation>
 <translation id="6510925080656968729">Avinstallera Chromium</translation>
 <translation id="6539122709674868420">Organisationen avslutar Chromium när det inte har använts på <ph name="TIMEOUT_DURATION" />. Webbinformation har raderats. Detta kan innefatta historik, autofyll och nedladdningar.</translation>
 <translation id="6542839706527980775">I alla profiler sparas egen Chromium-information som bokmärken, historik, lösenord och annat</translation>
+<translation id="6563921047760808519">Läs mer om <ph name="BEGIN_LINK" />hur Chromium skyddar din data<ph name="END_LINK" /></translation>
 <translation id="656935081669708576">Du kan byta för att se lösenord från en annan Chromium-profil</translation>
 <translation id="6570579332384693436">Chromium skickar det du skriver i textfält till Google för att kontrollera stavningen</translation>
 <translation id="6598877126913850652">Öppna aviseringsinställningarna för Chromium</translation>

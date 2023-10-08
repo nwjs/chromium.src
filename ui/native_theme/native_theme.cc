@@ -25,19 +25,19 @@
 
 namespace ui {
 
-#if BUILDFLAG(IS_APPLE)
-NativeTheme::ExtraParams::ExtraParams() : scrollbar_extra() {
-  memset(this, 0, sizeof(*this));
-}
-#else
-NativeTheme::ExtraParams::ExtraParams() {
-  memset(this, 0, sizeof(*this));
-}
-#endif
+NativeTheme::MenuListExtraParams::MenuListExtraParams() = default;
+NativeTheme::TextFieldExtraParams::TextFieldExtraParams() = default;
 
-NativeTheme::ExtraParams::ExtraParams(const ExtraParams& other) {
-  memcpy(this, &other, sizeof(*this));
-}
+NativeTheme::MenuListExtraParams::MenuListExtraParams(
+    const NativeTheme::MenuListExtraParams&) = default;
+
+NativeTheme::TextFieldExtraParams::TextFieldExtraParams(
+    const NativeTheme::TextFieldExtraParams&) = default;
+
+NativeTheme::MenuListExtraParams& NativeTheme::MenuListExtraParams::operator=(
+    const NativeTheme::MenuListExtraParams&) = default;
+NativeTheme::TextFieldExtraParams& NativeTheme::TextFieldExtraParams::operator=(
+    const NativeTheme::TextFieldExtraParams&) = default;
 
 #if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_APPLE)
 // static
@@ -58,8 +58,11 @@ ColorProviderKey NativeTheme::GetColorProviderKey(
       system_theme_,
       use_custom_frame ? ui::ColorProviderKey::FrameType::kChromium
                        : ui::ColorProviderKey::FrameType::kNative,
-      user_color_, scheme_variant_, /*is_grayscale=*/false,
-      std::move(custom_theme));
+      ui::ColorProviderKey::FrameStyle::kDefault,
+      should_use_system_accent_color_
+          ? ui::ColorProviderKey::UserColorSource::kAccent
+          : ui::ColorProviderKey::UserColorSource::kBaseline,
+      user_color_, scheme_variant_, std::move(custom_theme));
 }
 
 SkColor NativeTheme::GetSystemButtonPressedColor(SkColor base_color) const {

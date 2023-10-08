@@ -192,12 +192,24 @@ class CONTENT_EXPORT FileSystemAccessManagerImpl
       const storage::FileSystemURL& url,
       FileSystemAccessLockManager::LockType lock_type);
 
-  // Creates a new shared lock type.
-  [[nodiscard]] FileSystemAccessLockManager::LockType CreateSharedLockType()
-      const;
+  // Creates a new shared lock type for testing.
+  [[nodiscard]] FileSystemAccessLockManager::LockType
+  CreateSharedLockTypeForTesting() const;
 
   // Gets the exclusive lock type.
   [[nodiscard]] FileSystemAccessLockManager::LockType GetExclusiveLockType()
+      const;
+
+  // Gets the shared lock type for SyncAccessHandle's `readonly` mode.
+  [[nodiscard]] FileSystemAccessLockManager::LockType GetSAHReadOnlyLockType()
+      const;
+
+  // Gets the shared lock type for SyncAccessHandle's `readwrite-unsafe` mode.
+  [[nodiscard]] FileSystemAccessLockManager::LockType
+  GetSAHReadwriteUnsafeLockType() const;
+
+  // Gets the shared lock type for WritableFileStream's default `siloed` mode.
+  [[nodiscard]] FileSystemAccessLockManager::LockType GetWFSSiloedLockType()
       const;
 
   // Gets the `ancestor_lock_type_` for testing.
@@ -630,18 +642,15 @@ class CONTENT_EXPORT FileSystemAccessManagerImpl
   absl::optional<FileSystemChooser::ResultEntry>
       auto_file_picker_result_for_test_ GUARDED_BY_CONTEXT(sequence_checker_);
 
-  // TODO(https://crbug.com/1396116): Remove this hack when removing the
-  // `kFileSystemURLComparatorsTreatOpaqueOriginAsNoOrigin` feature flag.
-  //
-  // A StorageKey containing an arbitrary, unique, randomly-generated opaque
-  // origin. ChromeOS file system backends run security checks on the assumption
-  // that all FileSystemURLs of non-sandboxed file systems must have an opaque
-  // origin. Using a default-constructed StorageKey will create a random nonce,
-  // making origin comparison checks between two FileSystemURLs with
-  // default-constructed StorageKeys fail. Always using this StorageKey ensures
-  // that FileSystemURL::operator== will always return true for two
-  // FileSystemURLs which point to the same file.
-  blink::StorageKey opaque_origin_for_non_sandboxed_filesystemurls_;
+  // The shared lock type for SyncAccessHandle's `readonly` mode.
+  FileSystemAccessLockManager::LockType sah_read_only_lock_type_ =
+      lock_manager_->CreateSharedLockType();
+  // The shared lock type for SyncAccessHandle's `readwrite-unsafe` mode.
+  FileSystemAccessLockManager::LockType sah_readwrite_unsafe_lock_type_ =
+      lock_manager_->CreateSharedLockType();
+  // The shared lock type for WritableFileStream's default `siloed` mode.
+  FileSystemAccessLockManager::LockType wfs_siloed_lock_type_ =
+      lock_manager_->CreateSharedLockType();
 
   base::WeakPtrFactory<FileSystemAccessManagerImpl> weak_factory_
       GUARDED_BY_CONTEXT(sequence_checker_){this};

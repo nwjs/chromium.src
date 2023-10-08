@@ -194,6 +194,8 @@ component("base") {
     "models/tree_model.h",
     "models/tree_node_iterator.h",
     "models/tree_node_model.h",
+    "moving_max.cc",
+    "moving_max.h",
     "nine_image_painter_factory.cc",
     "nine_image_painter_factory.h",
     "page_transition_types.cc",
@@ -316,6 +318,8 @@ component("base") {
       "cocoa/command_dispatcher.mm",
       "cocoa/constrained_window/constrained_window_animation.h",
       "cocoa/constrained_window/constrained_window_animation.mm",
+      "cocoa/cursor_accessibility_scale_factor_observer.h",
+      "cocoa/cursor_accessibility_scale_factor_observer.mm",
       "cocoa/cursor_utils.h",
       "cocoa/cursor_utils.mm",
       "cocoa/defaults_utils.h",
@@ -928,7 +932,10 @@ if (is_android) {
 
 bundle_data("ui_base_unittests_bundle_data") {
   testonly = true
-  sources = [ "test/data/data_pack_unittest/truncated-header.pak" ]
+  sources = [
+    "//testing/buildbot/filters/ios.ui_base_unittests.filter",
+    "test/data/data_pack_unittest/truncated-header.pak",
+  ]
   outputs = [ "{{bundle_resources_dir}}/" +
               "{{source_root_relative_dir}}/{{source_file_part}}" ]
 }
@@ -1003,6 +1010,7 @@ test("ui_base_unittests") {
     "models/simple_combobox_model_unittest.cc",
     "models/simple_menu_model_unittest.cc",
     "models/tree_node_iterator_unittest.cc",
+    "moving_max_unittest.cc",
     "pointer/touch_ui_controller_unittest.cc",
     "prediction/empty_filter_unittests.cc",
     "prediction/input_filter_unittest_helpers.cc",

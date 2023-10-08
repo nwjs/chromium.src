@@ -21,6 +21,7 @@
 #include "net/http/http_status_code.h"
 #include "services/network/cors/cors_url_loader_factory.h"
 #include "services/network/cors/cors_util.h"
+#include "services/network/masked_domain_list/network_service_resource_block_list.h"
 #include "services/network/network_context.h"
 #include "services/network/network_service_memory_cache.h"
 #include "services/network/public/cpp/cors/cors.h"
@@ -95,11 +96,6 @@ absl::optional<PreflightRequiredReason> NeedsPreflight(
 
 base::Value::Dict NetLogCorsURLLoaderStartParams(
     const ResourceRequest& request) {
-  base::Value::Dict dict;
-  dict.Set("url", request.url.possibly_invalid_spec());
-  dict.Set("method", request.method);
-  dict.Set("headers", request.headers.ToString());
-  dict.Set("is_revalidating", request.is_revalidating);
   std::string cors_preflight_policy;
   switch (request.cors_preflight_policy) {
     case mojom::CorsPreflightPolicy::kConsiderPreflight:
@@ -109,14 +105,19 @@ base::Value::Dict NetLogCorsURLLoaderStartParams(
       cors_preflight_policy = "prevent_preflight";
       break;
   }
-  dict.Set("cors_preflight_policy", cors_preflight_policy);
-  return dict;
+
+  return base::Value::Dict()
+      .Set("url", request.url.possibly_invalid_spec())
+      .Set("method", request.method)
+      .Set("headers", request.headers.ToString())
+      .Set("is_revalidating", request.is_revalidating)
+      .Set("cors_preflight_policy", cors_preflight_policy);
 }
 
 base::Value::Dict NetLogPreflightRequiredParams(
     absl::optional<PreflightRequiredReason> preflight_required_reason) {
-  base::Value::Dict dict;
-  dict.Set("preflight_required", preflight_required_reason.has_value());
+  auto dict = base::Value::Dict().Set("preflight_required",
+                                      preflight_required_reason.has_value());
   if (preflight_required_reason) {
     std::string preflight_required_reason_param;
     switch (preflight_required_reason.value()) {
@@ -142,9 +143,8 @@ base::Value::Dict NetLogPreflightRequiredParams(
 base::Value::Dict NetLogPreflightErrorParams(
     int net_error,
     const absl::optional<CorsErrorStatus>& status) {
-  base::Value::Dict dict;
-
-  dict.Set("error", net::ErrorToShortString(net_error));
+  auto dict =
+      base::Value::Dict().Set("error", net::ErrorToShortString(net_error));
   if (status) {
     dict.Set("cors-error", static_cast<int>(status->cors_error));
     if (!status->failed_parameter.empty()) {
@@ -395,6 +395,16 @@ void CorsURLLoader::Start() {
   StartRequest();
 }
 
+bool CorsURLLoader::ShouldBlockRequestForAfpExperiment(GURL request_url) {
+  if (context_ && context_->network_service() &&
+      context_->network_service()->network_service_resource_block_list()) {
+    return context_->network_service()
+        ->network_service_resource_block_list()
+        ->Matches(request_url, isolation_info_);
+  }
+  return false;
+}
+
 void CorsURLLoader::FollowRedirect(
     const std::vector<std::string>& removed_headers,
     const net::HttpRequestHeaders& modified_headers,
@@ -463,6 +473,11 @@ void CorsURLLoader::FollowRedirect(
 
   if (!AreRequestHeadersSafe(request_.headers)) {
     HandleComplete(URLLoaderCompletionStatus(net::ERR_INVALID_ARGUMENT));
+    return;
+  }
+
+  if (ShouldBlockRequestForAfpExperiment(redirect_info_.new_url)) {
+    HandleComplete(URLLoaderCompletionStatus(net::ERR_BLOCKED_BY_CLIENT));
     return;
   }
 

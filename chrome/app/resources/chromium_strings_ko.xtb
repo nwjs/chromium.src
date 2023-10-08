@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">설치 다시 시작</translation>
 <translation id="1029669172902658969">다시 실행하여 ChromiumOS 업데이트</translation>
 <translation id="1040916596585577953">Chromium에서는 이 확장 프로그램을 검토할 것을 권장합니다.</translation>
+<translation id="1042552502243217427">사이트에서 페이지에 있는 링크를 비공개로 미리 로드해 달라고 요청하면 Chromium은 Google 서버를 사용합니다. 이렇게 하면 미리 로드된 사이트에서 사용자의 신원을 숨길 수 있지만 Google은 어떤 사이트가 미리 로드되는지 학습하게 됩니다.</translation>
 <translation id="1065672644894730302">환경설정을 읽을 수 없습니다.
 
 일부 기능을 사용할 수 없으며 환경설정의 변경사항이 저장되지 않습니다.</translation>
@@ -130,6 +131,8 @@
 <translation id="370962675267501463">{COUNT,plural, =0{관리자가 이 업데이트를 적용하려면 사용자가 Chromium을 다시 시작하도록 설정했습니다.}=1{관리자가 이 업데이트를 적용하려면 사용자가 Chromium을 다시 시작하도록 설정했습니다. 시크릿 창이 다시 열리지 않습니다.}other{관리자가 이 업데이트를 적용하려면 사용자가 Chromium을 다시 시작하도록 설정했습니다. 시크릿 창 #개가 다시 열리지 않습니다.}}</translation>
 <translation id="3713809861844741608">새 Chromium 탭에서 링크 열기(&amp;T)</translation>
 <translation id="378917192836375108">Chromium을 사용하면 웹에서 전화번호를 클릭하여 Skype로 통화할 수 있습니다.</translation>
+<translation id="3790262771324122253">Chromium에서 일부 다운로드를 차단하는 이유 알아보기</translation>
+<translation id="3802055581630249637">Chromium은 사용자가 방문할 가능성이 있는 페이지를 미리 로드하여 사용자가 방문할 때 페이지를 더 빠르게 로드합니다.</translation>
 <translation id="3830894615770080216">ChromiumOS 시스템</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
 <translation id="386822487697155367">ChromiumOS 도움말 보기</translation>
@@ -155,6 +158,7 @@
 <translation id="4216212958613226427">Chromium UI가 이 언어로 표시됩니다.</translation>
 <translation id="4222932583846282852">취소 중...</translation>
 <translation id="4230135487732243613">Chromium 데이터를 이 계정에 연결하시겠습니까?</translation>
+<translation id="4251772536351901305">표준 보호 모드보다 더 많은 사이트에서 데이터를 분석하여 위험한 사이트에 관해 경고합니다. Google이 이전에 몰랐던 사이트도 여기에 포함됩니다. Chromium 경고를 건너뛸 수 있습니다.</translation>
 <translation id="4271805377592243930">Chromium 도움말 보기</translation>
 <translation id="4281844954008187215">서비스 약관</translation>
 <translation id="4285930937574705105">확인되지 않은 오류로 설치에 실패했습니다. Chromium이 실행 중인 경우 종료한 후 다시 실행하세요.</translation>
@@ -226,7 +230,6 @@
 <translation id="5988505247484123880">방문하는 사이트에서는 일반적으로 사용 경험을 개인화하기 위해 내가 관심을 보인 항목을 기억합니다. 또한 사이트에서는 내 관심분야에 관한 정보를 Chromium에 저장할 수 있습니다.</translation>
 <translation id="6003112304606738118">다운로드 중... <ph name="HOURS" />시간 남음</translation>
 <translation id="6040143037577758943">닫기</translation>
-<translation id="6055611795418209449">Chromium에서 일부 다운로드를 차단</translation>
 <translation id="6055895534982063517">이전보다 더 빨라진 Chromium 새 버전을 사용할 수 있습니다.</translation>
 <translation id="6063093106622310249">&amp;Chromium에서 열기</translation>
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" />이(가) Chromium에 추가됨</translation>
@@ -240,6 +243,7 @@
 <translation id="6132897690380286411">Chromium이 곧 종료되고 데이터가 삭제됩니다</translation>
 <translation id="6134968993075716475">세이프 브라우징이 사용 중지되어 있습니다. 사용 설정하는 것이 좋습니다.</translation>
 <translation id="6145820983052037069">여기에서 Chromium 프로필 간에 전환할 수 있습니다.</translation>
+<translation id="615103374448673771">사용자가 쿠키를 허용하면 Chromium에서 미리 로드할 때 쿠키를 사용할 수 있습니다.</translation>
 <translation id="6175304430031192654">설정에 따라 Chromium에서 쿠키와 현재 URL을 전송할 수도 있습니다.</translation>
 <translation id="6183079672144801177"><ph name="TARGET_DEVICE_NAME" />에서 Chromium에 로그인되어 있는지 확인한 다음 다시 전송해 보세요.</translation>
 <translation id="6212496753309875659">컴퓨터에 이미 최신 버전의 Chromium이 있습니다. 소프트웨어가 작동하지 않으면 Chromium의 설치를 제거한 뒤 다시 시도하세요.</translation>
@@ -264,12 +268,14 @@
 <translation id="6400112897226594999">컴퓨터 화면에 표시된 Chromium 로고입니다.</translation>
 <translation id="6403826409255603130">Chromium은 빠른 속도로 웹페이지와 애플리케이션을 실행하는 웹 브라우저입니다. 빠르고 안정적이며 사용하기에 편리합니다. Chromium에 내장된 멀웨어 및 악성 코드 방지 기능을 사용하여 더욱 안전하게 웹을 검색하세요.</translation>
 <translation id="6442900851116057561">ChromiumOS 다시 시작</translation>
+<translation id="6443470774889161065">Chromium은 사용자가 방문할 때 페이지를 더 빠르게 로드할 수 있도록 사용자가 방문할 가능성이 높은 페이지를 미리 로드합니다.</translation>
 <translation id="6455857529632101747">Chromium 프로필에 오신 것을 환영합니다</translation>
 <translation id="6475912303565314141">또한 Chromium을 시작할 때 표시되는 페이지를 설정합니다.</translation>
 <translation id="648319183876919572">향상된 세이프 브라우징은 위험한 웹사이트와 다운로드로부터 사용자를 보호합니다.</translation>
 <translation id="6510925080656968729">Chromium 설치 제거</translation>
 <translation id="6539122709674868420"><ph name="TIMEOUT_DURATION" /> 동안 사용하지 않으면 조직에서 Chromium을 종료합니다. 인터넷 사용 기록이 삭제되었습니다. 여기에는 방문 기록, 자동 완성, 다운로드가 포함될 수 있습니다.</translation>
 <translation id="6542839706527980775">각 프로필에는 북마크, 방문 기록, 비밀번호 등과 같은 Chromium 정보가 보관됩니다.</translation>
+<translation id="6563921047760808519"><ph name="BEGIN_LINK" />Chromium에서 데이터를 비공개로 유지하는 방법<ph name="END_LINK" /> 자세히 알아보기</translation>
 <translation id="656935081669708576">다른 Chromium 프로필의 비밀번호를 보도록 전환할 수 있습니다.</translation>
 <translation id="6570579332384693436">맞춤법 오류를 수정하기 위해 Chromium에서 사용자가 입력하는 텍스트를 Google로 전송합니다.</translation>
 <translation id="6598877126913850652">Chromium 알림 설정으로 이동</translation>

@@ -62,6 +62,16 @@ class GaiaView : public base::SupportsWeakPtr<GaiaView> {
     kMaxValue = kOnlineSignin
   };
 
+  enum class PasswordlessSupportLevel {
+    // Passwordless logins are not supported or password logins are enforced.
+    kNone = 0,
+    // Passwordless logins are supported for consumers only, but not for
+    // enterprise users.
+    kConsumersOnly,
+    // Passwordless logins are supported for all users.
+    kAll,
+  };
+
   inline constexpr static StaticOobeScreenId kScreenId{"gaia-signin",
                                                        "GaiaSigninScreen"};
 
@@ -107,6 +117,9 @@ class GaiaView : public base::SupportsWeakPtr<GaiaView> {
                                        const std::string& password,
                                        const std::string& services) = 0;
   virtual void SetQuickStartEnabled() = 0;
+  // Sets if Gaia password is required during login. If the password is
+  // required, Gaia passwordless login will be disallowed.
+  virtual void SetIsGaiaPasswordRequired(bool is_required) = 0;
 
   // Reset authenticator.
   virtual void Reset() = 0;
@@ -166,6 +179,7 @@ class GaiaScreenHandler
                                const std::string& services) override;
 
   void SetQuickStartEnabled() override;
+  void SetIsGaiaPasswordRequired(bool is_required) override;
 
   void Reset() override;
 
@@ -183,6 +197,10 @@ class GaiaScreenHandler
 
   // NetworkStateInformer::NetworkStateInformerObserver:
   void UpdateState(NetworkError::ErrorReason reason) override;
+
+  // Returns the initial mode of the Gaia signin screen for a given user email
+  // address. Note this also affects which Gaia endpoint is used.
+  static GaiaScreenMode GetGaiaScreenMode(const std::string& email);
 
   void SetNextSamlChallengeKeyHandlerForTesting(
       std::unique_ptr<SamlChallengeKeyHandler> handler_for_test);
@@ -496,6 +514,8 @@ class GaiaScreenHandler
   base::TimeDelta offline_timeout_ = base::Seconds(1);
 
   std::unique_ptr<ErrorScreensHistogramHelper> histogram_helper_;
+
+  bool is_gaia_password_required_ = false;
 
   base::WeakPtrFactory<GaiaScreenHandler> weak_factory_{this};
 };

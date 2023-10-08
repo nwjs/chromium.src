@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">Sambung Semula Pemasangan</translation>
 <translation id="1029669172902658969">Lancarkan semula untuk mengemas kini &amp;Chromium OS</translation>
 <translation id="1040916596585577953">Chromium mengesyorkan anda agar menyemak sambungan ini</translation>
+<translation id="1042552502243217427">Apabila laman meminta prapemuatan pautan secara peribadi pada halaman mereka, Chromium menggunakan pelayan Google. Tindakan ini akan menyembunyikan identiti anda daripada laman yang dipramuat tetapi Google mengetahui laman yang dipramuat.</translation>
 <translation id="1065672644894730302">Pilihan anda tidak dapat dibaca. Beberapa ciri mungkin tidak tersedia dan perubahan terhadap pilihan tidak akan disimpan.</translation>
 <translation id="1083934481477628225">Ibu/bapa anda telah mematikan "Kebenaran untuk laman, apl dan sambungan" untuk Chromium</translation>
 <translation id="1098170124587656448">Chromium dapat membantu untuk memastikan anda selamat daripada pelanggaran data, sambungan tidak elok dan pelbagai lagi</translation>
@@ -128,6 +129,8 @@ Kebenaran yang telah anda berikan kepada laman web dan apl mungkin dikenakan pad
 <translation id="370962675267501463">{COUNT,plural, =0{Pentadbir anda meminta anda melancarkan semula Chromium untuk menggunakan kemas kini ini}=1{Pentadbir anda meminta anda melancarkan semula Chromium untuk menggunakan kemas kini ini. Tetingkap Inkognito anda tidak dapat dibuka semula.}other{Pentadbir anda meminta anda melancarkan semula Chromium untuk menggunakan kemas kini ini. # tetingkap Inkognito anda tidak dapat dibuka semula.}}</translation>
 <translation id="3713809861844741608">Buka pautan dalam &amp;tab Chromium baharu</translation>
 <translation id="378917192836375108">Chromium membolehkan anda mengklik nombor telefon pada web dan menghubunginya dengan Skype!</translation>
+<translation id="3790262771324122253">Ketahui sebab Chromium menghalang sesetengah muat turun</translation>
+<translation id="3802055581630249637">Chromium mempramuat halaman yang mungkin anda lawati supaya halaman tersebut dimuatkan dengan lebih pantas apabila dilawati</translation>
 <translation id="3830894615770080216">Sistem Chromium OS</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
 <translation id="386822487697155367">Dapatkan bantuan berkenaan Chromium OS</translation>
@@ -153,6 +156,7 @@ Kebenaran yang telah anda berikan kepada laman web dan apl mungkin dikenakan pad
 <translation id="4216212958613226427">Bahasa ini digunakan untuk memaparkan UI Chromium</translation>
 <translation id="4222932583846282852">Membatalkan…</translation>
 <translation id="4230135487732243613">Paut data Chromium anda ke akaun ini?</translation>
+<translation id="4251772536351901305">Memberikan amaran kepada anda tentang laman berbahaya, termasuk laman yang tidak diketahui oleh Google sebelum ini, dengan menganalisis lebih banyak data daripada laman berbanding dengan perlindungan standard. Anda boleh memilih untuk melangkau amaran Chromium.</translation>
 <translation id="4271805377592243930">Dapatkan bantuan berkenaan Chromium</translation>
 <translation id="4281844954008187215">Syarat Perkhidmatan</translation>
 <translation id="4285930937574705105">Pemasangan gagal disebabkan ralat yang tidak dinyatakan. Jika Chromium sedang dijalankan, sila tutup dan cuba semula.</translation>
@@ -224,7 +228,6 @@ Kebenaran yang telah anda berikan kepada laman web dan apl mungkin dikenakan pad
 <translation id="5988505247484123880">Menjadi kebiasaan bagi laman yang anda lawati mengingati perkara yang anda minati, untuk memeribadikan pengalaman anda. Laman boleh menyimpan maklumat tentang minat anda menggunakan Chromium.</translation>
 <translation id="6003112304606738118">Memuat turun… <ph name="HOURS" /> jam lagi</translation>
 <translation id="6040143037577758943">Tutup</translation>
-<translation id="6055611795418209449">Chromium menyekat sesetengah muat turun</translation>
 <translation id="6055895534982063517">Terdapat versi baharu Chromium yang lebih pantas daripada biasa tersedia.</translation>
 <translation id="6063093106622310249">&amp;Buka dalam Chromium</translation>
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> telah ditambahkan pada Chromium</translation>
@@ -238,6 +241,7 @@ Kebenaran yang telah anda berikan kepada laman web dan apl mungkin dikenakan pad
 <translation id="6132897690380286411">Chromium akan ditutup dan data akan dipadamkan sebentar lagi</translation>
 <translation id="6134968993075716475">Penyemakan Imbas Selamat dimatikan. Chromium mengesyorkan agar ciri ini dihidupkan.</translation>
 <translation id="6145820983052037069">Anda boleh beralih antara profil Chromium di sini</translation>
+<translation id="615103374448673771">Jika anda membenarkan kuki, Chromium boleh menggunakan kuki tersebut semasa prapemuatan</translation>
 <translation id="6175304430031192654">Bergantung pada tetapan anda, Chromium juga mungkin menghantar kuki dan URL semasa anda</translation>
 <translation id="6183079672144801177">Pastikan anda telah log masuk ke Chromium pada <ph name="TARGET_DEVICE_NAME" /> anda, kemudian cuba hantar lagi.</translation>
 <translation id="6212496753309875659">Komputer ini telah mempunyai versi Chromium yang lebih baharu. Jika perisian tidak berfungsi, sila nyahpasang Chromium dan cuba lagi.</translation>
@@ -262,12 +266,14 @@ Kebenaran yang telah anda berikan kepada laman web dan apl mungkin dikenakan pad
 <translation id="6400112897226594999">Logo Chromium dalam skrin komputer.</translation>
 <translation id="6403826409255603130">Chromium merupakan penyemak imbas yang mengendalikan laman web dan aplikasi dengan kelajuan sepantas kilat. Chromium cepat, stabil dan mudah digunakan. Semak imbas web lebih selamat dengan perlindungan perisian hasad dan pancingan data terbina dalam Chromium.</translation>
 <translation id="6442900851116057561">Mulakan semula Chromium OS</translation>
+<translation id="6443470774889161065">Chromium mempramuat lebih banyak halaman yang mungkin anda lawati supaya halaman tersebut dimuatkan dengan lebih pantas apabila dilawati</translation>
 <translation id="6455857529632101747">Selamat datang ke profil Chromium</translation>
 <translation id="6475912303565314141">Sambungan turut mengawal halaman yang ditunjukkan apabila anda memulakan Chromium.</translation>
 <translation id="648319183876919572">Penyemakan Imbas Selamat Dipertingkatkan melakukan lebih banyak lagi untuk melindungi anda daripada laman web dan muat turun berbahaya</translation>
 <translation id="6510925080656968729">Nyahpasang Chromium</translation>
 <translation id="6539122709674868420">Organisasi anda menutup Chromium apabila apl tersebut tidak digunakan selama <ph name="TIMEOUT_DURATION" />. Data semakan imbas telah dipadamkan. Pemadaman ini termasuk sejarah, autolengkap dan muat turun.</translation>
 <translation id="6542839706527980775">Setiap profil menyimpan maklumat Chromium profil itu sendiri seperti penanda halaman, sejarah, kata laluan dan pelbagai lagi</translation>
+<translation id="6563921047760808519">Ketahui lebih lanjut tentang <ph name="BEGIN_LINK" />cara Chromium mengekalkan data anda peribadi<ph name="END_LINK" /></translation>
 <translation id="656935081669708576">Anda boleh menukar profil untuk melihat kata laluan daripada profil Chromium yang lain</translation>
 <translation id="6570579332384693436">Untuk membetulkan kesilapan ejaan, Chromium menghantar teks yang anda taip dalam medan teks kepada Google</translation>
 <translation id="6598877126913850652">Pergi ke tetapan pemberitahuan Chromium</translation>

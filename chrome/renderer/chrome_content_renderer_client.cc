@@ -252,6 +252,10 @@
 #include "chrome/renderer/media/chrome_key_systems.h"
 #endif
 
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+#include "chrome/renderer/cco/multiline_detector.h"
+#endif
+
 #include "content/nw/src/nw_content.h"
 #include "content/nw/src/common/shell_switches.h"
 
@@ -771,6 +775,10 @@ void ChromeContentRendererClient::RenderFrameCreated(
             base::BindRepeating(&RenderFrameFontFamilyAccessor::Bind,
                                 render_frame));
   }
+#endif
+
+#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
+  MultilineDetector::InstallIfNecessary(render_frame);
 #endif
 }
 
@@ -1646,6 +1654,11 @@ void ChromeContentRendererClient::
   blink::WebRuntimeFeatures::EnablePerformanceManagerInstrumentation(true);
 
   MaybeEnableWebShare();
+
+  if (base::FeatureList::IsEnabled(
+          autofill::features::kAutofillSharedAutofill)) {
+    blink::WebRuntimeFeatures::EnableSharedAutofill(true);
+  }
 
   if (base::FeatureList::IsEnabled(subresource_filter::kAdTagging))
     blink::WebRuntimeFeatures::EnableAdTagging(true);

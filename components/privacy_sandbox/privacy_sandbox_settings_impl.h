@@ -81,6 +81,10 @@ class PrivacySandboxSettingsImpl : public PrivacySandboxSettings {
   bool IsPrivateAggregationAllowed(
       const url::Origin& top_frame_origin,
       const url::Origin& reporting_origin) const override;
+  bool IsCookieDeprecationLabelAllowed() const override;
+  bool IsCookieDeprecationLabelAllowedForContext(
+      const url::Origin& top_frame_origin,
+      const url::Origin& context_origin) const override;
   bool IsPrivacySandboxEnabled() const override;
   void SetAllPrivacySandboxAllowedForTesting() override;
   void SetTopicsBlockedForTesting() override;
@@ -98,6 +102,9 @@ class PrivacySandboxSettingsImpl : public PrivacySandboxSettings {
   friend class PrivacySandboxSettingsTest;
   friend class PrivacySandboxAttestations;
   friend class PrivacySandboxAttestationsTestBase;
+  FRIEND_TEST_ALL_PREFIXES(
+      PrivacySandboxAttestationsBrowserTest,
+      CallComponentReadyWhenRegistrationFindsExistingComponent);
   FRIEND_TEST_ALL_PREFIXES(PrivacySandboxSettingsTest, FledgeJoiningAllowed);
   FRIEND_TEST_ALL_PREFIXES(PrivacySandboxSettingsTest, NonEtldPlusOneBlocked);
   FRIEND_TEST_ALL_PREFIXES(PrivacySandboxSettingsTest,

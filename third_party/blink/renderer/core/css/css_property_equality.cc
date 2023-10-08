@@ -328,6 +328,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.ContentVisibility() == b.ContentVisibility();
     case CSSPropertyID::kDominantBaseline:
       return a.DominantBaseline() == b.DominantBaseline();
+    case CSSPropertyID::kDynamicRangeLimit:
+      return a.DynamicRangeLimit() == b.DynamicRangeLimit();
     case CSSPropertyID::kEmptyCells:
       return a.EmptyCells() == b.EmptyCells();
     case CSSPropertyID::kFill:
@@ -415,6 +417,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.GetFontWeight() == b.GetFontWeight();
     case CSSPropertyID::kForcedColorAdjust:
       return a.ForcedColorAdjust() == b.ForcedColorAdjust();
+    case CSSPropertyID::kFormSizing:
+      return a.FormSizing() == b.FormSizing();
     case CSSPropertyID::kGridAutoColumns:
       return a.GridAutoColumns() == b.GridAutoColumns();
     case CSSPropertyID::kGridAutoFlow:
@@ -430,9 +434,8 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kGridRowStart:
       return a.GridRowStart() == b.GridRowStart();
     case CSSPropertyID::kGridTemplateAreas:
-      return a.NamedGridArea() == b.NamedGridArea() &&
-             a.NamedGridAreaRowCount() == b.NamedGridAreaRowCount() &&
-             a.NamedGridAreaColumnCount() == b.NamedGridAreaColumnCount();
+      return base::ValuesEquivalent(a.GridTemplateAreas(),
+                                    b.GridTemplateAreas());
     case CSSPropertyID::kGridTemplateColumns:
       return a.GridTemplateColumns() == b.GridTemplateColumns();
     case CSSPropertyID::kGridTemplateRows:
@@ -838,8 +841,6 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
       return a.GetTransformOrigin().Y() == b.GetTransformOrigin().Y();
     case CSSPropertyID::kWebkitTransformOriginZ:
       return a.GetTransformOrigin().Z() == b.GetTransformOrigin().Z();
-    case CSSPropertyID::kWhiteSpace:
-      return a.WhiteSpace() == b.WhiteSpace();
     case CSSPropertyID::kWhiteSpaceCollapse:
       return a.GetWhiteSpaceCollapse() == b.GetWhiteSpaceCollapse();
     case CSSPropertyID::kWidows:
@@ -1209,6 +1210,7 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kToggle:
     case CSSPropertyID::kTransition:
     case CSSPropertyID::kViewTimeline:
+    case CSSPropertyID::kAlternativeViewTimelineWithInset:
     case CSSPropertyID::kWebkitColumnBreakAfter:
     case CSSPropertyID::kWebkitColumnBreakBefore:
     case CSSPropertyID::kWebkitColumnBreakInside:
@@ -1217,7 +1219,7 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kWebkitMaskPosition:
     case CSSPropertyID::kWebkitMaskRepeat:
     case CSSPropertyID::kWebkitTextStroke:
-    case CSSPropertyID::kAlternativeWhiteSpace:
+    case CSSPropertyID::kWhiteSpace:
       NOTREACHED() << property.GetCSSPropertyName().ToAtomicString().Ascii();
       return true;
 
@@ -1274,6 +1276,7 @@ bool CSSPropertyEquality::PropertiesEqual(const PropertyHandle& property,
     case CSSPropertyID::kInherits:
     case CSSPropertyID::kInitialValue:
     case CSSPropertyID::kLineGapOverride:
+    case CSSPropertyID::kNavigationTrigger:
     case CSSPropertyID::kNegative:
     case CSSPropertyID::kOverrideColors:
     case CSSPropertyID::kPad:

@@ -160,6 +160,7 @@ base::Value::Dict GetPdfCapabilities(
                         .WithCustomName(paper.display_name(), paper.vendor_id())
                         .WithSizeAndPrintableArea(paper.size_um(),
                                                   paper.printable_area_um())
+                        .WithBorderlessVariant(paper.has_borderless_variant())
                         .Build());
   }
   media.SaveTo(&description);

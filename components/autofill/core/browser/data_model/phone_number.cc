@@ -83,7 +83,7 @@ void PhoneNumber::GetSupportedTypes(ServerFieldTypeSet* supported_types) const {
 }
 
 std::u16string PhoneNumber::GetRawInfo(ServerFieldType type) const {
-  DCHECK_EQ(FieldTypeGroup::kPhoneHome, AutofillType(type).group());
+  DCHECK_EQ(FieldTypeGroup::kPhone, AutofillType(type).group());
   if (type == PHONE_HOME_WHOLE_NUMBER)
     return number_;
 
@@ -96,7 +96,7 @@ std::u16string PhoneNumber::GetRawInfo(ServerFieldType type) const {
 void PhoneNumber::SetRawInfoWithVerificationStatus(ServerFieldType type,
                                                    const std::u16string& value,
                                                    VerificationStatus status) {
-  DCHECK_EQ(FieldTypeGroup::kPhoneHome, AutofillType(type).group());
+  DCHECK_EQ(FieldTypeGroup::kPhone, AutofillType(type).group());
   if (type != PHONE_HOME_CITY_AND_NUMBER && type != PHONE_HOME_WHOLE_NUMBER) {
     // Only full phone numbers should be set directly. The remaining field types
     // are read-only. As PHONE_HOME_CITY_AND_NUMBER_WITHOUT_TRUNK_PREFIX
@@ -386,7 +386,7 @@ bool PhoneNumber::PhoneCombineHelper::ParseNumber(
     return true;
   }
 
-  return i18n::ConstructPhoneNumber(country_, city_, phone_,
+  return i18n::ConstructPhoneNumber(country_ + city_ + phone_,
                                     GetRegion(profile, app_locale), value);
 }
 

@@ -155,6 +155,10 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   // screen coordinates).
   void SetBoundsInScreen(const gfx::Rect& bounds);
 
+  // Changes the size of the window, leaving the top-left corner in its current
+  // location.
+  void SetSize(const gfx::Size& size);
+
   // Tell the window to transition to being fullscreen or not-fullscreen.
   // If `fullscreen` is true, then `target_display_id` specifies the display to
   // which window should move (or an invalid display, to use the default).
@@ -226,6 +230,8 @@ class VIEWS_EXPORT NativeWidgetMacNSWindowHost
   bool IsWindowKey() const { return is_window_key_; }
   bool IsMouseCaptureActive() const { return is_mouse_capture_active_; }
   bool IsZoomed() const { return is_zoomed_; }
+
+  void SetVisibilityState(remote_cocoa::mojom::WindowVisibilityState new_state);
 
   // Add a NSEvent local event monitor, which will send events to `client`
   // before they are dispatched to their ordinary target. Clients may specify

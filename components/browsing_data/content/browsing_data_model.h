@@ -12,9 +12,11 @@
 #include "base/functional/callback_forward.h"
 #include "base/memory/raw_ref.h"
 #include "components/browsing_data/content/browsing_data_quota_helper.h"
+#include "components/browsing_data/content/shared_worker_info.h"
 #include "content/public/browser/attribution_data_model.h"
 #include "content/public/browser/interest_group_manager.h"
 #include "content/public/browser/private_aggregation_data_model.h"
+#include "content/public/browser/session_storage_usage_info.h"
 #include "net/extras/shared_dictionary/shared_dictionary_isolation_key.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
@@ -51,9 +53,10 @@ class BrowsingDataModel {
     kPrivateAggregation,
     kQuotaStorage,
     kSharedDictionary,
+    kSharedWorker,
 
     kFirstType = kTrustTokens,
-    kLastType = kSharedDictionary,
+    kLastType = kSharedWorker,
     kExtendedDelegateRange =
         63,  // This is needed to include delegate values when adding delegate
              // browsing data to the model.
@@ -70,7 +73,9 @@ class BrowsingDataModel {
                         content::InterestGroupManager::InterestGroupDataKey,
                         content::AttributionDataModel::DataKey,
                         content::PrivateAggregationDataModel::DataKey,
-                        net::SharedDictionaryIsolationKey
+                        content::SessionStorageUsageInfo,
+                        net::SharedDictionaryIsolationKey,
+                        browsing_data::SharedWorkerInfo
                         // TODO(crbug.com/1271155): Additional backend keys.
                         >
       DataKey;

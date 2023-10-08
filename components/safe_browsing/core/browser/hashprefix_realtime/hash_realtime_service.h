@@ -14,7 +14,7 @@
 #include "components/keyed_service/core/keyed_service.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/utils/backoff_operator.h"
-#include "components/safe_browsing/core/common/proto/safebrowsingv5_alpha1.pb.h"
+#include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
 #include "mojo/public/cpp/bindings/unique_receiver_set.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/oblivious_http_request.mojom-forward.h"
@@ -269,9 +269,6 @@ class HashRealTimeService : public KeyedService {
   //  - |response_body| is the unparsed response from the server.
   //  - |net_error| is the net error code from the server.
   //  - |response_code| is the HTTP status code from the server.
-  //  - |allow_retriable_errors| specifies whether certain types of errors can
-  //    be considered retriable, meaning they don't increment the backoff
-  //    counter.
   //  - |webui_delegate_token| is used for matching HPRT lookup responses to
   //    pings on chrome://safe-browsing.
   void OnURLLoaderComplete(
@@ -285,7 +282,6 @@ class HashRealTimeService : public KeyedService {
       std::unique_ptr<std::string> response_body,
       int net_error,
       int response_code,
-      bool allow_retriable_errors,
       absl::optional<int> webui_delegate_token);
 
   // Determines the most severe threat type based on |result_full_hashes|, which
@@ -300,15 +296,16 @@ class HashRealTimeService : public KeyedService {
       // complete.
       bool log_threat_info_size);
 
-  // Returns a number representing the severity of the threat type. The lower
-  // the number, the more severe it is. Severity is used to narrow down to a
-  // single threat type to report in cases where there are multiple.
-  static int GetThreatSeverity(const V5::ThreatType& threat_type);
+  // Returns a number representing the severity of the full hash detail. The
+  // lower the number, the more severe it is. Severity is used to narrow down to
+  // a single threat type to report in cases where there are multiple full hash
+  // details.
+  static int GetThreatSeverity(const V5::FullHash::FullHashDetail& detail);
 
-  // Returns true if the |threat_type| is more severe than the
+  // Returns true if the |detail| is more severe than the
   // |baseline_severity|. Returns false if it's less severe or has equal
   // severity.
-  static bool IsThreatTypeMoreSevere(const V5::ThreatType& threat_type,
+  static bool IsHashDetailMoreSevere(const V5::FullHash::FullHashDetail& detail,
                                      int baseline_severity);
 
   // In addition to attempting to parse the |response_body| as described in the
@@ -319,21 +316,17 @@ class HashRealTimeService : public KeyedService {
       int net_error,
       int http_error,
       std::unique_ptr<std::string> response_body,
-      const std::vector<std::string>& requested_hash_prefixes,
-      bool allow_retriable_errors) const;
+      const std::vector<std::string>& requested_hash_prefixes) const;
 
   // Tries to parse the |response_body| into a |SearchHashesResponse|, and
   // returns either the response proto or an |OperationResult| with details on
   // why the parsing was unsuccessful. |requested_hash_prefixes| is used for a
   // sanitization call into |RemoveUnmatchedFullHashes|.
-  // |allow_retriable_errors| specifies whether certain types of errors can be
-  // considered retriable, meaning they don't increment the backoff counter.
   base::expected<std::unique_ptr<V5::SearchHashesResponse>, OperationResult>
   ParseResponse(int net_error,
                 int http_error,
                 std::unique_ptr<std::string> response_body,
-                const std::vector<std::string>& requested_hash_prefixes,
-                bool allow_retriable_errors) const;
+                const std::vector<std::string>& requested_hash_prefixes) const;
 
   // Removes any |FullHash| within the |response| whose hash prefix is not found
   // within |requested_hash_prefixes|. This is not expected to occur, but is

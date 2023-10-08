@@ -10,9 +10,9 @@
 #include <memory>
 
 #include "base/apple/bridging.h"
+#include "base/apple/foundation_util.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/containers/span.h"
-#include "base/mac/foundation_util.h"
-#include "base/mac/scoped_cftyperef.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
@@ -65,7 +65,7 @@ class SecureEnclaveClientTest : public testing::Test {
 
   // Creates a test key.
   void CreateAndSetTestKey() {
-    base::ScopedCFTypeRef<CFMutableDictionaryRef> test_attributes(
+    base::apple::ScopedCFTypeRef<CFMutableDictionaryRef> test_attributes(
         CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                   &kCFTypeDictionaryKeyCallBacks,
                                   &kCFTypeDictionaryValueCallBacks));
@@ -75,7 +75,7 @@ class SecureEnclaveClientTest : public testing::Test {
                          kSecAttrKeyTypeECSECPrimeRandom);
     CFDictionarySetValue(test_attributes, kSecAttrKeySizeInBits,
                          base::apple::NSToCFPtrCast(@256));
-    base::ScopedCFTypeRef<CFMutableDictionaryRef> private_key_params(
+    base::apple::ScopedCFTypeRef<CFMutableDictionaryRef> private_key_params(
         CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                   &kCFTypeDictionaryKeyCallBacks,
                                   &kCFTypeDictionaryValueCallBacks));
@@ -83,15 +83,15 @@ class SecureEnclaveClientTest : public testing::Test {
                          kCFBooleanFalse);
     CFDictionarySetValue(test_attributes, kSecPrivateKeyAttrs,
                          private_key_params);
-    test_key_ = base::ScopedCFTypeRef<SecKeyRef>(
+    test_key_ = base::apple::ScopedCFTypeRef<SecKeyRef>(
         SecKeyCreateRandomKey(test_attributes, nullptr));
   }
 
   void VerifyQuery(CFDictionaryRef query, CFStringRef label) {
-    EXPECT_TRUE(CFEqual(label, base::mac::GetValueFromDictionary<CFStringRef>(
+    EXPECT_TRUE(CFEqual(label, base::apple::GetValueFromDictionary<CFStringRef>(
                                    query, kSecAttrLabel)));
     EXPECT_TRUE(CFEqual(kSecAttrKeyTypeECSECPrimeRandom,
-                        base::mac::GetValueFromDictionary<CFStringRef>(
+                        base::apple::GetValueFromDictionary<CFStringRef>(
                             query, kSecAttrKeyType)));
   }
 
@@ -99,7 +99,7 @@ class SecureEnclaveClientTest : public testing::Test {
   raw_ptr<MockSecureEnclaveHelper, DanglingUntriaged>
       mock_secure_enclave_helper_ = nullptr;
   std::unique_ptr<SecureEnclaveClient> secure_enclave_client_;
-  base::ScopedCFTypeRef<SecKeyRef> test_key_;
+  base::apple::ScopedCFTypeRef<SecKeyRef> test_key_;
 };
 
 // Tests that the CreatePermanentKey method invokes both the SE helper's
@@ -119,22 +119,22 @@ TEST_F(SecureEnclaveClientTest, CreateKey_Success) {
       .WillOnce([this](CFDictionaryRef attributes, OSStatus* status) {
         EXPECT_TRUE(CFEqual(
             base::SysUTF8ToCFStringRef(constants::kDeviceTrustSigningKeyLabel),
-            base::mac::GetValueFromDictionary<CFStringRef>(attributes,
-                                                           kSecAttrLabel)));
+            base::apple::GetValueFromDictionary<CFStringRef>(attributes,
+                                                             kSecAttrLabel)));
         EXPECT_TRUE(CFEqual(kSecAttrKeyTypeECSECPrimeRandom,
-                            base::mac::GetValueFromDictionary<CFStringRef>(
+                            base::apple::GetValueFromDictionary<CFStringRef>(
                                 attributes, kSecAttrKeyType)));
         EXPECT_TRUE(CFEqual(kSecAttrTokenIDSecureEnclave,
-                            base::mac::GetValueFromDictionary<CFStringRef>(
+                            base::apple::GetValueFromDictionary<CFStringRef>(
                                 attributes, kSecAttrTokenID)));
         EXPECT_TRUE(CFEqual(base::apple::NSToCFPtrCast(@256),
-                            base::mac::GetValueFromDictionary<CFNumberRef>(
+                            base::apple::GetValueFromDictionary<CFNumberRef>(
                                 attributes, kSecAttrKeySizeInBits)));
         auto* private_key_attributes =
-            base::mac::GetValueFromDictionary<CFDictionaryRef>(
+            base::apple::GetValueFromDictionary<CFDictionaryRef>(
                 attributes, kSecPrivateKeyAttrs);
         EXPECT_TRUE(CFEqual(kCFBooleanTrue,
-                            base::mac::GetValueFromDictionary<CFBooleanRef>(
+                            base::apple::GetValueFromDictionary<CFBooleanRef>(
                                 private_key_attributes, kSecAttrIsPermanent)));
 
         *status = errSecSuccess;
@@ -165,7 +165,7 @@ TEST_F(SecureEnclaveClientTest, CreateKey_Failure) {
       .Times(1)
       .WillOnce([](CFDictionaryRef attributes, OSStatus* status) {
         *status = errSecItemNotFound;
-        return base::ScopedCFTypeRef<SecKeyRef>();
+        return base::apple::ScopedCFTypeRef<SecKeyRef>();
       });
   EXPECT_FALSE(secure_enclave_client_->CreatePermanentKey());
 
@@ -214,7 +214,7 @@ TEST_F(SecureEnclaveClientTest, CopyStoredKey_KeyNotFound) {
       .Times(2)
       .WillRepeatedly([](CFDictionaryRef query, OSStatus* status) {
         *status = errSecItemNotFound;
-        return base::ScopedCFTypeRef<SecKeyRef>();
+        return base::apple::ScopedCFTypeRef<SecKeyRef>();
       });
   EXPECT_FALSE(secure_enclave_client_->CopyStoredKey(
       SecureEnclaveClient::KeyType::kPermanent));
@@ -257,7 +257,7 @@ TEST_F(SecureEnclaveClientTest,
             EXPECT_TRUE(
                 CFEqual(base::SysUTF8ToCFStringRef(
                             constants::kTemporaryDeviceTrustSigningKeyLabel),
-                        base::mac::GetValueFromDictionary<CFStringRef>(
+                        base::apple::GetValueFromDictionary<CFStringRef>(
                             attribute_to_update, kSecAttrLabel)));
             VerifyQuery(query, base::SysUTF8ToCFStringRef(
                                    constants::kDeviceTrustSigningKeyLabel));
@@ -324,8 +324,8 @@ TEST_F(SecureEnclaveClientTest,
                        CFDictionaryRef attribute_to_update) {
         EXPECT_TRUE(CFEqual(
             base::SysUTF8ToCFStringRef(constants::kDeviceTrustSigningKeyLabel),
-            base::mac::GetValueFromDictionary<CFStringRef>(attribute_to_update,
-                                                           kSecAttrLabel)));
+            base::apple::GetValueFromDictionary<CFStringRef>(
+                attribute_to_update, kSecAttrLabel)));
         VerifyQuery(query,
                     base::SysUTF8ToCFStringRef(
                         constants::kTemporaryDeviceTrustSigningKeyLabel));
@@ -506,7 +506,7 @@ TEST_F(SecureEnclaveClientTest, GetStoredKeyLabel_TemporaryKeyNotFound) {
       .Times(1)
       .WillOnce([](CFDictionaryRef query, OSStatus* status) {
         *status = errSecItemNotFound;
-        return base::ScopedCFTypeRef<SecKeyRef>();
+        return base::apple::ScopedCFTypeRef<SecKeyRef>();
       });
   EXPECT_FALSE(secure_enclave_client_->GetStoredKeyLabel(
       SecureEnclaveClient::KeyType::kTemporary, output));
@@ -565,7 +565,7 @@ TEST_F(SecureEnclaveClientTest, GetStoredKeyLabel_PermanentKeyNotFound) {
       .Times(1)
       .WillOnce([](CFDictionaryRef query, OSStatus* status) {
         *status = errSecItemNotFound;
-        return base::ScopedCFTypeRef<SecKeyRef>();
+        return base::apple::ScopedCFTypeRef<SecKeyRef>();
       });
   EXPECT_FALSE(secure_enclave_client_->GetStoredKeyLabel(
       SecureEnclaveClient::KeyType::kPermanent, output));

@@ -20,8 +20,8 @@
 #import "components/segmentation_platform/embedder/default_model/device_switcher_result_dispatcher.h"
 #import "components/signin/ios/browser/active_state_manager.h"
 #import "components/translate/core/browser/translate_manager.h"
-#import "ios/chrome/browser/app_launcher/app_launcher_abuse_detector.h"
-#import "ios/chrome/browser/app_launcher/app_launcher_tab_helper.h"
+#import "ios/chrome/browser/app_launcher/model/app_launcher_abuse_detector.h"
+#import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper.h"
 #import "ios/chrome/browser/commerce/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/content_settings/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/credential_provider_promo/features.h"
@@ -79,6 +79,8 @@
 #import "ios/chrome/browser/shared/public/commands/price_notifications_commands.h"
 #import "ios/chrome/browser/shared/public/commands/promos_manager_commands.h"
 #import "ios/chrome/browser/shared/public/commands/qr_generation_commands.h"
+#import "ios/chrome/browser/shared/public/commands/save_image_to_photos_command.h"
+#import "ios/chrome/browser/shared/public/commands/save_to_photos_commands.h"
 #import "ios/chrome/browser/shared/public/commands/share_highlight_command.h"
 #import "ios/chrome/browser/shared/public/commands/show_signin_command.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
@@ -265,6 +267,7 @@ enum class ToolbarKind {
     RecentTabsCoordinatorDelegate,
     RepostFormCoordinatorDelegate,
     RepostFormTabHelperDelegate,
+    SaveToPhotosCommands,
     SigninPresenter,
     SnapshotGeneratorDelegate,
     StoreKitCoordinatorDelegate,
@@ -272,6 +275,7 @@ enum class ToolbarKind {
     URLLoadingDelegate,
     WebContentCommands,
     WebNavigationNTPDelegate>
+
 // Whether the coordinator is started.
 @property(nonatomic, assign, getter=isStarted) BOOL started;
 
@@ -796,6 +800,7 @@ enum class ToolbarKind {
     @protocol(PasswordsAccountStorageNoticeCommands),
     @protocol(PolicyChangeCommands),
     @protocol(PriceNotificationsCommands),
+    @protocol(SaveToPhotosCommands),
     @protocol(TextZoomCommands),
     @protocol(WebContentCommands),
     @protocol(DefaultBrowserPromoCommands),
@@ -1037,6 +1042,10 @@ enum class ToolbarKind {
   _viewControllerDependencies.popupMenuCommandsHandler = nil;
   _viewControllerDependencies.applicationCommandsHandler = nil;
   _viewControllerDependencies.findInPageCommandsHandler = nil;
+  _viewControllerDependencies.urlLoadingBrowserAgent = nil;
+  _viewControllerDependencies.urlLoadingNotifierBrowserAgent = nil;
+  _viewControllerDependencies.tabUsageRecorderBrowserAgent = nil;
+  _viewControllerDependencies.layoutGuideCenter = nil;
   _viewControllerDependencies.voiceSearchController = nil;
   _viewControllerDependencies.safeAreaProvider = nil;
   _viewControllerDependencies.pagePlaceholderBrowserAgent = nil;
@@ -1507,13 +1516,20 @@ enum class ToolbarKind {
 }
 
 - (void)showPaymentsBottomSheet:(const autofill::FormActivityParams&)params {
+  if (self.paymentsSuggestionBottomSheetCoordinator) {
+    return;
+  }
   self.paymentsSuggestionBottomSheetCoordinator =
       [[PaymentsSuggestionBottomSheetCoordinator alloc]
           initWithBaseViewController:self.viewController
                              browser:self.browser
                               params:params];
-  self.paymentsSuggestionBottomSheetCoordinator.applicationCommandsHandler =
-      HandlerForProtocol(self.dispatcher, ApplicationCommands);
+  self.paymentsSuggestionBottomSheetCoordinator
+      .applicationSettingsCommandsHandler =
+      HandlerForProtocol(self.dispatcher, ApplicationSettingsCommands);
+  self.paymentsSuggestionBottomSheetCoordinator
+      .browserCoordinatorCommandsHandler =
+      HandlerForProtocol(self.dispatcher, BrowserCoordinatorCommands);
   [self.paymentsSuggestionBottomSheetCoordinator start];
 }
 
@@ -1729,6 +1745,11 @@ enum class ToolbarKind {
   // Preload VoiceSearchController and views and view controllers needed
   // for voice search.
   [_voiceSearchController prepareToAppear];
+}
+
+- (void)dismissPaymentSuggestions {
+  [self.paymentsSuggestionBottomSheetCoordinator stop];
+  self.paymentsSuggestionBottomSheetCoordinator = nil;
 }
 
 #pragma mark - DefaultPromoCommands
@@ -2023,6 +2044,7 @@ enum class ToolbarKind {
       initWithBaseViewController:self.viewController
                          browser:self.browser];
   pageInfoCoordinator.presentationProvider = self;
+  [self.pageInfoCoordinator stop];
   self.pageInfoCoordinator = pageInfoCoordinator;
   [self.pageInfoCoordinator start];
 }
@@ -2049,7 +2071,9 @@ enum class ToolbarKind {
 }
 
 - (void)openPasswordSettings {
-  CHECK(!self.passwordSettingsCoordinator);
+  // TODO(crbug.com/1464966): Switch back to DCHECK if the number of reports is
+  // low.
+  DUMP_WILL_BE_CHECK(!self.passwordSettingsCoordinator);
 
   // Use main browser to open the password settings.
   SceneState* sceneState =
@@ -2393,6 +2417,16 @@ enum class ToolbarKind {
   }
 }
 
+#pragma mark - SaveToPhotosCommands
+
+- (void)saveImageToPhotos:(SaveImageToPhotosCommand*)command {
+  // TODO(crbug.com/1473314): Create a SaveToPhotosCoordinator.
+}
+
+- (void)stopSaveToPhotos {
+  // TODO(crbug.com/1473314): Create a SaveToPhotosCoordinator.
+}
+
 #pragma mark - WebContentCommands
 
 - (void)showAppStoreWithParameters:(NSDictionary*)productParameters {
@@ -2668,10 +2702,11 @@ enum class ToolbarKind {
          baseViewForWebState:(web::WebState*)webState {
   NewTabPageTabHelper* NTPHelper = NewTabPageTabHelper::FromWebState(webState);
   if (NTPHelper && NTPHelper->IsActive()) {
-    // NTPCoordinator should be started at this point. If for some reason it is
-    // not, the DCHECK will let us know and we will fall back to using the
-    // webState's view.
-    DCHECK(_NTPCoordinator.started);
+    // If NTPCoordinator is not started yet, fall back to using the
+    // webState's view. `_NTPCoordinator.started` should be true in most cases
+    // but it can be false when the app will be terminated or the browser data
+    // is removed. In particular, it can be false when this method is called as
+    // a delayed task while the app is being terminated.
     if (_NTPCoordinator.started) {
       return _NTPCoordinator.viewController.view;
     }

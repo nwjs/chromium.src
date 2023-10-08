@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">Buscando redes móviles</translation>
 <translation id="1293556467332435079">Archivos</translation>
 <translation id="1297922636971898492">Actualmente, Google Drive no está disponible. La carga se reiniciará automáticamente cuando vuelva a estar disponible.</translation>
+<translation id="1306130176943817227">No se puede borrar el elemento porque está en uso.</translation>
 <translation id="1307931752636661898">No se pueden ver los archivos de Linux</translation>
 <translation id="1313405956111467313">Configuración automática de proxy</translation>
 <translation id="134645005685694099">Tu dispositivo no tiene suficiente espacio de almacenamiento para mantener activada la sincronización de archivos. Los archivos nuevos ya no se sincronizarán de forma automática.</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">Sandía</translation>
 <translation id="1924372192547904021">Se formateó <ph name="DRIVE_NAME" /></translation>
 <translation id="1931134289871235022">Eslovaco</translation>
-<translation id="1933345018156373194">Se produjo un error al mover el archivo (error inesperado: <ph name="ERROR_MESSAGE" />)</translation>
 <translation id="1936717151811561466">Finlandés</translation>
 <translation id="1942765061641586207">Resolución de imagen</translation>
 <translation id="1972984168337863910">Expandir paneles de comentarios de archivos</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">Contexto</translation>
 <translation id="3272909651715601089">No se pudo abrir "<ph name="PATH" />"</translation>
 <translation id="3280431534455935878">Preparando la descarga</translation>
+<translation id="3280719573299097127">Estás en una red de uso medido. Se pausó la sincronización de archivos.</translation>
 <translation id="3280987981688031357">Disco de vinilo</translation>
 <translation id="3290356915286466215">No segura</translation>
 <translation id="3291218047831493686">Conéctate a esta red para cambiar la configuración del bloqueo de la SIM.</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">Álbum</translation>
 <translation id="4972330214479971536">No se pudo completar la configuración de la sincronización de archivos</translation>
 <translation id="4973523518332075481">Usa un nombre con <ph name="MAX_LENGTH" /> caracteres o menos</translation>
-<translation id="4973970068702235170">Se produjo un error inesperado en la compresión: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">Japonés</translation>
 <translation id="4987699874727873250">Inglés (India)</translation>
 <translation id="4988205478593450158">¿Estás seguro de que deseas borrar "<ph name="FILE_NAME" />"?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">Francés (Suiza)</translation>
 <translation id="5234764350956374838">Descartar</translation>
 <translation id="5253070652067921974">Creado por</translation>
+<translation id="5254207638927440400">No se puede mover el archivo porque está en uso.</translation>
 <translation id="5257456363153333584">Libélula</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Accede a los archivos desde cualquier lugar, incluso sin conexión.<ph name="MARKUP_2" />
     Los archivos en Google Drive están actualizados, y se puede acceder a ellos desde cualquier dispositivo.<ph name="MARKUP_3" />
@@ -632,13 +633,13 @@
 <translation id="5838451609423551646">Se quitó la selección de todas las entradas.</translation>
 <translation id="5838825566232597749">Internacional Workman (EE. UU.)</translation>
 <translation id="5845721951356578987">Enfermero</translation>
+<translation id="5858478190805449225">Modo Ahorro de batería activado. Vuelve a intentarlo cuando el modo Ahorro de batería esté desactivado.</translation>
 <translation id="5860491529813859533">Activar</translation>
 <translation id="5861477046012235702">Gamer</translation>
 <translation id="5864471791310927901">Falló la búsqueda de DHCP</translation>
 <translation id="5896749729057314184">Red <ph name="NETWORK_INDEX" /> de <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, no activada, intensidad de la señal: <ph name="SIGNAL_STRENGTH" />%, detalles</translation>
 <translation id="5911887972742538906">Se produjo un error durante la instalación de tu app de Linux.</translation>
 <translation id="5912396950572065471">Formato</translation>
-<translation id="5913638992615760742">Se produjo un error al realizar la operación de copia (error inesperado: <ph name="ERROR_MESSAGE" />)</translation>
 <translation id="5918480239180455431">Nuevas funciones de búsqueda disponibles</translation>
 <translation id="5926082595146149752">Neerlandés (Países Bajos) con teclado internacional de EE.UU. (para PC)</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -646,7 +647,6 @@
 <translation id="5955954492236143329"><ph name="NUMBER_OF_ITEMS" /> elementos</translation>
 <translation id="5957366693331451795">Las Chromeboxes</translation>
 <translation id="5982621672636444458">Ordenar opciones</translation>
-<translation id="6007237601604674381">Se produjo un error en al mover el archivo (<ph name="ERROR_MESSAGE" />).</translation>
 <translation id="6011074160056912900">Red de Ethernet</translation>
 <translation id="60357267506638014">Checo (QWERTY)</translation>
 <translation id="603895874132768835">Para usar esta red, deberás configurar un nuevo PIN.</translation>
@@ -863,6 +863,7 @@
 <translation id="76959938259365003">No se pudo vaciar la papelera.</translation>
 <translation id="770015031906360009">Griego</translation>
 <translation id="7705251383879779343">Se copió <ph name="FILE_NAME" />.</translation>
+<translation id="7707941139430559579">No se puede mover el archivo. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">Para usar esta red, debes ingresar la clave personal de desbloqueo (PUK) de 8 dígitos que proporciona el operador.</translation>
 <translation id="7711920809702896782">Información de la imagen</translation>
 <translation id="7724603315864178912">Cortar</translation>
@@ -899,7 +900,6 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">Los archivos de Mi unidad se sincronizarán automáticamente con tu Chromebook para que puedas acceder a ellos sin conexión a Internet.</translation>
 <translation id="7925247922861151263">Falló la verificación de AAA</translation>
-<translation id="7925686952655276919">No utilizar datos móviles para la sincronización</translation>
 <translation id="7928710562641958568">Expulsar dispositivo</translation>
 <translation id="7933875256234974853">Preparando la sincronización de los archivos de Drive…</translation>
 <translation id="7943385054491506837">Inglés (Estados Unidos; Colemak)</translation>
@@ -922,6 +922,7 @@
 <translation id="8087576439476816834">Descargar, <ph name="PROFILE_NAME" /></translation>
 <translation id="8106045200081704138">Compartidos conmigo</translation>
 <translation id="8116072619078571545">Agua helada</translation>
+<translation id="8120392982188717723">Permitir la sincronización en redes de uso medido</translation>
 <translation id="8124093710070495550">Problema de sincronización</translation>
 <translation id="8128733386027980860">Inglés (Reino Unido) con teclado Dvorak</translation>
 <translation id="8137331602592933310">"<ph name="FILENAME" />" se compartió contigo. No puedes eliminarlo porque no eres el propietario.</translation>
@@ -1050,6 +1051,7 @@
 <translation id="9038620279323455325">Ya existe un archivo con el nombre "<ph name="FILE_NAME" />". Elige otro.</translation>
 <translation id="9046895021617826162">No se pudo conectar</translation>
 <translation id="9065512565307033593">Si no puedes verificar tu identidad, se inhabilitará tu acceso a la red.</translation>
+<translation id="9083722265619106011">{0,plural, =1{1 advertencia.}other{<ph name="COUNT" /> advertencias.}}</translation>
 <translation id="908378762078012445">Ruso con teclado fonético AATSEEL</translation>
 <translation id="9086302186042011942">Sincronización</translation>
 <translation id="9099674669267916096">Cantidad de páginas</translation>

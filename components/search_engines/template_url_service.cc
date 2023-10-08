@@ -7,6 +7,7 @@
 #include "base/auto_reset.h"
 #include "base/base64.h"
 #include "base/base64url.h"
+#include "base/check_is_test.h"
 #include "base/containers/contains.h"
 #include "base/debug/crash_logging.h"
 #include "base/feature_list.h"
@@ -587,6 +588,19 @@ TemplateURLService::TemplateURLVector TemplateURLService::GetTemplateURLs() {
   TemplateURLVector result;
   for (const auto& turl : template_urls_)
     result.push_back(turl.get());
+  return result;
+}
+
+TemplateURLService::OwnedTemplateURLVector
+TemplateURLService::GetTemplateURLsForChoiceScreen() {
+  // TODO (b/282656014): Update the returned list of search engines to comply
+  // with choice screen requirements.
+  OwnedTemplateURLVector result;
+  std::vector<std::unique_ptr<TemplateURLData>> engines =
+      TemplateURLPrepopulateData::GetPrepopulatedEnginesForChoiceScreen(prefs_);
+  for (const auto& engine : engines) {
+    result.push_back(std::make_unique<TemplateURL>(*engine));
+  }
   return result;
 }
 
@@ -1900,6 +1914,13 @@ void TemplateURLService::ApplyDefaultSearchChange(
     dsp_change_callback_.Run();
 }
 
+bool TemplateURLService::ApplyDefaultSearchChangeForTesting(
+    const TemplateURLData* data,
+    DefaultSearchManager::Source source) {
+  CHECK_IS_TEST();
+  return ApplyDefaultSearchChangeNoMetrics(data, source);
+}
+
 bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
     const TemplateURLData* data,
     DefaultSearchManager::Source source) {
@@ -1959,7 +1980,10 @@ bool TemplateURLService::ApplyDefaultSearchChangeNoMetrics(
     default_search_provider_ = nullptr;
   } else if (source == DefaultSearchManager::FROM_EXTENSION) {
     default_search_provider_ = FindMatchingDefaultExtensionTemplateURL(*data);
-    DCHECK(default_search_provider_);
+    // Can be nullptr in tests.
+    if (!default_search_provider_) {
+      CHECK_IS_TEST();
+    }
   } else if (source == DefaultSearchManager::FROM_FALLBACK) {
     default_search_provider_ =
         FindPrepopulatedTemplateURL(data->prepopulate_id);

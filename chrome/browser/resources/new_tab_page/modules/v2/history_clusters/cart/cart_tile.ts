@@ -26,34 +26,46 @@ export class CartTileModuleElementV2 extends I18nMixin
       /* The cart to display. */
       cart: Object,
 
+      format: {
+        type: String,
+        reflectToAttribute: true,
+      },
+
+      imagesEnabled: {
+        type: Boolean,
+        reflectToAttribute: true,
+      },
+
+      showRelatedSearches: Boolean,
+
       /* The label of the tile in a11y mode. */
       tileLabel_: {
         type: String,
         computed: `computeTileLabel_(cart)`,
       },
+
+      imageCount_: {
+        type: Number,
+        computed: `computeImageCount_()`,
+        reflectToAttribute: true,
+      },
     };
   }
 
   cart: Cart;
-
+  format: string;
+  imagesEnabled:
+    boolean;
+  showRelatedSearches: boolean;
+  private imageCount_: number;
   private tileLabel_: string;
 
   override ready() {
     super.ready();
-
-    if (this.cart.productImageUrls.length > 1) {
-      this.setAttribute('multiple-images', 'true');
-    } else {
-      this.setAttribute('one-image', 'true');
-    }
   }
 
   private hasMultipleImages_(): boolean {
-    if (this.cart.productImageUrls.length > 1) {
-      return true;
-    } else {
-      return false;
-    }
+    return this.cart.productImageUrls.length > 1;
   }
 
   private getSingleImageToShow_(): string {
@@ -62,15 +74,51 @@ export class CartTileModuleElementV2 extends I18nMixin
 
   private getImagesToShow_(): Object[] {
     const images = this.cart.productImageUrls;
-    return images.slice(0, (images.length > 4) ? 3 : 4);
+    if (!this.showRelatedSearches && this.format === 'wide') {
+      return images.slice(0, 1);
+    } else {
+      if (images.length >= 4) {
+        if (this.imagesEnabled ||
+            (this.showRelatedSearches && this.format === 'wide')) {
+          return images.slice(0, (images.length > 4) ? 3 : 4);
+        } else {
+          return images.slice(0, 1);
+        }
+      } else if (images.length === 3) {
+        return images.slice(0, 1);
+      } else {
+        return images;
+      }
+    }
   }
 
   private shouldShowExtraImagesCard_(): boolean {
-    return this.cart.productImageUrls.length > 4;
+    return this.showRelatedSearches ? (this.cart.productImageUrls.length > 2) :
+                                      true;
   }
 
-  private getExtraImagesCountString_(): string {
-    return '+' + (this.cart.productImageUrls.length - 3).toString();
+  private getExtraImagesCount_(): number {
+    const images = this.cart.productImageUrls;
+    if (!this.showRelatedSearches && this.format === 'wide') {
+      return images.length - 1;
+    } else {
+      if (images.length >= 4) {
+        if (this.imagesEnabled ||
+            (this.showRelatedSearches && this.format === 'wide')) {
+          return images.length - 3;
+        } else {
+          return images.length - 1;
+        }
+      } else if (images.length === 3) {
+        return 2;
+      } else {
+        return 1;
+      }
+    }
+  }
+
+  private computeImageCount_(): number {
+    return this.cart.productImageUrls.length;
   }
 
   private computeTileLabel_(): string {

@@ -2807,7 +2807,7 @@ class PDFExtensionPrerenderTest : public PDFExtensionTest {
   }
 
   void SetUpOnMainThread() override {
-    prerender_helper_->SetUp(embedded_test_server());
+    prerender_helper_->RegisterServerRequestMonitor(embedded_test_server());
     PDFExtensionTest::SetUpOnMainThread();
   }
 

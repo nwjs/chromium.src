@@ -183,33 +183,6 @@ void RecordAPILogin(bool is_third_party_idp, bool is_api_used) {
 // Timeout used to prevent infinite connecting to a flaky network.
 constexpr base::TimeDelta kConnectingTimeout = base::Seconds(60);
 
-GaiaScreenHandler::GaiaScreenMode GetGaiaScreenMode(const std::string& email) {
-  int authentication_behavior = 0;
-  CrosSettings::Get()->GetInteger(kLoginAuthenticationBehavior,
-                                  &authentication_behavior);
-  if (authentication_behavior ==
-      em::LoginAuthenticationBehaviorProto::SAML_INTERSTITIAL) {
-    if (email.empty())
-      return GaiaScreenHandler::GAIA_SCREEN_MODE_SAML_REDIRECT;
-
-    user_manager::KnownUser known_user(g_browser_process->local_state());
-    // If there's a populated email, we must check first that this user is using
-    // SAML in order to decide whether to show the interstitial page.
-    const user_manager::User* user =
-        user_manager::UserManager::Get()->FindUser(known_user.GetAccountId(
-            email, std::string() /* id */, AccountType::UNKNOWN));
-
-    // TODO(b/259675128): we shouldn't rely on `user->using_saml()` when
-    // deciding which IdP page to show because this flag can be outdated. Admin
-    // could have changed the IdP to GAIA since last authentication and we
-    // wouldn't know about it.
-    if (user && user->using_saml())
-      return GaiaScreenHandler::GAIA_SCREEN_MODE_SAML_REDIRECT;
-  }
-
-  return GaiaScreenHandler::GAIA_SCREEN_MODE_DEFAULT;
-}
-
 std::string GetEnterpriseDomainManager() {
   policy::BrowserPolicyConnectorAsh* connector =
       g_browser_process->platform_part()->browser_policy_connector_ash();
@@ -277,9 +250,7 @@ void GetVersionAndConsent(std::string* out_version, bool* out_consent) {
 }
 
 user_manager::UserType CalculateUserType(const AccountId& account_id) {
-  if (account_id.GetAccountType() == AccountType::ACTIVE_DIRECTORY) {
-    return user_manager::USER_TYPE_ACTIVE_DIRECTORY;
-  }
+  CHECK(account_id.GetAccountType() != AccountType::ACTIVE_DIRECTORY);
 
   return user_manager::USER_TYPE_REGULAR;
 }
@@ -553,6 +524,12 @@ void GaiaScreenHandler::LoadGaiaWithPartitionAndVersionAndConsent(
 
   if (!gaia_reauth_request_token_.empty()) {
     params.Set("rart", gaia_reauth_request_token_);
+  }
+
+  if (features::IsPasswordlessGaiaEnabledForConsumers() &&
+      !is_gaia_password_required_) {
+    params.Set("pwl",
+               static_cast<int>(PasswordlessSupportLevel::kConsumersOnly));
   }
 
   PrefService* local_state = g_browser_process->local_state();
@@ -1643,6 +1620,41 @@ void GaiaScreenHandler::ToggleLoadingUI(bool is_shown) {
 
 void GaiaScreenHandler::SetQuickStartEnabled() {
   CallExternalAPI("setQuickStartEnabled");
+}
+
+void GaiaScreenHandler::SetIsGaiaPasswordRequired(bool is_required) {
+  is_gaia_password_required_ = is_required;
+}
+
+// static
+GaiaScreenHandler::GaiaScreenMode GaiaScreenHandler::GetGaiaScreenMode(
+    const std::string& email) {
+  int authentication_behavior = 0;
+  CrosSettings::Get()->GetInteger(kLoginAuthenticationBehavior,
+                                  &authentication_behavior);
+  if (authentication_behavior ==
+      em::LoginAuthenticationBehaviorProto::SAML_INTERSTITIAL) {
+    if (email.empty()) {
+      return GaiaScreenHandler::GAIA_SCREEN_MODE_SAML_REDIRECT;
+    }
+
+    user_manager::KnownUser known_user(g_browser_process->local_state());
+    // If there's a populated email, we must check first that this user is using
+    // SAML in order to decide whether to show the interstitial page.
+    const user_manager::User* user =
+        user_manager::UserManager::Get()->FindUser(known_user.GetAccountId(
+            email, std::string() /* id */, AccountType::UNKNOWN));
+
+    // TODO(b/259675128): we shouldn't rely on `user->using_saml()` when
+    // deciding which IdP page to show because this flag can be outdated. Admin
+    // could have changed the IdP to GAIA since last authentication and we
+    // wouldn't know about it.
+    if (user && user->using_saml()) {
+      return GaiaScreenHandler::GAIA_SCREEN_MODE_SAML_REDIRECT;
+    }
+  }
+
+  return GaiaScreenHandler::GAIA_SCREEN_MODE_DEFAULT;
 }
 
 }  // namespace ash

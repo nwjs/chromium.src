@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">កំពុង​ស្វែងរក​បណ្ដាញ​ទូរសព្ទ​ចល័ត</translation>
 <translation id="1293556467332435079">ឯកសារ</translation>
 <translation id="1297922636971898492">Google Drive មិនមានទេឥឡូវនេះ។ ការទាញឡើងនឹងចាប់ផ្តើមឡើងវិញដោយស្វ័យប្រវត្តិនៅពេល Google Drive ត្រលប់មកវិញ។</translation>
+<translation id="1306130176943817227">មិន​អាច​លុបបាន​ទេ។ ធាតុកំពុងជាប់ប្រើ។</translation>
 <translation id="1307931752636661898">មិនអាច​មើល​ឯកសារ Linux បានទេ</translation>
 <translation id="1313405956111467313">ការតំឡើងប្រូកស៊ីដោយស្វ័យប្រវត្តិ</translation>
 <translation id="134645005685694099">ឧបករណ៍​របស់អ្នក​មិនមាន​ទំហំផ្ទុក​គ្រប់គ្រាន់ ដើម្បីបន្តបើកការធ្វើសមកាលកម្មឯកសារទេ។ ឯកសារថ្មីៗ​នឹងលែង​ធ្វើសម​កាលកម្ម​ដោយស្វ័យប្រវត្តិ​ទៀតហើយ។</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">ឪឡឹក</translation>
 <translation id="1924372192547904021">បានសម្អាត <ph name="DRIVE_NAME" /></translation>
 <translation id="1931134289871235022">ស្លូវ៉ាគី</translation>
-<translation id="1933345018156373194">មិនអាចផ្លាស់ទីបានទេ បញ្ហាមិនបានរំពឹងទុក៖ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">ភាសាហ្វាំងឡង់</translation>
 <translation id="1942765061641586207">កម្រិតភាពច្បាស់នៃរូបភាព</translation>
 <translation id="1972984168337863910">ពង្រីកផ្ទាំង​មតិកែលម្អ​ឯកសារ</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">បរិបទ</translation>
 <translation id="3272909651715601089">មិនអាចបើក "<ph name="PATH" />" បានទេ</translation>
 <translation id="3280431534455935878">កំពុងរៀបចំ</translation>
+<translation id="3280719573299097127">អ្នកស្ថិតនៅលើបណ្ដាញដែលផ្អែកតាមទិន្នន័យដែលប្រើ។ សមកាលកម្មឯកសារត្រូវបានផ្អាក។</translation>
 <translation id="3280987981688031357">ថាសសំឡេងវីនីល</translation>
 <translation id="3290356915286466215">គ្មាន​សុវត្ថិភាព</translation>
 <translation id="3291218047831493686">ភ្ជាប់ជាមួយបណ្ដាញនេះ ដើម្បីប្ដូរការកំណត់​ការចាក់សោ​ស៊ីម</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">អាល់ប៊ុម</translation>
 <translation id="4972330214479971536">មិនអាច​បញ្ចប់​ការរៀបចំ​ការធ្វើសមកាលកម្ម​ឯកសារ​បានទេ</translation>
 <translation id="4973523518332075481">ប្រើឈ្មោះដែលមានអក្សរ <ph name="MAX_LENGTH" /> តួ ឬតិចជាងនេះ</translation>
-<translation id="4973970068702235170">មិនអាច​បង្រួមបានទេ បញ្ហាមិនបានរំពឹងទុក៖ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">ភាសា​ជប៉ុន</translation>
 <translation id="4987699874727873250">អង់គ្លេស (ឥណ្ឌា)</translation>
 <translation id="4988205478593450158">តើអ្នកប្រាកដថា​ចង់លុប "<ph name="FILE_NAME" />" ដែរទេ?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">ភាសាបារាំងបែបស្វីស</translation>
 <translation id="5234764350956374838">ច្រានចោល</translation>
 <translation id="5253070652067921974">បង្កើត​ដោយ</translation>
+<translation id="5254207638927440400">មិន​អាច​ផ្លាស់​ទី​ឯកសារបាន​ទេ។ ឯកសារកំពុងជាប់ប្រើ។</translation>
 <translation id="5257456363153333584">កន្ទុំរុយ</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />ចូលប្រើឯកសារពីគ្រប់ទីកន្លែង បើទោះបីជានៅក្រៅបណ្តាញក៏ដោយ <ph name="MARKUP_2" />
     ឯកសារនៅក្នុង Google ថាសបានអាប់ដេតរួចហើយ និងអាចប្រើបាននៅលើឧបករណ៍ទាំងឡាយ។<ph name="MARKUP_3" />
@@ -631,13 +632,13 @@
 <translation id="5838451609423551646">បានលុបធាតុទាំងអស់​ចេញពីការជ្រើសរើស។</translation>
 <translation id="5838825566232597749">US Workman អន្តរជាតិ</translation>
 <translation id="5845721951356578987">គិលានុបដ្ឋាយិកា</translation>
+<translation id="5858478190805449225">មុខងារសន្សំថ្មត្រូវបានបើក។ សូមព្យាយាមម្តងទៀត នៅពេលដែលមុខងារសន្សំថ្មត្រូវបានបិទ។</translation>
 <translation id="5860491529813859533">បើក</translation>
 <translation id="5861477046012235702">អ្នកលេង​ហ្គេម</translation>
 <translation id="5864471791310927901">DHCP lookup បានបរាជ័យ</translation>
 <translation id="5896749729057314184">បណ្ដាញ <ph name="NETWORK_INDEX" /> នៃ <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, បានបិទដំណើរការ, កម្លាំងរលកសញ្ញា <ph name="SIGNAL_STRENGTH" />%, ព័ត៌មានលម្អិត</translation>
 <translation id="5911887972742538906">មានបញ្ហា​កើតឡើង អំឡុង​ពេលដំឡើង​កម្មវិធី Linux របស់អ្នក។</translation>
 <translation id="5912396950572065471">ទម្រង់</translation>
-<translation id="5913638992615760742">មិនអាចចម្លង​ប្រតិបត្តិការ​បានទេ បញ្ហាមិនបានរំពឹងទុក៖ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="5918480239180455431">មាន​មុខងារ​ស្វែងរក​ថ្មីៗ</translation>
 <translation id="5926082595146149752">ភាសាហូឡង់ (ហូឡង់) ដែលប្រើ​ក្ដារចុចកុំព្យូទ័រ​អាមេរិកអន្តរជាតិ</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -645,7 +646,6 @@
 <translation id="5955954492236143329">ធាតុ <ph name="NUMBER_OF_ITEMS" /></translation>
 <translation id="5957366693331451795">Chromebox</translation>
 <translation id="5982621672636444458">រៀបជម្រើសតាមប្រភេទ</translation>
-<translation id="6007237601604674381">ការផ្លាស់ទីបានបរាជ័យ។ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="6011074160056912900">បណ្ដាញ​អ៊ីសឺរណិត</translation>
 <translation id="60357267506638014">ក្តារចុចភាសាឆេក</translation>
 <translation id="603895874132768835">អ្នកនឹង​មិនអាច​ប្រើបណ្ដាញនេះបានទេ រហូតទាល់តែអ្នករៀបចំកូដ PIN ថ្មី</translation>
@@ -862,6 +862,7 @@
 <translation id="76959938259365003">មិន​អាច​សម្អាត​ធុង​សំរាម​បាន​ទេ។</translation>
 <translation id="770015031906360009">ភាសាក្រិក</translation>
 <translation id="7705251383879779343">បានចម្លង <ph name="FILE_NAME" />។</translation>
+<translation id="7707941139430559579">មិន​អាច​ផ្លាស់​ទី​ឯកសារបាន​ទេ។ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">ដើម្បីប្រើបណ្តាញនេះ អ្នកត្រូវបញ្ចូលកូដឈប់​ទប់ស្កាត់ផ្ទាល់ខ្លួន (PUK) ចំនួន 8 ខ្ទង់ ដែលផ្តល់ដោយក្រុមហ៊ុនសេវាទូរសព្ទ។</translation>
 <translation id="7711920809702896782">ព័ត៌មាន​អំពី​រូបភាព</translation>
 <translation id="7724603315864178912">កាត់</translation>
@@ -898,7 +899,6 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">ឯកសារ​របស់អ្នក​នៅក្នុង "ថាសខ្ញុំ" នឹងធ្វើសម​កាលកម្មទៅ Chromebook របស់អ្នក​ដោយស្វ័យប្រវត្តិ ដូច្នេះ​អ្នកអាចចូលប្រើ​ឯកសារ​ទាំងនោះបាន​ដោយគ្មាន​ការតភ្ជាប់អ៊ីនធឺណិត។</translation>
 <translation id="7925247922861151263">ការពិនិត្យ AAA បានបរាជ័យ</translation>
-<translation id="7925686952655276919">កុំប្រើទិន្នន័យទូរស័ព្ទសម្រាប់ធ្វើសមកម្ម</translation>
 <translation id="7928710562641958568">បញ្ចេញឧបករណ៍</translation>
 <translation id="7933875256234974853">កំពុង​រៀបចំ​ធ្វើសមកាលកម្ម​ឯកសារថាស...</translation>
 <translation id="7943385054491506837">US Colemak</translation>
@@ -921,6 +921,7 @@
 <translation id="8087576439476816834">ទាញយក, <ph name="PROFILE_NAME" /></translation>
 <translation id="8106045200081704138">បានចែករំលែកជាមួយខ្ញុំ</translation>
 <translation id="8116072619078571545">ទឹកកក</translation>
+<translation id="8120392982188717723">អនុញ្ញាត​ឱ្យ​ធ្វើ​សមកាលកម្ម​នៅលើ​បណ្ដាញដែល​ផ្អែកតាមទិន្នន័យដែលប្រើ</translation>
 <translation id="8124093710070495550">បញ្ហាសម​កាល​កម្ម</translation>
 <translation id="8128733386027980860">ភាសា​អង់គ្លេស (ចក្រភព​អង់គ្លេស) ដែលប្រើ​ក្ដារចុច Dvorak</translation>
 <translation id="8137331602592933310">"<ph name="FILENAME" />" បានចែករំលែកជាមួយអ្នក។ អ្នកមិនអាចលុបវាទេ ពីព្រោះអ្នកមិនមានជាម្ចាស់របស់វា។</translation>
@@ -1049,6 +1050,7 @@
 <translation id="9038620279323455325">ឯកសារដែល​ដាក់ឈ្មោះ "<ph name="FILE_NAME" />" មានរួចហើយ។ សូមជ្រើសរើស​ឈ្មោះផ្សេង។</translation>
 <translation id="9046895021617826162">ការភ្ជាប់បានបរាជ័យ</translation>
 <translation id="9065512565307033593">ប្រសិនបើអ្នក​មិនអាចផ្ទៀងផ្ទាត់​បានទេ សិទ្ធិចូលប្រើ​បណ្ដាញ​របស់អ្នក​នឹងត្រូវបានបិទ។</translation>
+<translation id="9083722265619106011">{0,plural, =1{សារប្រុងប្រយ័ត្ន 1។}other{សារប្រុងប្រយ័ត្ន <ph name="COUNT" />។}}</translation>
 <translation id="908378762078012445">ភាសារុស្ស៊ី​ដែលប្រើ​ក្ដារចុចតាម​សូរសព្ទ AATSEEL</translation>
 <translation id="9086302186042011942">កំពុងធ្វើសមកម្ម</translation>
 <translation id="9099674669267916096">ចំនួន​ទំព័រ</translation>

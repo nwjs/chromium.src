@@ -6,33 +6,25 @@ package org.chromium.chrome.browser.autofill;
 
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.text.format.DateUtils;
 
-import org.chromium.base.Callback;
-import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.annotations.CalledByNative;
 import org.chromium.base.annotations.JNINamespace;
 import org.chromium.base.annotations.NativeMethods;
-import org.chromium.base.metrics.RecordHistogram;
-import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
-import org.chromium.chrome.browser.profiles.ProfileKey;
+import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.VirtualCardEnrollmentState;
 import org.chromium.components.image_fetcher.ImageFetcher;
-import org.chromium.components.image_fetcher.ImageFetcherConfig;
-import org.chromium.components.image_fetcher.ImageFetcherFactory;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
 import org.chromium.url.GURL;
 
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 /**
  * Android wrapper of the PersonalDataManager which provides access from the Java
@@ -55,42 +47,6 @@ public class PersonalDataManager {
          * Called when the data is changed.
          */
         void onPersonalDataChanged();
-    }
-
-    /**
-     * Callback for subKeys request.
-     */
-    public interface GetSubKeysRequestDelegate {
-        /**
-         * Called when the subkeys are received sucessfully.
-         * Here the subkeys are admin areas.
-         *
-         * @param subKeysCodes The subkeys' codes.
-         * @param subKeysNames The subkeys' names.
-         */
-        @CalledByNative("GetSubKeysRequestDelegate")
-        void onSubKeysReceived(String[] subKeysCodes, String[] subKeysNames);
-    }
-
-    /**
-     * Callback for normalized addresses.
-     */
-    public interface NormalizedAddressRequestDelegate {
-        /**
-         * Called when the address has been sucessfully normalized.
-         *
-         * @param profile The profile with the normalized address.
-         */
-        @CalledByNative("NormalizedAddressRequestDelegate")
-        void onAddressNormalized(AutofillProfile profile);
-
-        /**
-         * Called when the address could not be normalized.
-         *
-         * @param profile The non normalized profile.
-         */
-        @CalledByNative("NormalizedAddressRequestDelegate")
-        void onCouldNotNormalize(AutofillProfile profile);
     }
 
     /**
@@ -385,19 +341,18 @@ public class PersonalDataManager {
         return sManager;
     }
 
-    private static int sRequestTimeoutSeconds = 5;
-
     private final long mPersonalDataManagerAndroid;
     private final List<PersonalDataManagerObserver> mDataObservers =
             new ArrayList<PersonalDataManagerObserver>();
-    private final Map<String, Bitmap> mCreditCardArtImages = new HashMap<>();
-    private ImageFetcher mImageFetcher = ImageFetcherFactory.createImageFetcher(
-            ImageFetcherConfig.DISK_CACHE_ONLY, ProfileKey.getLastUsedRegularProfileKey());
+    private AutofillImageFetcher mImageFetcher;
 
     private PersonalDataManager() {
         // Note that this technically leaks the native object, however, PersonalDataManager
         // is a singleton that lives forever and there's no clean shutdown of Chrome on Android
         mPersonalDataManagerAndroid = PersonalDataManagerJni.get().init(PersonalDataManager.this);
+        // Get the AutofillImageFetcher instance that was created during browser startup.
+        mImageFetcher = PersonalDataManagerJni.get().getOrCreateJavaImageFetcher(
+                mPersonalDataManagerAndroid);
     }
 
     /**
@@ -494,8 +449,9 @@ public class PersonalDataManager {
             String[] profileLabels, String[] profileGUIDs) {
         ArrayList<AutofillProfile> profiles = new ArrayList<AutofillProfile>(profileGUIDs.length);
         for (int i = 0; i < profileGUIDs.length; i++) {
-            AutofillProfile profile = PersonalDataManagerJni.get().getProfileByGUID(
-                    mPersonalDataManagerAndroid, PersonalDataManager.this, profileGUIDs[i]);
+            AutofillProfile profile = new AutofillProfile(
+                    PersonalDataManagerJni.get().getProfileByGUID(mPersonalDataManagerAndroid,
+                            PersonalDataManager.this, profileGUIDs[i]));
             profile.setLabel(profileLabels[i]);
             profiles.add(profile);
         }
@@ -505,8 +461,8 @@ public class PersonalDataManager {
 
     public AutofillProfile getProfile(String guid) {
         ThreadUtils.assertOnUiThread();
-        return PersonalDataManagerJni.get().getProfileByGUID(
-                mPersonalDataManagerAndroid, PersonalDataManager.this, guid);
+        return new AutofillProfile(PersonalDataManagerJni.get().getProfileByGUID(
+                mPersonalDataManagerAndroid, PersonalDataManager.this, guid));
     }
 
     public void deleteProfile(String guid) {
@@ -518,13 +474,13 @@ public class PersonalDataManager {
     public String setProfile(AutofillProfile profile) {
         ThreadUtils.assertOnUiThread();
         return PersonalDataManagerJni.get().setProfile(
-                mPersonalDataManagerAndroid, PersonalDataManager.this, profile);
+                mPersonalDataManagerAndroid, PersonalDataManager.this, profile, profile.getGUID());
     }
 
     public String setProfileToLocal(AutofillProfile profile) {
         ThreadUtils.assertOnUiThread();
         return PersonalDataManagerJni.get().setProfileToLocal(
-                mPersonalDataManagerAndroid, PersonalDataManager.this, profile);
+                mPersonalDataManagerAndroid, PersonalDataManager.this, profile, profile.getGUID());
     }
 
     /**
@@ -709,8 +665,12 @@ public class PersonalDataManager {
     }
 
     protected void clearImageDataForTesting() {
+        if (mImageFetcher == null) {
+            return;
+        }
+
         ThreadUtils.assertOnUiThread();
-        mCreditCardArtImages.clear();
+        mImageFetcher.clearCachedImagesForTesting();
     }
 
     public static void setInstanceForTesting(PersonalDataManager manager) {
@@ -736,67 +696,6 @@ public class PersonalDataManager {
     public boolean isCountryEligibleForAccountStorage(String countryCode) {
         return PersonalDataManagerJni.get().isCountryEligibleForAccountStorage(
                 mPersonalDataManagerAndroid, PersonalDataManager.this, countryCode);
-    }
-
-    /**
-     * Starts loading the address validation rules for the specified {@code regionCode}.
-     *
-     * @param regionCode The code of the region for which to load the rules.
-     */
-    public void loadRulesForAddressNormalization(String regionCode) {
-        ThreadUtils.assertOnUiThread();
-        PersonalDataManagerJni.get().loadRulesForAddressNormalization(
-                mPersonalDataManagerAndroid, PersonalDataManager.this, regionCode);
-    }
-
-    /**
-     * Starts loading the sub-key request rules for the specified {@code regionCode}.
-     *
-     * @param regionCode The code of the region for which to load the rules.
-     */
-    public void loadRulesForSubKeys(String regionCode) {
-        ThreadUtils.assertOnUiThread();
-        PersonalDataManagerJni.get().loadRulesForSubKeys(
-                mPersonalDataManagerAndroid, PersonalDataManager.this, regionCode);
-    }
-
-    /**
-     * Starts requesting the subkeys for the specified {@code regionCode}, if the rules
-     * associated with the {@code regionCode} are done loading. Otherwise sets up the callback to
-     * start loading the subkeys when the rules are loaded. The received subkeys will be sent
-     * to the {@code delegate}. If the subkeys are not received in the specified
-     * {@code sRequestTimeoutSeconds}, the {@code delegate} will be notified.
-     *
-     * @param regionCode The code of the region for which to load the subkeys.
-     * @param delegate The object requesting the subkeys.
-     */
-    public void getRegionSubKeys(String regionCode, GetSubKeysRequestDelegate delegate) {
-        ThreadUtils.assertOnUiThread();
-        PersonalDataManagerJni.get().startRegionSubKeysRequest(mPersonalDataManagerAndroid,
-                PersonalDataManager.this, regionCode, sRequestTimeoutSeconds, delegate);
-    }
-
-    /** Cancels the pending subkeys request. */
-    public void cancelPendingGetSubKeys() {
-        ThreadUtils.assertOnUiThread();
-        PersonalDataManagerJni.get().cancelPendingGetSubKeys(mPersonalDataManagerAndroid);
-    }
-
-    /**
-     * Normalizes the address of the profile associated with the {@code guid} if the rules
-     * associated with the profile's region are done loading. Otherwise sets up the callback to
-     * start normalizing the address when the rules are loaded. The normalized profile will be sent
-     * to the {@code delegate}. If the profile is not normalized in the specified
-     * {@code sRequestTimeoutSeconds}, the {@code delegate} will be notified.
-     *
-     * @param profile The profile to normalize.
-     * @param delegate The object requesting the normalization.
-     */
-    public void normalizeAddress(
-            AutofillProfile profile, NormalizedAddressRequestDelegate delegate) {
-        ThreadUtils.assertOnUiThread();
-        PersonalDataManagerJni.get().startAddressNormalization(mPersonalDataManagerAndroid,
-                PersonalDataManager.this, profile, sRequestTimeoutSeconds, delegate);
     }
 
     /**
@@ -889,6 +788,21 @@ public class PersonalDataManager {
     }
 
     /**
+     * @return Whether the Autofill feature for payment cvc storage is enabled.
+     */
+    public static boolean isPaymentCvcStorageEnabled() {
+        return getPrefService().getBoolean(Pref.AUTOFILL_PAYMENT_CVC_STORAGE);
+    }
+
+    /**
+     * Enables or disables the Autofill feature for payment cvc storage.
+     * @param enable True to enable payment cvc storage, false otherwise.
+     */
+    public static void setAutofillPaymentCvcStorage(boolean enable) {
+        getPrefService().setBoolean(Pref.AUTOFILL_PAYMENT_CVC_STORAGE, enable);
+    }
+
+    /**
      * @return Whether the Autofill feature is managed.
      */
     public static boolean isAutofillManaged() {
@@ -909,96 +823,37 @@ public class PersonalDataManager {
         return PersonalDataManagerJni.get().isAutofillCreditCardManaged();
     }
 
-    public static void setRequestTimeoutForTesting(int timeout) {
-        var oldValue = sRequestTimeoutSeconds;
-        sRequestTimeoutSeconds = timeout;
-        ResettersForTesting.register(() -> sRequestTimeoutSeconds = oldValue);
-    }
-
     public void setSyncServiceForTesting() {
         PersonalDataManagerJni.get().setSyncServiceForTesting(mPersonalDataManagerAndroid);
-    }
-
-    /**
-     * @return The sub-key request timeout in milliseconds.
-     */
-    public static long getRequestTimeoutMS() {
-        return DateUtils.SECOND_IN_MILLIS * sRequestTimeoutSeconds;
     }
 
     private static PrefService getPrefService() {
         return UserPrefs.get(Profile.getLastUsedRegularProfile());
     }
 
-    // TODO (crbug.com/1384128): Add icon dimensions to card art URL.
     private void fetchCreditCardArtImages() {
-        for (CreditCard card : getCreditCardsToSuggest()) {
-            // Fetch the image using the ImageFetcher only if it is not present in the cache.
-            if (card.getCardArtUrl() != null && card.getCardArtUrl().isValid()
-                    && !mCreditCardArtImages.containsKey(card.getCardArtUrl().getSpec())) {
-                fetchImage(card.getCardArtUrl(),
-                        bitmap -> mCreditCardArtImages.put(card.getCardArtUrl().getSpec(), bitmap));
-            }
-        }
+        mImageFetcher.prefetchImages(getCreditCardsToSuggest()
+                                             .stream()
+                                             .map(card -> card.getCardArtUrl())
+                                             .toArray(GURL[] ::new));
     }
 
     /**
      * Return the card art image for the given `customImageUrl`.
-     * @param context required to get resources.
      * @param customImageUrl  URL of the image. If the image is available, it is returned, otherwise
      *         it is fetched from this URL.
      * @param cardIconSpecs {@code CardIconSpecs} instance containing the specs for the card icon.
-     * @return Bitmap if found in the local cache, else return null.
+     * @return Bitmap image if found in the local cache, else return an empty object.
      */
-    public Bitmap getCustomImageForAutofillSuggestionIfAvailable(
+    public Optional<Bitmap> getCustomImageForAutofillSuggestionIfAvailable(
             GURL customImageUrl, AutofillUiUtils.CardIconSpecs cardIconSpecs) {
-        // TODO(crbug.com/1313616): The Capital One icon for virtual cards is available in a single
-        // size via a static URL. Cache this image at different sizes so it can be used by different
-        // surfaces.
-        GURL urlToCache = AutofillUiUtils.getCreditCardIconUrlWithParams(
-                customImageUrl, cardIconSpecs.getWidth(), cardIconSpecs.getHeight());
-        GURL urlToFetch = customImageUrl.getSpec().equals(AutofillUiUtils.CAPITAL_ONE_ICON_URL)
-                ? customImageUrl
-                : urlToCache;
-
-        if (mCreditCardArtImages.containsKey(urlToCache.getSpec())) {
-            return mCreditCardArtImages.get(urlToCache.getSpec());
-        }
-        // Schedule the fetching of image and return null so that the UI thread does not have to
-        // wait and can show the default network icon.
-        fetchImage(urlToFetch, bitmap -> {
-            RecordHistogram.recordBooleanHistogram("Autofill.ImageFetcher.Result", bitmap != null);
-
-            // If the image fetching was unsuccessful, silently return.
-            if (bitmap == null) {
-                return;
-            }
-
-            // When adding new sizes for card icons, check if the corner radius needs to be added as
-            // a suffix for caching (crbug.com/1431283).
-            mCreditCardArtImages.put(urlToCache.getSpec(),
-                    AutofillUiUtils.resizeAndAddRoundedCornersAndGreyBorder(bitmap, cardIconSpecs,
-                            ChromeFeatureList.isEnabled(
-                                    ChromeFeatureList
-                                            .AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES)));
-        });
-        return null;
+        return mImageFetcher.getImageIfAvailable(customImageUrl, cardIconSpecs);
     }
 
     public void setImageFetcherForTesting(ImageFetcher imageFetcher) {
         var oldValue = this.mImageFetcher;
-        this.mImageFetcher = imageFetcher;
+        this.mImageFetcher = new AutofillImageFetcher(imageFetcher);
         ResettersForTesting.register(() -> this.mImageFetcher = oldValue);
-    }
-
-    private void fetchImage(GURL customImageUrl, Callback<Bitmap> callback) {
-        if (!customImageUrl.isValid()) {
-            Log.w(TAG, "Tried to fetch an invalid url %s", customImageUrl.getSpec());
-            return;
-        }
-        ImageFetcher.Params params = ImageFetcher.Params.create(
-                customImageUrl.getSpec(), ImageFetcher.AUTOFILL_CARD_ART_UMA_CLIENT_NAME);
-        mImageFetcher.fetchImage(params, bitmap -> callback.onResult(bitmap));
     }
 
     @NativeMethods
@@ -1021,9 +876,9 @@ public class PersonalDataManager {
         boolean isCountryEligibleForAccountStorage(long nativePersonalDataManagerAndroid,
                 PersonalDataManager caller, String countryCode);
         String setProfile(long nativePersonalDataManagerAndroid, PersonalDataManager caller,
-                AutofillProfile profile);
+                AutofillProfile profile, String guid);
         String setProfileToLocal(long nativePersonalDataManagerAndroid, PersonalDataManager caller,
-                AutofillProfile profile);
+                AutofillProfile profile, String guid);
         String getShippingAddressLabelWithCountryForPaymentRequest(
                 long nativePersonalDataManagerAndroid, PersonalDataManager caller,
                 AutofillProfile profile);
@@ -1076,16 +931,6 @@ public class PersonalDataManager {
                 long nativePersonalDataManagerAndroid, PersonalDataManager caller);
         void clearUnmaskedCache(
                 long nativePersonalDataManagerAndroid, PersonalDataManager caller, String guid);
-        void loadRulesForAddressNormalization(long nativePersonalDataManagerAndroid,
-                PersonalDataManager caller, String regionCode);
-        void loadRulesForSubKeys(long nativePersonalDataManagerAndroid, PersonalDataManager caller,
-                String regionCode);
-        void startAddressNormalization(long nativePersonalDataManagerAndroid,
-                PersonalDataManager caller, AutofillProfile profile, int timeoutSeconds,
-                NormalizedAddressRequestDelegate delegate);
-        void startRegionSubKeysRequest(long nativePersonalDataManagerAndroid,
-                PersonalDataManager caller, String regionCode, int timeoutSeconds,
-                GetSubKeysRequestDelegate delegate);
         boolean hasProfiles(long nativePersonalDataManagerAndroid);
         boolean hasCreditCards(long nativePersonalDataManagerAndroid);
         boolean isFidoAuthenticationAvailable(long nativePersonalDataManagerAndroid);
@@ -1093,7 +938,7 @@ public class PersonalDataManager {
         boolean isAutofillProfileManaged();
         boolean isAutofillCreditCardManaged();
         String toCountryCode(String countryName);
-        void cancelPendingGetSubKeys(long nativePersonalDataManagerAndroid);
         void setSyncServiceForTesting(long nativePersonalDataManagerAndroid);
+        AutofillImageFetcher getOrCreateJavaImageFetcher(long nativePersonalDataManagerAndroid);
     }
 }

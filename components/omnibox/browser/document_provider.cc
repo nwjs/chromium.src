@@ -8,6 +8,7 @@
 
 #include <map>
 #include <numeric>
+#include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -39,6 +40,7 @@
 #include "components/omnibox/browser/history_provider.h"
 #include "components/omnibox/browser/in_memory_url_index_types.h"
 #include "components/omnibox/browser/keyword_provider.h"
+#include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/remote_suggestions_service.h"
@@ -62,7 +64,6 @@ namespace {
 
 // Inclusive bounds used to restrict which queries request drive suggestions
 // from the backend.
-const size_t kMinQueryLength = 4;
 const size_t kMaxQueryLength = 200;
 
 // TODO(skare): Pull the enum in search_provider.cc into its .h file, and switch
@@ -381,7 +382,7 @@ std::string ExtractDocIdFromUrl(const std::string& url) {
       "(?:(#[0-9a-zA-Z$\\-\\_\\.\\+\\!\\*\'\\,;:@&=/\\?]+)?)"  // Fragment
       ")");
 
-  std::vector<re2::StringPiece> matched_doc_ids(
+  std::vector<std::string_view> matched_doc_ids(
       docs_url_pattern_.NumberOfCapturingGroups() + 1);
   // ANCHOR_START deviates from google3 which uses UNANCHORED. Using
   // ANCHOR_START prevents incorrectly matching with non-drive URLs but which
@@ -393,7 +394,7 @@ std::string ExtractDocIdFromUrl(const std::string& url) {
     return std::string();
   }
   for (const auto& doc_id_group : docs_url_pattern_.NamedCapturingGroups()) {
-    re2::StringPiece identified_doc_id = matched_doc_ids[doc_id_group.second];
+    std::string_view identified_doc_id = matched_doc_ids[doc_id_group.second];
     if (!identified_doc_id.empty()) {
       return std::string(identified_doc_id);
     }
@@ -501,8 +502,9 @@ bool DocumentProvider::IsDocumentProviderAllowed(
     return false;
   }
 
-  // Experiment: don't issue queries for inputs under some length.
-  if (input.text().length() < kMinQueryLength ||
+  // Don't issue queries for inputs whose lengths aren't in the intended range.
+  if (input.text().length() <
+          omnibox_feature_configs::DocumentProvider::Get().min_query_length ||
       input.text().length() > kMaxQueryLength) {
     return false;
   }
@@ -727,7 +729,7 @@ std::u16string DocumentProvider::GenerateLastModifiedString(
       return base::TimeFormatTimeOfDay(modified_time);
     }
     // Same year but not the same day: use abbreviated month/day ("Jan 1").
-    return base::TimeFormatWithPattern(modified_time, "MMMd");
+    return base::LocalizedTimeFormatWithPattern(modified_time, "MMMd");
   }
 
   // No shorthand; display full MM/DD/YYYY.

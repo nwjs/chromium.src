@@ -62,11 +62,11 @@ class DeltaCounter {
 std::unique_ptr<PartitionAllocatorForTesting> CreateAllocator() {
   std::unique_ptr<PartitionAllocatorForTesting> allocator =
       std::make_unique<PartitionAllocatorForTesting>(PartitionOptions {
-        .aligned_alloc = PartitionOptions::AlignedAlloc::kAllowed,
+        .aligned_alloc = PartitionOptions::kAllowed,
 #if !BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-        .thread_cache = PartitionOptions::ThreadCache::kEnabled,
+        .thread_cache = PartitionOptions::kEnabled,
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
-        .star_scan_quarantine = PartitionOptions::StarScanQuarantine::kAllowed,
+        .star_scan_quarantine = PartitionOptions::kAllowed,
       });
   allocator->root()->UncapEmptySlotSpanMemoryForTesting();
 
@@ -104,6 +104,9 @@ class PartitionAllocThreadCacheTest
 
     ThreadCacheRegistry::Instance().SetThreadCacheMultiplier(
         ThreadCache::kDefaultMultiplier);
+    ThreadCacheRegistry::Instance().SetPurgingConfiguration(
+        kMinPurgeInterval, kMaxPurgeInterval, kDefaultPurgeInterval,
+        kMinCachedMemoryForPurgingBytes);
     ThreadCache::SetLargestCachedSize(ThreadCache::kLargeSizeThreshold);
 
     // Make sure that enough slot spans have been touched, otherwise cache fill
@@ -272,8 +275,8 @@ TEST_P(PartitionAllocThreadCacheTest, Purge) {
 
 TEST_P(PartitionAllocThreadCacheTest, NoCrossPartitionCache) {
   PartitionAllocatorForTesting allocator(PartitionOptions{
-      .aligned_alloc = PartitionOptions::AlignedAlloc::kAllowed,
-      .star_scan_quarantine = PartitionOptions::StarScanQuarantine::kAllowed,
+      .aligned_alloc = PartitionOptions::kAllowed,
+      .star_scan_quarantine = PartitionOptions::kAllowed,
   });
 
   size_t bucket_index = FillThreadCacheAndReturnIndex(kSmallSize);
@@ -642,8 +645,8 @@ class ThreadDelegateForMultipleThreadCachesAccounting
 
 TEST_P(PartitionAllocThreadCacheTest, MultipleThreadCachesAccounting) {
   ThreadCacheStats wqthread_stats{0};
-#if !(BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_ANDROID) ||   \
-      BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)) && \
+#if (BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || \
+     BUILDFLAG(IS_LINUX)) &&                                                   \
     BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
   {
     // iOS and MacOS 15 create worker threads internally(start_wqthread).
@@ -781,42 +784,41 @@ TEST_P(PartitionAllocThreadCacheTest, PeriodicPurge) {
         registry.GetPeriodicPurgeNextIntervalInMicroseconds());
   };
 
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), registry.default_purge_interval());
 
   // Small amount of memory, the period gets longer.
   auto* tcache = ThreadCache::Get();
   ASSERT_LT(tcache->CachedMemory(),
-            ThreadCacheRegistry::kMinCachedMemoryForPurging);
+            registry.min_cached_memory_for_purging_bytes());
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), 2 * ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), 2 * registry.default_purge_interval());
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), 4 * ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), 4 * registry.default_purge_interval());
 
   // Check that the purge interval is clamped at the maximum value.
-  while (NextInterval() < ThreadCacheRegistry::kMaxPurgeInterval) {
+  while (NextInterval() < registry.max_purge_interval()) {
     registry.RunPeriodicPurge();
   }
   registry.RunPeriodicPurge();
 
   // Not enough memory to decrease the interval.
-  FillThreadCacheWithMemory(ThreadCacheRegistry::kMinCachedMemoryForPurging +
+  FillThreadCacheWithMemory(registry.min_cached_memory_for_purging_bytes() + 1);
+  registry.RunPeriodicPurge();
+  EXPECT_EQ(NextInterval(), registry.max_purge_interval());
+
+  FillThreadCacheWithMemory(2 * registry.min_cached_memory_for_purging_bytes() +
                             1);
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kMaxPurgeInterval);
-
-  FillThreadCacheWithMemory(
-      2 * ThreadCacheRegistry::kMinCachedMemoryForPurging + 1);
-  registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kMaxPurgeInterval / 2);
+  EXPECT_EQ(NextInterval(), registry.max_purge_interval() / 2);
 
   // Enough memory, interval doesn't change.
-  FillThreadCacheWithMemory(ThreadCacheRegistry::kMinCachedMemoryForPurging);
+  FillThreadCacheWithMemory(registry.min_cached_memory_for_purging_bytes());
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kMaxPurgeInterval / 2);
+  EXPECT_EQ(NextInterval(), registry.max_purge_interval() / 2);
 
   // No cached memory, increase the interval.
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kMaxPurgeInterval);
+  EXPECT_EQ(NextInterval(), registry.max_purge_interval());
 
   // Cannot test the very large size with only one thread, this is tested below
   // in the multiple threads test.
@@ -858,9 +860,10 @@ class ThreadDelegateForPeriodicPurgeSumsOverAllThreads
         bucket_distribution_(bucket_distribution) {}
 
   void ThreadMain() override {
-    FillThreadCacheWithMemory(
-        root_, 5 * ThreadCacheRegistry::kMinCachedMemoryForPurging,
-        bucket_distribution_);
+    FillThreadCacheWithMemory(root_,
+                              5 * ThreadCacheRegistry::Instance()
+                                      .min_cached_memory_for_purging_bytes(),
+                              bucket_distribution_);
     allocations_done_.fetch_add(1, std::memory_order_release);
 
     // This thread needs to be alive when the next periodic purge task runs.
@@ -885,28 +888,27 @@ TEST_P(PartitionAllocThreadCacheTest,
     return internal::base::Microseconds(
         registry.GetPeriodicPurgeNextIntervalInMicroseconds());
   };
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), registry.default_purge_interval());
 
   // Small amount of memory, the period gets longer.
   auto* tcache = ThreadCache::Get();
   ASSERT_LT(tcache->CachedMemory(),
-            ThreadCacheRegistry::kMinCachedMemoryForPurging);
+            registry.min_cached_memory_for_purging_bytes());
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), 2 * ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), 2 * registry.default_purge_interval());
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), 4 * ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), 4 * registry.default_purge_interval());
 
   // Check that the purge interval is clamped at the maximum value.
-  while (NextInterval() < ThreadCacheRegistry::kMaxPurgeInterval) {
+  while (NextInterval() < registry.max_purge_interval()) {
     registry.RunPeriodicPurge();
   }
   registry.RunPeriodicPurge();
 
   // Not enough memory on this thread to decrease the interval.
-  FillThreadCacheWithMemory(ThreadCacheRegistry::kMinCachedMemoryForPurging /
-                            2);
+  FillThreadCacheWithMemory(registry.min_cached_memory_for_purging_bytes() / 2);
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kMaxPurgeInterval);
+  EXPECT_EQ(NextInterval(), registry.max_purge_interval());
 
   std::atomic<int> allocations_done{0};
   std::atomic<bool> can_finish{false};
@@ -926,7 +928,7 @@ TEST_P(PartitionAllocThreadCacheTest,
 
   // Many allocations on the other thread.
   registry.RunPeriodicPurge();
-  EXPECT_EQ(NextInterval(), ThreadCacheRegistry::kDefaultPurgeInterval);
+  EXPECT_EQ(NextInterval(), registry.default_purge_interval());
 
   can_finish.store(true, std::memory_order_release);
   internal::base::PlatformThreadForTesting::Join(thread_handle);
@@ -1411,7 +1413,7 @@ TEST_P(PartitionAllocThreadCacheTest, AllocationRecordingAligned) {
                                  {128, 2 * internal::PartitionPageSize()},
                                  {(4 << 20) + 1, 1 << 19}};
   for (auto [requested_size, alignment] : size_alignments) {
-    void* ptr = root()->AlignedAllocWithFlags(0, alignment, requested_size);
+    void* ptr = root()->AlignedAlloc(alignment, requested_size);
     ASSERT_TRUE(ptr);
     alloc_count++;
     total_size += root()->GetUsableSize(ptr);

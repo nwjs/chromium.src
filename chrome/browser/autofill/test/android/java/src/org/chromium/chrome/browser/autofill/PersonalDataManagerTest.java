@@ -35,6 +35,10 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.ChromeBrowserTestRule;
 import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
+import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
+import org.chromium.components.autofill.AutofillProfile;
+import org.chromium.components.autofill.VerificationStatus;
 import org.chromium.components.image_fetcher.test.TestImageFetcher;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.url.GURL;
@@ -239,8 +243,10 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    public void testCreditCardWithCardArtUrl_imageDownloaded() throws TimeoutException {
-        AutofillUiUtils.CardIconSpecs cardIconSpecs = AutofillUiUtils.CardIconSpecs.create(
+    public void testAddCreditCardWithCardArtUrl_imageDownloaded() throws TimeoutException {
+        AutofillUiUtils.CardIconSpecs cardIconSpecsLarge = AutofillUiUtils.CardIconSpecs.create(
+                ContextUtils.getApplicationContext(), AutofillUiUtils.CardIconSize.LARGE);
+        AutofillUiUtils.CardIconSpecs cardIconSpecsSmall = AutofillUiUtils.CardIconSpecs.create(
                 ContextUtils.getApplicationContext(), AutofillUiUtils.CardIconSize.LARGE);
         GURL cardArtUrl = new GURL("http://google.com/test.png");
         CreditCard cardWithCardArtUrl = new CreditCard(/* guid= */ "serverGuid", /* origin= */ "",
@@ -250,33 +256,42 @@ public class PersonalDataManagerTest {
                 /* serverId= */ "serverId");
         cardWithCardArtUrl.setCardArtUrl(cardArtUrl);
 
+        // Adding a server card triggers card art image fetching for all server credit cards.
         mHelper.addServerCreditCard(cardWithCardArtUrl);
 
+        // Verify card art images are fetched in both small and large sizes.
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            // On the first attempt, the card arts are only fetched from the server, they're not
-            // rendered (crbug.com/1384128).
-            assertEquals(null,
-                    PersonalDataManager.getInstance()
-                            .getCustomImageForAutofillSuggestionIfAvailable(
-                                    cardArtUrl, cardIconSpecs));
             assertTrue(
                     AutofillUiUtils
                             .resizeAndAddRoundedCornersAndGreyBorder(TEST_CARD_ART_IMAGE,
-                                    cardIconSpecs,
+                                    cardIconSpecsLarge,
                                     /* addRoundedCornersAndGreyBorder= */
                                     ChromeFeatureList.isEnabled(
                                             ChromeFeatureList
                                                     .AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES))
                             .sameAs(PersonalDataManager.getInstance()
                                             .getCustomImageForAutofillSuggestionIfAvailable(
-                                                    cardArtUrl, cardIconSpecs)));
+                                                    cardArtUrl, cardIconSpecsLarge)
+                                            .get()));
+            assertTrue(
+                    AutofillUiUtils
+                            .resizeAndAddRoundedCornersAndGreyBorder(TEST_CARD_ART_IMAGE,
+                                    cardIconSpecsSmall,
+                                    /* addRoundedCornersAndGreyBorder= */
+                                    ChromeFeatureList.isEnabled(
+                                            ChromeFeatureList
+                                                    .AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES))
+                            .sameAs(PersonalDataManager.getInstance()
+                                            .getCustomImageForAutofillSuggestionIfAvailable(
+                                                    cardArtUrl, cardIconSpecsSmall)
+                                            .get()));
         });
     }
 
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_CARD_ART_SERVER_SIDE_STRETCHING)
+    @DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_CARD_ART_SERVER_SIDE_STRETCHING)
     public void testCreditCardArtUrlIsFormattedWithImageSpecs_serverSideStretchingDisabled()
             throws TimeoutException {
         GURL capitalOneIconUrl = new GURL(AutofillUiUtils.CAPITAL_ONE_ICON_URL);
@@ -306,7 +321,7 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_CARD_ART_SERVER_SIDE_STRETCHING)
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_CARD_ART_SERVER_SIDE_STRETCHING)
     public void testCreditCardArtUrlIsFormattedWithImageSpecs_serverSideStretchingEnabled()
             throws TimeoutException {
         GURL capitalOneIconUrl = new GURL(AutofillUiUtils.CAPITAL_ONE_ICON_URL);
@@ -554,7 +569,7 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_ADDRESS_PROFILES)
+    @DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_ADDRESS_PROFILES)
     public void testProfilesFrecency() throws TimeoutException {
         // Create 3 profiles.
         AutofillProfile profile1 = AutofillProfile.builder()
@@ -618,7 +633,7 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_CREDIT_CARDS)
+    @DisableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_CREDIT_CARDS)
     public void testCreditCardsFrecency() throws TimeoutException {
         // Create 3 credit cards.
         CreditCard card1 = createLocalCreditCard("Visa", "1234123412341234", "5", "2020");
@@ -654,7 +669,7 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_ADDRESS_PROFILES)
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_ADDRESS_PROFILES)
     public void testProfileRanking() throws TimeoutException {
         // Create 3 profiles.
         AutofillProfile profile1 = AutofillProfile.builder().setFullName("John Major").build();
@@ -689,7 +704,7 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_CREDIT_CARDS)
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_RANKING_FORMULA_CREDIT_CARDS)
     public void testCreditCardRanking() throws TimeoutException {
         // Create 3 credit cards.
         CreditCard card1 = createLocalCreditCard("Visa", "1234123412341234", "5", "2020");
@@ -895,27 +910,25 @@ public class PersonalDataManagerTest {
     @Test
     @SmallTest
     @Feature({"Autofill"})
-    @Features.EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES)
-    public void
-    testGetCardIcon_customIconUrlAvailable_customIconCachedOnFirstCallAndReturnedOnSecondCall()
+    @EnableFeatures(ChromeFeatureList.AUTOFILL_ENABLE_NEW_CARD_ART_AND_NETWORK_IMAGES)
+    public void testGetCardIcon_customIconUrlAvailable_customIconReturned()
             throws TimeoutException {
         Context context = ContextUtils.getApplicationContext();
-
         AutofillUiUtils.CardIconSpecs cardIconSpecs =
                 AutofillUiUtils.CardIconSpecs.create(context, AutofillUiUtils.CardIconSize.LARGE);
+        GURL cardArtUrl = new GURL("http://google.com/test.png");
+        CreditCard cardWithCardArtUrl = new CreditCard(/* guid= */ "serverGuid", /* origin= */ "",
+                /* isLocal= */ false, /* isCached= */ false, "John Doe Server", "41111111111111111",
+                /* obfuscatedCardNumber= */ "", "3", "2019", "MasterCard",
+                /* issuerIconDrawableId= */ R.drawable.mc_card,
+                /* billingAddressId= */ "",
+                /* serverId= */ "serverId");
+        cardWithCardArtUrl.setCardArtUrl(cardArtUrl);
+
+        // Adding a server card triggers card art image fetching for all server credit cards.
+        mHelper.addServerCreditCard(cardWithCardArtUrl);
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
-            // The first call to get the custom icon only fetches and caches the icon. It returns
-            // the default icon.
-            assertTrue(
-                    ((BitmapDrawable) AppCompatResources.getDrawable(context, R.drawable.mc_card))
-                            .getBitmap()
-                            .sameAs(((BitmapDrawable) AutofillUiUtils.getCardIcon(context,
-                                             new GURL("http://google.com/test.png"),
-                                             R.drawable.mc_card, AutofillUiUtils.CardIconSize.LARGE,
-                                             /* showCustomIcon= */ true))
-                                            .getBitmap()));
-
             // The custom icon is already cached, and gets returned.
             assertTrue(
                     AutofillUiUtils
@@ -936,19 +949,19 @@ public class PersonalDataManagerTest {
     public void testGetCardIcon_customIconUrlUnavailable_defaultIconReturned()
             throws TimeoutException {
         Context context = ContextUtils.getApplicationContext();
+        CreditCard cardWithoutCardArtUrl = new CreditCard(/* guid= */ "serverGuid",
+                /* origin= */ "",
+                /* isLocal= */ false, /* isCached= */ false, "John Doe Server", "41111111111111111",
+                /* obfuscatedCardNumber= */ "", "3", "2019", "MasterCard",
+                /* issuerIconDrawableId= */ R.drawable.mc_card,
+                /* billingAddressId= */ "",
+                /* serverId= */ "serverId");
+
+        // Adding a server card triggers card art image fetching for all server credit cards.
+        mHelper.addServerCreditCard(cardWithoutCardArtUrl);
 
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             // In the absence of custom icon URL, the default icon is returned.
-            assertTrue(
-                    ((BitmapDrawable) AppCompatResources.getDrawable(context, R.drawable.mc_card))
-                            .getBitmap()
-                            .sameAs(((BitmapDrawable) AutofillUiUtils.getCardIcon(context,
-                                             new GURL(""), R.drawable.mc_card,
-                                             AutofillUiUtils.CardIconSize.LARGE, true))
-                                            .getBitmap()));
-
-            // Calling it twice just to make sure that there is no caching behavior like it happens
-            // in the case of custom icons.
             assertTrue(
                     ((BitmapDrawable) AppCompatResources.getDrawable(context, R.drawable.mc_card))
                             .getBitmap()
@@ -964,6 +977,17 @@ public class PersonalDataManagerTest {
     @Feature({"Autofill"})
     public void testGetCardIcon_customIconUrlAndDefaultIconIdUnavailable_nothingReturned()
             throws TimeoutException {
+        CreditCard cardWithoutDefaultIconIdAndCardArtUrl = new CreditCard(/* guid= */ "serverGuid",
+                /* origin= */ "",
+                /* isLocal= */ false, /* isCached= */ false, "John Doe Server", "41111111111111111",
+                /* obfuscatedCardNumber= */ "", "3", "2019", "",
+                /* issuerIconDrawableId= */ 0,
+                /* billingAddressId= */ "",
+                /* serverId= */ "serverId");
+
+        // Adding a server card triggers card art image fetching for all server credit cards.
+        mHelper.addServerCreditCard(cardWithoutDefaultIconIdAndCardArtUrl);
+
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             // If neither the custom icon nor the default icon is available, null is returned.
             assertEquals(null,

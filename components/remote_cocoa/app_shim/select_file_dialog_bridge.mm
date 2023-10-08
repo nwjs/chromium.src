@@ -12,11 +12,11 @@
 #include <stddef.h>
 
 #include "base/apple/bridging.h"
+#include "base/apple/foundation_util.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/files/file_util.h"
 #include "base/i18n/case_conversion.h"
-#include "base/mac/foundation_util.h"
 #import "base/mac/mac_util.h"
-#include "base/mac/scoped_cftyperef.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/hang_watcher.h"
@@ -30,7 +30,8 @@ const int kFileTypePopupTag = 1234;
 
 // TODO(macOS 11): Remove this.
 CFStringRef CreateUTIFromExtension(const base::FilePath::StringType& ext) {
-  base::ScopedCFTypeRef<CFStringRef> ext_cf(base::SysUTF8ToCFStringRef(ext));
+  base::apple::ScopedCFTypeRef<CFStringRef> ext_cf(
+      base::SysUTF8ToCFStringRef(ext));
   return UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension,
                                                ext_cf.get(), nullptr);
 }
@@ -45,7 +46,7 @@ NSString* GetDescriptionFromExtension(const base::FilePath::StringType& ext) {
       return description;
     }
   } else {
-    base::ScopedCFTypeRef<CFStringRef> uti(CreateUTIFromExtension(ext));
+    base::apple::ScopedCFTypeRef<CFStringRef> uti(CreateUTIFromExtension(ext));
     NSString* description =
         base::apple::CFToNSOwnershipCast(UTTypeCopyDescription(uti.get()));
 
@@ -69,8 +70,9 @@ NSView* CreateAccessoryView() {
                                        IDS_SAVE_PAGE_FILE_FORMAT_PROMPT_MAC)];
   label.translatesAutoresizingMaskIntoConstraints = NO;
   label.textColor = NSColor.secondaryLabelColor;
-  if (base::mac::IsAtLeastOS11())
+  if (base::mac::MacOSMajorVersion() >= 11) {
     label.font = [NSFont systemFontOfSize:[NSFont smallSystemFontSize]];
+  }
 
   // The popup.
   NSPopUpButton* popup = [[NSPopUpButton alloc] initWithFrame:NSZeroRect
@@ -115,10 +117,11 @@ NSView* CreateAccessoryView() {
 
   // Horizontal and vertical baseline between the label and popup.
   CGFloat labelPopupPadding;
-  if (base::mac::IsAtLeastOS11())
+  if (base::mac::MacOSMajorVersion() >= 11) {
     labelPopupPadding = 8;
-  else
+  } else {
     labelPopupPadding = 5;
+  }
   [constraints addObject:[popup.leadingAnchor
                              constraintEqualToAnchor:label.trailingAnchor
                                             constant:labelPopupPadding]];
@@ -563,7 +566,7 @@ void SelectFileDialogBridge::OnPanelEnded(bool did_cancel) {
     if (type_ == SelectFileDialogType::kSaveAsFile) {
       NSURL* url = [panel_ URL];
       if ([url isFileURL]) {
-        paths.push_back(base::mac::NSStringToFilePath([url path]));
+        paths.push_back(base::apple::NSStringToFilePath([url path]));
       }
 
       NSView* accessoryView = [panel_ accessoryView];
@@ -601,7 +604,7 @@ void SelectFileDialogBridge::OnPanelEnded(bool did_cancel) {
             continue;
         }
 
-        paths.push_back(base::mac::NSStringToFilePath(path));
+        paths.push_back(base::apple::NSStringToFilePath(path));
       }
     }
   }

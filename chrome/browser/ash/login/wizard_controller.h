@@ -22,6 +22,7 @@
 #include "chrome/browser/ash/login/enrollment/enrollment_screen.h"
 #include "chrome/browser/ash/login/oobe_metrics_helper.h"
 #include "chrome/browser/ash/login/oobe_screen.h"
+#include "chrome/browser/ash/login/quickstart_controller.h"
 #include "chrome/browser/ash/login/screen_manager.h"
 #include "chrome/browser/ash/login/screens/add_child_screen.h"
 #include "chrome/browser/ash/login/screens/assistant_optin_flow_screen.h"
@@ -57,6 +58,7 @@
 #include "chrome/browser/ash/login/screens/os_trial_screen.h"
 #include "chrome/browser/ash/login/screens/packaged_license_screen.h"
 #include "chrome/browser/ash/login/screens/parental_handoff_screen.h"
+#include "chrome/browser/ash/login/screens/password_selection_screen.h"
 #include "chrome/browser/ash/login/screens/pin_setup_screen.h"
 #include "chrome/browser/ash/login/screens/quick_start_screen.h"
 #include "chrome/browser/ash/login/screens/recommend_apps_screen.h"
@@ -68,6 +70,7 @@
 #include "chrome/browser/ash/login/screens/terms_of_service_screen.h"
 #include "chrome/browser/ash/login/screens/theme_selection_screen.h"
 #include "chrome/browser/ash/login/screens/touchpad_scroll_screen.h"
+#include "chrome/browser/ash/login/screens/tpm_error_screen.h"
 #include "chrome/browser/ash/login/screens/update_screen.h"
 #include "chrome/browser/ash/login/screens/user_creation_screen.h"
 #include "chrome/browser/ash/login/screens/welcome_screen.h"
@@ -198,6 +201,11 @@ class WizardController : public OobeUI::Observer {
     return choobe_flow_controller_.get();
   }
 
+  // Main QuickStart controller, always present.
+  QuickStartController* quick_start_controller() {
+    return quickstart_controller_.get();
+  }
+
   // Returns a pointer to the current screen or nullptr if there's no such
   // screen.
   BaseScreen* current_screen() const { return current_screen_; }
@@ -280,7 +288,8 @@ class WizardController : public OobeUI::Observer {
 
   // Show specific screen.
   void ShowWelcomeScreen();
-  void ShowQuickStartScreen();
+  void ShowQuickStartScreen(
+      QuickStartScreen::EntryPoint quick_start_entry_point);
   void ShowNetworkScreen();
   void ShowEnrollmentScreen();
   void ShowDemoModeSetupScreen();
@@ -328,6 +337,7 @@ class WizardController : public OobeUI::Observer {
   void ShowGaiaInfoScreen();
   void ShowAddChildScreen();
   void ShowConsumerUpdateScreen();
+  void ShowPasswordSelectionScreen();
 
   // Shows images login screen.
   void ShowLoginScreen();
@@ -390,6 +400,7 @@ class WizardController : public OobeUI::Observer {
   void OnPackagedLicenseScreenExit(PackagedLicenseScreen::Result result);
   void OnFamilyLinkNoticeScreenExit(FamilyLinkNoticeScreen::Result result);
   void OnUserCreationScreenExit(UserCreationScreen::Result result);
+  void OnTpmErrorScreenExit(TpmErrorScreen::Result result);
   void OnGaiaScreenExit(GaiaScreen::Result result);
   void OnSamlConfirmPasswordScreenExit(
       SamlConfirmPasswordScreen::Result result);
@@ -420,6 +431,7 @@ class WizardController : public OobeUI::Observer {
   void OnGaiaInfoScreenExit(GaiaInfoScreen::Result result);
   void OnAddChildScreenExit(AddChildScreen::Result result);
   void OnConsumerUpdateScreenExit(ConsumerUpdateScreen::Result result);
+  void OnPasswordSelectionScreenExit(PasswordSelectionScreen::Result result);
 
   // Callback invoked once it has been determined whether the device is disabled
   // or not.
@@ -518,6 +530,7 @@ class WizardController : public OobeUI::Observer {
 
   std::unique_ptr<policy::AutoEnrollmentController> auto_enrollment_controller_;
   std::unique_ptr<ChoobeFlowController> choobe_flow_controller_;
+  std::unique_ptr<QuickStartController> quickstart_controller_;
   std::unique_ptr<ScreenManager> screen_manager_;
 
   // The `BaseScreen*` here point to the objects owned by the `screen_manager_`.

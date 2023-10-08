@@ -74,8 +74,7 @@ constexpr char kIsPrivateAggregationAllowedHistogram[] =
     "PrivacySandbox.IsPrivateAggregationAllowed";
 
 bool IsCookiesClearOnExitEnabled(HostContentSettingsMap* map) {
-  return map->GetDefaultContentSetting(ContentSettingsType::COOKIES,
-                                       /*provider_id=*/nullptr) ==
+  return map->GetDefaultContentSetting(ContentSettingsType::COOKIES) ==
          ContentSetting::CONTENT_SETTING_SESSION_ONLY;
 }
 
@@ -218,7 +217,7 @@ bool PrivacySandboxSettingsImpl::IsTopicsAllowed() const {
       static_cast<content_settings::CookieControlsMode>(
           pref_service_->GetInteger(prefs::kCookieControlsMode));
   const auto default_content_setting =
-      cookie_settings_->GetDefaultCookieSetting(/*provider_id=*/nullptr);
+      cookie_settings_->GetDefaultCookieSetting();
 
   const bool third_party_cookies_blocked =
       default_content_setting == ContentSetting::CONTENT_SETTING_BLOCK ||
@@ -837,6 +836,27 @@ PrivacySandboxSettingsImpl::GetM1PrivacySandboxApiEnabledStatus(
   status = (pref_service_->GetBoolean(pref_name)) ? Status::kAllowed
                                                   : Status::kApisDisabled;
   return status;
+}
+
+bool PrivacySandboxSettingsImpl::IsCookieDeprecationLabelAllowed() const {
+  return !IsPrivacySandboxRestricted() &&
+         !cookie_settings_->ShouldBlockThirdPartyCookies();
+}
+
+bool PrivacySandboxSettingsImpl::IsCookieDeprecationLabelAllowedForContext(
+    const url::Origin& top_frame_origin,
+    const url::Origin& context_origin) const {
+  if (!IsCookieDeprecationLabelAllowed()) {
+    return false;
+  }
+
+  if (base::FeatureList::IsEnabled(privacy_sandbox::kPrivacySandboxSettings4)) {
+    return IsAllowed(
+        GetSiteAccessAllowedStatus(top_frame_origin, context_origin.GetURL()));
+  }
+
+  return IsPrivacySandboxEnabledForContext(top_frame_origin,
+                                           context_origin.GetURL());
 }
 
 }  // namespace privacy_sandbox

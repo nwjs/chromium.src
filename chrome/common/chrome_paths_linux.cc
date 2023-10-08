@@ -91,13 +91,14 @@ bool GetDefaultUserDataDirectory(base::FilePath* result) {
         GetXDGDirectory(env.get(), kXdgConfigHomeEnvVar, kDotConfigDir);
   }
 
-#if 0
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+#if 0 //BUILDFLAG(GOOGLE_CHROME_FOR_TESTING_BRANDING)
+  std::string data_dir_basename = "google-chrome-for-testing";
+#elif 0 //BUILDFLAG(GOOGLE_CHROME_BRANDING)
   std::string data_dir_basename = "google-chrome";
 #else
   std::string data_dir_basename = nw::package()->GetName();
 #endif
-#endif
+
   *result = config_dir.Append(nw::package()->GetName());
   //*result = config_dir.Append(data_dir_basename + GetChannelSuffixForDataDir());
   return true;

@@ -7,8 +7,8 @@
 #import <MaterialComponents/MaterialSnackbar.h>
 #import <memory>
 
+#import "base/apple/foundation_util.h"
 #import "base/feature_list.h"
-#import "base/mac/foundation_util.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
@@ -82,6 +82,7 @@
 #import "ios/chrome/browser/signin/chrome_account_manager_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/system_identity.h"
+#import "ios/chrome/browser/sync/enterprise_utils.h"
 #import "ios/chrome/browser/sync/sync_observer_bridge.h"
 #import "ios/chrome/browser/sync/sync_service_factory.h"
 #import "ios/chrome/browser/tabs/inactive_tabs/features.h"
@@ -89,7 +90,6 @@
 #import "ios/chrome/browser/ui/authentication/cells/signin_promo_view_consumer.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_account_item.h"
 #import "ios/chrome/browser/ui/authentication/cells/table_view_signin_promo_item.h"
-#import "ios/chrome/browser/ui/authentication/enterprise/enterprise_utils.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_utils.h"
 #import "ios/chrome/browser/ui/authentication/signin_presenter.h"
 #import "ios/chrome/browser/ui/authentication/signin_promo_view_mediator.h"
@@ -1217,7 +1217,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 
   if ([cell isKindOfClass:[TableViewDetailIconCell class]]) {
     TableViewDetailIconCell* detailCell =
-        base::mac::ObjCCastStrict<TableViewDetailIconCell>(cell);
+        base::apple::ObjCCastStrict<TableViewDetailIconCell>(cell);
     [detailCell setUserInteractionEnabled:YES];
     detailCell.textLabel.textColor = [UIColor colorNamed:kTextPrimaryColor];
   }
@@ -1225,7 +1225,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
   switch (itemType) {
     case SettingsItemTypeMemoryDebugging: {
       TableViewSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<TableViewSwitchCell>(cell);
+          base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
       [switchCell.switchView addTarget:self
                                 action:@selector(memorySwitchToggled:)
                       forControlEvents:UIControlEventValueChanged];
@@ -1233,7 +1233,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
     }
     case SettingsItemTypeArticlesForYou: {
       TableViewSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<TableViewSwitchCell>(cell);
+          base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
       [switchCell.switchView addTarget:self
                                 action:@selector(articlesForYouSwitchToggled:)
                       forControlEvents:UIControlEventValueChanged];
@@ -1242,7 +1242,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
     case SettingsItemTypeViewSource: {
 #if BUILDFLAG(CHROMIUM_BRANDING) && !defined(NDEBUG)
       TableViewSwitchCell* switchCell =
-          base::mac::ObjCCastStrict<TableViewSwitchCell>(cell);
+          base::apple::ObjCCastStrict<TableViewSwitchCell>(cell);
       [switchCell.switchView addTarget:self
                                 action:@selector(viewSourceSwitchToggled:)
                       forControlEvents:UIControlEventValueChanged];
@@ -1253,7 +1253,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
     }
     case SettingsItemTypeManagedDefaultSearchEngine: {
       TableViewInfoButtonCell* managedCell =
-          base::mac::ObjCCastStrict<TableViewInfoButtonCell>(cell);
+          base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
       [managedCell.trailingButton
                  addTarget:self
                     action:@selector(didTapManagedUIInfoButton:)
@@ -1264,7 +1264,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       // Adds a trailing button with more information when the sign-in policy
       // has been enabled by the organization.
       TableViewInfoButtonCell* managedCell =
-          base::mac::ObjCCastStrict<TableViewInfoButtonCell>(cell);
+          base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
       [managedCell.trailingButton
                  addTarget:self
                     action:@selector(didTapSigninDisabledInfoButton:)
@@ -1273,7 +1273,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
     }
     case SettingsItemTypeManagedArticlesForYou: {
       TableViewInfoButtonCell* managedCell =
-          base::mac::ObjCCastStrict<TableViewInfoButtonCell>(cell);
+          base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
       [managedCell.trailingButton
                  addTarget:self
                     action:@selector(didTapManagedUIInfoButton:)
@@ -1284,7 +1284,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       if (![self isSyncDisabledByPolicy])
         break;
       TableViewInfoButtonCell* managedCell =
-          base::mac::ObjCCastStrict<TableViewInfoButtonCell>(cell);
+          base::apple::ObjCCastStrict<TableViewInfoButtonCell>(cell);
       [managedCell.trailingButton
                  addTarget:self
                     action:@selector(didTapSyncDisabledInfoButton:)
@@ -1562,7 +1562,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
                               sectionIdentifier:SettingsSectionIdentifierDebug];
 
   TableViewSwitchItem* switchItem =
-      base::mac::ObjCCastStrict<TableViewSwitchItem>(
+      base::apple::ObjCCastStrict<TableViewSwitchItem>(
           [self.tableViewModel itemAtIndexPath:switchPath]);
 
   BOOL newSwitchValue = sender.isOn;
@@ -1576,7 +1576,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
          sectionIdentifier:SettingsSectionIdentifierAdvanced];
 
   TableViewSwitchItem* switchItem =
-      base::mac::ObjCCastStrict<TableViewSwitchItem>(
+      base::apple::ObjCCastStrict<TableViewSwitchItem>(
           [self.tableViewModel itemAtIndexPath:switchPath]);
 
   BOOL newSwitchValue = sender.isOn;
@@ -1591,7 +1591,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
                               sectionIdentifier:SettingsSectionIdentifierDebug];
 
   TableViewSwitchItem* switchItem =
-      base::mac::ObjCCastStrict<TableViewSwitchItem>(
+      base::apple::ObjCCastStrict<TableViewSwitchItem>(
           [self.tableViewModel itemAtIndexPath:switchPath]);
 
   BOOL newSwitchValue = sender.isOn;
@@ -1643,7 +1643,9 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 }
 
 - (void)showGoogleSync {
-  DCHECK(!_manageSyncSettingsCoordinator);
+  // TODO(crbug.com/1464966): Switch back to DCHECK if the number of reports is
+  // low.
+  DUMP_WILL_BE_CHECK(!_manageSyncSettingsCoordinator);
   // TODO(crbug.com/1462552): Remove usage of HasSyncConsent() after kSync
   // users migrated to kSignin in phase 3. See ConsentLevel::kSync
   // documentation for details.
@@ -1660,7 +1662,9 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 }
 
 - (void)showPasswords {
-  DCHECK(!_passwordsCoordinator);
+  // TODO(crbug.com/1464966): Switch back to DCHECK if the number of reports is
+  // low.
+  DUMP_WILL_BE_CHECK(!_passwordsCoordinator);
   _passwordsCoordinator = [[PasswordsCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
                                browser:_browser];
@@ -1669,9 +1673,11 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 }
 
 // Shows Safety Check Screen.
-// TODO(crbug.com/1464966): Make sure there aren't mutiple active
-// `_safetyCheckCoordinator`s at once.
 - (void)showSafetyCheck {
+  // TODO(crbug.com/1464966): Switch back to DCHECK if the number of reports is
+  // low.
+  DUMP_WILL_BE_CHECK(!_safetyCheckCoordinator);
+
   _safetyCheckCoordinator = [[SafetyCheckCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
                                browser:_browser];
@@ -1733,7 +1739,9 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 
 // Shows Privacy screen.
 - (void)showPrivacy {
-  DCHECK(!_privacyCoordinator);
+  // TODO(crbug.com/1464966): Switch back to DCHECK if the number of reports is
+  // low.
+  DUMP_WILL_BE_CHECK(!_privacyCoordinator);
   _privacyCoordinator = [[PrivacyCoordinator alloc]
       initWithBaseNavigationController:self.navigationController
                                browser:_browser];
@@ -1795,7 +1803,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
       indexPathForItemType:SettingsItemTypeAccount
          sectionIdentifier:SettingsSectionIdentifierAccount];
   TableViewAccountItem* identityAccountItem =
-      base::mac::ObjCCast<TableViewAccountItem>(
+      base::apple::ObjCCast<TableViewAccountItem>(
           [self.tableViewModel itemAtIndexPath:accountCellIndexPath]);
   if (identityAccountItem) {
     [self updateIdentityAccountItem:identityAccountItem];
@@ -2000,34 +2008,30 @@ UIImage* GetBrandedGoogleServicesSymbol() {
   [self.applicationCommandsHandler showSignin:command baseViewController:self];
 }
 
-#pragma mark Sign in
+#pragma mark - Sign in
 
 - (void)showSignInWithIdentity:(id<SystemIdentity>)identity
                    promoAction:(signin_metrics::PromoAction)promoAction
                     completion:(ShowSigninCommandCompletionCallback)completion {
-  DCHECK(!self.isSigninInProgress);
+  // TODO(crbug.com/1464966): Switch back to DCHECK if the number of reports is
+  // low.
+  DUMP_WILL_BE_CHECK(!self.isSigninInProgress);
   self.isSigninInProgress = YES;
   __weak __typeof(self) weakSelf = self;
-  AuthenticationOperation operation = AuthenticationOperation::kSigninAndSync;
-  if (base::FeatureList::IsEnabled(
-          syncer::kReplaceSyncPromosWithSignInPromos)) {
-    // If there are 0 identities, kInstantSignin requires less taps.
-    operation =
-        ChromeAccountManagerServiceFactory::GetForBrowserState(_browserState)
-                ->HasIdentities()
-            ? AuthenticationOperation::kSigninOnly
-            : AuthenticationOperation::kInstantSignin;
-  }
-
+  AuthenticationOperation operation =
+      base::FeatureList::IsEnabled(syncer::kReplaceSyncPromosWithSignInPromos)
+          ? AuthenticationOperation::kSheetSigninAndHistorySync
+          : AuthenticationOperation::kSigninAndSync;
   ShowSigninCommand* command = [[ShowSigninCommand alloc]
       initWithOperation:operation
                identity:identity
             accessPoint:signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS
             promoAction:promoAction
-               callback:^(SigninCoordinatorResult result) {
+               callback:^(SigninCoordinatorResult result,
+                          SigninCompletionInfo* completionInfo) {
                  BOOL success = result == SigninCoordinatorResultSuccess;
                  if (completion)
-                   completion(result);
+                   completion(result, completionInfo);
                  [weakSelf didFinishSignin:success];
                }];
   [self.applicationCommandsHandler showSignin:command baseViewController:self];
@@ -2329,7 +2333,7 @@ UIImage* GetBrandedGoogleServicesSymbol() {
          sectionIdentifier:SettingsSectionIdentifierSignIn];
   DCHECK(signinPromoCellIndexPath.item != NSNotFound);
   TableViewSigninPromoItem* signinPromoItem =
-      base::mac::ObjCCast<TableViewSigninPromoItem>(
+      base::apple::ObjCCast<TableViewSigninPromoItem>(
           [self.tableViewModel itemAtIndexPath:signinPromoCellIndexPath]);
   if (signinPromoItem) {
     signinPromoItem.configurator = configurator;
@@ -2444,14 +2448,6 @@ UIImage* GetBrandedGoogleServicesSymbol() {
 
 - (NSString*)manageSyncSettingsCoordinatorTitle {
   return l10n_util::GetNSString(IDS_IOS_GOOGLE_SYNC_SETTINGS_TITLE);
-}
-
-- (void)showSignOutToast {
-  MDCSnackbarMessage* message = [MDCSnackbarMessage
-      messageWithText:
-          l10n_util::GetNSString(
-              IDS_IOS_GOOGLE_ACCOUNT_SETTINGS_SIGN_OUT_SNACKBAR_MESSAGE)];
-  [self.snackbarCommandsHandler showSnackbarMessage:message bottomOffset:0];
 }
 
 #pragma mark - NotificationsSettingsObserverDelegate

@@ -102,7 +102,7 @@
 #include "services/network/http_auth_cache_copier.h"
 #include "services/network/http_server_properties_pref_delegate.h"
 #include "services/network/ignore_errors_cert_verifier.h"
-#include "services/network/ip_protection_auth_token_cache_impl.h"
+#include "services/network/ip_protection_config_cache_impl.h"
 #include "services/network/is_browser_initiated.h"
 #include "services/network/net_log_exporter.h"
 #include "services/network/network_service.h"
@@ -446,6 +446,23 @@ bool GetFullDataFilePath(
 
 constexpr uint32_t NetworkContext::kMaxOutstandingRequestsPerProcess;
 
+NetworkContext::NetworkContextHttpAuthPreferences::
+    NetworkContextHttpAuthPreferences(NetworkService* network_service)
+    : network_service_(network_service) {}
+
+NetworkContext::NetworkContextHttpAuthPreferences::
+    ~NetworkContextHttpAuthPreferences() = default;
+
+#if BUILDFLAG(IS_LINUX)
+bool NetworkContext::NetworkContextHttpAuthPreferences::AllowGssapiLibraryLoad()
+    const {
+  if (network_service_) {
+    network_service_->OnBeforeGssapiLibraryLoad();
+  }
+  return net::HttpAuthPreferences::AllowGssapiLibraryLoad();
+}
+#endif  // BUILDFLAG(IS_LINUX)
+
 NetworkContext::PendingCertVerify::PendingCertVerify() = default;
 NetworkContext::PendingCertVerify::~PendingCertVerify() = default;
 
@@ -483,6 +500,7 @@ NetworkContext::NetworkContext(
           std::move(params_->first_party_sets_access_delegate_params),
           network_service_->first_party_sets_manager()),
       cors_preflight_controller_(network_service),
+      http_auth_merged_preferences_(network_service),
       ohttp_handler_(this),
       cors_non_wildcard_request_headers_support_(base::FeatureList::IsEnabled(
           features::kCorsNonWildcardRequestHeadersSupport)) {
@@ -642,6 +660,7 @@ NetworkContext::NetworkContext(
           std::make_unique<SocketFactory>(url_request_context_->net_log(),
                                           url_request_context)),
       cors_preflight_controller_(network_service),
+      http_auth_merged_preferences_(network_service),
       ohttp_handler_(this) {
   // May be nullptr in tests.
   if (network_service_)
@@ -660,8 +679,33 @@ NetworkContext::~NetworkContext() {
   is_destructing_ = true;
 
   // May be nullptr in tests.
-  if (network_service_)
+  if (network_service_) {
+#if BUILDFLAG(IS_ANDROID)
+    if (params_ && params_->file_paths) {
+      base::FilePath path_to_invalidate;
+      if (GetFullDataFilePath(params_->file_paths,
+                              &network::mojom::NetworkContextFilePaths::
+                                  trust_token_database_name,
+                              path_to_invalidate)) {
+        network_service_->InvalidateNetworkContextPath(path_to_invalidate);
+      }
+      if (GetFullDataFilePath(params_->file_paths,
+                              &network::mojom::NetworkContextFilePaths::
+                                  reporting_and_nel_store_database_name,
+                              path_to_invalidate)) {
+        network_service_->InvalidateNetworkContextPath(path_to_invalidate);
+      }
+      if (GetFullDataFilePath(
+              params_->file_paths,
+              &network::mojom::NetworkContextFilePaths::cookie_database_name,
+              path_to_invalidate)) {
+        network_service_->InvalidateNetworkContextPath(path_to_invalidate);
+      }
+    }
+
+#endif
     network_service_->DeregisterNetworkContext(this);
+  }
 
   if (cert_net_fetcher_)
     cert_net_fetcher_->Shutdown();
@@ -760,7 +804,9 @@ void NetworkContext::CreateURLLoaderFactory(
     scoped_refptr<ResourceSchedulerClient> resource_scheduler_client) {
   url_loader_factories_.emplace(std::make_unique<cors::CorsURLLoaderFactory>(
       this, std::move(params), std::move(resource_scheduler_client),
-      std::move(receiver), &cors_origin_access_list_));
+      std::move(receiver), &cors_origin_access_list_,
+      network_service_ ? network_service_->network_service_resource_block_list()
+                       : nullptr));
 }
 
 void NetworkContext::CreateURLLoaderFactoryForCertNetFetcher(
@@ -1996,28 +2042,28 @@ void NetworkContext::VerifyCertificateForTesting(
       request, net::NetLogWithSource());
 }
 
-void NetworkContext::VerifyIpProtectionAuthTokenGetterForTesting(
-    VerifyIpProtectionAuthTokenGetterForTestingCallback callback) {
+void NetworkContext::VerifyIpProtectionConfigGetterForTesting(
+    VerifyIpProtectionConfigGetterForTestingCallback callback) {
   // This method assumes that the proxy delegate and auth token cache have been
   // initialized.
   CHECK(proxy_delegate_);
 
-  auto* auth_token_cache_impl = static_cast<IpProtectionAuthTokenCacheImpl*>(
-      proxy_delegate_->GetAuthTokenCacheForTesting());  // IN-TEST
-  CHECK(auth_token_cache_impl);
+  auto* ipp_config_cache_impl = static_cast<IpProtectionConfigCacheImpl*>(
+      proxy_delegate_->GetIpProtectionConfigCacheForTesting());  // IN-TEST
+  CHECK(ipp_config_cache_impl);
 
-  auth_token_cache_impl->FillCacheForTesting(base::BindOnce(  // IN-TEST
-      &NetworkContext::OnIpProtectionAuthTokenAvailableForTesting,
+  ipp_config_cache_impl->FillCacheForTesting(base::BindOnce(  // IN-TEST
+      &NetworkContext::OnIpProtectionConfigAvailableForTesting,
       weak_factory_.GetWeakPtr(), std::move(callback)));
 }
 
-void NetworkContext::OnIpProtectionAuthTokenAvailableForTesting(
-    VerifyIpProtectionAuthTokenGetterForTestingCallback callback) {
-  auto* auth_token_cache =
-      proxy_delegate_->GetAuthTokenCacheForTesting();  // IN-TEST
+void NetworkContext::OnIpProtectionConfigAvailableForTesting(
+    VerifyIpProtectionConfigGetterForTestingCallback callback) {
+  auto* ipp_config_cache =
+      proxy_delegate_->GetIpProtectionConfigCacheForTesting();  // IN-TEST
 
   absl::optional<network::mojom::BlindSignedAuthTokenPtr> result =
-      auth_token_cache->GetAuthToken();
+      ipp_config_cache->GetAuthToken();
   CHECK(result.has_value());
   std::move(callback).Run(std::move(result).value());
 }
@@ -2269,10 +2315,10 @@ void NetworkContext::OnHttpAuthDynamicParamsChanged(
       http_auth_dynamic_network_service_params->android_negotiate_account_type);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
   http_auth_merged_preferences_.set_allow_gssapi_library_load(
       http_auth_dynamic_network_service_params->allow_gssapi_library_load);
-#endif  // BUILDFLAG(IS_CHROMEOS)
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
   if (http_auth_dynamic_network_service_params->allowed_schemes.has_value()) {
     http_auth_merged_preferences_.set_allowed_schemes(std::set<std::string>(
         http_auth_dynamic_network_service_params->allowed_schemes->begin(),
@@ -2687,6 +2733,10 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
   builder.set_check_cleartext_permitted(params_->check_clear_text_permitted);
 #endif  // BUILDFLAG(IS_ANDROID)
 
+  if (params_->cookie_deprecation_label.has_value()) {
+    builder.set_cookie_deprecation_label(*params_->cookie_deprecation_label);
+  }
+
   if (on_url_request_context_builder_configured) {
     std::move(on_url_request_context_builder_configured).Run(&builder);
   }
@@ -2772,10 +2822,10 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
     proxy_delegate_->SetProxyResolutionService(
         result.url_request_context->proxy_resolution_service());
 
-    if (params_->ip_protection_auth_token_getter) {
-      proxy_delegate_->SetIpProtectionAuthTokenCache(
-          std::make_unique<IpProtectionAuthTokenCacheImpl>(
-              std::move(params_->ip_protection_auth_token_getter)));
+    if (params_->ip_protection_config_getter) {
+      proxy_delegate_->SetIpProtectionConfigCache(
+          std::make_unique<IpProtectionConfigCacheImpl>(
+              std::move(params_->ip_protection_config_getter)));
     }
   }
 
@@ -3073,6 +3123,18 @@ void NetworkContext::ResourceSchedulerClientVisibilityChanged(
     const base::UnguessableToken& client_token,
     bool visible) {
   resource_scheduler_->OnClientVisibilityChanged(client_token, visible);
+}
+
+void NetworkContext::FlushCachedClientCertIfNeeded(
+    const net::HostPortPair& host,
+    const scoped_refptr<net::X509Certificate>& certificate) {
+  net::HttpNetworkSession* http_session =
+      url_request_context_->http_transaction_factory()->GetSession();
+  DCHECK(http_session);
+  if (http_session->ssl_client_context()) {
+    http_session->ssl_client_context()->ClearClientCertificateIfNeeded(
+        host, certificate);
+  }
 }
 
 }  // namespace network

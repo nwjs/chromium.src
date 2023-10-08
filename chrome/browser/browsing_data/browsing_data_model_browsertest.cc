@@ -29,9 +29,12 @@
 #include "components/browsing_data/content/browsing_data_model.h"
 #include "components/browsing_data/content/browsing_data_model_test_util.h"
 #include "components/browsing_data/content/browsing_data_test_util.h"
+#include "components/browsing_data/content/shared_worker_info.h"
 #include "components/browsing_data/core/features.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/scoped_privacy_sandbox_attestations.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
 #include "components/services/storage/public/mojom/local_storage_control.mojom.h"
 #include "components/services/storage/public/mojom/storage_usage_info.mojom.h"
@@ -104,8 +107,8 @@ void JoinInterestGroup(const content::ToRenderFrameHost& adapter,
             {
               name: 'cars',
               owner: $1,
-              biddingLogicUrl: $2,
-              trustedBiddingSignalsUrl: $3,
+              biddingLogicURL: $2,
+              trustedBiddingSignalsURL: $3,
               trustedBiddingSignalsKeys: ['key1'],
               userBiddingSignals: {some: 'json', data: {here: [1, 2, 3]}},
               ads: [{
@@ -137,7 +140,7 @@ void RunAdAuction(const content::ToRenderFrameHost& adapter,
         try {
           await navigator.runAdAuction({
             seller: $1,
-            decisionLogicUrl: $2,
+            decisionLogicURL: $2,
             interestGroupBuyers: [$3],
           });
         } catch (e) {
@@ -212,6 +215,13 @@ void WaitForModelUpdate(BrowsingDataModel* model, size_t expected_size) {
   }
 }
 
+void RemoveBrowsingDataForDataOwner(BrowsingDataModel* model,
+                                    BrowsingDataModel::DataOwner data_owner) {
+  base::RunLoop run_loop;
+  model->RemoveBrowsingData(data_owner, run_loop.QuitClosure());
+  run_loop.Run();
+}
+
 // Calls the accessStorage javascript function and awaits its completion for
 // each frame in the active web contents for |browser|.
 void EnsurePageAccessedStorage(content::WebContents* web_contents) {
@@ -280,6 +290,13 @@ class BrowsingDataModelBrowserTest
   void SetUpOnMainThread() override {
     PrivacySandboxSettingsFactory::GetForProfile(browser()->profile())
         ->SetAllPrivacySandboxAllowedForTesting();
+    scoped_attestations_ =
+        std::make_unique<privacy_sandbox::ScopedPrivacySandboxAttestations>(
+            privacy_sandbox::PrivacySandboxAttestations::CreateForTesting());
+    // Mark all Privacy Sandbox APIs as attested since the test cases are
+    // testing behaviors not related to attestations.
+    privacy_sandbox::PrivacySandboxAttestations::GetInstance()
+        ->SetAllPrivacySandboxAttestedForTesting(true);
     host_resolver()->AddRule("*", "127.0.0.1");
     https_server_ = std::make_unique<net::EmbeddedTestServer>(
         net::test_server::EmbeddedTestServer::TYPE_HTTPS);
@@ -344,6 +361,8 @@ class BrowsingDataModelBrowserTest
  private:
   base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<net::EmbeddedTestServer> https_server_;
+  std::unique_ptr<privacy_sandbox::ScopedPrivacySandboxAttestations>
+      scoped_attestations_;
 };
 
 IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
@@ -380,12 +399,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
          /*cookie_count=*/0}}});
 
   // Remove origin.
-  {
-    base::RunLoop run_loop;
-    browsing_data_model.get()->RemoveBrowsingData(kTestHost,
-                                                  run_loop.QuitClosure());
-    run_loop.Run();
-  }
+  RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
 
   // Rebuild Browsing Data Model and verify entries are empty.
   browsing_data_model = BuildBrowsingDataModel();
@@ -472,13 +486,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest, TrustTokenIssuance) {
         {{BrowsingDataModel::StorageType::kTrustTokens}, 100, 0}}});
 
   // Remove data for the host, and confirm the model updates appropriately.
-  {
-    base::RunLoop run_loop;
-    browsing_data_model->RemoveBrowsingData(kTestHost,
-                                            run_loop.QuitWhenIdleClosure());
-    run_loop.Run();
-  }
-
+  RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
   ValidateBrowsingDataEntries(browsing_data_model.get(), {});
 
   // Build another model from disk, ensuring the data is no longer present.
@@ -516,13 +524,9 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
         {{BrowsingDataModel::StorageType::kInterestGroup},
          /*storage_size=*/1024,
          /*cookie_count=*/0}}});
+
   // Remove Interest Group.
-  {
-    base::RunLoop run_loop;
-    browsing_data_model.get()->RemoveBrowsingData(kTestHost,
-                                                  run_loop.QuitClosure());
-    run_loop.Run();
-  }
+  RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
 
   // Rebuild Browsing Data Model and verify entries are empty.
   browsing_data_model = BuildBrowsingDataModel();
@@ -673,11 +677,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
          /*cookie_count=*/0}}});
 
   // Remove datakey from aggregation service and private budgeter.
-  {
-    base::RunLoop run_loop;
-    browsing_data_model->RemoveBrowsingData(kTestHost, run_loop.QuitClosure());
-    run_loop.Run();
-  }
+  RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
 
   // Rebuild Browsing Data Model and verify entries are empty.
   browsing_data_model = BuildBrowsingDataModel();
@@ -717,12 +717,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
   ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
 
   // Clear Topic via BDM
-  {
-    base::RunLoop run_loop;
-    allowed_browsing_data_model->RemoveBrowsingData(kTestHost,
-                                                    run_loop.QuitClosure());
-    run_loop.Run();
-  }
+  RemoveBrowsingDataForDataOwner(allowed_browsing_data_model, kTestHost);
 
   // Validate that the allowed browsing data model is cleared.
   ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
@@ -822,12 +817,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
       ASSERT_EQ(browsing_data_model->size(), 1u);
 
       // Remove quota entry.
-      {
-        base::RunLoop run_loop;
-        browsing_data_model.get()->RemoveBrowsingData(kTestHost,
-                                                      run_loop.QuitClosure());
-        run_loop.Run();
-      }
+      RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
 
       // Rebuild Browsing Data Model and verify entries are empty.
       browsing_data_model = BuildBrowsingDataModel();
@@ -891,12 +881,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
   ASSERT_EQ(browsing_data_model->size(), 1u);
 
   // Remove local storage entry.
-  {
-    base::RunLoop run_loop;
-    browsing_data_model.get()->RemoveBrowsingData(kTestHost,
-                                                  run_loop.QuitClosure());
-    run_loop.Run();
-  }
+  RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
 
   // Rebuild Browsing Data Model and verify entries are empty.
   browsing_data_model = BuildBrowsingDataModel();
@@ -937,14 +922,8 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
     ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
 
     // Delete Local Storage
-    {
-      base::RunLoop run_loop;
-      allowed_browsing_data_model->RemoveBrowsingData(kTestHost,
-                                                      run_loop.QuitClosure());
-      run_loop.Run();
-    }
+    RemoveBrowsingDataForDataOwner(allowed_browsing_data_model, kTestHost);
   }
-
   // Validate that the allowed browsing data model is empty.
   ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
   ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
@@ -965,43 +944,53 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
       content_settings->allowed_browsing_data_model();
   ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
   ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
+  if (!GetParam()) {
+    return;
+  }
 
   SetDataForType("SessionStorage", web_contents());
-  if (GetParam()) {
-    WaitForModelUpdate(allowed_browsing_data_model, /*expected_size=*/1);
+  WaitForModelUpdate(allowed_browsing_data_model, /*expected_size=*/1);
 
-    // Validate Session Storage is reported.
-    url::Origin testOrigin = https_test_server()->GetOrigin(kTestHost);
-    auto data_key = blink::StorageKey::CreateFirstParty(testOrigin);
-    ValidateBrowsingDataEntries(
-        allowed_browsing_data_model,
-        {{kTestHost,
-          data_key,
-          {{BrowsingDataModel::StorageType::kSessionStorage},
-           /*storage_size=*/0,
-           /*cookie_count=*/0}}});
-    ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
+  // Validate Session Storage is reported.
+  url::Origin testOrigin = https_test_server()->GetOrigin(kTestHost);
+  auto storage_key = blink::StorageKey::CreateFirstParty(testOrigin);
 
-    // Delete Session Storage
-    {
-      base::RunLoop run_loop;
-      allowed_browsing_data_model->RemoveBrowsingData(kTestHost,
-                                                      run_loop.QuitClosure());
-      run_loop.Run();
-    }
-  }
+  // Obtaining Session Storage namespace_id from the navigation controller.
+  const auto& session_storage_namespace_map =
+      web_contents()->GetController().GetSessionStorageNamespaceMap();
+  const auto& storage_partition_config =
+      content::StoragePartitionConfig::CreateDefault(
+          web_contents()->GetBrowserContext());
+  const auto& namespace_id =
+      session_storage_namespace_map.at(storage_partition_config);
+
+  content::SessionStorageUsageInfo data_key{storage_key, namespace_id->id()};
+
+  ValidateBrowsingDataEntries(
+      allowed_browsing_data_model,
+      {{kTestHost,
+        data_key,
+        {{BrowsingDataModel::StorageType::kSessionStorage},
+         /*storage_size=*/0,
+         /*cookie_count=*/0}}});
+  ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
+
+  // Delete Session Storage
+  RemoveBrowsingDataForDataOwner(allowed_browsing_data_model, kTestHost);
 
   // Validate that the allowed browsing data model is empty.
   ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
   ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
+  ASSERT_FALSE(HasDataForType("SessionStorage", web_contents()));
 }
 
 IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
                        QuotaStorageAccessReportedCorrectly) {
-  // TODO(crbug.com/1442473): Investigate and include remaining quota storage
-  // data types ["ServiceWorker"].
-  std::vector<std::string> quota_storage_data_types = {"IndexedDb",
-                                                       "FileSystem", "WebSql"};
+  // Keeping the `ServiceWorker` type last as checking it after deletion counts
+  // as a new access report and repopulates the model, this way we keep it from
+  // affecting other quota storage types test.
+  std::vector<std::string> quota_storage_data_types = {
+      "IndexedDb", "FileSystem", "WebSql", "ServiceWorker"};
 
 #if BUILDFLAG(ENABLE_LIBRARY_CDMS)
   quota_storage_data_types.push_back("MediaLicense");
@@ -1024,35 +1013,76 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
     ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
     ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
 
-    SetDataForType(data_type, web_contents());
-    if (GetParam()) {
-      WaitForModelUpdate(allowed_browsing_data_model, /*expected_size=*/1);
-
-      // Validate quota data is reported.
-      url::Origin testOrigin = https_test_server()->GetOrigin(kTestHost);
-      auto data_key = blink::StorageKey::CreateFirstParty(testOrigin);
-      ValidateBrowsingDataEntries(
-          allowed_browsing_data_model,
-          {{kTestHost,
-            data_key,
-            {{BrowsingDataModel::StorageType::kQuotaStorage},
-             /*storage_size=*/0,
-             /*cookie_count=*/0}}});
-      ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
-
-      // Delete quota data
-      {
-        base::RunLoop run_loop;
-        allowed_browsing_data_model->RemoveBrowsingData(kTestHost,
-                                                        run_loop.QuitClosure());
-        run_loop.Run();
-      }
+    if (!GetParam()) {
+      return;
     }
 
-    // Validate that the allowed browsing data model is empty.
+    SetDataForType(data_type, web_contents());
+    WaitForModelUpdate(allowed_browsing_data_model, /*expected_size=*/1);
+
+    // Validate quota storage is reported.
+    url::Origin testOrigin = https_test_server()->GetOrigin(kTestHost);
+    auto data_key = blink::StorageKey::CreateFirstParty(testOrigin);
+    ValidateBrowsingDataEntries(
+        allowed_browsing_data_model,
+        {{kTestHost,
+          data_key,
+          {{BrowsingDataModel::StorageType::kQuotaStorage},
+           /*storage_size=*/0,
+           /*cookie_count=*/0}}});
+    ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
+
+    // Delete quota storage
+    RemoveBrowsingDataForDataOwner(allowed_browsing_data_model, kTestHost);
+    //  Validate that the allowed browsing data model is empty.
     ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
     ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
+    ASSERT_FALSE(HasDataForType(data_type, web_contents()));
   }
+}
+
+IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
+                       SharedWorkerAccessReportedCorrectly) {
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      browser(),
+      https_test_server()->GetURL(kTestHost, "/browsing_data/site_data.html")));
+
+  auto* content_settings =
+      content_settings::PageSpecificContentSettings::GetForFrame(
+          web_contents()->GetPrimaryMainFrame());
+
+  // Validate that the allowed browsing data model is empty.
+  auto* allowed_browsing_data_model =
+      content_settings->allowed_browsing_data_model();
+  ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
+  ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
+
+  SetDataForType("SharedWorker", web_contents());
+  if (GetParam()) {
+    WaitForModelUpdate(allowed_browsing_data_model, /*expected_size=*/1);
+
+    // Validate Shared Worker is reported.
+    url::Origin testOrigin = https_test_server()->GetOrigin(kTestHost);
+    GURL::Replacements replacements;
+    replacements.SetPathStr("browsing_data/shared_worker.js");
+    GURL worker = testOrigin.GetURL().ReplaceComponents(replacements);
+    browsing_data::SharedWorkerInfo data_key(
+        worker, /*name=*/"", blink::StorageKey::CreateFirstParty(testOrigin));
+    ValidateBrowsingDataEntries(
+        allowed_browsing_data_model,
+        {{kTestHost,
+          data_key,
+          {{BrowsingDataModel::StorageType::kSharedWorker},
+           /*storage_size=*/0,
+           /*cookie_count=*/0}}});
+    ASSERT_EQ(allowed_browsing_data_model->size(), 1u);
+
+    // Delete Shared Worker
+    RemoveBrowsingDataForDataOwner(allowed_browsing_data_model, kTestHost);
+  }
+  // Validate that the allowed browsing data model is empty.
+  ValidateBrowsingDataEntries(allowed_browsing_data_model, {});
+  ASSERT_EQ(allowed_browsing_data_model->size(), 0u);
 }
 
 IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
@@ -1207,12 +1237,7 @@ IN_PROC_BROWSER_TEST_P(BrowsingDataModelBrowserTest,
   ASSERT_EQ(browsing_data_model->size(), 1u);
 
   // Remove shared dictionary entry.
-  {
-    base::RunLoop run_loop;
-    browsing_data_model.get()->RemoveBrowsingData(kTestHost,
-                                                  run_loop.QuitClosure());
-    run_loop.Run();
-  }
+  RemoveBrowsingDataForDataOwner(browsing_data_model.get(), kTestHost);
 
   // Shared dictionary must have been removed.
   EXPECT_FALSE(HasDataForType("SharedDictionary", web_contents()));
@@ -1419,4 +1444,5 @@ IN_PROC_BROWSER_TEST_P(
          /*cookie_count=*/0}}});
 }
 
+// Boolean parameter used to enable/disable the feature `kMigrateStorageToBDM`.
 INSTANTIATE_TEST_SUITE_P(All, BrowsingDataModelBrowserTest, ::testing::Bool());

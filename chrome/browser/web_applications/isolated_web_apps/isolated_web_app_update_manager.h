@@ -18,6 +18,7 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_apply_task.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_apply_waiter.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_update_discovery_task.h"
 #include "chrome/browser/web_applications/web_app_id.h"
@@ -60,6 +61,10 @@ class IsolatedWebAppUpdateManager : public WebAppInstallManagerObserver {
 
   void Start();
 
+  // Called using `BEST_EFFORT` priority from `Start`. This is done so that we
+  // don't overload the browser with update tasks during its startup process.
+  void DelayedStart();
+
   void Shutdown();
 
   base::Value AsDebugValue() const;
@@ -76,31 +81,91 @@ class IsolatedWebAppUpdateManager : public WebAppInstallManagerObserver {
     return update_discovery_timer_;
   }
 
+  void DiscoverUpdatesNowForTesting();
+
  private:
-  bool IsAnyIWAInstalled();
+  // This queue manages update discovery and apply tasks. Tasks can be added to
+  // the queue via its `Push` methods. The queue will never start a new task on
+  // its own. Tasks can be started via `MaybeStartNextTask`; only one task is
+  // scheduled to run at the same time, with update apply tasks having
+  // precedence over update discovery tasks. This is mainly to conserve
+  // resources (because each update task requires a `WebContents`).
+  class TaskQueue {
+   public:
+    explicit TaskQueue(IsolatedWebAppUpdateManager& update_manager);
+
+    TaskQueue(const TaskQueue&) = delete;
+    TaskQueue& operator=(const TaskQueue&) = delete;
+
+    ~TaskQueue();
+
+    base::Value AsDebugValue() const;
+    void ClearUpdateDiscoveryLog();
+
+    void Push(std::unique_ptr<IsolatedWebAppUpdateDiscoveryTask> task);
+    void Push(std::unique_ptr<IsolatedWebAppUpdateApplyTask> task);
+    void Clear();
+
+    // Starts the next task if no task is currently running. Will prioritize
+    // update apply over update discovery tasks.
+    void MaybeStartNextTask();
+
+   private:
+    void StartUpdateDiscoveryTask(IsolatedWebAppUpdateDiscoveryTask* task_ptr);
+
+    void StartUpdateApplyTask(IsolatedWebAppUpdateApplyTask* task_ptr);
+
+    bool IsAnyTaskRunning() const;
+
+    void OnUpdateDiscoveryTaskCompleted(
+        IsolatedWebAppUpdateDiscoveryTask* task_ptr,
+        IsolatedWebAppUpdateDiscoveryTask::CompletionStatus status);
+
+    void OnUpdateApplyTaskCompleted(
+        IsolatedWebAppUpdateApplyTask* task_ptr,
+        IsolatedWebAppUpdateApplyTask::CompletionStatus status);
+
+    base::raw_ref<IsolatedWebAppUpdateManager> update_manager_;
+
+    // Update discovery tasks are executed serially one after each other. Only
+    // the task at the front of the queue can be running. Once finished, the
+    // task will be popped from the queue.
+    base::circular_deque<std::unique_ptr<IsolatedWebAppUpdateDiscoveryTask>>
+        update_discovery_tasks_;
+    base::Value::List update_discovery_results_log_;
+
+    // Update apply tasks are executed serially one after each other. Only the
+    // task at the front of the queue can be running. Once finished, the task
+    // will be popped from the queue.
+    base::circular_deque<std::unique_ptr<IsolatedWebAppUpdateApplyTask>>
+        update_apply_tasks_;
+    base::Value::List update_apply_results_log_;
+  };
+
+  bool IsAnyIwaInstalled();
 
   void QueueUpdateDiscoveryTasks();
 
   base::flat_map<web_package::SignedWebBundleId, GURL>
   GetForceInstalledBundleIdToUpdateManifestUrlMap();
 
-  void QueueUpdateDiscoveryTask(const IsolatedWebAppUrlInfo& url_info,
-                                const GURL& update_manifest_url);
+  void MaybeStartUpdateDiscoveryTimer();
+  void MaybeStopUpdateDiscoveryTimer();
 
   void CreateUpdateApplyWaiter(const IsolatedWebAppUrlInfo& url_info);
 
-  // Starts the next update discovery task if (a) no update discovery task is
-  // currently running and (b) there is at least one update discovery task in
-  // the queue.
-  void MaybeStartNextUpdateDiscoveryTask();
-
   void OnUpdateDiscoveryTaskCompleted(
+      std::unique_ptr<IsolatedWebAppUpdateDiscoveryTask> task,
       IsolatedWebAppUpdateDiscoveryTask::CompletionStatus status);
 
   void OnUpdateApplyWaiterFinished(
       IsolatedWebAppUrlInfo url_info,
       std::unique_ptr<ScopedKeepAlive> keep_alive,
       std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive);
+
+  void OnUpdateApplyTaskCompleted(
+      std::unique_ptr<IsolatedWebAppUpdateApplyTask> task,
+      IsolatedWebAppUpdateApplyTask::CompletionStatus status);
 
   raw_ref<Profile> profile_;
   bool automatic_updates_enabled_;
@@ -111,12 +176,8 @@ class IsolatedWebAppUpdateManager : public WebAppInstallManagerObserver {
 
   base::TimeDelta update_discovery_frequency_;
   base::RepeatingTimer update_discovery_timer_;
-  // Update discovery tasks are executed serially one after each other. Only the
-  // task at the front of the queue can be running. Once finished, the task will
-  // be popped from the queue.
-  base::circular_deque<std::unique_ptr<IsolatedWebAppUpdateDiscoveryTask>>
-      update_discovery_tasks_;
-  base::Value::List update_discovery_results_log_;
+
+  TaskQueue task_queue_;
 
   base::flat_map<AppId, std::unique_ptr<IsolatedWebAppUpdateApplyWaiter>>
       update_apply_waiters_;

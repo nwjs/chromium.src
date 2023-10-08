@@ -16,6 +16,7 @@
 #include "base/json/values_util.h"
 #include "base/metrics/histogram_base.h"
 #include "base/run_loop.h"
+#include "base/strings/strcat.h"
 #include "base/test/bind.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -153,6 +154,11 @@ class MockObserver : public AppPlatformMetricsService::Observer {
   MOCK_METHOD(void,
               OnAppPlatformMetricsInit,
               (AppPlatformMetrics * app_platform_metrics),
+              (override));
+
+  MOCK_METHOD(void,
+              OnWebsiteMetricsInit,
+              (WebsiteMetrics * website_metrics),
               (override));
 
   MOCK_METHOD(void, OnAppPlatformMetricsServiceWillBeDestroyed, (), (override));
@@ -3019,20 +3025,22 @@ TEST_P(AppDiscoveryMetricsTest, AppInstallStateMetricsRecorded) {
 
   auto app_type = AppType::kArc;
   const std::string app_id = "aa";
+  const std::string publisher_id = "test.publisher.package";
+  const std::string expected_app_id = base::StrCat({"app://", publisher_id});
   auto install_source = InstallSource::kPlayStore;
 
   // Wait for events to be recorded.
   base::RunLoop install_event_run_loop;
   auto install_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppInstallEvent(event, app_id, app_type, install_source,
-                                InstallReason::kUser);
+        ValidateAppInstallEvent(event, expected_app_id, app_type,
+                                install_source, InstallReason::kUser);
         install_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
       install_record_callback);
 
-  InstallOneApp(app_id, app_type, "publisher", Readiness::kReady,
+  InstallOneApp(app_id, app_type, publisher_id, Readiness::kReady,
                 install_source);
   install_event_run_loop.Run();
 
@@ -3041,7 +3049,8 @@ TEST_P(AppDiscoveryMetricsTest, AppInstallStateMetricsRecorded) {
   const auto kUninstallSource = UninstallSource::kAppList;
   auto uninstall_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppUninstallEvent(event, app_id, app_type, kUninstallSource);
+        ValidateAppUninstallEvent(event, expected_app_id, app_type,
+                                  kUninstallSource);
         uninstall_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3057,6 +3066,8 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecorded) {
   auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile());
   apps::AppRegistryCache& cache = proxy->AppRegistryCache();
   proxy->SetAppPlatformMetricsServiceForTesting(GetAppPlatformMetricsService());
+  const std::string expected_app_id =
+      base::StrCat({"app://", kAndroidAppPublisherId});
 
   // Install an ARC app to test.
   AddApp(cache, kAndroidAppId, AppType::kArc, kAndroidAppPublisherId,
@@ -3075,7 +3086,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecorded) {
   base::RunLoop launch_event_run_loop;
   auto launch_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppLaunchEvent(event, kAndroidAppId, AppType::kArc,
+        ValidateAppLaunchEvent(event, expected_app_id, AppType::kArc,
                                LaunchSource::kFromChromeInternal);
         launch_event_run_loop.Quit();
       });
@@ -3101,7 +3112,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecorded) {
   base::RunLoop active_event_run_loop;
   auto active_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kActive);
+        ValidateAppStateEvent(event, expected_app_id, AppStateChange::kActive);
         active_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3117,7 +3128,8 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecorded) {
   base::RunLoop hidden_event_run_loop;
   auto hidden_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kInactive);
+        ValidateAppStateEvent(event, expected_app_id,
+                              AppStateChange::kInactive);
         hidden_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3133,7 +3145,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecorded) {
   base::RunLoop active_event_run_loop2;
   auto active_record_callback2 = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kActive);
+        ValidateAppStateEvent(event, expected_app_id, AppStateChange::kActive);
         active_event_run_loop2.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3149,7 +3161,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecorded) {
   base::RunLoop closed_event_run_loop;
   auto closed_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kClosed);
+        ValidateAppStateEvent(event, expected_app_id, AppStateChange::kClosed);
         closed_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3165,6 +3177,8 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecordedForTwoInstances) {
   auto* proxy = apps::AppServiceProxyFactory::GetForProfile(profile());
   apps::AppRegistryCache& cache = proxy->AppRegistryCache();
   proxy->SetAppPlatformMetricsServiceForTesting(GetAppPlatformMetricsService());
+  const std::string expected_app_id =
+      base::StrCat({"app://", kAndroidAppPublisherId});
 
   // Install an ARC app to test.
   AddApp(cache, kAndroidAppId, AppType::kArc, kAndroidAppPublisherId,
@@ -3185,7 +3199,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecordedForTwoInstances) {
   base::RunLoop launch_event_run_loop;
   auto launch_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppLaunchEvent(event, kAndroidAppId, AppType::kArc,
+        ValidateAppLaunchEvent(event, expected_app_id, AppType::kArc,
                                LaunchSource::kFromChromeInternal);
         launch_event_run_loop.Quit();
       });
@@ -3216,7 +3230,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecordedForTwoInstances) {
   base::RunLoop active_event_run_loop;
   auto active_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kActive);
+        ValidateAppStateEvent(event, expected_app_id, AppStateChange::kActive);
         active_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3258,7 +3272,8 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecordedForTwoInstances) {
   base::RunLoop inactive_event_run_loop;
   auto inactive_record_callback = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kInactive);
+        ValidateAppStateEvent(event, expected_app_id,
+                              AppStateChange::kInactive);
         inactive_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3283,7 +3298,7 @@ TEST_P(AppDiscoveryMetricsTest, AppActivityMetricsRecordedForTwoInstances) {
   base::RunLoop closed_event_run_loop;
   auto closed_record_callback2 = base::BindLambdaForTesting(
       [&, this](const metrics::structured::Event& event) {
-        ValidateAppStateEvent(event, kAndroidAppId, AppStateChange::kClosed);
+        ValidateAppStateEvent(event, expected_app_id, AppStateChange::kClosed);
         closed_event_run_loop.Quit();
       });
   test_structured_metrics_provider()->SetOnEventsRecordClosure(
@@ -3367,6 +3382,22 @@ TEST_P(AppPlatformMetricsServiceObserverTest,
   EXPECT_CALL(*observer_ptr, OnAppPlatformMetricsServiceWillBeDestroyed)
       .Times(1);
   app_platform_metrics_service.reset();
+}
+
+TEST_P(AppPlatformMetricsServiceObserverTest,
+       NotifyObserversOnWebsiteMetricsInit) {
+  MockObserver* const observer_ptr = observer();
+  AppPlatformMetricsService app_platform_metrics_service(profile());
+  app_platform_metrics_service.AddObserver(observer_ptr);
+
+  EXPECT_CALL(*observer_ptr, OnWebsiteMetricsInit)
+      .WillOnce([&](WebsiteMetrics* website_metrics) {
+        EXPECT_THAT(website_metrics,
+                    Eq(app_platform_metrics_service.WebsiteMetrics()));
+      });
+  app_platform_metrics_service.Start(
+      AppServiceProxyFactory::GetForProfile(profile())->AppRegistryCache(),
+      AppServiceProxyFactory::GetForProfile(profile())->InstanceRegistry());
 }
 
 INSTANTIATE_TEST_SUITE_P(All,

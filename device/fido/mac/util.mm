@@ -10,10 +10,10 @@
 
 #import <Foundation/Foundation.h>
 
+#include "base/apple/foundation_util.h"
+#include "base/apple/osstatus_logging.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/functional/bind.h"
-#include "base/mac/foundation_util.h"
-#include "base/mac/mac_logging.h"
-#include "base/mac/scoped_cftyperef.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string_number_conversions.h"
 #include "build/branding_buildflags.h"
@@ -26,7 +26,7 @@
 
 namespace device::fido::mac {
 
-using base::ScopedCFTypeRef;
+using base::apple::ScopedCFTypeRef;
 using cbor::Value;
 using cbor::Writer;
 
@@ -163,12 +163,12 @@ std::unique_ptr<PublicKey> SecKeyRefToECPublicKey(SecKeyRef public_key_ref) {
 }
 
 CodeSigningState ProcessIsSigned() {
-  base::ScopedCFTypeRef<SecTaskRef> task(SecTaskCreateFromSelf(nullptr));
+  base::apple::ScopedCFTypeRef<SecTaskRef> task(SecTaskCreateFromSelf(nullptr));
   if (!task) {
     return CodeSigningState::kNotSigned;
   }
 
-  base::ScopedCFTypeRef<CFStringRef> sign_id(
+  base::apple::ScopedCFTypeRef<CFStringRef> sign_id(
       SecTaskCopySigningIdentifier(task.get(), /*error=*/nullptr));
   return static_cast<bool>(sign_id) ? CodeSigningState::kSigned
                                     : CodeSigningState::kNotSigned;

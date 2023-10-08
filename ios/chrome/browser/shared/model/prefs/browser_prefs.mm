@@ -4,6 +4,7 @@
 
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 
+#import "base/containers/contains.h"
 #import "base/time/time.h"
 #import "base/types/cxx23_to_underlying.h"
 #import "components/autofill/core/common/autofill_prefs.h"
@@ -69,6 +70,7 @@
 #import "ios/chrome/browser/memory/memory_debugger_manager.h"
 #import "ios/chrome/browser/metrics/ios_chrome_metrics_service_client.h"
 #import "ios/chrome/browser/ntp/set_up_list_prefs.h"
+#import "ios/chrome/browser/ntp_tiles/tab_resumption/tab_resumption_prefs.h"
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/prerender/prerender_pref.h"
 #import "ios/chrome/browser/push_notification/push_notification_service.h"
@@ -76,11 +78,13 @@
 #import "ios/chrome/browser/shared/model/browser_state/browser_state_info_cache.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/ui/authentication/history_sync/history_sync_utils.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin_promo_view_mediator.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmark_mediator.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmark_path_cache.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_mediator.h"
+#import "ios/chrome/browser/ui/content_suggestions/safety_check/safety_check_prefs.h"
 #import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/voice/voice_search_prefs_registration.h"
 #import "ios/chrome/browser/web/font_size/font_size_tab_helper.h"
@@ -153,6 +157,8 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   PrefProxyConfigTrackerImpl::RegisterPrefs(registry);
   sessions::SessionIdGenerator::RegisterPrefs(registry);
   set_up_list_prefs::RegisterPrefs(registry);
+  tab_resumption_prefs::RegisterPrefs(registry);
+  safety_check_prefs::RegisterPrefs(registry);
   update_client::RegisterPrefs(registry);
   variations::VariationsService::RegisterPrefs(registry);
   component_updater::RegisterComponentUpdateServicePrefs(registry);
@@ -204,6 +210,7 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
                              PrefRegistry::LOSSY_PREF);
   registry->RegisterListPref(prefs::kOverflowMenuDestinationsOrder);
   registry->RegisterListPref(prefs::kOverflowMenuHiddenDestinations);
+  registry->RegisterDictionaryPref(prefs::kOverflowMenuDestinationBadgeData);
   registry->RegisterDictionaryPref(prefs::kOverflowMenuActionsOrder);
   registry->RegisterBooleanPref(
       prefs::kOverflowMenuDestinationUsageHistoryEnabled, true);
@@ -285,6 +292,16 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterIntegerPref(
       prefs::kIosMagicStackSegmentationSafetyCheckImpressionsSinceFreshness,
       -1);
+  // Pref used to store the number of impressions of the tab resumption module
+  // in the Home Surface since a tab resumption freshness signal.
+  registry->RegisterIntegerPref(
+      prefs::kIosMagicStackSegmentationTabResumptionImpressionsSinceFreshness,
+      -1);
+  // Pref used to store the number of impressions of the parcel tracking module
+  // in the Home Surface since a parcel tracking freshness signal.
+  registry->RegisterIntegerPref(
+      prefs::kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness,
+      -1);
 
   // Preferences related to the new Safety Check Manager.
   registry->RegisterStringPref(
@@ -299,6 +316,12 @@ void RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
       prefs::kIosSafetyCheckManagerSafeBrowsingCheckResult,
       NameForSafetyCheckState(SafeBrowsingSafetyCheckState::kDefault),
       PrefRegistry::LOSSY_PREF);
+  registry->RegisterTimePref(prefs::kIosSafetyCheckManagerLastRunTime,
+                             base::Time(), PrefRegistry::LOSSY_PREF);
+  // TODO(crbug.com/1481230): Remove this Pref when Settings Safety Check is
+  // refactored to use the new Safety Check Manager.
+  registry->RegisterTimePref(prefs::kIosSettingsSafetyCheckLastRunTime,
+                             base::Time());
 }
 
 void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
@@ -479,6 +502,16 @@ void RegisterBrowserStatePrefs(user_prefs::PrefRegistrySyncable* registry) {
   // Register pref used to detect addresses in web page
   registry->RegisterBooleanPref(prefs::kDetectAddressesEnabled, true);
   registry->RegisterBooleanPref(prefs::kDetectAddressesAccepted, false);
+
+  // Preferences related to Save to Photos settings.
+  registry->RegisterStringPref(prefs::kIosSaveToPhotosDefaultGaiaId,
+                               std::string());
+
+  registry->RegisterBooleanPref(prefs::kIosParcelTrackingOptInPromptDisplayed,
+                                false);
+
+  // Register prefs used to skip too frequent History Sync Opt-In prompt.
+  history_sync::RegisterBrowserStatePrefs(registry);
 }
 
 // This method should be periodically pruned of year+ old migrations.
@@ -540,7 +573,7 @@ void MigrateObsoleteBrowserStatePrefs(PrefService* prefs) {
     std::string account_id =
         prefs->GetString(prefs::kGoogleServicesLastAccountIdDeprecated);
     prefs->ClearPref(prefs::kGoogleServicesLastAccountIdDeprecated);
-    DCHECK_EQ(account_id.find('@'), std::string::npos)
+    DCHECK(!base::Contains(account_id, '@'))
         << "kGoogleServicesLastAccountId is not expected to be an email: "
         << account_id;
     if (!account_id.empty()) {
@@ -567,4 +600,11 @@ void MigrateObsoleteBrowserStatePrefs(PrefService* prefs) {
   invalidation::InvalidatorRegistrarWithMemory::ClearDeprecatedPrefs(prefs);
   invalidation::PerUserTopicSubscriptionManager::ClearDeprecatedPrefs(prefs);
   invalidation::FCMInvalidationService::ClearDeprecatedPrefs(prefs);
+}
+
+void MigrateObsoleteUserDefault(void) {
+  // Added 08/2023.
+  [[NSUserDefaults standardUserDefaults]
+      setBool:NO
+       forKey:@"userHasInteractedWithPinnedTabsOverflow"];
 }

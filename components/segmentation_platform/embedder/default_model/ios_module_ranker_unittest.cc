@@ -30,9 +30,10 @@ TEST_F(IosModuleRankerTest, ExecuteModelWithInput) {
 
   EXPECT_FALSE(ExecuteWithInput(/*inputs=*/{}));
 
-  std::vector<float> input(25, 0);
+  std::vector<float> input(35, 0);
 
-  ExpectClassifierResults(input, {kMostVisitedTiles, kShortcuts, kSafetyCheck});
+  ExpectClassifierResults(input, {kMostVisitedTiles, kShortcuts, kSafetyCheck,
+                                  kTabResumption, kParcelTracking});
 }
 
 }  // namespace segmentation_platform

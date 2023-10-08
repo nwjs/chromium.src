@@ -82,6 +82,7 @@ import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.lifecycle.DestroyObserver;
 import org.chromium.chrome.browser.lifecycle.InflationObserver;
 import org.chromium.chrome.browser.lifecycle.NativeInitObserver;
+import org.chromium.chrome.browser.lifecycle.WindowFocusChangedObserver;
 import org.chromium.chrome.browser.merchant_viewer.MerchantTrustMetrics;
 import org.chromium.chrome.browser.merchant_viewer.MerchantTrustSignalsCoordinator;
 import org.chromium.chrome.browser.messages.ChromeMessageAutodismissDurationProvider;
@@ -125,6 +126,7 @@ import org.chromium.chrome.browser.tab.TabObscuringHandlerSupplier;
 import org.chromium.chrome.browser.tab.TabUtils.LoadIfNeededCaller;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tasks.tab_management.RecyclerViewPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 import org.chromium.chrome.browser.theme.TopUiThemeColorProvider;
 import org.chromium.chrome.browser.toolbar.ButtonDataProvider;
@@ -158,7 +160,6 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
 import org.chromium.components.browser_ui.bottomsheet.ExpandedSheetHelper;
 import org.chromium.components.browser_ui.bottomsheet.ManagedBottomSheetController;
-import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.browser_ui.widget.scrim.ScrimCoordinator;
@@ -198,7 +199,8 @@ import java.util.function.Consumer;
  */
 public class RootUiCoordinator
         implements DestroyObserver, InflationObserver, NativeInitObserver,
-                   MenuOrKeyboardActionController.MenuOrKeyboardActionHandler, AppMenuBlocker {
+                   MenuOrKeyboardActionController.MenuOrKeyboardActionHandler, AppMenuBlocker,
+                   WindowFocusChangedObserver {
     protected final UnownedUserDataSupplier<TabObscuringHandler> mTabObscuringHandlerSupplier =
             new TabObscuringHandlerSupplier();
 
@@ -210,7 +212,7 @@ public class RootUiCoordinator
     protected final ActivityWindowAndroid mWindowAndroid;
 
     protected final ActivityTabProvider mActivityTabProvider;
-    private ObservableSupplier<ShareDelegate> mShareDelegateSupplier;
+    protected ObservableSupplier<ShareDelegate> mShareDelegateSupplier;
 
     protected @Nullable FindToolbarManager mFindToolbarManager;
     private @Nullable FindToolbarObserver mFindToolbarObserver;
@@ -327,7 +329,6 @@ public class RootUiCoordinator
             new OneshotSupplierImpl<>();
     private FoldTransitionController mFoldTransitionController;
     private RestoreTabsFeatureHelper mRestoreTabsFeatureHelper;
-    private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
 
     /**
      * Create a new {@link RootUiCoordinator} for the given activity.
@@ -498,7 +499,8 @@ public class RootUiCoordinator
         mStatusBarColorController = new StatusBarColorController(mActivity.getWindow(),
                 DeviceFormFactor.isNonMultiDisplayContextOnTablet(/* Context */ mActivity),
                 mActivity, mStatusBarColorProvider, mLayoutManagerSupplier,
-                mActivityLifecycleDispatcher, mActivityTabProvider, mTopUiThemeColorProvider);
+                mActivityLifecycleDispatcher, mActivityTabProvider, mTopUiThemeColorProvider,
+                mStartSurfaceSupplier);
         mEphemeralTabCoordinatorSupplier = ephemeralTabCoordinatorSupplier;
 
         mPageZoomCoordinator = new PageZoomCoordinator(new PageZoomCoordinatorDelegate() {
@@ -825,8 +827,10 @@ public class RootUiCoordinator
         }
 
         if (ChromeFeatureList.isEnabled(ChromeFeatureList.READALOUD)) {
-            ReadAloudController controller = new ReadAloudController(
-                    mActivity, mProfileSupplier, mTabModelSelectorSupplier.get().getModel(false));
+            ViewStub miniPlayerStub = mActivity.findViewById(R.id.readaloud_mini_player_stub);
+            ReadAloudController controller = new ReadAloudController(mActivity, mProfileSupplier,
+                    mTabModelSelectorSupplier.get().getModel(false), miniPlayerStub,
+                    getBottomSheetController());
             mReadAloudControllerSupplier.set(controller);
         }
     }
@@ -1045,6 +1049,17 @@ public class RootUiCoordinator
         }
 
         return true;
+    }
+
+    // WindowFocusChangedObserver implementation
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        if (!hasFocus && mPageZoomCoordinator != null) {
+            // If the window loses focus, dismiss the slider so two windows cannot modify the same
+            // value simultaneously.
+            mPageZoomCoordinator.hide();
+        }
     }
 
     /**
@@ -1577,16 +1592,6 @@ public class RootUiCoordinator
     }
 
     /**
-     * @return {@link ComposedBrowserControlsVisibilityDelegate} object for tabbed activity.
-     */
-    public ComposedBrowserControlsVisibilityDelegate getAppBrowserControlsVisibilityDelegate() {
-        if (mAppBrowserControlsVisibilityDelegate == null) {
-            mAppBrowserControlsVisibilityDelegate = new ComposedBrowserControlsVisibilityDelegate();
-        }
-        return mAppBrowserControlsVisibilityDelegate;
-    }
-
-    /**
      * Gets the browser controls manager, creates it unless already created.
      * @deprecated Instead, inject this directly to your constructor. If that's not possible, then
      *         use {@link BrowserControlsManagerSupplier}.
@@ -1720,8 +1725,29 @@ public class RootUiCoordinator
         if (mRestoreTabsFeatureHelper == null) {
             mRestoreTabsFeatureHelper = new RestoreTabsFeatureHelper();
         }
+
+        Supplier<Integer> gtsTabListModelSizeSupplier = () -> {
+            if (mTabSwitcherSupplier.get() != null) {
+                return mTabSwitcherSupplier.get().getTabSwitcherTabListModelSize();
+            } else if (mStartSurfaceSupplier.get() != null) {
+                return mStartSurfaceSupplier.get().getTabSwitcherTabListModelSize();
+            }
+            return 0;
+        };
+
+        Callback<Integer> scrollGTSToRestoredTabsCallback = (tabListModelSize) -> {
+            if (mTabSwitcherSupplier.get() != null) {
+                mTabSwitcherSupplier.get().setTabSwitcherRecyclerViewPosition(
+                        new RecyclerViewPosition(tabListModelSize, 0));
+            } else if (mStartSurfaceSupplier.get() != null) {
+                mStartSurfaceSupplier.get().setTabSwitcherRecyclerViewPosition(
+                        new RecyclerViewPosition(tabListModelSize, 0));
+            }
+        };
+
         mRestoreTabsFeatureHelper.maybeShowPromo(mActivity, mProfileSupplier.get(),
-                mTabCreatorManagerSupplier.get(), getBottomSheetController());
+                mTabCreatorManagerSupplier.get(), getBottomSheetController(),
+                gtsTabListModelSizeSupplier, scrollGTSToRestoredTabsCallback);
     }
 
     // Testing methods

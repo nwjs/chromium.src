@@ -54,7 +54,7 @@ struct IndexedDBDatabaseMetadata;
 
 namespace content {
 class AutoDidCommitTransaction;
-class IndexedDBBucketState;
+class IndexedDBBucketContext;
 class IndexedDBActiveBlobRegistry;
 class LevelDBWriteBatch;
 class TransactionalLevelDBDatabase;
@@ -151,7 +151,7 @@ class CONTENT_EXPORT IndexedDBBackingStore {
 
     // When LevelDBScopes is in single-sequence mode then this will return the
     // result of the rollback. Otherwise leveldb::Status::OK() is returned.
-    virtual leveldb::Status Rollback();
+    virtual void Rollback();
 
     void Reset();
     leveldb::Status PutExternalObjectsIfNeeded(
@@ -657,7 +657,7 @@ class CONTENT_EXPORT IndexedDBBackingStore {
       blink::mojom::IDBTransactionDurability durability);
 
  protected:
-  friend class IndexedDBBucketState;
+  friend class IndexedDBBucketContext;
 
   leveldb::Status AnyDatabaseContainsBlobs(bool* blobs_exist);
 

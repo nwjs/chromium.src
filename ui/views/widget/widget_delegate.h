@@ -55,7 +55,8 @@ class VIEWS_EXPORT WidgetDelegate
     std::u16string accessible_title;
 
     // Whether the window should display controls for the user to minimize,
-    // maximize, or resize it.
+    // maximize, resize it, or go into fullscreen.
+    bool can_fullscreen = false;
     bool can_maximize = false;
     bool can_minimize = false;
     bool can_resize = false;
@@ -156,6 +157,9 @@ class VIEWS_EXPORT WidgetDelegate
 
   // Returns true if the window can be resized.
   virtual bool CanResize() const;
+
+  // Returns true if the window can go into fullscreen.
+  virtual bool CanFullscreen() const;
 
   // Returns true if the window can be maximized.
   virtual bool CanMaximize() const;
@@ -335,6 +339,7 @@ class VIEWS_EXPORT WidgetDelegate
   // setters, there is no need to override the corresponding virtual getters.
   void SetAccessibleWindowRole(ax::mojom::Role role);
   void SetAccessibleTitle(std::u16string title);
+  void SetCanFullscreen(bool can_fullscreen);
   void SetCanMaximize(bool can_maximize);
   void SetCanMinimize(bool can_minimize);
   void SetCanResize(bool can_resize);

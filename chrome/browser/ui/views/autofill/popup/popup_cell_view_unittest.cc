@@ -148,7 +148,7 @@ TEST_F(PopupCellViewTest, SetSelectedUpdatesTrackedLabels) {
   };
 
   // The unselected state.
-  EXPECT_FALSE(view().GetSelected());
+  EXPECT_FALSE(view().IsHighlighted());
   EXPECT_EQ(tracked_label->GetEnabledColor(),
             get_expected_color(*tracked_label, tracked_label->GetTextStyle()));
   EXPECT_EQ(
@@ -157,7 +157,7 @@ TEST_F(PopupCellViewTest, SetSelectedUpdatesTrackedLabels) {
 
   // // On select updates only the tracked label's style.
   view().SetSelected(true);
-  EXPECT_TRUE(view().GetSelected());
+  EXPECT_TRUE(view().IsHighlighted());
   EXPECT_NE(
       tracked_label->GetEnabledColor(),
       get_expected_color(*tracked_label, untracked_label->GetTextStyle()));
@@ -166,6 +166,10 @@ TEST_F(PopupCellViewTest, SetSelectedUpdatesTrackedLabels) {
   EXPECT_EQ(
       untracked_label->GetEnabledColor(),
       get_expected_color(*untracked_label, untracked_label->GetTextStyle()));
+
+  view().SetSelected(false);
+  view().SetPermanentlyHighlighted(true);
+  EXPECT_TRUE(view().IsHighlighted());
 }
 
 TEST_F(PopupCellViewTest, MouseEvents) {
@@ -176,7 +180,8 @@ TEST_F(PopupCellViewTest, MouseEvents) {
 
   StrictMock<base::MockCallback<base::RepeatingClosure>> enter_callback;
   StrictMock<base::MockCallback<base::RepeatingClosure>> exit_callback;
-  StrictMock<base::MockCallback<base::RepeatingClosure>> accept_callback;
+  StrictMock<base::MockCallback<PopupCellView::OnAcceptedCallback>>
+      accept_callback;
 
   generator().MoveMouseTo(kOutOfBounds);
   ASSERT_FALSE(view().IsMouseHovered());
@@ -212,7 +217,8 @@ TEST_F(PopupCellViewTest, GestureEvents) {
 
   StrictMock<base::MockCallback<base::RepeatingClosure>> enter_callback;
   StrictMock<base::MockCallback<base::RepeatingClosure>> exit_callback;
-  StrictMock<base::MockCallback<base::RepeatingClosure>> accept_callback;
+  StrictMock<base::MockCallback<PopupCellView::OnAcceptedCallback>>
+      accept_callback;
 
   view().SetOnEnteredCallback(enter_callback.Get());
   view().SetOnExitedCallback(exit_callback.Get());
@@ -232,7 +238,8 @@ TEST_F(PopupCellViewTest,
       cell->AddChildView(std::make_unique<views::Label>(u"Label text"));
   ShowView(std::move(cell));
 
-  StrictMock<base::MockCallback<base::RepeatingClosure>> accept_callback;
+  StrictMock<base::MockCallback<PopupCellView::OnAcceptedCallback>>
+      accept_callback;
 
   view().SetOnAcceptedCallback(accept_callback.Get());
   generator().MoveMouseTo(label->GetBoundsInScreen().CenterPoint());
@@ -256,7 +263,8 @@ TEST_F(PopupCellViewTest,
       cell->AddChildView(std::make_unique<views::Label>(u"Label text"));
   ShowView(std::move(cell));
 
-  StrictMock<base::MockCallback<base::RepeatingClosure>> accept_callback;
+  StrictMock<base::MockCallback<PopupCellView::OnAcceptedCallback>>
+      accept_callback;
 
   view().SetOnAcceptedCallback(accept_callback.Get());
   generator().MoveMouseTo(label->GetBoundsInScreen().CenterPoint());

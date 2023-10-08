@@ -109,10 +109,13 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="2775140325783767197">Chrome kan inte kontrollera dina lösenord. Testa att kontrollera internetanslutningen.</translation>
 <translation id="2799223571221894425">Starta om</translation>
 <translation id="2847461019998147611">Visa Google Chrome på det här språket</translation>
+<translation id="2853415089995957805">Sidor som du troligen kommer att besöka läses in i förväg i Chrome så att de läses in snabbare när du besöker dem</translation>
 <translation id="2857540653560290388">Chrome startas …</translation>
 <translation id="2857972467023607093">Det finns redan en Chrome-profil med detta konto</translation>
+<translation id="286025080868315611">Läs mer om varför vissa nedladdningar blockeras i Chrome</translation>
 <translation id="2861074815332034794">Chrome uppdateras (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="2871893339301912279">Du är inloggad i Chrome.</translation>
+<translation id="2876628302275096482">Läs mer om <ph name="BEGIN_LINK" />hur Chrome skyddar din data<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">Aktivitetshanteraren</translation>
 <translation id="2888126860611144412">Om Chrome</translation>
 <translation id="2915996080311180594">Starta om senare</translation>
@@ -231,6 +234,7 @@ Vissa funktioner kanske inte är tillgängliga och ändringar i inställningarna
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5003967926796347400">Klicka på Google Lösenordshantering</translation>
 <translation id="5098668839038261629">När inställningen är aktiverad loggas du också ut från Chrome</translation>
+<translation id="5126049312684316860">Chrome läser in ännu fler sidor i förväg som du troligen kommer att besöka, så att de läses in snabbare när du besöker dem</translation>
 <translation id="5132929315877954718">Upptäck fantastiska program, spel, tillägg och teman för Google Chrome.</translation>
 <translation id="5139423532931106058">Anpassa din Chrome-profil</translation>
 <translation id="5163087008893166964">Välkommen till Chrome, ett nytt webbläsarfönster har öppnats</translation>
@@ -240,6 +244,7 @@ Vissa funktioner är kanske inte tillgängliga. Ange en annan profilkatalog om d
 <translation id="521447420733633466">Om du delar en enhet med vänner och familj kan de konfigurera Chrome precis som de vill och surfa separat.</translation>
 <translation id="5239627039202700673">Använd Chrome varje gång du klickar på länkar i meddelanden, dokument och andra appar</translation>
 <translation id="5251420635869119124">Gäster kan använda Chrome utan att lämna spår.</translation>
+<translation id="5320351714793324716">Om du tillåter cookies kan Chrome använda dem när innehåll läses in i förväg</translation>
 <translation id="5334309298019785904">Det gick inte att synkronisera data med Chrome OS eftersom synkronisering inte är tillgängligt för din domän.</translation>
 <translation id="5334487786912937552">Du behöver ge Chrome åtkomst till lagringsutrymmet om det ska gå att ladda ned filer</translation>
 <translation id="5337648990166757586">Valfritt: Skicka diagnostik- och användningsdata automatiskt till Google och hjälp oss att förbättra funktioner och prestanda i Chrome OS.</translation>
@@ -255,7 +260,6 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> kan vara skadlig och har blockerats av Chrome.</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{Administratören meddelar att du bör starta om Chrome så att uppdateringen tillämpas}=1{Administratören meddelar att du bör starta om Chrome så att uppdateringen tillämpas. Inkognitofönstret öppnas inte igen.}other{Administratören meddelar att du bör starta om Chrome så att uppdateringen tillämpas. De # inkognitofönstren öppnas inte igen.}}</translation>
-<translation id="5682679001737420487">Chrome blockerar vissa nedladdningar</translation>
 <translation id="5686916850681061684">Anpassa och styr Google Chrome. Någonting behöver ses över. Klicka här för mer information.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="570005089986962444">När det här alternativet är aktiverat frigörs minne från inaktiva flikar i Chrome. Detta förser aktiva flikar och andra appar med mer av datorns resurser, vilket gör att Chrome fortsätter att fungera snabbt. De inaktiva flikarna aktiveras automatiskt när du återvänder till dem.</translation>
@@ -288,6 +292,7 @@ Google Chrome kan inte återställa dina inställningar.</translation>
 <translation id="6235018212288296708">Regel som tillåter inkommande mDNS-trafik för Google Chrome.</translation>
 <translation id="624230925347970731">Chrome avslutas snart</translation>
 <translation id="6247557882553405851">Google Lösenordshantering</translation>
+<translation id="6251759518630934363">Varnar dig om farliga webbplatser, även sådana som Google inte kände till tidigare, genom att analysera mer data från webbplatser än standardskyddet. Du kan välja att hoppa över Chrome-varningar.</translation>
 <translation id="6273793429163604305">Klara …</translation>
 <translation id="6277547788421725101">Din förälder har inaktiverat Behörigheter för webbplatser, appar och tillägg för Chrome</translation>
 <translation id="6291089322031436445">Appar i Chrome Dev</translation>
@@ -392,6 +397,7 @@ Behörigheter som du redan har gett webbplatser och appar kan gälla för det h�
 <translation id="8286862437124483331">Skriv ditt Windows-lösenord om du vill tillåta att lösenord visas i Google Chrome.</translation>
 <translation id="8290100596633877290">Hoppsan! Google Chrome har kraschat. Vill du starta om nu?</translation>
 <translation id="829923460755755423">Lägg till en genväg till Google Lösenordshantering</translation>
+<translation id="8336463659890584292">När en webbplats frågar om dess länkar ska läsas in privat i förväg använder Chrome Googles servrar. Det innebär att din identitet döljs från den förinlästa webbplatsen, men Google får reda på vilka webbplatser som läses in i förväg.</translation>
 <translation id="8342675569599923794">Filen är farlig och har blockerats av Chrome.</translation>
 <translation id="8349795646647783032"><ph name="BEGIN_BOLD" />Så här använder vi denna data:<ph name="END_BOLD" /> Webbplatser kan lagra information om dina intressen med Chrome. Om du till exempel besöker en webbplats för att köpa skor till ett maraton kanske webbplatsen anger att du är intresserad av att springa maraton. Om du sedan besöker en annan webbplats för att registrera dig för ett lopp kan webbplatsen visa en annons för löparskor utifrån dina intressen.</translation>
 <translation id="8370517070665726704">Copyright <ph name="YEAR" /> Google LLC. Med ensamrätt.</translation>

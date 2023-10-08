@@ -35,6 +35,7 @@ class AutofillTestEnvironment {
   ~AutofillTestEnvironment();
 
   LocalFrameToken NextLocalFrameToken();
+  RemoteFrameToken NextRemoteFrameToken();
   FormRendererId NextFormRendererId();
   FieldRendererId NextFieldRendererId();
 
@@ -49,22 +50,26 @@ class AutofillTestEnvironment {
   // Use some distinct 64 bit numbers to start the counters.
   uint64_t local_frame_token_counter_high_ = 0xAAAAAAAAAAAAAAAA;
   uint64_t local_frame_token_counter_low_ = 0xBBBBBBBBBBBBBBBB;
+  uint64_t remote_frame_token_counter_high_ = 0xBBBBBBBBBBBBBBBB;
+  uint64_t remote_frame_token_counter_low_ = 0xAAAAAAAAAAAAAAAA;
   FormRendererId::underlying_type form_renderer_id_counter_ = 10;
   FieldRendererId::underlying_type field_renderer_id_counter_ = 10;
 };
 
-// This encapsulates global unittest state.
+// This encapsulates global unittest state. By default this environment
+// enables the `kAutofillServerCommunication` feature.
 class AutofillUnitTestEnvironment : public AutofillTestEnvironment {
  public:
-  AutofillUnitTestEnvironment() = default;
+  explicit AutofillUnitTestEnvironment(
+      const Options& options = {.disable_server_communication = false});
 };
 
 // This encapsulates global browsertest state. By default this environment
-// disables `kAutofillServerCommunication` feature.
+// disables the `kAutofillServerCommunication` feature.
 class AutofillBrowserTestEnvironment : public AutofillTestEnvironment {
  public:
   explicit AutofillBrowserTestEnvironment(
-      const Options& options = {.disable_server_communication = false});
+      const Options& options = {.disable_server_communication = true});
 };
 
 using RandomizeFrame = base::StrongAlias<struct RandomizeFrameTag, bool>;
@@ -77,6 +82,17 @@ using RandomizeFrame = base::StrongAlias<struct RandomizeFrameTag, bool>;
 //
 // If `randomize` is false, the LocalFrameToken is stable across multiple calls.
 LocalFrameToken MakeLocalFrameToken(
+    RandomizeFrame randomize = RandomizeFrame(true));
+
+// Creates non-empty RemoteFrameToken.
+//
+// If `randomize` is true, the RemoteFrameToken changes for successive calls.
+// Within each unit test, the generated values are deterministically predictable
+// (because the test's AutofillTestEnvironment restarts the generation).
+//
+// If `randomize` is false, the RemoteFrameToken is stable across multiple
+// calls.
+RemoteFrameToken MakeRemoteFrameToken(
     RandomizeFrame randomize = RandomizeFrame(true));
 
 // Creates new, pairwise distinct FormRendererIds.
@@ -126,37 +142,18 @@ inline constexpr char kIbanValue_2[] = "CH93 0076 2011 6238 5295 7";
                                                 std::string_view name,
                                                 std::string_view value,
                                                 std::string_view type);
-void CreateTestFormField(std::string_view label,
-                         std::string_view name,
-                         std::string_view value,
-                         std::string_view type,
-                         FormFieldData* field);
 
 [[nodiscard]] FormFieldData CreateTestFormField(std::string_view label,
                                                 std::string_view name,
                                                 std::string_view value,
                                                 std::string_view type,
                                                 std::string_view autocomplete);
-void CreateTestFormField(std::string_view label,
-                         std::string_view name,
-                         std::string_view value,
-                         std::string_view type,
-                         std::string_view autocomplete,
-                         FormFieldData* field);
-
 [[nodiscard]] FormFieldData CreateTestFormField(std::string_view label,
                                                 std::string_view name,
                                                 std::string_view value,
                                                 std::string_view type,
                                                 std::string_view autocomplete,
                                                 uint64_t max_length);
-void CreateTestFormField(std::string_view label,
-                         std::string_view name,
-                         std::string_view value,
-                         std::string_view type,
-                         std::string_view autocomplete,
-                         uint64_t max_length,
-                         FormFieldData* field);
 
 // Provides a quick way to populate a select field.
 [[nodiscard]] FormFieldData CreateTestSelectField(
@@ -177,7 +174,7 @@ void CreateTestFormField(std::string_view label,
 [[nodiscard]] FormFieldData CreateTestSelectField(
     const std::vector<const char*>& values);
 
-[[nodiscard]] FormFieldData CreateTestSelectOrSelectMenuField(
+[[nodiscard]] FormFieldData CreateTestSelectOrSelectListField(
     std::string_view label,
     std::string_view name,
     std::string_view value,
@@ -197,7 +194,6 @@ void CreateTestFormField(std::string_view label,
 // Populates `form` with data corresponding to a simple personal information
 // form, including name and email, but no address-related fields.
 [[nodiscard]] FormData CreateTestPersonalInformationFormData();
-void CreateTestPersonalInformationFormData(FormData* form);
 
 // Populates `form` with data corresponding to a simple credit card form.
 // Note that this actually appends fields to the form data, which can be
@@ -205,18 +201,12 @@ void CreateTestPersonalInformationFormData(FormData* form);
 [[nodiscard]] FormData CreateTestCreditCardFormData(bool is_https,
                                                     bool use_month_type,
                                                     bool split_names = false);
-void CreateTestCreditCardFormData(FormData* form,
-                                  bool is_https,
-                                  bool use_month_type,
-                                  bool split_names = false);
 
 // Populates `form_data` with data corresponding to an IBAN form (a form with a
 // single IBAN field). Note that this actually appends fields to the form data,
 // which can be useful for building up more complex test forms.
 [[nodiscard]] FormData CreateTestIbanFormData(
     std::string_view value = kIbanValue);
-void CreateTestIbanFormData(FormData* form_data,
-                            std::string_view value = kIbanValue);
 
 }  // namespace test
 

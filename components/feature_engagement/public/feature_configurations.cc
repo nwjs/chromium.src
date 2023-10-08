@@ -14,6 +14,12 @@
 #include "components/feature_engagement/public/ios_promo_feature_configuration.h"
 #endif  // BUILDFLAG(IS_IOS)
 
+namespace {
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+const int k10YearsInDays = 365 * 10;
+#endif
+}  // namespace
+
 namespace feature_engagement {
 
 FeatureConfig CreateAlwaysTriggerConfig(const base::Feature* feature) {
@@ -294,6 +300,18 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHShoppingCollectionFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    // Show the IPH 3 times per year.
+    config->trigger = EventConfig("shopping_collection_trigger",
+                                  Comparator(LESS_THAN, 3), 360, 360);
+    return config;
+  }
+
   if (kIPHExtensionsMenuFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
@@ -470,8 +488,6 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
 #endif  // !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
 #if BUILDFLAG(IS_ANDROID)
-
-  constexpr int k10YearsInDays = 365 * 10;
 
   if (kIPHDataSaverDetailFeature.name == feature->name) {
     absl::optional<FeatureConfig> config = FeatureConfig();
@@ -1566,10 +1582,10 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     // The IPH is shown at most 1 time a week.
     config->trigger = EventConfig("iph_new_tab_toolbar_item_trigger",
                                   Comparator(EQUAL, 0), 7, 7);
-    // The user hasn't used the new tab toolbar item in the past day.
+    // The user hasn't used the new tab toolbar item.
     config->event_configs.insert(
         EventConfig(feature_engagement::events::kNewTabToolbarItemUsed,
-                    Comparator(EQUAL, 0), 1, 1));
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays));
     // The IPH is shown at most 2 times a year.
     config->event_configs.insert(EventConfig("iph_new_tab_toolbar_item_trigger",
                                              Comparator(LESS_THAN, 2), 365,
@@ -1584,10 +1600,10 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
-    // The user has tapped the tab grid toolbar item < 2 times in a week.
+    // The user hasn't used the tab grid toolbar item.
     config->used =
         EventConfig(feature_engagement::events::kTabGridToolbarItemUsed,
-                    Comparator(LESS_THAN, 2), 7, 30);
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
     // The IPH is shown at most 1 time a week.
     config->trigger = EventConfig("iph_tab_grid_toolbar_item_trigger",
                                   Comparator(EQUAL, 0), 7, 7);
@@ -1599,48 +1615,70 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
   }
 
   if (kIPHiOSHistoryOnOverflowMenuFeature.name == feature->name) {
-    // the IPH of the history item on the overflow menu is shown if:
-    // * the user has tapped the history on the overflow menu < 2 times in a
-    // month.
-    // * the user has opened URL from omnibox > 2 times in a week.
-    // * the IPH is shown at most 1 time a week, 2 times a year.
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
+    // The user hasn't tapped the history on the overflow menu.
     config->used =
         EventConfig(feature_engagement::events::kHistoryOnOverflowMenuUsed,
-                    Comparator(LESS_THAN, 2), 30, 30);
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
+    // The IPH is shown at most 1 time a week.
     config->trigger = EventConfig("history_on_overflow_menu_trigger",
                                   Comparator(EQUAL, 0), 7, 7);
+    // The IPH is shown at most 2 times a year.
     config->event_configs.insert(EventConfig("history_on_overflow_menu_trigger",
                                              Comparator(LESS_THAN, 2), 365,
                                              365));
-    config->event_configs.insert(
-        EventConfig(feature_engagement::events::kOpenUrlFromOmnibox,
-                    Comparator(GREATER_THAN, 2), 7, 30));
+    // The user has opened URL from omnibox > 2 times in the past.
+    config->event_configs.insert(EventConfig(
+        feature_engagement::events::kOpenUrlFromOmnibox,
+        Comparator(GREATER_THAN, 2), k10YearsInDays, k10YearsInDays));
     return config;
   }
 
   if (kIPHiOSShareToolbarItemFeature.name == feature->name) {
-    // the IPH of the share item on the toolbar is shown if:
-    // * the user has tapped the share on the toolbar < 2 times in a month.
-    // * the user has exited overflow menu without taking action in a month.
-    // * the IPH is shown at most 1 time a week, 2 times a year.
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
     config->session_rate = Comparator(EQUAL, 0);
+    // The user hasn't tapped the share on the toolbar.
     config->used =
         EventConfig(feature_engagement::events::kShareToolbarItemUsed,
-                    Comparator(LESS_THAN, 2), 30, 30);
+                    Comparator(EQUAL, 0), k10YearsInDays, k10YearsInDays);
+    // The IPH is shown at most 1 time a week.
     config->trigger =
         EventConfig("share_toolbar_item_trigger", Comparator(EQUAL, 0), 7, 7);
+    // The IPH is shown 2 times a year.
     config->event_configs.insert(EventConfig(
         "share_toolbar_item_trigger", Comparator(LESS_THAN, 2), 365, 365));
+    return config;
+  }
+
+  if (kIPHiOSPromoPasswordManagerWidgetFeature.name == feature->name) {
+    // A config to allow a user to be shown the Password Manager widget promo in
+    // the Password Manager. The promo will be shown for a maximum of three
+    // subsequent Password Manager visits to users who have not yet installed
+    // and used the widget. This FET feature is non-blocking because it is a
+    // passive promo that appears alongside the rest of the UI, and does not
+    // interrupt the user's flow.
+
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    config->trigger = EventConfig(
+        feature_engagement::events::kPasswordManagerWidgetPromoTriggered,
+        Comparator(LESS_THAN, 3), 360, 360);
+    config->used =
+        EventConfig(feature_engagement::events::kPasswordManagerWidgetPromoUsed,
+                    Comparator(EQUAL, 0), 360, 360);
     config->event_configs.insert(EventConfig(
-        feature_engagement::events::kOverflowMenuNoHorizontalScrollOrAction,
-        Comparator(GREATER_THAN_OR_EQUAL, 1), 30, 30));
+        feature_engagement::events::kPasswordManagerWidgetPromoClosed,
+        Comparator(EQUAL, 0), 360, 360));
+    config->blocked_by.type = BlockedBy::Type::NONE;
+    config->blocking.type = Blocking::Type::NONE;
     return config;
   }
 
@@ -1655,7 +1693,7 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     // Only used for tests. Various magic tricks are used below to ensure this
     // config is invalid and unusable.
     absl::optional<FeatureConfig> config = FeatureConfig();
-    config->valid = false;
+    config->valid = true;
     config->availability = Comparator(LESS_THAN, 0);
     config->session_rate = Comparator(LESS_THAN, 0);
     config->trigger = EventConfig("dummy_feature_iph_trigger",

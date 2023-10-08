@@ -73,6 +73,7 @@ body {
   display: flex;
   flex: auto;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Directory tree at the left. */
@@ -383,7 +384,7 @@ body[type='open-multi-file'].check-select .dialog-header {
 }
 
 .dialog-header > .spacer {
-  flex: 1 0 48px;
+  flex: 1 0 8px;
 }
 
 .dialog-header cr-button {
@@ -1756,7 +1757,8 @@ li[renaming=''] .filename-label {
   isolation: isolate;
   opacity: 0;
   position: absolute;
-  transition: opacity 220ms ease;
+  /* TODO(b/298339491) Temporary fix for the colored square issue after deselecting file row. */
+  /* transition: opacity 220ms ease; */
 }
 
 body.check-select #list-container li[selected] .detail-checkmark {

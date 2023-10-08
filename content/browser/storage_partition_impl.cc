@@ -63,6 +63,7 @@
 #include "content/browser/cache_storage/cache_storage_control_wrapper.h"
 #include "content/browser/code_cache/generated_code_cache.h"
 #include "content/browser/code_cache/generated_code_cache_context.h"
+#include "content/browser/cookie_deprecation_label/cookie_deprecation_label_manager.h"
 #include "content/browser/cookie_store/cookie_store_manager.h"
 #include "content/browser/devtools/devtools_background_services_context_impl.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
@@ -116,6 +117,7 @@
 #include "content/public/browser/session_storage_usage_info.h"
 #include "content/public/browser/shared_cors_origin_access_list.h"
 #include "content/public/browser/storage_notification_service.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/storage_usage_info.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_constants.h"
@@ -125,6 +127,7 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "net/base/features.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/ssl/client_cert_store.h"
@@ -1446,6 +1449,13 @@ void StoragePartitionImpl::Initialize(
   bluetooth_allowed_devices_map_ =
       std::make_unique<BluetoothAllowedDevicesMap>();
 
+  // Must be initialized before the `url_loader_factory_getter_`.
+  if (base::FeatureList::IsEnabled(
+          net::features::kCookieDeprecationFacilitatedTestingLabels)) {
+    cookie_deprecation_label_manager_ =
+        std::make_unique<CookieDeprecationLabelManager>(browser_context_);
+  }
+
   url_loader_factory_getter_ = new URLLoaderFactoryGetter();
   url_loader_factory_getter_->Initialize(this);
 
@@ -1469,8 +1479,7 @@ void StoragePartitionImpl::Initialize(
   subresource_proxying_url_loader_service_ =
       std::make_unique<SubresourceProxyingURLLoaderService>(browser_context_);
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kKeepAliveInBrowserMigration)) {
+  if (blink::features::IsKeepAliveInBrowserMigrationEnabled()) {
     keep_alive_url_loader_service_ =
         std::make_unique<KeepAliveURLLoaderService>(browser_context_);
   }
@@ -1931,6 +1940,12 @@ StoragePartitionImpl::GetPrivateAggregationDataModel() {
 ResourceCacheManager* StoragePartitionImpl::GetResourceCacheManager() {
   CHECK(initialized_);
   return resource_cache_manager_.get();
+}
+
+CookieDeprecationLabelManager*
+StoragePartitionImpl::GetCookieDeprecationLabelManager() {
+  CHECK(initialized_);
+  return cookie_deprecation_label_manager_.get();
 }
 
 void StoragePartitionImpl::OpenLocalStorage(
@@ -2401,8 +2416,8 @@ void StoragePartitionImpl::OnClearSiteData(
           : nullptr);
 
   ClearSiteDataHandler::HandleHeader(
-      browser_context_getter, web_contents_getter, url, header_value,
-      load_flags, cookie_partition_key, storage_key,
+      browser_context_getter, web_contents_getter, GetConfig(), url,
+      header_value, load_flags, cookie_partition_key, storage_key,
       partitioned_state_allowed_only, std::move(callback));
 }
 
@@ -3279,7 +3294,9 @@ void StoragePartitionImpl::InitNetworkContext() {
   cors_exempt_header_list_ = context_params->cors_exempt_header_list;
 
   if (base::FeatureList::IsEnabled(
-          network::features::kCompressionDictionaryTransportBackend)) {
+          network::features::kCompressionDictionaryTransportBackend) &&
+      GetContentClient()->browser()->AllowCompressionDictionaryTransport(
+          browser_context_)) {
     context_params->shared_dictionary_enabled = true;
     if (!is_in_memory()) {
       // Some callers may already initialize NetworkContextFilePaths, and we
@@ -3295,6 +3312,11 @@ void StoragePartitionImpl::InitNetworkContext() {
       CalculateAndSetSharedDictionaryCacheMaxSize(
           GetWeakPtr(), is_in_memory() ? base::FilePath() : partition_path_);
     }
+  }
+
+  if (cookie_deprecation_label_manager_) {
+    context_params->cookie_deprecation_label =
+        cookie_deprecation_label_manager_->GetValue();
   }
 
   network_context_.reset();

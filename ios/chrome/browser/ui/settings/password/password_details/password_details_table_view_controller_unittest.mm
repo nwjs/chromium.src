@@ -6,8 +6,9 @@
 
 #import <memory>
 
+#import "base/apple/foundation_util.h"
+#import "base/containers/contains.h"
 #import "base/ios/ios_util.h"
-#import "base/mac/foundation_util.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
@@ -31,6 +32,7 @@
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_table_view_constants.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_table_view_controller+private.h"
 #import "ios/chrome/browser/ui/settings/password/password_details/password_details_table_view_controller_delegate.h"
+#import "ios/chrome/browser/ui/settings/password/password_manager_ui_features.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
 #import "ios/chrome/grit/ios_chromium_strings.h"
@@ -73,7 +75,7 @@ constexpr char kNote[] = "note";
 - (void)dismissPasswordDetailsTableViewController {
 }
 
-- (void)showPasscodeDialogForReason:(PasscodeDialogReason)reason {
+- (void)showPasscodeDialog {
 }
 
 - (void)showPasswordDeleteDialogWithPasswordDetails:(PasswordDetails*)password
@@ -181,6 +183,9 @@ constexpr char kNote[] = "note";
 - (void)showSnackbarMessage:(MDCSnackbarMessage*)message {
 }
 
+- (void)showSnackbarMessageOverBrowserToolbar:(MDCSnackbarMessage*)message {
+}
+
 - (void)showSnackbarMessage:(MDCSnackbarMessage*)message
              withHapticType:(UINotificationFeedbackType)type {
 }
@@ -204,7 +209,9 @@ class PasswordDetailsTableViewControllerTest
  protected:
   PasswordDetailsTableViewControllerTest() {
     feature_list_.InitWithFeatures(
-        /*enabled_features=*/{syncer::kPasswordNotesWithBackup},
+        /*enabled_features=*/{syncer::kPasswordNotesWithBackup,
+                              password_manager::features::
+                                  kIOSPasswordAuthOnEntryV2},
         /*disabled_features=*/{});
     handler_ = [[FakePasswordDetailsHandler alloc] init];
     delegate_ = [[FakePasswordDetailsDelegate alloc] init];
@@ -364,7 +371,7 @@ class PasswordDetailsTableViewControllerTest
     SetPassword(websites);
 
     PasswordDetailsTableViewController* password_details =
-        base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+        base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
             controller());
 
     [password_details tableView:password_details.tableView
@@ -411,7 +418,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestAddingPasswordWithNote) {
 
   SetPassword(kExampleCom, kUsername, kPassword, /*note=*/"");
   PasswordDetailsTableViewController* passwordDetails =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [passwordDetails editButtonPressed];
   EXPECT_TRUE(passwordDetails.tableView.editing);
@@ -434,7 +441,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestEditingPasswordWithNote) {
 
   SetPassword();
   PasswordDetailsTableViewController* passwordDetails =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [passwordDetails editButtonPressed];
   EXPECT_TRUE(passwordDetails.tableView.editing);
@@ -458,7 +465,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestRemovingPasswordWithNote) {
 
   SetPassword();
   PasswordDetailsTableViewController* passwordDetails =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [passwordDetails editButtonPressed];
   EXPECT_TRUE(passwordDetails.tableView.editing);
@@ -484,7 +491,7 @@ TEST_F(PasswordDetailsTableViewControllerTest,
 
   SetPassword();
   PasswordDetailsTableViewController* passwordDetails =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [passwordDetails editButtonPressed];
   EXPECT_TRUE(passwordDetails.tableView.editing);
@@ -603,7 +610,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestChangePasswordOnWebsite) {
   SetPassword(kExampleCom, kUsername, kPassword, kNote,
               /*is_compromised=*/true);
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   id applicationCommandsMock = OCMProtocolMock(@protocol(ApplicationCommands));
@@ -619,8 +626,8 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestChangePasswordOnWebsite) {
         // called with a URL argument which matches the initial URL passed to
         // the password form above. Information may have been appended to the
         // URL argument, so we only make sure it includes the initial URL.
-        return (((OpenNewTabCommand*)value).URL.spec().find(kExampleCom) !=
-                std::string::npos);
+        return base::Contains(((OpenNewTabCommand*)value).URL.spec(),
+                              kExampleCom);
       }]]);
   [password_details tableView:password_details.tableView
       didSelectRowAtIndexPath:indexPath];
@@ -637,7 +644,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestDismissWarning) {
   SetPassword(kExampleCom, kUsername, kPassword, kNote,
               /*is_compromised=*/true);
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   EXPECT_FALSE(delegate().dismissWarningCalled);
@@ -662,7 +669,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestRestoreWarning) {
               /*is_compromised=*/false, /*is_muted=*/true,
               DetailsContext::kDismissedWarnings);
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   EXPECT_FALSE(delegate().restoreWarningCalled);
@@ -684,7 +691,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestShowHidePassword) {
   indexOfPassword = [NSIndexPath indexPathForRow:2 inSection:0];
 
   TableViewTextEditCell* textFieldCell =
-      base::mac::ObjCCastStrict<TableViewTextEditCell>([controller()
+      base::apple::ObjCCastStrict<TableViewTextEditCell>([controller()
                       tableView:controller().tableView
           cellForRowAtIndexPath:indexOfPassword]);
   EXPECT_TRUE(textFieldCell);
@@ -701,10 +708,15 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestShowHidePassword) {
 
 // Tests that passwords was not shown in case reauth failed.
 TEST_F(PasswordDetailsTableViewControllerTest, TestShowPasswordReauthFailed) {
-  // This test makes sense with notes for password disabled only since the
-  // feature moves reauth one level above.
+  // This test makes sense with notes for password and auth on entry v2 disabled
+  // only since those features require auth before opening password details.
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(syncer::kPasswordNotesWithBackup);
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{},
+      /*disabled_features=*/{
+          syncer::kPasswordNotesWithBackup,
+          password_manager::features::kIOSPasswordAuthOnEntryV2});
+
   SetPassword();
 
   CheckEditCellText(kMaskedPassword, 0, 2);
@@ -714,7 +726,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestShowPasswordReauthFailed) {
   indexOfPassword = [NSIndexPath indexPathForRow:2 inSection:0];
 
   TableViewTextEditCell* textFieldCell =
-      base::mac::ObjCCastStrict<TableViewTextEditCell>([controller()
+      base::apple::ObjCCastStrict<TableViewTextEditCell>([controller()
                       tableView:controller().tableView
           cellForRowAtIndexPath:indexOfPassword]);
   EXPECT_TRUE(textFieldCell);
@@ -731,7 +743,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestPasswordShownDuringEditing) {
   CheckEditCellText(kMaskedPassword, 0, 2);
 
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   EXPECT_TRUE(password_details.tableView.editing);
@@ -745,17 +757,22 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestPasswordShownDuringEditing) {
 
 // Tests that editing mode was not entered because reauth failed.
 TEST_F(PasswordDetailsTableViewControllerTest, TestEditingReauthFailed) {
-  // This test makes sense with notes for password disabled only since the
-  // feature moves reauth one level above.
+  // This test makes sense with notes for password and auth on entry v2 disabled
+  // only since those features require auth before opening password details.
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(syncer::kPasswordNotesWithBackup);
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{},
+      /*disabled_features=*/{
+          syncer::kPasswordNotesWithBackup,
+          password_manager::features::kIOSPasswordAuthOnEntryV2});
+
   SetPassword();
 
   CheckEditCellText(kMaskedPassword, 0, 2);
 
   reauth().expectedResult = ReauthenticationResult::kFailure;
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   EXPECT_FALSE(password_details.tableView.editing);
@@ -768,7 +785,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestPasswordDelete) {
 
   EXPECT_FALSE(handler().deletionCalled);
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   [password_details tableView:password_details.tableView
@@ -784,7 +801,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestCompromisedPasswordDelete) {
 
   EXPECT_FALSE(handler().deletionCalled);
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   [password_details tableView:password_details.tableView
@@ -800,7 +817,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestEditPasswordConfirmed) {
   SetPassword();
 
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   EXPECT_FALSE(handler().editingCalled);
@@ -824,7 +841,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestEditPasswordCancel) {
   SetPassword();
 
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   EXPECT_FALSE(delegate().password);
@@ -898,7 +915,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestFederatedCredential) {
 
   reauth().expectedResult = ReauthenticationResult::kFailure;
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   EXPECT_TRUE(password_details.tableView.editing);
@@ -916,7 +933,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, TestBlockedOrigin) {
 
   reauth().expectedResult = ReauthenticationResult::kFailure;
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
   [password_details editButtonPressed];
   EXPECT_TRUE(password_details.tableView.editing);
@@ -945,7 +962,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, CopyUsername) {
   base::HistogramTester histogram_tester;
   SetPassword();
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   [password_details tableView:password_details.tableView
@@ -974,7 +991,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, CopyPasswordSuccess) {
   SetPassword();
 
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   [password_details tableView:password_details.tableView
@@ -998,16 +1015,20 @@ TEST_F(PasswordDetailsTableViewControllerTest, CopyPasswordSuccess) {
 
 // Tests copy password works as intended.
 TEST_F(PasswordDetailsTableViewControllerTest, CopyPasswordFail) {
-  // This test makes sense with notes for password disabled only since the
-  // feature moves reauth one level above.
+  // This test makes sense with notes for password and auth on entry v2 disabled
+  // only since those features require auth before opening password details.
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(syncer::kPasswordNotesWithBackup);
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{},
+      /*disabled_features=*/{
+          syncer::kPasswordNotesWithBackup,
+          password_manager::features::kIOSPasswordAuthOnEntryV2});
 
   base::HistogramTester histogram_tester;
   SetPassword();
 
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   reauth().expectedResult = ReauthenticationResult::kFailure;
@@ -1034,7 +1055,7 @@ TEST_F(PasswordDetailsTableViewControllerTest, CopyDetailsFailedEmitted) {
   base::HistogramTester histogram_tester;
 
   PasswordDetailsTableViewController* password_details =
-      base::mac::ObjCCastStrict<PasswordDetailsTableViewController>(
+      base::apple::ObjCCastStrict<PasswordDetailsTableViewController>(
           controller());
 
   // When no menu controller is passed, there's no way of knowing which field

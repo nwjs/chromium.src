@@ -160,7 +160,8 @@ import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.chrome.test.R;
 import org.chromium.chrome.test.util.ActivityTestUtils;
 import org.chromium.chrome.test.util.ChromeTabUtils;
-import org.chromium.chrome.test.util.browser.Features;
+import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
+import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.chrome.test.util.browser.contextmenu.ContextMenuUtils;
 import org.chromium.components.browser_ui.widget.CoordinatorLayoutForPointer;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
@@ -177,9 +178,6 @@ import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentSwitches;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.net.test.util.TestWebServer;
-import org.chromium.ui.modaldialog.ModalDialogManager;
-import org.chromium.ui.modaldialog.ModalDialogProperties;
-import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.ui.test.util.BlankUiTestActivity;
 import org.chromium.ui.test.util.DeviceRestriction;
@@ -1782,8 +1780,9 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES})
-    @Features.DisableFeatures({ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET})
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES})
+    @DisableFeatures({ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET})
     public void testLaunchPartialCustomTabActivity_BottomSheet() throws Exception {
         WindowManager wm = (WindowManager) ContextUtils.getApplicationContext().getSystemService(
                 Context.WINDOW_SERVICE);
@@ -1797,7 +1796,8 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET_FOR_THIRD_PARTIES})
     public void
@@ -1859,7 +1859,8 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET_FOR_THIRD_PARTIES})
 
@@ -1919,7 +1920,7 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
+    @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET_FOR_THIRD_PARTIES})
     // Screen rotation is not relevant on automotive.
@@ -1967,7 +1968,8 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET_FOR_THIRD_PARTIES})
     public void
@@ -2001,7 +2003,8 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
+    @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+    @EnableFeatures({ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET,
             ChromeFeatureList.CCT_RESIZABLE_SIDE_SHEET_FOR_THIRD_PARTIES})
     public void
@@ -2071,28 +2074,28 @@ public class CustomTabActivityTest {
 
     @Test
     @LargeTest
-    @Features.EnableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    @EnableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
     public void testOpaqueOriginFromPrefetch_Enabled() throws Exception {
         doOpaqueOriginTest(true, true);
     }
 
     @Test
     @LargeTest
-    @Features.DisableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    @DisableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
     public void testOpaqueOriginFromPrefetch_Disabled() throws Exception {
         doOpaqueOriginTest(false, true);
     }
 
     @Test
     @LargeTest
-    @Features.EnableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    @EnableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
     public void testOpaqueOriginFromIntent_Enabled() throws Exception {
         doOpaqueOriginTest(true, false);
     }
 
     @Test
     @LargeTest
-    @Features.DisableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
+    @DisableFeatures(ChromeFeatureList.OPAQUE_ORIGIN_FOR_INCOMING_INTENTS)
     public void testOpaqueOriginFromIntent_Disabled() throws Exception {
         doOpaqueOriginTest(false, false);
     }
@@ -2264,7 +2267,8 @@ public class CustomTabActivityTest {
         // lifetime.
         TestThreadUtils.runOnUiThreadBlocking(() -> {
             final CustomTabActivity activity = mCustomTabActivityTestRule.getActivity();
-            activity.getComponent().resolveNavigationController().navigate("about:blank");
+            activity.getComponent().resolveNavigationController().navigate(
+                    new LoadUrlParams("about:blank"), intent);
         });
 
         if (allowMetrics) {
@@ -2444,51 +2448,7 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    public void testNavigationDismissTabModalDialog() {
-        Context context = getInstrumentation().getTargetContext().getApplicationContext();
-        Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPage);
-        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
-        final Tab tab = mCustomTabActivityTestRule.getActivity().getActivityTab();
-
-        ModalDialogManager dialogManager =
-                mCustomTabActivityTestRule.getActivity().getModalDialogManagerSupplier().get();
-        TestThreadUtils.runOnUiThreadBlocking(() -> {
-            PropertyModel dialog =
-                    new PropertyModel.Builder(ModalDialogProperties.ALL_KEYS)
-                            .with(ModalDialogProperties.TITLE, "test")
-                            .with(ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                                    context.getString(R.string.delete))
-                            .with(ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                                    context.getString(R.string.cancel))
-                            .with(ModalDialogProperties.CONTROLLER,
-                                    new ModalDialogProperties.Controller() {
-                                        @Override
-                                        public void onClick(PropertyModel model, int buttonType) {}
-
-                                        @Override
-                                        public void onDismiss(
-                                                PropertyModel model, int dismissalCause) {}
-                                    })
-                            .build();
-
-            dialogManager.showDialog(dialog, ModalDialogManager.ModalDialogType.TAB);
-        });
-
-        CriteriaHelper.pollUiThread(() -> dialogManager.isShowing());
-
-        TestThreadUtils.runOnUiThreadBlocking(
-                (Runnable) () -> tab.loadUrl(new LoadUrlParams(mTestPage2)));
-        ChromeTabUtils.waitForTabPageLoaded(tab, mTestPage2);
-
-        Assert.assertTrue(tab.canGoBack());
-        Assert.assertFalse(tab.canGoForward());
-
-        CriteriaHelper.pollUiThread(() -> !dialogManager.isShowing());
-    }
-
-    @Test
-    @SmallTest
-    @Features.EnableFeatures(ChromeFeatureList.BACK_GESTURE_REFACTOR)
+    @EnableFeatures(ChromeFeatureList.BACK_GESTURE_REFACTOR)
     public void testBackPressNavigationFailure_WithRecover() {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPage);
@@ -2531,7 +2491,7 @@ public class CustomTabActivityTest {
 
     @Test
     @SmallTest
-    @Features.EnableFeatures(ChromeFeatureList.BACK_GESTURE_REFACTOR)
+    @EnableFeatures(ChromeFeatureList.BACK_GESTURE_REFACTOR)
     public void testBackPressNavigationFailure_WithoutRecover() {
         Context context = getInstrumentation().getTargetContext().getApplicationContext();
         Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPage);
@@ -2564,74 +2524,6 @@ public class CustomTabActivityTest {
                     ChromeTabUtils.getUrlStringOnUiThread(getActivity().getActivityTab()),
                     is(mTestPage2));
         });
-    }
-
-    @Test
-    @SmallTest
-    @Features.DisableFeatures(ChromeFeatureList.BACK_GESTURE_REFACTOR)
-    public void testBackPressDismissTabModalDialog() {
-        Context context = getInstrumentation().getTargetContext().getApplicationContext();
-        Intent intent = CustomTabsIntentTestUtils.createMinimalCustomTabIntent(context, mTestPage);
-        mCustomTabActivityTestRule.startCustomTabActivityWithIntent(intent);
-        final Tab tab = mCustomTabActivityTestRule.getActivity().getActivityTab();
-
-        ModalDialogManager dialogManager =
-                mCustomTabActivityTestRule.getActivity().getModalDialogManagerSupplier().get();
-
-        TestThreadUtils.runOnUiThreadBlocking(
-                (Runnable) () -> tab.loadUrl(new LoadUrlParams(mTestPage2)));
-        ChromeTabUtils.waitForTabPageLoaded(tab, mTestPage2);
-
-        TestThreadUtils.runOnUiThreadBlocking(() -> {
-            PropertyModel dialog =
-                    new PropertyModel.Builder(ModalDialogProperties.ALL_KEYS)
-                            .with(ModalDialogProperties.TITLE, "test")
-                            .with(ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                                    context.getString(R.string.delete))
-                            .with(ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                                    context.getString(R.string.cancel))
-                            .with(ModalDialogProperties.CONTROLLER,
-                                    new ModalDialogProperties.Controller() {
-                                        @Override
-                                        public void onClick(PropertyModel model, int buttonType) {}
-
-                                        @Override
-                                        public void onDismiss(
-                                                PropertyModel model, int dismissalCause) {}
-                                    })
-                            .build();
-
-            dialogManager.showDialog(dialog, ModalDialogManager.ModalDialogType.TAB);
-        });
-        CriteriaHelper.pollUiThread(() -> dialogManager.isShowing(), "Dialog should be displayed");
-
-        HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher("Android.BackPress.Intercept",
-                        BackPressManager.getHistogramValueForTesting(
-                                BackPressHandler.Type.TAB_MODAL_HANDLER));
-
-        TestThreadUtils.runOnUiThreadBlocking(() -> {
-            mCustomTabActivityTestRule.getActivity().getOnBackPressedDispatcher().onBackPressed();
-        });
-
-        Assert.assertTrue("Should be able to navigate back after navigation", tab.canGoBack());
-        Assert.assertFalse("Should be unable to navigate forward", tab.canGoForward());
-        CriteriaHelper.pollInstrumentationThread(() -> {
-            Criteria.checkThat("Tab should not be navigated when dialog is dismissed",
-                    ChromeTabUtils.getUrlStringOnUiThread(getActivity().getActivityTab()),
-                    is(mTestPage2));
-        });
-
-        histogramWatcher.assertExpected("Dialog should be dismissed by back press");
-        CriteriaHelper.pollUiThread(
-                () -> !dialogManager.isShowing(), "Dialog should be dismissed by back press");
-    }
-
-    @Test
-    @SmallTest
-    @Features.EnableFeatures(ChromeFeatureList.BACK_GESTURE_REFACTOR)
-    public void testBackPressDismissTabModalDialog_BackGestureRefactor() {
-        testBackPressDismissTabModalDialog();
     }
 
     private void rotateCustomTabActivity(CustomTabActivity activity, int orientation) {

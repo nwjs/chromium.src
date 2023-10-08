@@ -106,6 +106,8 @@ void NativeAppWindowViews::Init(
 
   SetCanMinimize(!app_window_->show_on_lock_screen());
   SetCanMaximize(GetCanMaximizeWindow());
+  // Intentionally the same as maximize.
+  SetCanFullscreen(GetCanMaximizeWindow());
   SetCanResize(GetCanResizeWindow());
 
   widget_ = new views::Widget;
@@ -494,6 +496,8 @@ void NativeAppWindowViews::SetContentSizeConstraints(
   size_constraints_.set_minimum_size(min_size);
   size_constraints_.set_maximum_size(max_size);
   SetCanMaximize(GetCanMaximizeWindow());
+  // Intentionally the same as maximize.
+  SetCanFullscreen(GetCanMaximizeWindow());
   SetCanResize(GetCanResizeWindow());
 
   saved_size_constraints_ = size_constraints_;
@@ -536,6 +540,8 @@ void NativeAppWindowViews::RemoveObserver(
 
 void NativeAppWindowViews::OnWidgetHasHitTestMaskChanged() {
   SetCanMaximize(GetCanMaximizeWindow());
+  // Intentionally the same as maximize.
+  SetCanFullscreen(GetCanMaximizeWindow());
   SetCanResize(GetCanResizeWindow());
 }
 

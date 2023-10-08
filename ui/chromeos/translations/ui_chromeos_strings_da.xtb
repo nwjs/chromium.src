@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">Søger efter mobilnetværk</translation>
 <translation id="1293556467332435079">Filer</translation>
 <translation id="1297922636971898492">Google Drev er ikke tilgængeligt lige nu. Uploadet genstarter automatisk, når Google Drev er tilgængeligt igen.</translation>
+<translation id="1306130176943817227">Det er ikke muligt at slette. Elementet er i brug.</translation>
 <translation id="1307931752636661898">Linux-filerne kan ikke vises</translation>
 <translation id="1313405956111467313">Automatisk proxykonfiguration</translation>
 <translation id="134645005685694099">Din enhed har ikke nok lagerplads til at holde filsynkronisering aktiveret. Nye filer synkroniseres ikke længere automatisk.</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">Vandmelon</translation>
 <translation id="1924372192547904021"><ph name="DRIVE_NAME" /> er formateret</translation>
 <translation id="1931134289871235022">Slovakisk</translation>
-<translation id="1933345018156373194">Flytningen mislykkedes. Uventet fejl: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">Finsk</translation>
 <translation id="1942765061641586207">Billedopløsning</translation>
 <translation id="1972984168337863910">Udvid paneler med feedback til filer</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">Kontekst</translation>
 <translation id="3272909651715601089">"<ph name="PATH" />" kunne ikke åbnes</translation>
 <translation id="3280431534455935878">Forbereder</translation>
+<translation id="3280719573299097127">Du er på et forbrugsbaseret netværk. Filsynkronisering er sat på pause.</translation>
 <translation id="3280987981688031357">Vinylplade</translation>
 <translation id="3290356915286466215">Ikke beskyttet</translation>
 <translation id="3291218047831493686">Opret forbindelse til dette netværk for at skifte indstillingen for SIM-lås</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">Album</translation>
 <translation id="4972330214479971536">Konfigurationen af filsynkronisering kunne ikke gennemføres</translation>
 <translation id="4973523518332075481">Brug et navn med højst <ph name="MAX_LENGTH" /> tegn</translation>
-<translation id="4973970068702235170">Komprimering mislykkedes. Der opstod en uventet fejl: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">Japansk</translation>
 <translation id="4987699874727873250">Engelsk (Indien)</translation>
 <translation id="4988205478593450158">Er du sikker på, at du vil slette "<ph name="FILE_NAME" />"?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">Schweizisk (fransk)</translation>
 <translation id="5234764350956374838">Luk</translation>
 <translation id="5253070652067921974">Oprettet af</translation>
+<translation id="5254207638927440400">Filen kan ikke flyttes. Filen er i brug.</translation>
 <translation id="5257456363153333584">Guldsmed</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Få adgang til filer overalt, også offline.<ph name="MARKUP_2" />
         Filer i Google Drev er opdaterede og tilgængelige på alle enheder.<ph name="MARKUP_3" />
@@ -632,13 +633,13 @@
 <translation id="5838451609423551646">Markeringen af alle elementer blev fjernet.</translation>
 <translation id="5838825566232597749">Internationalt amerikansk Workman</translation>
 <translation id="5845721951356578987">Sygeplejerske</translation>
+<translation id="5858478190805449225">Batterisparefunktion er aktiveret. Prøv igen, når Batterisparefunktion er deaktiveret.</translation>
 <translation id="5860491529813859533">Aktivér</translation>
 <translation id="5861477046012235702">Gamer</translation>
 <translation id="5864471791310927901">DHCP-opslag mislykkedes</translation>
 <translation id="5896749729057314184">Netværk <ph name="NETWORK_INDEX" /> af <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, ikke aktiveret, signalstyrke på <ph name="SIGNAL_STRENGTH" /> %, oplysninger</translation>
 <translation id="5911887972742538906">Der opstod en fejl ved installationen af Linux-appen.</translation>
 <translation id="5912396950572065471">Format</translation>
-<translation id="5913638992615760742">Kopiering mislykkedes, uventet fejl: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="5918480239180455431">Der er kommet nye søgefunktioner</translation>
 <translation id="5926082595146149752">Hollandsk (Holland) med amerikansk internationalt computertastatur</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -646,7 +647,6 @@
 <translation id="5955954492236143329"><ph name="NUMBER_OF_ITEMS" /> elementer</translation>
 <translation id="5957366693331451795">Chromeboxes</translation>
 <translation id="5982621672636444458">Sorteringsmuligheder</translation>
-<translation id="6007237601604674381">Flytningen mislykkedes. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="6011074160056912900">Ethernet-netværk</translation>
 <translation id="60357267506638014">Tjekkisk (QWERTY)</translation>
 <translation id="603895874132768835">Du kan ikke bruge dette netværk, før du har oprettet en ny pinkode</translation>
@@ -863,6 +863,7 @@
 <translation id="76959938259365003">Papirkurven kunne ikke tømmes.</translation>
 <translation id="770015031906360009">Græsk</translation>
 <translation id="7705251383879779343"><ph name="FILE_NAME" /> blev kopieret.</translation>
+<translation id="7707941139430559579">Filen kan ikke flyttes. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">Hvis du vil bruge dette netværk, skal du angive den 8-cifrede PUK-kode, du har fået af mobilselskabet.</translation>
 <translation id="7711920809702896782">Billedoplysninger</translation>
 <translation id="7724603315864178912">Klip</translation>
@@ -899,7 +900,6 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">Dine filer i Mit drev synkroniseres automatisk med din Chromebook, så du kan få adgang til dem uden en internetforbindelse.</translation>
 <translation id="7925247922861151263">AAA-kontrol mislykkedes</translation>
-<translation id="7925686952655276919">Brug ikke mobildata til synkronisering</translation>
 <translation id="7928710562641958568">Skub enheden ud</translation>
 <translation id="7933875256234974853">Forbereder synkronisering af Drev-filer...</translation>
 <translation id="7943385054491506837">Amerikansk (Colemak)</translation>
@@ -922,6 +922,7 @@
 <translation id="8087576439476816834">Download, <ph name="PROFILE_NAME" /></translation>
 <translation id="8106045200081704138">Delt med mig</translation>
 <translation id="8116072619078571545">Isvand</translation>
+<translation id="8120392982188717723">Tillad synkronisering på forbrugsafregnede netværk</translation>
 <translation id="8124093710070495550">Synkroniseringsproblem</translation>
 <translation id="8128733386027980860">Engelsk (Storbritannien) med Dvorak-tastatur</translation>
 <translation id="8137331602592933310">"<ph name="FILENAME" />" er blevet delt med dig. Du kan ikke slette filen, fordi du ikke ejer den.</translation>
@@ -1050,6 +1051,7 @@
 <translation id="9038620279323455325">Der findes allerede en fil med navnet "<ph name="FILE_NAME" />". Vælg et andet navn.</translation>
 <translation id="9046895021617826162">Forbindelsen mislykkedes</translation>
 <translation id="9065512565307033593">Hvis du ikke verificerer, mister du adgangen til netværket.</translation>
+<translation id="9083722265619106011">{0,plural, =1{1 advarsel.}one{<ph name="COUNT" /> advarsel.}other{<ph name="COUNT" /> advarsler.}}</translation>
 <translation id="908378762078012445">Russisk med fonetisk AATSEEL-tastatur</translation>
 <translation id="9086302186042011942">Synkroniserer</translation>
 <translation id="9099674669267916096">Sideantal</translation>

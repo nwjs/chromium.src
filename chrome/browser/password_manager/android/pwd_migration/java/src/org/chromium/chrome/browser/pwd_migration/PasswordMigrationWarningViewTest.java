@@ -28,6 +28,7 @@ import static org.chromium.content_public.browser.test.util.TestThreadUtils.runO
 
 import android.view.View;
 
+import androidx.test.espresso.Espresso;
 import androidx.test.filters.MediumTest;
 
 import org.junit.Before;
@@ -51,6 +52,7 @@ import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetTestSupport;
 import org.chromium.components.browser_ui.widget.RadioButtonWithDescription;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -77,6 +79,8 @@ public class PasswordMigrationWarningViewTest {
     private Callback<Integer> mDismissCallback;
     @Mock
     private PasswordMigrationWarningOnClickHandler mOnClickHandler;
+    @Mock
+    private PasswordMigrationWarningView.OnSheetClosedCallback mOnSheetClosedCallback;
 
     private BottomSheetController mBottomSheetController;
     private PasswordMigrationWarningView mView;
@@ -95,7 +99,8 @@ public class PasswordMigrationWarningViewTest {
             mModel = PasswordMigrationWarningProperties.createDefaultModel(
                     mOnShowEventListener, mDismissCallback, mOnClickHandler);
             mView = new PasswordMigrationWarningView(mActivityTestRule.getActivity(),
-                    mBottomSheetController, () -> {}, (Throwable exception) -> fail());
+                    mBottomSheetController,
+                    () -> {}, (Throwable exception) -> fail(), mOnSheetClosedCallback);
             PropertyModelChangeProcessor.create(mModel, mView,
                     PasswordMigrationWarningViewBinder::bindPasswordMigrationWarningView);
         });
@@ -113,6 +118,7 @@ public class PasswordMigrationWarningViewTest {
         runOnUiThreadBlocking(() -> mModel.set(VISIBLE, false));
         pollUiThread(() -> getBottomSheetState() == BottomSheetController.SheetState.HIDDEN);
         assertThat(mView.getContentView().isShown(), is(false));
+        verify(mOnSheetClosedCallback).onSheetClosed(StateChangeReason.NONE, false);
     }
 
     @Test
@@ -126,7 +132,6 @@ public class PasswordMigrationWarningViewTest {
                              -> mActivityTestRule.getActivity().findViewById(
                                         R.id.acknowledge_password_migration_button)
                         != null);
-        verify(mOnShowEventListener).run();
     }
 
     @Test
@@ -141,6 +146,7 @@ public class PasswordMigrationWarningViewTest {
 
         // The dismiss callback was called.
         verify(mDismissCallback).onResult(BottomSheetController.StateChangeReason.NONE);
+        verify(mOnSheetClosedCallback).onSheetClosed(StateChangeReason.NONE, false);
     }
 
     @Test
@@ -314,6 +320,44 @@ public class PasswordMigrationWarningViewTest {
                                         R.id.password_migration_next_button)
                         != null);
         onView(withText(TEST_EMAIL)).check(matches(isDisplayed()));
+    }
+
+    @Test
+    @MediumTest
+    public void testEmptySheetClosedWithoutUserInteractionCallsOnSheetClosedCallback() {
+        runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
+        BottomSheetTestSupport.waitForOpen(mBottomSheetController);
+        runOnUiThreadBlocking(() -> mModel.set(VISIBLE, false));
+        BottomSheetTestSupport.waitForState(mBottomSheetController, SheetState.HIDDEN);
+
+        verify(mOnSheetClosedCallback).onSheetClosed(StateChangeReason.NONE, false);
+    }
+
+    @Test
+    @MediumTest
+    public void testEmptySheetClosedByUserInteractionCallsOnSheetClosedCallback() {
+        runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
+        BottomSheetTestSupport.waitForOpen(mBottomSheetController);
+        Espresso.pressBack();
+        BottomSheetTestSupport.waitForState(mBottomSheetController, SheetState.HIDDEN);
+
+        verify(mOnSheetClosedCallback).onSheetClosed(StateChangeReason.BACK_PRESS, false);
+    }
+
+    @Test
+    @MediumTest
+    public void testClosingTheSheetWithFullContentCallsOnSheetClosedCallback() {
+        runOnUiThreadBlocking(() -> mModel.set(CURRENT_SCREEN, ScreenType.INTRO_SCREEN));
+        runOnUiThreadBlocking(() -> mModel.set(VISIBLE, true));
+        BottomSheetTestSupport.waitForOpen(mBottomSheetController);
+        pollUiThread(()
+                             -> mActivityTestRule.getActivity().findViewById(
+                                        R.id.acknowledge_password_migration_button)
+                        != null);
+        Espresso.pressBack();
+        BottomSheetTestSupport.waitForState(mBottomSheetController, SheetState.HIDDEN);
+
+        verify(mOnSheetClosedCallback).onSheetClosed(StateChangeReason.BACK_PRESS, true);
     }
 
     private @SheetState int getBottomSheetState() {

@@ -7,7 +7,6 @@
 #include "components/strings/grit/components_strings.h"
 #include <string>
 
-#include "base/metrics/histogram_macros.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -23,6 +22,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/color/color_id.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/native_theme/common_theme.h"
@@ -572,8 +572,14 @@ SadTabView::SadTabView(content::WebContents* web_contents, SadTabKind kind)
   // Needed to ensure this View is drawn even if a sibling (such as dev tools)
   // has a z-order.
   SetPaintToLayer();
-
   AttachToWebView();
+
+  if (owner_) {
+    // If the `owner_` ContentsWebView has a rounded background, the sad tab
+    // should also have matching rounded corners as well.
+    SetBackgroundRadii(
+        static_cast<ContentsWebView*>(owner_)->background_radii());
+  }
 
   // Make the accessibility role of this view an alert dialog, and
   // put focus on the action button. This causes screen readers to
@@ -594,6 +600,15 @@ void SadTabView::ReinstallInWebView() {
     owner_ = nullptr;
   }
   AttachToWebView();
+}
+
+void SadTabView::SetBackgroundRadii(const gfx::RoundedCornersF& radii) {
+  // Since SadTabView paints onto its own layer and it is leaf layer, we can
+  // round the background by applying rounded corners to the layer without
+  // clipping any other browser content.
+  CHECK(layer());
+  layer()->SetRoundedCornerRadius(radii);
+  layer()->SetIsFastRoundedCorner(/*enable=*/true);
 }
 
 void SadTabView::OnPaint(gfx::Canvas* canvas) {

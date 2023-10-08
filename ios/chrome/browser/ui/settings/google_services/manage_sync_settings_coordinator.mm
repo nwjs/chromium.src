@@ -11,10 +11,12 @@
 #import "base/notreached.h"
 #import "components/google/core/common/google_util.h"
 #import "components/signin/public/base/signin_metrics.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/shared/coordinator/alert/action_sheet_coordinator.h"
+#import "ios/chrome/browser/shared/coordinator/alert/alert_coordinator.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
@@ -37,6 +39,8 @@
 #import "ios/chrome/browser/sync/sync_setup_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/signout_action_sheet_coordinator.h"
 #import "ios/chrome/browser/ui/settings/google_services/accounts_table_view_controller.h"
+#import "ios/chrome/browser/ui/settings/google_services/bulk_upload/bulk_upload_coordinator.h"
+#import "ios/chrome/browser/ui/settings/google_services/bulk_upload/bulk_upload_coordinator_delegate.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_command_handler.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_constants.h"
 #import "ios/chrome/browser/ui/settings/google_services/manage_sync_settings_mediator.h"
@@ -44,13 +48,16 @@
 #import "ios/chrome/browser/ui/settings/google_services/sync_error_settings_command_handler.h"
 #import "ios/chrome/browser/ui/settings/sync/sync_encryption_passphrase_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/sync/sync_encryption_table_view_controller.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "net/base/mac/url_conversions.h"
+#import "ui/base/l10n/l10n_util.h"
 
 using signin_metrics::AccessPoint;
 using signin_metrics::PromoAction;
 using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 @interface ManageSyncSettingsCoordinator () <
+    BulkUploadCoordinatorDelegate,
     ManageSyncSettingsCommandHandler,
     ManageSyncSettingsTableViewControllerPresentationDelegate,
     SignoutActionSheetCoordinatorDelegate,
@@ -60,6 +67,8 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   std::unique_ptr<SyncObserverBridge> _syncObserver;
   // Whether Settings have been dismissed.
   BOOL _settingsAreDismissed;
+  // The coordinator for the view Save in Account.
+  BulkUploadCoordinator* _bulkUploadCoordinator;
 }
 
 // View controller.
@@ -128,6 +137,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
       authenticationService:self.authService
       accountManagerService:ChromeAccountManagerServiceFactory::
                                 GetForBrowserState(browserState)
+                prefService:browserState->GetPrefs()
         initialAccountState:_accountState];
   self.mediator.syncSetupService =
       SyncSetupServiceFactory::GetForBrowserState(browserState);
@@ -169,6 +179,7 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 - (void)stop {
   [super stop];
   [self.mediator disconnect];
+  [self stopBulkUpload];
   self.mediator = nil;
   self.viewController = nil;
   // This coordinator displays the main view and it is in charge to enable sync
@@ -197,6 +208,12 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 }
 
 #pragma mark - Private
+
+- (void)stopBulkUpload {
+  [_bulkUploadCoordinator stop];
+  _bulkUploadCoordinator.delegate = nil;
+  _bulkUploadCoordinator = nil;
+}
 
 // Closes the Manage sync settings view controller.
 - (void)closeManageSyncSettings {
@@ -240,6 +257,16 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
 
 #pragma mark - ManageSyncSettingsCommandHandler
 
+- (void)openBulkUpload {
+  [self stopBulkUpload];
+  base::RecordAction(base::UserMetricsAction("BulkUploadSettingsOpen"));
+  _bulkUploadCoordinator = [[BulkUploadCoordinator alloc]
+      initWithBaseNavigationController:self.baseNavigationController
+                               browser:self.browser];
+  _bulkUploadCoordinator.delegate = self;
+  [_bulkUploadCoordinator start];
+}
+
 - (void)openWebAppActivityDialog {
   base::RecordAction(base::UserMetricsAction(
       "Signin_AccountSettings_GoogleActivityControlsClicked"));
@@ -268,7 +295,12 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   [handler closeSettingsUIAndOpenURL:command];
 }
 
-- (void)showTurnOffSyncOptionsFromTargetRect:(CGRect)targetRect {
+- (void)signOutFromTargetRect:(CGRect)targetRect {
+  if (!self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
+    // This could happen in very rare cases, if the account somehow got removed
+    // after the settings UI was created.
+    return;
+  }
   self.signoutActionSheetCoordinator = [[SignoutActionSheetCoordinator alloc]
       initWithBaseViewController:self.viewController
                          browser:self.browser
@@ -279,37 +311,38 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
   self.signoutActionSheetCoordinator.delegate = self;
   __weak ManageSyncSettingsCoordinator* weakSelf = self;
   self.signoutActionSheetCoordinator.completion = ^(BOOL success) {
-    if (success) {
-      [weakSelf closeManageSyncSettings];
+    if (!success) {
+      return;
     }
+    [weakSelf closeManageSyncSettings];
   };
   [self.signoutActionSheetCoordinator start];
 }
 
-- (void)signOut {
-  if (!self.authService->HasPrimaryIdentity(signin::ConsentLevel::kSignin)) {
-    // This could happen in very rare cases, if the account somehow got removed
-    // after the settings UI was created.
-    return;
-  }
+- (void)showAdressesNotEncryptedDialog {
+  AlertCoordinator* alertCoordinator = [[AlertCoordinator alloc]
+      initWithBaseViewController:self.viewController
+                         browser:self.browser
+                           title:l10n_util::GetNSString(
+                                     IDS_IOS_SYNC_ADDRESSES_DIALOG_TITLE)
+                         message:l10n_util::GetNSString(
+                                     IDS_IOS_SYNC_ADDRESSES_DIALOG_MESSAGE)];
 
-  self.signOutFlowInProgress = YES;
-  [self.viewController preventUserInteraction];
-  signin_metrics::RecordSignoutUserAction(/*force_clear_data=*/false);
-  __weak ManageSyncSettingsCoordinator* weakSelf = self;
-  ProceduralBlock signOutCompletion = ^() {
-    __strong ManageSyncSettingsCoordinator* strongSelf = weakSelf;
-    if (!strongSelf) {
-      return;
-    }
-    [strongSelf.viewController allowUserInteraction];
-    strongSelf.signOutFlowInProgress = NO;
-    [strongSelf.delegate showSignOutToast];
-    [strongSelf closeManageSyncSettings];
-  };
-  self.authService->SignOut(
-      signin_metrics::ProfileSignout::kUserClickedSignoutSettings,
-      /*force_clear_browsing_data=*/NO, signOutCompletion);
+  __weak __typeof(self) weakSelf = self;
+  [alertCoordinator addItemWithTitle:l10n_util::GetNSString(
+                                         IDS_IOS_SYNC_ADDRESSES_DIALOG_CONTINUE)
+                              action:^{
+                                [weakSelf.mediator autofillAlertConfirmed:YES];
+                              }
+                               style:UIAlertActionStyleDefault];
+
+  [alertCoordinator addItemWithTitle:l10n_util::GetNSString(IDS_CANCEL)
+                              action:^{
+                                [weakSelf.mediator autofillAlertConfirmed:NO];
+                              }
+                               style:UIAlertActionStyleCancel];
+
+  [alertCoordinator start];
 }
 
 - (void)showAccountsPage {
@@ -409,6 +442,13 @@ using DismissViewCallback = SystemIdentityManager::DismissViewCallback;
             accessPoint:AccessPoint::ACCESS_POINT_SETTINGS];
   [applicationCommands showSignin:signinCommand
                baseViewController:self.viewController];
+}
+
+#pragma mark - BulkUploadCoordinatorDelegate
+
+- (void)bulkUploadCoordinatorShouldStop:(BulkUploadCoordinator*)coordinator {
+  DCHECK_EQ(coordinator, _bulkUploadCoordinator);
+  [self stopBulkUpload];
 }
 
 #pragma mark - SyncObserverModelBridge

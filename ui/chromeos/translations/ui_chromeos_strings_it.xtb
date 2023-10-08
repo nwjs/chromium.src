@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">Ricerca di reti mobili in corso</translation>
 <translation id="1293556467332435079">File</translation>
 <translation id="1297922636971898492">Google Drive non è al momento disponibile. Il caricamento riprenderà automaticamente una volta che Google Drive sarà tornato operativo.</translation>
+<translation id="1306130176943817227">Impossibile eliminare l'elemento. L'elemento è in uso.</translation>
 <translation id="1307931752636661898">Impossibile visualizzare i file di Linux</translation>
 <translation id="1313405956111467313">Configurazione automatica del proxy</translation>
 <translation id="134645005685694099">Lo spazio di archiviazione sul dispositivo non è sufficiente per mantenere attiva la sincronizzazione dei file. I nuovi file non verranno più sincronizzati automaticamente.</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">Anguria</translation>
 <translation id="1924372192547904021">Formattazione di <ph name="DRIVE_NAME" /> eseguita</translation>
 <translation id="1931134289871235022">Slovacco</translation>
-<translation id="1933345018156373194">Movimento non riuscito, errore imprevisto: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">Finlandese</translation>
 <translation id="1942765061641586207">Risoluzione dell'immagine</translation>
 <translation id="1972984168337863910">Espandi i riquadri di feedback dei file</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">Contesto</translation>
 <translation id="3272909651715601089">Impossibile aprire "<ph name="PATH" />"</translation>
 <translation id="3280431534455935878">Preparazione in corso</translation>
+<translation id="3280719573299097127">Stai utilizzando una rete a consumo. La sincronizzazione dei file è stata messa in pausa.</translation>
 <translation id="3280987981688031357">Disco in vinile</translation>
 <translation id="3290356915286466215">Non protetta</translation>
 <translation id="3291218047831493686">Connettiti a questa rete per modificare l'impostazione del blocco SIM</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">Album</translation>
 <translation id="4972330214479971536">Impossibile completare la configurazione della sincronizzazione dei file</translation>
 <translation id="4973523518332075481">Il nome deve contenere un massimo di <ph name="MAX_LENGTH" /> caratteri</translation>
-<translation id="4973970068702235170">Compressione non riuscita. Errore imprevisto: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">Giapponese</translation>
 <translation id="4987699874727873250">Inglese (India)</translation>
 <translation id="4988205478593450158">Vuoi eliminare "<ph name="FILE_NAME" />"?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">Francese svizzero</translation>
 <translation id="5234764350956374838">Ignora</translation>
 <translation id="5253070652067921974">Creato da</translation>
+<translation id="5254207638927440400">Impossibile spostare il file. Il file è in uso.</translation>
 <translation id="5257456363153333584">Libellula</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />Accedi ai file ovunque, anche offline.<ph name="MARKUP_2" />
     I file in Google Drive sono aggiornati e disponibili da qualsiasi dispositivo.<ph name="MARKUP_3" />
@@ -631,13 +632,13 @@
 <translation id="5838451609423551646">Tutti gli elementi sono stati rimossi dalla selezione.</translation>
 <translation id="5838825566232597749">Internazionale Workman USA</translation>
 <translation id="5845721951356578987">Infermiera</translation>
+<translation id="5858478190805449225">Modalità di risparmio energetico attiva. Riprova quando questa modalità sarà disattivata.</translation>
 <translation id="5860491529813859533">Attiva</translation>
 <translation id="5861477046012235702">Giocatore</translation>
 <translation id="5864471791310927901">Ricerca DHCP non riuscita</translation>
 <translation id="5896749729057314184">Rete <ph name="NETWORK_INDEX" /> di <ph name="NETWORK_COUNT" />, <ph name="NETWORK_NAME" />, Non attivato, Intensità del segnale <ph name="SIGNAL_STRENGTH" />%, Dettagli</translation>
 <translation id="5911887972742538906">Si è verificato un errore durante l'installazione dell'applicazione Linux.</translation>
 <translation id="5912396950572065471">Formato</translation>
-<translation id="5913638992615760742">Operazione di copia non riuscita, errore imprevisto: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="5918480239180455431">Nuove funzionalità di ricerca disponibili</translation>
 <translation id="5926082595146149752">Olandese (Paesi Bassi) con tastiera PC internazionale USA</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -645,7 +646,6 @@
 <translation id="5955954492236143329"><ph name="NUMBER_OF_ITEMS" /> elementi</translation>
 <translation id="5957366693331451795">I Chromebox</translation>
 <translation id="5982621672636444458">Opzioni ordinamento</translation>
-<translation id="6007237601604674381">Spostamento non riuscito. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="6011074160056912900">Rete Ethernet</translation>
 <translation id="60357267506638014">Tastiera QWERTY Ceco</translation>
 <translation id="603895874132768835">Non potrai utilizzare questa rete finché non configuri un nuovo PIN</translation>
@@ -862,6 +862,7 @@
 <translation id="76959938259365003">Impossibile svuotare il cestino.</translation>
 <translation id="770015031906360009">Greco</translation>
 <translation id="7705251383879779343">Elemento <ph name="FILE_NAME" /> copiato.</translation>
+<translation id="7707941139430559579">Impossibile spostare il file. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">Per utilizzare questa rete, devi inserire il codice personale di sblocco (PUK) di 8 cifre fornito dall'operatore.</translation>
 <translation id="7711920809702896782">Info immagine</translation>
 <translation id="7724603315864178912">Taglia</translation>
@@ -898,7 +899,6 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">I tuoi file in Il mio Drive verranno sincronizzati automaticamente con Chromebook in modo da aprirli senza connessione a internet.</translation>
 <translation id="7925247922861151263">Controllo AAA non riuscito</translation>
-<translation id="7925686952655276919">Non utilizzare dati mobili per la sincronizzazione</translation>
 <translation id="7928710562641958568">Espelli dispositivo</translation>
 <translation id="7933875256234974853">Preparazione della sincronizzazione dei file di Drive in corso…</translation>
 <translation id="7943385054491506837">Colemak USA</translation>
@@ -921,6 +921,7 @@
 <translation id="8087576439476816834">Download, <ph name="PROFILE_NAME" /></translation>
 <translation id="8106045200081704138">Condivisi con me</translation>
 <translation id="8116072619078571545">Acqua con ghiaccio</translation>
+<translation id="8120392982188717723">Consenti sincronizzazione sulle reti a consumo</translation>
 <translation id="8124093710070495550">Problema di sincronizzazione</translation>
 <translation id="8128733386027980860">Inglese (UK) con tastiera Dvorak</translation>
 <translation id="8137331602592933310">Il file "<ph name="FILENAME" />" è stato condiviso con te. Non puoi eliminarlo perché non ne sei il proprietario.</translation>
@@ -1049,6 +1050,7 @@
 <translation id="9038620279323455325">Esiste già un file chiamato "<ph name="FILE_NAME" />". Scegli un altro nome.</translation>
 <translation id="9046895021617826162">Connessione non riuscita</translation>
 <translation id="9065512565307033593">Se non superi la verifica, l'accesso alla rete verrà disattivato.</translation>
+<translation id="9083722265619106011">{0,plural, =1{1 avviso.}other{<ph name="COUNT" /> avvisi.}}</translation>
 <translation id="908378762078012445">Russo con tastiera fonetica AATSEEL</translation>
 <translation id="9086302186042011942">Sincronizzazione in corso</translation>
 <translation id="9099674669267916096">Numero di pagine</translation>

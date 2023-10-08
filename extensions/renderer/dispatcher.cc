@@ -10,6 +10,7 @@
 #include <memory>
 #include <utility>
 
+#include "base/containers/contains.h"
 #include "base/command_line.h"
 
 #include "base/debug/alias.h"
@@ -407,8 +408,7 @@ void Dispatcher::OnRenderFrameCreated(content::RenderFrame* render_frame) {
 }
 
 bool Dispatcher::IsExtensionActive(const std::string& extension_id) const {
-  bool is_active =
-      active_extension_ids_.find(extension_id) != active_extension_ids_.end();
+  const bool is_active = base::Contains(active_extension_ids_, extension_id);
   if (is_active)
     CHECK(RendererExtensionRegistry::Get()->Contains(extension_id));
   return is_active;

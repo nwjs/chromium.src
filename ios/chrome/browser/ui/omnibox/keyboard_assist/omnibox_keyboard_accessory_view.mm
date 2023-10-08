@@ -4,8 +4,8 @@
 
 #import "ios/chrome/browser/ui/omnibox/keyboard_assist/omnibox_keyboard_accessory_view.h"
 
+#import "base/apple/foundation_util.h"
 #import "base/ios/ios_util.h"
-#import "base/mac/foundation_util.h"
 #import "ios/chrome/browser/search_engines/search_engine_observer_bridge.h"
 #import "ios/chrome/browser/search_engines/search_engines_util.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -68,6 +68,16 @@
     [self addSubviews];
   }
   return self;
+}
+
+- (void)traitCollectionDidChange:(UITraitCollection*)previousTraitCollection {
+  [super traitCollectionDidChange:previousTraitCollection];
+  // The Lens button needs to be updated when the device goes from light to dark
+  // mode or vice versa.
+  UIButton* lensButton = _delegate.lensButton;
+  if (lensButton) {
+    UpdateLensButtonAppearance(lensButton);
+  }
 }
 
 - (void)addSubviews {
@@ -208,7 +218,7 @@
 }
 
 - (void)keyboardButtonPressed:(id)sender {
-  UIButton* button = base::mac::ObjCCastStrict<UIButton>(sender);
+  UIButton* button = base::apple::ObjCCastStrict<UIButton>(sender);
   [[UIDevice currentDevice] playInputClick];
   if (IsUIButtonConfigurationEnabled()) {
     [_delegate keyPressed:button.configuration.title];

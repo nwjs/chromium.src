@@ -80,6 +80,8 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
 
   // Add any features that have been enabled.
   source->AddBoolean("colorThemes", true);
+  source->AddBoolean("HelpAppAppsGamesBannerV2", true);
+  source->AddBoolean("HelpAppDynamicHomePageBanner", true);
   source->AddBoolean("HelpAppReleaseNotes", true);
   source->AddBoolean(
       "HelpAppLauncherSearch",
@@ -107,6 +109,8 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
         ((base::Time::Now() - profile->GetCreationTime()).InDaysFloored() <= 7);
     source->AddBoolean("shouldShowWelcomeTipsAtLaunch", first_week_of_profile);
   }
+  source->AddBoolean("isUpdateNotificationEnabled",
+                     ash::features::IsUpdateNotificationEnabled());
   // Add state from the OOBE flow.
   source->AddBoolean(
       "shouldShowGetStarted",
@@ -139,7 +143,7 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
   // If true, then the user may launch the setup flow for Microsoft 365.
   source->AddBoolean(
       "Microsoft365",
-      chromeos::IsEligibleAndEnabledUploadOfficeToCloud(profile));
+      chromeos::cloud_upload::IsMicrosoftOfficeCloudUploadAllowed(profile));
 
   // Checks if the Google Assistant is allowed on this device by going through
   // policies.
@@ -158,7 +162,13 @@ void PopulateLoadTimeData(content::WebUI* web_ui,
   user_manager::UserManager* user_manager = user_manager::UserManager::Get();
   source->AddBoolean("isManagedDevice",
                      profile->GetProfilePolicyConnector()->IsManaged());
-  source->AddInteger("userType", user_manager->GetActiveUser()->GetType());
+  if (user_manager->GetActiveUser()) {
+    source->AddInteger("userType", user_manager->GetActiveUser()->GetType());
+  } else {
+    // It's possible that there is no logged-in user. Set to -1 to indicate when
+    // this is the case.
+    source->AddInteger("userType", -1);
+  }
   source->AddBoolean("isEphemeralUser",
                      user_manager->IsCurrentUserNonCryptohomeDataEphemeral());
 }

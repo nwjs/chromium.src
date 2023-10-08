@@ -350,6 +350,7 @@ template("libwebviewchromium_tmpl") {
     configs += [
       "//build/config/android:hide_all_but_jni",
       "//build/config/compiler:chrome_orderfile_config",
+      "//build/config/compiler:prevent_unsafe_narrowing",
     ]
     java_targets = webview_java_for_jni_targets
 
@@ -445,7 +446,10 @@ group("empty_group") {
 }
 
 generate_jni("common_jni") {
-  sources = [ "java/src/org/chromium/android_webview/common/AwResource.java" ]
+  sources = [
+    "java/src/org/chromium/android_webview/common/AwResource.java",
+    "java/src/org/chromium/android_webview/common/origin_trial/DisableOriginTrialsSafeModeUtils.java",
+  ]
 }
 
 generate_jni("browser_jni_headers") {
@@ -479,6 +483,7 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/SystemStateUtil.java",
     "java/src/org/chromium/android_webview/WebMessageListenerHolder.java",
     "java/src/org/chromium/android_webview/WebMessageListenerInfo.java",
+    "java/src/org/chromium/android_webview/client_hints/AwUserAgentMetadata.java",
     "java/src/org/chromium/android_webview/gfx/AwDrawFnImpl.java",
     "java/src/org/chromium/android_webview/gfx/AwGLFunctor.java",
     "java/src/org/chromium/android_webview/gfx/AwPicture.java",
@@ -488,6 +493,7 @@ generate_jni("browser_jni_headers") {
     "java/src/org/chromium/android_webview/permission/AwPermissionRequest.java",
     "java/src/org/chromium/android_webview/safe_browsing/AwSafeBrowsingConfigHelper.java",
     "java/src/org/chromium/android_webview/safe_browsing/AwSafeBrowsingSafeModeAction.java",
+    "java/src/org/chromium/android_webview/supervised_user/AwSupervisedUserUrlClassifier.java",
     "java/src/org/chromium/android_webview/variations/VariationsSeedLoader.java",
   ]
 }
@@ -578,6 +584,7 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/WebviewErrorCode.java",
     "java/src/org/chromium/android_webview/autofill/AndroidAutofillSafeModeAction.java",
     "java/src/org/chromium/android_webview/autofill/ChromeAutocompleteSafeModeAction.java",
+    "java/src/org/chromium/android_webview/client_hints/AwUserAgentMetadata.java",
     "java/src/org/chromium/android_webview/gfx/AwDrawFnImpl.java",
     "java/src/org/chromium/android_webview/gfx/AwFunctor.java",
     "java/src/org/chromium/android_webview/gfx/AwGLFunctor.java",
@@ -593,6 +600,7 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/metrics/AwSiteVisitLogger.java",
     "java/src/org/chromium/android_webview/metrics/HistogramsAllowlist.java",
     "java/src/org/chromium/android_webview/metrics/MetricsFilteringDecorator.java",
+    "java/src/org/chromium/android_webview/metrics/TrackExitReasonsOfInterest.java",
     "java/src/org/chromium/android_webview/permission/AwGeolocationCallback.java",
     "java/src/org/chromium/android_webview/permission/AwPermissionRequest.java",
     "java/src/org/chromium/android_webview/policy/AwPolicyProvider.java",
@@ -600,6 +608,7 @@ android_library("browser_java") {
     "java/src/org/chromium/android_webview/safe_browsing/AwSafeBrowsingConversionHelper.java",
     "java/src/org/chromium/android_webview/safe_browsing/AwSafeBrowsingResponse.java",
     "java/src/org/chromium/android_webview/safe_browsing/AwSafeBrowsingSafeModeAction.java",
+    "java/src/org/chromium/android_webview/supervised_user/AwSupervisedUserUrlClassifier.java",
     "java/src/org/chromium/android_webview/variations/FastVariationsSeedSafeModeAction.java",
     "java/src/org/chromium/android_webview/variations/VariationsSeedLoader.java",
     "java/src/org/chromium/android_webview/variations/VariationsSeedSafeModeAction.java",
@@ -607,6 +616,7 @@ android_library("browser_java") {
   deps = [
     ":common_aidl_java",
     ":common_java",
+    ":common_origin_trials_java",
     ":common_platform_services_java",
     ":common_variations_java",
     ":crash_client_java",
@@ -646,6 +656,7 @@ android_library("browser_java") {
     "//net/android:net_java",
     "//services/network/public/mojom:mojom_java",
     "//services/network/public/mojom:url_loader_base_java",
+    "//third_party/android_deps:com_google_code_findbugs_jsr305_java",
     "//third_party/android_deps:protobuf_lite_runtime_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_core_core_java",
@@ -688,6 +699,7 @@ android_library("common_variations_java") {
 # compiled separately.
 android_library("common_platform_services_java") {
   sources = [
+    "java/src/org/chromium/android_webview/common/AwSupervisedUserUrlClassifierDelegate.java",
     "java/src/org/chromium/android_webview/common/PlatformServiceBridge.java",
     "java/src/org/chromium/android_webview/common/PlatformServiceBridgeImpl.java",
   ]
@@ -697,6 +709,7 @@ android_library("common_platform_services_java") {
     "//components/embedder_support/android/metrics:java",
     "//content/public/android:content_full_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
+    "//url:gurl_java",
   ]
 
   # The appropriate .class file will be loaded via a dependency to a library
@@ -720,6 +733,20 @@ android_library("crash_client_java") {
   srcjar_deps = [ ":crash_client_jni" ]
 
   deps = [
+    "//base:base_java",
+    "//base:jni_java",
+    "//third_party/androidx:androidx_annotation_annotation_java",
+  ]
+}
+
+android_library("common_origin_trials_java") {
+  sources = [
+    "java/src/org/chromium/android_webview/common/origin_trial/DisableOriginTrialsSafeModeAction.java",
+    "java/src/org/chromium/android_webview/common/origin_trial/DisableOriginTrialsSafeModeUtils.java",
+  ]
+
+  deps = [
+    ":common_java",
     "//base:base_java",
     "//base:jni_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
@@ -1085,27 +1112,29 @@ grit("generate_components_resources") {
   }
 }
 
-grit("generate_components_scaled_resources") {
-  source = "../components/resources/components_scaled_resources.grd"
+if (webview_includes_weblayer) {
+  grit("generate_components_scaled_resources") {
+    source = "../components/resources/components_scaled_resources.grd"
 
-  # See :generate_webui_resources for an explanation of the allowlist
-  _allowlist = rebase_path("$target_gen_dir/grit_resources_allowlist.txt",
-                           root_build_dir)
+    # See :generate_webui_resources for an explanation of the allowlist
+    _allowlist = rebase_path("$target_gen_dir/grit_resources_allowlist.txt",
+                             root_build_dir)
 
-  grit_flags = [
-    "-w",
-    _allowlist,
-  ]
-  outputs = [
-    "grit/components_scaled_resources.h",
-    "grit/components_scaled_resources_map.cc",
-    "grit/components_scaled_resources_map.h",
-    "components_resources_100_percent.pak",
-    "components_resources_200_percent.pak",
-    "components_resources_300_percent.pak",
-  ]
+    grit_flags = [
+      "-w",
+      _allowlist,
+    ]
+    outputs = [
+      "grit/components_scaled_resources.h",
+      "grit/components_scaled_resources_map.cc",
+      "grit/components_scaled_resources_map.h",
+      "components_resources_100_percent.pak",
+      "components_resources_200_percent.pak",
+      "components_resources_300_percent.pak",
+    ]
 
-  deps = [ ":concatenate_resources_allowlists" ]
+    deps = [ ":concatenate_resources_allowlists" ]
+  }
 }
 
 grit("generate_components_strings") {

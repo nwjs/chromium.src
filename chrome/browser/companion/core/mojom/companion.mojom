@@ -77,6 +77,9 @@ enum PromoType {
 
   // IPH about region search capability.
   kRegionSearchIPH = 4,
+
+  // Promo to enable page content opt-in.
+  kPco = 5,
 };
 
 // Loading states currently in the Companion UI.
@@ -185,9 +188,13 @@ enum UiSurface {
   kPHResult = 10
 };
 
+// Container for sending visual suggestion results to the side panel renderer.
 struct VisualSearchResult {
-  // Encoded image bytes
+  // Base64 encoded image bytes.
   string data_uri;
+
+  // Alt-text for the image specified by the data uri.
+  string alt_text;
 };
 
 // Factory method for creating a new WebUI page handler.

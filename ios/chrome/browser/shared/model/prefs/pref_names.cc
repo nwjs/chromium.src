@@ -175,6 +175,11 @@ const char kIosLatestMostVisitedSites[] = "ios.most_visited_sites";
 const char kIosMagicStackSegmentationMVTImpressionsSinceFreshness[] =
     "ios.magic_stack_segmentation.most_visited_sites_freshness";
 
+// Integer representing the number of impressions of the Parcel Tracking module
+// since a freshness signal.
+const char kIosMagicStackSegmentationParcelTrackingImpressionsSinceFreshness[] =
+    "ios.magic_stack_segmentation.parcel_tracking_freshness";
+
 // Integer representing the number of impressions of Shortcuts since a freshness
 // signal.
 const char kIosMagicStackSegmentationShortcutsImpressionsSinceFreshness[] =
@@ -184,6 +189,14 @@ const char kIosMagicStackSegmentationShortcutsImpressionsSinceFreshness[] =
 // freshness signal.
 const char kIosMagicStackSegmentationSafetyCheckImpressionsSinceFreshness[] =
     "ios.magic_stack_segmentation.safety_check_freshness";
+
+const char kIosMagicStackSegmentationTabResumptionImpressionsSinceFreshness[] =
+    "ios.magic_stack_segmentation.tab_resumption_freshness";
+
+// Boolean to represent if the parcel tracking opt-in prompt has been displayed
+// for the user.
+const char kIosParcelTrackingOptInPromptDisplayed[] =
+    "ios.parcel_tracking.opt_in_prompt_displayed";
 
 // The number of consecutive times the user dismissed the password bottom sheet.
 // This gets reset to 0 whenever the user selects a password from the bottom
@@ -211,6 +224,10 @@ const char kIosPromosManagerImpressions[] = "ios.promos_manager.impressions";
 const char kIosPromosManagerSingleDisplayActivePromos[] =
     "ios.promos_manager.single_display_active_promos";
 
+// Time preference containing the last run time of the Safety Check.
+const char kIosSafetyCheckManagerLastRunTime[] =
+    "ios.safety_check_manager.last_run_time";
+
 // String preference containing the Password Check result from the most recent
 // Safety Check run (using the new Safety Check Manager).
 const char kIosSafetyCheckManagerPasswordCheckResult[] =
@@ -226,6 +243,11 @@ const char kIosSafetyCheckManagerUpdateCheckResult[] =
 const char kIosSafetyCheckManagerSafeBrowsingCheckResult[] =
     "ios.safety_check_manager.safe_browsing_check_result";
 
+// String preference containing the default account to use for saving images to
+// Google Photos.
+const char kIosSaveToPhotosDefaultGaiaId[] =
+    "ios.save_to_photos.default_gaia_id";
+
 // Preference that hold a boolean indicating if the user has already dismissed
 // the sign-in promo in settings view.
 const char kIosSettingsPromoAlreadySeen[] = "ios.settings.promo_already_seen";
@@ -234,6 +256,11 @@ const char kIosSettingsPromoAlreadySeen[] = "ios.settings.promo_already_seen";
 // in the settings view.
 const char kIosSettingsSigninPromoDisplayedCount[] =
     "ios.settings.signin_promo_displayed_count";
+
+// Time preference containing the last run time of the Safety Check (via
+// Settings).
+const char kIosSettingsSafetyCheckLastRunTime[] =
+    "ios.settings.safety_check.last_run_time";
 
 // The count of how many times the user has shared the app.
 const char kIosShareChromeCount[] = "ios.share_chrome.count";
@@ -314,6 +341,10 @@ const char kOverflowMenuDestinationsOrder[] =
 // List preference which tracks the current hidden overflow menu destinations.
 const char kOverflowMenuHiddenDestinations[] =
     "overflow_menu.hidden_destinations";
+
+// List preference which tracks the currently badged overflow menu destinations.
+const char kOverflowMenuDestinationBadgeData[] =
+    "overflow_menu.destination_badge_data";
 
 // Dict preference which tracks the current elements and order of the overflow
 // menu's actions.

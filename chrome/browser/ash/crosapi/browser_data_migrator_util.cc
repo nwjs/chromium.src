@@ -20,6 +20,7 @@
 #include "base/strings/string_util.h"
 #include "base/system/sys_info.h"
 #include "base/values.h"
+#include "chrome/browser/extensions/extension_keeplist_chromeos.h"
 #include "chrome/common/chrome_constants.h"
 #include "components/sync/base/model_type.h"
 #include "components/sync/base/storage_type.h"
@@ -154,7 +155,9 @@ bool ShouldRemoveExtensionByType(const base::StringPiece extension_id,
   switch (chrome_type) {
     case ChromeType::kAsh:
       return !base::Contains(kExtensionsAshOnly, extension_id) &&
-             !base::Contains(kExtensionsBothChromes, extension_id);
+             !base::Contains(
+                 extensions::GetExtensionsAndAppsRunInOSAndStandaloneBrowser(),
+                 extension_id);
 
     case ChromeType::kLacros:
       return base::Contains(kExtensionsAshOnly, extension_id);
@@ -574,6 +577,9 @@ leveldb::Status GetExtensionKeys(leveldb::DB* db,
       (*result)[extension_id].push_back(key);
   }
 
+  PLOG_IF(ERROR, !it->status().ok())
+      << "GetExtensionKeys() failed with status: " << it->status().ToString();
+
   return it->status();
 }
 
@@ -615,7 +621,8 @@ bool MigrateLevelDB(const base::FilePath& original_path,
   leveldb::Status status =
       leveldb_env::OpenDB(options, original_path.value(), &original_db);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while opening original leveldb: " << original_path;
+    PLOG(ERROR) << "Failure while opening original leveldb: " << original_path
+                << ": " << status.ToString();
     return false;
   }
 
@@ -624,7 +631,7 @@ bool MigrateLevelDB(const base::FilePath& original_path,
   status = GetExtensionKeys(original_db.get(), leveldb_type, &original_keys);
   if (!status.ok()) {
     PLOG(ERROR) << "Failure while reading keys from original leveldb: "
-                << original_path;
+                << original_path << ": " << status.ToString();
     return false;
   }
 
@@ -634,7 +641,8 @@ bool MigrateLevelDB(const base::FilePath& original_path,
   options.error_if_exists = true;
   status = leveldb_env::OpenDB(options, target_path.value(), &target_db);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while opening new leveldb: " << target_path;
+    PLOG(ERROR) << "Failure while opening new leveldb: " << target_path << ": "
+                << status.ToString();
     return false;
   }
 
@@ -650,13 +658,15 @@ bool MigrateLevelDB(const base::FilePath& original_path,
   // Copy all the key-value pairs that need to be kept in Ash.
   for (const auto& [extension_id, keys] : original_keys) {
     if (base::Contains(kExtensionsAshOnly, extension_id) ||
-        base::Contains(kExtensionsBothChromes, extension_id)) {
+        base::Contains(
+            extensions::GetExtensionsAndAppsRunInOSAndStandaloneBrowser(),
+            extension_id)) {
       for (const std::string& key : keys) {
         std::string value;
         status = original_db->Get(leveldb::ReadOptions(), key, &value);
         if (!status.ok()) {
           PLOG(ERROR) << "Failure while reading from original leveldb: "
-                      << original_path;
+                      << original_path << ": " << status.ToString();
           return false;
         }
         write_batch.Put(key, value);
@@ -669,7 +679,8 @@ bool MigrateLevelDB(const base::FilePath& original_path,
   write_options.sync = true;
   status = target_db->Write(write_options, &write_batch);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while writing into new leveldb: " << target_path;
+    PLOG(ERROR) << "Failure while writing into new leveldb: " << target_path
+                << ": " << status.ToString();
     return false;
   }
 
@@ -686,7 +697,8 @@ bool MigrateSyncDataLevelDB(const base::FilePath& original_path,
   leveldb::Status status =
       leveldb_env::OpenDB(options, original_path.value(), &original_db);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while opening original leveldb: " << original_path;
+    PLOG(ERROR) << "Failure while opening original leveldb: " << original_path
+                << ": " << status.ToString();
     return false;
   }
 
@@ -697,7 +709,8 @@ bool MigrateSyncDataLevelDB(const base::FilePath& original_path,
   status =
       leveldb_env::OpenDB(options, ash_target_path.value(), &ash_target_db);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while opening new leveldb: " << ash_target_path;
+    PLOG(ERROR) << "Failure while opening new leveldb: " << ash_target_path
+                << ": " << status.ToString();
     return false;
   }
 
@@ -706,7 +719,8 @@ bool MigrateSyncDataLevelDB(const base::FilePath& original_path,
   status = leveldb_env::OpenDB(options, lacros_target_path.value(),
                                &lacros_target_db);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while opening new leveldb: " << lacros_target_path;
+    PLOG(ERROR) << "Failure while opening new leveldb: " << lacros_target_path
+                << ": " << status.ToString();
     return false;
   }
 
@@ -726,7 +740,7 @@ bool MigrateSyncDataLevelDB(const base::FilePath& original_path,
   }
   if (!it->status().ok()) {
     PLOG(ERROR) << "Failure while reading from original leveldb: "
-                << original_path;
+                << original_path << ": " << status.ToString();
     return false;
   }
 
@@ -735,14 +749,14 @@ bool MigrateSyncDataLevelDB(const base::FilePath& original_path,
   write_options.sync = true;
   status = ash_target_db->Write(write_options, &ash_write_batch);
   if (!status.ok()) {
-    PLOG(ERROR) << "Failure while writing into new leveldb: "
-                << ash_target_path;
+    PLOG(ERROR) << "Failure while writing into new leveldb: " << ash_target_path
+                << ": " << status.ToString();
     return false;
   }
   status = lacros_target_db->Write(write_options, &lacros_write_batch);
   if (!status.ok()) {
     PLOG(ERROR) << "Failure while writing into new leveldb: "
-                << lacros_target_path;
+                << lacros_target_path << ": " << status.ToString();
     return false;
   }
 

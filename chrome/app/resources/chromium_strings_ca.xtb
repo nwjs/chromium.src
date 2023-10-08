@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">Reprèn la instal·lació</translation>
 <translation id="1029669172902658969">Reinicia per actualitzar &amp;Chromium OS</translation>
 <translation id="1040916596585577953">Chromium et recomana que revisis aquesta extensió</translation>
+<translation id="1042552502243217427">Quan un lloc web demana precarregar de manera privada enllaços de la seva pàgina, Chromium fa servir els servidors de Google. Això amaga la teva identitat del lloc web precarregat, però Google sap quins llocs web es precarreguen.</translation>
 <translation id="1065672644894730302">No es poden llegir les vostres preferències. És possible que algunes funcions no estiguin disponibles i que els canvis a les preferències no es desin.</translation>
 <translation id="1083934481477628225">El teu pare o mare ha desactivat Permisos per a llocs web, aplicacions i extensions en relació amb Chromium</translation>
 <translation id="1098170124587656448">Chromium pot ajudar a protegir-te de violacions de les dades, d'extensions malicioses i més</translation>
@@ -128,6 +129,8 @@
 <translation id="370962675267501463">{COUNT,plural, =0{L'administrador et demana que reiniciïs Chromium per aplicar aquesta actualització}=1{L'administrador et demana que reiniciïs Chromium per aplicar aquesta actualització. La finestra d'incògnit no es tornarà a obrir.}other{L'administrador et demana que reiniciïs Chromium per aplicar aquesta actualització. Les # finestres d'incògnit no es tornaran a obrir.}}</translation>
 <translation id="3713809861844741608">Obre l'enllaç en una pes&amp;tanya nova a Chromium</translation>
 <translation id="378917192836375108">Chromium us permet fer clic en un número de telèfon al web i trucar-hi amb Skype!</translation>
+<translation id="3790262771324122253">Descobreix per què Chromium bloqueja algunes baixades</translation>
+<translation id="3802055581630249637">Chromium precarrega les pàgines que és probable que visitis perquè es carreguin més ràpidament quan ho facis</translation>
 <translation id="3830894615770080216">Sistema Chromium OS</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" />: Chromium</translation>
 <translation id="386822487697155367">Obtén ajuda per a Chromium OS</translation>
@@ -153,6 +156,7 @@
 <translation id="4216212958613226427">És l'idioma en què es mostra la IU de Chromium</translation>
 <translation id="4222932583846282852">S'està cancel·lant...</translation>
 <translation id="4230135487732243613">Voleu enllaçar les vostres dades de Chromium amb aquest compte?</translation>
+<translation id="4251772536351901305">T'avisa de llocs web perillosos, fins i tot dels que Google no coneixia abans, ja que analitza més dades dels llocs web que la protecció estàndard. Pots optar per ometre els advertiments de Chromium.</translation>
 <translation id="4271805377592243930">Obtén ajuda per a Chromium</translation>
 <translation id="4281844954008187215">Condicions del servei</translation>
 <translation id="4285930937574705105">S'ha produït un error no especificat durant la instal·lació. Si Chromium s'està executant en aquests moments, tanqueu-lo i torneu-ho a provar.</translation>
@@ -224,7 +228,6 @@
 <translation id="5988505247484123880">És habitual que els llocs web que visites recordin coses que t'interessen per personalitzar la teva experiència. Els llocs web també poden emmagatzemar informació a Chromium sobre els teus interessos.</translation>
 <translation id="6003112304606738118">S'està baixant… Queden <ph name="HOURS" /> hores</translation>
 <translation id="6040143037577758943">Tanca</translation>
-<translation id="6055611795418209449">Chromium bloqueja algunes baixades</translation>
 <translation id="6055895534982063517">Hi ha disponible una versió nova de Chromium, i és més ràpida que mai.</translation>
 <translation id="6063093106622310249">&amp;Obre a Chromium</translation>
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> s'ha afegit a Chromium</translation>
@@ -238,6 +241,7 @@
 <translation id="6132897690380286411">Chromium es tancarà aviat i suprimirà les dades</translation>
 <translation id="6134968993075716475">Navegació segura està desactivada. Chromium recomana activar-la.</translation>
 <translation id="6145820983052037069">Pots canviar entre perfils de Chromium aquí</translation>
+<translation id="615103374448673771">Si permets les galetes, Chromium pot utilitzar-les en la precàrrega</translation>
 <translation id="6175304430031192654">En funció de la teva configuració, Chromium també pot enviar galetes i el teu URL actual</translation>
 <translation id="6183079672144801177">Assegura't que tinguis la sessió iniciada a Chromium a <ph name="TARGET_DEVICE_NAME" /> i prova d'enviar-ho de nou.</translation>
 <translation id="6212496753309875659">Aquest equip ja té una versió més recent de Chromium. Si el programari no funciona, desinstal·leu Chromium i torneu-ho a provar.</translation>
@@ -262,12 +266,14 @@
 <translation id="6400112897226594999">Logotip de Chromium a l'interior d'una pantalla d'ordinador.</translation>
 <translation id="6403826409255603130">Chromium és un navegador web que executa les pàgines web i les aplicacions a gran velocitat. És ràpid, estable i fàcil d'utilitzar. Navegueu per Internet amb més seguretat amb protecció inserida a Chromium contra el programari maliciós i contra la pesca de credencials.</translation>
 <translation id="6442900851116057561">Reinicia Chromium OS</translation>
+<translation id="6443470774889161065">Chromium precarrega encara més pàgines que és probable que visitis perquè es carreguin més ràpidament quan ho facis</translation>
 <translation id="6455857529632101747">Et donem la benvinguda als perfils de Chromium</translation>
 <translation id="6475912303565314141">També controla la pàgina que es mostra quan inicieu Chromium.</translation>
 <translation id="648319183876919572">La Navegació segura millorada és més eficaç a l'hora de protegir-te de baixades i llocs web perillosos</translation>
 <translation id="6510925080656968729">Desinstal·la Chromium</translation>
 <translation id="6539122709674868420">La teva organització tanca Chromium quan no s'utilitza durant <ph name="TIMEOUT_DURATION" />. Les dades de navegació s'han suprimit. Això pot incloure l'historial, les dades d'Emplenament automàtic i les baixades.</translation>
 <translation id="6542839706527980775">Cada perfil conserva la seva pròpia informació de Chromium, com ara les adreces d'interès, l'historial, les contrasenyes i més</translation>
+<translation id="6563921047760808519">Més informació sobre <ph name="BEGIN_LINK" />com Chromium manté la privadesa de les teves dades<ph name="END_LINK" /></translation>
 <translation id="656935081669708576">Pots canviar de perfil per veure les contrasenyes d'un altre perfil de Chromium</translation>
 <translation id="6570579332384693436">Per corregir els errors d'ortografia, Chromium envia a Google el que escrius als camps de text</translation>
 <translation id="6598877126913850652">Ves a la configuració de notificacions de Chromium</translation>

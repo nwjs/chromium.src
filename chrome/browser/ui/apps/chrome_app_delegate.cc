@@ -271,9 +271,7 @@ void ChromeAppDelegate::InitWebContents(content::WebContents* web_contents) {
 
   FileSystemAccessPermissionRequestManager::CreateForWebContents(web_contents);
   autofill::ChromeAutofillClient::CreateForWebContents(web_contents);
-  ChromePasswordManagerClient::CreateForWebContentsWithAutofillClient(
-      web_contents,
-      autofill::ChromeAutofillClient::FromWebContents(web_contents));
+  ChromePasswordManagerClient::CreateForWebContents(web_contents);
   ManagePasswordsUIController::CreateForWebContents(web_contents);
   PrefsTabHelper::CreateForWebContents(web_contents);
   ExternalProtocolObserver::CreateForWebContents(web_contents);

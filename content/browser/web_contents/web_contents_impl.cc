@@ -9,6 +9,7 @@
 #include <cmath>
 #include <memory>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -58,6 +59,7 @@
 #include "content/browser/browser_plugin/browser_plugin_embedder.h"
 #include "content/browser/browser_plugin/browser_plugin_guest.h"
 #include "content/browser/child_process_security_policy_impl.h"
+#include "content/browser/closewatcher/close_listener_manager.h"
 #include "content/browser/devtools/protocol/page_handler.h"
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/display_cutout/display_cutout_host_impl.h"
@@ -107,8 +109,8 @@
 #include "content/browser/web_contents/web_contents_view_child_frame.h"
 #include "content/browser/webui/web_ui_controller_factory_registry.h"
 #include "content/browser/webui/web_ui_impl.h"
-#include "content/browser/xr/service/xr_runtime_manager_impl.h"
 #include "content/common/content_switches_internal.h"
+#include "content/common/features.h"
 #include "content/public/browser/ax_inspect_factory.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_plugin_guest_manager.h"
@@ -205,6 +207,10 @@
 
 #if BUILDFLAG(ENABLE_PPAPI)
 #include "content/browser/media/session/pepper_playback_observer.h"
+#endif
+
+#if BUILDFLAG(ENABLE_VR)
+#include "content/browser/xr/service/xr_runtime_manager_impl.h"
 #endif
 
 #if defined(USE_AURA)
@@ -2938,11 +2944,7 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences() {
 
   prefs.viewport_enabled = command_line.HasSwitch(switches::kEnableViewport);
 
-  prefs.threaded_scrolling_enabled =
-      !command_line.HasSwitch(blink::switches::kDisableThreadedScrolling);
-
 #if BUILDFLAG(IS_ANDROID)
-  constexpr int kTabletWidthThreshold = 600;
   // TODO(crbug.com/1469720): GetPrimaryDisplay() won't be correct for
   // externally connected displays. Get the display where Chrome is opened
   // instead.
@@ -2954,7 +2956,7 @@ const blink::web_pref::WebPreferences WebContentsImpl::ComputeWebPreferences() {
   if (prefs.viewport_enabled &&
       base::FeatureList::IsEnabled(
           blink::features::kDefaultViewportIsDeviceWidth) &&
-      min_width_in_dp >= kTabletWidthThreshold &&
+      min_width_in_dp >= kAndroidMinimumTabletWidthDp &&
       ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TV) {
     prefs.viewport_style = blink::mojom::ViewportStyle::kDefault;
   }
@@ -4193,10 +4195,14 @@ FrameTree* WebContentsImpl::CreateNewWindow(
                "opener", opener, "params", params);
   DCHECK(opener);
 
-  // Give the content browser client a chance to intercept the request and open
-  // the URL with an external handler.
-  if (GetContentClient()->browser()->OpenExternally(params.target_url,
-                                                    params.disposition)) {
+  if (base::FeatureList::IsEnabled(kWindowOpenFileSelectFix) &&
+      active_file_chooser_) {
+    // Do not allow opening a new window or tab while a file select is active
+    // file chooser to avoid user confusion over which tab triggered the file
+    // chooser.
+    opener->AddMessageToConsole(
+        blink::mojom::ConsoleMessageLevel::kWarning,
+        "window.open blocked due to active file chooser.");
     return nullptr;
   }
 
@@ -6670,21 +6676,39 @@ void WebContentsImpl::OnPageScaleFactorChanged(PageImpl& source) {
 }
 
 void WebContentsImpl::EnumerateDirectory(
+    base::WeakPtr<FileChooserImpl> file_chooser,
     RenderFrameHost* render_frame_host,
     scoped_refptr<FileChooserImpl::FileSelectListenerImpl> listener,
     const base::FilePath& directory_path) {
   OPTIONAL_TRACE_EVENT2("content", "WebContentsImpl::EnumerateDirectory",
                         "render_frame_host", render_frame_host,
                         "directory_path", directory_path);
+  base::ScopedClosureRunner cancel_chooser(base::BindOnce(
+      &FileChooserImpl::FileSelectListenerImpl::FileSelectionCanceled,
+      listener));
+  if (base::FeatureList::IsEnabled(kWindowOpenFileSelectFix)) {
+    if (visibility_ == Visibility::HIDDEN) {
+      // Do not allow background tab to open file chooser.
+      return;
+    }
+    if (active_file_chooser_) {
+      // Only allow one active file chooser at one time.
+      return;
+    }
+  }
+
   // Any explicit focusing of another window while this WebContents is in
   // fullscreen can be used to confuse the user, so drop fullscreen.
   base::ScopedClosureRunner fullscreen_block = ForSecurityDropFullscreen();
   listener->SetFullscreenBlock(std::move(fullscreen_block));
 
-  if (delegate_)
+  if (delegate_) {
+    if (base::FeatureList::IsEnabled(kWindowOpenFileSelectFix)) {
+      active_file_chooser_ = std::move(file_chooser);
+    }
     delegate_->EnumerateDirectory(this, std::move(listener), directory_path);
-  else
-    listener->FileSelectionCanceled();
+    std::ignore = cancel_chooser.Release();
+  }
 }
 
 void WebContentsImpl::RegisterProtocolHandler(RenderFrameHostImpl* source,
@@ -7432,20 +7456,39 @@ void WebContentsImpl::RunBeforeUnloadConfirm(
 }
 
 void WebContentsImpl::RunFileChooser(
+    base::WeakPtr<FileChooserImpl> file_chooser,
     RenderFrameHost* render_frame_host,
     scoped_refptr<FileChooserImpl::FileSelectListenerImpl> listener,
     const blink::mojom::FileChooserParams& params) {
   OPTIONAL_TRACE_EVENT1("content", "WebContentsImpl::RunFileChooser",
                         "render_frame_host", render_frame_host);
+
+  base::ScopedClosureRunner cancel_chooser(base::BindOnce(
+      &FileChooserImpl::FileSelectListenerImpl::FileSelectionCanceled,
+      listener));
+  if (base::FeatureList::IsEnabled(kWindowOpenFileSelectFix)) {
+    if (visibility_ == Visibility::HIDDEN) {
+      // Do not allow background tab to open file chooser.
+      return;
+    }
+    if (active_file_chooser_) {
+      // Only allow one active file chooser at one time.
+      return;
+    }
+  }
+
   // Any explicit focusing of another window while this WebContents is in
   // fullscreen can be used to confuse the user, so drop fullscreen.
   base::ScopedClosureRunner fullscreen_block = ForSecurityDropFullscreen();
   listener->SetFullscreenBlock(std::move(fullscreen_block));
 
-  if (delegate_)
+  if (delegate_) {
+    if (base::FeatureList::IsEnabled(kWindowOpenFileSelectFix)) {
+      active_file_chooser_ = std::move(file_chooser);
+    }
     delegate_->RunFileChooser(render_frame_host, std::move(listener), params);
-  else
-    listener->FileSelectionCanceled();
+    std::ignore = cancel_chooser.Release();
+  }
 }
 
 double WebContentsImpl::GetPendingPageZoomLevel() {
@@ -8194,6 +8237,17 @@ void WebContentsImpl::SetFocusedFrame(FrameTreeNode* node,
                         "frame_tree_node", node, "source_site_instance_group",
                         source);
 
+  if (GetFocusedFrameTree()->GetFocusedFrame()) {
+    RenderFrameHostImpl* focused_rfh =
+        GetFocusedFrameTree()->GetFocusedFrame()->current_frame_host();
+    // This is only enforced for focus changes that cross a fenced frame
+    // boundary.
+    if (!node->current_frame_host()->VerifyFencedFrameFocusChange(
+            focused_rfh)) {
+      return;
+    }
+  }
+
   // Focus will not be in a consistent state until the focused frame tree is
   // also updated (if necessary).
   RenderFrameHostImpl::UpdateAXFocusDeferScope focus_defer_scope(
@@ -8250,6 +8304,8 @@ void WebContentsImpl::SetFocusedFrame(FrameTreeNode* node,
     // frames).
     SetFocusedFrameTree(&node->frame_tree());
   }
+
+  CloseListenerManager::DidChangeFocusedFrame(this);
 }
 
 void WebContentsImpl::DidCallFocus() {
@@ -9923,7 +9979,8 @@ void WebContentsImpl::AboutToBeDiscarded(WebContents* new_contents) {
                              new_contents);
 }
 
-base::ScopedClosureRunner WebContentsImpl::CreateDisallowCustomCursorScope() {
+base::ScopedClosureRunner WebContentsImpl::CreateDisallowCustomCursorScope(
+    int max_dimension_dips) {
   auto* render_widget_host_base = GetPrimaryMainFrame()
                                       ->GetRenderWidgetHost()
                                       ->GetRenderWidgetHostViewBase();
@@ -9936,7 +9993,7 @@ base::ScopedClosureRunner WebContentsImpl::CreateDisallowCustomCursorScope() {
   }
 
   auto* cursor_manager = render_widget_host_base->GetCursorManager();
-  return cursor_manager->CreateDisallowCustomCursorScope();
+  return cursor_manager->CreateDisallowCustomCursorScope(max_dimension_dips);
 }
 
 bool WebContentsImpl::CancelPrerendering(FrameTreeNode* frame_tree_node,
@@ -9975,6 +10032,10 @@ std::pair<int, int> WebContentsImpl::GetAvailablePointerAndHoverTypes() {
   base::ScopedAllowBlocking scoped_allow_blocking;
 #endif
   return ui::GetAvailablePointerAndHoverTypes();
+}
+
+void WebContentsImpl::SetOverscrollNavigationEnabled(bool enabled) {
+  GetView()->SetOverscrollControllerEnabled(enabled);
 }
 
 }  // namespace content

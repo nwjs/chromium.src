@@ -95,7 +95,6 @@ import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
-import org.chromium.chrome.browser.tasks.tab_management.TabUiFeatureUtilities;
 import org.chromium.chrome.browser.tasks.tab_management.UndoGroupSnackbarController;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonInProductHelpController;
 import org.chromium.chrome.browser.toolbar.ToolbarIntentMetadata;
@@ -112,6 +111,7 @@ import org.chromium.chrome.features.start_surface.StartSurface;
 import org.chromium.chrome.features.start_surface.StartSurfaceUserData;
 import org.chromium.components.browser_ui.accessibility.PageZoomCoordinator;
 import org.chromium.components.browser_ui.bottomsheet.EmptyBottomSheetObserver;
+import org.chromium.components.browser_ui.util.ComposedBrowserControlsVisibilityDelegate;
 import org.chromium.components.browser_ui.widget.InsetObserverView;
 import org.chromium.components.browser_ui.widget.MenuOrKeyboardActionController;
 import org.chromium.components.browser_ui.widget.TouchEventObserver;
@@ -154,6 +154,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     private NotificationPermissionController mNotificationPermissionController;
     private HistoryNavigationCoordinator mHistoryNavigationCoordinator;
     private NavigationSheet mNavigationSheet;
+    private ComposedBrowserControlsVisibilityDelegate mAppBrowserControlsVisibilityDelegate;
     private LayoutManagerImpl mLayoutManager;
     private CommerceSubscriptionsService mCommerceSubscriptionsService;
     private UndoGroupSnackbarController mUndoGroupSnackbarController;
@@ -502,8 +503,7 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
                 mCompositorViewHolderSupplier.get()::removeTouchEventObserver, mLayoutManager);
         mRootUiTabObserver.swapToTab(mActivityTabProvider.get());
 
-        if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)
-                && TabUiFeatureUtilities.isTabGroupsAndroidEnabled(mActivity)) {
+        if (!DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)) {
             getToolbarManager().enableBottomControls();
         }
 
@@ -832,12 +832,8 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
     }
 
     private void initUndoGroupSnackbarController() {
-        if (TabUiFeatureUtilities.isTabGroupsAndroidEnabled(mActivity)) {
-            mUndoGroupSnackbarController = new UndoGroupSnackbarController(
-                    mActivity, mTabModelSelectorSupplier.get(), mSnackbarManagerSupplier.get());
-        } else {
-            mUndoGroupSnackbarController = null;
-        }
+        mUndoGroupSnackbarController = new UndoGroupSnackbarController(
+                mActivity, mTabModelSelectorSupplier.get(), mSnackbarManagerSupplier.get());
     }
 
     private void initStatusIndicatorCoordinator(LayoutManagerImpl layoutManager) {
@@ -889,6 +885,16 @@ public class TabbedRootUiCoordinator extends RootUiCoordinator {
         if (mToolbarManager.getOmniboxStub() != null) {
             mToolbarManager.getOmniboxStub().addUrlFocusChangeListener(mUrlFocusChangeListener);
         }
+    }
+
+    /**
+     * @return {@link ComposedBrowserControlsVisibilityDelegate} object for tabbed activity.
+     */
+    public ComposedBrowserControlsVisibilityDelegate getAppBrowserControlsVisibilityDelegate() {
+        if (mAppBrowserControlsVisibilityDelegate == null) {
+            mAppBrowserControlsVisibilityDelegate = new ComposedBrowserControlsVisibilityDelegate();
+        }
+        return mAppBrowserControlsVisibilityDelegate;
     }
 
     public StatusIndicatorCoordinator getStatusIndicatorCoordinatorForTesting() {

@@ -68,6 +68,7 @@
 #include "content/public/test/browser_test.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/features.h"
 #include "ui/aura/env.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/compositor/layer.h"
@@ -1041,10 +1042,10 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
 
   // Dragging the center of the first tab to the center of the third tab will
   // result in the tabs joining the end of Tab Group 4.
-  const gfx::Point left_center_third_tab =
-      test::GetLeftCenterInScreenCoordinates(tab_strip->tab_at(2));
+  const gfx::Point center_third_tab =
+      GetCenterInScreenCoordinates(tab_strip->tab_at(2));
   ASSERT_TRUE(PressInput(GetCenterInScreenCoordinates(tab_strip->tab_at(0))));
-  ASSERT_TRUE(DragInputTo(left_center_third_tab));
+  ASSERT_TRUE(DragInputTo(center_third_tab));
   ASSERT_TRUE(ReleaseInput());
   StopAnimating(tab_strip);
 
@@ -1850,9 +1851,18 @@ IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
 
 // This test doesn't make sense on Mac, since it has no concept of "maximized".
 #if !BUILDFLAG(IS_MAC)
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// TODO(crbug.com/1476904) Test is flaky on ChromeOS/Lacros.
+#define MAYBE_DetachToOwnWindowFromMaximizedWindow \
+  DISABLED_DetachToOwnWindowFromMaximizedWindow
+#else
+#define MAYBE_DetachToOwnWindowFromMaximizedWindow \
+  DetachToOwnWindowFromMaximizedWindow
+#endif
 // Drags from browser to a separate window and releases mouse.
 IN_PROC_BROWSER_TEST_P(DetachToBrowserTabDragControllerTest,
-                       DetachToOwnWindowFromMaximizedWindow) {
+                       MAYBE_DetachToOwnWindowFromMaximizedWindow) {
   // Maximize the initial browser window.
   browser()->window()->Maximize();
   MaximizedBrowserWindowWaiter(browser()->window()).Wait();
@@ -2798,7 +2808,8 @@ class DetachToBrowserTabDragControllerTestWithTabbedWebApp
     : public DetachToBrowserTabDragControllerTest {
  public:
   DetachToBrowserTabDragControllerTestWithTabbedWebApp() {
-    scoped_feature_list_.InitWithFeatures({features::kDesktopPWAsTabStrip}, {});
+    scoped_feature_list_.InitWithFeatures(
+        {blink::features::kDesktopPWAsTabStrip}, {});
   }
 
   web_app::AppId InstallMockApp(bool add_home_tab) {

@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator.h"
 
-#import "base/mac/foundation_util.h"
+#import "base/apple/foundation_util.h"
 #import "components/prefs/pref_service.h"
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/ntp/new_tab_page_util.h"
@@ -305,7 +305,9 @@
 - (CGFloat)collapsedPrimaryToolbarHeight {
   if (_omniboxPosition == ToolbarType::kSecondary) {
     CHECK(IsBottomOmniboxSteadyStateEnabled());
-    return 0.0;
+    // TODO(crbug.com/1473629): Find out why primary toolbar height cannot be
+    // zero. This is a temporary fix for the pdf bug.
+    return 1.0;
   }
 
   return ToolbarCollapsedHeight(
@@ -315,7 +317,9 @@
 - (CGFloat)expandedPrimaryToolbarHeight {
   if (_omniboxPosition == ToolbarType::kSecondary) {
     CHECK(IsBottomOmniboxSteadyStateEnabled());
-    return 0.0;
+    // TODO(crbug.com/1473629): Find out why primary toolbar height cannot be
+    // zero. This is a temporary fix for the pdf bug.
+    return 1.0;
   }
 
   CGFloat height =

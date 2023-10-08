@@ -4,7 +4,8 @@
 
 #import "ios/chrome/browser/ui/authentication/signed_in_accounts/signed_in_accounts_table_view_controller.h"
 
-#import "base/mac/foundation_util.h"
+#import "base/apple/foundation_util.h"
+#import "base/memory/raw_ptr.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
@@ -37,8 +38,8 @@ typedef NS_ENUM(NSInteger, ItemType) {
   // Enable lookup of item corresponding to a given identity GAIA ID string.
   NSDictionary<NSString*, TableViewIdentityItem*>* _identityMap;
   // Account manager service to retrieve Chrome identities.
-  ChromeAccountManagerService* _accountManagerService;
-  signin::IdentityManager* _identityManager;
+  raw_ptr<ChromeAccountManagerService> _accountManagerService;
+  raw_ptr<signin::IdentityManager> _identityManager;
 }
 
 - (instancetype)initWithIdentityManager:
@@ -106,7 +107,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
 - (void)identityUpdated:(id<SystemIdentity>)identity {
   TableViewIdentityItem* item =
-      base::mac::ObjCCastStrict<TableViewIdentityItem>(
+      base::apple::ObjCCastStrict<TableViewIdentityItem>(
           [_identityMap objectForKey:identity.gaiaID]);
   [self updateAccountItem:item withIdentity:identity];
   [self reconfigureCellsForItems:@[ item ]];

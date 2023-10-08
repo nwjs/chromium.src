@@ -48,6 +48,7 @@
         fields_to_diff: [
             "font",
             "white-space-collapse",
+            "text-autospace",
         ],
         methods_to_diff: [
           {
@@ -89,11 +90,9 @@
                 "-webkit-text-stroke-width", "line-height",
                 "-webkit-border-horizontal-spacing",
                 "-webkit-border-vertical-spacing", "TextAutosizingMultiplier",
-                "ImplicitNamedGridColumnLines","ImplicitNamedGridRowLines", "NamedGridArea",
-                "initial-letter",
+                "grid-template-areas", "initial-letter",
                 "grid-auto-rows", "grid-template-rows", "grid-template-columns",
-                "grid-auto-columns", "row-gap", "NamedGridAreaRowCount",
-                "NamedGridAreaColumnCount", "grid-auto-flow",
+                "grid-auto-columns", "row-gap", "grid-auto-flow",
                 "-webkit-box-flex", "-webkit-box-ordinal-group", "flex-basis",
                 "flex-shrink", "flex-grow", "flex-direction", "flex-wrap", "-webkit-box-align",
                 "-webkit-box-decoration-break", "-webkit-box-pack", "-webkit-box-orient",
@@ -240,7 +239,7 @@
                 "max-height", "VerticalAlignLength", "box-sizing", "align-content",
                 "align-items", "align-self", "justify-content", "justify-items",
                 "justify-self", "contain", "contain-intrinsic-width",
-                "contain-intrinsic-height", "container-type",
+                "contain-intrinsic-height", "container-type", "form-sizing",
                 "content-visibility", "aspect-ratio", "overflow-clip-margin",
                 "-internal-align-content-block", "orphans", "widows",
                 "scrollbar-gutter", "break-after", "break-before",
@@ -402,14 +401,11 @@
     },
     {
         name: "UpdatePropertySpecificDifferencesFilter",
+        fields_to_diff: ["filter"],
         predicates_to_test: [
           {
             predicate: "a.ReflectionDataEquivalent(b)",
             field_dependencies: ["-webkit-box-reflect"]
-          },
-          {
-            predicate: "a.FilterDataEquivalent(b)",
-            field_dependencies: ["filter"]
           },
         ]
     },

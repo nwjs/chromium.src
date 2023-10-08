@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">मोबाइल नेटवर्क शोधत आहे</translation>
 <translation id="1293556467332435079">Files</translation>
 <translation id="1297922636971898492">Google ड्राइव्ह आत्ता उपलब्ध नाही. Google ड्राइव्ह एकदा परत आल्यानंतर अपलोड करणे आपोआप रीस्टार्ट होईल.</translation>
+<translation id="1306130176943817227">हटवू शकत नाही. आयटम वापरात आहे.</translation>
 <translation id="1307931752636661898">Linux फाइल पाहू शकत नाही</translation>
 <translation id="1313405956111467313">स्वयंचलित प्रॉक्सी कॉंफिगरेशन</translation>
 <translation id="134645005685694099">फाइल सिंक करणे सुरू ठेवण्यासाठी तुमच्या डिव्हाइसमध्ये पुरेशी स्टोरेज जागा नाही. नवीन फाइल यापुढे आपोआप सिंक केल्या जाणार नाहीत.</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">कलिंगड</translation>
 <translation id="1924372192547904021"><ph name="DRIVE_NAME" /> फॉरमॅट केली आहे</translation>
 <translation id="1931134289871235022">स्लोव्हाक</translation>
-<translation id="1933345018156373194">हलवता आले नाही, अनपेक्षित एरर: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">फिन्निश</translation>
 <translation id="1942765061641586207">इमेज रिझोल्युशन</translation>
 <translation id="1972984168337863910">फाइल फीडबॅक पॅनलचा विस्तार करा</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">संदर्भ</translation>
 <translation id="3272909651715601089">"<ph name="PATH" />" उघडता आले नाही</translation>
 <translation id="3280431534455935878">तयारी करीत आहे</translation>
+<translation id="3280719573299097127">तुम्ही मर्यादित नेटवर्कवर आहात. फाइल सिंक थांबवले गेले आहे.</translation>
 <translation id="3280987981688031357">व्हिनाइल रेकॉर्ड</translation>
 <translation id="3290356915286466215">असुरक्षित</translation>
 <translation id="3291218047831493686">सिम लॉक सेटिंग बदलण्यासाठी या नेटवर्कशी कनेक्ट करा</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">अल्बम</translation>
 <translation id="4972330214479971536">फाइल सिंक करणे पूर्ण करता आले नाही</translation>
 <translation id="4973523518332075481"><ph name="MAX_LENGTH" /> किंवा त्यापेक्षा कमी वर्णांचे नाव वापरा</translation>
-<translation id="4973970068702235170">झिप करता आले नाही, अनपेक्षित एरर: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">जपानी</translation>
 <translation id="4987699874727873250">इंग्रजी (भारत)</translation>
 <translation id="4988205478593450158">तुम्हाला "<ph name="FILE_NAME" />" नक्की हटवायची आहे का?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">स्विस फ्रेंच</translation>
 <translation id="5234764350956374838">डिसमिस करा</translation>
 <translation id="5253070652067921974">ने तयार केली</translation>
+<translation id="5254207638927440400">फाइल हलवू शकत नाही. फाइल वापरात आहे.</translation>
 <translation id="5257456363153333584">ड्रॅगनफ्लाय</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />फाइल कुठूनही ॲक्सेस करा, अगदी ऑफलाइन सुद्धा.<ph name="MARKUP_2" />
 Google ड्राइव्ह मधील फाइल अपडेट केलेल्या आहेत आणि कोणत्याही डिव्हाइसवरून उपलब्ध होतात.<ph name="MARKUP_3" />
@@ -632,13 +633,13 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="5838451609423551646">निवडीमधून सर्व नोंदी काढून टाकल्या आहेत.</translation>
 <translation id="5838825566232597749">यूएस कामगार आंतरराष्ट्रीय</translation>
 <translation id="5845721951356578987">परिचारिका</translation>
+<translation id="5858478190805449225">बॅटरी सेव्हर मोड सुरू आहे. बॅटरी सेव्हर मोड बंद केल्यानंतर पुन्हा प्रयत्न करा.</translation>
 <translation id="5860491529813859533">सुरू करा</translation>
 <translation id="5861477046012235702">गेमर</translation>
 <translation id="5864471791310927901">DHCP लुकअप अयशस्वी</translation>
 <translation id="5896749729057314184"><ph name="NETWORK_NAME" /> चे <ph name="NETWORK_INDEX" /> पैकी <ph name="NETWORK_COUNT" /> नेटवर्क, ॲक्टिव्हेट केलेले नाही, सिग्नलची क्षमता <ph name="SIGNAL_STRENGTH" />%, तपशील</translation>
 <translation id="5911887972742538906">तुमच्या Linux ॲप्लिकेशनच्या इंस्टॉलेशन दरम्यान एरर आली आहे.</translation>
 <translation id="5912396950572065471">फॉरमॅट</translation>
-<translation id="5913638992615760742">कॉपी ऑपरेशन करता आले नाही, अनपेक्षित एरर: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="5918480239180455431">नवीन शोध वैशिष्ट्ये उपलब्ध</translation>
 <translation id="5926082595146149752">यूएस आंतरराष्ट्रीय पीसी कीबोर्डसह डच (नेदरलँड)</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -646,7 +647,6 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="5955954492236143329"><ph name="NUMBER_OF_ITEMS" /> आयटम</translation>
 <translation id="5957366693331451795">Chromeboxes</translation>
 <translation id="5982621672636444458">क्रमवारी पर्याय</translation>
-<translation id="6007237601604674381">हलविणे अयशस्वी. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="6011074160056912900">इथरनेट नेटवर्क</translation>
 <translation id="60357267506638014">झेक QWERTY</translation>
 <translation id="603895874132768835">तुम्ही नवीन पिन सेट करेपर्यंत तुम्हाला हे नेटवर्क वापरता येणार नाही</translation>
@@ -863,6 +863,7 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="76959938259365003">ट्रॅश रिकामा करता आला नाही.</translation>
 <translation id="770015031906360009">ग्रीक</translation>
 <translation id="7705251383879779343"><ph name="FILE_NAME" /> कॉपी केला.</translation>
+<translation id="7707941139430559579">फाइल हलवू शकत नाही. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">हे नेटवर्क वापरण्यासाठी, तुम्ही वाहकाने पुरवलेली आठ अंकी वैयक्तिक अनब्लॉकिंग की (PUK) एंटर करणे आवश्यक आहे.</translation>
 <translation id="7711920809702896782">इमेज माहिती</translation>
 <translation id="7724603315864178912">कट करा</translation>
@@ -899,7 +900,6 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">तुमच्या माझे ड्राइव्ह मधील फाइल या तुमच्या Chromebook मध्ये आपोआप सिंक होतील, जेणेकरून तुम्ही इंटरनेट कनेक्शनशिवाय त्या अ‍ॅक्सेस करू शकता.</translation>
 <translation id="7925247922861151263">AAA तपास अयशस्वी</translation>
-<translation id="7925686952655276919">समक्रमणासाठी मोबाइल डेटा वापरु नका</translation>
 <translation id="7928710562641958568">डिव्हाइस काढून टाका</translation>
 <translation id="7933875256234974853">Drive मधील फाइल सिंक करण्याची तयारी करत आहे...</translation>
 <translation id="7943385054491506837">यूएस कोलमॅक</translation>
@@ -922,6 +922,7 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="8087576439476816834">डाउनलोड करा, <ph name="PROFILE_NAME" /></translation>
 <translation id="8106045200081704138">माझ्याशी शेअर केलेले</translation>
 <translation id="8116072619078571545">बर्फाचे पाणी</translation>
+<translation id="8120392982188717723">मर्यादित नेटवर्कवर सिंक करण्यास अनुमती द्या</translation>
 <translation id="8124093710070495550">सिंक करण्याशी संबंधित समस्या</translation>
 <translation id="8128733386027980860">ड्वोझॅक कीबोर्डसह इंग्रजी (यूके)</translation>
 <translation id="8137331602592933310">"<ph name="FILENAME" />" आपल्यासह शेअर केले गेले आहे. हे आपल्या मालकीचे नसल्यामुळे तुम्ही ते हटवू शकत नाही.</translation>
@@ -1050,6 +1051,7 @@ Google ड्राइव्ह मधील फाइल अपडेट के
 <translation id="9038620279323455325">"<ph name="FILE_NAME" />" नावाची फाइल आधीच अस्तित्वात आहे. कृपया वेगळे नाव निवडा.</translation>
 <translation id="9046895021617826162">कनेक्ट करण्यात अयशस्वी</translation>
 <translation id="9065512565307033593">तुम्हाला पडताळणी करता न आल्यास, तुमचा नेटवर्क अ‍ॅक्सेस बंद केला जाईल.</translation>
+<translation id="9083722265619106011">{0,plural, =1{१ चेतावणी.}other{<ph name="COUNT" /> चेतावण्या.}}</translation>
 <translation id="908378762078012445">फोनेटिक AATSEEL कीबोर्डसह रशियन</translation>
 <translation id="9086302186042011942">समक्रमण करीत आहे</translation>
 <translation id="9099674669267916096">पेज गणना</translation>

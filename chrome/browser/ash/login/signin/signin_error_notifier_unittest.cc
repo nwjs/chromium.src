@@ -311,8 +311,8 @@ TEST_F(SigninErrorNotifierTest, TokenHandleTest) {
   TokenHandleUtil::SetInvalidTokenForTesting(kTokenHandle);
   SigninErrorNotifier* signin_error_notifier =
       SigninErrorNotifierFactory::GetForProfile(GetProfile());
-  signin_error_notifier->OnTokenHandleCheck(account_id,
-                                            TokenHandleUtil::INVALID);
+  signin_error_notifier->OnTokenHandleCheck(account_id, kTokenHandle,
+                                            TokenHandleUtil::Status::kInvalid);
 
   // Test.
   absl::optional<message_center::Notification> notification =
@@ -343,8 +343,8 @@ TEST_F(SigninErrorNotifierTest,
   TokenHandleUtil::SetInvalidTokenForTesting(kTokenHandle);
   SigninErrorNotifier* signin_error_notifier =
       SigninErrorNotifierFactory::GetForProfile(GetProfile());
-  signin_error_notifier->OnTokenHandleCheck(account_id,
-                                            TokenHandleUtil::INVALID);
+  signin_error_notifier->OnTokenHandleCheck(account_id, kTokenHandle,
+                                            TokenHandleUtil::Status::kInvalid);
 
   // Test.
   absl::optional<message_center::Notification> notification =

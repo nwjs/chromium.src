@@ -163,6 +163,11 @@ void WebSettingsImpl::SetAccessibilityFontScaleFactor(float font_scale_factor) {
   settings_->SetAccessibilityFontScaleFactor(font_scale_factor);
 }
 
+void WebSettingsImpl::SetAccessibilityTextSizeContrastFactor(
+    int text_size_contrast_factor) {
+  settings_->SetAccessibilityTextSizeContrastFactor(text_size_contrast_factor);
+}
+
 void WebSettingsImpl::SetAccessibilityAlwaysShowFocus(bool always_show_focus) {
   settings_->SetAccessibilityAlwaysShowFocus(always_show_focus);
 }
@@ -173,6 +178,10 @@ void WebSettingsImpl::SetAccessibilityPasswordValuesEnabled(bool enabled) {
 
 void WebSettingsImpl::SetInlineTextBoxAccessibilityEnabled(bool enabled) {
   settings_->SetInlineTextBoxAccessibilityEnabled(enabled);
+}
+
+void WebSettingsImpl::SetAccessibilityFontWeightAdjustment(int size) {
+  settings_->SetAccessibilityFontWeightAdjustment(size);
 }
 
 void WebSettingsImpl::SetDeviceScaleAdjustment(float device_scale_adjustment) {
@@ -428,10 +437,6 @@ void WebSettingsImpl::SetAllowGeolocationOnInsecureOrigins(bool allow) {
   settings_->SetAllowGeolocationOnInsecureOrigins(allow);
 }
 
-void WebSettingsImpl::SetThreadedScrollingEnabled(bool enabled) {
-  settings_->SetThreadedScrollingEnabled(enabled);
-}
-
 void WebSettingsImpl::SetTouchDragDropEnabled(bool enabled) {
   settings_->SetTouchDragDropEnabled(enabled);
 }
@@ -645,10 +650,6 @@ void WebSettingsImpl::SetCaretBrowsingEnabled(bool enabled) {
 
 void WebSettingsImpl::SetCookieEnabled(bool enabled) {
   dev_tools_emulator_->SetCookieEnabled(enabled);
-}
-
-void WebSettingsImpl::SetNavigateOnDragDrop(bool enabled) {
-  settings_->SetNavigateOnDragDrop(enabled);
 }
 
 void WebSettingsImpl::SetAllowCustomScrollbarInMainFrame(bool enabled) {

@@ -32,6 +32,7 @@ group("resources") {
       "feed:resources",
       "feedback:resources",
       "gaia_auth_host:resources",
+      "hats:resources",
       "history:resources",
       "identity_internals:resources",
       "inline_login:resources",
@@ -100,7 +101,6 @@ group("resources") {
     public_deps += [
       "app_home:resources",
       "app_settings:resources",
-      "ntp4:resources",
     ]
   }
 

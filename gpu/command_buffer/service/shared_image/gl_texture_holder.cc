@@ -16,6 +16,7 @@
 #include "ui/gl/gl_version_info.h"
 #include "ui/gl/progress_reporter.h"
 #include "ui/gl/scoped_binders.h"
+#include "ui/gl/scoped_restore_texture.h"
 
 namespace gpu {
 namespace {
@@ -155,8 +156,14 @@ void GLTextureHolder::Initialize(
     texture_->SetImmutable(true, format_info.supports_storage);
   }
 
+  // NOTE: We pass `restore_prev_even_if_invalid=true` to maintain behavior
+  // from when this class was using a duplicate-but-not-identical utility.
+  // TODO(crbug.com/1367187): Eliminate this behavior with a Finch
+  // killswitch.
   gl::GLApi* api = gl::g_current_gl_context;
-  ScopedRestoreTexture scoped_restore(api, format_desc_.target, GetServiceId());
+  gl::ScopedRestoreTexture scoped_restore(api, format_desc_.target,
+                                          /*restore_prev_even_if_invalid=*/true,
+                                          GetServiceId());
 
   // Initialize the texture storage/image parameters and upload initial pixels
   // if available.
@@ -209,7 +216,8 @@ void GLTextureHolder::Initialize(
     texture_->SetCompatibilitySwizzle(format_info.swizzle);
   }
 
-  if (!debug_label.empty()) {
+  // If the extension does not exist, do not pass debug label to avoid crashes.
+  if (!debug_label.empty() && gl::g_current_gl_driver->ext.b_GL_KHR_debug) {
     api->glObjectLabelFn(GL_TEXTURE, GetServiceId(), -1, debug_label.c_str());
   }
 }

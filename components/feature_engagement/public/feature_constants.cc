@@ -42,7 +42,7 @@ BASE_FEATURE(kIPHDesktopTabGroupsNewGroupFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDesktopCustomizeChromeFeature,
              "IPH_DesktopCustomizeChrome",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHDesktopCustomizeChromeRefreshFeature,
              "IPH_DesktopCustomizeChromeRefresh",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -115,6 +115,9 @@ BASE_FEATURE(kIPHReadingListInSidePanelFeature,
 BASE_FEATURE(kIPHReadingModeSidePanelFeature,
              "IPH_ReadingModeSidePanel",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHShoppingCollectionFeature,
+             "IPH_ShoppingCollectionFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHSideSearchAutoTriggeringFeature,
              "IPH_SideSearchAutoTriggering",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -467,7 +470,7 @@ BASE_FEATURE(kIPHFollowWhileBrowsingFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHPriceNotificationsWhileBrowsingFeature,
              "IPH_PriceNotificationsWhileBrowsing",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSDefaultBrowserBadgeEligibilityFeature,
              "IPH_iOSDefaultBrowserBadgeEligibility",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -480,9 +483,6 @@ BASE_FEATURE(kIPHiOSDefaultBrowserSettingsBadgeFeature,
 BASE_FEATURE(kIPHiOSPromoAppStoreFeature,
              "IPH_iOSPromoAppStore",
              base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kIPHTabPinnedFeature,
-             "IPH_TabPinnedFeature",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoWhatsNewFeature,
              "IPH_iOSPromoWhatsNew",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -513,6 +513,9 @@ BASE_FEATURE(kIPHiOSDefaultBrowserVideoPromoTriggerFeature,
 BASE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature,
              "IPH_iOSPromoPostRestoreDefaultBrowser",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoPasswordManagerWidgetFeature,
+             "IPH_iOSPromoPasswordManagerWidget",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \

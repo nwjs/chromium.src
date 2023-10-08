@@ -10,8 +10,10 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
+import static androidx.test.espresso.matcher.ViewMatchers.withParent;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -23,6 +25,8 @@ import static org.mockito.Mockito.verify;
 
 import android.os.Build;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.test.filters.MediumTest;
 
 import org.hamcrest.Matchers;
@@ -125,8 +129,7 @@ public class RestoreTabsTest {
         RestoreTabsFeatureHelper.RESTORE_TABS_PROMO_SKIP_FEATURE_ENGAGEMENT.setForTesting(false);
 
         // Setup mock data
-        ForeignSessionTab tab = new ForeignSessionTab(
-                JUnitTestGURLs.getGURL(JUnitTestGURLs.URL_1), "title", 32L, 0);
+        ForeignSessionTab tab = new ForeignSessionTab(JUnitTestGURLs.URL_1, "title", 32L, 0);
         List<ForeignSessionTab> tabs = new ArrayList<>();
         tabs.add(tab);
         ForeignSessionWindow window = new ForeignSessionWindow(31L, 1, tabs);
@@ -174,8 +177,9 @@ public class RestoreTabsTest {
     @MediumTest
     @DisabledTest(message = "https://crbug.com/1459179")
     public void testRestoreTabsPromo_testOpenDeviceScreenAndRestore() {
+        TabUiTestHelper.createTabs(mActivityTestRule.getActivity(), false, 6);
         setupMultipleDevicesAndTabsMockData();
-        Assert.assertEquals(1, mActivityTestRule.tabsCount(false));
+        Assert.assertEquals(6, mActivityTestRule.tabsCount(false));
         TabUiTestHelper.enterTabSwitcher(mActivityTestRule.getActivity());
 
         // Check the latest device is selected with the proper info.
@@ -203,8 +207,21 @@ public class RestoreTabsTest {
         // Accept the bottom sheet.
         onView(withId(R.id.restore_tabs_button_open_tabs)).check(matches(withText("Open 1 tab")));
         onView(withId(R.id.restore_tabs_button_open_tabs)).perform(click());
-        Assert.assertEquals(2, mActivityTestRule.tabsCount(false));
+        Assert.assertEquals(7, mActivityTestRule.tabsCount(false));
         Assert.assertFalse(mBottomSheetController.isSheetOpen());
+
+        int tabSwitcherParentViewId =
+                TabUiTestHelper.getTabSwitcherParentId(mActivityTestRule.getActivity());
+        // Make sure the grid tab switcher is scrolled down to show the selected tab.
+        onView(allOf(withId(org.chromium.chrome.test.R.id.tab_list_view),
+                       withParent(withId(tabSwitcherParentViewId))))
+                .check((v, noMatchException) -> {
+                    if (noMatchException != null) throw noMatchException;
+                    Assert.assertTrue(v instanceof RecyclerView);
+                    LinearLayoutManager layoutManager =
+                            (LinearLayoutManager) ((RecyclerView) v).getLayoutManager();
+                    Assert.assertEquals(4, layoutManager.findFirstCompletelyVisibleItemPosition());
+                });
     }
 
     @Test
@@ -352,8 +369,7 @@ public class RestoreTabsTest {
 
     private void setupMultipleDevicesAndTabsMockData() {
         // Setup mock data
-        ForeignSessionTab tab1 = new ForeignSessionTab(
-                JUnitTestGURLs.getGURL(JUnitTestGURLs.URL_1), "title1", 31L, 0);
+        ForeignSessionTab tab1 = new ForeignSessionTab(JUnitTestGURLs.URL_1, "title1", 31L, 0);
         List<ForeignSessionTab> tabs1 = new ArrayList<>();
         tabs1.add(tab1);
         ForeignSessionWindow window1 = new ForeignSessionWindow(32L, 1, tabs1);
@@ -362,12 +378,9 @@ public class RestoreTabsTest {
         ForeignSession session1 =
                 new ForeignSession("tag", "John's iPhone 6", 33L, windows1, FormFactor.PHONE);
 
-        ForeignSessionTab tab2 = new ForeignSessionTab(
-                JUnitTestGURLs.getGURL(JUnitTestGURLs.URL_1), "title2", 34L, 0);
-        ForeignSessionTab tab3 = new ForeignSessionTab(
-                JUnitTestGURLs.getGURL(JUnitTestGURLs.URL_1), "title3", 35L, 0);
-        ForeignSessionTab tab4 = new ForeignSessionTab(
-                JUnitTestGURLs.getGURL(JUnitTestGURLs.URL_1), "title4", 36L, 0);
+        ForeignSessionTab tab2 = new ForeignSessionTab(JUnitTestGURLs.URL_1, "title2", 34L, 0);
+        ForeignSessionTab tab3 = new ForeignSessionTab(JUnitTestGURLs.URL_1, "title3", 35L, 0);
+        ForeignSessionTab tab4 = new ForeignSessionTab(JUnitTestGURLs.URL_1, "title4", 36L, 0);
         List<ForeignSessionTab> tabs2 = new ArrayList<>();
         tabs2.add(tab2);
         tabs2.add(tab3);

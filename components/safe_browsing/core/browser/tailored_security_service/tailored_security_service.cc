@@ -404,10 +404,7 @@ void TailoredSecurityService::MaybeNotifySyncUser(bool is_enabled,
   if (!base::FeatureList::IsEnabled(kTailoredSecurityIntegration))
     return;
 
-  bool sync_history_enabled =
-      sync_service_->GetUserSettings()->GetSelectedTypes().Has(
-          syncer::UserSelectableType::kHistory);
-  if (!sync_history_enabled) {
+  if (!HistorySyncEnabledForUser()) {
     if (is_enabled) {
       RecordEnabledNotificationResult(
           TailoredSecurityNotificationResult::kHistoryNotSynced);
@@ -442,6 +439,11 @@ void TailoredSecurityService::MaybeNotifySyncUser(bool is_enabled,
       observer.OnSyncNotificationMessageRequest(false);
     }
   }
+}
+
+bool TailoredSecurityService::HistorySyncEnabledForUser() {
+  return sync_service_->GetUserSettings()->GetSelectedTypes().Has(
+      syncer::UserSelectableType::kHistory);
 }
 
 void TailoredSecurityService::
@@ -521,10 +523,13 @@ void TailoredSecurityService::TailoredSecurityTimestampUpdateCallback() {
     // TODO(crbug.com/1469133): remove sync flow last user interaction pref.
     prefs_->SetInteger(prefs::kTailoredSecuritySyncFlowLastUserInteractionState,
                        TailoredSecurityRetryState::UNKNOWN);
-    prefs_->SetInteger(prefs::kTailoredSecuritySyncFlowRetryState,
-                       TailoredSecurityRetryState::UNKNOWN);
     prefs_->SetTime(prefs::kTailoredSecuritySyncFlowLastRunTime,
                     base::Time::Now());
+    // If this method fails, then a retry is needed. If it succeeds, the
+    // ChromeTailoredSecurityService will set this value to NO_RETRY_NEEDED for
+    // us.
+    prefs_->SetInteger(prefs::kTailoredSecuritySyncFlowRetryState,
+                       TailoredSecurityRetryState::RETRY_NEEDED);
   }
 
   StartRequest(base::BindOnce(&TailoredSecurityService::MaybeNotifySyncUser,

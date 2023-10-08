@@ -20,7 +20,6 @@ import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tasks.tab_management.TabListRecyclerView.RecyclerViewPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabSelectionEditorCoordinator.TabSelectionEditorController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.tab_ui.R;
@@ -111,9 +110,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                     (TabGroupUiToolbarView) LayoutInflater.from(activity).inflate(
                             R.layout.bottom_tab_grid_toolbar, recyclerView, false);
             toolbarView.setupDialogToolbarLayout();
-            if (!TabUiFeatureUtilities.isTabGroupsAndroidContinuationEnabled(activity)) {
-                toolbarView.hideTitleWidget();
-            }
             mModelChangeProcessor = PropertyModelChangeProcessor.create(mModel,
                     new TabGridPanelViewBinder.ViewHolder(toolbarView, recyclerView, mDialogView),
                     TabGridPanelViewBinder::bind);

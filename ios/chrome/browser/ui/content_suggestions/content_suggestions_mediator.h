@@ -44,6 +44,7 @@ class AuthenticationService;
 class Browser;
 @protocol BrowserCoordinatorCommands;
 @class ContentSuggestionsMetricsRecorder;
+enum class ContentSuggestionsModuleType;
 @protocol FeedDelegate;
 class GURL;
 class LargeIconCache;
@@ -120,9 +121,6 @@ class WebStateList;
 // Disconnects the mediator.
 - (void)disconnect;
 
-// Reloads content suggestions with most updated model state.
-- (void)reloadAllData;
-
 // Trigger a refresh of the Content Suggestions Most Visited tiles.
 - (void)refreshMostVisitedTiles;
 
@@ -146,8 +144,14 @@ class WebStateList;
 // Indicates that the "Return to Recent Tab" tile should be hidden.
 - (void)hideRecentTabTile;
 
-// Disable and hide the Set Up List;
+// Disables and hide the Set Up List.
 - (void)disableSetUpList;
+
+// Disables the tab resumption tile.
+- (void)disableTabResumption;
+
+// Disables and hides the Safety Check module, `type`, in the Magic Stack.
+- (void)disableSafetyCheck:(ContentSuggestionsModuleType)type;
 
 // Returns all possible items in the Set Up List.
 - (NSArray<SetUpListItemViewData*>*)allSetUpListItems;

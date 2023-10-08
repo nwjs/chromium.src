@@ -22,10 +22,11 @@
 #include "components/safe_browsing/core/browser/safe_browsing_sync_observer.h"
 #include "components/safe_browsing/core/common/proto/csd.pb.h"
 #include "components/safe_browsing/core/common/proto/realtimeapi.pb.h"
-#include "components/safe_browsing/core/common/proto/safebrowsingv5_alpha1.pb.h"
+#include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
 #include "url/gurl.h"
 
 class HostContentSettingsMap;
+class SafeBrowsingServiceTest;
 
 namespace safe_browsing {
 
@@ -140,6 +141,7 @@ class VerdictCacheManager : public history::HistoryServiceObserver,
                                   ChromeUserPopulation::PageLoadToken token);
 
  private:
+  friend class ::SafeBrowsingServiceTest;
   friend class SafeBrowsingBlockingPageRealTimeUrlCheckTest;
   friend class SafeBrowsingBlockingPageHashRealTimeCheckTest;
   friend class VerdictCacheManagerTest;

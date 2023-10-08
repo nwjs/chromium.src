@@ -41,11 +41,20 @@ BASE_FEATURE(kWebViewConnectionlessSafeBrowsing,
              "WebViewConnectionlessSafeBrowsing",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Kill switch for adding CHECKs to loading pak files.
+BASE_FEATURE(kWebViewCheckPakFileDescriptors,
+             "WebViewCheckPakFileDescriptors",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Cache origins which have camera/mic permissions approved to allow subsequent
 // calls to enumerate devices to return device labels.
 BASE_FEATURE(kWebViewEnumerateDevicesCache,
              "WebViewEnumerateDevicesCache",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebViewExitReasonMetric,
+             "WebViewExitReasonMetric",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable WebView to automatically darken the page in FORCE_DARK_AUTO mode if
 // the app's theme is dark.
@@ -124,6 +133,18 @@ BASE_FEATURE(kWebViewSafeBrowsingSafeMode,
              "WebViewSafeBrowsingSafeMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enable detection of loading mature sites (according to Google SafeSearch)
+// on WebViews running on supervised user accounts.
+BASE_FEATURE(kWebViewSupervisedUserSiteDetection,
+             "WebViewSupervisedUserSiteDetection",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable blocking the loading of mature sites (according to Google SafeSearch)
+// on WebViews running on supervised user accounts.
+BASE_FEATURE(kWebViewSupervisedUserSiteBlock,
+             "WebViewSupervisedUserSiteBlock",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Disallows window.{alert, prompt, confirm} if triggered inside a subframe that
 // is not same origin with the main frame.
 BASE_FEATURE(kWebViewSuppressDifferentOriginSubframeJSDialogs,
@@ -179,7 +200,7 @@ BASE_FEATURE(kWebViewImageDrag,
 // This Feature is checked and used in downstream internal code.
 BASE_FEATURE(kWebViewUmaUploadQualityOfServiceSetToDefault,
              "WebViewUmaUploadQualityOfServiceSetToDefault",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This enables zoom keyboard shortcuts for zoom-in, zoom-out and zoom reset.
 BASE_FEATURE(kWebViewZoomKeyboardShortcuts,

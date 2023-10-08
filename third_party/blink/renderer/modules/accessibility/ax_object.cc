@@ -599,10 +599,18 @@ AXObject::~AXObject() {
   --number_of_live_ax_objects_;
 }
 
+void AXObject::SetHasDirtyDescendants(bool dirty) const {
+  CHECK(!dirty || LastKnownIsIncludedInTreeValue())
+      << "Only included nodes can be marked as having dirty descendants: "
+      << ToString(true, true);
+  has_dirty_descendants_ = dirty;
+}
+
 void AXObject::SetAncestorsHaveDirtyDescendants() const {
   DCHECK(!IsDetached());
   DCHECK(!AXObjectCache().HasBeenDisposed());
   DCHECK(!AXObjectCache().IsFrozen());
+  DCHECK(!AXObjectCache().UpdatingTree());
 
   if (!RuntimeEnabledFeatures::AccessibilityEagerAXTreeUpdateEnabled()) {
     return;
@@ -619,7 +627,7 @@ void AXObject::SetAncestorsHaveDirtyDescendants() const {
   if (IsRoot()) {
     // Need at least the root object to be flagged in order for
     // UpdateTreeIfNeeded() to do anything.
-    has_dirty_descendants_ = true;
+    SetHasDirtyDescendants(true);
     return;
   }
 
@@ -628,7 +636,11 @@ void AXObject::SetAncestorsHaveDirtyDescendants() const {
 
   while (true) {
     if (can_repair_parents && ancestor->IsMissingParent()) {
+      // RepairMissingParent() will finish setting the
+      // "has dirty descendants" flag the rest of the way of the parent chain
+      // by calling back into this method.
       ancestor->RepairMissingParent();
+      break;
     }
     ancestor = ancestor->CachedParentObject();
     if (!ancestor) {
@@ -640,7 +652,7 @@ void AXObject::SetAncestorsHaveDirtyDescendants() const {
     // LastKnownIsIncludedInTreeValue is false, since those objects are omitted
     // from the generated tree. However, don't set the bit on unincluded
     // objects, during the clearing phase in
-    // AXObjectCacheImpl::UpdateTreeIfNeededOnce(), only included nodes are
+    // AXObjectCacheImpl::UpdateTreeIfNeeded(), only included nodes are
     // visited.
     if (!ancestor->LastKnownIsIncludedInTreeValue()) {
       continue;
@@ -648,7 +660,7 @@ void AXObject::SetAncestorsHaveDirtyDescendants() const {
     if (ancestor->has_dirty_descendants_) {
       break;
     }
-    ancestor->has_dirty_descendants_ = true;
+    ancestor->SetHasDirtyDescendants(true);
   }
 #if DCHECK_IS_ON()
   // Walk up the tree looking for dirty bits that failed to be set. If any
@@ -717,9 +729,7 @@ void AXObject::Init(AXObject* parent) {
       << "\n* Parent = " << parent_->ToString(true, true)
       << "\n* Child = " << ToString(true, true);
 
-  // children_dirty_ is set after the role_ is computed, because the role is
-  // used to determine whether an AXObject can have children.
-  children_dirty_ = CanHaveChildren();
+  children_dirty_ = true;
 
   UpdateCachedAttributeValuesIfNeeded(false);
 
@@ -735,10 +745,24 @@ void AXObject::Init(AXObject* parent) {
   // whether AXObjectCacheImpl::UpdateTreeIfNeeded needs to update the root
   // object.
   if (IsRoot()) {
-    has_dirty_descendants_ = true;
+    SetHasDirtyDescendants(true);
+  } else if (AXObjectCache().UpdatingTree()) {
+    if (children_dirty_ && LastKnownIsIncludedInTreeValue()) {
+      // If we're in the updating tree loop, and a new object is created, we
+      // need to make sure to fill out all descendants of the new object.
+      SetHasDirtyDescendants(true);
+      // We also need to tell the new object's parent to iterate through
+      // all of its children to look for the has dirty descendants flag.
+      // However, we do not set the flag on higher ancestors since
+      // they have already been walked by the tree update loop.
+      if (AXObject* ax_included_parent = ParentObjectIncludedInTree()) {
+        ax_included_parent->SetHasDirtyDescendants(true);
+      }
+    }
   } else {
     DCHECK(ParentObjectIncludedInTree()->HasDirtyDescendants())
-        << "When adding a new child to a parent, the included parent must be "
+        << "When adding a new child to a parent, and not updating the entire "
+           "tree from the top down, the included parent must be "
            "flagged as having dirty descendants:"
         << "\n* Object: " << ToString(true, true) << "* Included parent: "
         << ParentObjectIncludedInTree()->ToString(true, true);
@@ -849,7 +873,17 @@ void AXObject::SetParent(AXObject* new_parent) const {
 #endif
   parent_ = new_parent;
   // TODO(accessibility) Is it necessary to do this while updating the tree?
-  SetAncestorsHaveDirtyDescendants();
+  if (AXObjectCache().UpdatingTree()) {
+    // If updating tree, tell the newly included parent to iterate through
+    // all of its children to look for the has dirty descendants flag.
+    // However, we do not set the flag on higher ancestors since
+    // they have already been walked by the tree update loop.
+    if (AXObject* ax_included_parent = ParentObjectIncludedInTree()) {
+      ax_included_parent->SetHasDirtyDescendants(true);
+    }
+  } else {
+    SetAncestorsHaveDirtyDescendants();
+  }
 }
 
 bool AXObject::IsMissingParent() const {
@@ -2467,10 +2501,9 @@ AXObject* AXObject::GetControlsListboxForTextfieldCombobox() {
   // the textfield's invalid aria-owns to be remapped to aria-controls.
   DCHECK(GetElement());
   HeapVector<Member<Element>> owned_elements;
-  Vector<String> ids;
   AXObject* listbox_candidate = nullptr;
   if (ElementsFromAttribute(GetElement(), owned_elements,
-                            html_names::kAriaOwnsAttr, ids) &&
+                            html_names::kAriaOwnsAttr) &&
       owned_elements.size() > 0) {
     DCHECK(owned_elements[0]);
     listbox_candidate = AXObjectCache().GetOrCreate(owned_elements[0]);
@@ -3074,6 +3107,10 @@ void AXObject::UpdateCachedAttributeValuesIfNeeded(
   cached_values_need_update_ = false;
 
 #if DCHECK_IS_ON()  // Required in order to get Lifecycle().ToString()
+  DCHECK(!AXObjectCache().IsFrozen())
+      << "All cached values must be updated before the tree is frozen "
+         "serialization, because changes to the ignored state could cause tree "
+         "structure changes.";
   DCHECK(!is_computing_role_)
       << "Updating cached values while computing a role is dangerous as it "
          "can lead to code that uses the AXObject before it is ready.";
@@ -3445,21 +3482,27 @@ bool AXObject::IsModal() const {
 
 bool AXObject::IsBlockedByAriaModalDialog(
     IgnoredReasons* ignored_reasons) const {
-  AXObject* active_aria_modal_dialog =
+  Element* active_aria_modal_dialog =
       AXObjectCache().GetActiveAriaModalDialog();
 
   // On platforms that don't require manual pruning of the accessibility tree,
   // the active aria modal dialog should never be set, so has no effect.
-  if (!active_aria_modal_dialog)
+  if (!active_aria_modal_dialog) {
     return false;
+  }
 
-  if (this == active_aria_modal_dialog ||
-      IsDescendantOf(*active_aria_modal_dialog))
+  if (!GetNode() || GetNode()->IsPseudoElement()) {
+    return ParentObject()->IsBlockedByAriaModalDialog();
+  }
+
+  if (FlatTreeTraversal::Contains(*active_aria_modal_dialog, *GetNode())) {
     return false;
+  }
 
   if (ignored_reasons) {
     ignored_reasons->push_back(
-        IgnoredReason(kAXAriaModalDialog, active_aria_modal_dialog));
+        IgnoredReason(kAXAriaModalDialog,
+                      AXObjectCache().GetOrCreate(active_aria_modal_dialog)));
   }
   return true;
 }
@@ -4090,31 +4133,31 @@ bool AXObject::ComputeCanSetFocusAttribute() const {
   if (elem->SupportsFocus())
     return true;
 
-  // TODO(accessibility) Focusable: scrollable with the keyboard.
-  // Keyboard-focusable scroll containers feature:
-  // https://www.chromestatus.com/feature/5231964663578624
-  // When adding here, remove similar check from ::SupportsNameFromContents().
-  // if (RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
-  //     IsUserScrollable()) {
-  //   return true;
-  // }
-
   // NOT focusable: everything else.
   return false;
 }
 
 // We can't use `Element::IsKeyboardFocusable()` since the downstream
 // `Element::IsFocusableStyle()` call will reset the document lifecycle.
+// TODO(crbug.com/1444450) This should be replaced with just a call to
+// element->IsKeyboardFocusable(). This function can be guarded by a
+// DocumentLifecycle::DisallowTransitionScope().
 bool AXObject::IsKeyboardFocusable() const {
   if (!CanSetFocusAttribute())
     return false;
 
   Element* element = GetElement();
-  DCHECK(element) << "Cannot be focusable without an element: "
-                  << ToString(true, true);
-  // TODO(jarhar) Scrollable containers should return true here if
-  // `RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled()`
-  // is true.
+  if (!element) {
+    // TODO(crbug.com/1480563) It is possible to reach this line, though it
+    // isn't clear how. See the linked bug for crash reports. Since we would
+    // prefer not to crash in this case, return false here instead.
+    LOG(ERROR) << "Cannot be focusable without an element: "
+               << ToString(true, true);
+    return false;
+  }
+  if (element->IsScrollableContainerThatShouldBeKeyboardFocusable()) {
+    return true;
+  }
   return element->tabIndex() >= 0 || IsRootEditableElement(*element);
 }
 
@@ -4488,8 +4531,7 @@ String AXObject::AriaTextAlternative(
     Element* element = GetElement();
     if (element) {
       HeapVector<Member<Element>> elements_from_attribute;
-      Vector<String> ids;
-      ElementsFromAttribute(element, elements_from_attribute, attr, ids);
+      ElementsFromAttribute(element, elements_from_attribute, attr);
 
       const AtomicString& aria_labelledby = GetAttribute(attr);
 
@@ -4503,8 +4545,6 @@ String AXObject::AriaTextAlternative(
         AXObjectSet visited_copy = visited;
         text_alternative = TextFromElements(
             true, visited_copy, elements_from_attribute, related_objects);
-        if (!ids.empty())
-          AXObjectCache().UpdateReverseTextRelations(this, ids);
         if (!text_alternative.IsNull()) {
           if (name_sources) {
             NameSource& source = name_sources->back();
@@ -4603,39 +4643,33 @@ void AXObject::TokenVectorFromAttribute(Element* element,
 // static
 bool AXObject::ElementsFromAttribute(Element* from,
                                      HeapVector<Member<Element>>& elements,
-                                     const QualifiedName& attribute,
-                                     Vector<String>& ids) {
+                                     const QualifiedName& attribute) {
   if (!from)
     return false;
 
-  // We compute the attr-associated elements, which are either explicitly set
-  // element references set via the IDL, or computed from the content attribute.
-  TokenVectorFromAttribute(from, ids, attribute);
   HeapVector<Member<Element>>* attr_associated_elements =
       from->GetElementArrayAttribute(attribute);
   if (!attr_associated_elements)
-    return ids.size();
+    return false;
 
   for (const auto& element : *attr_associated_elements)
     elements.push_back(element);
 
-  return ids.size();
+  return elements.size();
 }
 
 // static
 bool AXObject::AriaLabelledbyElementVector(
     Element* from,
-    HeapVector<Member<Element>>& elements,
-    Vector<String>& ids) {
+    HeapVector<Member<Element>>& elements) {
   // Try both spellings, but prefer aria-labelledby, which is the official spec.
-  if (ElementsFromAttribute(from, elements, html_names::kAriaLabelledbyAttr,
-                            ids) &&
+  if (ElementsFromAttribute(from, elements, html_names::kAriaLabelledbyAttr) &&
       elements.size() > 0) {
     return true;
   }
 
-  return ElementsFromAttribute(from, elements, html_names::kAriaLabeledbyAttr,
-                               ids) &&
+  return ElementsFromAttribute(from, elements,
+                               html_names::kAriaLabeledbyAttr) &&
          elements.size() > 0;
 }
 
@@ -4647,9 +4681,9 @@ bool AXObject::IsNameFromAriaAttribute(Element* element) {
     return false;
 
   HeapVector<Member<Element>> elements_from_attribute;
-  Vector<String> ids;
-  if (AriaLabelledbyElementVector(element, elements_from_attribute, ids))
+  if (AriaLabelledbyElementVector(element, elements_from_attribute)) {
     return true;
+  }
 
   const AtomicString& aria_label = AccessibleNode::GetPropertyOrARIAAttribute(
       element, AOMStringProperty::kLabel);
@@ -5321,17 +5355,6 @@ AXObject* AXObject::DeepestLastChildIncludingIgnored() const {
   return deepest_child;
 }
 
-bool AXObject::IsAncestorOf(const AXObject& descendant) const {
-  return descendant.IsDescendantOf(*this);
-}
-
-bool AXObject::IsDescendantOf(const AXObject& ancestor) const {
-  const AXObject* parent = ParentObject();
-  while (parent && parent != &ancestor)
-    parent = parent->ParentObject();
-  return !!parent;
-}
-
 AXObject* AXObject::NextSiblingIncludingIgnored() const {
   if (!AccessibilityIsIncludedInTree()) {
     NOTREACHED() << "We don't support iterating children of objects excluded "
@@ -5706,6 +5729,7 @@ void AXObject::SetNeedsToUpdateChildren() const {
   if (children_dirty_) {
     return;
   }
+  DCHECK(!AXObjectCache().UpdatingTree());
   children_dirty_ = true;
   ClearChildren();
   SetAncestorsHaveDirtyDescendants();
@@ -5731,6 +5755,11 @@ bool AXObject::ShouldDestroyWhenDetachingFromParent() const {
   }
   // Inline textbox children are dependent on their parent's ignored state.
   if (IsAXInlineTextBox()) {
+    return true;
+  }
+
+  if (CachedParentObject() &&
+      CachedParentObject()->RoleValue() == ax::mojom::blink::Role::kImage) {
     return true;
   }
 
@@ -6497,8 +6526,7 @@ bool AXObject::PerformAction(const ui::AXActionData& action_data) {
   // UpdateStyleAndLayoutTreeForNode() is also necessary.
   document->UpdateStyleAndLayoutTreeForNode(
       node, DocumentUpdateReason::kAccessibility);
-  document->View()->UpdateAllLifecyclePhasesExceptPaint(
-      DocumentUpdateReason::kAccessibility);
+  cache.UpdateAXForAllDocuments();
 
   // Updating style and layout for the node can cause it to gain layout,
   // detaching an AXNodeObject to make room for an AXLayoutObject.
@@ -6611,7 +6639,7 @@ bool AXObject::OnNativeClickAction() {
     // Explicitly focus the element if it's focusable but not currently
     // the focused element, to be consistent with
     // EventHandler::HandleMousePressEvent.
-    if (element->IsMouseFocusable() && !element->IsFocusedElementInDocument()) {
+    if (element->IsFocusable() && !element->IsFocusedElementInDocument()) {
       Page* const page = GetDocument()->GetPage();
       if (page) {
         page->GetFocusController().SetFocusedElement(
@@ -6997,13 +7025,14 @@ bool AXObject::HasARIAOwns(Element* element) {
                                    html_names::kAriaOwnsAttr);
 }
 
+// static
 ax::mojom::blink::Role AXObject::AriaRoleStringToRoleEnum(const String& value) {
   DCHECK(!value.empty());
 
   static const ARIARoleMap* role_map = CreateARIARoleMap();
 
   Vector<String> role_vector;
-  value.Split(' ', role_vector);
+  value.SimplifyWhiteSpace().Split(' ', role_vector);
   ax::mojom::blink::Role role = ax::mojom::blink::Role::kUnknown;
   for (const auto& child : role_vector) {
     auto it = role_map->find(child);
@@ -7270,14 +7299,14 @@ bool AXObject::SupportsNameFromContents(bool recursive) const {
         //   would cause them to be double-announced.
         // 2.Containers with aria-activedescendant, where the focus is being
         //   forwarded somewhere else.
-        // TODO(accessibility) Scrollables are currently allowed here in order
-        // to keep the current behavior. In the future, this can be removed
-        // because this code will be handled in IsFocusable(), once
-        // KeyboardFocusableScrollersEnabled is permanently enabled.
-        // Note: this uses the same scrollable check that element.cc uses.
         result = false;
         if (!IsEditable() && !GetAOMPropertyOrARIAAttribute(
                                  AOMRelationProperty::kActiveDescendant)) {
+          // TODO(accessibility) Scrollables are currently allowed here in order
+          // to keep the current behavior. In the future, this can be removed
+          // because this code will be handled in IsFocusable(), once
+          // KeyboardFocusableScrollersEnabled is permanently enabled.
+          // Note: this uses the same scrollable check that element.cc uses.
           if (RuntimeEnabledFeatures::KeyboardFocusableScrollersEnabled() &&
               IsUserScrollable()) {
             return true;
@@ -7504,23 +7533,24 @@ String AXObject::ToString(bool verbose, bool cached_values_only) const {
     // Add useful HTML element info, like <div.myClass#myId>.
     if (GetNode()) {
       string_builder = string_builder + " " + GetNodeString(GetNode());
-      if (IsA<Document>(GetNode())) {
-        if (IsRoot())
-          string_builder = string_builder + " isRoot";
+      if (IsRoot()) {
+        string_builder = string_builder + " isRoot";
+      }
+      if (GetDocument()) {
         if (GetDocument()->GetFrame() &&
             GetDocument()->GetFrame()->PagePopupOwner()) {
-          string_builder = string_builder + " isPopup";
+          string_builder = string_builder + " inPopup";
         }
+      } else {
+        string_builder = string_builder + " missingDocument";
       }
+
       if (!GetNode()->isConnected()) {
         // TODO(accessibility) Do we have a handy helper for determining whether
         // a node is still in the flat tree? That would be useful to log.
         string_builder = string_builder + " nodeDisconnected";
       }
     }
-
-    if (!GetDocument())
-      string_builder = string_builder + " missingDocument";
 
     if (cached_values_need_update_) {
       string_builder = string_builder + " needsToUpdateCachedValues";

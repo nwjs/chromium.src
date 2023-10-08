@@ -8,7 +8,11 @@
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 
-namespace views::internal {
+namespace views {
+
+const char kWidgetIdentifierKey[] = "kWidgetIdentifierKey";
+
+namespace internal {
 
 #if defined(OS_WIN)
 void NativeWidgetPrivate::SetPosition(const gfx::Point& pos) {
@@ -36,4 +40,6 @@ bool NativeWidgetPrivate::IsMoveLoopSupported() const {
   return true;
 }
 
-}  // namespace views::internal
+}  // namespace internal
+
+}  // namespace views

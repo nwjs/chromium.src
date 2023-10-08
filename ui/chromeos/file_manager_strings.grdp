@@ -382,6 +382,9 @@
   <message name="IDS_FILE_BROWSER_TASK_OPEN" desc="Title of the action to open (and possibly edit) a file.">
     Open
   </message>
+  <message name="IDS_FILE_BROWSER_TASK_OPEN_GDRIVE" desc="Title of the action to open a file in Google Drive.">
+    Google Drive
+  </message>
   <message name="IDS_FILE_BROWSER_TASK_OPEN_GDOC" desc="Title of the action to open a Google Docs document.">
     Google Docs
   </message>
@@ -655,9 +658,6 @@
   <message name="IDS_FILE_BROWSER_EMPTY_TRASH_UNEXPECTED_ERROR" desc="File manager error whilst emptying trash">
     Failed to empty the trash.
   </message>
-  <message name="IDS_FILE_BROWSER_COPY_UNEXPECTED_ERROR" desc="File Manager error message.">
-    Copy operation failed, unexpected error: <ph name="ERROR_MESSAGE">$1<ex>Could not copy</ex></ph>
-  </message>
   <message name="IDS_FILE_BROWSER_FILE_COPIED" desc="File Manager status message. 'Item' is used here as a generic term for file or directory.">
     <ph name="FILE_NAME">$1<ex>big.xz</ex></ph> copied.
   </message>
@@ -698,10 +698,10 @@
     Whoops, <ph name="FILE_NAME">$1<ex>movie.avi</ex></ph> no longer exists.
   </message>
   <message name="IDS_FILE_BROWSER_MOVE_FILESYSTEM_ERROR" desc="File Manager error message.">
-    Move failed. <ph name="ERROR_MESSAGE">$1<ex>An error occurred (code: ABORT)</ex></ph>
+    Can't move file. <ph name="ERROR_MESSAGE">$1<ex>An error occurred (code: ABORT)</ex></ph>
   </message>
-  <message name="IDS_FILE_BROWSER_MOVE_UNEXPECTED_ERROR" desc="File Manager error message.">
-    Move failed, unexpected error: <ph name="ERROR_MESSAGE">$1<ex>Could not move</ex></ph>
+  <message name="IDS_FILE_BROWSER_MOVE_IN_USE_ERROR" desc="File Manager error message shown when a move operation of a file failed because the file is in use.">
+    Can't move file. File is in use.
   </message>
   <message name="IDS_FILE_BROWSER_ZIP_FILE_NAME" desc="File Manager status message.">
     Zipping <ph name="FILE_NAME">$1<ex>movie.avi</ex></ph>...
@@ -714,9 +714,6 @@
   </message>
   <message name="IDS_FILE_BROWSER_ZIP_FILESYSTEM_ERROR" desc="File Manager error message.">
     Zipping failed. <ph name="ERROR_MESSAGE">$1<ex>An error occurred (code: ABORT)</ex></ph>
-  </message>
-  <message name="IDS_FILE_BROWSER_ZIP_UNEXPECTED_ERROR" desc="File Manager error message.">
-    Zipping failed, unexpected error: <ph name="ERROR_MESSAGE">$1<ex>Could not zip</ex></ph>
   </message>
   <message name="IDS_FILE_BROWSER_SYNC_FILE_NAME" desc="File Manager status message.">
     Syncing <ph name="FILE_NAME">$1<ex>movie.avi</ex></ph>...
@@ -754,6 +751,9 @@
   <message name="IDS_FILE_BROWSER_DELETE_ERROR" desc="Message informing about error while deleting an item or items.">
     An error occurred. Some items may not have been deleted.
   </message>
+  <message name="IDS_FILE_BROWSER_DELETE_IN_USE_ERROR" desc="File Manager error message shown when a delete operation of an item failed because the item is in use.">
+    Can't delete. Item is in use.
+  </message>
   <message name="IDS_FILE_BROWSER_RESTORING_FROM_TRASH_FILE_NAME" desc="File Manager status message shown when restoring items from trash / recycle bin.">
     Restoring "<ph name="FILENAME">$1<ex>photo.jpg</ex></ph>"
   </message>
@@ -789,6 +789,11 @@
   </message>
   <message name="IDS_FILE_BROWSER_ERROR_PROGRESS_SUMMARY_PLURAL" desc="Summary message for multiple errors above the progress bar. This message may be placed at the next to ohter *_PROGERSS_SUMMARY messages.">
     <ph name="COUNT">$1<ex>10</ex></ph> errors.
+  </message>
+  <message name="IDS_FILE_BROWSER_WARNING_PROGRESS_SUMMARY" desc="Summary message for one or more warnings above the progress bar. This message may be placed next to other *_PROGERSS_SUMMARY messages.">
+    {0, plural,
+        =1 {1 warning.}
+        other {<ph name="COUNT">$1<ex>10</ex></ph> warnings.}}
   </message>
   <message name="IDS_FILE_BROWSER_PERCENT_COMPLETE" desc="Percentage of file operation that is complete in a progress message.">
     <ph name="PERCENT">$1<ex>10</ex></ph>% complete.
@@ -1260,8 +1265,8 @@
   <message name="IDS_FILE_BROWSER_OPEN_IN_OTHER_DESKTOP_MESSAGE_PLURAL" desc="Prural verson of the message of an alert dialog that is shown when a user opens a file in a desktop of another profile but the file is opened in the original desktop.">
     These files opened on a different desktop. Move to <ph name="USER_NAME">$1<ex>John Doe</ex></ph> (<ph name="MAIL_ADDRESS">$2<ex>xxxxxx@gmail.com</ex></ph>) to view it.
   </message>
-  <message name="IDS_FILE_BROWSER_DRIVE_MOBILE_CONNECTION_OPTION" desc="Option that determines if we will allow Google Drive content sync over mobile connections.">
-    Do not use mobile data for sync
+  <message name="IDS_FILE_BROWSER_DRIVE_METERED_CONNECTION_OPTION" desc="Option that determines if we will allow Google Drive content sync over metered connections.">
+    Allow sync on metered networks
   </message>
   <message name="IDS_FILE_BROWSER_DRIVE_MENU_HELP" desc="In the Google Drive settings menu, name of the Help item.">
     Help
@@ -1401,7 +1406,7 @@
     Share folder with <ph name="VM_NAME">$1<ex>MyVm</ex></ph>
   </message>
   <message name="IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA" desc="Confirmation message shown when a user shares the root of a volume such as 'My files' with the VM type codenamed Bruschetta" >
-    Give <ph name="VM_NAME">$1<ex>MyVm</ex></ph> permission to access files in the <ph name="FOLDER_NAME">$1<ex>Downloads</ex></ph> folder
+    Give <ph name="VM_NAME">$1<ex>MyVm</ex></ph> permission to access files in the <ph name="FOLDER_NAME">$2<ex>Downloads</ex></ph> folder
   </message>
   <message name="IDS_FILE_BROWSER_SHARE_ROOT_FOLDER_WITH_BRUSCHETTA_DRIVE" desc="Confirmation message shown when a user shares the root of a Drive volume (My Drive, Team Drives, Computers) with the VM type codenamed Bruschetta.">
     Give <ph name="VM_NAME">$1<ex>MyVm</ex></ph> permission to access files in your Google Drive. Changes will sync to your other devices.
@@ -1409,8 +1414,8 @@
   <message name="IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA" desc="Confirmation message shown when a user shares a folder with the VM type codenamed Bruschetta.">
     1 folder shared with <ph name="VM_NAME">$1<ex>MyVm</ex></ph>
   </message>
-  <message name="IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA_PLURAL" desc="Confirmation message shown when a user shares more than 1 folder with the VM type codenamed Bruscheta.">
-    <ph name="NUMBER_OF_ITEMS">$1<ex>3</ex></ph> folders shared with <ph name="VM_NAME">$1<ex>MyVm</ex></ph>
+  <message name="IDS_FILE_BROWSER_FOLDER_SHARED_WITH_BRUSCHETTA_PLURAL" desc="Confirmation message shown when a user shares more than 1 folder with the VM type codenamed Bruschetta.">
+    <ph name="NUMBER_OF_ITEMS">$1<ex>3</ex></ph> folders shared with <ph name="VM_NAME">$2<ex>MyVm</ex></ph>
   </message>
   <message name="IDS_FILE_BROWSER_MESSAGE_FOLDER_SHARED_WITH_CROSTINI" desc="Message shown in FilesApp message bar when a user has shared a folder with the crostini container.">
     This folder is shared with Linux
@@ -1809,6 +1814,9 @@
   <message name="IDS_FILE_BROWSER_BULK_PINNING_BATTERY_SAVER_LABEL" desc="The text used when the device is in battery saver mode and has paused syncing.">
     Battery is low. File sync will resume when you are connected to power.
   </message>
+  <message name="IDS_FILE_BROWSER_BULK_PINNING_METERED_NETWORK_LABEL" desc="The text used when the bulk pinning of Google Drive items has been paused due to being on a metered network.">
+    You are on a metered network. File sync has been paused.
+  </message>
   <message name="IDS_FILE_BROWSER_BULK_PINNING_ITEM_TEMPORARILY_UNAVAILABLE_OFFLINE" desc="The text used when the bulk pinning of Google Drive items has failed due to insufficient space.">
     Can’t sync this file right now
   </message>
@@ -1848,8 +1856,7 @@
   <message name="IDS_FILE_BROWSER_DRIVE_DATA_DIR_MISSING" desc="Body of the system notification displayed when the Google Drive cache file were removed while the user was logged out">
     Storage space was extremely low. File sync has been turned off.
   </message>
-  <!-- TODO(b/276126188): Remove the translateable="false" when the copy has been landed on. -->
-  <message name="IDS_FILE_BROWSER_BULK_PINNING_BATTERY_SAVER" translateable="false" desc="Error message displayed when the Google Drive bulk pinning feature cannot be enabled because battery saver mode is active">
+  <message name="IDS_FILE_BROWSER_BULK_PINNING_BATTERY_SAVER" desc="Error message displayed when the Google Drive bulk pinning feature cannot be enabled because battery saver mode is active">
     Battery saver mode on. Try again when battery saver mode is turned off.
   </message>
   <!-- Empty state inside OneDrive folder -->

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/browser.h"
 
 #include "extensions/browser/process_manager.h"
+#include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
 #include "extensions/common/mojom/event_dispatcher.mojom.h"
 #include "chrome/browser/extensions/api/tabs/tabs_windows_api.h"
@@ -136,6 +137,7 @@
 #include "chrome/browser/ui/global_error/global_error_service.h"
 #include "chrome/browser/ui/global_error/global_error_service_factory.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
+#include "chrome/browser/ui/overscroll_pref_manager.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/singleton_tabs.h"
@@ -270,6 +272,7 @@
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/guest_os/guest_os_terminal.h"
+#include "chrome/browser/ash/url_handler.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "components/session_manager/core/session_manager.h"
 #endif
@@ -547,6 +550,10 @@ Browser::Browser(const CreateParams& params)
       extension_browser_window_helper_(
           std::make_unique<extensions::ExtensionBrowserWindowHelper>(this))
 #endif
+#if defined(USE_AURA)
+      ,
+      overscroll_pref_manager_(std::make_unique<OverscrollPrefManager>(this))
+#endif
 {
   content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
   if (content::g_support_transparency) {
@@ -794,10 +801,19 @@ std::u16string Browser::GetWindowTitleForCurrentTab(
       include_app_name, tab_strip_model_->GetActiveWebContents());
 }
 
-std::u16string Browser::GetWindowTitleForTab(bool include_app_name,
-                                             int index) const {
-  return GetWindowTitleFromWebContents(
-      include_app_name, tab_strip_model_->GetWebContentsAt(index));
+std::u16string Browser::GetWindowTitleForTab(int index) const {
+  std::u16string title = base::UTF8ToUTF16(user_title_);
+
+  if (title.empty()) {
+    title = FormatTitleForDisplay(
+        tab_strip_model_->GetWebContentsAt(index)->GetTitle());
+  }
+
+  if (title.empty() && (is_type_normal() || is_type_popup())) {
+    title = CoreTabHelper::GetDefaultTitle();
+  }
+
+  return title;
 }
 
 std::u16string Browser::GetWindowTitleForMaxWidth(int max_width) const {
@@ -1460,7 +1476,8 @@ void Browser::SetTopControlsGestureScrollInProgress(bool in_progress) {
 bool Browser::CanOverscrollContent() {
 #if defined(USE_AURA)
   return !is_type_devtools() &&
-         base::FeatureList::IsEnabled(features::kOverscrollHistoryNavigation);
+         base::FeatureList::IsEnabled(features::kOverscrollHistoryNavigation) &&
+         overscroll_pref_manager_->IsOverscrollHistoryNavigationEnabled();
 #else
   return false;
 #endif
@@ -1706,6 +1723,13 @@ WebContents* Browser::OpenURLFromTab(WebContents* source,
     DCHECK(window);
     return window->OpenURLFromTab(source, params);
   }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // Try to intercept the request and open the URL with Lacros.
+  if (ash::TryOpenUrl(params.url, params.disposition)) {
+    return nullptr;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   NavigateParams nav_params(this, params.url, params.transition);
   nav_params.FillNavigateParamsFromOpenURLParams(params);

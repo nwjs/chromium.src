@@ -45,9 +45,11 @@ bool IsInterstitialEnabledByTypicallySecureUserHeuristic(Profile* profile) {
   }
   HttpsFirstModeService* hfm_service =
       HttpsFirstModeServiceFactory::GetForProfile(profile);
-  hfm_service->MaybeEnableHttpsFirstModeForUser(
-      /*add_fallback_entry=*/false);
-
+  // HttpsFirstModeService can be null in tests.
+  if (hfm_service) {
+    hfm_service->MaybeEnableHttpsFirstModeForUser(
+        /*add_fallback_entry=*/false);
+  }
   return profile->GetPrefs()->GetBoolean(prefs::kHttpsOnlyModeAutoEnabled) &&
          profile->GetPrefs()->GetBoolean(prefs::kHttpsOnlyModeEnabled);
 }
@@ -68,6 +70,13 @@ HttpsUpgradesNavigationThrottle::MaybeCreateThrottleFor(
       !handle->IsInPrimaryMainFrame() || handle->IsSameDocument()) {
     return nullptr;
   }
+
+  // Repair prefs if the user was previously affected by crbug.com/1475747. This
+  // will reset the affected prefs, before setting up the state for the Throttle
+  // for this navigation.
+  // TODO(crbug.com/1475747): Remove this after M120 (or after
+  // kHttpsFirstModeV2ForTypicallySecureUsers is enabled by default).
+  HttpsFirstModeService::FixTypicallySecureUserPrefs(profile);
 
   PrefService* prefs = profile->GetPrefs();
   security_interstitials::https_only_mode::HttpInterstitialState

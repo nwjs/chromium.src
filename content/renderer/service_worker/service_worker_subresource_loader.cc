@@ -194,6 +194,14 @@ class ServiceWorkerSubresourceLoader::StreamWaiter
   mojo::Receiver<blink::mojom::ServiceWorkerStreamCallback> receiver_;
 };
 
+bool ServiceWorkerSubresourceLoader::MaybeStartAutoPreload() {
+  if (controller_connector_->fetch_handler_bypass_option() !=
+      blink::mojom::ServiceWorkerFetchHandlerBypassOption::kAutoPreload) {
+    return false;
+  }
+  return ServiceWorkerSubresourceLoader::StartRaceNetworkRequest();
+}
+
 bool ServiceWorkerSubresourceLoader::MaybeStartRaceNetworkRequest() {
   if (controller_connector_->fetch_handler_bypass_option() !=
       blink::mojom::ServiceWorkerFetchHandlerBypassOption::
@@ -212,6 +220,12 @@ bool ServiceWorkerSubresourceLoader::StartRaceNetworkRequest() {
 
   // RaceNetworkRequest only supports GET method.
   if (resource_request_.method != net::HttpRequestHeaders::kGetMethod) {
+    return false;
+  }
+
+  // RaceNetworkRequest is triggered only if the scheme is HTTP or HTTPS.
+  // crbug.com/1477990
+  if (!resource_request_.url.SchemeIsHTTPOrHTTPS()) {
     return false;
   }
 
@@ -246,7 +260,9 @@ bool ServiceWorkerSubresourceLoader::StartRaceNetworkRequest() {
   scoped_refptr<network::SharedURLLoaderFactory> factory =
       network::SharedURLLoaderFactory::Create(fallback_factory_->Clone());
 
-  CHECK_EQ(commit_responsibility(), FetchResponseFrom::kNoResponseYet);
+  CHECK(commit_responsibility() == FetchResponseFrom::kNoResponseYet ||
+        commit_responsibility() ==
+            FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect);
   factory->CreateLoaderAndStart(
       forwarded_race_network_request_url_loader_factory_
           ->InitURLLoaderNewPipeAndPassReceiver(),
@@ -324,7 +340,9 @@ void ServiceWorkerSubresourceLoader::StartRequest(
                           TRACE_ID_LOCAL(request_id_)),
       TRACE_EVENT_FLAG_FLOW_OUT, "url", resource_request.url.spec());
   TransitionToStatus(Status::kStarted);
-  CHECK_EQ(commit_responsibility(), FetchResponseFrom::kNoResponseYet);
+  CHECK(commit_responsibility() == FetchResponseFrom::kNoResponseYet ||
+        commit_responsibility() ==
+            FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect);
   DCHECK(!controller_connector_observation_.IsObserving());
   controller_connector_observation_.Observe(controller_connector_.get());
   fetch_request_restarted_ = false;
@@ -370,6 +388,14 @@ void ServiceWorkerSubresourceLoader::DispatchFetchEvent() {
       case blink::ServiceWorkerRouterSource::SourceType::kFetchEvent:
         race_network_request_mode = kSkipped;
         break;
+      case blink::ServiceWorkerRouterSource::SourceType::kCache:
+        controller_connector_->CallCacheStorageMatch(
+            sources[0].cache_source->cache_name,
+            blink::mojom::FetchAPIRequest::From(resource_request_),
+            base::BindOnce(
+                &ServiceWorkerSubresourceLoader::DidCacheStorageMatch,
+                weak_factory_.GetWeakPtr(), base::TimeTicks::Now()));
+        return;
     }
   }
 
@@ -422,11 +448,17 @@ void ServiceWorkerSubresourceLoader::DispatchFetchEvent() {
 
   switch (race_network_request_mode) {
     case kForced:
-      did_start_race_network_request_ = StartRaceNetworkRequest();
+      if (StartRaceNetworkRequest()) {
+        SetDispatchedPreloadType(DispatchedPreloadType::kRaceNetworkRequest);
+      }
       break;
     case kDefault:
-      // Dispatch RaceNetworkRequest if enabled.
-      did_start_race_network_request_ = MaybeStartRaceNetworkRequest();
+      if (MaybeStartRaceNetworkRequest()) {
+        SetDispatchedPreloadType(DispatchedPreloadType::kRaceNetworkRequest);
+      } else if (MaybeStartAutoPreload()) {
+        SetDispatchedPreloadType(DispatchedPreloadType::kAutoPreload);
+        SetCommitResponsibility(FetchResponseFrom::kServiceWorker);
+      }
       break;
     case kSkipped:
       // Don't start race network request.
@@ -516,6 +548,7 @@ void ServiceWorkerSubresourceLoader::OnConnectionClosed() {
         blink::ServiceWorkerStatusCode::kErrorStartWorkerFailed);
     switch (commit_responsibility()) {
       case FetchResponseFrom::kNoResponseYet:
+      case FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect:
       case FetchResponseFrom::kServiceWorker:
         CommitCompleted(net::ERR_FAILED, "Disconnected before completed");
         return;
@@ -523,6 +556,8 @@ void ServiceWorkerSubresourceLoader::OnConnectionClosed() {
         // If the fetch request is already handled by RaceNetworkRequest, no
         // need to call CommitCompleted here.
         return;
+      case FetchResponseFrom::kAutoPreloadHandlingFallback:
+        NOTREACHED_NORETURN();
     }
   }
   fetch_request_restarted_ = true;
@@ -588,27 +623,48 @@ void ServiceWorkerSubresourceLoader::OnFallback(
                           TRACE_ID_LOCAL(request_id_)),
       TRACE_EVENT_FLAG_FLOW_IN);
 
+  if (dispatched_preload_type() == DispatchedPreloadType::kAutoPreload &&
+      commit_responsibility() == FetchResponseFrom::kServiceWorker) {
+    // When AutoPreload is dispatched, set the fetch handler end time and record
+    // loading metrics.
+    race_network_request_loader_client_
+        ->MaybeRecordResponseReceivedToFetchHandlerEndTiming(
+            base::TimeTicks::Now(), /*is_fallback=*/true);
+    // Update the commit responsibility to the intermediate state
+    // |kAutoPreloadHandlingFallback| for the fallback. This is a special
+    // treatment for AutoPreload.
+    SetCommitResponsibility(FetchResponseFrom::kAutoPreloadHandlingFallback);
+  }
+
   switch (commit_responsibility()) {
     case FetchResponseFrom::kNoResponseYet:
-      // If the RaceNetworkRequest is triggered but the response is not handled
-      // yet, ask its URLLoaderClient to handle the response regardless of the
-      // response status not to dispatch additional network request for
-      // fallback.
-      if (did_start_race_network_request_) {
-        SetCommitResponsibility(FetchResponseFrom::kWithoutServiceWorker);
-        return;
+    case FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect:
+      // If the RaceNetworkRequest or AutoPreload is triggered but the response
+      // is not handled yet, ask its URLLoaderClient to handle the response
+      // regardless of the response status not to dispatch additional network
+      // request for fallback.
+      switch (dispatched_preload_type()) {
+        case DispatchedPreloadType::kRaceNetworkRequest:
+        case DispatchedPreloadType::kAutoPreload:
+          SetCommitResponsibility(FetchResponseFrom::kWithoutServiceWorker);
+          return;
+        case DispatchedPreloadType::kNone:
+          SetCommitResponsibility(FetchResponseFrom::kServiceWorker);
+          break;
+        case DispatchedPreloadType::kNavigationPreload:
+          NOTREACHED_NORETURN();
       }
-      SetCommitResponsibility(FetchResponseFrom::kServiceWorker);
       break;
     case FetchResponseFrom::kServiceWorker:
-      // RaceNetworkRequest comes first ant it's a redirect.
+      // RaceNetworkRequest comes first and it's a redirect.
       // When redirect happens, RaceNetworkRequest defer the remaining response
       // to the fetch handler (FetchResponseFrom::kServiceWorker). However, if
       // the fetch handler result is a fallback, the fetch handler itself can't
       // handle the response anymore because the execution is already completed.
       // It costs additional request but we cancel the in-flight
       // RaceNetworkRequest and start the new network equest.
-      if (did_start_race_network_request_) {
+      if (dispatched_preload_type() ==
+          DispatchedPreloadType::kRaceNetworkRequest) {
         race_network_request_loader_client_.reset();
       }
       break;
@@ -620,6 +676,20 @@ void ServiceWorkerSubresourceLoader::OnFallback(
       // TODO(crbug.com/1432075) Fallback response should be handled as a
       // fallback. The response from RaceNetworkRequest is currently handled by
       // the code path for the non-fallback case.
+      return;
+    case FetchResponseFrom::kAutoPreloadHandlingFallback:
+      // |kAutoPreloadHandlingFallback| is the intermediate state to transfer
+      // the commit responsibility from the fetch handler to the network
+      // request (kServiceWorker). If the fetch handler result is fallback,
+      // manually set the network request (kWithoutServiceWorker).
+      SetCommitResponsibility(FetchResponseFrom::kWithoutServiceWorker);
+      // If the network request is faster than the fetch handler, the response
+      // from the network is processed but not committed. We have to explicitly
+      // commit and complete the response. Otherwise
+      // |ServiceWorkerRaceNetworkRequestURLLoaderClient::CommitResponse()| will
+      // be called.
+      race_network_request_loader_client_
+          ->CommitAndCompleteResponseIfDataTransferFinished();
       return;
   }
 
@@ -671,8 +741,16 @@ void ServiceWorkerSubresourceLoader::UpdateResponseTiming(
 void ServiceWorkerSubresourceLoader::StartResponse(
     blink::mojom::FetchAPIResponsePtr response,
     blink::mojom::ServiceWorkerStreamHandlePtr body_as_stream) {
+  // When AutoPreload is dispatched, set the fetch handler end time and record
+  // loading metrics.
+  if (dispatched_preload_type() == DispatchedPreloadType::kAutoPreload) {
+    race_network_request_loader_client_
+        ->MaybeRecordResponseReceivedToFetchHandlerEndTiming(
+            base::TimeTicks::Now(), /*is_fallback=*/false);
+  }
   switch (commit_responsibility()) {
     case FetchResponseFrom::kNoResponseYet:
+    case FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect:
       SetCommitResponsibility(FetchResponseFrom::kServiceWorker);
       break;
     case FetchResponseFrom::kServiceWorker:
@@ -687,7 +765,10 @@ void ServiceWorkerSubresourceLoader::StartResponse(
             std::move(body_as_stream->stream));
       }
       return;
+    case FetchResponseFrom::kAutoPreloadHandlingFallback:
+      NOTREACHED_NORETURN();
   }
+  RecordFetchResponseFrom();
 
   // A response with status code 0 is Blink telling us to respond with network
   // error.
@@ -830,6 +911,8 @@ void ServiceWorkerSubresourceLoader::CommitCompleted(int error_code,
   if (error_code == net::OK) {
     switch (commit_responsibility()) {
       case FetchResponseFrom::kNoResponseYet:
+      case FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect:
+      case FetchResponseFrom::kAutoPreloadHandlingFallback:
         NOTREACHED();
         break;
       case FetchResponseFrom::kServiceWorker:
@@ -1086,7 +1169,8 @@ void ServiceWorkerSubresourceLoader::FollowRedirect(
   TransitionToStatus(Status::kNotStarted);
   redirect_info_.reset();
   response_callback_receiver_.reset();
-  reset_commit_responsibility();
+  SetCommitResponsibility(
+      FetchResponseFrom::kSubresourceLoaderIsHandlingRedirect);
   race_network_request_loader_client_.reset();
   race_network_request_url_loader_factory_.reset();
   StartRequest(resource_request_);
@@ -1279,6 +1363,39 @@ void ServiceWorkerSubresourceLoader::TransitionToStatus(Status new_status) {
 
   if (new_status == Status::kCompleted) {
     completion_time_ = base::TimeTicks::Now();
+  }
+}
+
+void ServiceWorkerSubresourceLoader::DidCacheStorageMatch(
+    base::TimeTicks event_dispatch_time,
+    blink::mojom::MatchResultPtr result) {
+  auto timing = blink::mojom::ServiceWorkerFetchEventTiming::New();
+  timing->dispatch_event_time = event_dispatch_time;
+  timing->respond_with_settled_time = base::TimeTicks::Now();
+  switch (result->which()) {
+    case blink::mojom::MatchResult::Tag::kStatus:  // error fallback.
+      // TODO(crbug.com/1371756): add UMA to track cases other than not found.
+      OnFallback(absl::nullopt, std::move(timing));
+      return;
+    case blink::mojom::MatchResult::Tag::kResponse:  // we got fetch response.
+      if (result->get_response()->parsed_headers) {
+        // We intend to reset the parsed header. Or, invalid parsed headers
+        // should be set.
+        //
+        // According to content/browser/cache_storage/cache_storage_cache.cc,
+        // the field looks not set up with the meaningful value.
+        // Also, the Cache Storage API code looks not using the parsed_header
+        // according to third_party/blink/renderer/core/fetch/response.cc.
+        // (It can be tracked from
+        // third_party/blink/renderer/modules/cache_storage/cache_storage.cc)
+        result->get_response()->parsed_headers.reset();
+      }
+      OnResponse(std::move(result->get_response()), std::move(timing));
+      return;
+    case blink::mojom::MatchResult::Tag::kEagerResponse:
+      // EagerResponse, which should be used only if `in_related_fetch_event`
+      // is set.
+      NOTREACHED_NORETURN();
   }
 }
 

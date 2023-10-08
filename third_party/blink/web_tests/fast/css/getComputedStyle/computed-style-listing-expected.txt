@@ -159,6 +159,7 @@ d: none
 direction: ltr
 display: block
 dominant-baseline: auto
+dynamic-range-limit: high
 empty-cells: show
 fill: rgb(0, 0, 0)
 fill-opacity: 1
@@ -190,6 +191,7 @@ font-variant-ligatures: normal
 font-variant-numeric: normal
 font-variant-position: normal
 font-weight: 400
+form-sizing: auto
 grid-auto-columns: auto
 grid-auto-flow: row
 grid-auto-rows: auto
@@ -380,7 +382,7 @@ user-select: auto
 vector-effect: none
 vertical-align: baseline
 view-timeline-axis: block
-view-timeline-inset: 0px
+view-timeline-inset: auto
 view-timeline-name: none
 view-transition-name: none
 visibility: visible

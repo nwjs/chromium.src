@@ -566,6 +566,21 @@ class ChromeDriverTestWithCustomCapability(ChromeDriverBaseTestWithWebServer):
                       driver.Load, 'http://invalid/')
     self.assertEqual('http://invalid/', driver.GetCurrentUrl())
 
+  def testReturnedPlatformName(self):
+    # This tests makes sure that the 'platformName' values defined in the
+    # standard are respected by ChromeDriver:
+    # https://www.w3.org/TR/webdriver2/#dfn-matching-capabilities
+    driver = self.CreateDriver()
+    current_platform = util.GetPlatformName()
+    if current_platform == 'linux':
+      self.assertEqual('linux', driver.capabilities['platformName'])
+    elif current_platform == 'mac':
+      self.assertEqual('mac', driver.capabilities['platformName'])
+    elif current_platform == 'win':
+      self.assertEqual('windows', driver.capabilities['platformName'])
+    else:
+      pass
+
 class ChromeDriverWebSocketTest(ChromeDriverBaseTestWithWebServer):
   @staticmethod
   def composeWebSocketUrl(server_url, session_id):
@@ -776,6 +791,34 @@ class ChromeDriverTest(ChromeDriverBaseTestWithWebServer):
   def testEvaluateScript(self):
     self.assertEqual(1, self._driver.ExecuteScript('return 1'))
     self.assertEqual(None, self._driver.ExecuteScript(''))
+    self.assertEqual(None, self._driver.ExecuteScript('return null'))
+    self.assertEqual(None, self._driver.ExecuteScript('return undefined'))
+    self.assertEqual("Chrome", self._driver.ExecuteScript('return "Chrome"'))
+    self.assertEqual([], self._driver.ExecuteScript('return []'))
+    self.assertEqual([5, 6.1, "WebDriver"],
+                     self._driver.ExecuteScript('return [5, 6.1, "WebDriver"]'))
+    self.assertEqual({}, self._driver.ExecuteScript('return {}'))
+    self.assertEqual({'one': 2, 'two': [3]},
+                     self._driver.ExecuteScript(
+                         'return {"one": 2, "two": [3]}'))
+    [body1, body2] = self._driver.ExecuteScript(
+        'return [document.body, document.body]')
+    self.assertEqual(body1._id, body2._id)
+    [body2, obj1] = self._driver.ExecuteScript(
+        'return [document.body, {"a": document.body}]')
+    self.assertEqual(body1._id, body2._id)
+    self.assertEqual(body1._id, obj1['a']._id)
+    [root1, body2] = self._driver.ExecuteScript(
+        'return [document.documentElement, document.body]')
+    self.assertEqual(body1._id, body2._id)
+    self.assertNotEqual(root1._id, body1._id)
+    [root2, obj1] = self._driver.ExecuteScript(
+        ''.join(['return [document.documentElement, {',
+                 '  "a": document.body, ',
+                 '  "b": {"c": document.documentElement}}]']))
+    self.assertEqual(root1._id, root2._id)
+    self.assertEqual(body1._id, obj1['a']._id)
+    self.assertEqual(root1._id, obj1['b']['c']._id)
 
   def testEvaluateScriptWithArgs(self):
     self._driver.Load(self.GetHttpUrlForFile('/chromedriver/empty.html'))
@@ -4445,7 +4488,8 @@ class ChromeDriverFencedFrame(ChromeDriverBaseTestWithWebServer):
         accept_insecure_certs = True,
         chrome_switches=['--site-per-process',
           '--enable-features=FencedFrames,PrivacySandboxAdsAPIsOverride,'
-          'FencedFramesAPIChanges,FencedFramesDefaultMode'])
+          'FencedFramesAPIChanges,FencedFramesDefaultMode,'
+          'FencedFramesEnforceFocus'])
 
   def testCanSwitchToFencedFrame(self):
     self._initDriver()

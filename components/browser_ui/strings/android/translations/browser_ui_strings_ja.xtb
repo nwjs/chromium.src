@@ -20,7 +20,6 @@
 <translation id="1371239764779356792">サイトによるデバイスへのデータ保存を許可します</translation>
 <translation id="1383876407941801731">検索</translation>
 <translation id="1384959399684842514">ダウンロードを一時停止しました</translation>
-<translation id="1409426117486808224">開いているタブの簡易表示</translation>
 <translation id="1415402041810619267">URL の短縮バージョンです</translation>
 <translation id="1426410128494586442">はい</translation>
 <translation id="1446450296470737166">MIDI機器のフルコントロールを許可</translation>
@@ -51,7 +50,6 @@
 <translation id="1984937141057606926">サードパーティ以外は許可</translation>
 <translation id="1989112275319619282">閲覧</translation>
 <translation id="1994173015038366702">サイトの URL</translation>
-<translation id="1999195646219379110">{COUNT,plural, =1{あと 1 日で期限切れ}other{あと # 日で期限切れ}}</translation>
 <translation id="2004697686368036666">一部のサイトで機能を使用できなくなる可能性があります</translation>
 <translation id="2025115093177348061">拡張現実（AR）</translation>
 <translation id="2030769033451695672">タップして <ph name="URL_OF_THE_CURRENT_TAB" /> に戻る</translation>
@@ -120,6 +118,7 @@
 <translation id="3008272652534848354">権限をリセット</translation>
 <translation id="301521992641321250">自動でブロックされました</translation>
 <translation id="3069226013421428034">特定のサイトのサードパーティのログインを許可します。</translation>
+<translation id="3082992102194421695">{COUNT,plural, =1{明日で期限切れ}other{あと # 日で期限切れ}}</translation>
 <translation id="310297983047869047">前のスライド</translation>
 <translation id="3109724472072898302">折りたたみ表示中</translation>
 <translation id="3114012059975132928">動画プレーヤー</translation>
@@ -179,6 +178,7 @@
 <translation id="4002066346123236978">タイトル</translation>
 <translation id="4008040567710660924">特定のサイトの Cookie を許可します。</translation>
 <translation id="4046123991198612571">次のトラック</translation>
+<translation id="4053720452172726777">Google Chrome の設定</translation>
 <translation id="4149994727733219643">ウェブページの簡易表示</translation>
 <translation id="4151930093518524179">デフォルトのズーム</translation>
 <translation id="4165986682804962316">サイトの設定</translation>
@@ -257,7 +257,6 @@
 <translation id="5545693483061321551">サイトは、Cookie を使用して別のサイトでのあなたの閲覧アクティビティを確認できず、広告のパーソナライズなどが行えなくなります。一部のサイトで機能を使用できなくなる可能性があります。</translation>
 <translation id="5553374991681107062">最新</translation>
 <translation id="5556459405103347317">再読み込み</translation>
-<translation id="5596627076506792578">その他のオプション</translation>
 <translation id="5649053991847567735">自動ダウンロード</translation>
 <translation id="5668404140385795438">ウェブサイトのズーム防止リクエストを上書きします</translation>
 <translation id="5677928146339483299">ブロック</translation>
@@ -341,7 +340,6 @@
 <translation id="7000754031042624318">Android の設定で無効</translation>
 <translation id="7016516562562142042">現在の検索エンジンに対して許可</translation>
 <translation id="702275896380648118">このサイトでは、ユーザーの好みを判断して他のサイトに広告を提案します。また、より関連性の高い広告を表示するために Chrome から広告のトピックを取得します。</translation>
-<translation id="702463548815491781">TalkBack またはスイッチ アクセスを有効にしている場合におすすめです</translation>
 <translation id="7053983685419859001">ブロック</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 件を選択済み}other{# 件を選択済み}}</translation>
 <translation id="7087918508125750058"><ph name="ITEM_COUNT" /> 件選択されています。オプションは画面上部にあります</translation>

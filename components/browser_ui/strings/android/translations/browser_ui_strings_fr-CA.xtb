@@ -20,7 +20,6 @@
 <translation id="1371239764779356792">Autoriser un site à enregistrer des données sur votre appareil</translation>
 <translation id="1383876407941801731">Rechercher</translation>
 <translation id="1384959399684842514">Téléchargement interrompu</translation>
-<translation id="1409426117486808224">Affichage simplifié pour les onglets ouverts</translation>
 <translation id="1415402041810619267">URL tronquée</translation>
 <translation id="1426410128494586442">Oui</translation>
 <translation id="1446450296470737166">Autoriser le contrôle des appareils MIDI</translation>
@@ -51,7 +50,6 @@
 <translation id="1984937141057606926">Autorisés, sauf témoins tiers</translation>
 <translation id="1989112275319619282">Parcourir</translation>
 <translation id="1994173015038366702">URL du site</translation>
-<translation id="1999195646219379110">{COUNT,plural, =1{Expire dans 1 jour}one{Expire dans # jour}other{Expire dans # jours}}</translation>
 <translation id="2004697686368036666">Des fonctionnalités de certains sites pourraient ne pas fonctionner</translation>
 <translation id="2025115093177348061">Réalité augmentée</translation>
 <translation id="2030769033451695672">Touchez pour revenir à <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
@@ -120,6 +118,7 @@
 <translation id="3008272652534848354">Réinitialiser les autorisations</translation>
 <translation id="301521992641321250">Bloquée automatiquement</translation>
 <translation id="3069226013421428034">Autorisez la connexion de tiers pour un site particulier.</translation>
+<translation id="3082992102194421695">{COUNT,plural, =1{Expire demain}one{Expire dans # jour}other{Expire dans # jours}}</translation>
 <translation id="310297983047869047">Diapositive précédente</translation>
 <translation id="3109724472072898302">Réduit</translation>
 <translation id="3114012059975132928">Lecteur vidéo</translation>
@@ -179,6 +178,7 @@
 <translation id="4002066346123236978">Titre</translation>
 <translation id="4008040567710660924">Autoriser les témoins pour un site en particulier.</translation>
 <translation id="4046123991198612571">Chanson suivante</translation>
+<translation id="4053720452172726777">Personnaliser et gérer Google Chrome</translation>
 <translation id="4149994727733219643">Affichage simplifié pour les pages Web</translation>
 <translation id="4151930093518524179">Zoom par défaut</translation>
 <translation id="4165986682804962316">Paramètres du site</translation>
@@ -257,7 +257,6 @@
 <translation id="5545693483061321551">Les sites ne peuvent pas utiliser vos témoins pour voir votre activité de navigation sur différents sites (par exemple, pour personnaliser les annonces). Des fonctionnalités de certains sites pourraient ne pas fonctionner.</translation>
 <translation id="5553374991681107062">Plus récentes</translation>
 <translation id="5556459405103347317">Actualiser</translation>
-<translation id="5596627076506792578">Autres options</translation>
 <translation id="5649053991847567735">Téléchargements automatiques</translation>
 <translation id="5668404140385795438">Ignorer la demande d'un site refusant de faire un zoom avant</translation>
 <translation id="5677928146339483299">Bloqué</translation>
@@ -341,7 +340,6 @@
 <translation id="7000754031042624318">Désactivée dans les paramètres Android</translation>
 <translation id="7016516562562142042">Autorisée pour le moteur de recherche actuel</translation>
 <translation id="702275896380648118">Ce site détermine ce que vous aimez et suggère ensuite des annonces à d'autres sites. Ce site récupère également les sujets de vos annonces à partir de Chrome pour vous montrer des annonces plus pertinentes.</translation>
-<translation id="702463548815491781">Recommandé lorsque le service TalkBack ou Switch Access est activé</translation>
 <translation id="7053983685419859001">Bloquer</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 élément sélectionné}one{# élément sélectionné}other{# éléments sélectionnés}}</translation>
 <translation id="7087918508125750058"><ph name="ITEM_COUNT" /> élément(s) sélectionné(s). Options disponibles vers le haut de l'écran</translation>

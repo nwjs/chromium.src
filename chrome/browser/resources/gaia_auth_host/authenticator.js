@@ -225,6 +225,9 @@ export const SUPPORTED_PARAMS = [
   // username.
   'urlParameterToAutofillSAMLUsername',
   'forceDarkMode',
+  // A tri-state value which indicates the support level for passwordless login.
+  // Refer to `GaiaView::PasswordlessSupportLevel` for details.
+  'pwl',
 ];
 
 // Timeout in ms to wait for the message from Gaia indicating end of the flow.
@@ -771,6 +774,9 @@ export class Authenticator extends EventTarget {
               '&scope=https%3A%2F%2Fwww.google.com%2Faccounts%2FOAuthLogin&' +
               'client_id=' + encodeURIComponent(data.clientId) +
               '&access_type=offline');
+      if (data.rart) {
+        url = appendParam(url, 'rart', data.rart);
+      }
 
       return url;
     }
@@ -856,6 +862,9 @@ export class Authenticator extends EventTarget {
     }
     if (data.forceDarkMode) {
       url = appendParam(url, 'color_scheme', 'dark');
+    }
+    if (data.pwl) {
+      url = appendParam(url, 'pwl', data.pwl);
     }
 
     return url;

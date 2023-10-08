@@ -40,11 +40,6 @@ REMOTE_COCOA_APP_SHIM_EXPORT
 - (void)onSystemColorsChanged:(NSNotification*)notification;
 
 - (void)onWindowWillStartLiveResize:(NSNotification*)notification;
-// Called on the delegate of a modal sheet when its modal session ends.
-- (void)sheetDidEnd:(NSWindow*)sheet
-         returnCode:(NSInteger)returnCode
-        contextInfo:(void*)contextInfo;
-
 // Set the aspect ratio of the window. Window resizes will be constrained in an
 // attempt to maintain the aspect ratio.
 // Cocoa provides this functionality via the [NSWindow aspectRatio] property,

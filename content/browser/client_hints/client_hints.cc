@@ -501,6 +501,21 @@ void AddPrefersReducedMotionHeader(net::HttpRequestHeaders* headers,
                         : network::kPrefersReducedMotionNoPreference);
 }
 
+void AddPrefersReducedTransparencyHeader(net::HttpRequestHeaders* headers,
+                                         FrameTreeNode* frame_tree_node) {
+  if (!frame_tree_node) {
+    return;
+  }
+  bool prefers_reduced_transparency =
+      WebContents::FromRenderFrameHost(frame_tree_node->current_frame_host())
+          ->GetOrCreateWebPreferences()
+          .prefers_reduced_transparency;
+  SetHeaderToString(headers, WebClientHintsType::kPrefersReducedTransparency,
+                    prefers_reduced_transparency
+                        ? network::kPrefersReducedTransparencyReduce
+                        : network::kPrefersReducedTransparencyNoPreference);
+}
+
 bool IsValidURLForClientHints(const url::Origin& origin) {
   return network::IsOriginPotentiallyTrustworthy(origin);
 }
@@ -546,6 +561,15 @@ struct ClientHintsExtendedData {
       // TODO(https://crbug.com/1430508) Add WPT tests and specify the behavior
       // of client hints delegation for subframes inside
       // FencedFrames/Portals/etc...
+      // Test cases should cover this 3 layers nested frames case, from top to
+      // bottom:
+      // 1. Fenced frame.
+      // 2. Urn iframe.
+      // 3. Iframe.
+      // `GetFencedFrameProperties()` called from the iframe returns the
+      // fenced frame properties from the urn iframe because it does a bottom
+      // up traversal.
+      // See crbug.com/1470634.
       const absl::optional<FencedFrameProperties>& fenced_frame_properties =
           frame_tree_node->GetFencedFrameProperties();
       base::span<const blink::mojom::PermissionsPolicyFeature> permissions;
@@ -898,6 +922,11 @@ void AddRequestClientHintsHeaders(
     AddPrefersReducedMotionHeader(headers, frame_tree_node);
   }
 
+  if (ShouldAddClientHint(data,
+                          WebClientHintsType::kPrefersReducedTransparency)) {
+    AddPrefersReducedTransparencyHeader(headers, frame_tree_node);
+  }
+
   if (ShouldAddClientHint(data, WebClientHintsType::kSaveData))
     AddSaveDataHeader(headers, context);
 
@@ -906,7 +935,7 @@ void AddRequestClientHintsHeaders(
   // If possible, logic should be added above so that the request headers for
   // the newly added client hint can be added to the request.
   static_assert(
-      network::mojom::WebClientHintsType::kUAFormFactor ==
+      network::mojom::WebClientHintsType::kPrefersReducedTransparency ==
           network::mojom::WebClientHintsType::kMaxValue,
       "Consider adding client hint request headers from the browser process");
 

@@ -64,9 +64,7 @@ class MockCastMediaNotificationItem : public CastMediaNotificationItem {
       Profile* profile)
       : CastMediaNotificationItem(route, item_manager, nullptr, profile) {}
 
-  MOCK_METHOD(void,
-              StopCasting,
-              (global_media_controls::GlobalMediaControlsEntryPoint));
+  MOCK_METHOD(void, StopCasting, ());
 };
 
 class MockMediaNotificationProviderObserver
@@ -190,8 +188,10 @@ class MediaNotificationProviderImplTest : public ChromeAshTestBase {
 
   std::unique_ptr<ChromeLayoutProvider> layout_provider_;
   std::unique_ptr<MockMediaNotificationProviderObserver> observer_;
-  raw_ptr<MediaNotificationProviderImpl, ExperimentalAsh> provider_ = nullptr;
-  raw_ptr<MediaTestShellDelegate, ExperimentalAsh> shell_delegate_ = nullptr;
+  raw_ptr<MediaNotificationProviderImpl, DanglingUntriaged | ExperimentalAsh>
+      provider_ = nullptr;
+  raw_ptr<MediaTestShellDelegate, DanglingUntriaged | ExperimentalAsh>
+      shell_delegate_ = nullptr;
   crosapi::TestCrosapiEnvironment crosapi_environment_;
 };
 
@@ -310,10 +310,7 @@ TEST_F(CastStartStopMediaNotificationProviderImplTest, ShowCastFooterView) {
   EXPECT_TRUE(footer_view && footer_view->GetVisible());
 
   // Click on the "Stop casting" button.
-  EXPECT_CALL(
-      item,
-      StopCasting(
-          global_media_controls::GlobalMediaControlsEntryPoint::kSystemTray));
+  EXPECT_CALL(item, StopCasting());
   views::Button* stop_casting_button =
       static_cast<views::Button*>(footer_view->children()[0]);
   views::test::ButtonTestApi(stop_casting_button)

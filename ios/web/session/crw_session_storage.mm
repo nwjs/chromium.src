@@ -4,7 +4,7 @@
 
 #import "ios/web/public/session/crw_session_storage.h"
 
-#import "base/mac/foundation_util.h"
+#import "base/apple/foundation_util.h"
 #import "base/memory/ptr_util.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/strings/utf_string_conversions.h"
@@ -127,6 +127,14 @@ NSString* const kTabIdKey = @"TabId";
   }
 }
 
+#pragma mark - NSObject
+
+- (BOOL)isEqual:(NSObject*)object {
+  CRWSessionStorage* other = base::apple::ObjCCast<CRWSessionStorage>(object);
+
+  return [other cr_isEqualSameClass:self];
+}
+
 #pragma mark - NSCoding
 
 - (instancetype)initWithCoder:(nonnull NSCoder*)decoder {
@@ -148,6 +156,17 @@ NSString* const kTabIdKey = @"TabId";
     // Prior to M34, 0 was used as "no index" instead of -1; adjust for that.
     if (!_itemStorages.count)
       _lastCommittedItemIndex = -1;
+
+    // In a respin of M-117, a data corruption was introduced that may cause
+    // last_committed_item_index to be out-of-bound. Force the value back in
+    // bound to prevent a crash trying to load the session.
+    if (_lastCommittedItemIndex != NSNotFound) {
+      const int items_size = static_cast<int>(_itemStorages.count);
+      if (_lastCommittedItemIndex >= items_size) {
+        _lastCommittedItemIndex = items_size - 1;
+      }
+    }
+
     _certPolicyCacheStorage =
         [decoder decodeObjectForKey:kCertificatePolicyCacheStorageKey];
     if (!_certPolicyCacheStorage) {
@@ -162,14 +181,14 @@ NSString* const kTabIdKey = @"TabId";
     id<NSCoding, NSObject> userData =
         [decoder decodeObjectForKey:kSerializedUserDataKey];
     if ([userData isKindOfClass:[CRWSessionUserData class]]) {
-      _userData = base::mac::ObjCCastStrict<CRWSessionUserData>(userData);
+      _userData = base::apple::ObjCCastStrict<CRWSessionUserData>(userData);
     } else if ([userData isKindOfClass:[NSDictionary class]]) {
       // Before M99, the user data was serialized by a C++ class that did
       // serialize a NSDictionary<NSString*, id<NSCoding>>* directly.
       // TODO(crbug.com/1278308): Remove this deprecated logic when we remove
       // support for loading legacy sessions.
       NSDictionary<NSString*, id<NSCoding>>* dictionary =
-          base::mac::ObjCCastStrict<NSDictionary>(userData);
+          base::apple::ObjCCastStrict<NSDictionary>(userData);
 
       _userData = [[CRWSessionUserData alloc] init];
       for (NSString* key in dictionary) {
@@ -204,7 +223,7 @@ NSString* const kTabIdKey = @"TabId";
 
         // If the value is not an NSString or is empty, a random identifier
         // will be generated below.
-        _stableIdentifier = base::mac::ObjCCast<NSString>(tabIdValue);
+        _stableIdentifier = base::apple::ObjCCast<NSString>(tabIdValue);
       }
     }
 
@@ -289,6 +308,55 @@ NSString* const kTabIdKey = @"TabId";
 - (void)setUniqueIdentifier:(SessionID)uniqueIdentifier {
   DCHECK(uniqueIdentifier.is_valid());
   _uniqueIdentifier = uniqueIdentifier.id();
+}
+
+#pragma mark Private
+
+- (BOOL)cr_isEqualSameClass:(CRWSessionStorage*)other {
+  if (_hasOpener != other.hasOpener) {
+    return NO;
+  }
+
+  if (_lastCommittedItemIndex != other.lastCommittedItemIndex) {
+    return NO;
+  }
+
+  if (_userAgentType != other.userAgentType) {
+    return NO;
+  }
+
+  if (_userData != other.userData && ![_userData isEqual:other.userData]) {
+    return NO;
+  }
+
+  if (_lastActiveTime != other.lastActiveTime) {
+    return NO;
+  }
+
+  if (_creationTime != other.creationTime) {
+    return NO;
+  }
+
+  if (_uniqueIdentifier != other.uniqueIdentifier.id()) {
+    return NO;
+  }
+
+  if (_stableIdentifier != other.stableIdentifier &&
+      ![_stableIdentifier isEqual:other.stableIdentifier]) {
+    return NO;
+  }
+
+  if (_itemStorages != other.itemStorages &&
+      ![_itemStorages isEqual:other.itemStorages]) {
+    return NO;
+  }
+
+  if (_certPolicyCacheStorage != other.certPolicyCacheStorage &&
+      ![_certPolicyCacheStorage isEqual:other.certPolicyCacheStorage]) {
+    return NO;
+  }
+
+  return YES;
 }
 
 @end

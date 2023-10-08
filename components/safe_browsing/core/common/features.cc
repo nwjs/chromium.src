@@ -47,6 +47,10 @@ BASE_FEATURE(kClientSideDetectionTypeForceRequest,
 
 BASE_FEATURE(kDeepScanningUpdatedUX,
              "SafeBrowsingDeepScanningUpdatedUX",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeepScanningEncryptedArchives,
+             "SafeBrowsingDeepScanningEncryptedArchives",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kDelayedWarnings,
@@ -147,6 +151,15 @@ BASE_FEATURE(kExtensionTelemetryReportHostsContactedViaWebSocket,
              "SafeBrowsingExtensionTelemetryReportHostsContactedViaWebsocket",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(
+    kExtensionTelemetryInterceptRemoteHostsContactedInRenderer,
+    "SafeBrowsingExtensionTelmetryInterceptRemoteHostsContactedInRenderer",
+    base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExtensionTelemetryTabsApiSignal,
+             "SafeBrowsingExtensionTelemetryTabsApiSignal",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kExtensionTelemetryTabsExecuteScriptSignal,
              "SafeBrowsingExtensionTelemetryTabsExecuteScriptSignal",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -158,6 +171,10 @@ BASE_FEATURE(kExtensionTelemetryCookiesGetSignal,
 BASE_FEATURE(kExtensionTelemetryDeclarativeNetRequestSignal,
              "SafeBrowsingExtensionTelemetryDeclarativeNetRequestSignal",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kExtensionTelemetryDisableOffstoreExtensions,
+             "SafeBrowsingExtensionTelemetryDisableOffstoreExtensions",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kFileTypePoliciesTag,
              "FileTypePoliciesTag",
@@ -230,6 +247,10 @@ BASE_FEATURE(kRealTimeUrlFilteringForEnterprise,
              "RealTimeUrlFilteringForEnterprise",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kRedInterstitialFacelift,
+             "RedInterstitialFacelift",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kReferrerChainParameters,
              "SafeBrowsingReferrerChainParameters",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -275,6 +296,10 @@ BASE_FEATURE(kSafeBrowsingSkipImageCssFont,
 #endif
 );
 
+BASE_FEATURE(kSafeBrowsingSkipSubresources,
+             "SafeBrowsingSkipSubResources",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kSevenZipEvaluationEnabled,
              "SafeBrowsingSevenZipEvaluationEnabled",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -285,7 +310,7 @@ BASE_FEATURE(kSimplifiedUrlDisplay,
 
 BASE_FEATURE(kStrictDownloadTimeout,
              "SafeBrowsingStrictDownloadtimeout",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 constexpr base::FeatureParam<int> kStrictDownloadTimeoutMilliseconds{
     &kStrictDownloadTimeout, "TimeoutMilliseconds",
@@ -316,7 +341,7 @@ BASE_FEATURE(kTailoredSecurityIntegration,
 
 BASE_FEATURE(kTailoredSecurityUpdatedMessages,
              "TailoredSecurityUpdatedMessages",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kThreatDomDetailsTagAndAttributeFeature,
              "ThreatDomDetailsTagAttributes",
@@ -324,10 +349,6 @@ BASE_FEATURE(kThreatDomDetailsTagAndAttributeFeature,
 
 BASE_FEATURE(kVisualFeaturesSizes,
              "VisualFeaturesSizes",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kClientSideDetectionModelOptimizationGuide,
-             "ClientSideDetectionModelOptimizationGuide",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kClientSideDetectionModelImageEmbedder,
@@ -360,7 +381,6 @@ constexpr struct {
     {&kAdSamplerTriggerFeature, false},
     {&kAntiPhishingTelemetry, false},
     {&kClientSideDetectionKillswitch, true},
-    {&kClientSideDetectionModelOptimizationGuide, true},
     {&kClientSideDetectionModelIsFlatBuffer, true},
     {&kClientSideDetectionTypeForceRequest, true},
     {&kDelayedWarnings, true},
@@ -372,11 +392,14 @@ constexpr struct {
     {&kExtensionTelemetryCookiesGetAllSignal, true},
     {&kExtensionTelemetryCookiesGetSignal, true},
     {&kExtensionTelemetryDeclarativeNetRequestSignal, true},
+    {&kExtensionTelemetryDisableOffstoreExtensions, true},
     {&kExtensionTelemetryFileData, true},
+    {&kExtensionTelemetryInterceptRemoteHostsContactedInRenderer, true},
     {&kExtensionTelemetryPersistence, true},
     {&kExtensionTelemetryPotentialPasswordTheft, true},
     {&kExtensionTelemetryReportContactedHosts, true},
     {&kExtensionTelemetryReportHostsContactedViaWebSocket, true},
+    {&kExtensionTelemetryTabsApiSignal, true},
     {&kExtensionTelemetryTabsExecuteScriptSignal, true},
     {&kFileTypePoliciesTag, true},
     {&kHashPrefixRealTimeLookups, true},
@@ -387,9 +410,12 @@ constexpr struct {
     {&kMmapSafeBrowsingDatabase, true},
     {&kNestedArchives, true},
     {&kRealTimeUrlFilteringForEnterprise, true},
+    {&kRedInterstitialFacelift, false},
     {&kSafeBrowsingCsbrrNewDownloadTrigger, true},
     {&kSafeBrowsingLookupMechanismExperiment, true},
     {&kSafeBrowsingRemoveCookiesInAuthRequests, true},
+    {&kSafeBrowsingSkipImageCssFont, true},
+    {&kSafeBrowsingSkipSubresources, true},
     {&kSevenZipEvaluationEnabled, true},
     {&kSimplifiedUrlDisplay, true},
     {&kStrictDownloadTimeout, true},

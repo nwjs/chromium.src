@@ -14,12 +14,13 @@ class FidoDiscoveryBase;
 
 namespace fido::icloud_keychain {
 
+// kFakeNSWindowForTesting can be passed to `NewDiscovery` by tests to indicate
+// that they don't have an `NSWindow` to use.
+constexpr uintptr_t kFakeNSWindowForTesting = 1;
+
 // IsSupported returns true if iCloud Keychain can be used. This is constant for
 // the lifetime of the process.
 COMPONENT_EXPORT(DEVICE_FIDO) bool IsSupported();
-
-// IsICloudDriveSyncing returns true if iCloud Drive is available.
-COMPONENT_EXPORT(DEVICE_FIDO) bool IsICloudDriveEnabled();
 
 // NewDiscovery returns a discovery that will immediately find an iCloud
 // Keychain authenticator. It is only valid to call this if `IsSupported`

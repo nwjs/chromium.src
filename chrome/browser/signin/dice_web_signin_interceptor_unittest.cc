@@ -29,6 +29,7 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
+#include "components/policy/core/browser/signin/profile_separation_policies.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -122,7 +123,9 @@ std::string ParamToTestSuffixForInterceptionAndSyncPromo(
 
 class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
  public:
-  DiceWebSigninInterceptorTest() = default;
+  DiceWebSigninInterceptorTest()
+      : BrowserWithTestWindowTest(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
   ~DiceWebSigninInterceptorTest() override = default;
 
   DiceWebSigninInterceptor* interceptor() {
@@ -177,6 +180,9 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
     testing::Mock::VerifyAndClearExpectations(mock_delegate());
     histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
                                         expected_outcome, 1);
+    histogram_tester.ExpectUniqueTimeSample("Signin.Intercept.HeuristicLatency",
+                                            base::Milliseconds(0), 1);
+
     EXPECT_EQ(interceptor()->is_interception_in_progress(),
               SigninInterceptionHeuristicOutcomeIsSuccess(expected_outcome));
   }
@@ -201,6 +207,8 @@ class DiceWebSigninInterceptorTest : public BrowserWithTestWindowTest {
     testing::Mock::VerifyAndClearExpectations(mock_delegate());
     histogram_tester.ExpectUniqueSample("Signin.Intercept.HeuristicOutcome",
                                         expected_outcome, 1);
+    histogram_tester.ExpectUniqueTimeSample("Signin.Intercept.HeuristicLatency",
+                                            base::Milliseconds(0), 1);
     EXPECT_EQ(interceptor()->is_interception_in_progress(),
               SigninInterceptionHeuristicOutcomeIsSuccess(expected_outcome));
   }
@@ -462,7 +470,8 @@ TEST_P(DiceWebSigninInterceptorManagedAccountTest,
       "alice@example.com", signin::ConsentLevel::kSignin);
   MakeValidAccountInfo(&account_info, "example.com");
   identity_test_env()->UpdateAccountInfoForAccount(account_info);
-  interceptor()->SetAccountLevelSigninRestrictionFetchResultForTesting("");
+  interceptor()->SetInterceptedAccountProfileSeparationPoliciesForTesting(
+      policy::ProfileSeparationPolicies(""));
 
   WebSigninInterceptor::Delegate::BubbleParameters expected_parameters(
       WebSigninInterceptor::SigninInterceptionType::kEnterpriseAcceptManagement,
@@ -486,7 +495,8 @@ TEST_P(DiceWebSigninInterceptorManagedAccountTest,
       "alice@example.com", signin::ConsentLevel::kSignin);
   MakeValidAccountInfo(&account_info, "example.com");
   identity_test_env()->UpdateAccountInfoForAccount(account_info);
-  interceptor()->SetAccountLevelSigninRestrictionFetchResultForTesting("");
+  interceptor()->SetInterceptedAccountProfileSeparationPoliciesForTesting(
+      policy::ProfileSeparationPolicies(""));
 
   if (signin_interception_enabled_) {
     TestAsynchronousInterception(
@@ -563,8 +573,8 @@ TEST_P(DiceWebSigninInterceptorManagedAccountTest,
   MakeValidAccountInfo(&account_info, "example.com");
   identity_test_env()->UpdateAccountInfoForAccount(account_info);
 
-  interceptor()->SetAccountLevelSigninRestrictionFetchResultForTesting(
-      "primary_account_keep_existing_data");
+  interceptor()->SetInterceptedAccountProfileSeparationPoliciesForTesting(
+      policy::ProfileSeparationPolicies("primary_account_keep_existing_data"));
 
   // Check that interception works otherwise, as a sanity check.
   WebSigninInterceptor::Delegate::BubbleParameters expected_parameters(
@@ -1004,7 +1014,8 @@ TEST_F(DiceWebSigninInterceptorTest,
   MakeValidAccountInfo(&account_info, "example.com");
   identity_test_env()->UpdateAccountInfoForAccount(account_info);
 
-  interceptor()->SetAccountLevelSigninRestrictionFetchResultForTesting("");
+  interceptor()->SetInterceptedAccountProfileSeparationPoliciesForTesting(
+      policy::ProfileSeparationPolicies(""));
 
   const int kMaxProfileCreationDeclinedCount = 2;
   // Decline the interception kMaxProfileCreationDeclinedCount times.

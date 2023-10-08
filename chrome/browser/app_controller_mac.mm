@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/apple/bridging.h"
+#include "base/apple/foundation_util.h"
 #include "content/public/common/content_features.h"
 
 #include "base/auto_reset.h"
@@ -19,7 +20,6 @@
 #include "base/debug/dump_without_crashing.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
-#include "base/mac/foundation_util.h"
 #include "base/mac/mac_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
@@ -86,7 +86,7 @@
 #import "chrome/browser/ui/cocoa/share_menu_controller.h"
 #import "chrome/browser/ui/cocoa/tab_menu_bridge.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
-#include "chrome/browser/ui/profile_picker.h"
+#include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/startup/first_run_service.h"
 #include "chrome/browser/ui/startup/launch_mode_recorder.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
@@ -121,6 +121,7 @@
 #include "net/base/filename_util.h"
 #include "net/base/mac/url_conversions.h"
 #import "ui/base/cocoa/nsmenu_additions.h"
+#import "ui/base/cocoa/nsmenuitem_additions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
 #include "ui/color/color_provider.h"
@@ -274,12 +275,12 @@ void RecordLastRunAppBundlePath() {
                                        .DirName()
                                        .DirName()
                                        .DirName();
-  base::ScopedCFTypeRef<CFStringRef> app_bundle_path_cfstring =
+  base::apple::ScopedCFTypeRef<CFStringRef> app_bundle_path_cfstring =
       base::SysUTF8ToCFStringRef(app_bundle_path.value());
   CFPreferencesSetAppValue(
       base::apple::NSToCFPtrCast(app_mode::kLastRunAppBundlePathPrefsKey),
       app_bundle_path_cfstring,
-      base::SysUTF8ToCFStringRef(base::mac::BaseBundleID()));
+      base::SysUTF8ToCFStringRef(base::apple::BaseBundleID()));
 }
 
 bool IsProfileSignedOut(const base::FilePath& profile_path) {
@@ -609,8 +610,8 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   // Outlets for the close tab/window menu items so that we can adjust the
   // command-key equivalent depending on the kind of window and how many
   // tabs it has.
-  NSMenuItem* __strong _closeTabMenuItem;
-  NSMenuItem* __strong _closeWindowMenuItem;
+  NSMenuItem* __strong _closeTabMenuItemForTesting;
+  NSMenuItem* __strong _closeWindowMenuItemForTesting;
 
   std::unique_ptr<PrefChangeRegistrar> _profilePrefRegistrar;
   PrefChangeRegistrar _localPrefRegistrar;
@@ -677,6 +678,26 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   NOTREACHED();
 }
 
+- (NSMenu*)fileMenu {
+  return [[NSApp.mainMenu itemWithTag:IDC_FILE_MENU] submenu];
+}
+
+- (NSMenuItem*)closeTabMenuItem {
+  if (_closeTabMenuItemForTesting != nil) {
+    return _closeTabMenuItemForTesting;
+  }
+
+  return [[self fileMenu] itemWithTag:IDC_CLOSE_TAB];
+}
+
+- (NSMenuItem*)closeWindowMenuItem {
+  if (_closeWindowMenuItemForTesting != nil) {
+    return _closeWindowMenuItemForTesting;
+  }
+
+  return [[self fileMenu] itemWithTag:IDC_CLOSE_WINDOW];
+}
+
 // This method is called very early in application startup (ie, before
 // the profile is loaded or any preferences have been registered). Defer any
 // user-data initialization until -applicationDidFinishLaunching:.
@@ -701,11 +722,9 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
              name:NSWorkspaceWillPowerOffNotification
            object:nil];
 #if 0
-  NSMenu* fileMenu = [[NSApp.mainMenu itemWithTag:IDC_FILE_MENU] submenu];
-  _closeTabMenuItem = [fileMenu itemWithTag:IDC_CLOSE_TAB];
-  DCHECK(_closeTabMenuItem);
-  _closeWindowMenuItem = [fileMenu itemWithTag:IDC_CLOSE_WINDOW];
-  DCHECK(_closeWindowMenuItem);
+
+  DCHECK([self closeTabMenuItem]);
+  DCHECK([self closeWindowMenuItem]);
 #endif
 
   // Set up the command updater for when there are no windows open
@@ -864,30 +883,10 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   }
 }
 
-// If the window has a tab controller, make "close window" be cmd-shift-w,
-// otherwise leave it as the normal cmd-w. Capitalization of the key equivalent
-// affects whether the shift modifier is used.
-- (void)adjustCloseWindowMenuItemKeyEquivalent:(BOOL)enableCloseTabShortcut {
-  _closeWindowMenuItem.keyEquivalent = enableCloseTabShortcut ? @"W" : @"w";
-  _closeWindowMenuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
-}
-
-// If the window has a tab controller, make "close tab" take over cmd-w,
-// otherwise it shouldn't have any key-equivalent because it should be disabled.
-- (void)adjustCloseTabMenuItemKeyEquivalent:(BOOL)enableCloseTabShortcut {
-  if (enableCloseTabShortcut) {
-    _closeTabMenuItem.keyEquivalent = @"w";
-    _closeTabMenuItem.keyEquivalentModifierMask = NSEventModifierFlagCommand;
-  } else {
-    _closeTabMenuItem.keyEquivalent = @"";
-    _closeTabMenuItem.keyEquivalentModifierMask = 0;
-  }
-}
-
 // See if the focused window window has tabs, and adjust the key equivalents for
 // Close Tab/Close Window accordingly.
 - (void)menuNeedsUpdate:(NSMenu*)menu {
-  DCHECK(menu == _closeTabMenuItem.menu);
+  DCHECK(menu == [self fileMenu]);
   [self updateMenuItemKeyEquivalents];
 }
 
@@ -1024,7 +1023,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   //_quitWithAppsController = new QuitWithAppsController();
 
   // Dynamically update shortcuts for "Close Window" and "Close Tab" menu items.
-  _closeTabMenuItem.menu.delegate = self;
+  [self fileMenu].delegate = self;
 
   // Instantiate the ProfileAttributesStorage observer so that we can get
   // notified when a profile is deleted.
@@ -1038,7 +1037,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
   // Record the path to the (browser) app bundle; this is used by the app mode
   // shim.
-  if (base::mac::AmIBundled()) {
+  if (base::apple::AmIBundled()) {
     base::ThreadPool::PostTask(
         FROM_HERE,
         {base::MayBlock(), base::TaskPriority::BEST_EFFORT,
@@ -1304,7 +1303,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
     // This is handled outside of the switch statement because we want to hide
     // this regardless if the command is supported or not.
     if (tag == IDC_SHOW_AS_TAB) {
-      NSMenuItem* menuItem = base::mac::ObjCCast<NSMenuItem>(item);
+      NSMenuItem* menuItem = base::apple::ObjCCast<NSMenuItem>(item);
       [menuItem setHidden:YES];
     }
   } else if (action == @selector(terminate:)) {
@@ -1939,8 +1938,6 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 
 - (void)updateMenuItemKeyEquivalents {
 #if 0
-  BOOL enableCloseTabShortcut = NO;
-
   id target = [NSApp targetForAction:@selector(performClose:)];
 
   // If `target` is a popover (likely the dictionary lookup popover) the
@@ -1948,10 +1945,10 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
   NSWindow* targetWindow = nil;
   if ([target isKindOfClass:[NSPopover class]]) {
     targetWindow =
-        [[[base::mac::ObjCCast<NSPopover>(target) contentViewController] view]
+        [[[base::apple::ObjCCast<NSPopover>(target) contentViewController] view]
             window];
   } else {
-    targetWindow = base::mac::ObjCCast<NSWindow>(target);
+    targetWindow = base::apple::ObjCCast<NSWindow>(target);
   }
 
   if (targetWindow != nil) {
@@ -1960,12 +1957,24 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
     if ([targetWindow parentWindow] != nil) {
       targetWindow = [targetWindow parentWindow];
     }
-
-    enableCloseTabShortcut = [self windowHasBrowserTabs:targetWindow];
   }
 
-  [self adjustCloseWindowMenuItemKeyEquivalent:enableCloseTabShortcut];
-  [self adjustCloseTabMenuItemKeyEquivalent:enableCloseTabShortcut];
+  NSMenuItem* closeTabMenuItem = [self closeTabMenuItem];
+  NSMenuItem* closeWindowMenuItem = [self closeWindowMenuItem];
+
+  // If the browser window has tabs, assign Cmd-Shift-W to "Close Window",
+  // otherwise leave it as the normal Cmd-W. Capitalization of the key
+  // equivalent affects whether the Shift modifier is used.
+  if ([self windowHasBrowserTabs:targetWindow]) {
+    [closeTabMenuItem cr_setKeyEquivalent:@"w"
+                             modifierMask:NSEventModifierFlagCommand];
+    [closeWindowMenuItem cr_setKeyEquivalent:@"W"
+                                modifierMask:NSEventModifierFlagCommand];
+  } else {
+    [closeTabMenuItem cr_clearKeyEquivalent];
+    [closeWindowMenuItem cr_setKeyEquivalent:@"w"
+                                modifierMask:NSEventModifierFlagCommand];
+  }
 #endif
 }
 
@@ -1992,7 +2001,7 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
     return NO;
   }
 
-  NSString* originString = base::mac::ObjCCast<NSString>(
+  NSString* originString = base::apple::ObjCCast<NSString>(
       (userActivity.userInfo)[handoff::kOriginKey]);
   handoff::Origin origin = handoff::OriginFromString(originString);
   UMA_HISTOGRAM_ENUMERATION(
@@ -2108,11 +2117,11 @@ class AppControllerNativeThemeObserver : public ui::NativeThemeObserver {
 }
 
 - (void)setCloseWindowMenuItemForTesting:(NSMenuItem*)menuItem {
-  _closeWindowMenuItem = menuItem;
+  _closeWindowMenuItemForTesting = menuItem;
 }
 
 - (void)setCloseTabMenuItemForTesting:(NSMenuItem*)menuItem {
-  _closeTabMenuItem = menuItem;
+  _closeTabMenuItemForTesting = menuItem;
 }
 
 - (void)setLastProfileForTesting:(Profile*)profile {

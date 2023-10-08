@@ -86,6 +86,7 @@ class TestFileSystemBackend : public storage::TestFileSystemBackend {
       : storage::TestFileSystemBackend(task_runner, base_path) {}
 
   std::unique_ptr<storage::FileSystemOperation> CreateFileSystemOperation(
+      storage::OperationType type,
       const storage::FileSystemURL& url,
       storage::FileSystemContext* context,
       base::File::Error* error_code) const override {
@@ -93,7 +94,7 @@ class TestFileSystemBackend : public storage::TestFileSystemBackend {
       std::move(operation_created_callback_).Run(url);
     }
     return storage::TestFileSystemBackend::CreateFileSystemOperation(
-        url, context, error_code);
+        type, url, context, error_code);
   }
 
   void SetOperationCreatedCallback(
@@ -306,7 +307,7 @@ class FileSystemAccessFileWriterImplTest : public testing::Test {
               storage::AsyncFileTestHelper::CreateFile(
                   file_system_context_.get(), test_swap_url_));
 
-    writable_shared_lock_type_ = manager_->CreateSharedLockType();
+    writable_shared_lock_type_ = manager_->GetWFSSiloedLockType();
 
     quarantine_callback_ = base::BindLambdaForTesting(
         [&](mojo::PendingReceiver<quarantine::mojom::Quarantine> receiver) {

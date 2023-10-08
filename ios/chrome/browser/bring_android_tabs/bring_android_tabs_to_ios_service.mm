@@ -30,6 +30,9 @@
 #import "ios/chrome/browser/synced_sessions/distant_session.h"
 #import "ios/chrome/browser/synced_sessions/distant_tab.h"
 #import "ios/chrome/browser/synced_sessions/synced_sessions.h"
+#import "ios/chrome/browser/synced_sessions/synced_sessions_util.h"
+#import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
+#import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ui/base/device_form_factor.h"
 
 namespace {
@@ -157,6 +160,28 @@ synced_sessions::DistantTab* BringAndroidTabsToIOSService::GetTabAtIndex(
   size_t session_idx = std::get<0>(indices);
   size_t tab_idx = std::get<1>(indices);
   return synced_sessions_->GetSession(session_idx)->tabs[tab_idx].get();
+}
+
+void BringAndroidTabsToIOSService::OpenTabsAtIndices(
+    const std::vector<size_t>& indices,
+    UrlLoadingBrowserAgent* url_loader) {
+  const int tab_count = static_cast<int>(indices.size());
+  const bool in_incognito = false;
+  const int maximum_instant_load_tabs =
+      GetDefaultNumberOfTabsToLoadSimultaneously();
+  for (int i = 0; i < tab_count; i++) {
+    const bool instant_load = i < maximum_instant_load_tabs;
+    OpenDistantTabInBackground(GetTabAtIndex(indices[i]), in_incognito,
+                               instant_load, url_loader,
+                               UrlLoadStrategy::NORMAL);
+  }
+}
+
+void BringAndroidTabsToIOSService::OpenAllTabs(
+    UrlLoadingBrowserAgent* url_loader) {
+  std::vector<size_t> indices(GetNumberOfAndroidTabs());
+  std::iota(std::begin(indices), std::end(indices), 0);
+  OpenTabsAtIndices(indices, url_loader);
 }
 
 void BringAndroidTabsToIOSService::OnBringAndroidTabsPromptDisplayed() {

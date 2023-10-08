@@ -25,7 +25,6 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/startup_data.h"
-#include "components/embedder_support/user_agent_utils.h"
 #include "components/file_access/scoped_file_access.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/content/browser/web_api_handshake_checker.h"
@@ -296,6 +295,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool DoesSchemeAllowCrossOriginSharedWorker(
       const std::string& scheme) override;
   bool AllowSignedExchange(content::BrowserContext* browser_context) override;
+  bool AllowCompressionDictionaryTransport(
+      content::BrowserContext* context) override;
   void RequestFilesAccess(
       const std::vector<base::FilePath>& files,
       const GURL& destination_url,
@@ -355,6 +356,12 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context,
       const url::Origin& top_frame_origin,
       const url::Origin& reporting_origin) override;
+  bool IsCookieDeprecationLabelAllowed(
+      content::BrowserContext* browser_context) override;
+  bool IsCookieDeprecationLabelAllowedForContext(
+      content::BrowserContext* browser_context,
+      const url::Origin& top_frame_origin,
+      const url::Origin& context_origin) override;
 #if BUILDFLAG(IS_CHROMEOS)
   void OnTrustAnchorUsed(content::BrowserContext* browser_context) override;
 #endif
@@ -496,7 +503,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   std::wstring GetLPACCapabilityNameForNetworkService() override;
   bool IsUtilityCetCompatible(const std::string& utility_sub_type) override;
   bool IsRendererCodeIntegrityEnabled() override;
-  void SessionEnding() override;
+  void SessionEnding(absl::optional<DWORD> control_type) override;
   bool ShouldEnableAudioProcessHighPriority() override;
 #endif
   void ExposeInterfacesToRenderer(
@@ -654,7 +661,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   base::Value::Dict GetNetLogConstants() override;
   bool AllowRenderingMhtmlOverHttp(
       content::NavigationUIData* navigation_ui_data) override;
-  bool ShouldForceDownloadResource(const GURL& url,
+  bool ShouldForceDownloadResource(content::BrowserContext* browser_context,
+                                   const GURL& url,
                                    const std::string& mime_type) override;
   content::BluetoothDelegate* GetBluetoothDelegate() override;
   content::UsbDelegate* GetUsbDelegate() override;
@@ -821,7 +829,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const GURL& url) override;
   bool ShouldServiceWorkerInheritPolicyContainerFromCreator(
       const GURL& url) override;
-  bool ShouldAllowInsecurePrivateNetworkRequests(
+  PrivateNetworkRequestPolicyOverride ShouldOverridePrivateNetworkRequestPolicy(
       content::BrowserContext* browser_context,
       const url::Origin& origin) override;
   bool IsJitDisabledForSite(content::BrowserContext* browser_context,
@@ -890,8 +898,6 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::BrowserContext* browser_context,
       int32_t error_code) override;
 
-  bool OpenExternally(const GURL& url,
-                      WindowOpenDisposition disposition) override;
   void OnSharedStorageWorkletHostCreated(
       content::RenderFrameHost* rfh) override;
 
@@ -928,6 +934,9 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       const storage::FileSystemURL& url,
       content::FileSystemAccessPermissionContext::HandleType handle_type,
       GetCloudIdentifiersCallback callback) override;
+
+  bool ShouldAllowBackForwardCacheForCacheControlNoStorePage(
+      content::BrowserContext* browser_context) override;
 
  protected:
   static bool HandleWebUI(GURL* url, content::BrowserContext* browser_context);

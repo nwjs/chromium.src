@@ -11,6 +11,7 @@
 
 #include "base/compiler_specific.h"
 #include "base/environment.h"
+#include "base/functional/callback.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
@@ -31,6 +32,7 @@
 #include "ui/linux/linux_ui.h"
 #include "ui/native_theme/common_theme.h"
 #include "ui/ozone/public/ozone_platform.h"
+#include "ui/views/widget/desktop_aura/desktop_window_tree_host_linux.h"
 
 namespace gtk {
 
@@ -222,6 +224,25 @@ void ClearAuraTransientParent(GtkWidget* dialog, aura::Window* parent) {
   g_object_set_data(G_OBJECT(dialog), kAuraTransientParent, nullptr);
   GtkUi::GetPlatform()->ClearTransientFor(
       parent->GetHost()->GetAcceleratedWidget());
+}
+
+base::OnceClosure DisableHostInputHandling(GtkWidget* dialog,
+                                           aura::Window* parent) {
+  if (!parent) {
+    return {};
+  }
+  auto* host =
+      static_cast<views::DesktopWindowTreeHostLinux*>(parent->GetHost());
+  if (!host) {
+    return {};
+  }
+
+  gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+  // In some circumstances the mouse has been captured and by turning off event
+  // listening, it is never released. So we manually ensure there is no current
+  // capture.
+  host->ReleaseCapture();
+  return host->DisableEventListening();
 }
 
 void ParseButtonLayout(const std::string& button_string,

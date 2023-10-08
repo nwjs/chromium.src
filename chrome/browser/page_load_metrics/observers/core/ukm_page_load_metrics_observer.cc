@@ -789,7 +789,7 @@ void UkmPageLoadMetricsObserver::OnSoftNavigationUpdated(
   // in, the 1st(current) soft metrics are recorded. The initial soft
   // navigation metrics that have default values should not reported.
   if (current_soft_navigation_metrics->count == 0 ||
-      current_soft_navigation_metrics->count ==
+      current_soft_navigation_metrics->count >=
           new_soft_navigation_metrics.count) {
     return;
   }
@@ -1000,9 +1000,12 @@ void UkmPageLoadMetricsObserver::RecordTimingMetrics(
 
   builder.Record(ukm::UkmRecorder::Get());
 
-  // Record the LCP of the last soft navigation.
-  RecordSoftNavigationMetrics(GetDelegate().GetUkmSourceIdForSoftNavigation(),
-                              GetDelegate().GetSoftNavigationMetrics());
+  // Record last soft navigation metrics.
+  if (GetDelegate().GetSoftNavigationMetrics().count >= 1 &&
+      !GetDelegate().GetSoftNavigationMetrics().navigation_id.empty()) {
+    RecordSoftNavigationMetrics(GetDelegate().GetUkmSourceIdForSoftNavigation(),
+                                GetDelegate().GetSoftNavigationMetrics());
+  }
 }
 
 void UkmPageLoadMetricsObserver::RecordInternalTimingMetrics(

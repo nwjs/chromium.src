@@ -48,6 +48,7 @@
 #include "chrome/browser/chromeos/policy/dlp/dlp_reporting_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/test/dlp_files_test_base.h"
 #include "chrome/browser/enterprise/data_controls/component.h"
+#include "chrome/common/chrome_features.h"
 #include "chromeos/dbus/dlp/dlp_client.h"
 #include "chromeos/ui/base/file_icon_util.h"
 #include "components/drive/drive_pref_names.h"
@@ -76,6 +77,7 @@ constexpr char kExampleUrl2[] = "https://example2.com/";
 constexpr char kExampleUrl3[] = "https://example3.com/";
 constexpr char kExampleUrl4[] = "https://example4.com/";
 constexpr char kExampleUrl5[] = "https://example5.com/";
+constexpr char kExampleUrl6[] = "https://example6.com/";
 
 constexpr char kExampleSourcePattern1[] = "example1.com";
 constexpr char kExampleSourcePattern2[] = "example2.com";
@@ -110,6 +112,7 @@ constexpr char kArcAppId[] = "arcApp";
 constexpr char kCrostiniAppId[] = "crostiniApp";
 constexpr char kPluginVmAppId[] = "pluginVmApp";
 constexpr char kWebAppId[] = "webApp";
+constexpr char kSystemWebAppId[] = "systemWebApp";
 
 constexpr char kRuleName1[] = "rule #1";
 constexpr char kRuleName2[] = "rule #2";
@@ -203,6 +206,9 @@ class DlpFilesControllerAshTest : public DlpFilesTestWithMounts {
 };
 
 TEST_F(DlpFilesControllerAshTest, CheckIfTransferAllowed_DiffFileSystem) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kNewFilesPolicyUX);
+
   std::vector<FileDaemonInfo> files{
       FileDaemonInfo(kInode1, kCrtime1, my_files_dir_.AppendASCII(kFilePath1),
                      kExampleUrl1, kReferrerUrl1),
@@ -233,7 +239,6 @@ TEST_F(DlpFilesControllerAshTest, CheckIfTransferAllowed_DiffFileSystem) {
       blink::StorageKey(), "archive",
       base::FilePath("file.rar/path/in/archive"));
 
-  DlpFilesController::SetNewFilesPolicyUXEnabledForTesting(/*is_enabled=*/true);
   EXPECT_CALL(*fpnm_, ShowDlpBlockedFiles(
                           /*task_id=*/{1},
                           std::vector<base::FilePath>{files_urls[0].path(),
@@ -386,6 +391,9 @@ TEST_F(DlpFilesControllerAshTest, CheckIfTransferAllowed_ErrorResponse) {
 }
 
 TEST_F(DlpFilesControllerAshTest, CheckIfTransferAllowed_MultiFolder) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(features::kNewFilesPolicyUX);
+
   base::ScopedTempDir sub_dir1;
   ASSERT_TRUE(sub_dir1.CreateUniqueTempDirUnderPath(my_files_dir_));
   base::ScopedTempDir sub_dir2;
@@ -428,7 +436,6 @@ TEST_F(DlpFilesControllerAshTest, CheckIfTransferAllowed_MultiFolder) {
   chromeos::DlpClient::Get()->GetTestInterface()->SetCheckFilesTransferResponse(
       check_files_transfer_response);
 
-  DlpFilesController::SetNewFilesPolicyUXEnabledForTesting(/*is_enabled=*/true);
   EXPECT_CALL(*fpnm_, ShowDlpBlockedFiles(
                           /*task_id=*/{1},
                           std::vector<base::FilePath>{files_urls[1].path(),
@@ -1090,13 +1097,6 @@ TEST_F(DlpFilesControllerAshTest, CheckReportingOnIsDlpPolicyMatched) {
 
   EXPECT_THAT(
       histogram_tester.GetAllSamples(GetDlpHistogramPrefix() +
-                                     std::string(dlp::kFileActionBlockedUMA)),
-      base::BucketsAre(base::Bucket(dlp::FileAction::kUnknown, 3),
-                       base::Bucket(dlp::FileAction::kDownload, 0),
-                       base::Bucket(dlp::FileAction::kTransfer, 0)));
-
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples(GetDlpHistogramPrefix() +
                                      std::string(dlp::kFileActionWarnedUMA)),
       base::BucketsAre(base::Bucket(dlp::FileAction::kUnknown, 3),
                        base::Bucket(dlp::FileAction::kDownload, 0),
@@ -1410,13 +1410,6 @@ TEST_F(DlpFilesControllerAshTest, IsFilesTransferRestricted_MyFiles) {
       dlp::FileAction::kTransfer, cb.Get());
 
   ASSERT_EQ(events.size(), 0u);
-
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples(GetDlpHistogramPrefix() +
-                                     std::string(dlp::kFileActionBlockedUMA)),
-      base::BucketsAre(base::Bucket(dlp::FileAction::kUnknown, 0),
-                       base::Bucket(dlp::FileAction::kDownload, 0),
-                       base::Bucket(dlp::FileAction::kTransfer, 0)));
 }
 
 class DlpFilesExternalDestinationTest
@@ -1514,13 +1507,6 @@ TEST_P(DlpFilesExternalDestinationTest, IsFilesTransferRestricted_Component) {
                              kExampleSourcePattern3, expected_component,
                              DlpRulesManager::Restriction::kFiles, kRuleName3,
                              kRuleId3, DlpRulesManager::Level::kBlock)));
-
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples(GetDlpHistogramPrefix() +
-                                     std::string(dlp::kFileActionBlockedUMA)),
-      base::BucketsAre(base::Bucket(dlp::FileAction::kUnknown, 0),
-                       base::Bucket(dlp::FileAction::kDownload, 0),
-                       base::Bucket(dlp::FileAction::kTransfer, 2)));
 }
 
 TEST_P(DlpFilesExternalDestinationTest, FileDownloadBlocked) {
@@ -1679,17 +1665,6 @@ TEST_P(DlpFilesUrlDestinationTest, IsFilesTransferRestricted_Url) {
             DlpRulesManager::Restriction::kFiles, triggered_rule_names[i],
             triggered_rule_ids[i], DlpRulesManager::Level::kBlock)));
   }
-
-  int blocked_downloads = disallowed_source_patterns.empty()
-                              ? 0
-                              : disallowed_source_patterns.size();
-
-  EXPECT_THAT(
-      histogram_tester.GetAllSamples(GetDlpHistogramPrefix() +
-                                     std::string(dlp::kFileActionBlockedUMA)),
-      base::BucketsAre(
-          base::Bucket(dlp::FileAction::kDownload, blocked_downloads),
-          base::Bucket(dlp::FileAction::kTransfer, 0)));
 }
 
 class DlpFilesWarningDialogChoiceTest
@@ -1972,7 +1947,8 @@ class DlpFilesAppServiceTest : public DlpFilesControllerAshTest {
         std::move(fake_apps), app_type, /*should_notify_initialized=*/false);
   }
 
-  raw_ptr<apps::AppServiceProxy, ExperimentalAsh> app_service_proxy_ = nullptr;
+  raw_ptr<apps::AppServiceProxy, DanglingUntriaged | ExperimentalAsh>
+      app_service_proxy_ = nullptr;
   apps::AppServiceTest app_service_test_;
 };
 
@@ -2109,6 +2085,8 @@ class DlpFilesAppLaunchTest : public DlpFilesAppServiceTest,
     CreateAndStoreFakeApp(kPluginVmAppId, apps::AppType::kPluginVm,
                           kExampleUrl4);
     CreateAndStoreFakeApp(kWebAppId, apps::AppType::kWeb, kExampleUrl5);
+    CreateAndStoreFakeApp(kSystemWebAppId, apps::AppType::kSystemWeb,
+                          kExampleUrl6);
   }
 };
 
@@ -2119,7 +2097,9 @@ INSTANTIATE_TEST_SUITE_P(
                       std::make_tuple(apps::AppType::kArc, kArcAppId),
                       std::make_tuple(apps::AppType::kCrostini, kCrostiniAppId),
                       std::make_tuple(apps::AppType::kPluginVm, kPluginVmAppId),
-                      std::make_tuple(apps::AppType::kWeb, kWebAppId)));
+                      std::make_tuple(apps::AppType::kWeb, kWebAppId),
+                      std::make_tuple(apps::AppType::kSystemWeb,
+                                      kSystemWebAppId)));
 
 TEST_P(DlpFilesAppLaunchTest, CheckIfAppLaunchAllowed) {
   auto [app_type, app_id] = GetParam();
@@ -2174,6 +2154,7 @@ TEST_P(DlpFilesAppLaunchTest, CheckIfAppLaunchAllowed) {
     EXPECT_TRUE(last_check_files_transfer_request.has_destination_url());
     EXPECT_EQ(GURL(last_check_files_transfer_request.destination_url()),
               GURL(std::string(extensions::kExtensionScheme) + "://" + app_id));
+
   } else if (app_type == apps::AppType::kArc) {
     EXPECT_TRUE(last_check_files_transfer_request.has_destination_component());
     EXPECT_EQ(last_check_files_transfer_request.destination_component(),
@@ -2193,6 +2174,11 @@ TEST_P(DlpFilesAppLaunchTest, CheckIfAppLaunchAllowed) {
     EXPECT_TRUE(last_check_files_transfer_request.has_destination_url());
     EXPECT_EQ(GURL(last_check_files_transfer_request.destination_url()),
               GURL(kExampleUrl5));
+
+  } else if (app_type == apps::AppType::kSystemWeb) {
+    EXPECT_TRUE(last_check_files_transfer_request.has_destination_url());
+    EXPECT_EQ(GURL(last_check_files_transfer_request.destination_url()),
+              GURL(kExampleUrl6));
   }
 
   EXPECT_TRUE(last_check_files_transfer_request.has_file_action());
@@ -2228,7 +2214,8 @@ TEST_P(DlpFilesAppLaunchTest, IsLaunchBlocked) {
   urls.push_back(kExampleUrl1);
 
   if (app_type == apps::AppType::kChromeApp ||
-      app_type == apps::AppType::kWeb) {
+      app_type == apps::AppType::kWeb ||
+      app_type == apps::AppType::kSystemWeb) {
     EXPECT_CALL(*rules_manager_, IsRestrictedDestination)
         .WillOnce(testing::Return(DlpRulesManager::Level::kBlock));
   } else {
@@ -2259,7 +2246,8 @@ TEST_P(DlpFilesAppLaunchTest, IsLaunchBlocked_Empty) {
   app_service_intent->files.push_back(std::move(file1));
 
   if (app_type == apps::AppType::kChromeApp ||
-      app_type == apps::AppType::kWeb) {
+      app_type == apps::AppType::kWeb ||
+      app_type == apps::AppType::kSystemWeb) {
     EXPECT_CALL(*rules_manager_, IsRestrictedDestination)
         .WillOnce(testing::Return(DlpRulesManager::Level::kBlock));
   } else {
@@ -2392,11 +2380,11 @@ INSTANTIATE_TEST_SUITE_P(
                         data_controls::Component::kDrive),
         std::make_tuple("", "/Downloads", absl::nullopt)));
 
-TEST_P(DlpFilesControllerAshComponentsTest, MapFilePathtoPolicyComponentTest) {
+TEST_P(DlpFilesControllerAshComponentsTest, MapFilePathToPolicyComponentTest) {
   auto [mount_name, path, expected_component] = GetParam();
   auto url = mount_points_->CreateExternalFileSystemURL(
       blink::StorageKey(), mount_name, base::FilePath(path));
-  EXPECT_EQ(files_controller_->MapFilePathtoPolicyComponent(profile_.get(),
+  EXPECT_EQ(files_controller_->MapFilePathToPolicyComponent(profile_.get(),
                                                             url.path()),
             expected_component);
 }

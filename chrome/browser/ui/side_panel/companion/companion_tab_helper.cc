@@ -29,7 +29,9 @@ namespace companion {
 
 CompanionTabHelper::CompanionTabHelper(content::WebContents* web_contents)
     : content::WebContentsUserData<CompanionTabHelper>(*web_contents),
-      delegate_(CreateDelegate(web_contents)) {}
+      delegate_(CreateDelegate(web_contents)) {
+  Observe(web_contents);
+}
 
 CompanionTabHelper::~CompanionTabHelper() = default;
 
@@ -132,14 +134,23 @@ CompanionTabHelper::GetImageQuery() {
   return std::move(image_query_);
 }
 
+bool CompanionTabHelper::HasImageQuery() {
+  return image_query_ != nullptr;
+}
+
 std::string CompanionTabHelper::GetTextQuery() {
   std::string copy = text_query_;
   text_query_.clear();
   return copy;
 }
 
+std::unique_ptr<base::Time> CompanionTabHelper::GetTextQueryStartTime() {
+  return std::move(text_query_start_time_);
+}
+
 void CompanionTabHelper::SetTextQuery(const std::string& text_query) {
   CHECK(!text_query.empty());
+  text_query_start_time_ = std::make_unique<base::Time>(base::Time::Now());
   text_query_ = text_query;
   if (companion_page_handler_) {
     companion_page_handler_->OnSearchTextQuery();
@@ -202,6 +213,26 @@ CompanionTabHelper::GetAndResetMostRecentSidePanelOpenTrigger() {
   auto copy = side_panel_open_trigger_;
   side_panel_open_trigger_ = absl::nullopt;
   return copy;
+}
+
+void CompanionTabHelper::DidOpenRequestedURL(
+    content::WebContents* new_contents,
+    content::RenderFrameHost* source_render_frame_host,
+    const GURL& url,
+    const content::Referrer& referrer,
+    WindowOpenDisposition disposition,
+    ui::PageTransition transition,
+    bool started_from_context_menu,
+    bool renderer_initiated) {
+  // We catch link clicks that open in a new tab, so we can open CSC in that new
+  // tab.
+  if (disposition == WindowOpenDisposition::NEW_BACKGROUND_TAB ||
+      disposition == WindowOpenDisposition::NEW_FOREGROUND_TAB) {
+    if (!delegate_->IsCompanionShowing()) {
+      return;
+    }
+    delegate_->SetCompanionAsActiveEntry(new_contents);
+  }
 }
 
 WEB_CONTENTS_USER_DATA_KEY_IMPL(CompanionTabHelper);

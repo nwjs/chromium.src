@@ -9,8 +9,6 @@
 
 #include "base/check.h"
 #include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_item.h"
-#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_item_segment.h"
-#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_items_data.h"
 
 namespace blink {
 
@@ -43,17 +41,90 @@ inline bool MaybeIdeograph(UScriptCode script, StringView text) {
                      });
 }
 
-}  // namespace
+// `TextAutoSpace::ApplyIfNeeded` computes offsets to insert spacing *before*,
+// but `ShapeResult` can handle spacing *after* a glyph. Due to this difference,
+// when adding a spacing before the start offset of an item, the spacing
+// should be added to the end of the previous item. This class keeps the
+// previous item's `shape_result_` for this purpose.
+class SpacingApplier {
+ public:
+  void SetSpacing(const Vector<wtf_size_t, 16>& offsets,
+                  float spacing,
+                  const NGInlineItem* current_item) {
+    DCHECK(current_item->TextShapeResult());
+    const wtf_size_t* offset = offsets.begin();
+    bool has_adjacent_glyph = false;
+    if (!offsets.empty() && *offset == current_item->StartOffset()) {
+      DCHECK(last_item_);
+      // There would be spacing added to the previous item due to its last glyph
+      // is next to `current_item`'s first glyph, since the two glyphs meet the
+      // condition of adding spacing.
+      // https://drafts.csswg.org/css-text-4/#propdef-text-autospace.
+      // In this case, when applying text spacing to `current_item`, also tells
+      // it to set the first glyph unsafe to break before.
+      has_adjacent_glyph = true;
+      offsets_with_spacing_.emplace_back(
+          OffsetWithSpacing({.offset = *offset - 1, .spacing = spacing}));
+      ++offset;
+    }
+    // Apply all pending spaces to the previous item.
+    ApplyIfNeeded();
+    offsets_with_spacing_.Shrink(0);
+    has_spacing_added_to_adjacent_glyph_ = has_adjacent_glyph;
 
-// static
-void TextAutoSpace::ApplyIfNeeded(NGInlineItemsData& data,
-                                  Vector<wtf_size_t>* offsets_out) {
-  const String& text = data.text_content;
-  if (text.Is8Bit()) {
-    return;  // 8-bits never be `kIdeograph`. See `TextAutoSpaceTest`.
+    // Update the previous item in prepare for the next iteration.
+    last_item_ = current_item;
+    for (; offset != offsets.end(); ++offset) {
+      offsets_with_spacing_.emplace_back(
+          OffsetWithSpacing({.offset = *offset - 1, .spacing = spacing}));
+    }
   }
 
-  HeapVector<NGInlineItem>& items = data.items;
+  void ApplyIfNeeded() {
+    // Nothing to update.
+    if (offsets_with_spacing_.empty() &&
+        !has_spacing_added_to_adjacent_glyph_) {
+      return;
+    }
+    DCHECK(last_item_);
+
+    // TODO(https://crbug.com/1463890): Using `const_cast` does not look good,
+    // consider refactoring.
+    // TODO(https://crbug.com/1463890): Instead of recreating a new
+    // `ShapeResult`, maybe we can reuse the `ShapeResult` and skip the applying
+    // text-space step.
+    ShapeResult* shape_result =
+        const_cast<ShapeResult*>(last_item_->TextShapeResult());
+    DCHECK(shape_result);
+    shape_result->ApplyTextAutoSpacing(has_spacing_added_to_adjacent_glyph_,
+                                       offsets_with_spacing_);
+    NGInlineItem* item = const_cast<NGInlineItem*>(last_item_);
+    item->SetUnsafeToReuseShapeResult();
+  }
+
+ private:
+  bool has_spacing_added_to_adjacent_glyph_ = false;
+  const NGInlineItem* last_item_ = nullptr;
+  // Stores the spacing (1/8 ic) and auto-space points's previous positions, for
+  // the previous item.
+  Vector<OffsetWithSpacing, 16> offsets_with_spacing_;
+};
+
+// https://drafts.csswg.org/css-text-4/#inter-script-spacing
+float GetSpacingWidth(const ComputedStyle* style) {
+  const SimpleFontData* font_data = style->GetFont().PrimaryFont();
+  if (!font_data) {
+    return style->ComputedFontSize() / 8;
+  }
+  return font_data->GetFontMetrics().IdeographicFullWidth().value_or(
+             style->ComputedFontSize()) /
+         8;
+}
+
+}  // namespace
+
+void TextAutoSpace::Initialize(const NGInlineItemsData& data) {
+  const HeapVector<NGInlineItem>& items = data.items;
   if (UNLIKELY(items.empty())) {
     return;
   }
@@ -61,7 +132,7 @@ void TextAutoSpace::ApplyIfNeeded(NGInlineItemsData& data,
   // `RunSegmenterRange` is used to find where we can skip computing Unicode
   // properties. Compute them for the whole text content. It's pre-computed, but
   // packed in `NGInlineItemSegments` to save memory.
-  NGInlineItemSegments::RunSegmenterRanges ranges;
+  const String& text = data.text_content;
   if (!data.segments) {
     const NGInlineItem& item0 = items.front();
     RunSegmenter::RunSegmenterRange range = item0.CreateRunSegmenterRange();
@@ -69,25 +140,33 @@ void TextAutoSpace::ApplyIfNeeded(NGInlineItemsData& data,
       return;
     }
     range.end = text.length();
-    ranges.push_back(range);
+    ranges_.push_back(range);
   } else {
-    data.segments->ToRanges(ranges);
-    if (std::none_of(ranges.begin(), ranges.end(),
+    data.segments->ToRanges(ranges_);
+    if (std::none_of(ranges_.begin(), ranges_.end(),
                      [&text](const RunSegmenter::RunSegmenterRange& range) {
                        return MaybeIdeograph(
                            range.script, StringView(text, range.start,
                                                     range.end - range.start));
                      })) {
+      ranges_.clear();
       return;
     }
   }
-  DCHECK_EQ(text.length(), ranges.back().end);
+}
+
+void TextAutoSpace::Apply(NGInlineItemsData& data,
+                          Vector<wtf_size_t>* offsets_out) {
+  const String& text = data.text_content;
+  DCHECK(!text.Is8Bit());
+  DCHECK_EQ(text.length(), ranges_.back().end);
 
   Vector<wtf_size_t, 16> offsets;
-  CHECK(!ranges.empty());
-  const RunSegmenter::RunSegmenterRange* range = ranges.begin();
+  CHECK(!ranges_.empty());
+  const RunSegmenter::RunSegmenterRange* range = ranges_.begin();
   absl::optional<CharType> last_type = kOther;
-  for (const NGInlineItem& item : items) {
+  SpacingApplier applier;
+  for (const NGInlineItem& item : data.items) {
     if (item.Type() != NGInlineItem::kText) {
       if (item.Length()) {
         // If `item` has a length, e.g., inline-block, set the `last_type`.
@@ -121,7 +200,7 @@ void TextAutoSpace::ApplyIfNeeded(NGInlineItemsData& data,
       // Find the `RunSegmenterRange` for `offset`.
       while (offset >= range->end) {
         ++range;
-        CHECK_NE(range, ranges.end());
+        CHECK_NE(range, ranges_.end());
       }
       DCHECK_GE(offset, range->start);
       DCHECK_LT(offset, range->end);
@@ -167,12 +246,16 @@ void TextAutoSpace::ApplyIfNeeded(NGInlineItemsData& data,
     } while (offset < item.EndOffset());
 
     if (!offsets_out) {
-      // TODO(crbug.com/1463890): Apply to `ShapeResult` not implemented yet.
+      DCHECK(item.TextShapeResult());
+      float spacing = GetSpacingWidth(style);
+      applier.SetSpacing(offsets, spacing, &item);
     } else {
       offsets_out->AppendVector(offsets);
     }
     offsets.Shrink(0);
   }
+  // Apply the pending spacing for the last item if needed.
+  applier.ApplyIfNeeded();
 }
 
 // static

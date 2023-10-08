@@ -51,7 +51,6 @@
 #include "net/base/filename_util.h"
 #include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "storage/browser/file_system/file_system_context.h"
-#include "storage/browser/file_system/file_system_features.h"
 #include "storage/browser/file_system/file_system_operation_runner.h"
 #include "storage/browser/file_system/file_system_url.h"
 #include "storage/browser/file_system/file_system_util.h"
@@ -1095,7 +1094,7 @@ FileSystemAccessManagerImpl::TakeLock(
   return lock_manager_->TakeLock(url, lock_type);
 }
 FileSystemAccessLockManager::LockType
-FileSystemAccessManagerImpl::CreateSharedLockType() const {
+FileSystemAccessManagerImpl::CreateSharedLockTypeForTesting() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return lock_manager_->CreateSharedLockType();
 }
@@ -1103,6 +1102,21 @@ FileSystemAccessLockManager::LockType
 FileSystemAccessManagerImpl::GetExclusiveLockType() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return lock_manager_->GetExclusiveLockType();
+}
+FileSystemAccessLockManager::LockType
+FileSystemAccessManagerImpl::GetSAHReadOnlyLockType() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return sah_read_only_lock_type_;
+}
+FileSystemAccessLockManager::LockType
+FileSystemAccessManagerImpl::GetSAHReadwriteUnsafeLockType() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return sah_readwrite_unsafe_lock_type_;
+}
+FileSystemAccessLockManager::LockType
+FileSystemAccessManagerImpl::GetWFSSiloedLockType() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return wfs_siloed_lock_type_;
 }
 FileSystemAccessLockManager::LockType
 FileSystemAccessManagerImpl::GetAncestorLockTypeForTesting() const {
@@ -1171,7 +1185,6 @@ FileSystemAccessManagerImpl::CreateAccessHandleHost(
     scoped_refptr<FileSystemAccessLockManager::Lock> lock,
     base::ScopedClosureRunner on_close_callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(lock->IsExclusive());
 
   mojo::PendingRemote<blink::mojom::FileSystemAccessAccessHandleHost> result;
   auto receiver = result.InitWithNewPipeAndPassReceiver();
@@ -1571,11 +1584,7 @@ storage::FileSystemURL FileSystemAccessManagerImpl::CreateFileSystemURLFromPath(
     const base::FilePath& path) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   return context()->CreateCrackedFileSystemURL(
-      base::FeatureList::IsEnabled(
-          storage::features::
-              kFileSystemURLComparatorsTreatOpaqueOriginAsNoOrigin)
-          ? blink::StorageKey()
-          : opaque_origin_for_non_sandboxed_filesystemurls_,
+      blink::StorageKey(),
       path_type == PathType::kLocal ? storage::kFileSystemTypeLocal
                                     : storage::kFileSystemTypeExternal,
       path);

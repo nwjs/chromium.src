@@ -60,6 +60,8 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/pref_service.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
+#include "components/privacy_sandbox/privacy_sandbox_attestations/scoped_privacy_sandbox_attestations.h"
 #include "components/privacy_sandbox/privacy_sandbox_settings.h"
 #include "components/proxy_config/proxy_config_dictionary.h"
 #include "components/proxy_config/proxy_config_pref_names.h"
@@ -2382,11 +2384,11 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest,
 
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules(
       rules_1, "extension_1", {URLPattern::kAllUrlsPattern}));
-  const std::string extension_id_1 = last_loaded_extension_id();
+  const ExtensionId extension_id_1 = last_loaded_extension_id();
 
   ASSERT_NO_FATAL_FAILURE(LoadExtensionWithRules(
       rules_2, "extension_2", {URLPattern::kAllUrlsPattern}));
-  const std::string extension_id_2 = last_loaded_extension_id();
+  const ExtensionId extension_id_2 = last_loaded_extension_id();
 
   auto get_manifest_url = [](const ExtensionId& extension_id) {
     return GURL(base::StringPrintf("%s://%s/manifest.json",
@@ -6618,6 +6620,13 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestWebTransportTest, BlockRequests) {
 // and that if they try to redirect requests, the request is blocked, instead of
 // being redirected.
 IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, FledgeAuctionScripts) {
+  privacy_sandbox::ScopedPrivacySandboxAttestations scoped_attestations(
+      privacy_sandbox::PrivacySandboxAttestations::CreateForTesting());
+  // Mark all Privacy Sandbox APIs as attested since the test case is testing
+  // behaviors not related to attestations.
+  privacy_sandbox::PrivacySandboxAttestations::GetInstance()
+      ->SetAllPrivacySandboxAttestedForTesting(true);
+
   static constexpr char kAddedHeaderName[] = "Header-Name";
   static constexpr char kAddedHeaderValue[] = "Header-Value";
 
@@ -6651,7 +6660,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, FledgeAuctionScripts) {
                                 navigator.joinAdInterestGroup({
                                   name: 'cars',
                                   owner: $1,
-                                  biddingLogicUrl: $2,
+                                  biddingLogicURL: $2,
                                   userBiddingSignals: [],
                                   ads: [{
                                     renderURL: 'https://example.com/render',
@@ -6684,7 +6693,7 @@ IN_PROC_BROWSER_TEST_P(DeclarativeNetRequestBrowserTest, FledgeAuctionScripts) {
          (async function() {
            let config = await navigator.runAdAuction({
              seller: $1,
-             decisionLogicUrl: $2,
+             decisionLogicURL: $2,
              interestGroupBuyers: [$1],
            });
            document.querySelector('fencedframe').config =

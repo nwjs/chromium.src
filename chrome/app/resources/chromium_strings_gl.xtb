@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">Retomar instalación</translation>
 <translation id="1029669172902658969">Reiniciar para actualizar Chromium OS</translation>
 <translation id="1040916596585577953">Chromium recoméndache revisar esta extensión.</translation>
+<translation id="1042552502243217427">Cando un sitio solicita precargar as ligazóns da súa páxina de forma privada, Chromium usa os servidores de Google. Deste xeito, ocúltaselle a túa identidade ao sitio precargado, pero Google sabe que sitios se precargan.</translation>
 <translation id="1065672644894730302">Non se poden ler as túas preferencias.
 
 É posible que algunhas funcións non estean dispoñibles e que non se garden os cambios nas preferencias.</translation>
@@ -130,6 +131,8 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="370962675267501463">{COUNT,plural, =0{O teu administrador pídeche que reinicies Chromium para aplicar esta actualización}=1{O teu administrador pídeche que reinicies Chromium para aplicar esta actualización. A ventá do modo de incógnito non se volverá abrir.}other{O teu administrador pídeche que reinicies Chromium para aplicar esta actualización. As # ventás do modo de incógnito non se volverán abrir.}}</translation>
 <translation id="3713809861844741608">Abrir ligazón nunha nova &amp;pestana de Chromium</translation>
 <translation id="378917192836375108">Chromium permíteche facer clic nun número de teléfono da web e chamar mediante Skype.</translation>
+<translation id="3790262771324122253">Descubre por que Chromium bloquea algunhas descargas</translation>
+<translation id="3802055581630249637">Chromium precargará as páxinas que é probable que visites para que carguen máis rapidamente cando accedas a elas</translation>
 <translation id="3830894615770080216">Sistema Chromium OS</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" />: Chromium</translation>
 <translation id="386822487697155367">Obter axuda sobre Chromium OS</translation>
@@ -155,6 +158,7 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="4216212958613226427">Este é o idioma no que se mostra a IU de Chromium</translation>
 <translation id="4222932583846282852">Cancelando…</translation>
 <translation id="4230135487732243613">Queres ligar os teus datos de Chromium a esta conta?</translation>
+<translation id="4251772536351901305">Analiza máis datos de sitios que a protección estándar para avisarte sobre os que sexan perigosos (mesmo sobre os que Google non coñeza ata ese momento). Se queres, podes omitir as advertencias de Chromium.</translation>
 <translation id="4271805377592243930">Obter axuda sobre Chromium</translation>
 <translation id="4281844954008187215">Condicións de servizo</translation>
 <translation id="4285930937574705105">Non se puido efectuar a instalación debido a un erro non especificado. Se se está executando Chromium actualmente, péchao e téntao de novo.</translation>
@@ -226,7 +230,6 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="5988505247484123880">É habitual que os sitios que visitas lembren o que che interesa para personalizar a experiencia que se che ofrece neles. Os sitios tamén poden almacenar con Chromium información sobre os teus intereses.</translation>
 <translation id="6003112304606738118">Descargando… Tempo restante: <ph name="HOURS" /> h</translation>
 <translation id="6040143037577758943">Pechar</translation>
-<translation id="6055611795418209449">Chromium bloquea algunhas descargas</translation>
 <translation id="6055895534982063517">Hai unha nova versión de Chromium dispoñible que é máis rápida que nunca.</translation>
 <translation id="6063093106622310249">&amp;Abrir en Chromium</translation>
 <translation id="6072279588547424923">Engadiuse a extensión <ph name="EXTENSION_NAME" /> a Chromium</translation>
@@ -240,6 +243,7 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="6132897690380286411">Chromium pecharase en breve e eliminaranse os datos</translation>
 <translation id="6134968993075716475">A opción Navegación segura está desactivada. Chromium recomenda activala.</translation>
 <translation id="6145820983052037069">Aquí podes cambiar entre perfís de Chromium</translation>
+<translation id="615103374448673771">Se permites o uso de cookies, Chromium poderá utilizalas para as precargas</translation>
 <translation id="6175304430031192654">En función da túa configuración, é posible que Chromium tamén envíe cookies e o teu URL actual</translation>
 <translation id="6183079672144801177">Asegúrate de iniciar sesión en Chromium no teu <ph name="TARGET_DEVICE_NAME" /> e proba a enviar o número de novo.</translation>
 <translation id="6212496753309875659">Este ordenador xa conta cunha versión máis recente de Chromium. Se o software non funciona, desinstala Chromium e téntao de novo.</translation>
@@ -264,12 +268,14 @@ Pódense aplicar a esta conta os permisos que xa lles concedeses aos sitios web 
 <translation id="6400112897226594999">O logotipo de Chromium dentro da pantalla dun ordenador.</translation>
 <translation id="6403826409255603130">Chromium é un navegador web que executa páxinas web e aplicacións a gran velocidade. É rápido, estable e fácil de utilizar. Chromium permíteche navegar na web de forma máis segura, xa que inclúe protección contra malware e phishing.</translation>
 <translation id="6442900851116057561">Reiniciar Chromium OS</translation>
+<translation id="6443470774889161065">Chromium precargará aínda máis páxinas que é probable que visites para que carguen máis rapidamente cando accedas a elas</translation>
 <translation id="6455857529632101747">Dámosche a benvida aos perfís de Chromium</translation>
 <translation id="6475912303565314141">Tamén controla a páxina que se mostra ao iniciar Chromium.</translation>
 <translation id="648319183876919572">Navegación segura mellorada é máis eficaz á hora de protexerte de descargas e sitios web perigosos</translation>
 <translation id="6510925080656968729">Desinstalar Chromium</translation>
 <translation id="6539122709674868420">A túa organización pecha Chromium cando non se usa durante <ph name="TIMEOUT_DURATION" />. Elimináronse os datos de navegación. Entre esa información, poden incluírse o historial, os datos da función de autocompletar e as descargas.</translation>
 <translation id="6542839706527980775">En cada perfil gárdase a información de Chromium que lle corresponde (por exemplo, os marcadores, o historial ou os contrasinais)</translation>
+<translation id="6563921047760808519">Máis información sobre <ph name="BEGIN_LINK" />como protexe Chromium a privacidade dos teus datos<ph name="END_LINK" /></translation>
 <translation id="656935081669708576">Podes cambiar de perfil para ver os contrasinais doutro perfil de Chromium</translation>
 <translation id="6570579332384693436">Para solucionar os erros ortográficos, Chromium envía a Google o texto que escribes nos campos de texto</translation>
 <translation id="6598877126913850652">Ir á configuración de notificacións de Chromium</translation>

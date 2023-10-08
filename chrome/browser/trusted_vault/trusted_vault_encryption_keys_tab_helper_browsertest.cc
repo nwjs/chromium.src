@@ -42,9 +42,15 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/trusted_vault/standalone_trusted_vault_client.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
 namespace {
+
+using testing::ElementsAre;
+using testing::ElementsAreArray;
+using testing::Eq;
+using testing::IsEmpty;
 
 const char kFakeGaiaId[] = "fake_gaia_id";
 const char kConsoleSuccessMessage[] = "trusted_vault_encryption_keys:OK";
@@ -58,7 +64,8 @@ const char kConsoleUncaughtTypeErrorMessagePattern[] =
 // |kConsoleSuccessMessage| or |kConsoleFailureMessage| is logged to the console
 // upon completion.
 void ExecJsSetSyncEncryptionKeys(content::RenderFrameHost* render_frame_host,
-                                 const std::vector<uint8_t>& key) {
+                                 const std::vector<uint8_t>& key,
+                                 int key_version) {
   // To simplify the test, it limits the size of `key` to 1.
   DCHECK_EQ(key.size(), 1u);
   const std::string script = base::StringPrintf(
@@ -71,10 +78,11 @@ void ExecJsSetSyncEncryptionKeys(content::RenderFrameHost* render_frame_host,
         view[0] = %d;
         chrome.setSyncEncryptionKeys(
             () => {console.log('%s');},
-            "%s", [buffer], 0);
+            "%s", [buffer], %d);
       }
     )",
-      kConsoleFailureMessage, key[0], kConsoleSuccessMessage, kFakeGaiaId);
+      kConsoleFailureMessage, key[0], kConsoleSuccessMessage, kFakeGaiaId,
+      key_version);
 
   std::ignore = content::ExecJs(render_frame_host, script);
 }
@@ -88,16 +96,49 @@ void ExecJsSetClientEncryptionKeys(content::RenderFrameHost* render_frame_host,
       if (chrome.setClientEncryptionKeys === undefined) {
         console.log('%s');
       } else {
-        let bytes = new ArrayBuffer(1);
-        let view = new Uint8Array(bytes);
+        let key = new ArrayBuffer(1);
+        let view = new Uint8Array(key);
         view[0] = %d;
         chrome.setClientEncryptionKeys(
             () => {console.log('%s');},
             "%s",
-            {'users/me/securitydomains/chromesync': [{version: 0, bytes}]});
+            new Map([
+                ['users/me/securitydomains/chromesync', [{epoch: 0, key}]]]));
       }
     )",
       kConsoleFailureMessage, key[0], kConsoleSuccessMessage, kFakeGaiaId);
+
+  std::ignore = content::ExecJs(render_frame_host, script);
+}
+
+void ExecJsSetClientEncryptionKeysWithMultipleKeys(
+    content::RenderFrameHost* render_frame_host,
+    const std::vector<uint8_t>& key1,
+    const std::vector<uint8_t>& key2) {
+  DCHECK_EQ(key1.size(), 1u);
+  DCHECK_EQ(key2.size(), 1u);
+  const std::string script = base::StringPrintf(
+      R"(
+      if (chrome.setClientEncryptionKeys === undefined) {
+        console.log('%s');
+      } else {
+        let key1 = new ArrayBuffer(1);
+        let view1 = new Uint8Array(key1);
+        view1[0] = %d;
+        let key2 = new ArrayBuffer(1);
+        let view2 = new Uint8Array(key2);
+        view2[0] = %d;
+        chrome.setClientEncryptionKeys(
+            () => {console.log('%s');},
+            "%s",
+            new Map([
+                ['users/me/securitydomains/chromesync',
+                 [{epoch: 1, key: key1}, {epoch: 2, key: key2}]]
+            ]));
+      }
+    )",
+      kConsoleFailureMessage, key1[0], key2[0], kConsoleSuccessMessage,
+      kFakeGaiaId);
 
   std::ignore = content::ExecJs(render_frame_host, script);
 }
@@ -113,13 +154,13 @@ void ExecJsSetClientEncryptionKeysForInvalidSecurityDomain(
       if (chrome.setClientEncryptionKeys === undefined) {
         console.log('%s');
       } else {
-        let bytes = new ArrayBuffer(1);
-        let view = new Uint8Array(bytes);
+        let key = new ArrayBuffer(1);
+        let view = new Uint8Array(key);
         view[0] = %d;
         chrome.setClientEncryptionKeys(
             () => {console.log('%s');},
             "%s",
-            {'users/me/securitydomains/invalid': [{version: 0, bytes}]});
+            new Map([['users/me/securitydomains/invalid', [{epoch: 0, key}]]]));
       }
     )",
       kConsoleFailureMessage, key[0], kConsoleSuccessMessage, kFakeGaiaId);
@@ -139,7 +180,7 @@ void ExecJsSetClientEncryptionKeysWithIllformedArgs(
         chrome.setClientEncryptionKeys(
             () => {console.log('%s');},
             "%s",
-            {'users/me/securitydomains/chromesync': [{version: 0}]});
+            new Map([['users/me/securitydomains/chromesync', [{epoch: 0}]]]));
       }
     )",
       kConsoleFailureMessage, kConsoleSuccessMessage, kFakeGaiaId);
@@ -194,6 +235,24 @@ std::vector<std::vector<uint8_t>> FetchTrustedVaultKeysForProfile(
                       }));
   loop.Run();
   return actual_keys;
+}
+
+int FetchLastTrustedVaultKeyVersionForProfile(Profile* profile,
+                                              const AccountInfo& account_info) {
+  base::RunLoop loop;
+  int actual_last_key_version = -1;
+
+  static_cast<trusted_vault::StandaloneTrustedVaultClient*>(
+      TrustedVaultServiceFactory::GetForProfile(profile)
+          ->GetTrustedVaultClient())
+      ->GetLastKeyVersionForTesting(
+          account_info.gaia,
+          base::BindLambdaForTesting([&](int last_key_version) {
+            actual_last_key_version = last_key_version;
+            loop.Quit();
+          }));
+  loop.Run();
+  return actual_last_key_version;
 }
 
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -304,7 +363,7 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   // frame shouldn't work.
   const std::vector<uint8_t> kEncryptionKey = {7};
   ExecJsSetSyncEncryptionKeys(web_contents()->GetPrimaryMainFrame(),
-                              kEncryptionKey);
+                              kEncryptionKey, /*key_version=*/1);
   ASSERT_TRUE(console_observer.Wait());
   EXPECT_EQ(1u, console_observer.messages().size());
   ExecJsSetClientEncryptionKeys(web_contents()->GetPrimaryMainFrame(),
@@ -331,8 +390,9 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   // Calling setSyncEncryptionKeys() in the main frame works and it gets
   // the callback by setSyncEncryptionKeys().
   const std::vector<uint8_t> kEncryptionKey = {7};
+  const int kEncryptionKeyVersion = 24;
   ExecJsSetSyncEncryptionKeys(web_contents()->GetPrimaryMainFrame(),
-                              kEncryptionKey);
+                              kEncryptionKey, kEncryptionKeyVersion);
   ASSERT_TRUE(console_observer.Wait());
   EXPECT_EQ(1u, console_observer.messages().size());
 
@@ -351,7 +411,10 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   account.gaia = kFakeGaiaId;
   std::vector<std::vector<uint8_t>> actual_keys =
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
-  EXPECT_THAT(actual_keys, testing::ElementsAre(kEncryptionKey));
+  EXPECT_THAT(actual_keys, ElementsAre(kEncryptionKey));
+  EXPECT_THAT(
+      FetchLastTrustedVaultKeyVersionForProfile(browser()->profile(), account),
+      Eq(kEncryptionKeyVersion));
 }
 
 IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
@@ -400,7 +463,54 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   account.gaia = kFakeGaiaId;
   std::vector<std::vector<uint8_t>> actual_keys =
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
-  EXPECT_THAT(actual_keys, testing::ElementsAre(kEncryptionKey));
+  EXPECT_THAT(actual_keys, ElementsAre(kEncryptionKey));
+}
+
+IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
+                       ClientEncryptionKeysApiShouldSetMultipleKeys) {
+  const GURL initial_url =
+      https_server()->GetURL("accounts.google.com", "/title1.html");
+  ASSERT_TRUE(content::NavigateToURL(web_contents(), initial_url));
+  // EncryptionKeysApi is created for the primary page as the origin is allowed.
+  EXPECT_TRUE(HasEncryptionKeysApi(web_contents()->GetPrimaryMainFrame()));
+
+  content::WebContentsConsoleObserver console_observer(web_contents());
+  console_observer.SetPattern(kConsoleSuccessMessage);
+
+  base::HistogramTester histogram_tester;
+
+  const std::vector<std::vector<uint8_t>> kEncryptionKeys = {{7}, {8}};
+  ExecJsSetClientEncryptionKeysWithMultipleKeys(
+      web_contents()->GetPrimaryMainFrame(), kEncryptionKeys[0],
+      kEncryptionKeys[1]);
+  ASSERT_TRUE(console_observer.Wait());
+  EXPECT_EQ(1u, console_observer.messages().size());
+
+  metrics::SubprocessMetricsProvider::MergeHistogramDeltasForTesting();
+
+  histogram_tester.ExpectUniqueSample(
+      "TrustedVault.JavascriptSetClientEncryptionKeysValidArgs", 1 /*Valid*/,
+      1);
+  histogram_tester.ExpectUniqueSample(
+      "TrustedVault.JavascriptSetClientEncryptionKeysForSecurityDomain",
+      1 /*Chrome Sync*/, 1);
+
+  histogram_tester.ExpectUniqueSample(
+      "TrustedVault.SetEncryptionKeysForSecurityDomain.AllProfiles",
+      1 /*Chrome Sync*/, 1);
+  histogram_tester.ExpectUniqueSample(
+      "TrustedVault.SetEncryptionKeysForSecurityDomain.OffTheRecordOnly",
+      1 /*Chrome Sync*/, 0);
+
+  histogram_tester.ExpectUniqueSample(
+      "Sync.TrustedVaultJavascriptSetEncryptionKeysIsIncognito",
+      0 /*Not Incognito*/, 1);
+
+  AccountInfo account;
+  account.gaia = kFakeGaiaId;
+  std::vector<std::vector<uint8_t>> actual_keys =
+      FetchTrustedVaultKeysForProfile(browser()->profile(), account);
+  EXPECT_THAT(actual_keys, ElementsAreArray(kEncryptionKeys));
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -443,7 +553,7 @@ IN_PROC_BROWSER_TEST_F(
   account.gaia = kFakeGaiaId;
   std::vector<std::vector<uint8_t>> actual_keys =
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
-  EXPECT_THAT(actual_keys, testing::IsEmpty());
+  EXPECT_THAT(actual_keys, IsEmpty());
 }
 
 IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
@@ -482,7 +592,7 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   account.gaia = kFakeGaiaId;
   std::vector<std::vector<uint8_t>> actual_keys =
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
-  EXPECT_THAT(actual_keys, testing::IsEmpty());
+  EXPECT_THAT(actual_keys, IsEmpty());
 }
 
 // Tests that chrome.setSyncEncryptionKeys() works in a fenced frame.
@@ -508,7 +618,9 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   // Calling setSyncEncryptionKeys() in the fenced frame works and it gets
   // the callback by setSyncEncryptionKeys().
   const std::vector<uint8_t> kEncryptionKey = {7};
-  ExecJsSetSyncEncryptionKeys(fenced_frame_host, kEncryptionKey);
+  const int kEncryptionKeyVersion = 24;
+  ExecJsSetSyncEncryptionKeys(fenced_frame_host, kEncryptionKey,
+                              kEncryptionKeyVersion);
   ASSERT_TRUE(console_observer.Wait());
   EXPECT_EQ(1u, console_observer.messages().size());
 
@@ -516,7 +628,10 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   account.gaia = kFakeGaiaId;
   std::vector<std::vector<uint8_t>> actual_keys =
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
-  EXPECT_THAT(actual_keys, testing::ElementsAre(kEncryptionKey));
+  EXPECT_THAT(actual_keys, ElementsAre(kEncryptionKey));
+  EXPECT_THAT(
+      FetchLastTrustedVaultKeyVersionForProfile(browser()->profile(), account),
+      Eq(kEncryptionKeyVersion));
 }
 
 // Tests that chrome.setClientEncryptionKeys() works in a fenced frame.
@@ -549,7 +664,7 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   account.gaia = kFakeGaiaId;
   std::vector<std::vector<uint8_t>> actual_keys =
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
-  EXPECT_THAT(actual_keys, testing::ElementsAre(kEncryptionKey));
+  EXPECT_THAT(actual_keys, ElementsAre(kEncryptionKey));
 }
 
 IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
@@ -575,7 +690,7 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
   // although it does nothing.
   const std::vector<uint8_t> kEncryptionKey = {7};
   ExecJsSetSyncEncryptionKeys(incognito_web_contents->GetPrimaryMainFrame(),
-                              kEncryptionKey);
+                              kEncryptionKey, /*key_version=*/1);
   ASSERT_TRUE(console_observer.Wait());
   EXPECT_EQ(1u, console_observer.messages().size());
 
@@ -603,7 +718,7 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
   // In incognito, the keys should actually be ignored, never forwarded to
   // TrustedVaultService.
-  EXPECT_THAT(actual_keys, testing::IsEmpty());
+  EXPECT_THAT(actual_keys, IsEmpty());
 }
 
 IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
@@ -661,7 +776,7 @@ IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
       FetchTrustedVaultKeysForProfile(browser()->profile(), account);
   // In incognito, the keys should actually be ignored, never forwarded to
   // TrustedVaultService.
-  EXPECT_THAT(actual_keys, testing::IsEmpty());
+  EXPECT_THAT(actual_keys, IsEmpty());
 }
 
 IN_PROC_BROWSER_TEST_F(TrustedVaultEncryptionKeysTabHelperBrowserTest,
@@ -863,7 +978,7 @@ IN_PROC_BROWSER_TEST_F(
   // they aren't defined.
   const std::vector<uint8_t> kEncryptionKey = {7};
   ExecJsSetSyncEncryptionKeys(web_contents()->GetPrimaryMainFrame(),
-                              kEncryptionKey);
+                              kEncryptionKey, /*key_version=*/1);
   ASSERT_TRUE(console_observer.Wait());
   EXPECT_EQ(1u, console_observer.messages().size());
   ExecJsSetClientEncryptionKeys(web_contents()->GetPrimaryMainFrame(),

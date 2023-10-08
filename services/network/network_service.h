@@ -19,6 +19,7 @@
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
@@ -41,9 +42,10 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/first_party_sets/first_party_sets_manager.h"
 #include "services/network/keepalive_statistics_recorder.h"
+#include "services/network/masked_domain_list/network_service_proxy_allow_list.h"
+#include "services/network/masked_domain_list/network_service_resource_block_list.h"
 #include "services/network/network_change_manager.h"
 #include "services/network/network_quality_estimator_manager.h"
-#include "services/network/network_service_proxy_allow_list.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
 #include "services/network/public/mojom/host_resolver.mojom.h"
 #include "services/network/public/mojom/key_pinning.mojom.h"
@@ -61,6 +63,10 @@
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
 #include "services/network/public/mojom/ct_log_info.mojom.h"
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+#include "services/network/sandboxed_vfs_delegate.h"
 #endif
 
 namespace net {
@@ -135,6 +141,14 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   // NetworkService.
   void RegisterNetworkContext(NetworkContext* network_context);
   void DeregisterNetworkContext(NetworkContext* network_context);
+
+#if BUILDFLAG(IS_ANDROID)
+  void InvalidateNetworkContextPath(const base::FilePath& path);
+  void set_sandboxed_vfs_delegate_ptr_for_testing(
+      SandboxedVfsDelegate* sandboxed_vfs_delegate_ptr) {
+    sandboxed_vfs_delegate_ptr_ = sandboxed_vfs_delegate_ptr;
+  }
+#endif
 
   // Invokes net::CreateNetLogEntriesForActiveObjects(observer) on all
   // URLRequestContext's known to |this|.
@@ -222,6 +236,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       mojo::PendingReceiver<mojom::NetworkServiceTest> receiver) override;
   void SetFirstPartySets(net::GlobalFirstPartySets sets) override;
   void SetExplicitlyAllowedPorts(const std::vector<uint16_t>& ports) override;
+#if BUILDFLAG(IS_LINUX)
+  void SetGssapiLibraryLoadObserver(
+      mojo::PendingRemote<mojom::GssapiLibraryLoadObserver>
+          gssapi_library_load_observer) override;
+#endif  // BUILDFLAG(IS_LINUX)
 
   void StartNetLogBounded(base::File file,
                           uint64_t max_total_size,
@@ -239,10 +258,19 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void StartNetLogUnbounded(base::File file,
                             net::NetLogCaptureMode capture_mode,
                             base::Value::Dict client_constants);
+#if BUILDFLAG(IS_ANDROID)
+  // Registers a sqlite VFS for use in a sandboxed network service.
+  void SetSandboxedVFS();
+#endif
 
   // Returns an HttpAuthHandlerFactory for the given NetworkContext.
   std::unique_ptr<net::HttpAuthHandlerFactory> CreateHttpAuthHandlerFactory(
       NetworkContext* network_context);
+
+#if BUILDFLAG(IS_LINUX)
+  // This is called just before a GSSAPI library may be loaded.
+  void OnBeforeGssapiLibraryLoad();
+#endif  // BUILDFLAG(IS_LINUX)
 
   bool quic_disabled() const { return quic_disabled_; }
   bool HasRawHeadersAccess(int32_t process_id, const GURL& resource_url) const;
@@ -276,6 +304,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   NetworkServiceProxyAllowList* network_service_proxy_allow_list() const {
     return network_service_proxy_allow_list_.get();
+  }
+
+  NetworkServiceResourceBlockList* network_service_resource_block_list() const {
+    return network_service_resource_block_list_.get();
   }
 
   void set_host_resolver_factory_for_testing(
@@ -425,6 +457,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   std::unique_ptr<NetworkServiceProxyAllowList>
       network_service_proxy_allow_list_;
 
+  std::unique_ptr<NetworkServiceResourceBlockList>
+      network_service_resource_block_list_;
+
   // A per-process_id map of origins that are white-listed to allow
   // them to request raw headers for resources they request.
   std::map<int32_t, base::flat_set<url::Origin>>
@@ -455,6 +490,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   bool ct_enforcement_enabled_ = true;
 #endif
 
+#if BUILDFLAG(IS_ANDROID)
+  raw_ptr<SandboxedVfsDelegate> sandboxed_vfs_delegate_ptr_ = nullptr;
+#endif  // BUILDFLAG(IS_ANDROID)
+
   bool pins_list_updated_ = false;
 
   std::vector<net::TransportSecurityState::PinSet> pinsets_;
@@ -468,6 +507,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   // This is used only in tests. It avoids leaky SystemDnsConfigChangeNotifiers
   // leaking stale listeners between tests.
   std::unique_ptr<net::NetworkChangeNotifier> mock_network_change_notifier_;
+
+#if BUILDFLAG(IS_LINUX)
+  mojo::Remote<mojom::GssapiLibraryLoadObserver> gssapi_library_load_observer_;
+#endif  // BUILDFLAG(IS_LINUX)
+
+  base::WeakPtrFactory<NetworkService> weak_factory_{this};
 };
 
 }  // namespace network

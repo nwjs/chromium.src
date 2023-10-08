@@ -9,12 +9,11 @@
 
 #import <utility>
 
-#import "base/mac/foundation_util.h"
+#import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "ios/web/navigation/navigation_item_impl.h"
-#import "ios/web/navigation/navigation_item_storage_test_util.h"
 #import "ios/web/public/navigation/referrer.h"
 #import "ios/web/public/session/proto/navigation.pb.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -55,7 +54,7 @@ TEST_F(CRWNavigationItemStorageTest, EncodeDecode) {
       [[NSKeyedUnarchiver alloc] initForReadingFromData:data error:nil];
   unarchiver.requiresSecureCoding = NO;
   id decoded = [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey];
-  EXPECT_TRUE(web::ItemStoragesAreEqual(item_storage(), decoded));
+  EXPECT_NSEQ(item_storage(), decoded);
 }
 
 // Tests that converting CRWNavigationItemStorage to proto and back results in
@@ -66,7 +65,7 @@ TEST_F(CRWNavigationItemStorageTest, EncodeDecodeToProto) {
 
   CRWNavigationItemStorage* decoded =
       [[CRWNavigationItemStorage alloc] initWithProto:storage];
-  EXPECT_TRUE(web::ItemStoragesAreEqual(item_storage(), decoded));
+  EXPECT_NSEQ(item_storage(), decoded);
 }
 
 // Tests histograms recording.
@@ -135,7 +134,7 @@ TEST_F(CRWNavigationItemStorageTest, EncodeDecodeSameVirtualURL) {
     unarchiver.requiresSecureCoding = NO;
 
     CRWNavigationItemStorage* item_storage =
-        base::mac::ObjCCast<CRWNavigationItemStorage>(
+        base::apple::ObjCCast<CRWNavigationItemStorage>(
             [unarchiver decodeObjectForKey:NSKeyedArchiveRootObjectKey]);
     ASSERT_TRUE(item_storage);
 

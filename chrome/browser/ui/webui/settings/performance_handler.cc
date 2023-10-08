@@ -1,4 +1,4 @@
-// Copyright 2022 The Chromium Authors. All rights reserved.
+// Copyright 2022 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -39,6 +39,10 @@ void PerformanceHandler::RegisterMessages() {
       base::BindRepeating(
           &PerformanceHandler::HandleOpenHighEfficiencyFeedbackDialog,
           base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "openSpeedFeedbackDialog",
+      base::BindRepeating(&PerformanceHandler::HandleOpenSpeedFeedbackDialog,
+                          base::Unretained(this)));
   web_ui()->RegisterMessageCallback(
       "validateTabDiscardExceptionRule",
       base::BindRepeating(
@@ -126,6 +130,11 @@ void PerformanceHandler::HandleOpenBatterySaverFeedbackDialog(
 void PerformanceHandler::HandleOpenHighEfficiencyFeedbackDialog(
     const base::Value::List& args) {
   HandleOpenFeedbackDialog("performance_tabs");
+}
+
+void PerformanceHandler::HandleOpenSpeedFeedbackDialog(
+    const base::Value::List& args) {
+  HandleOpenFeedbackDialog("performance_speed");
 }
 
 void PerformanceHandler::HandleOpenFeedbackDialog(

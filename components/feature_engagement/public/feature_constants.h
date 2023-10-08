@@ -55,6 +55,7 @@ BASE_DECLARE_FEATURE(kIPHReadingListDiscoveryFeature);
 BASE_DECLARE_FEATURE(kIPHReadingListEntryPointFeature);
 BASE_DECLARE_FEATURE(kIPHReadingListInSidePanelFeature);
 BASE_DECLARE_FEATURE(kIPHReadingModeSidePanelFeature);
+BASE_DECLARE_FEATURE(kIPHShoppingCollectionFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchAutoTriggeringFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchPageActionLabelFeature);
@@ -196,7 +197,6 @@ BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserBadgeEligibilityFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserOverflowMenuBadgeFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserSettingsBadgeFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoAppStoreFeature);
-BASE_DECLARE_FEATURE(kIPHTabPinnedFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoWhatsNewFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoPostRestoreFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoCredentialProviderExtensionFeature);
@@ -207,6 +207,7 @@ BASE_DECLARE_FEATURE(kIPHiOSHistoryOnOverflowMenuFeature);
 BASE_DECLARE_FEATURE(kIPHiOSShareToolbarItemFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserVideoPromoTriggerFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature);
+BASE_DECLARE_FEATURE(kIPHiOSPromoPasswordManagerWidgetFeature);
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \

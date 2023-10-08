@@ -99,6 +99,10 @@ IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, ModulesV2) {
   RunTest("new_tab_page/modules/v2/modules_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, ModuleHeaderV2) {
+  RunTest("new_tab_page/modules/v2/module_header_test.js", "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesTest, Modules) {
   RunTest("new_tab_page/modules/modules_test.js", "mocha.run()");
 }
@@ -167,14 +171,9 @@ IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, Misc) {
           "runMochaSuite('NewTabPageAppTest Misc')");
 }
 
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, OgbThemingRemoveScrimFalse) {
+IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, OgbThemingRemoveScrim) {
   RunTest("new_tab_page/app_test.js",
-          "runMochaSuite('NewTabPageAppTest OgbThemingRemoveScrim_false')");
-}
-
-IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, OgbThemingRemoveScrimTrue) {
-  RunTest("new_tab_page/app_test.js",
-          "runMochaSuite('NewTabPageAppTest OgbThemingRemoveScrim_true')");
+          "runMochaSuite('NewTabPageAppTest OgbThemingRemoveScrim')");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageAppTest, OgbScrim) {
@@ -255,6 +254,12 @@ IN_PROC_BROWSER_TEST_F(NewTabPageModulesHistoryClustersModuleTest, CartTileV2) {
           "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesHistoryClustersModuleTest, DiscountV2) {
+  RunTest("new_tab_page/modules/v2/history_clusters/module_test.js",
+          "runMochaSuite('NewTabPageModulesHistoryClustersV2ModuleTest "
+          "Discounts')");
+}
+
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesHistoryClustersModuleTest, Layouts) {
   RunTest(
       "new_tab_page/modules/history_clusters/module_test.js",
@@ -280,6 +285,13 @@ IN_PROC_BROWSER_TEST_F(NewTabPageModulesHistoryClustersModuleTest,
   RunTest("new_tab_page/modules/history_clusters/module_test.js",
           "runMochaSuite('NewTabPageModulesHistoryClustersModuleTest "
           "CartTileRendering')");
+}
+
+IN_PROC_BROWSER_TEST_F(NewTabPageModulesHistoryClustersModuleTest,
+                       DiscountChipRendering) {
+  RunTest("new_tab_page/modules/history_clusters/module_test.js",
+          "runMochaSuite('NewTabPageModulesHistoryClustersModuleTest "
+          "DiscountChipRendering')");
 }
 
 IN_PROC_BROWSER_TEST_F(NewTabPageModulesHistoryClustersModuleTest, Tile) {

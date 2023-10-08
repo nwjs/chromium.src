@@ -35,6 +35,7 @@
 <translation id="1280820357415527819">মোবাইল নেটওয়ার্কের জন্য সার্চ করা হচ্ছে</translation>
 <translation id="1293556467332435079">Files</translation>
 <translation id="1297922636971898492">এই মুহূর্তে Google ড্রাইভ উপলব্ধ নেই৷ একবার Google ড্রাইভ উপলব্ধ হলেই আপলোড করার কাজটি স্বয়ংক্রিয়ভাবে পুনরায় চালু হবে৷</translation>
+<translation id="1306130176943817227">মোছা যাচ্ছে না। আইটেম ব্যবহার করা হচ্ছে।</translation>
 <translation id="1307931752636661898">Linux ফাইল দেখা যায়নি</translation>
 <translation id="1313405956111467313">স্বয়ংক্রিয় প্রক্সি কনফিগারেশন</translation>
 <translation id="134645005685694099">ফাইল সিঙ্ক করার প্রসেস চালু রাখার জন্য আপনার ডিভাইসে পর্যাপ্ত স্টোরেজের জায়গা নেই। নতুন ফাইল আর অটোমেটিক সিঙ্ক করা হবে না।</translation>
@@ -115,7 +116,6 @@
 <translation id="1920798810075583923">তরমুজ</translation>
 <translation id="1924372192547904021"><ph name="DRIVE_NAME" /> ফরম্যাট করা হয়েছে</translation>
 <translation id="1931134289871235022">স্লোভাক</translation>
-<translation id="1933345018156373194">স্থানান্তরিত করা যায়নি, অপ্রত্যাশিত সমস্যা হয়েছে: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="1936717151811561466">ফিনিশ</translation>
 <translation id="1942765061641586207">ছবির রেজোলিউশন</translation>
 <translation id="1972984168337863910">ফাইল ফিডব্যাক প্যানেল বড় করুন</translation>
@@ -278,6 +278,7 @@
 <translation id="3264582393905923483">প্রসঙ্গ</translation>
 <translation id="3272909651715601089">"<ph name="PATH" />" খোলা যায়নি</translation>
 <translation id="3280431534455935878">প্রস্তুতি</translation>
+<translation id="3280719573299097127">আপনি পরিমাপ করা নেটওয়ার্ক ব্যবহার করছেন। 'ফাইল সিঙ্ক' পজ হয়ে গেছে।</translation>
 <translation id="3280987981688031357">ভিনাইল রেকর্ড</translation>
 <translation id="3290356915286466215">সুরক্ষিত নেই</translation>
 <translation id="3291218047831493686">সিম লক সেটিং পরিবর্তন করতে এই নেটওয়ার্কে কানেক্ট করুন</translation>
@@ -502,7 +503,6 @@
 <translation id="4969785127455456148">অ্যালবাম</translation>
 <translation id="4972330214479971536">ফাইল সিঙ্ক করার প্রসেস সেট-আপ সম্পূর্ণ করা যায়নি</translation>
 <translation id="4973523518332075481">এমন একটি নাম ব্যবহার করুন যেটিতে <ph name="MAX_LENGTH" /> বা তার কম অক্ষর আছে</translation>
-<translation id="4973970068702235170">জিপ করা যায়নি, অপ্রত্যাশিত সমস্যা হয়েছে: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4984616446166309645">জাপানি</translation>
 <translation id="4987699874727873250">ইংরেজী (ভারত)</translation>
 <translation id="4988205478593450158">আপনি কি "<ph name="FILE_NAME" />" মুছে ফেলার ব্যাপারে নিশ্চিত?</translation>
@@ -543,6 +543,7 @@
 <translation id="5218183485292899140">সুইস ফরাসি</translation>
 <translation id="5234764350956374838">খারিজ</translation>
 <translation id="5253070652067921974">তৈরি করেছেন</translation>
+<translation id="5254207638927440400">ফাইল সরানো যাচ্ছে না। ফাইল ব্যবহার করা হচ্ছে।</translation>
 <translation id="5257456363153333584">ফড়িং</translation>
 <translation id="5262311848634918433"><ph name="MARKUP_1" />যে কোনো জায়গা থেকে এমনকি অফলাইনে থাকাকালীনও, ফাইলগুলি অ্যাক্সেস করুন।<ph name="MARKUP_2" />
     Google ড্রাইভে থাকা ফাইলগুলি আপ-টু-ডেট আছে এবং সেগুলি যেকোনো ডিভাইস থেকে উপলব্ধ।<ph name="MARKUP_3" />
@@ -631,13 +632,13 @@
 <translation id="5838451609423551646">সব বেছে নেওয়া এন্ট্রি সরিয়ে দেওয়া হয়েছে।</translation>
 <translation id="5838825566232597749">মার্কিন ওয়ার্কম্যান আন্তর্জাতিক</translation>
 <translation id="5845721951356578987">নার্স</translation>
+<translation id="5858478190805449225">'ব্যাটারি সেভার' মোড চালু আছে। 'ব্যাটারি সেভার' মোড বন্ধ করা হলে আবার চেষ্টা করুন।</translation>
 <translation id="5860491529813859533">চালু করুন</translation>
 <translation id="5861477046012235702">গেমার</translation>
 <translation id="5864471791310927901">DHCP লুকআপ ব্যর্থ</translation>
 <translation id="5896749729057314184"><ph name="NETWORK_COUNT" />টির মধ্যে <ph name="NETWORK_INDEX" /> নম্বর নেটওয়ার্ক, <ph name="NETWORK_NAME" />, চালু করা হয়নি, সিগন্যাল ক্ষমতা <ph name="SIGNAL_STRENGTH" />%, বিবরণ</translation>
 <translation id="5911887972742538906">Linux অ্যাপ্লিকেশন ইনস্টল করার সময়ে সমস্যা হয়েছে।</translation>
 <translation id="5912396950572065471">ফর্ম্যাট</translation>
-<translation id="5913638992615760742">কপি করা যায়নি, অপ্রত্যাশিত সমস্যা হয়েছে: <ph name="ERROR_MESSAGE" /></translation>
 <translation id="5918480239180455431">নতুন সার্চ ফিচার উপলভ্য আছে</translation>
 <translation id="5926082595146149752">ডাচ (নেদারল্যান্ডস) ভাষায় ইউএস ইন্টারন্যাশনাল পিসি কীবোর্ড</translation>
 <translation id="5932901536148835538">Chromebit</translation>
@@ -645,7 +646,6 @@
 <translation id="5955954492236143329"><ph name="NUMBER_OF_ITEMS" />টি আইটেম</translation>
 <translation id="5957366693331451795">Chromeboxes</translation>
 <translation id="5982621672636444458">বাছাই বিকল্পগুলি</translation>
-<translation id="6007237601604674381">স্থানান্তরণ ব্যর্থ হয়েছে৷ <ph name="ERROR_MESSAGE" /></translation>
 <translation id="6011074160056912900">ইথারনেট নেটওয়ার্ক</translation>
 <translation id="60357267506638014">চেক QWERTY</translation>
 <translation id="603895874132768835">আপনি একটি নতুন পিন সেট আপ না করা পর্যন্ত এই নেটওয়ার্ক ব্যবহার করতে পারবেন না</translation>
@@ -862,6 +862,7 @@
 <translation id="76959938259365003">ট্র্যাশ খালি করা যায়নি।</translation>
 <translation id="770015031906360009">গ্রীক</translation>
 <translation id="7705251383879779343"><ph name="FILE_NAME" /> কপি করা হয়েছে।</translation>
+<translation id="7707941139430559579">ফাইল সরানো যাচ্ছে না। <ph name="ERROR_MESSAGE" /></translation>
 <translation id="7708271999969613024">এই নেটওয়ার্ক ব্যবহার করতে, আপনার পরিষেবা প্রদানকারীর থেকে পাওয়া ৮-সংখ্যার 'পার্সোনাল আনব্লকিং কী' (PUK) লিখতে হবে।</translation>
 <translation id="7711920809702896782">ইমেজর তথ্য</translation>
 <translation id="7724603315864178912">কাটুন</translation>
@@ -898,7 +899,6 @@
 <translation id="7911118814695487383">Linux</translation>
 <translation id="7920501309908018401">আমার ড্রাইভে থাকা আপনার ফাইল অটোমেটিক আপনার Chromebook-এ সিঙ্ক করে যাবে, তাই ইন্টারনেট কানেকশন ছাড়াই আপনি সেগুলি অ্যাক্সেস করতে পারবেন।</translation>
 <translation id="7925247922861151263">AAA চেক করা যায়নি</translation>
-<translation id="7925686952655276919">সিঙ্ক-এর জন্য মোবাইল ডেটা ব্যবহার করবেন না</translation>
 <translation id="7928710562641958568">বের করে দেওযার ডিভাইস</translation>
 <translation id="7933875256234974853">Drive ফাইল সিঙ্ক করার জন্য প্রস্তুত হচ্ছে...</translation>
 <translation id="7943385054491506837">মার্কিন যুক্তরাষ্ট্রীয় কোলেম্যাক</translation>
@@ -921,6 +921,7 @@
 <translation id="8087576439476816834"><ph name="PROFILE_NAME" />, ডাউনলোড করুন</translation>
 <translation id="8106045200081704138">আমার সাথে শেয়ার করা</translation>
 <translation id="8116072619078571545">বরফ জল</translation>
+<translation id="8120392982188717723">পরিমাপ করা নেটওয়ার্ক সিঙ্ক করতে দিন</translation>
 <translation id="8124093710070495550">সিঙ্ক করা সম্পর্কিত সমস্যা</translation>
 <translation id="8128733386027980860">ইংরেজি (যুক্তরাজ্য) ভাষায় Dvorak কীবোর্ড</translation>
 <translation id="8137331602592933310">"<ph name="FILENAME" />" আপনার সাথে শেয়ার করা হয়েছে৷ আপনি এটিকে মুছে ফেলতে পারবেন না কারণ আপনি এটির মালিক নন৷</translation>
@@ -1049,6 +1050,7 @@
 <translation id="9038620279323455325">"<ph name="FILE_NAME" />" নামের ফাইল আগে থেকেই আছে। অন্য একটি নাম লিখুন।</translation>
 <translation id="9046895021617826162">সংযোগ ব্যর্থ হয়েছে</translation>
 <translation id="9065512565307033593">আপনি যাচাই না করলে, আপনার নেটওয়ার্ক অ্যাক্সেস করার সুবিধা বন্ধ হয়ে যাবে।</translation>
+<translation id="9083722265619106011">{0,plural, =1{১টি সতর্কতা।}one{<ph name="COUNT" />টি সতর্কতা।}other{<ph name="COUNT" />টি সতর্কতা।}}</translation>
 <translation id="908378762078012445">রাশিয়ান ভাষায় ফোনেটিক আটসিল (AATSEEL) কীবোর্ড</translation>
 <translation id="9086302186042011942">সিঙ্ক হচ্ছে</translation>
 <translation id="9099674669267916096">পৃষ্ঠার সংখ্যা</translation>

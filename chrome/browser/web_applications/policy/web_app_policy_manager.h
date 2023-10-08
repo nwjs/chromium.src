@@ -35,6 +35,8 @@ class PrefRegistrySyncable;
 
 namespace web_app {
 
+BASE_DECLARE_FEATURE(kDesktopPWAsForceUnregisterOSIntegration);
+
 class WebAppProvider;
 
 // Policy installation allows enterprise admins to control and manage
@@ -124,6 +126,7 @@ class WebAppPolicyManager {
 
     RunOnOsLoginPolicy run_on_os_login_policy;
     bool prevent_close;
+    bool force_unregister_os_integration = false;
   };
 
   struct CustomManifestValues {
@@ -152,7 +155,12 @@ class WebAppPolicyManager {
       std::map<GURL, ExternallyManagedAppManager::InstallResult>
           install_results,
       std::map<GURL, bool> uninstall_results);
+
   void ApplyPolicySettings();
+  void ApplyRunOnOsLoginPolicySettings(
+      base::OnceClosure policy_settings_applied_callback);
+  void ApplyForceOSUnregistrationPolicySettings(
+      base::OnceClosure policy_settings_applied_callback);
 
   void OverrideManifest(const GURL& custom_values_key,
                         blink::mojom::ManifestPtr& manifest) const;
@@ -169,15 +177,15 @@ class WebAppPolicyManager {
 
   void OnDisableModePolicyChanged();
 
-  void OnSyncPolicySettingsCommandsComplete(std::vector<std::string> app_ids);
+  void OnSyncPolicySettingsCommandsComplete();
 
   // Populates ids lists of web apps disabled by SystemFeaturesDisableList
   // policy.
   void PopulateDisabledWebAppsIdsLists();
   void OnWebAppForceInstallPolicyParsed();
 
-  raw_ptr<Profile> profile_;
-  raw_ptr<PrefService> pref_service_;
+  raw_ptr<Profile> profile_ = nullptr;
+  raw_ptr<PrefService> pref_service_ = nullptr;
   raw_ptr<WebAppProvider> provider_ = nullptr;
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)

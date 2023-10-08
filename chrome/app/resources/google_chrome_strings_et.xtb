@@ -106,10 +106,13 @@
 <translation id="2775140325783767197">Chrome ei saa teie paroole kontrollida. Kontrollige internetiühendust.</translation>
 <translation id="2799223571221894425">Taaskäivita</translation>
 <translation id="2847461019998147611">Kuva Google Chrome selles keeles</translation>
+<translation id="2853415089995957805">Chrome eellaadib lehed, mida tõenäoliselt külastada soovite, et need laaditaks avamisel kiiremini</translation>
 <translation id="2857540653560290388">Chrome'i käivitamine …</translation>
 <translation id="2857972467023607093">Selle kontoga Chrome'i profiil on juba olemas</translation>
+<translation id="286025080868315611">Vaadake, miks Chrome mõned allalaadimised blokeerib</translation>
 <translation id="2861074815332034794">Chrome’i värskendamine (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="2871893339301912279">Olete Chrome'i sisse logitud.</translation>
+<translation id="2876628302275096482">Vaadake lisateavet, <ph name="BEGIN_LINK" />kuidas Chrome teie andmeid privaatsena hoiab<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">Tegumihaldur</translation>
 <translation id="2888126860611144412">Teave Chrome'i kohta</translation>
 <translation id="2915996080311180594">Taaskäivita hiljem</translation>
@@ -228,6 +231,7 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5003967926796347400">Klõpsake „Google'i paroolihaldur”</translation>
 <translation id="5098668839038261629">Kui see on sisse lülitatud, logitakse teid ka Chrome'ist välja</translation>
+<translation id="5126049312684316860">Chrome eellaadib veelgi rohkem lehti, mida tõenäoliselt külastada soovite, et need laaditaks avamisel kiiremini</translation>
 <translation id="5132929315877954718">Avastage Google Chrome'i jaoks suurepäraseid rakendusi, mänge, laiendusi ja teemasid.</translation>
 <translation id="5139423532931106058">Kohandage oma Chrome'i profiili</translation>
 <translation id="5163087008893166964">Tere tulemast Chrome'i; avati uus brauseriaken</translation>
@@ -237,6 +241,7 @@ Mõned funktsioonid ei pruugi saadaval olla. Määrake muu profiilikataloog või
 <translation id="521447420733633466">Kui jagate seadet, saavad sõbrad ja pereliikmed eraldi sirvida ning seadistada Chrome'i just nii, nagu neile meeldib.</translation>
 <translation id="5239627039202700673">Kasutage Chrome’i iga kord, kui klõpsate sõnumites, dokumentides ja teistes rakendustes linkidel</translation>
 <translation id="5251420635869119124">Külastajad saavad kasutada Chrome'i jälgi jätmata.</translation>
+<translation id="5320351714793324716">Kui lubate küpsised, võib Chrome neid eellaadimise ajal kasutada</translation>
 <translation id="5334309298019785904">Google OS ei saanud teie andmeid sünkroonida, sest sünkroonimine pole teie domeenil saadaval.</translation>
 <translation id="5334487786912937552">Chrome vajab failide allalaadimiseks juurdepääsu salvestusruumile</translation>
 <translation id="5337648990166757586">Valikuline. Aidake Chrome OS-i funktsioone ning toimivust täiustada, saates Google'ile automaatselt diagnostika- ja kasutusandmeid.</translation>
@@ -250,7 +255,6 @@ Mõned funktsioonid ei pruugi saadaval olla. Määrake muu profiilikataloog või
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> võib olla ohtlik, mistõttu Chrome blokeeris selle.</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{Administraator palub teil Chrome'i selle värskenduse rakendamiseks uuesti käivitada}=1{Administraator palub teil Chrome'i selle värskenduse rakendamiseks uuesti käivitada. Teie inkognito akent ei avata uuesti.}other{Administraator palub teil Chrome'i selle värskenduse rakendamiseks uuesti käivitada. Teie # inkognito akent ei avata uuesti.}}</translation>
-<translation id="5682679001737420487">Chrome blokeerib mõne allalaadimise</translation>
 <translation id="5686916850681061684">Kohandage ja hallake Google Chrome'i. Miski vajab teie tähelepanu – klõpsake üksikasjade nägemiseks.</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="570005089986962444">Kui see on sisse lülitatud, vabastab Chrome inaktiivsete vahelehtede mälu. See annab aktiivsetele vahelehtedele ja muudele rakendustele rohkem arvutiressursse ja tagab Chrome'i kiiruse. Teie inaktiivsed vahelehed muutuvad automaatselt aktiivseks niipea, kui nendele naasete.</translation>
@@ -283,6 +287,7 @@ Mõned funktsioonid ei pruugi saadaval olla. Määrake muu profiilikataloog või
 <translation id="6235018212288296708">Sissetuleku reegel Google Chrome'ile mDNS-liikluse lubamiseks.</translation>
 <translation id="624230925347970731">Chrome suletakse peagi</translation>
 <translation id="6247557882553405851">Google'i paroolihaldur</translation>
+<translation id="6251759518630934363">Hoiatab teid ohtlike saitide eest, isegi nende eest, millest Google varem ei teadnud, analüüsides standardse kaitsega võrreldes rohkem saitidelt pärinevaid andmeid. Soovi korral saate Chrome'i hoiatused vahele jätta.</translation>
 <translation id="6273793429163604305">Tähelepanu …</translation>
 <translation id="6277547788421725101">Sinu vanem lülitas Chrome'i puhul valiku „Saitide, rakenduste ja laienduste load” välja</translation>
 <translation id="6291089322031436445">Chrome Devi rakendused</translation>
@@ -387,6 +392,7 @@ Load, mille olete juba veebisaitidele ja rakendustele andnud, võivad selle kont
 <translation id="8286862437124483331">Google Chrome proovib kuvada paroole. Selle lubamiseks sisestage Windowsi parool.</translation>
 <translation id="8290100596633877290">Tohoh! Google Chrome jooksis kokku. Kas soovite kohe taaskäivitada?</translation>
 <translation id="829923460755755423">Lisage otsetee Google'i paroolihaldurisse</translation>
+<translation id="8336463659890584292">Kui sait palub lehel olevad lingid privaatselt eellaadida, kasutab Chrome Google'i servereid. See peidab teie identiteedi eellaaditud saidi eest, kuid Google saab teada, milliseid saite eellaaditakse.</translation>
 <translation id="8342675569599923794">Chrome blokeeris faili, kuna see on ohtlik.</translation>
 <translation id="8349795646647783032"><ph name="BEGIN_BOLD" />Kuidas neid andmeid kasutame?<ph name="END_BOLD" /> Saidid võivad talletada Chrome'i teavet teie huvide kohta. Näiteks kui külastate saiti, et osta maratoni jooksmiseks jalatseid, võib sait määratleda teie huviks maratonijooksu. Kui külastate hiljem jooksule registreerumiseks muud saiti, võib see sait näidata teile teie huvide alusel jooksujalatsite reklaami.</translation>
 <translation id="8370517070665726704">Autoriõigus <ph name="YEAR" /> Google LLC. Kõik õigused on kaitstud.</translation>

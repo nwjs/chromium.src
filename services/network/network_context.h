@@ -46,8 +46,8 @@
 #include "services/network/first_party_sets/first_party_sets_access_delegate.h"
 #include "services/network/http_cache_data_counter.h"
 #include "services/network/http_cache_data_remover.h"
+#include "services/network/masked_domain_list/network_service_proxy_allow_list.h"
 #include "services/network/network_qualities_pref_delegate.h"
-#include "services/network/network_service_proxy_allow_list.h"
 #include "services/network/oblivious_http_request_handler.h"
 #include "services/network/public/cpp/cors/origin_access_list.h"
 #include "services/network/public/cpp/network_service_buildflags.h"
@@ -537,8 +537,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   void ResourceSchedulerClientVisibilityChanged(
       const base::UnguessableToken& client_token,
       bool visible) override;
-  void VerifyIpProtectionAuthTokenGetterForTesting(
-      VerifyIpProtectionAuthTokenGetterForTestingCallback callback) override;
+  void FlushCachedClientCertIfNeeded(
+      const net::HostPortPair& host,
+      const scoped_refptr<net::X509Certificate>& certificate) override;
+  void VerifyIpProtectionConfigGetterForTesting(
+      VerifyIpProtectionConfigGetterForTestingCallback callback) override;
 
   // Destroys |request| when a proxy lookup completes.
   void OnProxyLookupComplete(ProxyLookupRequest* proxy_lookup_request);
@@ -667,6 +670,17 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
 #endif  // BUILDFLAG(ENABLE_REPORTING)
 
  private:
+  class NetworkContextHttpAuthPreferences : public net::HttpAuthPreferences {
+   public:
+    explicit NetworkContextHttpAuthPreferences(NetworkService* network_service);
+    ~NetworkContextHttpAuthPreferences() override;
+#if BUILDFLAG(IS_LINUX)
+    bool AllowGssapiLibraryLoad() const override;
+#endif  // BUILDFLAG(IS_LINUX)
+   private:
+    const raw_ptr<NetworkService> network_service_;
+  };
+
   // To be called back from CookieManager on settings change.
   void OnCookieManagerSettingsChanged();
 
@@ -756,8 +770,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   bool IsAllowedToUseAllHttpAuthSchemes(
       const url::SchemeHostPort& scheme_host_port);
 
-  void OnIpProtectionAuthTokenAvailableForTesting(
-      VerifyIpProtectionAuthTokenGetterForTestingCallback callback);
+  void OnIpProtectionConfigAvailableForTesting(
+      VerifyIpProtectionConfigGetterForTestingCallback callback);
 
   const raw_ptr<NetworkService> network_service_;
 
@@ -948,7 +962,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkContext
   // preferences from |NetworkContext| would be merged to
   // `http_auth_merged_preferences_` which would then be used to create
   // HttpAuthHandle via |NetworkContext::CreateHttpAuthHandlerFactory|.
-  net::HttpAuthPreferences http_auth_merged_preferences_;
+  NetworkContextHttpAuthPreferences http_auth_merged_preferences_;
 
   // Each network context holds its own WebBundleManager, which
   // manages the lifetiem of a WebBundleURLLoaderFactory object.

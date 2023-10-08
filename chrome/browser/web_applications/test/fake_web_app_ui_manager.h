@@ -40,6 +40,7 @@ class FakeWebAppUiManager : public WebAppUiManager {
   // WebAppUiManager:
   WebAppUiManagerImpl* AsImpl() override;
   size_t GetNumWindowsForApp(const AppId& app_id) override;
+  void CloseAppWindows(const AppId& app_id) override {}
   void NotifyOnAllAppWindowsClosed(const AppId& app_id,
                                    base::OnceClosure callback) override;
   bool CanAddAppToQuickLaunchBar() const override;
@@ -47,6 +48,8 @@ class FakeWebAppUiManager : public WebAppUiManager {
   bool IsAppInQuickLaunchBar(const AppId& app_id) const override;
   bool IsInAppWindow(content::WebContents* web_contents,
                      const AppId* app_id) const override;
+  bool IsAppAffiliatedWindowOrNone(
+      content::WebContents* web_contents) const override;
   void NotifyOnAssociatedAppChanged(
       content::WebContents* web_contents,
       const absl::optional<AppId>& previous_app_id,
@@ -56,6 +59,10 @@ class FakeWebAppUiManager : public WebAppUiManager {
   void ReparentAppTabToWindow(content::WebContents* contents,
                               const AppId& app_id,
                               bool shortcut_created) override;
+  void ShowWebAppFileLaunchDialog(
+      const std::vector<base::FilePath>& file_paths,
+      const web_app::AppId& app_id,
+      WebAppLaunchAcceptanceCallback launch_callback) override {}
   void ShowWebAppIdentityUpdateDialog(
       const std::string& app_id,
       bool title_change,
@@ -66,6 +73,7 @@ class FakeWebAppUiManager : public WebAppUiManager {
       const SkBitmap& new_icon,
       content::WebContents* web_contents,
       AppIdentityDialogCallback callback) override;
+  void ShowWebAppSettings(const AppId& app_id) override {}
 
   base::Value LaunchWebApp(apps::AppLaunchParams params,
                            LaunchWebAppWindowSetting launch_setting,

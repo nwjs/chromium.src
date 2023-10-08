@@ -88,9 +88,6 @@ declare global {
         NAME_LAST_CONJUNCTION,
         NAME_LAST_SECOND,
         NAME_HONORIFIC_PREFIX,
-        ADDRESS_HOME_PREMISE_NAME,
-        ADDRESS_HOME_DEPENDENT_STREET_NAME,
-        ADDRESS_HOME_STREET_AND_DEPENDENT_STREET_NAME,
         ADDRESS_HOME_ADDRESS,
         ADDRESS_HOME_ADDRESS_WITH_NAME,
         ADDRESS_HOME_FLOOR,
@@ -106,9 +103,16 @@ declare global {
         CREDIT_CARD_STANDALONE_VERIFICATION_CODE,
         NUMERIC_QUANTITY,
         ONE_TIME_CODE,
+        DELIVERY_INSTRUCTIONS,
+        ADDRESS_HOME_OVERFLOW,
         ADDRESS_HOME_LANDMARK,
-        ADDRESS_HOME_BETWEEN_STREETS,
+        ADDRESS_HOME_OVERFLOW_AND_LANDMARK,
         ADDRESS_HOME_ADMIN_LEVEL2,
+        ADDRESS_HOME_STREET_LOCATION,
+        ADDRESS_HOME_BETWEEN_STREETS,
+        ADDRESS_HOME_BETWEEN_STREETS_OR_LANDMARK,
+        ADDRESS_HOME_BETWEEN_STREETS_1,
+        ADDRESS_HOME_BETWEEN_STREETS_2,
         SINGLE_USERNAME_FORGOT_PASSWORD,
       }
 
@@ -128,20 +132,16 @@ declare global {
         isVirtualCardEnrolled?: boolean;
       }
 
+      export interface AddressField {
+        type: ServerFieldType;
+        value: string|undefined;
+      }
+
       export interface AddressEntry {
         guid?: string;
-        fullName?: string;
-        honorific?: string;
-        companyName?: string;
-        addressLines?: string;
-        addressLevel1?: string;
-        addressLevel2?: string;
-        addressLevel3?: string;
-        postalCode?: string;
-        sortingCode?: string;
-        countryCode?: string;
-        phoneNumber?: string;
-        emailAddress?: string;
+
+        fields: AddressField[];
+
         languageCode?: string;
         metadata?: AutofillMetadata;
       }
@@ -211,7 +211,6 @@ declare global {
       export function migrateCreditCards(): void;
       export function logServerCardLinkClicked(): void;
       export function setCreditCardFIDOAuthEnabledState(enabled: boolean): void;
-      export function getUpiIdList(): Promise<string[]>;
       export function addVirtualCard(cardId: string): void;
       export function removeVirtualCard(cardId: string): void;
       export function authenticateUserAndFlipMandatoryAuthToggle(): void;

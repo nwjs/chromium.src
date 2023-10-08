@@ -63,6 +63,7 @@
 #include "third_party/blink/renderer/core/layout/layout_text_fragment.h"
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/layout/list_marker.h"
+#include "third_party/blink/renderer/core/page/focus_controller.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
 #include "third_party/blink/renderer/core/page/viewport_description.h"
 #include "third_party/blink/renderer/core/testing/color_scheme_helper.h"
@@ -385,8 +386,7 @@ TEST_F(StyleEngineTest, AnalyzedInject) {
   ASSERT_EQ(capabilities.slope,
             FontSelectionRange({ItalicSlopeValue(), ItalicSlopeValue()}));
 
-  auto* style_element = MakeGarbageCollected<HTMLStyleElement>(
-      GetDocument(), CreateElementFlags());
+  auto* style_element = MakeGarbageCollected<HTMLStyleElement>(GetDocument());
   style_element->setInnerHTML(
       "@font-face {"
       " font-family: 'Cool Font';"
@@ -460,8 +460,7 @@ TEST_F(StyleEngineTest, AnalyzedInject) {
   ASSERT_TRUE(keyframes);
   EXPECT_EQ(1u, keyframes->Keyframes().size());
 
-  style_element = MakeGarbageCollected<HTMLStyleElement>(GetDocument(),
-                                                         CreateElementFlags());
+  style_element = MakeGarbageCollected<HTMLStyleElement>(GetDocument());
   style_element->setInnerHTML("@keyframes dummy-animation { from {} to {} }");
   GetDocument().body()->AppendChild(style_element);
   UpdateAllLifecyclePhases();
@@ -807,8 +806,7 @@ TEST_F(StyleEngineTest, IgnoreInvalidPropertyValue) {
 }
 
 TEST_F(StyleEngineTest, TextToSheetCache) {
-  auto* element = MakeGarbageCollected<HTMLStyleElement>(GetDocument(),
-                                                         CreateElementFlags());
+  auto* element = MakeGarbageCollected<HTMLStyleElement>(GetDocument());
 
   String sheet_text("div {}");
   TextPosition min_pos = TextPosition::MinimumPosition();
@@ -837,8 +835,7 @@ TEST_F(StyleEngineTest, TextToSheetCache) {
   // StyleSheetContents cache.
   ThreadState::Current()->CollectAllGarbageForTesting();
 
-  element = MakeGarbageCollected<HTMLStyleElement>(GetDocument(),
-                                                   CreateElementFlags());
+  element = MakeGarbageCollected<HTMLStyleElement>(GetDocument());
   sheet1 = GetStyleEngine().CreateSheet(*element, sheet_text, min_pos,
                                         PendingSheetType::kNonBlocking,
                                         RenderBlockingBehavior::kNonBlocking);
@@ -2752,8 +2749,8 @@ TEST_F(StyleEngineTest, GetComputedStyleOutsideFlatTree) {
   EXPECT_FALSE(innermost->GetComputedStyle());
 
   inner->EnsureComputedStyle();
-  scoped_refptr<const ComputedStyle> outer_style = outer->GetComputedStyle();
-  scoped_refptr<const ComputedStyle> inner_style = inner->GetComputedStyle();
+  const ComputedStyle* outer_style = outer->GetComputedStyle();
+  const ComputedStyle* inner_style = inner->GetComputedStyle();
 
   ASSERT_TRUE(outer_style);
   ASSERT_TRUE(inner_style);
@@ -3247,6 +3244,73 @@ TEST_F(StyleEngineTest, PrintNoForceDarkMode) {
   EXPECT_EQ(frame_view->DocumentBackgroundColor(), Color(18, 18, 18));
   EXPECT_EQ(GetDocument().documentElement()->GetComputedStyle()->ForceDark(),
             true);
+}
+
+TEST_F(StyleEngineTest, PrintScriptingEnabled) {
+  GetDocument().body()->setInnerHTML(R"HTML(
+      <style>
+        @media (scripting) {
+          body { color: green; }
+        }
+        @media (scripting: none) {
+          body { color: red; }
+        }
+      </style>
+    )HTML");
+  GetFrame().GetSettings()->SetScriptEnabled(true);
+  UpdateAllLifecyclePhases();
+  Element* body = GetDocument().body();
+
+  EXPECT_EQ(true,
+            GetDocument().GetExecutionContext()->CanExecuteScripts(
+                ReasonForCallingCanExecuteScripts::kNotAboutToExecuteScript));
+
+  EXPECT_EQ(
+      Color::FromRGB(0, 128, 0),
+      body->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+
+  gfx::SizeF page_size(400, 400);
+  GetDocument().GetFrame()->StartPrinting(page_size, 1);
+  EXPECT_EQ(
+      Color::FromRGB(0, 128, 0),
+      body->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+
+  GetDocument().GetFrame()->EndPrinting();
+}
+
+TEST_F(StyleEngineTest, MediaQueriesChangeScripting) {
+  GetDocument().body()->setInnerHTML(R"HTML(
+        <style>
+          @media (scripting) {
+            body { color: green; }
+          }
+          @media (scripting: none) {
+            body { color: red; }
+          }
+        </style>
+      )HTML");
+  GetFrame().GetSettings()->SetScriptEnabled(true);
+  UpdateAllLifecyclePhases();
+  Element* body = GetDocument().body();
+
+  EXPECT_EQ(true,
+            GetDocument().GetExecutionContext()->CanExecuteScripts(
+                ReasonForCallingCanExecuteScripts::kNotAboutToExecuteScript));
+
+  EXPECT_EQ(
+      Color::FromRGB(0, 128, 0),
+      body->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+
+  GetFrame().GetSettings()->SetScriptEnabled(false);
+  UpdateAllLifecyclePhases();
+
+  EXPECT_EQ(false,
+            GetDocument().GetExecutionContext()->CanExecuteScripts(
+                ReasonForCallingCanExecuteScripts::kNotAboutToExecuteScript));
+
+  EXPECT_EQ(
+      Color::FromRGB(255, 0, 0),
+      body->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
 }
 
 TEST_F(StyleEngineTest, AtPropertyUseCount) {
@@ -3923,8 +3987,7 @@ TEST_F(StyleEngineContainerQueryTest, MarkStyleDirtyFromContainerRecalc) {
   auto* inner_editor = DynamicTo<HTMLInputElement>(input)->InnerEditorElement();
   ASSERT_TRUE(inner_editor);
 
-  scoped_refptr<const ComputedStyle> old_inner_style =
-      inner_editor->GetComputedStyle();
+  const ComputedStyle* old_inner_style = inner_editor->GetComputedStyle();
   EXPECT_TRUE(old_inner_style);
 
   unsigned start_count = GetStyleEngine().StyleForElementCount();
@@ -4558,7 +4621,7 @@ TEST_F(StyleEngineTest, CascadeLayersInOriginsAndTreeScopes) {
       @layer bar, foo;
     </style>
     <div id="host">
-      <template shadowroot="open">
+      <template shadowrootmode="open">
         <style>
           @layer foo, bar, foo.baz;
         </style>
@@ -4730,7 +4793,7 @@ TEST_F(StyleEngineTest, CascadeLayersSheetsRemoved) {
       @layer bar, foo;
     </style>
     <div id="host">
-      <template shadowroot="open">
+      <template shadowrootmode="open">
         <style>
           @layer foo, bar, foo.baz;
         </style>
@@ -4790,14 +4853,14 @@ TEST_F(StyleEngineTest, NonSlottedStyleDirty) {
   // with ChildNeedsStyleRecalc(), but the child needs to be marked dirty to
   // make sure the next EnsureComputedStyle updates the style to reflect the
   // changes.
-  scoped_refptr<const ComputedStyle> old_style = span->EnsureComputedStyle();
+  const ComputedStyle* old_style = span->EnsureComputedStyle();
   span->SetInlineStyleProperty(CSSPropertyID::kColor, "green");
   EXPECT_FALSE(host->ChildNeedsStyleRecalc());
   EXPECT_TRUE(span->NeedsStyleRecalc());
   UpdateAllLifecyclePhases();
 
   EXPECT_EQ(span->GetComputedStyle(), old_style);
-  scoped_refptr<const ComputedStyle> new_style = span->EnsureComputedStyle();
+  const ComputedStyle* new_style = span->EnsureComputedStyle();
   EXPECT_NE(new_style, old_style);
 
   EXPECT_EQ(Color::FromRGB(255, 0, 0),
@@ -5747,6 +5810,49 @@ TEST_F(StyleEngineSimTest, ResizeWithBlockingSheetTransition) {
 
   css_request.Start();
   WebView().MainFrameWidget()->Resize(gfx::Size(800, 800));
+
+  css_request.Complete(R"CSS(
+    #trans { color: green; }
+  )CSS");
+
+  Compositor().BeginFrame();
+  test::RunPendingTasks();
+
+  Element* trans = GetDocument().getElementById(AtomicString("trans"));
+  ASSERT_TRUE(trans);
+
+  // Completing the linked stylesheet should not start a transition since the
+  // sheet is render-blocking.
+  EXPECT_EQ(
+      trans->ComputedStyleRef().VisitedDependentColor(GetCSSPropertyColor()),
+      Color::FromRGB(0, 128, 0));
+}
+
+TEST_F(StyleEngineSimTest, FocusWithBlockingSheetTransition) {
+  WebView().MainFrameWidget()->Resize(gfx::Size(500, 500));
+
+  SimRequest html_request("https://example.com/test.html", "text/html");
+  SimSubresourceRequest css_request("https://example.com/slow.css", "text/css");
+
+  LoadURL("https://example.com/test.html");
+  html_request.Complete(R"HTML(
+      <!DOCTYPE html>
+      <style>
+        #trans {
+          transition-duration: 30s;
+          color: red;
+        }
+      </style>
+      <link rel="stylesheet" href="slow.css">
+      <div id="trans"></div>
+  )HTML");
+
+  css_request.Start();
+
+  GetDocument().GetPage()->GetFocusController().SetActive(true);
+  GetDocument().GetPage()->GetFocusController().SetFocused(true);
+  GetDocument().GetPage()->GetFocusController().SetFocusedFrame(
+      GetDocument().GetFrame());
 
   css_request.Complete(R"CSS(
     #trans { color: green; }

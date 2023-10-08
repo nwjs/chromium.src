@@ -10,8 +10,10 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory.h"
 #include "components/autofill/content/browser/content_autofill_driver_factory_test_api.h"
+#include "components/autofill/content/common/mojom/autofill_agent.mojom.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_driver.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -279,13 +281,6 @@ TEST_P(ContentAutofillDriverFactoryTest_WithTwoFrames_PickOne,
     EXPECT_EQ(test_api(*factory_).GetDriver(child_rfh()), child_driver);
   else
     EXPECT_EQ(test_api(*factory_).GetDriver(main_rfh()), main_driver);
-}
-
-// Tests that OnVisibilityChanged() hides the popup.
-TEST_F(ContentAutofillDriverFactoryTest, TabHidden) {
-  NavigateMainFrame("https://a.com/");
-  EXPECT_CALL(*client_, HideAutofillPopup(PopupHidingReason::kTabGone));
-  factory_->OnVisibilityChanged(content::Visibility::HIDDEN);
 }
 
 // Test case with one frame, with BFcache enabled or disabled depending on the

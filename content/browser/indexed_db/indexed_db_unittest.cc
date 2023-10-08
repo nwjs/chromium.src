@@ -11,6 +11,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
+#include "base/strings/stringprintf.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
@@ -22,7 +23,7 @@
 #include "components/services/storage/indexed_db/transactional_leveldb/transactional_leveldb_database.h"
 #include "components/services/storage/privileged/mojom/indexed_db_control.mojom-test-utils.h"
 #include "components/services/storage/public/cpp/buckets/bucket_locator.h"
-#include "content/browser/indexed_db/indexed_db_bucket_state.h"
+#include "content/browser/indexed_db/indexed_db_bucket_context.h"
 #include "content/browser/indexed_db/indexed_db_client_state_checker_wrapper.h"
 #include "content/browser/indexed_db/indexed_db_connection.h"
 #include "content/browser/indexed_db/indexed_db_context_impl.h"
@@ -694,8 +695,10 @@ TEST(PartitionedLockManager, TestRangeDifferences) {
   PartitionedLockId lock_id_db1_os1;
   PartitionedLockId lock_id_db1_os2;
   for (int64_t i = 0; i < 512; ++i) {
-    lock_id_db1 = GetDatabaseLockId(i);
-    lock_id_db2 = GetDatabaseLockId(i + 1);
+    lock_id_db1 = GetDatabaseLockId(
+        base::ASCIIToUTF16(base::StringPrintf("%" PRIx64, i)));
+    lock_id_db2 = GetDatabaseLockId(
+        base::ASCIIToUTF16(base::StringPrintf("%" PRIx64, i + 1)));
     lock_id_db1_os1 = GetObjectStoreLockId(i, i);
     lock_id_db1_os2 = GetObjectStoreLockId(i, i + 1);
     EXPECT_NE(lock_id_db1, lock_id_db2);

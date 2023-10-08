@@ -64,6 +64,7 @@ class BrowserViewLayout : public views::LayoutManager {
                     views::View* left_aligned_side_panel_separator,
                     views::View* unified_side_panel,
                     views::View* right_aligned_side_panel_separator,
+                    views::View* side_panel_rounded_corner,
                     ImmersiveModeController* immersive_mode_controller,
                     views::View* contents_separator);
 
@@ -193,6 +194,8 @@ class BrowserViewLayout : public views::LayoutManager {
   const raw_ptr<views::View, AcrossTasksDanglingUntriaged> unified_side_panel_;
   const raw_ptr<views::View, AcrossTasksDanglingUntriaged>
       right_aligned_side_panel_separator_;
+  const raw_ptr<views::View, AcrossTasksDanglingUntriaged>
+      side_panel_rounded_corner_;
   const raw_ptr<ImmersiveModeController, AcrossTasksDanglingUntriaged>
       immersive_mode_controller_;
   const raw_ptr<views::View, AcrossTasksDanglingUntriaged> contents_separator_;
@@ -218,7 +221,7 @@ class BrowserViewLayout : public views::LayoutManager {
   std::unique_ptr<WebContentsModalDialogHostViews> dialog_host_;
 
   // The latest dialog bounds applied during a layout pass.
-  gfx::Rect latest_dialog_bounds_;
+  gfx::Rect latest_dialog_bounds_in_screen_;
 
   // The latest contents bounds applied during a layout pass, in screen
   // coordinates.
@@ -227,9 +230,9 @@ class BrowserViewLayout : public views::LayoutManager {
   // Directly tied to SetContentBorderBounds() - more details there.
   absl::optional<gfx::Rect> dynamic_content_border_bounds_;
 
-  // The distance the web contents modal dialog is from the top of the window,
-  // in pixels.
-  int web_contents_modal_dialog_top_y_ = -1;
+  // The distance the web contents modal dialog is from the top of the dialog
+  // host widget.
+  int dialog_top_y_ = -1;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_FRAME_BROWSER_VIEW_LAYOUT_H_

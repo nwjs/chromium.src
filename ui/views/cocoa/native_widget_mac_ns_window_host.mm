@@ -4,12 +4,15 @@
 
 #include "ui/views/cocoa/native_widget_mac_ns_window_host.h"
 
+#include <AvailabilityMacros.h>
+#include <AvailabilityVersions.h>
+
 #include <tuple>
 #include <utility>
 
+#include "base/apple/foundation_util.h"
 #include "base/base64.h"
 #include "base/containers/contains.h"
-#include "base/mac/foundation_util.h"
 #include "base/no_destructor.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/ranges/algorithm.h"
@@ -53,6 +56,16 @@
 
 using remote_cocoa::mojom::NativeWidgetNSWindowInitParams;
 using remote_cocoa::mojom::WindowVisibilityState;
+
+#if !defined(MAC_OS_VERSION_14_0) || \
+    MAC_OS_X_VERSION_MAX_ALLOWED < MAC_OS_VERSION_14_0
+
+@interface NSApplication ()
+- (void)yieldActivationToApplicationWithBundleIdentifier:
+    (NSString*)bundleIdentifier API_AVAILABLE(macos(14.0));
+@end
+
+#endif
 
 namespace views {
 
@@ -232,7 +245,7 @@ NSWindow* OriginalHostingWindowFromFullScreenWindow(
     NSWindow* full_screen_window) {
   if ([full_screen_window.delegate
           conformsToProtocol:@protocol(ImmersiveModeDelegate)]) {
-    return base::mac::ObjCCastStrict<NSObject<ImmersiveModeDelegate>>(
+    return base::apple::ObjCCastStrict<NSObject<ImmersiveModeDelegate>>(
                full_screen_window.delegate)
         .originalHostingWindow;
   }
@@ -247,7 +260,7 @@ NativeWidgetMacNSWindowHost* NativeWidgetMacNSWindowHost::GetFromNativeWindow(
   NSWindow* window = native_window.GetNativeNSWindow();
 
   if (NativeWidgetMacNSWindow* widget_window =
-          base::mac::ObjCCast<NativeWidgetMacNSWindow>(window)) {
+          base::apple::ObjCCast<NativeWidgetMacNSWindow>(window)) {
     return GetFromId([widget_window bridgedNativeWidgetId]);
   }
 
@@ -258,7 +271,7 @@ NativeWidgetMacNSWindowHost* NativeWidgetMacNSWindowHost::GetFromNativeWindow(
   if (remote_cocoa::IsNSToolbarFullScreenWindow(window)) {
     NSWindow* original = OriginalHostingWindowFromFullScreenWindow(window);
     if (NativeWidgetMacNSWindow* widget_window =
-            base::mac::ObjCCast<NativeWidgetMacNSWindow>(original)) {
+            base::apple::ObjCCast<NativeWidgetMacNSWindow>(original)) {
       return GetFromId([widget_window bridgedNativeWidgetId]);
     }
   }
@@ -490,7 +503,7 @@ void NativeWidgetMacNSWindowHost::InitWindow(
 
   // Widgets for UI controls (usually layered above web contents) start visible.
   if (widget_type_ == Widget::InitParams::TYPE_CONTROL)
-    GetNSWindowMojo()->SetVisibilityState(WindowVisibilityState::kShowInactive);
+    SetVisibilityState(WindowVisibilityState::kShowInactive);
 }
 
 void NativeWidgetMacNSWindowHost::CloseWindowNow() {
@@ -518,6 +531,33 @@ void NativeWidgetMacNSWindowHost::SetBoundsInScreen(const gfx::Rect& bounds) {
       bounds, native_widget_mac_->GetWidget()->GetMinimumSize());
 
   if (remote_ns_window_remote_) {
+    gfx::Rect window_in_screen =
+        gfx::ScreenRectFromNSRect([in_process_ns_window_ frame]);
+    gfx::Rect content_in_screen =
+        gfx::ScreenRectFromNSRect([in_process_ns_window_
+            contentRectForFrameRect:[in_process_ns_window_ frame]]);
+
+    OnWindowGeometryChanged(window_in_screen, content_in_screen);
+  }
+}
+
+void NativeWidgetMacNSWindowHost::SetSize(const gfx::Size& size) {
+  DCHECK(!size.IsEmpty() ||
+         !native_widget_mac_->GetWidget()->GetMinimumSize().IsEmpty())
+      << "Zero-sized windows are not supported on Mac";
+  GetNSWindowMojo()->SetSize(size,
+                             native_widget_mac_->GetWidget()->GetMinimumSize());
+
+  if (remote_ns_window_remote_) {
+    // Reflecting the logic above in SetBoundsInScreen, update our local
+    // version of what we think the bounds of the window are. These bounds
+    // are going to be not quite correct until OnWindowGeometryChanged is
+    // called by the remote process but this is better than keeping the old
+    // bounds around as code might try to make decisions based on the current
+    // perceived bounds of the window.
+    gfx::Rect bounds(GetWindowBoundsInScreen().origin(), size);
+    UpdateLocalWindowFrame(bounds);
+
     gfx::Rect window_in_screen =
         gfx::ScreenRectFromNSRect([in_process_ns_window_ frame]);
     gfx::Rect content_in_screen =
@@ -777,6 +817,22 @@ void NativeWidgetMacNSWindowHost::ReorderChildViews() {
     attached_subview_ids.push_back(ns_view_id);
   }
   GetNSWindowMojo()->SortSubviews(attached_subview_ids);
+}
+
+void NativeWidgetMacNSWindowHost::SetVisibilityState(
+    remote_cocoa::mojom::WindowVisibilityState new_state) {
+  // On macOS 14 an application can't generally activate themselves. If we're
+  // trying to activate a window in a remote application host, this yield
+  // should make sure this works as long as chrome is the currently active
+  // application.
+  if (@available(macOS 14, *)) {
+    if (application_host_ &&
+        new_state == WindowVisibilityState::kShowAndActivateWindow) {
+      [NSApp yieldActivationToApplicationWithBundleIdentifier:
+                 base::SysUTF8ToNSString(application_host_->bundle_id())];
+    }
+  }
+  GetNSWindowMojo()->SetVisibilityState(new_state);
 }
 
 void NativeWidgetMacNSWindowHost::GetAttachedNativeViewHostViewsRecursive(

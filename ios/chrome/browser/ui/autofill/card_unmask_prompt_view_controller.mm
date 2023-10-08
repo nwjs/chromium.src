@@ -4,7 +4,7 @@
 
 #import "ios/chrome/browser/ui/autofill/card_unmask_prompt_view_controller.h"
 
-#import "base/mac/foundation_util.h"
+#import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/browser/ui/payments/card_unmask_prompt_controller.h"
 #import "components/strings/grit/components_strings.h"
@@ -40,6 +40,13 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeExpirationDateInput,
 };
 
+// Represents the next first responder after a UI transition.
+enum class ItemToFocus {
+  kNone,
+  kCVC,
+  kExpirationDate,
+};
+
 // Empty space on top of the input section. This value added up to the gPay
 // badge bottom padding achieves the mock's vertical spacing between the gPay
 // badge in the header.
@@ -73,12 +80,9 @@ const char kFooterDummyLinkTarget[] = "about:blank";
   CVCHeaderItem* _headerItem;
   // Model of the expiration date input cell.
   ExpirationDateEditItem* _expirationDateInputItem;
-  // Flag indicating that we should set the focus in either the CVC or
-  // expiration date fields once the tableView is reloaded. After the view shows
-  // the CVC form or the expiration form, we want to focus the CVC and
-  // expiration date fields respectively. When transitioning from one form to
-  // the other, we activate this flag so the focus is updated.
-  BOOL _shouldUpdateFocus;
+  // Whether we should set the focus on the CVC or
+  // expiration date fields once the tableView is reloaded.
+  ItemToFocus _itemToFocus;
 }
 
 @end
@@ -91,7 +95,7 @@ const char kFooterDummyLinkTarget[] = "about:blank";
   if (self) {
     _bridge = bridge;
     // Focus CVC field after initial load.
-    _shouldUpdateFocus = YES;
+    _itemToFocus = ItemToFocus::kCVC;
   }
 
   return self;
@@ -161,6 +165,10 @@ const char kFooterDummyLinkTarget[] = "about:blank";
   _CVCInputItem = [self createCVCInputItem];
   [self.tableViewModel addItem:_CVCInputItem
        toSectionWithIdentifier:SectionIdentifierInputs];
+
+  if (_bridge->GetController()->ShouldRequestExpirationDate()) {
+    [self addExpirationDateInputItem];
+  }
 }
 
 #pragma mark - Public
@@ -279,7 +287,7 @@ const char kFooterDummyLinkTarget[] = "about:blank";
   [self removeFooterItem];
 
   // Change focus to expiration date field once the cells are loaded.
-  _shouldUpdateFocus = YES;
+  _itemToFocus = ItemToFocus::kExpirationDate;
 
   [self reloadAllSections];
 
@@ -309,7 +317,7 @@ const char kFooterDummyLinkTarget[] = "about:blank";
         forSectionWithIdentifier:SectionIdentifierInputs];
 
   // Restore focus to CVC input field after the section is reloaded.
-  _shouldUpdateFocus = YES;
+  _itemToFocus = ItemToFocus::kCVC;
 
   // Reload inputs section to display footer.
   NSIndexSet* indexSet = [[NSIndexSet alloc]
@@ -554,24 +562,24 @@ const char kFooterDummyLinkTarget[] = "about:blank";
   // needed.
   // Don't update focus when Voice Over is running. Instead, the instructions
   // will be read, providing more context for users with Voice Over enabled.
-  if (UIAccessibilityIsVoiceOverRunning() || !_shouldUpdateFocus ||
+  if (UIAccessibilityIsVoiceOverRunning() ||
+      _itemToFocus == ItemToFocus::kNone ||
       ![cell isKindOfClass:TableViewTextEditCell.class]) {
     return;
   }
   // When we're about to display the CVC form or expiration date form for
   // the first time focus the textField on the right cell.
   TableViewTextEditCell* rowCell =
-      base::mac::ObjCCastStrict<TableViewTextEditCell>(cell);
+      base::apple::ObjCCastStrict<TableViewTextEditCell>(cell);
 
   ItemType rowItemType = static_cast<ItemType>(
       [self.tableViewModel itemTypeForIndexPath:indexPath]);
-  // If the expiration date cell is displayed then we're transitioning to the
-  // expiration date form. Only focus the CVC cell when we're not transitioning
-  // to the expiration date form.
-  if (rowItemType == ItemTypeExpirationDateInput ||
-      (rowItemType == ItemTypeCVCInput && !_expirationDateInputItem)) {
+
+  if ((rowItemType == ItemTypeExpirationDateInput &&
+       _itemToFocus == ItemToFocus::kExpirationDate) ||
+      (rowItemType == ItemTypeCVCInput && _itemToFocus == ItemToFocus::kCVC)) {
     [rowCell.textField becomeFirstResponder];
-    _shouldUpdateFocus = NO;
+    _itemToFocus = ItemToFocus::kNone;
   }
 }
 
@@ -587,7 +595,7 @@ const char kFooterDummyLinkTarget[] = "about:blank";
   // Update Card link.
   if (sectionIdentifier == SectionIdentifierInputs) {
     TableViewLinkHeaderFooterView* footerView =
-        base::mac::ObjCCast<TableViewLinkHeaderFooterView>(view);
+        base::apple::ObjCCast<TableViewLinkHeaderFooterView>(view);
     footerView.delegate = self;
   }
 
@@ -604,7 +612,7 @@ const char kFooterDummyLinkTarget[] = "about:blank";
 
   if (rowItemType == ItemTypeCVCInput) {
     TableViewTextEditCell* rowCell =
-        base::mac::ObjCCastStrict<TableViewTextEditCell>(cell);
+        base::apple::ObjCCastStrict<TableViewTextEditCell>(cell);
     rowCell.textField.delegate = self;
     // Hide the icon from Voice Over.
     rowCell.identifyingIconButton.isAccessibilityElement = NO;

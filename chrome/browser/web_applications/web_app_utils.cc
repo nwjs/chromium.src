@@ -52,6 +52,7 @@
 #include "content/public/common/content_features.h"
 #include "mojo/public/cpp/bindings/struct_ptr.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-shared.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-shared.h"
 #include "third_party/skia/include/core/SkBitmap.h"
@@ -222,10 +223,11 @@ DisplayMode ResolveAppDisplayModeForStandaloneLaunchContainer(
     case DisplayMode::kWindowControlsOverlay:
       return DisplayMode::kWindowControlsOverlay;
     case DisplayMode::kTabbed:
-      if (base::FeatureList::IsEnabled(features::kDesktopPWAsTabStrip))
+      if (base::FeatureList::IsEnabled(blink::features::kDesktopPWAsTabStrip)) {
         return DisplayMode::kTabbed;
-      else
+      } else {
         return DisplayMode::kStandalone;
+      }
     case DisplayMode::kBorderless:
       return DisplayMode::kBorderless;
   }
@@ -514,7 +516,7 @@ bool IsRunOnOsLoginModeEnabledForAutostart(RunOnOsLoginMode login_mode) {
 #if BUILDFLAG(IS_CHROMEOS)
 bool IsWebAppsCrosapiEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-  return crosapi::browser_util::IsLacrosPrimaryBrowser();
+  return crosapi::browser_util::IsLacrosEnabled();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   auto* lacros_service = chromeos::LacrosService::Get();
@@ -599,17 +601,6 @@ AppId GetAppIdFromAppSettingsUrl(const GURL& url) {
   if (path.size() <= 1)
     return AppId();
   return path.substr(1);
-}
-
-bool HasAppSettingsPage(Profile* profile, const GURL& url) {
-  const AppId app_id = GetAppIdFromAppSettingsUrl(url);
-  if (app_id.empty())
-    return false;
-
-  WebAppProvider* provider = WebAppProvider::GetForWebApps(profile);
-  if (!provider)
-    return false;
-  return provider->registrar_unsafe().IsLocallyInstalled(app_id);
 }
 
 bool IsInScope(const GURL& url, const GURL& scope) {

@@ -45,14 +45,14 @@ class AutofillDriverIOS : public AutofillDriver,
 
   // AutofillDriver:
   LocalFrameToken GetFrameToken() const override;
-  AutofillDriverIOS* GetParent() override;
   absl::optional<LocalFrameToken> Resolve(FrameToken query) override;
+  AutofillDriverIOS* GetParent() override;
+  BrowserAutofillManager& GetAutofillManager() override;
   bool IsInActiveFrame() const override;
   bool IsInAnyMainFrame() const override;
   bool IsPrerendering() const override;
   bool HasSharedAutofillPermission() const override;
   bool CanShowAutofillUi() const override;
-  ui::AXTreeID GetAxTreeId() const override;
   bool RendererIsAvailable() override;
   std::vector<FieldGlobalId> FillOrPreviewForm(
       mojom::AutofillActionPersistence action_persistence,
@@ -91,10 +91,6 @@ class AutofillDriverIOS : public AutofillDriver,
   void set_autofill_manager_for_testing(
       std::unique_ptr<BrowserAutofillManager> browser_autofill_manager) {
     browser_autofill_manager_ = std::move(browser_autofill_manager);
-  }
-
-  BrowserAutofillManager* autofill_manager() {
-    return browser_autofill_manager_.get();
   }
 
   void RendererShouldFillFieldWithValue(const FieldGlobalId& field,

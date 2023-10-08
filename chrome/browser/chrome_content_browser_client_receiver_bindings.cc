@@ -24,6 +24,7 @@
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
+#include "chrome/browser/safe_browsing/extension_telemetry/extension_web_request_reporter_impl.h"
 #include "chrome/browser/signin/google_accounts_private_api_host.h"
 #include "chrome/browser/trusted_vault/trusted_vault_encryption_keys_tab_helper.h"
 #include "chrome/common/buildflags.h"
@@ -109,7 +110,8 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PDF)
-#include "components/pdf/browser/pdf_web_contents_helper.h"  // nogncheck
+#include "chrome/browser/ui/pdf/chrome_pdf_document_helper_client.h"
+#include "components/pdf/browser/pdf_document_helper.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PRINTING)
@@ -190,7 +192,25 @@ void MaybeCreateSafeBrowsingForRenderer(
             std::move(receiver)));
   }
 }
-#endif
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+void MaybeCreateExtensionWebRequestReporterForRenderer(
+    int process_id,
+    mojo::PendingReceiver<safe_browsing::mojom::ExtensionWebRequestReporter>
+        receiver) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+
+  content::RenderProcessHost* render_process_host =
+      content::RenderProcessHost::FromID(process_id);
+  if (!render_process_host) {
+    return;
+  }
+
+  safe_browsing::ExtensionWebRequestReporterImpl::Create(render_process_host,
+                                                         std::move(receiver));
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 // BadgeManager is not used for Android.
 #if !BUILDFLAG(IS_ANDROID)
@@ -321,8 +341,14 @@ void ChromeContentBrowserClient::ExposeInterfacesToRenderer(
                 &ChromeContentBrowserClient::GetSafeBrowsingUrlCheckerDelegate,
                 base::Unretained(this))),
         ui_task_runner);
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    registry->AddInterface<safe_browsing::mojom::ExtensionWebRequestReporter>(
+        base::BindRepeating(&MaybeCreateExtensionWebRequestReporterForRenderer,
+                            render_process_host->GetID()),
+        ui_task_runner);
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   }
-#endif
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 #if BUILDFLAG(IS_WIN)
   // Add the ModuleEventSink interface. This is the interface used by renderer
@@ -594,8 +620,9 @@ void ChromeContentBrowserClient::
   associated_registry.AddInterface<pdf::mojom::PdfService>(base::BindRepeating(
       [](content::RenderFrameHost* render_frame_host,
          mojo::PendingAssociatedReceiver<pdf::mojom::PdfService> receiver) {
-        pdf::PDFWebContentsHelper::BindPdfService(std::move(receiver),
-                                                  render_frame_host);
+        pdf::PDFDocumentHelper::BindPdfService(
+            std::move(receiver), render_frame_host,
+            std::make_unique<ChromePDFDocumentHelperClient>());
       },
       &render_frame_host));
 #endif  // BUILDFLAG(ENABLE_PDF)

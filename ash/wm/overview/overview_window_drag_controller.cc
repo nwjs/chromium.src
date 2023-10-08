@@ -32,6 +32,7 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_util.h"
+#include "base/debug/crash_logging.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
@@ -97,13 +98,13 @@ void UnpauseOcclusionTracker() {
       kOcclusionPauseDurationForDrag);
 }
 
-bool GetVirtualDesksBarEnabled(OverviewItem* item) {
+bool GetVirtualDesksBarEnabled(OverviewItemBase* item) {
   return desks_util::ShouldDesksBarBeCreated() &&
          item->overview_grid()->desks_bar_view();
 }
 
 // Returns whether |item|'s window is visible on all desks.
-bool DraggedItemIsVisibleOnAllDesks(OverviewItem* item) {
+bool DraggedItemIsVisibleOnAllDesks(OverviewItemBase* item) {
   aura::Window* const dragged_window = item->GetWindow();
   return dragged_window &&
          desks_util::IsWindowVisibleOnAllWorkspaces(dragged_window);
@@ -217,7 +218,7 @@ class OverviewItemMoveHelper : public aura::WindowObserver {
       session->AddItemInMruOrder(window, /*reposition=*/false,
                                  /*animate=*/false, /*restack=*/false,
                                  /*use_spawn_animation=*/false);
-      OverviewItem* item = session->GetOverviewItemForWindow(window);
+      OverviewItemBase* item = session->GetOverviewItemForWindow(window);
       DCHECK(item);
       item->SetBounds(target_item_bounds_, OVERVIEW_ANIMATION_NONE);
       item->set_should_restack_on_animation_end(true);
@@ -235,7 +236,7 @@ class OverviewItemMoveHelper : public aura::WindowObserver {
 
 OverviewWindowDragController::OverviewWindowDragController(
     OverviewSession* overview_session,
-    OverviewItem* item,
+    OverviewItemBase* item,
     bool is_touch_dragging)
     : overview_session_(overview_session),
       item_(item),
@@ -430,7 +431,7 @@ OverviewWindowDragController::DragResult OverviewWindowDragController::Fling(
   if (current_drag_behavior_ == DragBehavior::kDragToClose ||
       current_drag_behavior_ == DragBehavior::kUndefined) {
     if (std::abs(velocity_y) > kFlingToCloseVelocityThreshold) {
-      item_->AnimateAndCloseWindow(
+      item_->AnimateAndCloseItem(
           (location_in_screen - initial_event_location_).y() < 0);
       did_move_ = false;
       item_ = nullptr;
@@ -489,7 +490,7 @@ void OverviewWindowDragController::ResetGesture() {
   }
 
   // No need to position windows that are being destroyed.
-  base::flat_set<OverviewItem*> ignored_items;
+  base::flat_set<OverviewItemBase*> ignored_items;
   if (item_->GetWindow()->is_destroying()) {
     ignored_items.insert(item_);
   }
@@ -570,7 +571,7 @@ OverviewWindowDragController::CompleteDragToClose(
   overview_session_->GetGridWithRootWindow(item_->root_window())->EndNudge();
   const float y_distance = (location_in_screen - initial_event_location_).y();
   if (std::abs(y_distance) > kDragToCloseDistanceThresholdDp) {
-    item_->AnimateAndCloseWindow(/*up=*/y_distance < 0);
+    item_->AnimateAndCloseItem(/*up=*/y_distance < 0);
     RecordDragToClose(kSwipeToCloseSuccessful);
     return DragResult::kSuccessfulDragToClose;
   }
@@ -857,6 +858,40 @@ OverviewWindowDragController::CompleteNormalDrag(
 
 void OverviewWindowDragController::UpdateDragIndicatorsAndOverviewGrid(
     const gfx::PointF& location_in_screen) {
+  // Crash keys for helping debug http://b/300700394.
+  // OWDC_UDIAOG stands for
+  // `OverviewWindowDragController::UpdateDragIndicatorsAndOverviewGrid`. Here
+  // using the short version since the log method has a character count limit
+  // of 40.
+  SCOPED_CRASH_KEY_BOOL("OWDC_UDIAOG", "is_touch_dragging_",
+                        is_touch_dragging_);
+  SCOPED_CRASH_KEY_BOOL("OWDC_UDIAOG", "in_tablet_mode",
+                        Shell::Get()->IsInTabletMode());
+  SCOPED_CRASH_KEY_BOOL("OWDC_UDIAOG", "item_", !!item_);
+  SCOPED_CRASH_KEY_BOOL("OWDC_UDIAOG", "item_->root_window()",
+                        item_ && item_->root_window());
+  SCOPED_CRASH_KEY_STRING32("OWDC_UDIAOG", "initial_event_location_",
+                            initial_event_location_.ToString());
+  SCOPED_CRASH_KEY_STRING32("OWDC_UDIAOG", "initial_centerpoint_",
+                            initial_centerpoint_.ToString());
+  SCOPED_CRASH_KEY_STRING32("OWDC_UDIAOG", "location_in_screen",
+                            location_in_screen.ToString());
+
+  SCOPED_CRASH_KEY_NUMBER("OWDC_UDIAOG", "display_count_", display_count_);
+  SCOPED_CRASH_KEY_NUMBER("OWDC_UDIAOG", "current_display_count",
+                          Shell::GetAllRootWindows().size());
+  SCOPED_CRASH_KEY_BOOL(
+      "OWDC_UDIAOG", "display_valid",
+      Shell::Get()->cursor_manager()->GetDisplay().is_valid());
+
+  if (item_) {
+    if (auto* window_state = WindowState::Get(item_->GetWindow())) {
+      std::stringstream ss;
+      ss << WindowState::Get(item_->GetWindow())->GetStateType();
+      SCOPED_CRASH_KEY_STRING32("OWDC_UDIAOG", "item_state_type", ss.str());
+    }
+  }
+
   DCHECK(should_allow_split_view_);
   snap_position_ = GetSnapPosition(location_in_screen);
   overview_session_->UpdateSplitViewDragIndicatorsWindowDraggingStates(

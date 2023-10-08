@@ -8,8 +8,8 @@
 
 #import <MaterialComponents/MaterialSnackbar.h>
 
+#import "base/apple/foundation_util.h"
 #import "base/check_op.h"
-#import "base/mac/foundation_util.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "base/notreached.h"
@@ -18,9 +18,9 @@
 #import "base/time/time.h"
 #import "components/bookmarks/browser/bookmark_model.h"
 #import "components/bookmarks/browser/bookmark_utils.h"
-#import "ios/chrome/browser/bookmarks/account_bookmark_model_factory.h"
-#import "ios/chrome/browser/bookmarks/bookmarks_utils.h"
-#import "ios/chrome/browser/bookmarks/local_or_syncable_bookmark_model_factory.h"
+#import "ios/chrome/browser/bookmarks/model/account_bookmark_model_factory.h"
+#import "ios/chrome/browser/bookmarks/model/bookmarks_utils.h"
+#import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_model_factory.h"
 #import "ios/chrome/browser/default_browser/utils.h"
 #import "ios/chrome/browser/metrics/new_tab_page_uma.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
@@ -229,8 +229,7 @@ enum class PresentedState {
 }
 
 - (void)createBookmarkURL:(const GURL&)URL title:(NSString*)title {
-  if (!bookmark_utils_ios::AreAllAvailableBookmarkModelsLoaded(
-          _localOrSyncableBookmarkModel.get(), _accountBookmarkModel.get())) {
+  if (!AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
     return;
   }
 
@@ -250,8 +249,7 @@ enum class PresentedState {
 }
 
 - (void)presentBookmarkEditorForURL:(const GURL&)URL {
-  if (!bookmark_utils_ios::AreAllAvailableBookmarkModelsLoaded(
-          _localOrSyncableBookmarkModel.get(), _accountBookmarkModel.get())) {
+  if (!AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
     return;
   }
 
@@ -373,7 +371,7 @@ enum class PresentedState {
   for (UIViewController* controller in self.bookmarkNavigationController
            .viewControllers) {
     BookmarksHomeViewController* bookmarksHomeViewController =
-        base::mac::ObjCCastStrict<BookmarksHomeViewController>(controller);
+        base::apple::ObjCCastStrict<BookmarksHomeViewController>(controller);
     [bookmarksHomeViewController shutdown];
   }
   // TODO(crbug.com/940856): Make sure navigaton
@@ -557,12 +555,28 @@ enum class PresentedState {
                                                                 title:title]];
 }
 
+- (void)bulkCreateBookmarksWithURLs:(NSArray<NSURL*>*)URLs {
+  if (!AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
+    return;
+  }
+
+  __weak BookmarksCoordinator* weakSelf = self;
+  void (^viewAction)() = ^{
+    base::RecordAction(base::UserMetricsAction(
+        "IOSBookmarksAddedInBulkSnackbarViewButtonClicked"));
+    [weakSelf presentBookmarks];
+  };
+
+  [self.snackbarCommandsHandler
+      showSnackbarMessage:[self.mediator bulkAddBookmarksWithURLs:URLs
+                                                       viewAction:viewAction]];
+}
+
 - (void)createOrEditBookmarkWithURL:(URLWithTitle*)URLWithTitle {
   DCHECK(URLWithTitle) << [self description];
   NSString* title = URLWithTitle.title;
   GURL URL = URLWithTitle.URL;
-  if (!bookmark_utils_ios::AreAllAvailableBookmarkModelsLoaded(
-          _localOrSyncableBookmarkModel.get(), _accountBookmarkModel.get())) {
+  if (!AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
     return;
   }
 
@@ -580,8 +594,7 @@ enum class PresentedState {
 - (void)bookmarkWithFolderChooser:(NSArray<URLWithTitle*>*)URLs {
   DCHECK(URLs.count > 0) << "URLs are missing " << [self description];
 
-  if (!bookmark_utils_ios::AreAllAvailableBookmarkModelsLoaded(
-          _localOrSyncableBookmarkModel.get(), _accountBookmarkModel.get())) {
+  if (!AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
     return;
   }
 
@@ -590,8 +603,7 @@ enum class PresentedState {
 }
 
 - (void)openToExternalBookmark:(GURL)URL {
-  if (!bookmark_utils_ios::AreAllAvailableBookmarkModelsLoaded(
-          _localOrSyncableBookmarkModel.get(), _accountBookmarkModel.get())) {
+  if (!AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
     return;
   }
 
@@ -720,8 +732,7 @@ enum class PresentedState {
   self.bookmarkBrowser.snackbarCommandsHandler = self.snackbarCommandsHandler;
 
   NSArray<BookmarksHomeViewController*>* replacementViewControllers = nil;
-  if (bookmark_utils_ios::AreAllAvailableBookmarkModelsLoaded(
-          _localOrSyncableBookmarkModel.get(), _accountBookmarkModel.get())) {
+  if (AreAllAvailableBookmarkModelsLoaded(_browserState.get())) {
     // Set the root node if the model has been loaded. If the model has not been
     // loaded yet, the root node will be set in BookmarksHomeViewController
     // after the model is finished loading.
@@ -748,7 +759,7 @@ enum class PresentedState {
   for (UIViewController* controller in self.bookmarkNavigationController
            .viewControllers) {
     BookmarksHomeViewController* bookmarksHomeViewController =
-        base::mac::ObjCCastStrict<BookmarksHomeViewController>(controller);
+        base::apple::ObjCCastStrict<BookmarksHomeViewController>(controller);
     [bookmarksHomeViewController willDismissBySwipeDown];
   }
 }
@@ -775,7 +786,7 @@ enum class PresentedState {
                    toViewController:(UIViewController*)toVC {
   if (operation == UINavigationControllerOperationPop) {
     BookmarksHomeViewController* poppedHome =
-        base::mac::ObjCCastStrict<BookmarksHomeViewController>(fromVC);
+        base::apple::ObjCCastStrict<BookmarksHomeViewController>(fromVC);
     // `shutdown` must wait for the next run of the main loop, so that
     // methods such as `textFieldDidEndEditing` have time to be run.
     dispatch_async(dispatch_get_main_queue(), ^{

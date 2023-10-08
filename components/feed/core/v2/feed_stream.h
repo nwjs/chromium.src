@@ -63,6 +63,7 @@ class ImageFetcher;
 class MetricsReporter;
 class RefreshTaskScheduler;
 class PersistentKeyValueStoreImpl;
+class ResourceFetcher;
 class StreamModel;
 class SurfaceUpdater;
 
@@ -101,6 +102,7 @@ class FeedStream : public FeedApi,
              PrefService* profile_prefs,
              FeedNetwork* feed_network,
              ImageFetcher* image_fetcher,
+             ResourceFetcher* resource_fetcher,
              FeedStore* feed_store,
              PersistentKeyValueStoreImpl* persistent_key_value_store,
              TemplateURLService* template_url_service,
@@ -138,6 +140,12 @@ class FeedStream : public FeedApi,
                 base::OnceCallback<void(bool)> callback) override;
   void ManualRefresh(SurfaceId surface_id,
                      base::OnceCallback<void(bool)> callback) override;
+  void FetchResource(
+      const GURL& url,
+      const std::string& method,
+      const std::vector<std::string>& header_names_and_values,
+      const std::string& post_data,
+      base::OnceCallback<void(NetworkResponse)> callback) override;
   void ExecuteOperations(
       SurfaceId surface_id,
       std::vector<feedstore::DataOperation> operations) override;
@@ -415,6 +423,8 @@ class FeedStream : public FeedApi,
   void BackgroundRefreshComplete(LoadStreamTask::Result result);
   void LoadTaskComplete(const LoadStreamTask::Result& result);
   void UploadActionsComplete(UploadActionsTask::Result result);
+  void FetchResourceComplete(base::OnceCallback<void(NetworkResponse)> callback,
+                             FeedNetwork::RawResponse response);
   void ClearAll();
   void ClearStream(const StreamType& stream_type, int sequence_number);
 
@@ -459,6 +469,7 @@ class FeedStream : public FeedApi,
   raw_ptr<PrefService> profile_prefs_;  // May be null.
   raw_ptr<FeedNetwork> feed_network_;
   raw_ptr<ImageFetcher> image_fetcher_;
+  raw_ptr<ResourceFetcher> resource_fetcher_;
   raw_ptr<FeedStore, DanglingUntriaged> store_;
   raw_ptr<PersistentKeyValueStoreImpl, DanglingUntriaged>
       persistent_key_value_store_;

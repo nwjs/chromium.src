@@ -4,6 +4,7 @@
 <translation id="1026101648481255140">המשך בהתקנה</translation>
 <translation id="1029669172902658969">‏הפעלה מחדש לצורך עדכון ‎&amp;ChromiumOS</translation>
 <translation id="1040916596585577953">‏לפי המלצת Chromium, כדאי לבדוק את התוסף הזה</translation>
+<translation id="1042552502243217427">‏כשאתר מבקש לטעון מראש קישורים בדף שלו באופן פרטי, מערכת Chromium משתמשת בשרתי Google. כך מוסתרת הזהות שלך מהאתר שנטען מראש, אבל Google יכולה לדעת אילו אתרים נטענים מראש.</translation>
 <translation id="1065672644894730302">לא הייתה אפשרות לקרוא את ההעדפות שלך. ייתכן שחלק מהתכונות לא יהיו זמינות ושינויים בהעדפות לא יישמרו.</translation>
 <translation id="1083934481477628225">‏ההורה שלך השבית ב-Chromium את ההגדרה 'הרשאות לאתרים, לאפליקציות ולתוספים'</translation>
 <translation id="1098170124587656448">‏Chromium עוזר להגן עליך מפני פרצות באבטחת המידע, תוספים לא תקינים ועוד</translation>
@@ -126,6 +127,8 @@
 <translation id="370962675267501463">{COUNT,plural, =0{‏מנהל המערכת מבקש להפעיל מחדש את Chromium כדי להחיל את העדכון הזה}=1{‏מנהל המערכת מבקש להפעיל מחדש את Chromium כדי להחיל את העדכון הזה. החלון האנונימי לא ייפתח מחדש.}one{‏מנהל המערכת מבקש להפעיל מחדש את Chromium כדי להחיל את העדכון הזה. # החלונות האנונימיים לא ייפתחו מחדש.}two{‏מנהל המערכת מבקש להפעיל מחדש את Chromium כדי להחיל את העדכון הזה. # החלונות האנונימיים לא ייפתחו מחדש.}other{‏מנהל המערכת מבקש להפעיל מחדש את Chromium כדי להחיל את העדכון הזה. # החלונות האנונימיים לא ייפתחו מחדש.}}</translation>
 <translation id="3713809861844741608">‏פתיחת הקישור ב&amp;כרטיסיית Chromium חדשה</translation>
 <translation id="378917192836375108">‏Chromium מאפשר לך ללחוץ על מספר טלפון באינטרנט ולהתקשר אליו באמצעות Skype!</translation>
+<translation id="3790262771324122253">‏למה הורדות מסוימות נחסמות ב-Chromium</translation>
+<translation id="3802055581630249637">‏כדי שהדפים שבהם מבקרים ייטענו מהר יותר, מערכת Chromium טוענת מראש דפים שיש סיכוי גבוה שייפתחו.</translation>
 <translation id="3830894615770080216">‏מערכת ChromiumOS</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
 <translation id="386822487697155367">‏קבלת עזרה בנושא ChromiumOS</translation>
@@ -151,6 +154,7 @@
 <translation id="4216212958613226427">‏זו השפה שבה מוצג ממשק המשתמש של Chromium</translation>
 <translation id="4222932583846282852">מבטל…</translation>
 <translation id="4230135487732243613">‏האם לקשר את הנתונים שלך ב-Chromium לחשבון זה?</translation>
+<translation id="4251772536351901305">‏מקבלים אזהרות לגבי אתרים מסוכנים, גם כאלה שלא היו ידועים ל-Google לפני כן, בעזרת ניתוח של יותר נתונים מאתרים בהשוואה להגנה הרגילה. אפשר לדלג על האזהרות מ-Chromium.</translation>
 <translation id="4271805377592243930">‏עזרה בנושא Chromium</translation>
 <translation id="4281844954008187215">תנאי שירות</translation>
 <translation id="4285930937574705105">‏ההתקנה נכשלה בשל שגיאה לא צפויה. אם Chromium פועל כעת, יש לסגור אותו ולנסות שוב.</translation>
@@ -222,7 +226,6 @@
 <translation id="5988505247484123880">‏באתרים רבים נהוג לשמור את תחומי העניין שלך כדי להתאים אישית את חוויית הגלישה בהם. בנוסף, אתרים יכולים לשמור מידע ב-Chromium לגבי תחומי העניין שלך.</translation>
 <translation id="6003112304606738118">מתבצעת הורדה… יש עוד <ph name="HOURS" /> שע'</translation>
 <translation id="6040143037577758943">סגירה</translation>
-<translation id="6055611795418209449">‏חסימה של חלק מההורדות על ידי Chromium</translation>
 <translation id="6055895534982063517">‏גרסה חדשה של Chromium זמינה, והיא מהירה יותר מאי פעם.</translation>
 <translation id="6063093106622310249">‏&amp;פתיחה ב-Chromium</translation>
 <translation id="6072279588547424923">‏<ph name="EXTENSION_NAME" /> נוסף ל-‏Chromium‏</translation>
@@ -236,6 +239,7 @@
 <translation id="6132897690380286411">‏Chromium ייסגר בקרוב והנתונים שבו יימחקו</translation>
 <translation id="6134968993075716475">‏הגלישה הבטוחה כבויה. ההמלצה של Chromium היא להפעיל אותה.</translation>
 <translation id="6145820983052037069">‏כאן ניתן לעבור בין פרופילים של Chromium</translation>
+<translation id="615103374448673771">‏אם מאפשרים שימוש בקובצי cookie, יכול להיות שמערכת Chromium תשתמש בהם במהלך טעינה מראש.</translation>
 <translation id="6175304430031192654">‏בהתאם להגדרות שלך, Chromium יכול גם לשלוח קובצי cookie ואת כתובת ה-URL הנוכחית שלך</translation>
 <translation id="6183079672144801177">‏יש לוודא שנכנסת ל-Chromium ב-<ph name="TARGET_DEVICE_NAME" /> שלך ולשלוח שוב.</translation>
 <translation id="6212496753309875659">‏במחשב זה קיימת כבר גרסה מתקדמת יותר של Chromium. אם התוכנה אינה פועלת, יש להסיר את ההתקנה של Chromium ולנסות שוב.</translation>
@@ -260,12 +264,14 @@
 <translation id="6400112897226594999">‏הלוגו של Chromium בתוך מסך מחשב.</translation>
 <translation id="6403826409255603130">‏Chromium הוא דפדפן אינטרנט המפעיל דפי אינטרנט ואפליקציות במהירות הבזק. זהו דפדפן מהיר, יציב וקל לשימוש שמאפשר לך לגלוש באינטרנט בצורה מאובטחת יותר הודות להגנה מפני תוכנות זדוניות ופישינג המובנית ב-Chromium.</translation>
 <translation id="6442900851116057561">‏הפעלה מחדש של ChromiumOS</translation>
+<translation id="6443470774889161065">‏כדי שהדפים שבהם מבקרים ייטענו מהר יותר, מערכת Chromium טוענת מראש עוד יותר דפים שיש סיכוי גבוה שייפתחו.</translation>
 <translation id="6455857529632101747">‏ברוך בואך לפרופילים של Chromium</translation>
 <translation id="6475912303565314141">‏הגדרה זו גם קובעת איזה דף מוצג כשמפעילים את Chromium.</translation>
 <translation id="648319183876919572">הגרסה המשופרת של הגלישה הבטוחה מגנה עליך טוב יותר מפני הורדות ואתרים מסוכנים</translation>
 <translation id="6510925080656968729">‏הסרה של התקנת Chromium</translation>
 <translation id="6539122709674868420">‏לפי הגדרת הארגון, Chromium נסגר אוטומטית כשלא משתמשים בו במשך <ph name="TIMEOUT_DURATION" />. נתוני הגלישה נמחקו. בין הנתונים שנמחקו: היסטוריה, מילוי אוטומטי והורדות.</translation>
 <translation id="6542839706527980775">‏בכל פרופיל מאוחסנים נתוני Chromium משלו כמו סימניות, היסטוריה, סיסמאות ועוד</translation>
+<translation id="6563921047760808519">‏<ph name="BEGIN_LINK" />מידע נוסף לגבי השמירה על פרטיות הנתונים ב-Chromium<ph name="END_LINK" /></translation>
 <translation id="656935081669708576">‏אפשר לעבור לפרופיל Chromium אחר כדי לראות סיסמאות</translation>
 <translation id="6570579332384693436">‏Chromium שולח את הטקסט שמוקלד בשדות טקסט ל-Google כדי לתקן שגיאות כתיב</translation>
 <translation id="6598877126913850652">‏מעבר אל הגדרות ההודעות של Chromium</translation>

@@ -4066,8 +4066,10 @@ interface HTMLHeadingElement : HTMLElement
     setter align
 interface HTMLHtmlElement : HTMLElement
     attribute @@toStringTag
+    getter blocking
     getter version
     method constructor
+    setter blocking
     setter version
 interface HTMLIFrameElement : HTMLElement
     attribute @@toStringTag
@@ -4709,7 +4711,7 @@ interface HTMLSelectElement : HTMLElement
     setter selectedIndex
     setter size
     setter value
-interface HTMLSelectMenuElement : HTMLElement
+interface HTMLSelectListElement : HTMLElement
     attribute @@toStringTag
     getter disabled
     getter form
@@ -5231,6 +5233,7 @@ interface IIRFilterNode : AudioNode
 interface IdentityCredential : Credential
     static method logoutRPs
     attribute @@toStringTag
+    getter isAccountAutoSelected
     getter token
     method constructor
 interface IdentityProvider
@@ -6091,6 +6094,7 @@ interface MediaStreamTrack : EventTarget
     method getCapabilities
     method getCaptureHandle
     method getConstraints
+    method getFrameStats
     method getSettings
     method stop
     setter contentHint
@@ -6396,6 +6400,7 @@ interface Navigator
     getter contacts
     getter cookieEnabled
     getter credentials
+    getter deprecatedRunAdAuctionEnforcesKAnonymity
     getter deviceMemory
     getter devicePosture
     getter doNotTrack
@@ -6580,6 +6585,17 @@ interface NodePart : Part
     attribute @@toStringTag
     getter node
     method constructor
+interface NotRestoredReasons
+    attribute @@toStringTag
+    getter children
+    getter id
+    getter name
+    getter preventedBackForwardCache
+    getter reasons
+    getter src
+    getter url
+    method constructor
+    method toJSON
 interface Notification : EventTarget
     static getter maxActions
     static getter permission
@@ -7388,6 +7404,7 @@ interface RTCEncodedAudioFrame
     method clone
     method constructor
     method getMetadata
+    method setMetadata
     method setTimestamp
     method toString
     setter data
@@ -8492,6 +8509,7 @@ interface SVGGraphicsElement : SVGElement
     method getScreenCTM
 interface SVGImageElement : SVGGraphicsElement
     attribute @@toStringTag
+    getter crossOrigin
     getter decoding
     getter height
     getter href
@@ -8501,6 +8519,7 @@ interface SVGImageElement : SVGGraphicsElement
     getter y
     method constructor
     method decode
+    setter crossOrigin
     setter decoding
 interface SVGLength
     attribute @@toStringTag
@@ -9469,11 +9488,8 @@ interface TextEvent : UIEvent
     method initTextEvent
 interface TextFormat
     attribute @@toStringTag
-    getter backgroundColor
     getter rangeEnd
     getter rangeStart
-    getter textColor
-    getter underlineColor
     getter underlineStyle
     getter underlineThickness
     method constructor
@@ -9488,13 +9504,15 @@ interface TextMetrics
     getter actualBoundingBoxLeft
     getter actualBoundingBoxRight
     getter advances
+    getter alphabeticBaseline
     getter emHeightAscent
     getter emHeightDescent
     getter fontBoundingBoxAscent
     getter fontBoundingBoxDescent
+    getter hangingBaseline
+    getter ideographicBaseline
     getter width
     method constructor
-    method getBaselines
 interface TextTrack : EventTarget
     attribute @@toStringTag
     getter activeCues
@@ -12199,6 +12217,7 @@ namespace CSS
     getter paintWorklet
     method Hz
     method Q
+    method cap
     method ch
     method cm
     method cqb
@@ -12222,8 +12241,10 @@ namespace CSS
     method ex
     method fr
     method grad
+    method ic
     method in
     method kHz
+    method lh
     method lvb
     method lvh
     method lvi
@@ -12238,8 +12259,13 @@ namespace CSS
     method pt
     method px
     method rad
+    method rcap
+    method rch
     method registerProperty
     method rem
+    method rex
+    method ric
+    method rlh
     method s
     method supports
     method svb
@@ -12255,6 +12281,7 @@ namespace CSS
     method vmax
     method vmin
     method vw
+    method x
 namespace GPUBufferUsage
     attribute @@toStringTag
     attribute COPY_DST

@@ -8,9 +8,9 @@
 #include <Foundation/Foundation.h>
 
 #include "base/apple/bridging.h"
-#include "base/mac/foundation_util.h"
+#include "base/apple/foundation_util.h"
+#include "base/apple/scoped_cftyperef.h"
 #include "base/mac/mac_util.h"
-#include "base/mac/scoped_cftyperef.h"
 #include "base/mac/wrap_cg_display.h"
 #include "base/task/thread_pool.h"
 
@@ -67,17 +67,18 @@ bool TryPromptUserForScreenCapture() {
     // in the applications list in System permissions. Stream creation will
     // fail if the user denies permission, or if our application is already
     // in the system permission and is unchecked.
-    base::ScopedCFTypeRef<CGDisplayStreamRef> stream(wrapCGDisplayStreamCreate(
-        CGMainDisplayID(), 1, 1, 'BGRA', nullptr,
-        ^(CGDisplayStreamFrameStatus status, uint64_t displayTime,
-          IOSurfaceRef frameSurface, CGDisplayStreamUpdateRef updateRef){
-        }));
+    base::apple::ScopedCFTypeRef<CGDisplayStreamRef> stream(
+        wrapCGDisplayStreamCreate(
+            CGMainDisplayID(), 1, 1, 'BGRA', nullptr,
+            ^(CGDisplayStreamFrameStatus status, uint64_t displayTime,
+              IOSurfaceRef frameSurface, CGDisplayStreamUpdateRef updateRef){
+            }));
     return stream != nullptr;
   }
 }
 
 void WarmScreenCapture() {
-  if (base::mac::IsAtLeastOS14()) {
+  if (base::mac::MacOSMajorVersion() >= 14) {
     // Starting in macOS 14, a "your screen is being captured" chip shows in the
     // menu bar while an app is capturing the screen, and if it's a one-time
     // image capture, it shows for ten seconds. Doing the warmup below would
@@ -99,7 +100,7 @@ void WarmScreenCapture() {
       {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
       base::BindOnce([] {
         if (IsScreenCaptureAllowed()) {
-          base::ScopedCFTypeRef<CGImageRef>(CGWindowListCreateImage(
+          base::apple::ScopedCFTypeRef<CGImageRef>(CGWindowListCreateImage(
               CGRectInfinite, kCGWindowListOptionOnScreenOnly, kCGNullWindowID,
               kCGWindowImageDefault));
         }

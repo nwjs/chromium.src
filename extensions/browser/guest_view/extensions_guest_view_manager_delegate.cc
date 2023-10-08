@@ -72,19 +72,20 @@ void ExtensionsGuestViewManagerDelegate::DispatchEvent(
                                               << " must have a histogram value";
 
   content::RenderFrameHost* owner = guest->owner_rfh();
-  if (!owner) {
+  if (!owner || !ExtensionsBrowserClient::Get()->IsValidContext(
+                    guest->browser_context())) {
     return;  // Could happen at tab shutdown.
   }
 
   const Extension* owner_extension = ProcessManager::Get(guest->browser_context())
     ->GetExtensionForWebContents(content::WebContents::FromRenderFrameHost(owner));
   std::string origin = owner_extension ? owner_extension->id() : guest->owner_host();
-  EventRouter::DispatchEventToSender(
-      owner->GetProcess(), guest->browser_context(),
-      origin,
-      histogram_value, event_name, extensions::kMainThreadId,
-      blink::mojom::kInvalidServiceWorkerVersionId, std::move(event_args),
-      std::move(info));
+  EventRouter::Get(guest->browser_context())
+      ->DispatchEventToSender(owner->GetProcess(), guest->browser_context(),
+                              origin, histogram_value, event_name,
+                              extensions::kMainThreadId,
+                              blink::mojom::kInvalidServiceWorkerVersionId,
+                              std::move(event_args), std::move(info));
 }
 
 bool ExtensionsGuestViewManagerDelegate::IsGuestAvailableToContext(

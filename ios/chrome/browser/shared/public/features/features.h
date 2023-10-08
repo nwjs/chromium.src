@@ -220,10 +220,9 @@ BASE_DECLARE_FEATURE(kHideSettingsSyncPromo);
 // promo.
 BASE_DECLARE_FEATURE(kDefaultBrowserTriggerCriteriaExperiment);
 
-// Param for default browser promo trigger criteria experiment representing
-// whether promos should be displayed on omnbibox copy-paste event or on chrome
-// launch by default.
-extern const char kDefaultBrowserTriggerOnOmniboxCopyPaste[];
+// Feature flag to show default browser full-screen promo on omnbibox copy-paste
+// event.
+BASE_DECLARE_FEATURE(kFullScreenPromoOnOmniboxCopyPaste);
 
 // Feature flag to try using the page theme color in the toolbar
 BASE_DECLARE_FEATURE(kThemeColorInToolbar);
@@ -233,5 +232,16 @@ BASE_DECLARE_FEATURE(kTabGridRefactoring);
 
 // Whether the Safety Check module should be shown in the Magic Stack.
 bool IsSafetyCheckMagicStackEnabled();
+
+// Kill switch to control the blocking of the simultaneous cell selection in
+// ChromeTableViewController.
+BASE_DECLARE_FEATURE(kBlockSimultaneousCellSelectionKillSwitch);
+
+// Feature flag enabling Save to Photos.
+BASE_DECLARE_FEATURE(kIOSSaveToPhotos);
+
+// Kill switch to control the `settingsWillBeDismissed` bug fix (see
+// crbug.com/1482284).
+BASE_DECLARE_FEATURE(kSettingsWillBeDismissedBugFixKillSwitch);
 
 #endif  // IOS_CHROME_BROWSER_SHARED_PUBLIC_FEATURES_FEATURES_H_

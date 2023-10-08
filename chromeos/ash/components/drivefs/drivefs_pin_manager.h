@@ -20,12 +20,14 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
+#include "base/scoped_observation.h"
 #include "base/sequence_checker.h"
 #include "base/thread_annotations.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
 #include "chromeos/ash/components/dbus/spaced/spaced_client.h"
 #include "chromeos/ash/components/dbus/userdataauth/userdataauth_client.h"
+#include "chromeos/ash/components/drivefs/drivefs_host.h"
 #include "chromeos/ash/components/drivefs/drivefs_host_observer.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
 #include "chromeos/ash/components/drivefs/mojom/pin_manager_types.mojom.h"
@@ -180,12 +182,17 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   PinManager(Path profile_path,
              Path mount_path,
              mojom::DriveFs* drivefs,
-             int64_t max_queue_size);
+             int64_t queue_size);
 
   PinManager(const PinManager&) = delete;
   PinManager& operator=(const PinManager&) = delete;
 
   ~PinManager() override;
+
+  void SetDriveFsHost(DriveFsHost* const host) {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    drivefs_host_.Observe(host);
+  }
 
   // Starts up the manager, which will first search for any unpinned items and
   // pin them (within the users My drive) then turn to a "monitoring" phase
@@ -457,7 +464,7 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
 
   // Maximum number of items that can be pinned but not cached yet at the same
   // time.
-  const int64_t max_queue_size_ GUARDED_BY_CONTEXT(sequence_checker_) = 200;
+  const int64_t queue_size_ GUARDED_BY_CONTEXT(sequence_checker_);
 
   // Is the device connected to a suitable network? Assume it is online for
   // tests.
@@ -481,10 +488,6 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   // should always be true and only overridden in browser tests.
   bool should_pin_files_for_testing_ GUARDED_BY_CONTEXT(sequence_checker_) =
       true;
-
-  // `spaced` daemon client.
-  raw_ptr<ash::SpacedClient, ExperimentalAsh> spaced_
-      GUARDED_BY_CONTEXT(sequence_checker_) = nullptr;
 
   SpaceGetter space_getter_ GUARDED_BY_CONTEXT(sequence_checker_);
   CompletionCallback completion_callback_ GUARDED_BY_CONTEXT(sequence_checker_);
@@ -512,6 +515,29 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_DRIVEFS) PinManager
   // Tracks the remaining seconds for the current syncing operation to complete.
   file_manager::Speedometer speedometer_ GUARDED_BY_CONTEXT(sequence_checker_);
 
+  // Tracks the last time a LOG was output indicating the listing files stage is
+  // taking a long time. Used to avoid emitting the WARNING log too frequently.
+  base::Time last_long_listing_files_warning_time_;
+
+  GUARDED_BY_CONTEXT(sequence_checker_)
+  base::ScopedObservation<DriveFsHost, DriveFsHostObserver> drivefs_host_{this};
+
+  GUARDED_BY_CONTEXT(sequence_checker_)
+  base::ScopedObservation<chromeos::PowerManagerClient,
+                          chromeos::PowerManagerClient::Observer>
+      power_manager_{this};
+
+  GUARDED_BY_CONTEXT(sequence_checker_)
+  base::ScopedObservation<ash::UserDataAuthClient,
+                          ash::UserDataAuthClient::Observer>
+      user_data_auth_client_{this};
+
+  GUARDED_BY_CONTEXT(sequence_checker_)
+  base::ScopedObservation<ash::SpacedClient, ash::SpacedClient::Observer>
+      spaced_client_{this};
+
+  // Note: This should remain the last member so it'll be destroyed and
+  // invalidate its weak pointers before any other members are destroyed.
   base::WeakPtrFactory<PinManager> weak_ptr_factory_{this};
 
   FRIEND_TEST_ALL_PREFIXES(DriveFsPinManagerTest, Add);

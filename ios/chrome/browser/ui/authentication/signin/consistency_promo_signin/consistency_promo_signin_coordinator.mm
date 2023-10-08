@@ -13,12 +13,15 @@
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/browsing_data_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/signin/constants.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/system_identity.h"
 #import "ios/chrome/browser/ui/authentication/authentication_flow.h"
+#import "ios/chrome/browser/ui/authentication/authentication_ui_util.h"
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_account_chooser/consistency_account_chooser_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_default_account/consistency_default_account_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/consistency_promo_signin/consistency_layout_delegate.h"
@@ -66,6 +69,28 @@
 
 #pragma mark - Public
 
++ (instancetype)
+    coordinatorWithBaseViewController:(UIViewController*)viewController
+                              browser:(Browser*)browser
+                          accessPoint:(signin_metrics::AccessPoint)accessPoint {
+  ChromeBrowserState* browserState = browser->GetBrowserState();
+  ChromeAccountManagerService* accountManagerService =
+      ChromeAccountManagerServiceFactory::GetForBrowserState(browserState);
+  BOOL canShowWithZeroIdentities =
+      accessPoint != signin_metrics::AccessPoint::ACCESS_POINT_WEB_SIGNIN &&
+      IsConsistencyNewAccountInterfaceEnabled();
+  if (!accountManagerService->HasIdentities() && !canShowWithZeroIdentities) {
+    RecordConsistencyPromoUserAction(
+        signin_metrics::AccountConsistencyPromoAction::SUPPRESSED_NO_ACCOUNTS,
+        accessPoint);
+    return nil;
+  }
+  return [[ConsistencyPromoSigninCoordinator alloc]
+      initWithBaseViewController:viewController
+                         browser:browser
+                     accessPoint:accessPoint];
+}
+
 - (instancetype)initWithBaseViewController:(UIViewController*)baseViewController
                                    browser:(Browser*)browser
                                accessPoint:
@@ -97,6 +122,7 @@
 
 - (void)start {
   [super start];
+  signin_metrics::LogSignInStarted(_accessPoint);
   base::RecordAction(base::UserMetricsAction("Signin_BottomSheet_Opened"));
   // Create ConsistencyPromoSigninMediator.
   ChromeBrowserState* browserState = self.browser->GetBrowserState();
@@ -499,10 +525,13 @@
   return [NSString
       stringWithFormat:
           @"<%@: %p, defaultAccountCoordinator: %p, alertCoordinator: %p, "
-          @"accountChooserCoordinator %p, addAccountCoordinator %p>",
+          @"accountChooserCoordinator %p, addAccountCoordinator %p, presented: "
+          @"%@>",
           self.class.description, self, self.defaultAccountCoordinator,
           self.alertCoordinator, self.accountChooserCoordinator,
-          self.addAccountCoordinator];
+          self.addAccountCoordinator,
+          ViewControllerPresentationStatusDescription(
+              self.navigationController)];
 }
 
 @end

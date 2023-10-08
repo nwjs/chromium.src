@@ -108,10 +108,13 @@
 <translation id="2775140325783767197">Chrome 無法檢查密碼，請檢查互聯網連線。</translation>
 <translation id="2799223571221894425">重新啟動</translation>
 <translation id="2847461019998147611">以此語言顯示 Google Chrome</translation>
+<translation id="2853415089995957805">Chrome 會預先載入你可能瀏覽的頁面，以便在你瀏覽時更快載入</translation>
 <translation id="2857540653560290388">正在啟動 Chrome…</translation>
 <translation id="2857972467023607093">此帳戶已有 Chrome 設定檔</translation>
+<translation id="286025080868315611">瞭解 Chrome 封鎖部分下載內容的原因</translation>
 <translation id="2861074815332034794">正在更新 Chrome (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="2871893339301912279">您已登入 Chrome！</translation>
+<translation id="2876628302275096482">進一步瞭解 <ph name="BEGIN_LINK" />Chrome 如何確保你的資料保密<ph name="END_LINK" /></translation>
 <translation id="2885378588091291677">工作管理員</translation>
 <translation id="2888126860611144412">關於 Chrome</translation>
 <translation id="2915996080311180594">稍後重新開機</translation>
@@ -230,6 +233,7 @@
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5003967926796347400">按一下 [Google 密碼管理工具]</translation>
 <translation id="5098668839038261629">開啟時，您亦將會從 Chrome 登出</translation>
+<translation id="5126049312684316860">Chrome 會預先載入更多你可能瀏覽的網頁，以便在你瀏覽時更快載入</translation>
 <translation id="5132929315877954718">為您的 Google Chrome 探索各種實用有趣的應用程式、遊戲、擴充功能和主題。</translation>
 <translation id="5139423532931106058">自訂您的 Chrome 設定檔</translation>
 <translation id="5163087008893166964">歡迎使用 Chrome；開咗新瀏覽器視窗</translation>
@@ -239,6 +243,7 @@
 <translation id="521447420733633466">如果您與親朋好友共用裝置，每人都能各自瀏覽網頁，並按需求設定 Chrome</translation>
 <translation id="5239627039202700673">隨時使用 Chrome 開啟訊息、文件和其他應用程式中的連結</translation>
 <translation id="5251420635869119124">以訪客身分使用 Chrome 不會留下任何記錄。</translation>
+<translation id="5320351714793324716">如果你允許 Cookie，Chrome 可能會在預先載入時使用 Cookie</translation>
 <translation id="5334309298019785904">您的網域無法使用「同步功能」，因此 Chrome OS 無法同步處理您的資料。</translation>
 <translation id="5334487786912937552">Chrome 需要儲存空間存取權才能下載檔案</translation>
 <translation id="5337648990166757586">選用：將診斷和使用情況資料自動傳送給 Google，協助改善 Chrome OS 的功能和效能。</translation>
@@ -254,7 +259,6 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> 可能不安全，因此 Chrome 已封鎖此檔案。</translation>
 <translation id="5678190148303298925">{COUNT,plural, =0{管理員要求您重新啟動 Chrome，以套用此更新}=1{管理員要求您重新啟動 Chrome，以套用此更新。您的無痕式視窗不會重新開啟。}other{管理員要求您重新啟動 Chrome，以套用此更新。您的 # 個無痕式視窗不會重新開啟。}}</translation>
-<translation id="5682679001737420487">Chrome 會封鎖部分下載內容</translation>
 <translation id="5686916850681061684">自訂及控制 Google Chrome。重要注意事項 - 按這裡瞭解詳情。</translation>
 <translation id="5690427481109656848">Google LLC</translation>
 <translation id="570005089986962444">開啟時，Chrome 會從閒置分頁釋出記憶體，為使用中的分頁和其他應用程式提供更多電腦資源，同時保持 Chrome 的運作速度。閒置分頁會在您使用時自動恢復為「使用中」狀態。</translation>
@@ -287,6 +291,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="6235018212288296708">允許 mDNS 流量的 Google Chrome 輸入規則。</translation>
 <translation id="624230925347970731">Chrome 即將關閉</translation>
 <translation id="6247557882553405851">Google 密碼管理工具</translation>
+<translation id="6251759518630934363">此防護機制分析的網站資料比標準保護多，因此即使是 Google 不知道的網站，此防護機制亦能提供危險網站警告。你可選擇略過 Chrome 警告。</translation>
 <translation id="6273793429163604305">即將就緒…</translation>
 <translation id="6277547788421725101">你的家長已停用 Chrome 的「網站、應用程式和擴充程式權限」設定</translation>
 <translation id="6291089322031436445">Chrome 開發人員應用程式</translation>
@@ -391,6 +396,7 @@ Google Chrome 無法復原您的設定。</translation>
 <translation id="8286862437124483331">Google Chrome 正在嘗試顯示密碼。如果您同意，請輸入您的 Windows 密碼。</translation>
 <translation id="8290100596633877290">真糟糕！Google Chrome 當機了，要立即重新啟動嗎？</translation>
 <translation id="829923460755755423">新增「Google 密碼管理工具」的捷徑</translation>
+<translation id="8336463659890584292">當網站要求以私密方式預先載入網頁上的連結時，Chrome 會使用 Google 伺服器。這麼做可在預先載入網站中隱藏您的身分，不過 Google 會知道這類網站預先載入的內容。</translation>
 <translation id="8342675569599923794">此檔案不安全，因此 Chrome 已封鎖此檔案。</translation>
 <translation id="8349795646647783032"><ph name="BEGIN_BOLD" />我們會如何使用這些資料：<ph name="END_BOLD" />網站可將您的興趣相關資料儲存在 Chrome 中。例如，如果您瀏覽某個網站想購買適合馬拉松的跑步鞋，網站可能會判斷您的興趣為跑馬拉松。如果您日後瀏覽其他網站報名參加比賽，該網站就可以根據您的興趣向您顯示跑步鞋的廣告。</translation>
 <translation id="8370517070665726704">版權所有 <ph name="YEAR" /> Google LLC。保留所有權利。</translation>

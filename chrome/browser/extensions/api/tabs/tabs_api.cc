@@ -1,3 +1,4 @@
+
 // Copyright 2012 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -64,6 +65,8 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/resource_coordinator/tab_manager.h"
+#include "chrome/browser/safe_browsing/extension_telemetry/extension_telemetry_service.h"
+#include "chrome/browser/safe_browsing/extension_telemetry/tabs_api_signal.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/apps/chrome_app_delegate.h"
 #include "chrome/browser/ui/browser.h"
@@ -89,6 +92,7 @@
 #include "chrome/common/url_constants.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
+#include "components/safe_browsing/core/common/features.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -453,6 +457,32 @@ bool WindowBoundsIntersectDisplays(const gfx::Rect& bounds) {
     intersect_area += display_bounds.size().GetArea();
   }
   return intersect_area >= (bounds.size().GetArea() / 2);
+}
+
+void NotifyExtensionTelemetry(Profile* profile,
+                              const Extension* extension,
+                              safe_browsing::TabsApiInfo::ApiMethod api_method,
+                              const std::string& current_url,
+                              const std::string& new_url) {
+#if 0
+  // Ignore API calls that are not invoked by extensions.
+  if (!extension) {
+    return;
+  }
+
+  auto* extension_telemetry_service =
+      safe_browsing::ExtensionTelemetryService::Get(profile);
+
+  if (!extension_telemetry_service || !extension_telemetry_service->enabled() ||
+      !base::FeatureList::IsEnabled(
+          safe_browsing::kExtensionTelemetryTabsApiSignal)) {
+    return;
+  }
+
+  auto tabs_api_signal = std::make_unique<safe_browsing::TabsApiSignal>(
+      extension->id(), api_method, current_url, new_url);
+  extension_telemetry_service->AddSignal(std::move(tabs_api_signal));
+#endif
 }
 
 }  // namespace
@@ -1555,6 +1585,11 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
       return Error(result.error());
     }
 
+    NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
+                             extension(), safe_browsing::TabsApiInfo::CREATE,
+                             /*current_url=*/std::string(),
+                             options.url.value_or(std::string()));
+
     // Return data about the newly created tab.
     return has_callback() ? WithArguments(std::move(*result)) : NoArguments();
   }());
@@ -1766,8 +1801,18 @@ ExtensionFunction::ResponseAction TabsUpdateFunction::Run() {
       return RespondNow(Error(ErrorUtils::FormatErrorMessage(
           tabs_constants::kURLsNotAllowedInIncognitoError, updated_url)));
     }
+
+    // Get last committed or pending URL.
+    std::string current_url = contents->GetVisibleURL().is_valid()
+                                  ? contents->GetVisibleURL().spec()
+                                  : std::string();
+
     if (!UpdateURL(updated_url, tab_id, &error))
       return RespondNow(Error(std::move(error)));
+
+    NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
+                             extension(), safe_browsing::TabsApiInfo::UPDATE,
+                             current_url, updated_url);
   }
 
   bool active = false;
@@ -2115,6 +2160,15 @@ bool TabsRemoveFunction::RemoveTab(int tab_id, std::string* error) {
     *error = tabs_constants::kTabStripNotEditableError;
     return false;
   }
+
+  // Get last committed or pending URL.
+  std::string current_url = contents->GetVisibleURL().is_valid()
+                                ? contents->GetVisibleURL().spec()
+                                : std::string();
+  NotifyExtensionTelemetry(Profile::FromBrowserContext(browser_context()),
+                           extension(), safe_browsing::TabsApiInfo::REMOVE,
+                           current_url, /*new_url=*/std::string());
+
   // The tab might not immediately close after calling Close() below, so we
   // should wait until WebContentsDestroyed is called before responding.
   web_contents_destroyed_observers_.push_back(

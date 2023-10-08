@@ -549,6 +549,16 @@ bool OmniboxFieldTrial::HUPSearchDatabase() {
   return value.empty() || (value == "true");
 }
 
+bool OmniboxFieldTrial::IsActionsUISimplificationEnabled() {
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxActionsUISimplification);
+}
+
+const base::FeatureParam<bool>
+    OmniboxFieldTrial::kActionsUISimplificationTrimExtra(
+        &omnibox::kOmniboxActionsUISimplification,
+        "ActionsUISimplificationTrimExtra",
+        true);
+
 bool OmniboxFieldTrial::IsFuzzyUrlSuggestionsEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kOmniboxFuzzyUrlSuggestions);
 }
@@ -697,6 +707,11 @@ bool OmniboxFieldTrial::IsChromeRefreshActionChipIconsEnabled() {
       omnibox::kCr2023ActionChipsIcons);
 }
 
+bool OmniboxFieldTrial::IsChromeRefreshActionChipShapeEnabled() {
+  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
+      omnibox::kCr2023ActionChips);
+}
+
 bool OmniboxFieldTrial::IsChromeRefreshSuggestHoverFillShapeEnabled() {
   return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
       omnibox::kSuggestionHoverFillShape);
@@ -735,11 +750,8 @@ const base::FeatureParam<int> OmniboxFieldTrial::kFontSizeNonTouchUI(
     13);
 
 bool OmniboxFieldTrial::IsCr23LayoutEnabled() {
-  static const bool enabled =
-      features::GetChromeRefresh2023Level() ==
-          features::ChromeRefresh2023Level::kLevel2 ||
-      base::FeatureList::IsEnabled(omnibox::kExpandedLayout);
-  return enabled;
+  return omnibox::IsOmniboxCr23CustomizeGuardedFeatureEnabled(
+      omnibox::kExpandedLayout);
 }
 
 bool OmniboxFieldTrial::IsChromeRefreshSteadyStateBackgroundColorEnabled() {
@@ -1148,6 +1160,14 @@ const base::FeatureParam<bool> kOmniboxModernizeVisualUpdateMergeClipboardOnNTP(
     "modernize_visual_update_merge_clipboard_on_ntp",
     false);
 // <- Android UI Revamp
+// ---------------------------------------------------------
+// Touch Down Trigger For Prefetch ->
+const base::FeatureParam<int>
+    kTouchDownTriggerForPrefetchMaxPrefetchesPerOmniboxSession(
+        &omnibox::kOmniboxTouchDownTriggerForPrefetch,
+        "max_prefetches_per_omnibox_session",
+        5);
+// <- Touch Down Trigger For Prefetch
 // ---------------------------------------------------------
 
 }  // namespace OmniboxFieldTrial

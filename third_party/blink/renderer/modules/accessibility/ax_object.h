@@ -303,7 +303,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // whether children, parent or other pointers are actually out of date; there
   // are other dirty bits such as children_dirty_ for that.
   void SetAncestorsHaveDirtyDescendants() const;
-  void SetHasDirtyDescendants(bool dirty) { has_dirty_descendants_ = dirty; }
+  void SetHasDirtyDescendants(bool dirty) const;
   bool HasDirtyDescendants() const { return has_dirty_descendants_; }
 
   // When the corresponding WebCore object that this AXObject
@@ -1006,18 +1006,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // return nodes that are accessibility ignored.
   AXObject* DeepestLastChildIncludingIgnored() const;
 
-  // Returns true if this node is strictly an ancestor of the given node, i.e.
-  // doesn't include the current node in the list of its ancestors. Works for
-  // all nodes that are included in the accessibility tree, including nodes that
-  // are accessibility ignored.
-  bool IsAncestorOf(const AXObject&) const;
-
-  // Returns true if this node is strictly a descendant of the given node, i.e.
-  // doesn't include the current node in the list of its descendants. Works for
-  // all nodes that are included in the accessibility tree, including nodes that
-  // are accessibility ignored.
-  bool IsDescendantOf(const AXObject&) const;
-
   // Next sibling for this object, where the sibling may be
   // an accessibility ignored object.
   // Works for all nodes that are included in the accessibility tree,
@@ -1436,11 +1424,10 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Returns true if |attribute| was present on |from|.
   static bool ElementsFromAttribute(Element* from,
                                     HeapVector<Member<Element>>& elements,
-                                    const QualifiedName& attribute,
-                                    Vector<String>& ids);
-  static bool AriaLabelledbyElementVector(Element* from,
-                                          HeapVector<Member<Element>>& elements,
-                                          Vector<String>& ids);
+                                    const QualifiedName& attribute);
+  static bool AriaLabelledbyElementVector(
+      Element* from,
+      HeapVector<Member<Element>>& elements);
   // Return true if the ame is from @aria-label / @aria-labelledby.
   static bool IsNameFromAriaAttribute(Element* element);
   // Return true if the name is from @aria-label / @aria-labelledby / @title.

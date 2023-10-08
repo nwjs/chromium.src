@@ -9,11 +9,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.ApplicationInfo;
+import android.os.Build;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
 import android.os.StrictMode;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.Nullable;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
@@ -92,6 +94,7 @@ public final class AwBrowserProcess {
 
     private static String sWebViewPackageName;
     private static @ApkType int sApkType;
+    private static @Nullable String sProcessDataDirSuffix;
 
     /**
      * Loads the native library, and performs basic static construction of objects needed
@@ -120,6 +123,7 @@ public final class AwBrowserProcess {
     public static void loadLibrary(String processDataDirBasePath, String processCacheDirBasePath,
             String processDataDirSuffix) {
         LibraryLoader.getInstance().setLibraryProcessType(LibraryProcessType.PROCESS_WEBVIEW);
+        sProcessDataDirSuffix = processDataDirSuffix;
         if (processDataDirSuffix == null) {
             PathUtils.setPrivateDirectoryPath(processDataDirBasePath, processCacheDirBasePath,
                     WEBVIEW_DIR_BASENAME, "WebView");
@@ -192,6 +196,10 @@ public final class AwBrowserProcess {
                 }
 
                 PowerMonitor.create();
+                PlatformServiceBridge.getInstance().setSafeBrowsingHandler();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    AwContentsLifecycleNotifier.initialize();
+                }
             });
         }
     }
@@ -204,6 +212,15 @@ public final class AwBrowserProcess {
     public static String getWebViewPackageName() {
         if (sWebViewPackageName == null) return ""; // May be null in testing.
         return sWebViewPackageName;
+    }
+
+    public static void setProcessDataDirSuffixForTesting(@Nullable String processDataDirSuffix) {
+        sProcessDataDirSuffix = processDataDirSuffix;
+    }
+
+    @Nullable
+    public static String getProcessDataDirSuffix() {
+        return sProcessDataDirSuffix;
     }
 
     public static void initializeApkType(ApplicationInfo info) {
