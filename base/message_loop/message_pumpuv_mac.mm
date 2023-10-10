@@ -4,7 +4,7 @@
 // Copyright Plask, (c) Dean McNamee <dean@gmail.com>, 2011.  BSD license
 
 
-#import "base/message_loop/message_pump_mac.h"
+#import "base/message_loop/message_pump_apple.h"
 #import "base/message_loop/message_pumpuv_mac.h"
 
 #include <dlfcn.h>
@@ -15,8 +15,8 @@
 #include <limits>
 
 #include "base/logging.h"
-#include "base/mac/scoped_cftyperef.h"
-#include "base/mac/scoped_nsautorelease_pool.h"
+#include "base/apple/scoped_cftyperef.h"
+#include "base/apple/scoped_nsautorelease_pool.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_policy.h"
 #include "base/command_line.h"
@@ -177,7 +177,7 @@ class OptionalAutoreleasePool {
   OptionalAutoreleasePool& operator=(const OptionalAutoreleasePool&) = delete;
 
  private:
-  absl::optional<base::mac::ScopedNSAutoreleasePool> pool_;
+  absl::optional<base::apple::ScopedNSAutoreleasePool> pool_;
 };
 
 bool MessagePumpUVNSRunLoop::RunWork() {
@@ -321,7 +321,7 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
 
   base::MessagePumpUVNSRunLoop* message_pump = static_cast<base::MessagePumpUVNSRunLoop*>(arg);
 
-  absl::optional<base::mac::ScopedNSAutoreleasePool> pool;
+  absl::optional<base::apple::ScopedNSAutoreleasePool> pool;
   pool.emplace();
 
   while (true) {

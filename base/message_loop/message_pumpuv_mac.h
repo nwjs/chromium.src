@@ -38,7 +38,7 @@
 
 #include "base/memory/weak_ptr.h"
 
-#include "base/message_loop/message_pump_mac.h"
+#include "base/message_loop/message_pump_apple.h"
 
 #if defined(__OBJC__)
 #if defined(OS_IOS)

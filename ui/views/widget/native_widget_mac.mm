@@ -621,7 +621,7 @@ void NativeWidgetMac::Show(ui::WindowShowState show_state,
   }
   GetNSWindowHost()->SetVisibilityState(window_state);
   if (show_state == ui::SHOW_STATE_MAXIMIZED)
-    GetNSWindowHost()->SetRestoredBounds(restore_bounds);
+    GetNSWindowMojo()->SetRestoredBounds(restore_bounds);
 
   // Ignore the SetInitialFocus() result. BridgedContentView should get
   // firstResponder status regardless.
