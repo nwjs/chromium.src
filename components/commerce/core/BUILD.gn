@@ -22,7 +22,7 @@ source_set("feature_list") {
     "flag_descriptions.cc",
     "flag_descriptions.h",
   ]
-
+  public_deps = [ ":utils" ]
   deps = [
     ":commerce_heuristics_data",
     ":pref_names",
@@ -206,12 +206,14 @@ static_library("shopping_service") {
 
   deps = [
     ":account_checker",
+    ":commerce_constants",
     ":commerce_subscription_db_content_proto",
     ":discounts_db_content_proto",
     ":feature_list",
     ":metrics",
     ":pref_names",
     ":proto",
+    ":utils",
     "//base",
     "//components/bookmarks/browser",
     "//components/history/core/browser",
@@ -418,6 +420,7 @@ source_set("utils") {
   ]
   deps = [
     ":commerce_constants",
+    "//base",
     "//net:net",
   ]
 }

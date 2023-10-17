@@ -23,6 +23,7 @@
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/commerce/core/bookmark_update_manager.h"
 #include "components/commerce/core/commerce_feature_list.h"
+#include "components/commerce/core/commerce_utils.h"
 #include "components/commerce/core/discounts_storage.h"
 #include "components/commerce/core/metrics/metrics_utils.h"
 #include "components/commerce/core/metrics/scheduled_metrics_manager.h"
@@ -1235,6 +1236,8 @@ void ShoppingService::OnGetAllDiscountsFromOptGuide(
   for (auto res : results) {
     if (res.second.size() > 0) {
       map.insert(res);
+      base::UmaHistogramEnumeration(kDiscountsFetchResultHistogramName,
+                                    DiscountsFetchResult::kInfoFromOptGuide);
     } else {
       urls_to_check_in_db.push_back(res.first.spec());
     }
