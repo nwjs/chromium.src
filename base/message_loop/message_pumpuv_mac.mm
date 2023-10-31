@@ -166,6 +166,8 @@ void UvNoOp(void* handle) {
 
 // A scoper for an optional autorelease pool.
 class OptionalAutoreleasePool {
+ STACK_ALLOCATED();
+
  public:
   explicit OptionalAutoreleasePool(MessagePumpCFRunLoopBase* pump) {
     if (pump->ShouldCreateAutoreleasePool()) {
