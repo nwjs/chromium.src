@@ -25,6 +25,7 @@ class Origin;
 namespace content {
 
 struct OsRegistration;
+struct GlobalRenderFrameHostId;
 
 // Interface between the browser's Attribution Reporting implementation and the
 // operating system's.
@@ -77,7 +78,10 @@ class CONTENT_EXPORT AttributionOsLevelManager {
 
  protected:
   [[nodiscard]] static bool ShouldInitializeApiState();
-  [[nodiscard]] static bool ShouldUseOsWebSource();
+  [[nodiscard]] static bool ShouldUseOsWebSource(
+      GlobalRenderFrameHostId render_frame_id);
+  [[nodiscard]] static bool ShouldUseOsWebTrigger(
+      GlobalRenderFrameHostId render_frame_id);
 };
 
 class CONTENT_EXPORT NoOpAttributionOsLevelManager

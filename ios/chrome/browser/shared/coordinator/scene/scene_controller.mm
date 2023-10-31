@@ -42,13 +42,13 @@
 #import "ios/chrome/app/chrome_overlay_window.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
 #import "ios/chrome/app/tests_hook.h"
-#import "ios/chrome/browser/browsing_data/browsing_data_remove_mask.h"
-#import "ios/chrome/browser/browsing_data/browsing_data_remover.h"
-#import "ios/chrome/browser/browsing_data/browsing_data_remover_factory.h"
-#import "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager_browser_agent.h"
-#import "ios/chrome/browser/crash_report/crash_keys_helper.h"
-#import "ios/chrome/browser/crash_report/crash_loop_detection_util.h"
-#import "ios/chrome/browser/crash_report/crash_report_helper.h"
+#import "ios/chrome/browser/browsing_data/model/browsing_data_remove_mask.h"
+#import "ios/chrome/browser/browsing_data/model/browsing_data_remover.h"
+#import "ios/chrome/browser/browsing_data/model/browsing_data_remover_factory.h"
+#import "ios/chrome/browser/crash_report/model/breadcrumbs/breadcrumb_manager_browser_agent.h"
+#import "ios/chrome/browser/crash_report/model/crash_keys_helper.h"
+#import "ios/chrome/browser/crash_report/model/crash_loop_detection_util.h"
+#import "ios/chrome/browser/crash_report/model/crash_report_helper.h"
 #import "ios/chrome/browser/default_browser/promo_source.h"
 #import "ios/chrome/browser/default_browser/utils.h"
 #import "ios/chrome/browser/feature_engagement/tracker_factory.h"
@@ -69,7 +69,7 @@
 #import "ios/chrome/browser/policy/policy_watcher_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/promos_manager/features.h"
 #import "ios/chrome/browser/promos_manager/promos_manager_factory.h"
-#import "ios/chrome/browser/screenshot/screenshot_delegate.h"
+#import "ios/chrome/browser/screenshot/model/screenshot_delegate.h"
 #import "ios/chrome/browser/sessions/session_saving_scene_agent.h"
 #import "ios/chrome/browser/sessions/session_service_ios.h"
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
@@ -112,6 +112,7 @@
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
 #import "ios/chrome/browser/signin/system_identity_manager.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
+#import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/ui/app_store_rating/app_store_rating_scene_agent.h"
 #import "ios/chrome/browser/ui/app_store_rating/features.h"
 #import "ios/chrome/browser/ui/appearance/appearance_customization.h"
@@ -157,8 +158,7 @@
 #import "ios/chrome/browser/url_loading/url_loading_params.h"
 #import "ios/chrome/browser/web/page_placeholder_browser_agent.h"
 #import "ios/chrome/browser/web_state_list/session_metrics.h"
-#import "ios/chrome/browser/web_state_list/tab_insertion_browser_agent.h"
-#import "ios/chrome/browser/window_activities/window_activity_helpers.h"
+#import "ios/chrome/browser/window_activities/model/window_activity_helpers.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/public/provider/chrome/browser/signin/choice_api.h"
@@ -447,10 +447,6 @@ void InjectNTP(Browser* browser) {
   }
 }
 
-- (BOOL)isPresentingSigninView {
-  return self.signinCoordinator != nil;
-}
-
 - (BOOL)isTabGridVisible {
   return self.mainCoordinator.isTabGridActive;
 }
@@ -577,7 +573,7 @@ void InjectNTP(Browser* browser) {
 - (void)handleTabMoveActivity:(NSUserActivity*)activity {
   DCHECK(ActivityIsTabMove(activity));
   BOOL incognito = GetIncognitoFromTabMoveActivity(activity);
-  NSString* tabID = GetTabIDFromActivity(activity);
+  web::WebStateID tabID = GetTabIDFromActivity(activity);
 
   WrangledBrowser* interface = self.currentInterface;
 
@@ -727,7 +723,8 @@ void InjectNTP(Browser* browser) {
     self.settingsNavigationController =
         [SettingsNavigationController safetyCheckControllerForBrowser:browser
                                                              delegate:self
-                                                   displayAsHalfSheet:NO];
+                                                   displayAsHalfSheet:NO
+                                                             referrer:referrer];
   }
 
   self.passwordCheckupCoordinator = [[PasswordCheckupCoordinator alloc]
@@ -1370,7 +1367,7 @@ void InjectNTP(Browser* browser) {
 
 // Returns 'YES' if the tabID from the given `activity` is valid.
 - (BOOL)isTabActivityValid:(NSUserActivity*)activity {
-  NSString* tabID = GetTabIDFromActivity(activity);
+  web::WebStateID tabID = GetTabIDFromActivity(activity);
 
   ChromeBrowserState* browserState = self.currentInterface.browserState;
   BrowserList* browserList =
@@ -1487,6 +1484,12 @@ void InjectNTP(Browser* browser) {
     }
   }
 
+  if (_signedInAccountsVC) {
+    // Don't handle intents if the user has the Signed In Accounts view
+    // controller presented on the screen.
+    return NO;
+  }
+
   return YES;
 }
 
@@ -1508,12 +1511,13 @@ void InjectNTP(Browser* browser) {
 }
 
 - (void)showHistory {
+  CHECK(!self.currentInterface.incognito)
+      << "Current interface is incognito and should NOT show history. Call "
+         "this on regular interface.";
   self.historyCoordinator = [[HistoryCoordinator alloc]
       initWithBaseViewController:self.currentInterface.viewController
                          browser:self.mainInterface.browser];
-  self.historyCoordinator.loadStrategy =
-      self.currentInterface.incognito ? UrlLoadStrategy::ALWAYS_IN_INCOGNITO
-                                      : UrlLoadStrategy::NORMAL;
+  self.historyCoordinator.loadStrategy = UrlLoadStrategy::NORMAL;
   self.historyCoordinator.delegate = self;
   [self.historyCoordinator start];
 }
@@ -1750,6 +1754,12 @@ void InjectNTP(Browser* browser) {
 // TODO(crbug.com/779791) : Do not pass `baseViewController` through dispatcher.
 - (void)showSignin:(ShowSigninCommand*)command
     baseViewController:(UIViewController*)baseViewController {
+  if (command.skipIfUINotAvaible &&
+      (baseViewController.presentedViewController ||
+       ![self isTabAvailableToPresentViewController])) {
+    // Make sure the UI is available to present the sign-in view.
+    return;
+  }
   DCHECK(!self.signinCoordinator)
       << "self.signinCoordinator: "
       << base::SysNSStringToUTF8([self.signinCoordinator description]);
@@ -1983,6 +1993,26 @@ void InjectNTP(Browser* browser) {
   }
 }
 
+// Returns YES if the current Tab is available to present a view controller.
+- (BOOL)isTabAvailableToPresentViewController {
+  if (self.signinCoordinator) {
+    return NO;
+  }
+  if (self.settingsNavigationController) {
+    return NO;
+  }
+  if (self.sceneState.appState.initStage <= InitStageFirstRun) {
+    return NO;
+  }
+  if (self.sceneState.appState.currentUIBlocker) {
+    return NO;
+  }
+  if (self.mainCoordinator.isTabGridActive) {
+    return NO;
+  }
+  return YES;
+}
+
 #pragma mark - ApplicationSettingsCommands
 
 // TODO(crbug.com/779791) : Remove show settings from MainController.
@@ -2119,6 +2149,7 @@ void InjectNTP(Browser* browser) {
                                  completion:nil];
 }
 
+// Shows the Password Checkup page for `referrer`.
 - (void)showPasswordCheckupPageForReferrer:
     (password_manager::PasswordCheckReferrer)referrer {
   if (!password_manager::features::IsPasswordCheckupEnabled()) {
@@ -2155,6 +2186,8 @@ void InjectNTP(Browser* browser) {
                                  completion:nil];
 }
 
+// Opens the Password Issues list displaying compromised, weak or reused
+// credentials for `warningType` and `referrer`.
 - (void)
     showPasswordIssuesWithWarningType:(password_manager::WarningType)warningType
                              referrer:(password_manager::PasswordCheckReferrer)
@@ -2272,12 +2305,19 @@ void InjectNTP(Browser* browser) {
                                  completion:nil];
 }
 
-- (void)showAndStartSafetyCheckInHalfSheet:(BOOL)showHalfSheet {
+// Displays the Safety Check (via Settings) for `referrer`. `showHalfSheet`
+// determines whether the Safety Check will be displayed as a half-sheet, or
+// full-page modal.
+- (void)showAndStartSafetyCheckInHalfSheet:(BOOL)showHalfSheet
+                                  referrer:
+                                      (password_manager::PasswordCheckReferrer)
+                                          referrer {
   UIViewController* baseViewController = self.currentInterface.viewController;
 
   if (self.settingsNavigationController) {
     [self.settingsNavigationController
-        showAndStartSafetyCheckInHalfSheet:showHalfSheet];
+        showAndStartSafetyCheckInHalfSheet:showHalfSheet
+                                  referrer:referrer];
     return;
   }
 
@@ -2286,7 +2326,8 @@ void InjectNTP(Browser* browser) {
   self.settingsNavigationController = [SettingsNavigationController
       safetyCheckControllerForBrowser:browser
                              delegate:self
-                   displayAsHalfSheet:showHalfSheet];
+                   displayAsHalfSheet:showHalfSheet
+                             referrer:referrer];
 
   [baseViewController presentViewController:self.settingsNavigationController
                                    animated:YES
@@ -2493,7 +2534,7 @@ void InjectNTP(Browser* browser) {
       };
     case START_LENS_FROM_INTENTS:
       return ^{
-        [weakSelf startLensWithEntryPoint:LensEntrypoint::Intents];
+        [weakSelf startLensWithEntryPoint:LensEntrypoint::Spotlight];
       };
     case FOCUS_OMNIBOX:
       return ^{
@@ -2537,7 +2578,11 @@ void InjectNTP(Browser* browser) {
       };
     case RUN_SAFETY_CHECK:
       return ^{
-        [weakSelf showAndStartSafetyCheckInHalfSheet:NO];
+        [weakSelf
+            showAndStartSafetyCheckInHalfSheet:NO
+                                      referrer:password_manager::
+                                                   PasswordCheckReferrer::
+                                                       kSafetyCheckMagicStack];
       };
     case MANAGE_PASSWORDS:
       return ^{
@@ -2621,11 +2666,20 @@ void InjectNTP(Browser* browser) {
 }
 
 - (void)startPasswordSearch {
-  if (!self.currentInterface.browser) {
+  Browser* browser = self.currentInterface.browser;
+  if (!browser) {
     return;
   }
+  feature_engagement::Tracker* tracker =
+      feature_engagement::TrackerFactory::GetForBrowserState(
+          browser->GetBrowserState());
+  if (tracker) {
+    tracker->NotifyEvent(
+        feature_engagement::events::kPasswordManagerWidgetPromoUsed);
+  }
+
   id<ApplicationSettingsCommands> applicationSettingsCommandsHandler =
-      HandlerForProtocol(self.currentInterface.browser->GetCommandDispatcher(),
+      HandlerForProtocol(browser->GetCommandDispatcher(),
                          ApplicationSettingsCommands);
   [applicationSettingsCommandsHandler showPasswordSearchPage];
 }

@@ -18,9 +18,11 @@
 #include "base/feature_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_policy.h"
+#include "base/memory/stack_allocated.h"
 #include "base/metrics/histogram_samples.h"
 #include "base/notreached.h"
 #include "base/run_loop.h"
+#include "base/task/task_features.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -36,6 +38,9 @@ const CFStringRef kMessageLoopExclusiveRunLoopMode =
     CFSTR("kMessageLoopExclusiveRunLoopMode");
 
 namespace {
+
+// Caches the state of the "TimerSlackMac" feature for efficiency.
+std::atomic_bool g_timer_slack = false;
 
 // Mask that determines which modes to use.
 enum { kCommonModeMask = 0x1, kAllModesMask = 0xf };
@@ -63,6 +68,8 @@ MessagePumpNSApplication* g_app_pump;
 
 // A scoper for an optional autorelease pool.
 class OptionalAutoreleasePool {
+  STACK_ALLOCATED();
+
  public:
   explicit OptionalAutoreleasePool(MessagePumpCFRunLoopBase* pump) {
     if (pump->ShouldCreateAutoreleasePool()) {
@@ -178,21 +185,44 @@ void MessagePumpCFRunLoopBase::ScheduleDelayedWork(
     const Delegate::NextWorkInfo& next_work_info) {
   DCHECK(!next_work_info.is_immediate());
 
+  // The tolerance needs to be set before the fire date or it may be ignored.
+  if (g_timer_slack.load(std::memory_order_relaxed) &&
+      !next_work_info.delayed_run_time.is_max() &&
+      delayed_work_leeway_ != next_work_info.leeway) {
+    if (!next_work_info.leeway.is_zero()) {
+      // Specify slack based on |next_work_info|.
+      CFRunLoopTimerSetTolerance(delayed_work_timer_,
+                                 next_work_info.leeway.InSecondsF());
+    } else {
+      CFRunLoopTimerSetTolerance(delayed_work_timer_, 0);
+    }
+    delayed_work_leeway_ = next_work_info.leeway;
+  }
+
   // No-op if the delayed run time hasn't changed.
-  if (next_work_info.delayed_run_time == delayed_work_scheduled_at_) {
-    return;
+  if (next_work_info.delayed_run_time != delayed_work_scheduled_at_) {
+    if (next_work_info.delayed_run_time.is_max()) {
+      CFRunLoopTimerSetNextFireDate(delayed_work_timer_, kCFTimeIntervalMax);
+    } else {
+      const double delay_seconds =
+          next_work_info.remaining_delay().InSecondsF();
+      CFRunLoopTimerSetNextFireDate(delayed_work_timer_,
+                                    CFAbsoluteTimeGetCurrent() + delay_seconds);
+    }
+
+    delayed_work_scheduled_at_ = next_work_info.delayed_run_time;
   }
+}
 
-  if (next_work_info.delayed_run_time.is_max()) {
-    CFRunLoopTimerSetNextFireDate(delayed_work_timer_, kCFTimeIntervalMax);
-  } else {
-    const double delay_seconds = next_work_info.remaining_delay().InSecondsF();
-
-    CFRunLoopTimerSetNextFireDate(delayed_work_timer_,
-                                  CFAbsoluteTimeGetCurrent() + delay_seconds);
+TimeTicks MessagePumpCFRunLoopBase::AjdustDelayedRunTime(
+    TimeTicks earliest_time,
+    TimeTicks run_time,
+    TimeTicks latest_time) {
+  if (g_timer_slack.load(std::memory_order_relaxed)) {
+    return earliest_time;
   }
-
-  delayed_work_scheduled_at_ = next_work_info.delayed_run_time;
+  return MessagePump::AjdustDelayedRunTime(earliest_time, run_time,
+                                           latest_time);
 }
 
 #if BUILDFLAG(IS_IOS)
@@ -218,7 +248,6 @@ MessagePumpCFRunLoopBase::MessagePumpCFRunLoopBase(int initial_mode_mask) {
                            /*order=*/0,
                            /*callout=*/RunDelayedWorkTimer,
                            /*context=*/&timer_context));
-  CFRunLoopTimerSetTolerance(delayed_work_timer_, 0);
 
   CFRunLoopSourceContext source_context = {0};
   source_context.info = this;
@@ -274,6 +303,8 @@ MessagePumpCFRunLoopBase::~MessagePumpCFRunLoopBase() {
 
 // static
 void MessagePumpCFRunLoopBase::InitializeFeatures() {
+  g_timer_slack.store(FeatureList::IsEnabled(kTimerSlackMac),
+                      std::memory_order_relaxed);
 }
 
 #if BUILDFLAG(IS_IOS)

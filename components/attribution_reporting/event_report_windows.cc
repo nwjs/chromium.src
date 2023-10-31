@@ -13,6 +13,7 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/flat_set.h"
+#include "base/functional/not_fn.h"
 #include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
@@ -34,11 +35,14 @@ constexpr char kEventReportWindows[] = "event_report_windows";
 constexpr char kStartTime[] = "start_time";
 constexpr char kEndTimes[] = "end_times";
 
-constexpr base::TimeDelta kMinReportWindow = base::Hours(1);
-
 bool EventReportWindowsValid(base::TimeDelta start_time,
                              const base::flat_set<base::TimeDelta>& end_times) {
+  // TODO(apaseltiner): This should also check `*end_times.begin() >=
+  // kMinReportWindow` but essentially all unit tests in
+  // //content/browser/attribution_reporting would need to be updated as a
+  // result based on their use of sub-`kMinReportWindow` expiries.
   return !start_time.is_negative() && !end_times.empty() &&
+         end_times.size() <= kMaxEventLevelReportWindows &&
          *end_times.begin() > start_time;
 }
 
@@ -46,10 +50,15 @@ bool EventReportWindowValid(base::TimeDelta window) {
   return !window.is_negative();
 }
 
+bool IsStrictlyIncreasing(const std::vector<base::TimeDelta>& end_times) {
+  return base::ranges::adjacent_find(end_times, base::not_fn(std::less{})) ==
+         end_times.end();
+}
+
 // TODO(tquintanilla): Consolidate with `MaybeTruncate()`.
 void AppendAndMaybeTruncate(std::vector<base::TimeDelta>& end_times,
                             base::TimeDelta expiry) {
-  DCHECK(base::ranges::is_sorted(end_times));
+  DCHECK(IsStrictlyIncreasing(end_times));
   while (end_times.size() > 0 && end_times.back() >= expiry) {
     end_times.pop_back();
   }
@@ -78,7 +87,7 @@ absl::optional<EventReportWindows> EventReportWindows::CreateSingularWindow(
 absl::optional<EventReportWindows> EventReportWindows::CreateWindows(
     base::TimeDelta start_time,
     std::vector<base::TimeDelta> end_times) {
-  if (!base::ranges::is_sorted(end_times)) {
+  if (!IsStrictlyIncreasing(end_times)) {
     return absl::nullopt;
   }
   base::flat_set<base::TimeDelta> end_times_set(base::sorted_unique,
@@ -180,11 +189,19 @@ base::Time EventReportWindows::ReportTimeAtWindow(base::Time source_time,
 
 EventReportWindows::WindowResult EventReportWindows::FallsWithin(
     base::TimeDelta trigger_moment) const {
-  DCHECK(!trigger_moment.is_negative());
-  if (trigger_moment < start_time_or_window_time_) {
+  // It is possible for a source to have an assigned time of T and a trigger
+  // that is attributed to it to have a time of T-X e.g. due to user-initiated
+  // clock changes.
+  //
+  // TODO(crbug.com/1489333): Assume trigger moment is not negative once
+  // attribution time resolution is implemented in storage.
+  base::TimeDelta bounded_trigger_moment =
+      trigger_moment.is_negative() ? base::Microseconds(0) : trigger_moment;
+
+  if (bounded_trigger_moment < start_time_or_window_time_) {
     return WindowResult::kNotStarted;
   }
-  if (trigger_moment >= *end_times_.rbegin()) {
+  if (bounded_trigger_moment >= *end_times_.rbegin()) {
     return WindowResult::kPassed;
   }
   return WindowResult::kFallsWithin;
@@ -269,7 +286,7 @@ EventReportWindows::ParseWindowsJSON(const base::Value& v) {
       return base::unexpected(
           SourceRegistrationError::kEventReportWindowsEndTimeValueWrongType);
     }
-    if (item_int.value() < 0) {
+    if (item_int.value() <= 0) {
       return base::unexpected(
           SourceRegistrationError::kEventReportWindowsEndTimeValueInvalid);
     }

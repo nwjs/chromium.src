@@ -38,6 +38,7 @@
 #include "third_party/blink/renderer/core/scroll/scroll_customization.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
+#include "third_party/blink/renderer/platform/graphics/dom_node_id.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_map.h"
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_hash_set.h"
 #include "third_party/blink/renderer/platform/heap/custom_spaces.h"
@@ -89,7 +90,6 @@ template <typename NodeType>
 class StaticNodeTypeList;
 using StaticNodeList = StaticNodeTypeList<Node>;
 class StyleChangeReasonForTracing;
-class V8ScrollStateCallback;
 class V8UnionNodeOrStringOrTrustedScript;
 class V8UnionStringOrTrustedScript;
 class WebPluginContainerImpl;
@@ -194,7 +194,13 @@ class CORE_EXPORT Node : public EventTarget {
   static void DumpStatistics();
 #endif
 
+  static Node* FromDomNodeId(DOMNodeId dom_node_id);
+
   ~Node() override;
+
+  // Returns the existing DOMNodeID for the node if it has already been
+  // assigned, otherwise, assigns a new DOMNodeID and return that.
+  DOMNodeId GetDomNodeId();
 
   // DOM methods & attributes for Node
 
@@ -221,11 +227,7 @@ class CORE_EXPORT Node : public EventTarget {
   Node* lastChild() const;
   Node* getRootNode(const GetRootNodeOptions*) const;
 
-  // Scroll Customization API. See crbug.com/410974 for details.
-  void setDistributeScroll(V8ScrollStateCallback*,
-                           const String& native_scroll_behavior);
-  void setApplyScroll(V8ScrollStateCallback*,
-                      const String& native_scroll_behavior);
+  // TODO(crbug.com/1369739): Get rid of these.
   void SetApplyScroll(ScrollStateCallback*);
   void RemoveApplyScroll();
   ScrollStateCallback* GetApplyScroll();
@@ -233,8 +235,6 @@ class CORE_EXPORT Node : public EventTarget {
   void NativeApplyScroll(ScrollState&);
   void CallDistributeScroll(ScrollState&);
   void CallApplyScroll(ScrollState&);
-  void WillBeginCustomizedScrollPhase(scroll_customization::ScrollDirection);
-  void DidEndCustomizedScrollPhase();
 
   Node& TreeRoot() const;
   Node& ShadowIncludingRoot() const;
@@ -974,6 +974,13 @@ class CORE_EXPORT Node : public EventTarget {
   void SetHasDisplayLockContext() { SetFlag(kHasDisplayLockContext); }
   bool HasDisplayLockContext() const { return GetFlag(kHasDisplayLockContext); }
 
+  // Creates a DocumentFragment, appends all of |nodes| to it, and returns the
+  // DocumentFragment. Returns nullptr if an exception was thrown.
+  static Node* ConvertNodesIntoNode(const Node* parent,
+                                    const HeapVector<Member<Node>>& nodes,
+                                    Document& document,
+                                    ExceptionState& exception_state);
+
   bool SelfOrAncestorHasDirAutoAttribute() const {
     return GetFlag(kSelfOrAncestorHasDirAutoAttribute);
   }
@@ -987,26 +994,16 @@ class CORE_EXPORT Node : public EventTarget {
     return (node_flags_ & kCachedDirectionalityIsRtl) ? TextDirection::kRtl
                                                       : TextDirection::kLtr;
   }
-  void SetCachedDirectionality(TextDirection direction) {
-    switch (direction) {
-      case TextDirection::kRtl:
-        SetFlag(kCachedDirectionalityIsRtl);
-        break;
-      case TextDirection::kLtr:
-        ClearFlag(kCachedDirectionalityIsRtl);
-        break;
-    }
-    ClearFlag(kNeedsInheritDirectionalityFromParent);
-  }
-  bool NeedsInheritDirectionalityFromParent() const {
-    return GetFlag(kNeedsInheritDirectionalityFromParent);
-  }
-  void SetNeedsInheritDirectionalityFromParent() {
-    SetFlag(kNeedsInheritDirectionalityFromParent);
-  }
-  void ClearNeedsInheritDirectionalityFromParent() {
-    ClearFlag(kNeedsInheritDirectionalityFromParent);
-  }
+  void SetCachedDirectionality(TextDirection direction);
+
+  bool NeedsInheritDirectionalityFromParent() const;
+  void SetNeedsInheritDirectionalityFromParent();
+  void ClearNeedsInheritDirectionalityFromParent();
+
+  bool DirAutoInheritsFromParent() const;
+  void SetDirAutoInheritsFromParent();
+  void ClearDirAutoInheritsFromParent();
+
   void Trace(Visitor*) const override;
 
  private:
@@ -1057,7 +1054,16 @@ class CORE_EXPORT Node : public EventTarget {
 
     kSelfOrAncestorHasDirAutoAttribute = 1 << 28,
     kCachedDirectionalityIsRtl = 1 << 29,
+    // TODO(https://crbug.com/576815): Remove this duplication once new
+    // dir=auto handling ships as part of
+    // RuntimeEnabledFeatures::CSSPseudoDirEnabled().
+    //
+    // This has the same value as the next flag; this one is used only when
+    // !RuntimeEnabledFeatures::CSSPseudoDirEnabled():
     kNeedsInheritDirectionalityFromParent = 1u << 30,
+    // This has the same value as the previous flag; this one is used only when
+    // RuntimeEnabledFeatures::CSSPseudoDirEnabled():
+    kDirAutoInheritsFromParent = 1u << 30,
 
     kDefaultNodeFlags = kIsFinishedParsingChildrenFlag,
 

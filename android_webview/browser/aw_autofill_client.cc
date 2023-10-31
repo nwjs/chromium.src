@@ -207,11 +207,14 @@ void AwAutofillClient::ConfirmSaveCreditCardLocally(
 }
 
 void AwAutofillClient::ShowEditAddressProfileDialog(
-    const autofill::AutofillProfile& profile) {
+    const autofill::AutofillProfile& profile,
+    AddressProfileSavePromptCallback on_user_decision_callback) {
   NOTREACHED();
 }
 
-void AwAutofillClient::ShowDeleteAddressProfileDialog() {
+void AwAutofillClient::ShowDeleteAddressProfileDialog(
+    const autofill::AutofillProfile& profile,
+    AddressProfileDeleteDialogCallback delete_dialog_callback) {
   NOTREACHED();
 }
 
@@ -338,10 +341,6 @@ bool AwAutofillClient::IsPasswordManagerEnabled() {
   // elements. It did not support password management.
   return false;
 }
-
-void AwAutofillClient::PropagateAutofillPredictionsDeprecated(
-    autofill::AutofillDriver* driver,
-    const std::vector<autofill::FormStructure*>& forms) {}
 
 void AwAutofillClient::DidFillOrPreviewForm(
     autofill::mojom::AutofillActionPersistence action_persistence,

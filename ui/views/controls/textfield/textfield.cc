@@ -70,6 +70,8 @@
 #include "ui/views/layout/layout_provider.h"
 #include "ui/views/painter.h"
 #include "ui/views/style/platform_style.h"
+#include "ui/views/style/typography.h"
+#include "ui/views/style/typography_provider.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/views_features.h"
 #include "ui/views/widget/widget.h"
@@ -234,6 +236,7 @@ Textfield::Textfield()
       selection_controller_(this) {
   set_context_menu_controller(this);
   set_drag_controller(this);
+  GetViewAccessibility().set_needs_ax_tree_manager(true);
   auto cursor_view = std::make_unique<View>();
   cursor_view->SetPaintToLayer(ui::LAYER_SOLID_COLOR);
   cursor_view->GetViewAccessibility().OverrideIsIgnored(true);
@@ -411,8 +414,9 @@ bool Textfield::HasSelection(bool primary_only) const {
 }
 
 SkColor Textfield::GetTextColor() const {
-  return text_color_.value_or(GetColorProvider()->GetColor(
-      style::GetColorId(style::CONTEXT_TEXTFIELD, GetTextStyle())));
+  return text_color_.value_or(
+      GetColorProvider()->GetColor(TypographyProvider::Get().GetColorId(
+          style::CONTEXT_TEXTFIELD, GetTextStyle())));
 }
 
 void Textfield::SetTextColor(SkColor color) {
@@ -2591,12 +2595,18 @@ void Textfield::UpdateDefaultBorder() {
 }
 
 void Textfield::UpdateSelectionTextColor() {
+  if (!GetWidget()) {
+    return;
+  }
   GetRenderText()->set_selection_color(GetSelectionTextColor());
   OnPropertyChanged(&model_ + kTextfieldSelectionTextColor,
                     kPropertyEffectsPaint);
 }
 
 void Textfield::UpdateSelectionBackgroundColor() {
+  if (!GetWidget()) {
+    return;
+  }
   GetRenderText()->set_selection_background_focused_color(
       GetSelectionBackgroundColor());
   OnPropertyChanged(&model_ + kTextfieldSelectionBackgroundColor,
@@ -2675,7 +2685,7 @@ void Textfield::PaintTextAndCursor(gfx::Canvas* canvas) {
     canvas->DrawStringRectWithFlags(
         GetPlaceholderText(), placeholder_font_list_.value_or(GetFontList()),
         placeholder_text_color_.value_or(
-            GetColorProvider()->GetColor(style::GetColorId(
+            GetColorProvider()->GetColor(TypographyProvider::Get().GetColorId(
                 style::CONTEXT_TEXTFIELD_PLACEHOLDER,
                 GetInvalid() ? style::STYLE_INVALID : style::STYLE_PRIMARY))),
         render_text->display_rect(), placeholder_text_draw_flags);

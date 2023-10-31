@@ -66,6 +66,11 @@ class VideoCaptureControllerEventHandler {
       const ReadyBuffer& buffer,
       const std::vector<ReadyBuffer>& scaled_buffers) = 0;
 
+  // A frame was dropped - OnBufferReady() was never called for this frame. In
+  // other words the frame was dropped before it reached the renderer process.
+  virtual void OnFrameDropped(const VideoCaptureControllerID& id,
+                              media::VideoCaptureFrameDropReason reason) = 0;
+
   // All subsequent buffers are guaranteed to have a crop version whose value
   // is at least |crop_version|.
   virtual void OnNewCropVersion(const VideoCaptureControllerID& id,

@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">የልጣፍ ምስልን በየቀኑ ቀይር</translation>
 <translation id="1644574205037202324">ታሪክ</translation>
 <translation id="1651925268237749928">የተጋራ አልበም መርጠዋል። ሌሎች ሰዎች ፎቶዎችን ማከል ወይም መቀየር ይችላሉ። ልጣፍዎ በአሁኑ ጊዜ በዚህ አልበም ውስጥ የሌሉ ፎቶዎችን ሊጠቀም ይችላል።</translation>
+<translation id="1661865805917886535">የተወሰነ የመለያ እና የሥርዓት መረጃ ለGoogle ሊላክ ይችላል። ይህን መረጃ በእኛ የግላዊነት መመሪያ (<ph name="PRIVACYPOLICYURL" />) እና የአገልግሎት ውል (<ph name="TERMSOFSERVICEURL" />) መሰረት የአድራሻ ቴክኒካዊ ችግሮችን ለመፍታት እና የእኛን አገልግሎቶች ለማሻሻል ለማገዝ ነው። የይዘት ለውጦችን ለመጠየቅ ወደ ሕጋዊ እገዛ (<ph name="LEGALHELPPAGEURL" />) ይሂዱ።</translation>
 <translation id="1662989795263954667">ቆሟል - ቀለም አልቋል</translation>
 <translation id="1664796644829245314"><ph name="PREVIEW_OBJECT" />ን አስቀድመው ይመልከቱ</translation>
 <translation id="1668469839109562275">አብሮገነብ VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">ሲፒዩ</translation>
 <translation id="3124039320086536031">መሣሪያ ተገናኝቷል።</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{ገፅ ይወገድ?}=1{ገፅ {PAGE_NUMBER} ይወገድ?}one{ገፅ {PAGE_NUMBER} ይወገድ?}other{ገፅ {PAGE_NUMBER} ይወገድ?}}</translation>
+<translation id="3146655726035122603">ለ<ph name="PRODUCT_NAME" /> የተወሰነ</translation>
 <translation id="315116470104423982">የተንቀሳቃሽ ስልክ ውሂብ</translation>
 <translation id="3156846309055100599">ገፅ <ph name="PAGE_NUMBER" />ን በመቃኘት ላይ...</translation>
 <translation id="315738237743207937">ተያዥ መግቢያ ተገኝቷል</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">ቃኚዎችን በመፈለግ ላይ</translation>
 <translation id="3226657629376379887">የአቀማመጥ እርምጃዎች ምናሌ</translation>
 <translation id="3246869037381808805">ከ1 ቀን በላይ ዕድሜ ያላቸው የህትመት ሥራዎች ይወገዳሉ</translation>
-<translation id="3248223063252096240"><ph name="PRODUCT_NAME" /> ለሚመለከተው የተወሰነ</translation>
 <translation id="3268178239013324452">አልተሳካም - በር ክፍት ነው</translation>
 <translation id="3275729367986477355">የአምሳያ ምስል</translation>
 <translation id="3283504360622356314">{0,plural, =1{ፋይል አርትዕ ያድርጉ}one{ፋይሎችን አርትዕ ያድርጉ}other{ፋይሎችን አርትዕ ያድርጉ}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" />ን ምረጥ</translation>
 <translation id="8151185429379586178">የገንቢ መሳሪያዎች</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />፣ <ph name="ACCELERATOR_INFO" />።</translation>
 <translation id="8179976553408161302">አስገባ</translation>
 <translation id="8183974620058026102">አባሪ አድርግ</translation>
 <translation id="8206859287963243715">ሴሉላር</translation>

@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Vaihda taustakuva päivittäin</translation>
 <translation id="1644574205037202324">Historia</translation>
 <translation id="1651925268237749928">Olet valinnut jaetun albumin. Muut voivat lisätä tai muuttaa kuvia. Taustakuvaan saatetaan käyttää kuvia, jotka eivät tällä hetkellä sisälly tähän albumiin.</translation>
+<translation id="1661865805917886535">Joitakin tili- ja järjestelmätietoja voidaan lähettää Googlelle. Tietojen avulla ratkomme teknisiä ongelmia ja kehitämme palveluitamme tietosuojakäytännön (<ph name="PRIVACYPOLICYURL" />) ja käyttöehtojen (<ph name="TERMSOFSERVICEURL" />) mukaisesti. Jos haluat pyytää sisältöön muutoksia, siirry lakiasioiden ohjesivulle (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Pysähtynyt – Muste loppu</translation>
 <translation id="1664796644829245314">Esikatsele: <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">Sisäänrakennettu VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">Keskusyksikkö</translation>
 <translation id="3124039320086536031">Laite on yhdistetty.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Poistetaanko sivu?}=1{Poistetaanko sivu {PAGE_NUMBER}?}other{Poistetaanko sivu {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Vain käyttäjille, joilla on <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobiilidata</translation>
 <translation id="3156846309055100599">Skannataan sivu <ph name="PAGE_NUMBER" />…</translation>
 <translation id="315738237743207937">Captive portal havaittu</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Haetaan skannereita</translation>
 <translation id="3226657629376379887">Asettelun toimintovalikko</translation>
 <translation id="3246869037381808805">Yli päivän vanhat tulostustyöt poistetaan</translation>
-<translation id="3248223063252096240">Vain <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Epäonnistui – Luukku auki</translation>
 <translation id="3275729367986477355">Avatar-kuva</translation>
 <translation id="3283504360622356314">{0,plural, =1{Muokkaa tiedostoa}other{Muokkaa tiedostoja}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Valitse <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Kehittäjän työkalut</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Liitä</translation>
 <translation id="8206859287963243715">Matkapuhelin</translation>

@@ -27,6 +27,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
 #include "cc/paint/display_item_list.h"
+#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_pin_type.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/frame/caption_buttons/caption_button_model.h"
@@ -56,6 +57,7 @@
 #include "ui/compositor_extra/shadow.h"
 #include "ui/display/display.h"
 #include "ui/display/test/display_manager_test_api.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/display/util/display_util.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_targeter.h"
@@ -74,14 +76,10 @@ namespace {
 
 class ClientControlledShellSurfaceTest
     : public test::ExoTestBase,
-      public testing::WithParamInterface<bool> {
+      public testing::WithParamInterface<test::FrameSubmissionType> {
  public:
   ClientControlledShellSurfaceTest() {
-    if (GetParam()) {
-      feature_list_.InitAndEnableFeature(kExoReactiveFrameSubmission);
-    } else {
-      feature_list_.InitAndDisableFeature(kExoReactiveFrameSubmission);
-    }
+    test::SetFrameSubmissionFeatureFlags(&feature_list_, GetParam());
   }
 
  private:
@@ -130,11 +128,13 @@ class TestCanvas : public SkNoDrawCanvas {
 
 }  // namespace
 
-// Instantiate the values of disabling/enabling reactive frame submission in the
-// parameterized tests.
-INSTANTIATE_TEST_SUITE_P(All,
-                         ClientControlledShellSurfaceTest,
-                         testing::Values(false, true));
+// Instantiate the values of frame submission types in the parameterized tests.
+INSTANTIATE_TEST_SUITE_P(
+    All,
+    ClientControlledShellSurfaceTest,
+    testing::Values(test::FrameSubmissionType::kNoReactive,
+                    test::FrameSubmissionType::kReactive_NoAutoNeedsBeginFrame,
+                    test::FrameSubmissionType::kReactive_AutoNeedsBeginFrame));
 
 TEST_P(ClientControlledShellSurfaceTest, SetPinned) {
   auto shell_surface = exo::test::ShellSurfaceBuilder({256, 256})
@@ -515,7 +515,7 @@ TEST_P(ClientControlledShellSurfaceTest, Frame) {
             frame_view->GetClientBoundsForWindowBounds(fullscreen_bounds));
 
   // Fullscreen state.
-  shell_surface->SetFullscreen(true);
+  shell_surface->SetFullscreen(true, display::kInvalidDisplayId);
   surface->Commit();
 
   widget->LayoutRootViewIfNecessary();
@@ -581,19 +581,59 @@ TEST_P(ClientControlledShellSurfaceTest, Frame) {
   // Fullscreen (AUTOHIDE) to normal with a single commit.
   shell_surface->SetGeometry(fullscreen_bounds);
   shell_surface->SetMaximized();
-  shell_surface->SetFullscreen(true);
+  shell_surface->SetFullscreen(true, display::kInvalidDisplayId);
   surface->SetFrame(SurfaceFrameType::AUTOHIDE);
   surface->Commit();
 
   shell_surface->SetGeometry(client_bounds);
   shell_surface->SetRestored();
-  shell_surface->SetFullscreen(false);
+  shell_surface->SetFullscreen(false, display::kInvalidDisplayId);
   surface->SetFrame(SurfaceFrameType::NORMAL);
   surface->Commit();
   EXPECT_TRUE(frame_view->GetFrameEnabled());
   EXPECT_EQ(normal_window_bounds, widget->GetWindowBoundsInScreen());
   EXPECT_EQ(client_bounds,
             frame_view->GetClientBoundsForWindowBounds(normal_window_bounds));
+}
+
+TEST_P(ClientControlledShellSurfaceTest,
+       ShadowRoundedCornersWithPipTransition) {
+  constexpr gfx::Point kOrigin(20, 20);
+  constexpr int kPipCornerRadius = 8;
+
+  base::test::ScopedFeatureList scoped_feature_list(
+      chromeos::features::kRoundedWindows);
+
+  std::unique_ptr<ClientControlledShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256})
+          .SetOrigin(kOrigin)
+          .SetWindowState(chromeos::WindowStateType::kNormal)
+          .SetFrame(SurfaceFrameType::NORMAL)
+          .BuildClientControlledShellSurface();
+
+  Surface* root_surface = shell_surface->root_surface();
+
+  root_surface->Commit();
+  views::Widget* widget = shell_surface->GetWidget();
+  ASSERT_TRUE(widget);
+
+  aura::Window* window = widget->GetNativeWindow();
+  ui::Shadow* shadow = wm::ShadowController::GetShadowForWindow(window);
+  ASSERT_TRUE(shadow);
+  EXPECT_EQ(shadow->rounded_corner_radius_for_testing(), 0);
+
+  shell_surface->SetPip();
+  root_surface->Commit();
+
+  shadow = wm::ShadowController::GetShadowForWindow(window);
+  ASSERT_TRUE(shadow);
+  EXPECT_EQ(shadow->rounded_corner_radius_for_testing(), kPipCornerRadius);
+
+  shell_surface->UnsetPip();
+  root_surface->Commit();
+
+  ASSERT_TRUE(shadow);
+  EXPECT_EQ(shadow->rounded_corner_radius_for_testing(), 0);
 }
 
 namespace {
@@ -740,9 +780,7 @@ TEST_P(ClientControlledShellSurfaceTest,
 
   // Show system tray by performing a gesture tap at tray.
   ash::UnifiedSystemTray* system_tray = GetPrimaryUnifiedSystemTray();
-  ui::GestureEvent tap(0, 0, 0, base::TimeTicks(),
-                       ui::GestureEventDetails(ui::ET_GESTURE_TAP));
-  system_tray->PerformAction(tap);
+  GestureTapOn(system_tray);
   ASSERT_TRUE(system_tray->GetWidget());
 
   // Confirm that system tray is not active at this time.
@@ -834,7 +872,7 @@ TEST_P(ClientControlledShellSurfaceTest, SetFullscreen) {
   surface->Commit();
   EXPECT_TRUE(HasBackdrop());
 
-  shell_surface->SetFullscreen(false);
+  shell_surface->SetFullscreen(false, display::kInvalidDisplayId);
   surface->Commit();
   EXPECT_FALSE(HasBackdrop());
   EXPECT_NE(GetContext()->bounds().ToString(),
@@ -1503,7 +1541,7 @@ TEST_P(ClientControlledShellSurfaceTest, WideFrame) {
   EXPECT_EQ(work_area.x(), wide_frame->GetBoundsInScreen().x());
   EXPECT_EQ(work_area.width(), wide_frame->GetBoundsInScreen().width());
 
-  shell_surface->SetFullscreen(true);
+  shell_surface->SetFullscreen(true, display::kInvalidDisplayId);
   surface->Commit();
   EXPECT_EQ(display_bounds.x(), wide_frame->GetBoundsInScreen().x());
   EXPECT_EQ(display_bounds.width(), wide_frame->GetBoundsInScreen().width());
@@ -2457,7 +2495,8 @@ TEST_P(ClientControlledShellSurfaceTest, WideframeForUnparentedTasks) {
   window->SetProperty(app_restore::kParentToHiddenContainerKey, true);
   aura::client::ParentWindowWithContext(window,
                                         /*context=*/window->GetRootWindow(),
-                                        window->GetBoundsInScreen());
+                                        window->GetBoundsInScreen(),
+                                        display::kInvalidDisplayId);
 
   // Maximize the surface. The WideFrameView should be created and a crash
   // should not occur.
@@ -2508,6 +2547,56 @@ TEST_P(ClientControlledShellSurfaceTest, SupportsFloatedState) {
         exo::test::ShellSurfaceBuilder().BuildClientControlledShellSurface();
     auto* const window = shell_surface->GetWidget()->GetNativeWindow();
     EXPECT_TRUE(chromeos::wm::CanFloatWindow(window));
+  }
+}
+
+// Test if the surface bounds is correctly set when the scale factor is not
+// explicitly set.
+TEST_P(ClientControlledShellSurfaceTest,
+       SetBoundsWithoutExplicitScaleFactorSet) {
+  UpdateDisplay("800x600*2");
+  aura::Window::Windows root_windows = ash::Shell::GetAllRootWindows();
+
+  const auto primary_display_id =
+      display::Screen::GetScreen()->GetPrimaryDisplay().id();
+
+  const gfx::Size buffer_size(64, 64);
+  std::unique_ptr<Buffer> buffer(
+      new Buffer(exo_test_helper()->CreateGpuMemoryBuffer(buffer_size)));
+
+  const gfx::Rect bounds_dp(64, 64, 128, 128);
+  const gfx::Rect bounds_px_for_2x = gfx::ScaleToRoundedRect(bounds_dp, 2);
+  {
+    // Set display id, bounds origin, bounds size at the same time via
+    // SetBounds method.
+    auto shell_surface = test::ShellSurfaceBuilder()
+                             .SetNoCommit()
+                             .BuildClientControlledShellSurface();
+    auto* const surface = shell_surface->root_surface();
+
+    shell_surface->SetBounds(primary_display_id, bounds_px_for_2x);
+    surface->Attach(buffer.get());
+    surface->Commit();
+
+    const auto* window = shell_surface->GetWidget()->GetNativeWindow();
+    EXPECT_EQ(bounds_dp, window->GetBoundsInRootWindow());
+  }
+  {
+    // Set display id and bounds origin at the same time via SetBoundsOrigin
+    // method, and set bounds size separately.
+    auto shell_surface = test::ShellSurfaceBuilder()
+                             .SetNoCommit()
+                             .BuildClientControlledShellSurface();
+    auto* const surface = shell_surface->root_surface();
+
+    shell_surface->SetBoundsOrigin(primary_display_id,
+                                   bounds_px_for_2x.origin());
+    shell_surface->SetBoundsSize(bounds_px_for_2x.size());
+    surface->Attach(buffer.get());
+    surface->Commit();
+
+    const auto* window = shell_surface->GetWidget()->GetNativeWindow();
+    EXPECT_EQ(bounds_dp, window->GetBoundsInRootWindow());
   }
 }
 

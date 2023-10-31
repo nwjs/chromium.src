@@ -53,13 +53,16 @@ void PersonalDataManagerCleaner::CleanupDataAndNotifyPersonalDataObservers() {
     return;
   }
 
-  // If sync is enabled for autofill, defer running cleanups until address
-  // sync and card sync have started; otherwise, do it now.
-  // TODO(crbug.com/1477292): This should also cover Sync-the-transport (not
-  // only Sync-the-feature), and for the credit card fixes, it should check
-  // whether Payments specifically is enabled, not the overall Autofill.
-  if (!personal_data_manager_->IsSyncFeatureEnabledForAutofill()) {
+  // If the user has chosen to sync addresses, wait for sync to start before
+  // performing cleanups. Otherwise do them now.
+  if (!personal_data_manager_->IsUserSelectableTypeEnabled(
+          syncer::UserSelectableType::kAutofill)) {
     ApplyAddressFixesAndCleanups();
+  }
+  // If the user has chosen to sync payments, wait for sync to start before
+  // performing cleanups. Otherwise do them now.
+  if (!personal_data_manager_->IsUserSelectableTypeEnabled(
+          syncer::UserSelectableType::kPayments)) {
     ApplyCardFixesAndCleanups();
   }
 
@@ -78,10 +81,10 @@ void PersonalDataManagerCleaner::SyncStarted(syncer::ModelType model_type) {
   // alternative state name map should be re-populated. This is currently not
   // the case due to the `is_alternative_state_name_map_populated()` check. This
   // state should be reset when sync is disabled, together with
-  // `autofill_profile_sync_started` and `contact_info_sync_started`.
-  autofill_profile_sync_started |= model_type == syncer::AUTOFILL_PROFILE;
-  contact_info_sync_started |= model_type == syncer::CONTACT_INFO;
-  if (autofill_profile_sync_started && contact_info_sync_started &&
+  // `autofill_profile_sync_started_` and `contact_info_sync_started_`.
+  autofill_profile_sync_started_ |= model_type == syncer::AUTOFILL_PROFILE;
+  contact_info_sync_started_ |= model_type == syncer::CONTACT_INFO;
+  if (autofill_profile_sync_started_ && contact_info_sync_started_ &&
       !alternative_state_name_map_updater_
            ->is_alternative_state_name_map_populated() &&
       is_autofill_profile_cleanup_pending_) {
@@ -92,23 +95,38 @@ void PersonalDataManagerCleaner::SyncStarted(syncer::ModelType model_type) {
   }
 
   // Run deferred autofill address profile startup code.
-  if (model_type == syncer::AUTOFILL_PROFILE)
+  if (autofill_profile_sync_started_ && contact_info_sync_started_ &&
+      (model_type == syncer::AUTOFILL_PROFILE ||
+       model_type == syncer::CONTACT_INFO)) {
     ApplyAddressFixesAndCleanups();
+  }
 
   // Run deferred credit card startup code.
-  if (model_type == syncer::AUTOFILL_WALLET_DATA)
+  if (model_type == syncer::AUTOFILL_WALLET_DATA) {
+    // TODO(crbug.com/1477292): SyncStarted is never called for
+    // AUTOFILL_WALLET_DATA.
     ApplyCardFixesAndCleanups();
+  }
 }
 
-void PersonalDataManagerCleaner::ApplyAddressFixesAndCleanups() {
-  // Once per major version, otherwise NOP.
+bool PersonalDataManagerCleaner::ApplyAddressFixesAndCleanups() {
+  // Check if de-duplication has already been performed on this major version.
+  if (!is_autofill_profile_cleanup_pending_) {
+    DVLOG(1)
+        << "Autofill profile de-duplication already performed for this version";
+    return false;
+  }
+
   ApplyDedupingRoutine();
-
-  // Once per major version, otherwise NOP.
   DeleteDisusedAddresses();
-
-  // Once per user profile startup.
   RemoveInaccessibleProfileValues();
+
+  is_autofill_profile_cleanup_pending_ = false;
+  // Set the pref to the current major version.
+  pref_service_->SetInteger(prefs::kAutofillLastVersionDeduped,
+                            CHROME_VERSION_MAJOR);
+
+  return true;
 }
 
 void PersonalDataManagerCleaner::ApplyCardFixesAndCleanups() {
@@ -142,13 +160,6 @@ void PersonalDataManagerCleaner::RemoveInaccessibleProfileValues() {
 }
 
 bool PersonalDataManagerCleaner::ApplyDedupingRoutine() {
-  // Check if de-duplication has already been performed on this major version.
-  if (!is_autofill_profile_cleanup_pending_) {
-    DVLOG(1)
-        << "Autofill profile de-duplication already performed for this version";
-    return false;
-  }
-
   const std::vector<AutofillProfile*>& profiles =
       base::FeatureList::IsEnabled(
                   features::kAutofillAccountProfileStorage)
@@ -190,11 +201,6 @@ bool PersonalDataManagerCleaner::ApplyDedupingRoutine() {
   }
 
   UpdateCardsBillingAddressReference(guids_merge_map);
-
-  is_autofill_profile_cleanup_pending_ = false;
-  // Set the pref to the current major version.
-  pref_service_->SetInteger(prefs::kAutofillLastVersionDeduped,
-                            CHROME_VERSION_MAJOR);
 
   return true;
 }

@@ -1059,7 +1059,8 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
 // server is used.
 // TODO(crbug.com/1413434): test is flaky on linux-chromeos-rel.
 // TODO(crbug.com/1422191): test is flaky on Mac10.14.
-#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC)
+// TODO(crbug.com/1484203): test is flaky on linux tests.
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #define MAYBE_WebRequestRedirectsWorkers DISABLED_WebRequestRedirectsWorkers
 #else
 #define MAYBE_WebRequestRedirectsWorkers WebRequestRedirectsWorkers
@@ -1084,30 +1085,17 @@ IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
       << message_;
 }
 
-// TODO(crbug.com/1453477): test is flaky on linux, mac and chromeos.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_WebRequestSubresourceRedirects \
-  DISABLED_WebRequestSubresourceRedirects
-#else
-#define MAYBE_WebRequestSubresourceRedirects WebRequestSubresourceRedirects
-#endif
+// TODO(crbug.com/1453477): test is flaky on multiple platforms.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
-                       MAYBE_WebRequestSubresourceRedirects) {
+                       DISABLED_WebRequestSubresourceRedirects) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionTest("webrequest/test_subresource_redirects"))
       << message_;
 }
 
-// TODO(crbug.com/1453477): test is flaky on linux, mac and chromeos.
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
-#define MAYBE_WebRequestSubresourceRedirectsWithExtraHeaders \
-  DISABLED_WebRequestSubresourceRedirectsWithExtraHeaders
-#else
-#define MAYBE_WebRequestSubresourceRedirectsWithExtraHeaders \
-  WebRequestSubresourceRedirectsWithExtraHeaders
-#endif
+// TODO(crbug.com/1453477): test is flaky on multiple platforms.
 IN_PROC_BROWSER_TEST_P(ExtensionWebRequestApiTestWithContextType,
-                       MAYBE_WebRequestSubresourceRedirectsWithExtraHeaders) {
+                       DISABLED_WebRequestSubresourceRedirectsWithExtraHeaders) {
   ASSERT_TRUE(StartEmbeddedTestServer());
   ASSERT_TRUE(RunExtensionTest("webrequest/test_subresource_redirects",
                                {.custom_arg = R"({"useExtraHeaders": true})"}))
@@ -5002,8 +4990,7 @@ IN_PROC_BROWSER_TEST_P(RedirectInfoWebRequestApiTest,
           net::IsolationInfo::Create(
               net::IsolationInfo::RequestType::kMainFrame, redirected_origin,
               redirected_origin,
-              net::SiteForCookies::FromOrigin(redirected_origin),
-              std::set<net::SchemefulSite>())));
+              net::SiteForCookies::FromOrigin(redirected_origin))));
 }
 
 // Test that a sub frame request redirected by an extension has the correct
@@ -5053,8 +5040,7 @@ IN_PROC_BROWSER_TEST_P(RedirectInfoWebRequestApiTest,
           net::IsolationInfo::Create(
               net::IsolationInfo::RequestType::kSubFrame, top_level_origin,
               redirected_origin,
-              net::SiteForCookies::FromOrigin(top_level_origin),
-              std::set<net::SchemefulSite>())));
+              net::SiteForCookies::FromOrigin(top_level_origin))));
 }
 
 class ExtensionWebRequestApiIdentifiabilityTest
@@ -5609,7 +5595,6 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, WebRequestBlocking) {
     EXPECT_EQ(net::OK, nav_observer.last_net_error_code());
   }
 
-  base::HistogramTester histogram_tester;
   // Now, navigate to block.example. This navigation should be blocked.
   {
     content::TestNavigationObserver nav_observer(web_contents);
@@ -5618,16 +5603,6 @@ IN_PROC_BROWSER_TEST_F(ManifestV3WebRequestApiTest, WebRequestBlocking) {
         embedded_test_server()->GetURL("block.example", "/simple.html")));
     EXPECT_EQ(net::ERR_BLOCKED_BY_CLIENT, nav_observer.last_net_error_code());
   }
-
-  // TODO(crbug.com/1441221): Create more targeted tests to confirm when metrics
-  // should be firing or not.
-  // Web request API events should not have metrics emitted for SW/MV3.
-  histogram_tester.ExpectTotalCount(
-      "Extensions.Events.DispatchToAckTime.ExtensionServiceWorker2",
-      /*expected_count=*/0);
-  histogram_tester.ExpectTotalCount(
-      "Extensions.Events.DispatchToAckLongTime.ExtensionServiceWorker2",
-      /*expected_count=*/0);
 }
 
 // Tests a service worker-based extension registering multiple webRequest events

@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Тұсқағаз суретін күн сайын өзгерту</translation>
 <translation id="1644574205037202324">Тарих</translation>
 <translation id="1651925268237749928">Ортақ альбомды таңдадыңыз. Басқа адамдар фотосуреттерді қоса немесе өзгерте алады. Тұсқағазыңыз қазіргі уақытта осы альбомда жоқ фотосуреттерді пайдалануы мүмкін.</translation>
+<translation id="1661865805917886535">Аккаунт және жүйе туралы кейбір ақпарат Google-ға жіберілуі мүмкін. Бұл ақпарат Құпиялық саясаты (<ph name="PRIVACYPOLICYURL" />) мен Қызмет көрсету шарттарына (<ph name="TERMSOFSERVICEURL" />) сәйкес техникалық мәселелерді шешу және қызметтерімізді жақсарту үшін пайдаланылады. Контентті өзгертуді сұрау үшін Құқықтық анықтамаға (<ph name="LEGALHELPPAGEURL" />) өтіңіз.</translation>
 <translation id="1662989795263954667">Тоқтатылды: сия бітіп қалды</translation>
 <translation id="1664796644829245314"><ph name="PREVIEW_OBJECT" /> файлын алдын ала көру</translation>
 <translation id="1668469839109562275">Ендірілген VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">Орталық процессор</translation>
 <translation id="3124039320086536031">Құрылғы жалғанды.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Бетті өшіру керек пе?}=1{{PAGE_NUMBER}-бетті өшіру керек пе?}other{{PAGE_NUMBER}-бетті өшіру керек пе?}}</translation>
+<translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> үшін эксклюзивті</translation>
 <translation id="315116470104423982">Мобильді деректер</translation>
 <translation id="3156846309055100599"><ph name="PAGE_NUMBER" />-бет сканерленуде…</translation>
 <translation id="315738237743207937">Адаптивті портал анықталды.</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Сканерлер ізделуде</translation>
 <translation id="3226657629376379887">Форматтың әрекеттер мәзірі</translation>
 <translation id="3246869037381808805">1 күннен асқан баспа жұмыстары өшіріледі.</translation>
-<translation id="3248223063252096240">Тек <ph name="PRODUCT_NAME" /> үшін</translation>
 <translation id="3268178239013324452">Сәтсіз: есігі ашық</translation>
 <translation id="3275729367986477355">Аватар суреті</translation>
 <translation id="3283504360622356314">{0,plural, =1{Файлды өзгерту}other{Файлдарды өзгерту}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> таңдау</translation>
 <translation id="8151185429379586178">Әзірлеуші құралдары</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Тіркеу</translation>
 <translation id="8206859287963243715">Ұялы</translation>

@@ -7,6 +7,7 @@ package org.chromium.chrome.features.start_surface;
 import android.app.Activity;
 import android.content.res.Resources;
 import android.os.SystemClock;
+import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -24,6 +25,7 @@ import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Log;
 import org.chromium.base.MathUtils;
 import org.chromium.base.ObserverList;
+import org.chromium.base.jank_tracker.JankTracker;
 import org.chromium.base.library_loader.LibraryLoader;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -105,6 +107,7 @@ public class StartSurfaceCoordinator implements StartSurface {
     private final BottomSheetController mBottomSheetController;
     private final Supplier<Tab> mParentTabSupplier;
     private final WindowAndroid mWindowAndroid;
+    private final JankTracker mJankTracker;
     private ViewGroup mContainerView;
     private final Supplier<DynamicResourceLoader> mDynamicResourceLoaderSupplier;
     private final TabModelSelector mTabModelSelector;
@@ -249,7 +252,8 @@ public class StartSurfaceCoordinator implements StartSurface {
      * @param startSurfaceOneshotSupplier Supplies the start surface.
      * @param parentTabSupplier Supplies the current parent {@link Tab}.
      * @param hadWarmStart Whether the application had a warm start.
-     * @param windowAndroid The current {@link WindowAndroid}.
+     * @param windowAndroid The current {@link WindowAndroid}.a
+     * @param jankTracker asd
      * @param containerView The container {@link ViewGroup} for this ui, also the root view for
      *         StartSurface.
      * @param dynamicResourceLoaderSupplier Supplies the current {@link DynamicResourceLoader}.
@@ -277,7 +281,8 @@ public class StartSurfaceCoordinator implements StartSurface {
             @NonNull BottomSheetController sheetController,
             @NonNull OneshotSupplierImpl<StartSurface> startSurfaceOneshotSupplier,
             @NonNull Supplier<Tab> parentTabSupplier, boolean hadWarmStart,
-            @NonNull WindowAndroid windowAndroid, @NonNull ViewGroup containerView,
+            @NonNull WindowAndroid windowAndroid, @NonNull JankTracker jankTracker,
+            @NonNull ViewGroup containerView,
             @NonNull Supplier<DynamicResourceLoader> dynamicResourceLoaderSupplier,
             @NonNull TabModelSelector tabModelSelector,
             @NonNull BrowserControlsManager browserControlsManager,
@@ -302,6 +307,7 @@ public class StartSurfaceCoordinator implements StartSurface {
         mBottomSheetController = sheetController;
         mParentTabSupplier = parentTabSupplier;
         mWindowAndroid = windowAndroid;
+        mJankTracker = jankTracker;
         mContainerView = containerView;
         mDynamicResourceLoaderSupplier = dynamicResourceLoaderSupplier;
         mTabModelSelector = tabModelSelector;
@@ -512,8 +518,8 @@ public class StartSurfaceCoordinator implements StartSurface {
             mExploreSurfaceCoordinatorFactory = new ExploreSurfaceCoordinatorFactory(mActivity,
                     parentView, mPropertyModel, mBottomSheetController, mParentTabSupplier,
                     new ScrollableContainerDelegateImpl(), mSnackbarManager, mShareDelegateSupplier,
-                    mWindowAndroid, mTabModelSelector, mToolbarSupplier, mConstructedTimeNs,
-                    mSwipeRefreshLayout);
+                    mWindowAndroid, mJankTracker, mTabModelSelector, mToolbarSupplier,
+                    mConstructedTimeNs, mSwipeRefreshLayout);
         }
         mStartSurfaceMediator.initWithNative(
                 mIsStartSurfaceEnabled ? mOmniboxStubSupplier.get() : null,
@@ -918,7 +924,7 @@ public class StartSurfaceCoordinator implements StartSurface {
                     mView.getCarouselTabSwitcherContainer(), null, mTabModelSelector,
                     /* isTablet= */ false, /* isScrollableMvtEnabled */ true,
                     /* mostRecentTab= */ null, /* singleTabCardClickedCallback */ null,
-                    /* snapshotParentViewRunnable */ null, mTabContentManager);
+                    /* snapshotParentViewRunnable */ null, mTabContentManager, null);
         }
         boolean isScrollableMVTEnabled =
                 !ReturnToChromeUtil.shouldImproveStartWhenFeedIsDisabled(mActivity);
@@ -1060,9 +1066,12 @@ public class StartSurfaceCoordinator implements StartSurface {
 
         // The following |fake*| values mean the values of the fake search box; |real*| values
         // mean the values of the real search box.
-        int fakeHeight = getPixelSize(R.dimen.ntp_search_box_height);
         int realHeight = getPixelSize(R.dimen.toolbar_height_no_shadow) - realVerticalMargin * 2;
-        int fakeAndRealHeightDiff = fakeHeight - realHeight;
+        int fakeHeightForAnimation = getPixelSize(R.dimen.ntp_search_box_height);
+        int fakeHeightBeforeAnimation = mIsSurfacePolishEnabled
+                ? getPixelSize(R.dimen.ntp_search_box_height_polish)
+                : fakeHeightForAnimation;
+        int heightReducedBeforeRealAnimation = fakeHeightBeforeAnimation - fakeHeightForAnimation;
 
         int fakeEndPadding = mIsSurfacePolishEnabled
                 ? getPixelSize(R.dimen.fake_search_box_end_padding)
@@ -1073,7 +1082,9 @@ public class StartSurfaceCoordinator implements StartSurface {
         int realTranslationX = getPixelSize(R.dimen.location_bar_status_icon_width)
                 + getPixelSize(R.dimen.location_bar_icon_end_padding_focused)
                 + (getPixelSize(R.dimen.fake_search_box_lateral_padding)
-                        - getPixelSize(R.dimen.search_box_start_padding));
+                        - (mIsSurfacePolishEnabled
+                                        ? getPixelSize(R.dimen.fake_search_box_start_padding)
+                                        : getPixelSize(R.dimen.search_box_start_padding)));
 
         int fakeButtonSize = mIsSurfacePolishEnabled
                 ? getPixelSize(R.dimen.location_bar_action_icon_width)
@@ -1085,6 +1096,13 @@ public class StartSurfaceCoordinator implements StartSurface {
                 : getPixelSize(R.dimen.tasks_surface_location_bar_url_button_start_margin);
         // realLensButtonStartMargin is 0;
 
+        float fakeSearchTextSize = mIsSurfacePolishEnabled
+            ? getTextSizeFromDimen(R.dimen.location_bar_url_text_size_polish)
+            : getTextSizeFromDimen(R.dimen.location_bar_url_text_size);
+        float realSearchTextSize = getTextSizeFromDimen(R.dimen.location_bar_url_text_size);
+
+        TasksView tasksView = mTasksSurface != null ? (TasksView) mTasksSurface.getView() : mView;
+
         mOffsetChangedListenerToGenerateScrollEvents = (appBarLayout, verticalOffset) -> {
             for (ScrollListener scrollListener : mScrollListeners) {
                 scrollListener.onHeaderOffsetChanged(verticalOffset);
@@ -1094,7 +1112,35 @@ public class StartSurfaceCoordinator implements StartSurface {
                     mStartSurfaceMediator.getTopToolbarPlaceholderHeight()
                     + (mStartSurfaceMediator.isLogoVisible() ? logoInSurfaceHeight : 0)
                     - realVerticalMargin;
+            int startPointToReduceHeight =
+                    fakeSearchBoxToRealSearchBoxTop - heightReducedBeforeRealAnimation;
+
             int scrolledHeight = -verticalOffset;
+
+            int fakeHeight;
+            if (mIsSurfacePolishEnabled) {
+                if (scrolledHeight < fakeSearchBoxToRealSearchBoxTop
+                        && scrolledHeight >= startPointToReduceHeight) {
+                    // Reduce both the search box and its container's height before the animation.
+                    fakeHeight = fakeHeightBeforeAnimation;
+                    int reducedHeight = MathUtils.clamp(scrolledHeight - startPointToReduceHeight,
+                            0, heightReducedBeforeRealAnimation);
+                    int newHeight = fakeHeight - reducedHeight;
+                    tasksView.updateFakeSearchBoxLayoutAndContainer(newHeight);
+                    return;
+                } else if (scrolledHeight >= fakeSearchBoxToRealSearchBoxTop) {
+                    // Have reduced both the search box and its container's height and is in
+                    // animation.
+                    fakeHeight = fakeHeightForAnimation;
+                } else {
+                    // Haven't started to reduce both the search box and its container's height.
+                    fakeHeight = fakeHeightBeforeAnimation;
+                }
+            } else {
+                fakeHeight = fakeHeightBeforeAnimation;
+            }
+
+            int fakeAndRealHeightDiff = fakeHeight - realHeight;
             // When the fake search box top is scrolled to the search box top, start to reduce
             // fake search box's height until it's the same as the real search box.
             int reducedHeight = MathUtils.clamp(
@@ -1104,20 +1150,42 @@ public class StartSurfaceCoordinator implements StartSurface {
             // This function should be called together with
             // StartSurfaceToolbarMediator#updateTranslationY, which scroll up the start surface
             // toolbar together with the header.
-            TasksView tasksView =
-                    mTasksSurface != null ? (TasksView) mTasksSurface.getView() : mView;
             tasksView.updateFakeSearchBox(fakeHeight - reducedHeight, reducedHeight,
                     (int) (fakeEndPadding * (1 - expansionFraction)),
                     SearchEngineLogoUtils.getInstance().shouldShowSearchEngineLogo(false)
                             ? realTranslationX * expansionFraction
                             : 0,
                     (int) (fakeButtonSize + (realButtonSize - fakeButtonSize) * expansionFraction),
-                    (int) (fakeLensButtonStartMargin * (1 - expansionFraction)));
+                    (int) (fakeLensButtonStartMargin * (1 - expansionFraction)), fakeHeight,
+                fakeSearchTextSize + (realSearchTextSize - fakeSearchTextSize) * expansionFraction);
+
+            if(mIsSurfacePolishEnabled && scrolledHeight > appBarLayout.getHeight()){
+                ViewUtils.requestLayout(appBarLayout,
+                    "StartSurfaceCoordinator#initializeOffsetChangedListener "
+                        + "AppBarLayout.OnOffsetChangedListener");
+            }
         };
     }
 
     private int getPixelSize(int id) {
         return mActivity.getResources().getDimensionPixelSize(id);
+    }
+
+    /**
+     * Gets the text size based on a dimension resource. The return value is in SP.
+     * @param id The resource ID of the dimension value.
+     */
+    private float getTextSizeFromDimen(int id) {
+        TypedValue typedValue = new TypedValue();
+        Resources resources = mActivity.getResources();
+        resources.getValue(id, typedValue, true);
+
+        if (typedValue.type == TypedValue.TYPE_DIMENSION &&
+            (typedValue.data & TypedValue.COMPLEX_UNIT_MASK) == TypedValue.COMPLEX_UNIT_SP) {
+            return TypedValue.complexToFloat(typedValue.data);
+        }
+
+        return -1;
     }
 
     public void initializeMVTiles() {

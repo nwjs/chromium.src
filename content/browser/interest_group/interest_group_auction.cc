@@ -82,20 +82,25 @@
 
 namespace content {
 
+// The BiddingAndAuctionEncryptionMediaType feature controls the format we use
+// for the request to the Bidding and Auction Service. anything. When enabled
+// we add an extra byte to the request.
 CONTENT_EXPORT BASE_FEATURE(kBiddingAndAuctionEncryptionMediaType,
                             "BiddingAndAuctionEncryptionMediaType",
-                            base::FEATURE_ENABLED_BY_DEFAULT);
-
+                            base::FEATURE_DISABLED_BY_DEFAULT);
+// While we would prefer to reference the constants from quiche for the defaults
+// here, they are only available as absl::string_view objects which are not
+// easily convertible to null-terminated strings. Previously we used the .data()
+// accessor which worked due to undefined behavior.
 const base::FeatureParam<std::string>
     kBiddingAndAuctionEncryptionRequestMediaType{
         &kBiddingAndAuctionEncryptionMediaType,
-        "BiddingAndAuctionEncryptionRequestMediaType",
-        quiche::ObliviousHttpHeaderKeyConfig::kOhttpRequestLabel.data()};
+        "BiddingAndAuctionEncryptionRequestMediaType", "message/bhttp request"};
 const base::FeatureParam<std::string>
     kBiddingAndAuctionEncryptionResponseMediaType{
         &kBiddingAndAuctionEncryptionMediaType,
         "BiddingAndAuctionEncryptionResponseMediaType",
-        quiche::ObliviousHttpHeaderKeyConfig::kOhttpResponseLabel.data()};
+        "message/bhttp response"};
 
 namespace {
 
@@ -976,6 +981,10 @@ class InterestGroupAuction::BuyerHelper
       if (bid_state->made_bid) {
         interest_groups.emplace(bid_state->bidder->interest_group.owner,
                                 bid_state->bidder->interest_group.name);
+        auction_->interest_group_manager_->NotifyInterestGroupAccessed(
+            InterestGroupManagerImpl::InterestGroupObserver::kBid,
+            bid_state->bidder->interest_group.owner,
+            bid_state->bidder->interest_group.name);
         bid_count++;
       }
     }
@@ -1980,32 +1989,46 @@ InterestGroupAuction::~InterestGroupAuction() {
     final_auction_result_ = AuctionResult::kAborted;
   }
 
+  std::string uma_prefix = "Ads.InterestGroup.Auction.";
+  if (is_server_auction_) {
+    uma_prefix = "Ads.InterestGroup.ServerAuction.";
+  }
+
   // TODO(mmenke): Record histograms for component auctions.
   if (!parent_) {
-    UMA_HISTOGRAM_ENUMERATION("Ads.InterestGroup.Auction.Result",
-                              *final_auction_result_);
+    base::UmaHistogramEnumeration(uma_prefix + "Result",
+                                  *final_auction_result_);
 
     if (HasNonKAnonWinner()) {
-      UMA_HISTOGRAM_BOOLEAN("Ads.InterestGroup.Auction.NonKAnonWinnerIsKAnon",
-                            NonKAnonWinnerIsKAnon());
+      base::UmaHistogramBoolean(uma_prefix + "NonKAnonWinnerIsKAnon",
+                                NonKAnonWinnerIsKAnon());
     }
 
     // Only record time of full auctions and aborts.
+    base::TimeTicks now = base::TimeTicks::Now();
     switch (*final_auction_result_) {
       case AuctionResult::kAborted:
-        UMA_HISTOGRAM_MEDIUM_TIMES("Ads.InterestGroup.Auction.AbortTime",
-                                   base::TimeTicks::Now() - creation_time_);
+        base::UmaHistogramMediumTimes(uma_prefix + "AbortTime",
+                                      now - creation_time_);
         break;
       case AuctionResult::kNoBids:
       case AuctionResult::kAllBidsRejected:
-        UMA_HISTOGRAM_MEDIUM_TIMES(
-            "Ads.InterestGroup.Auction.CompletedWithoutWinnerTime",
-            base::TimeTicks::Now() - creation_time_);
+        base::UmaHistogramMediumTimes(uma_prefix + "CompletedWithoutWinnerTime",
+                                      now - creation_time_);
+        if (is_server_auction_) {
+          base::UmaHistogramMediumTimes(
+              "Ads.InterestGroup.ServerAuction.EndToEndTimeNoWinner",
+              now - get_ad_auction_data_start_time_);
+        }
         break;
       case AuctionResult::kSuccess:
-        UMA_HISTOGRAM_MEDIUM_TIMES(
-            "Ads.InterestGroup.Auction.AuctionWithWinnerTime",
-            base::TimeTicks::Now() - creation_time_);
+        base::UmaHistogramMediumTimes(uma_prefix + "AuctionWithWinnerTime",
+                                      now - creation_time_);
+        if (is_server_auction_) {
+          base::UmaHistogramMediumTimes(
+              "Ads.InterestGroup.ServerAuction.EndToEndTime",
+              now - get_ad_auction_data_start_time_);
+        }
         break;
       default:
         break;
@@ -2103,9 +2126,9 @@ void InterestGroupAuction::StartBiddingAndScoringPhase(
   DCHECK(!non_kanon_enforced_auction_leader_.top_bid);
   DCHECK(!kanon_enforced_auction_leader_.top_bid);
   DCHECK_EQ(pending_component_seller_worklet_requests_, 0u);
-  DCHECK(!started_bidding_and_scoring_phase_);
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kBefore);
 
-  started_bidding_and_scoring_phase_ = true;
+  bidding_and_scoring_phase_state_ = PhaseState::kDuring;
 
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("fledge", "bidding_and_scoring_phase",
                                     *trace_id_);
@@ -2174,6 +2197,7 @@ void InterestGroupAuction::StartFromServerResponse(
     AuctionPhaseCompletionCallback bidding_and_scoring_phase_callback) {
   bidding_and_scoring_phase_callback_ =
       std::move(bidding_and_scoring_phase_callback);
+  is_server_auction_ = true;
 
   // Check that response was witnessed by seller origin.
   std::array<uint8_t, crypto::kSHA256Length> hash =
@@ -2210,6 +2234,7 @@ void InterestGroupAuction::StartFromServerResponse(
         {"runAdAuction(): Seller in response doesn't match request"});
     return;
   }
+  get_ad_auction_data_start_time_ = request_context->start_time;
 
   auto maybe_response =
       quiche::ObliviousHttpResponse::CreateClientObliviousResponse(
@@ -2234,13 +2259,15 @@ void InterestGroupAuction::StartFromServerResponse(
         {"runAdAuction(): Could not parse response framing"});
     return;
   }
-  auto decoder = std::make_unique<data_decoder::DataDecoder>();
-  data_decoder::DataDecoder* tmp_decoder = decoder.get();
-  tmp_decoder->GzipUncompress(
+  request_context->decoder->GzipUncompress(
       std::move(compressed_response).value(),
-      base::BindOnce(&InterestGroupAuction::OnDecompressedServerResponse,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(decoder),
-                     request_context));
+      base::BindOnce(
+          &InterestGroupAuction::OnDecompressedServerResponse,
+          // This use of unretained is safe since the request_context is owned
+          // by a PageUserData and is only deleted when the page is destroyed.
+          // This auction is owned by the page through a DocumentService, so it
+          // will be destroyed before the decoder.
+          weak_ptr_factory_.GetWeakPtr(), base::Unretained(request_context)));
 }
 
 std::unique_ptr<InterestGroupAuctionReporter>
@@ -2425,7 +2452,7 @@ InterestGroupAuction::CreateReporter(
       break;
   }
 
-  return std::make_unique<InterestGroupAuctionReporter>(
+  auto result = std::make_unique<InterestGroupAuctionReporter>(
       interest_group_manager_, auction_worklet_manager_, browser_context,
       private_aggregation_manager,
       maybe_log_private_aggregation_web_features_callback_,
@@ -2438,6 +2465,16 @@ InterestGroupAuction::CreateReporter(
       std::move(debug_loss_report_urls), GetKAnonKeysToJoin(),
       TakeReservedPrivateAggregationRequests(),
       TakeNonReservedPrivateAggregationRequests());
+
+  // Avoid dangling pointers for things transferred to the reporter.
+  winner->bid->interest_group = nullptr;
+  winner->bid->bid_ad = nullptr;
+  config_ = nullptr;
+  for (const auto& kv : component_auctions_) {
+    kv.second->config_ = nullptr;
+  }
+
+  return result;
 }
 
 void InterestGroupAuction::NotifyConfigPromisesResolved() {
@@ -2447,9 +2484,10 @@ void InterestGroupAuction::NotifyConfigPromisesResolved() {
 
   // If we haven't started the bidding and scoring phase, we will just handle
   // this information at its start; setting `config_promises_resolved_` is
-  // enough both for us and the BuyerHelper.
-  if (!started_bidding_and_scoring_phase_) {
-    DCHECK(unscored_bids_.empty());
+  // enough both for us and the BuyerHelper. If we are after the phase, that
+  // means that promises resolved after we failed out of it, so we should ignore
+  // them.
+  if (bidding_and_scoring_phase_state_ != PhaseState::kDuring) {
     return;
   }
 
@@ -2539,14 +2577,17 @@ void InterestGroupAuction::NotifyDirectFromSellerSignalsHeaderAdSlotConfig(
     const absl::optional<std::string>&
         direct_from_seller_signals_header_ad_slot) {
   CHECK(!direct_from_seller_signals_header_ad_slot_pending_);
-  if (!direct_from_seller_signals_header_ad_slot) {
+  if (!direct_from_seller_signals_header_ad_slot ||
+      bidding_and_scoring_phase_state_ == PhaseState::kAfter) {
     return;
   }
-  if (started_bidding_and_scoring_phase_) {
+  if (bidding_and_scoring_phase_state_ == PhaseState::kDuring) {
     ++num_scoring_dependencies_;
   }
   direct_from_seller_signals_header_ad_slot_pending_ = true;
   HeaderDirectFromSellerSignals::ParseAndFind(
+      base::BindRepeating(&InterestGroupAuction::GetDataDecoder,
+                          weak_ptr_factory_.GetWeakPtr()),
       auction_page_data->GetAuctionSignalsForOrigin(config_->seller),
       *direct_from_seller_signals_header_ad_slot,
       base::BindOnce(
@@ -2616,6 +2657,12 @@ void InterestGroupAuction::GetInterestGroupsThatBidAndReportBidCounts(
   if (saved_response_) {
     interest_groups.insert(saved_response_->bidding_groups.begin(),
                            saved_response_->bidding_groups.end());
+    for (const auto& ig_bid : interest_groups) {
+      interest_group_manager_->NotifyInterestGroupAccessed(
+          InterestGroupManagerImpl::InterestGroupObserver::
+              InterestGroupObserver::kBid,
+          ig_bid.owner, ig_bid.name);
+    }
     return;
   }
 
@@ -2623,13 +2670,16 @@ void InterestGroupAuction::GetInterestGroupsThatBidAndReportBidCounts(
     buyer_helper->GetInterestGroupsThatBidAndReportBidCounts(interest_groups);
   }
 
-  // TODO(http://crbug.com/1464874, https://crbug.com/1475640): Report
-  // additional bids to devtools as well, similar to what
-  // BuyerHelper::GetInterestGroupsThatBidAndReportBidCounts does for things
-  // from interest groups. Likely will need to untangle
-  // InterestGroupManagerImpl::RecordInterestGroupBids doing both DB recording
-  // and debugging notification (and reporting is the wrong time for the debug
-  // info, too).
+  // Notify devtools of additional bids. These don't go into `interest_groups`,
+  // that's only things in the database.
+  for (const auto& bid_state : bid_states_for_additional_bids_) {
+    CHECK(bid_state->made_bid);
+    interest_group_manager_->NotifyInterestGroupAccessed(
+        InterestGroupManagerImpl::InterestGroupObserver::InterestGroupObserver::
+            kAdditionalBid,
+        bid_state->bidder->interest_group.owner,
+        bid_state->bidder->interest_group.name);
+  }
 
   // Retrieve data from component auctions as well.
   for (const auto& component_auction_info : component_auctions_) {
@@ -3275,14 +3325,10 @@ void InterestGroupAuction::OnInterestGroupRead(
   }
 
   // Ignore interest groups with no bidding script or no ads.
-  interest_groups.erase(
-      std::remove_if(interest_groups.begin(), interest_groups.end(),
-                     [](const StorageInterestGroup& bidder) {
-                       return !bidder.interest_group.bidding_url ||
-                              !bidder.interest_group.ads ||
-                              bidder.interest_group.ads->empty();
-                     }),
-      interest_groups.end());
+  base::EraseIf(interest_groups, [](const StorageInterestGroup& bidder) {
+    return !bidder.interest_group.bidding_url || !bidder.interest_group.ads ||
+           bidder.interest_group.ads->empty();
+  });
 
   // Ignore interest groups that don't provide the requested seller
   // capabilities.
@@ -3442,6 +3488,7 @@ void InterestGroupAuction::OnComponentSellerWorkletReceived() {
 }
 
 void InterestGroupAuction::RequestSellerWorklet() {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   TRACE_EVENT_NESTABLE_ASYNC_BEGIN0("fledge", "request_seller_worklet",
                                     *trace_id_);
   auction_worklet_manager_->RequestSellerWorklet(
@@ -3456,6 +3503,7 @@ void InterestGroupAuction::RequestSellerWorklet() {
 
 void InterestGroupAuction::OnSellerWorkletReceived() {
   DCHECK(!seller_worklet_received_);
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
 
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", "request_seller_worklet",
                                   *trace_id_);
@@ -3484,6 +3532,7 @@ void InterestGroupAuction::OnSellerWorkletReceived() {
 }
 
 void InterestGroupAuction::ScoreQueuedBidsIfReady() {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   if (!ReadyToScoreBids() || unscored_bids_.empty()) {
     return;
   }
@@ -3519,20 +3568,22 @@ void InterestGroupAuction::ScoreQueuedBidsIfReady() {
 }
 
 void InterestGroupAuction::DecodeAdditionalBidsIfReady() {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   if (encoded_signed_additional_bids_.empty()) {
     return;
   }
 
   for (const auto& encoded_signed_bid : encoded_signed_additional_bids_) {
     std::string signed_additional_bid_data;
-    if (!base::Base64Decode(encoded_signed_bid, &signed_additional_bid_data)) {
+    if (!base::Base64Decode(encoded_signed_bid, &signed_additional_bid_data,
+                            base::Base64DecodePolicy::kForgiving)) {
       errors_.push_back(base::StrCat(
           {"Ignoring signed additional bid on auction with seller '",
            config_->seller.Serialize(), "' due to invalid base64."}));
       continue;
     }
     ++num_scoring_dependencies_;
-    data_decoder::DataDecoder::ParseJsonIsolated(
+    data_decoder_.ParseJson(
         signed_additional_bid_data,
         base::BindOnce(&InterestGroupAuction::HandleDecodedSignedAdditionalBid,
                        weak_ptr_factory_.GetWeakPtr()));
@@ -3542,6 +3593,7 @@ void InterestGroupAuction::DecodeAdditionalBidsIfReady() {
 
 void InterestGroupAuction::HandleDecodedSignedAdditionalBid(
     data_decoder::DataDecoder::ValueOrError result) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   if (!result.has_value()) {
     errors_.push_back("Unable to parse signed additional bid as JSON: " +
                       result.error());
@@ -3560,7 +3612,7 @@ void InterestGroupAuction::HandleDecodedSignedAdditionalBid(
 
   auto valid_signatures = maybe_signed_additional_bid->VerifySignatures();
 
-  data_decoder::DataDecoder::ParseJsonIsolated(
+  data_decoder_.ParseJson(
       maybe_signed_additional_bid->additional_bid_json,
       base::BindOnce(&InterestGroupAuction::HandleDecodedAdditionalBid,
                      weak_ptr_factory_.GetWeakPtr(),
@@ -3572,6 +3624,7 @@ void InterestGroupAuction::HandleDecodedAdditionalBid(
     const std::vector<SignedAdditionalBidSignature>& signatures,
     const std::vector<size_t>& valid_signatures,
     data_decoder::DataDecoder::ValueOrError result) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   if (!result.has_value()) {
     errors_.push_back("Unable to parse additional bid as JSON: " +
                       result.error());
@@ -3623,6 +3676,7 @@ void InterestGroupAuction::HandleDecodedAdditionalBid(
 void InterestGroupAuction::OnSellerWorkletFatalError(
     AuctionWorkletManager::FatalErrorType fatal_error_type,
     const std::vector<std::string>& errors) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   AuctionResult result;
   switch (fatal_error_type) {
     case AuctionWorkletManager::FatalErrorType::kScriptLoadFailed:
@@ -3639,6 +3693,7 @@ void InterestGroupAuction::OnSellerWorkletFatalError(
 void InterestGroupAuction::OnComponentAuctionComplete(
     InterestGroupAuction* component_auction,
     bool success) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   if (!component_auction->buyer_helpers_.empty() ||
       !component_auction->bid_states_for_additional_bids_.empty()) {
     auction_metrics_recorder_->RecordComponentAuctionLatency(
@@ -3701,6 +3756,7 @@ InterestGroupAuction::CreateBidFromComponentAuctionWinner(
 }
 
 void InterestGroupAuction::OnScoringDependencyDone() {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   --num_scoring_dependencies_;
 
   // If we issued the final set of bids to a seller worklet, tell it to send any
@@ -3713,6 +3769,7 @@ void InterestGroupAuction::OnScoringDependencyDone() {
 }
 
 void InterestGroupAuction::ScoreBidIfReady(std::unique_ptr<Bid> bid) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   DCHECK(bid);
   DCHECK(bid->bid_state->made_bid);
 
@@ -3768,6 +3825,7 @@ bool InterestGroupAuction::ValidateScoreBidCompleteResult(
     absl::optional<double> bid_in_seller_currency,
     const absl::optional<GURL>& debug_loss_report_url,
     const absl::optional<GURL>& debug_win_report_url) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   // If `debug_loss_report_url` or `debug_win_report_url` is not a valid HTTPS
   // URL, the auction should fail because the worklet is compromised.
   if (debug_loss_report_url.has_value() &&
@@ -3840,6 +3898,7 @@ void InterestGroupAuction::OnScoreAdComplete(
     auction_worklet::mojom::ScoreAdDependencyLatenciesPtr
         score_ad_dependency_latencies,
     const std::vector<std::string>& errors) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   DCHECK_GT(bids_being_scored_, 0);
 
   if (!ValidateScoreBidCompleteResult(
@@ -3978,6 +4037,8 @@ void InterestGroupAuction::UpdateAuctionLeaders(
     absl::optional<double> bid_in_seller_currency,
     absl::optional<uint32_t> scoring_signals_data_version,
     LeaderInfo& leader_info) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_,
+            is_server_auction_ ? PhaseState::kBefore : PhaseState::kDuring);
   bool is_top_bid = false;
   const url::Origin& owner = bid->interest_group->owner;
 
@@ -4039,6 +4100,9 @@ void InterestGroupAuction::OnNewHighestScoringOtherBid(
     absl::optional<double> bid_in_seller_currency,
     const url::Origin* owner,
     LeaderInfo& leader_info) {
+  DCHECK_EQ(bidding_and_scoring_phase_state_,
+            is_server_auction_ ? PhaseState::kBefore : PhaseState::kDuring);
+
   // Current (the most recent) bid becomes highest scoring other bid.
   if (score > leader_info.second_highest_score) {
     leader_info.highest_scoring_other_bid = bid_value;
@@ -4078,6 +4142,7 @@ absl::optional<base::TimeDelta> InterestGroupAuction::SellerTimeout() {
 }
 
 void InterestGroupAuction::MaybeCompleteBiddingAndScoringPhase() {
+  DCHECK_EQ(bidding_and_scoring_phase_state_, PhaseState::kDuring);
   if (!IsBiddingAndScoringPhaseComplete()) {
     return;
   }
@@ -4112,6 +4177,9 @@ void InterestGroupAuction::OnBiddingAndScoringComplete(
     const std::vector<std::string>& errors) {
   DCHECK(bidding_and_scoring_phase_callback_);
   DCHECK(!final_auction_result_);
+  DCHECK_EQ(bidding_and_scoring_phase_state_,
+            is_server_auction_ ? PhaseState::kBefore : PhaseState::kDuring);
+  bidding_and_scoring_phase_state_ = PhaseState::kAfter;
 
   TRACE_EVENT_NESTABLE_ASYNC_END0("fledge", "bidding_and_scoring_phase",
                                   *trace_id_);
@@ -4223,22 +4291,26 @@ AuctionWorkletManager::WorkletKey InterestGroupAuction::BidderWorkletKey(
 }
 
 void InterestGroupAuction::OnDecompressedServerResponse(
-    std::unique_ptr<data_decoder::DataDecoder> decoder,
     AdAuctionRequestContext* request_context,
     base::expected<mojo_base::BigBuffer, std::string> result) {
   if (!result.has_value()) {
     // We couldn't unzip the response.
     OnBiddingAndScoringComplete(
-        AuctionResult::kBadMojoMessage,
+        AuctionResult::kInvalidServerResponse,
         {"runAdAuction(): Could not decompress server response"});
     return;
   }
   base::span<const uint8_t> result_span = result.value().byte_span();
-  data_decoder::DataDecoder* tmp_decoder = decoder.get();
-  tmp_decoder->ParseCbor(
-      result_span, base::BindOnce(&InterestGroupAuction::OnParsedServerResponse,
-                                  weak_ptr_factory_.GetWeakPtr(),
-                                  std::move(decoder), request_context));
+  request_context->decoder->ParseCbor(
+      result_span,
+      base::BindOnce(
+          &InterestGroupAuction::OnParsedServerResponse,
+          weak_ptr_factory_.GetWeakPtr(),
+          // This use of unretained is safe since the request_context is owned
+          // by a PageUserData and is only deleted when the page is destroyed.
+          // This auction is owned by the page through a DocumentService, so it
+          // will be destroyed before the decoder.
+          base::Unretained(request_context)));
 
   // `result` falls out of scope, deallocating the buffer with the decompressed
   // response. This is okay because `DataDecoder::ParseCbor` made a copy before
@@ -4246,7 +4318,6 @@ void InterestGroupAuction::OnDecompressedServerResponse(
 }
 
 void InterestGroupAuction::OnParsedServerResponse(
-    std::unique_ptr<data_decoder::DataDecoder> decoder,
     AdAuctionRequestContext* request_context,
     data_decoder::DataDecoder::ValueOrError result) {
   if (!result.has_value()) {
@@ -4360,6 +4431,7 @@ void InterestGroupAuction::OnLoadedWinningGroup(
 void InterestGroupAuction::OnDirectFromSellerSignalHeaderAdSlotResolved(
     std::unique_ptr<HeaderDirectFromSellerSignals> signals,
     std::vector<std::string> errors) {
+  DCHECK_NE(bidding_and_scoring_phase_state_, PhaseState::kAfter);
   CHECK(direct_from_seller_signals_header_ad_slot_pending_);
   CHECK(direct_from_seller_signals_header_ad_slot_);
   direct_from_seller_signals_header_ad_slot_ = std::move(signals);
@@ -4367,13 +4439,22 @@ void InterestGroupAuction::OnDirectFromSellerSignalHeaderAdSlotResolved(
 
   direct_from_seller_signals_header_ad_slot_pending_ = false;
 
-  if (started_bidding_and_scoring_phase_) {
+  if (bidding_and_scoring_phase_state_ == PhaseState::kDuring) {
     for (const auto& buyer_helper : buyer_helpers_) {
       buyer_helper->NotifyConfigDependencyResolved();
     }
     OnScoringDependencyDone();
     ScoreQueuedBidsIfReady();
   }
+}
+
+// static
+data_decoder::DataDecoder* InterestGroupAuction::GetDataDecoder(
+    base::WeakPtr<InterestGroupAuction> instance) {
+  if (!instance) {
+    return nullptr;
+  }
+  return &instance->data_decoder_;
 }
 
 }  // namespace content

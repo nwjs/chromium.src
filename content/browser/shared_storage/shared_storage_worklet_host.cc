@@ -12,6 +12,7 @@
 
 #include "base/check.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/time/time.h"
 #include "components/services/storage/shared_storage/shared_storage_manager.h"
 #include "content/browser/attribution_reporting/attribution_manager.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
@@ -57,7 +58,7 @@ SharedStorageURNMappingResult CreateSharedStorageURNMappingResult(
     StoragePartition* storage_partition,
     BrowserContext* browser_context,
     PageImpl* page,
-    const url::Origin& shared_storage_origin,
+    const net::SchemefulSite& shared_storage_site,
     std::vector<blink::mojom::SharedStorageUrlWithMetadataPtr>
         urls_with_metadata,
     uint32_t index,
@@ -72,10 +73,9 @@ SharedStorageURNMappingResult CreateSharedStorageURNMappingResult(
 
   // If we are running out of budget, consider this mapping to be failed. Use
   // the default URL, and there's no need to further charge the budget.
-  if (budget_to_charge > 0.0 &&
-      (budget_to_charge > budget_remaining ||
-       !page->CheckAndMaybeDebitSelectURLBudgets(shared_storage_origin,
-                                                 budget_to_charge))) {
+  if (budget_to_charge > 0.0 && (budget_to_charge > budget_remaining ||
+                                 !page->CheckAndMaybeDebitSelectURLBudgets(
+                                     shared_storage_site, budget_to_charge))) {
     failed_due_to_no_budget = true;
     index = 0;
     budget_to_charge = 0.0;
@@ -91,7 +91,7 @@ SharedStorageURNMappingResult CreateSharedStorageURNMappingResult(
   }
   return SharedStorageURNMappingResult(
       mapped_url,
-      SharedStorageBudgetMetadata{.origin = shared_storage_origin,
+      SharedStorageBudgetMetadata{.site = shared_storage_site,
                                   .budget_to_charge = budget_to_charge},
       std::move(fenced_frame_reporter));
 }
@@ -159,6 +159,7 @@ SharedStorageWorkletHost::SharedStorageWorkletHost(
           document_service.render_frame_host().GetBrowserContext()),
       shared_storage_origin_(
           document_service.render_frame_host().GetLastCommittedOrigin()),
+      shared_storage_site_(net::SchemefulSite(shared_storage_origin_)),
       main_frame_origin_(document_service.main_frame_origin()),
       creation_time_(base::TimeTicks::Now()) {
   GetContentClient()->browser()->OnSharedStorageWorkletHostCreated(
@@ -198,7 +199,7 @@ SharedStorageWorkletHost::~SharedStorageWorkletHost() {
             .OnSharedStorageURNMappingResultDetermined(
                 urn_uuid, CreateSharedStorageURNMappingResult(
                               storage_partition_, browser_context_, page_.get(),
-                              shared_storage_origin_, std::move(it->second),
+                              shared_storage_site_, std::move(it->second),
                               /*index=*/0, /*budget_remaining=*/0.0,
                               failed_due_to_no_budget));
 
@@ -722,7 +723,7 @@ void SharedStorageWorkletHost::SharedStorageRemainingBudget(
       std::move(callback));
 
   shared_storage_manager_->GetRemainingBudget(
-      shared_storage_origin_, std::move(operation_completed_callback));
+      shared_storage_site_, std::move(operation_completed_callback));
 }
 
 void SharedStorageWorkletHost::ConsoleLog(const std::string& message) {
@@ -811,7 +812,7 @@ void SharedStorageWorkletHost::
   }
 
   shared_storage_manager_->GetRemainingBudget(
-      shared_storage_origin_,
+      shared_storage_site_,
       base::BindOnce(&SharedStorageWorkletHost::
                          OnRunURLSelectionOperationOnWorkletFinished,
                      weak_ptr_factory_.GetWeakPtr(), urn_uuid, start_time,
@@ -837,7 +838,7 @@ void SharedStorageWorkletHost::OnRunURLSelectionOperationOnWorkletFinished(
     SharedStorageURNMappingResult mapping_result =
         CreateSharedStorageURNMappingResult(
             storage_partition_, browser_context_, page_.get(),
-            shared_storage_origin_, std::move(urls_with_metadata), index,
+            shared_storage_site_, std::move(urls_with_metadata), index,
             budget_result.bits, failed_due_to_no_budget);
 
     if (document_service_) {
@@ -992,9 +993,17 @@ SharedStorageWorkletHost::MaybeBindPrivateAggregationHost(
 
   mojo::PendingRemote<blink::mojom::PrivateAggregationHost>
       pending_pa_host_remote;
+
+  absl::optional<base::TimeDelta> timeout =
+      (base::FeatureList::IsEnabled(blink::features::kSharedStorageAPIM118) &&
+       context_id)
+          ? absl::optional<base::TimeDelta>(base::Seconds(5))
+          : absl::nullopt;
+
   bool success = private_aggregation_manager->BindNewReceiver(
       shared_storage_origin_, main_frame_origin_,
       PrivateAggregationBudgetKey::Api::kSharedStorage, context_id,
+      std::move(timeout),
       pending_pa_host_remote.InitWithNewPipeAndPassReceiver());
   CHECK(success);
 

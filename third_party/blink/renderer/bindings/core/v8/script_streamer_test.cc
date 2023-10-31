@@ -87,9 +87,7 @@ class NoopLoaderFactory final : public ResourceFetcher::LoaderFactory {
       BackForwardCacheLoaderHelper*) override {
     return std::make_unique<NoopURLLoader>(std::move(freezable_task_runner));
   }
-  std::unique_ptr<WebCodeCacheLoader> CreateCodeCacheLoader() override {
-    return std::make_unique<CodeCacheLoaderMock>();
-  }
+  CodeCacheHost* GetCodeCacheHost() override { return nullptr; }
 
   class NoopURLLoader final : public URLLoader {
    public:
@@ -157,8 +155,13 @@ class ScriptStreamingTest : public testing::Test {
     resource_client_ =
         MakeGarbageCollected<TestResourceClient>(run_loop_.QuitClosure());
     FetchParameters params = FetchParameters::CreateForTest(std::move(request));
-    resource_ = ScriptResource::Fetch(params, fetcher, resource_client_,
-                                      ScriptResource::kAllowStreaming);
+    constexpr v8_compile_hints::V8CrowdsourcedCompileHintsProducer*
+        kNoCompileHintsProducer = nullptr;
+    constexpr v8_compile_hints::V8CrowdsourcedCompileHintsConsumer*
+        kNoCompileHintsConsumer = nullptr;
+    resource_ = ScriptResource::Fetch(
+        params, fetcher, resource_client_, ScriptResource::kAllowStreaming,
+        kNoCompileHintsProducer, kNoCompileHintsConsumer);
     resource_->AddClient(resource_client_, task_runner.get());
 
     ResourceResponse response(url_);

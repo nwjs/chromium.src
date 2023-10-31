@@ -72,14 +72,14 @@ CreditCardAccessManager::CreditCardAccessManager(
       form_event_logger_(form_event_logger) {}
 
 CreditCardAccessManager::~CreditCardAccessManager() {
-  // This clears the GUID of the most recently autofilled card with no
+  // This clears the record type of the most recently autofilled card with no
   // interactive authentication flow upon page navigation, as page navigation
   // results in us destroying the current CreditCardAccessManager and creating a
   // new one.
   if (client_) {
     if (auto* form_data_importer = client_->GetFormDataImporter()) {
       form_data_importer
-          ->SetCardIdentifierIfNonInteractiveAuthenticationFlowCompleted(
+          ->SetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted(
               absl::nullopt);
     }
   }
@@ -266,6 +266,13 @@ void CreditCardAccessManager::OnDidGetUnmaskDetails(
 void CreditCardAccessManager::FetchCreditCard(
     const CreditCard* card,
     base::WeakPtr<Accessor> accessor) {
+  // Reset the variable in FormDataImporter that denotes if non-interactive
+  // authentication happened. This variable will be set to a value if a payments
+  // autofill non-interactive flow successfully completes.
+  client_->GetFormDataImporter()
+      ->SetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted(
+          absl::nullopt);
+
   // Return error if authentication is already in progress, but don't reset
   // status.
   if (is_authentication_in_progress_) {
@@ -1106,6 +1113,10 @@ void CreditCardAccessManager::FetchVirtualCard() {
   virtual_card_unmask_request_details_
       .last_committed_primary_main_frame_origin =
       last_committed_primary_main_frame_origin;
+  if (!client_->IsOffTheRecord()) {
+    virtual_card_unmask_request_details_.merchant_domain_for_footprints =
+        client_->GetLastCommittedPrimaryMainFrameOrigin();
+  }
   virtual_card_unmask_request_details_.card = *card_;
   if (ShouldShowCardMetadata(*card_)) {
     virtual_card_unmask_request_details_.client_behavior_signals.push_back(
@@ -1138,16 +1149,16 @@ void CreditCardAccessManager::FetchLocalOrFullServerCard() {
     // until the re-authentication flow is complete.
     StartDeviceAuthenticationForFilling(accessor_, card_.get(), /*cvc=*/u"");
   } else {
-    // Fill immediately if local card, and we do not need to authenticate
-    // the user.
+    // Fill immediately if local card or full server card, as we do not need to
+    // authenticate the user.
     accessor_->OnCreditCardFetched(CreditCardFetchResult::kSuccess,
                                    card_.get());
 
-    // This local card autofill flow did not have any interactive
+    // This local or full server card autofill flow did not have any interactive
     // authentication, so notify the FormDataImporter of this.
     client_->GetFormDataImporter()
-        ->SetCardIdentifierIfNonInteractiveAuthenticationFlowCompleted(
-            FormDataImporter::CardGuid(card_->guid()));
+        ->SetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted(
+            card_->record_type());
 
     // `accessor_->OnCreditCardFetched()` makes a copy of `card` and `cvc`
     // before it asynchronously fills them into the form. Thus we can safely
@@ -1214,13 +1225,10 @@ void CreditCardAccessManager::OnVirtualCardUnmaskResponseReceived(
         // If the server responded with success and the real pan, no interactive
         // authentication happened. It's also possible that the server does not
         // provide the real pan but requests an authentication which is handled
-        // below. In this case, since the virtual card has a randomly generated
-        // GUID and is not stored in the autofill table, we must set the card
-        // identifier as the last four digits of the virtual card.
+        // below.
         client_->GetFormDataImporter()
-            ->SetCardIdentifierIfNonInteractiveAuthenticationFlowCompleted(
-                FormDataImporter::CardLastFourDigits(
-                    base::UTF16ToUTF8(card_->LastFourDigits())));
+            ->SetCardRecordTypeIfNonInteractiveAuthenticationFlowCompleted(
+                card_->record_type());
 
         autofill_metrics::LogServerCardUnmaskResult(
             autofill_metrics::ServerCardUnmaskResult::kRiskBasedUnmasked,
@@ -1479,15 +1487,12 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
     const std::u16string& cvc) {
   is_authentication_in_progress_ = true;
 
-  CreditCard::RecordType record_type = card->record_type();
-  CHECK(record_type == CreditCard::RecordType::kLocalCard ||
-        record_type == CreditCard::RecordType::kVirtualCard);
   payments::MandatoryReauthAuthenticationMethod authentication_method =
       client_->GetOrCreatePaymentsMandatoryReauthManager()
           ->GetAuthenticationMethod();
 
   autofill_metrics::LogMandatoryReauthCheckoutFlowUsageEvent(
-      record_type, authentication_method,
+      card->record_type(), authentication_method,
       autofill_metrics::MandatoryReauthAuthenticationFlowEvent::kFlowStarted);
   // TODO(crbug.com/1427216): Add the iOS branching logic as well.
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
@@ -1502,9 +1507,6 @@ void CreditCardAccessManager::StartDeviceAuthenticationForFilling(
   // MandatoryReauthManager::AuthenticateWithMessage() with the correct message
   // once it is supported. Currently, the message is "Verify it's you".
   client_->GetOrCreatePaymentsMandatoryReauthManager()->Authenticate(
-      record_type == CreditCard::RecordType::kLocalCard
-          ? device_reauth::DeviceAuthRequester::kLocalCardAutofill
-          : device_reauth::DeviceAuthRequester::kVirtualCardAutofill,
       base::BindOnce(
           &CreditCardAccessManager::OnDeviceAuthenticationResponseForFilling,
           weak_ptr_factory_.GetWeakPtr(), accessor, authentication_method, card,

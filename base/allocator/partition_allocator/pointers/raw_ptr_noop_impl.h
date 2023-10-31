@@ -13,7 +13,7 @@
 namespace base::internal {
 
 struct RawPtrNoOpImpl {
-  static constexpr bool kMustZeroOnInit = false;
+  static constexpr bool kMustZeroOnConstruct = false;
   static constexpr bool kMustZeroOnMove = false;
   static constexpr bool kMustZeroOnDestruct = false;
 
@@ -111,8 +111,6 @@ struct RawPtrNoOpImpl {
   // This is for accounting only, used by unit tests.
   PA_ALWAYS_INLINE constexpr static void IncrementSwapCountForTest() {}
   PA_ALWAYS_INLINE constexpr static void IncrementLessCountForTest() {}
-  PA_ALWAYS_INLINE constexpr static void
-  IncrementPointerToMemberOperatorCountForTest() {}
 };
 
 }  // namespace base::internal

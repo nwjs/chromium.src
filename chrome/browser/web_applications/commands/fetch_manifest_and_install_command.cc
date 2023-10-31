@@ -22,7 +22,6 @@
 #include "chrome/browser/web_applications/web_app_command_manager.h"
 #include "chrome/browser/web_applications/web_app_command_scheduler.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
-#include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_install_utils.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
@@ -31,8 +30,10 @@
 #include "components/webapps/browser/features.h"
 #include "components/webapps/browser/installable/installable_logging.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "url/origin.h"
@@ -147,6 +148,7 @@ FetchManifestAndInstallCommand::FetchManifestAndInstallCommand(
     WebAppInstallDialogCallback dialog_callback,
     OnceInstallCallback callback,
     bool use_fallback,
+    base::WeakPtr<WebAppUiManager> ui_manager,
     std::unique_ptr<WebAppDataRetriever> data_retriever)
     : WebAppCommandTemplate<NoopLock>("FetchManifestAndInstallCommand"),
       noop_lock_description_(std::make_unique<NoopLockDescription>()),
@@ -156,12 +158,16 @@ FetchManifestAndInstallCommand::FetchManifestAndInstallCommand(
       dialog_callback_(std::move(dialog_callback)),
       install_callback_(std::move(callback)),
       use_fallback_(use_fallback),
+      ui_manager_(ui_manager),
       data_retriever_(std::move(data_retriever)),
       install_error_log_entry_(/*background_installation=*/false,
                                install_surface_) {
+  Observe(web_contents_.get());
   debug_log_.Set("visible_url", web_contents_->GetVisibleURL().spec());
   debug_log_.Set("last_committed_url",
                  web_contents_->GetLastCommittedURL().spec());
+  debug_log_.Set("initial_visibility",
+                 static_cast<int>(web_contents()->GetVisibility()));
 }
 
 FetchManifestAndInstallCommand::~FetchManifestAndInstallCommand() = default;
@@ -184,7 +190,15 @@ void FetchManifestAndInstallCommand::StartWithLock(
     return;
   }
 
-  Observe(web_contents_.get());
+  if (web_contents()->GetVisibility() != content::Visibility::VISIBLE) {
+    Abort(webapps::InstallResultCode::kCancelledDueToMainFrameNavigation);
+    return;
+  }
+
+  if (did_navigation_occur_before_start_) {
+    Abort(webapps::InstallResultCode::kCancelledDueToMainFrameNavigation);
+    return;
+  }
 
   // This metric is recorded regardless of the installation result.
   if (webapps::InstallableMetrics::IsReportableInstallSource(
@@ -235,7 +249,41 @@ void FetchManifestAndInstallCommand::DidFinishNavigation(
     return;
   }
 
+  if (!IsStarted()) {
+    did_navigation_occur_before_start_ = true;
+    return;
+  }
+
   Abort(webapps::InstallResultCode::kCancelledDueToMainFrameNavigation);
+}
+
+void FetchManifestAndInstallCommand::OnVisibilityChanged(
+    content::Visibility visibility) {
+  if (visibility == content::Visibility::VISIBLE) {
+    return;
+  }
+
+  if (!IsStarted()) {
+    did_navigation_occur_before_start_ = true;
+    return;
+  }
+
+  // This prevents us from closing the dialog if the visibility of the window
+  // itself changes but the tab doesn't. A more thorough fix here is to listen
+  // to the tab strip changing (AKA a different tab being opened / changed to),
+  // but due to needing to use code in `ui`, this is a bit hard to do.
+  if (ui_manager_->IsWebContentsActiveTabInBrowser(web_contents())) {
+    return;
+  }
+
+  Abort(webapps::InstallResultCode::kCancelledDueToMainFrameNavigation);
+}
+
+void FetchManifestAndInstallCommand::WebContentsDestroyed() {
+  Observe(nullptr);
+  // No need to abort - web content destruction is handled in the beginning of
+  // each method. However, this needs to be here in case the web contents is
+  // destroyed before the command is started.
 }
 
 void FetchManifestAndInstallCommand::Abort(webapps::InstallResultCode code) {
@@ -246,7 +294,7 @@ void FetchManifestAndInstallCommand::Abort(webapps::InstallResultCode code) {
   Observe(nullptr);
   SignalCompletionAndSelfDestruct(
       CommandResult::kFailure,
-      base::BindOnce(std::move(install_callback_), AppId(), code));
+      base::BindOnce(std::move(install_callback_), webapps::AppId(), code));
 }
 
 bool FetchManifestAndInstallCommand::IsWebContentsDestroyed() {
@@ -530,7 +578,7 @@ void FetchManifestAndInstallCommand::OnDialogCompleted(
 }
 
 void FetchManifestAndInstallCommand::OnInstallFinalizedMaybeReparentTab(
-    const AppId& app_id,
+    const webapps::AppId& app_id,
     webapps::InstallResultCode code,
     OsHooksErrors os_hooks_errors) {
   if (IsWebContentsDestroyed()) {
@@ -542,6 +590,9 @@ void FetchManifestAndInstallCommand::OnInstallFinalizedMaybeReparentTab(
     Abort(code);
     return;
   }
+
+  // Stop observing the web contents to prevent cancellation when reparenting.
+  Observe(nullptr);
 
   RecordWebAppInstallationTimestamp(
       Profile::FromBrowserContext(web_contents_->GetBrowserContext())
@@ -563,7 +614,7 @@ void FetchManifestAndInstallCommand::OnInstallFinalizedMaybeReparentTab(
 }
 
 void FetchManifestAndInstallCommand::OnInstallCompleted(
-    const AppId& app_id,
+    const webapps::AppId& app_id,
     webapps::InstallResultCode code) {
   if (base::FeatureList::IsEnabled(features::kRecordWebAppDebugInfo)) {
     if (install_error_log_entry_.HasErrorDict()) {

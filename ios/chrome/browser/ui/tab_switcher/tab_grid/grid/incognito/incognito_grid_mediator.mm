@@ -16,10 +16,16 @@
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/snapshots/snapshot_browser_agent.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_consumer.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_toolbars_mutator.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/incognito/incognito_grid_mediator_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_metrics.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_paging.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_configuration.h"
+
+// TODO(crbug.com/1457146): Needed for `TabPresentationDelegate`, should be
+// refactored.
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_view_controller.h"
 
 namespace {
 
@@ -85,6 +91,27 @@ bool ShouldFilterWebSitesForSupervisedUsers() {
 
 - (void)closeAllButtonTapped:(id)sender {
   [self closeAllItems];
+}
+
+- (void)newTabButtonTapped:(id)sender {
+  // Ignore the tap if the current page is disabled for some reason, by policy
+  // for instance. This is to avoid situations where the tap action from an
+  // enabled page can make it to a disabled page by releasing the
+  // button press after switching to the disabled page (b/273416844 is an
+  // example).
+  if (_incognitoDisabled) {
+    return;
+  }
+
+  [self.gridConsumer setPageIdleStatus:NO];
+  base::RecordAction(base::UserMetricsAction("MobileTabNewTab"));
+  [self.gridConsumer prepareForDismissal];
+  [self addNewItem];
+  [self.gridConsumer setActivePageFromPage:TabGridPageIncognitoTabs];
+  [self.tabPresentationDelegate showActiveTabInPage:TabGridPageIncognitoTabs
+                                       focusOmnibox:NO];
+  base::RecordAction(
+      base::UserMetricsAction("MobileTabGridCreateIncognitoTab"));
 }
 
 #pragma mark - Parent's function

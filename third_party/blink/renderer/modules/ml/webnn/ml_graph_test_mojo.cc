@@ -2,17 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/memory/raw_ref.h"
 #include "base/test/scoped_feature_list.h"
+#include "components/ml/webnn/features.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
+#include "services/webnn/public/mojom/webnn_context_provider.mojom-blink.h"
 #include "services/webnn/public/mojom/webnn_graph.mojom-blink.h"
-#include "services/webnn/public/mojom/webnn_service.mojom-blink.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/common/features.h"
-#include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/renderer/bindings/core/v8/native_value_traits_impl.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_resolver.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_promise_tester.h"
@@ -73,10 +74,10 @@ class FakeWebNNGraph : public blink_mojom::WebNNGraph {
   void Compute(HashMap<String, mojo_base::BigBuffer> inputs,
                blink_mojom::WebNNGraph::ComputeCallback callback) override {
     // Set the input array buffers for validation in the test.
-    helper_.SetInputArrayBuffers(std::move(inputs));
+    helper_->SetInputArrayBuffers(std::move(inputs));
 
     // Return the compute result with shared memory.
-    auto& compute_result = helper_.GetComputeResult();
+    auto& compute_result = helper_->GetComputeResult();
     HashMap<String, mojo_base::BigBuffer> mojo_outputs;
     for (const auto& [name, output_data] : compute_result.output) {
       mojo_outputs.insert(
@@ -85,7 +86,7 @@ class FakeWebNNGraph : public blink_mojom::WebNNGraph {
     std::move(callback).Run(compute_result.result, std::move(mojo_outputs));
   }
 
-  MLGraphTestMojo& helper_;
+  const raw_ref<MLGraphTestMojo, ExperimentalRenderer> helper_;
 };
 
 class FakeWebNNContext : public blink_mojom::WebNNContext {
@@ -99,17 +100,18 @@ class FakeWebNNContext : public blink_mojom::WebNNContext {
   // Override methods from webnn::mojom::WebNNContext.
   void CreateGraph(blink_mojom::GraphInfoPtr graph_info,
                    CreateGraphCallback callback) override {
-    helper_.SetGraphInfo(std::move(graph_info));
+    helper_->SetGraphInfo(std::move(graph_info));
 
     mojo::PendingRemote<blink_mojom::WebNNGraph> blink_remote;
     // The receiver bind to FakeWebNNGraph.
     mojo::MakeSelfOwnedReceiver<blink_mojom::WebNNGraph>(
-        std::make_unique<FakeWebNNGraph>(helper_),
+        std::make_unique<FakeWebNNGraph>(*helper_),
         blink_remote.InitWithNewPipeAndPassReceiver());
 
-    std::move(callback).Run(std::move(blink_remote));
+    std::move(callback).Run(blink_mojom::CreateGraphResult::NewGraphRemote(
+        std::move(blink_remote)));
   }
-  MLGraphTestMojo& helper_;
+  const raw_ref<MLGraphTestMojo, ExperimentalRenderer> helper_;
 };
 
 class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
@@ -139,14 +141,14 @@ class FakeWebNNContextProvider : public blink_mojom::WebNNContextProvider {
     mojo::PendingRemote<blink_mojom::WebNNContext> blink_remote;
     // The receiver bind to FakeWebNNContext.
     mojo::MakeSelfOwnedReceiver<blink_mojom::WebNNContext>(
-        std::make_unique<FakeWebNNContext>(helper_),
+        std::make_unique<FakeWebNNContext>(*helper_),
         blink_remote.InitWithNewPipeAndPassReceiver());
 
-    std::move(callback).Run(blink_mojom::CreateContextResult::kOk,
-                            std::move(blink_remote));
+    std::move(callback).Run(blink_mojom::CreateContextResult::NewContextRemote(
+        std::move(blink_remote)));
   }
 
-  MLGraphTestMojo& helper_;
+  const raw_ref<MLGraphTestMojo, ExperimentalRenderer> helper_;
   mojo::Receiver<blink_mojom::WebNNContextProvider> receiver_;
 };
 
@@ -158,7 +160,7 @@ class ScopedWebNNServiceBinder {
             std::make_unique<FakeWebNNContextProvider>(helper)),
         interface_broker_(
             scope.GetExecutionContext()->GetBrowserInterfaceBroker()) {
-    interface_broker_.SetBinderForTesting(
+    interface_broker_->SetBinderForTesting(
         blink_mojom::WebNNContextProvider::Name_,
         WTF::BindRepeating(
             &FakeWebNNContextProvider::BindRequest,
@@ -166,7 +168,7 @@ class ScopedWebNNServiceBinder {
   }
 
   ~ScopedWebNNServiceBinder() {
-    interface_broker_.SetBinderForTesting(
+    interface_broker_->SetBinderForTesting(
         blink_mojom::WebNNContextProvider::Name_, base::NullCallback());
   }
 
@@ -176,7 +178,8 @@ class ScopedWebNNServiceBinder {
 
  private:
   std::unique_ptr<FakeWebNNContextProvider> fake_webnn_context_provider_;
-  const BrowserInterfaceBrokerProxy& interface_broker_;
+  const raw_ref<const BrowserInterfaceBrokerProxy, ExperimentalRenderer>
+      interface_broker_;
 };
 
 MLGraphMojo* ToMLGraphMojo(V8TestingScope* scope, ScriptValue value) {
@@ -238,7 +241,7 @@ TEST_P(MLGraphTestMojo, CreateWebNNGraphTest) {
     // resoveld with an MLGraphMojo object.
     base::test::ScopedFeatureList scoped_feature_list;
     scoped_feature_list.InitAndEnableFeature(
-        blink::features::kEnableMachineLearningNeuralNetworkService);
+        webnn::features::kEnableMachineLearningNeuralNetworkService);
 
     ScriptPromiseTester tester(script_state, BuildSimpleGraph(scope, options));
     tester.WaitUntilSettled();
@@ -280,10 +283,12 @@ struct ClampTester {
 
     auto graph_info = helper.GetGraphInfo();
     // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kClamp);
-    auto& clamp_attributes = operation->attributes->get_clamp();
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    EXPECT_EQ(generic_operator->kind, blink_mojom::Operator::Kind::kClamp);
+    auto& clamp_attributes = generic_operator->attributes->get_clamp();
     EXPECT_EQ(clamp_attributes->min_value, expected_attributes.min_value);
     EXPECT_EQ(clamp_attributes->max_value, expected_attributes.max_value);
     EXPECT_EQ(graph_info->output_operands.size(), 1u);
@@ -303,7 +308,7 @@ TEST_P(MLGraphTestMojo, ClampTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -456,10 +461,12 @@ struct Conv2dTester {
 
     auto graph_info = helper.GetGraphInfo();
     // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kConv2d);
-    auto& conv2d_attributes = operation->attributes->get_conv2d();
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    EXPECT_EQ(generic_operator->kind, blink_mojom::Operator::Kind::kConv2d);
+    auto& conv2d_attributes = generic_operator->attributes->get_conv2d();
     // Validate explicit padding.
     auto& expected_padding = expected_attributes.padding;
     EXPECT_EQ(conv2d_attributes->padding->beginning->height,
@@ -529,7 +536,7 @@ TEST_P(MLGraphTestMojo, Conv2dTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -707,13 +714,15 @@ struct ElementWiseBinaryTester {
     EXPECT_EQ(output_operand_iter->value->dimensions, expected.dimensions);
     EXPECT_EQ(output_operand_iter->value->name, "output");
     // Verify the `mojo::Operator`.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    ASSERT_EQ(operation->input_operands.size(), 2u);
-    EXPECT_EQ(operation->input_operands[0], lhs_operand_id);
-    EXPECT_EQ(operation->input_operands[1], rhs_operand_id);
-    ASSERT_EQ(operation->output_operands.size(), 1u);
-    EXPECT_EQ(operation->output_operands[0], output_operand_id);
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    ASSERT_EQ(generic_operator->input_operands.size(), 2u);
+    EXPECT_EQ(generic_operator->input_operands[0], lhs_operand_id);
+    EXPECT_EQ(generic_operator->input_operands[1], rhs_operand_id);
+    ASSERT_EQ(generic_operator->output_operands.size(), 1u);
+    EXPECT_EQ(generic_operator->output_operands[0], output_operand_id);
   }
 };
 
@@ -723,7 +732,7 @@ TEST_P(MLGraphTestMojo, ElementWiseBinaryTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -836,10 +845,12 @@ struct GemmTester {
 
     auto graph_info = helper.GetGraphInfo();
     // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kGemm);
-    auto& gemm_attributes = operation->attributes->get_gemm();
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    EXPECT_EQ(generic_operator->kind, blink_mojom::Operator::Kind::kGemm);
+    auto& gemm_attributes = generic_operator->attributes->get_gemm();
     ASSERT_EQ(gemm_attributes.is_null(), false);
     if (options.c) {
       auto c_operand_iter = graph_info->id_to_operand_map.find(
@@ -872,7 +883,7 @@ TEST_P(MLGraphTestMojo, GemmTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -1024,43 +1035,38 @@ struct Pool2dTester {
 
     auto graph_info = helper.GetGraphInfo();
     // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_pool2d(), true);
+    auto& poo2d_mojo = operation->get_pool2d();
     switch (kind) {
       case Pool2dKind::kAverage:
-        EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kAveragePool2d);
+        EXPECT_EQ(poo2d_mojo->kind, blink_mojom::Pool2d::Kind::kAveragePool2d);
         break;
       case Pool2dKind::kMax:
-        EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kMaxPool2d);
+        EXPECT_EQ(poo2d_mojo->kind, blink_mojom::Pool2d::Kind::kMaxPool2d);
         break;
       default:
         NOTREACHED();
     }
-    auto& pool2d_attributes = operation->attributes->get_pool2d();
     // Validate window dimensions.
-    EXPECT_EQ(pool2d_attributes->window_dimensions->height,
+    EXPECT_EQ(poo2d_mojo->window_dimensions->height,
               expected_attributes.window_dimensions[0]);
-    EXPECT_EQ(pool2d_attributes->window_dimensions->width,
+    EXPECT_EQ(poo2d_mojo->window_dimensions->width,
               expected_attributes.window_dimensions[1]);
     // Validate explicit padding.
     auto& expected_padding = expected_attributes.padding;
-    EXPECT_EQ(pool2d_attributes->padding->beginning->height,
-              expected_padding[0]);
-    EXPECT_EQ(pool2d_attributes->padding->ending->height, expected_padding[1]);
-    EXPECT_EQ(pool2d_attributes->padding->beginning->width,
-              expected_padding[2]);
-    EXPECT_EQ(pool2d_attributes->padding->ending->width, expected_padding[3]);
+    EXPECT_EQ(poo2d_mojo->padding->beginning->height, expected_padding[0]);
+    EXPECT_EQ(poo2d_mojo->padding->ending->height, expected_padding[1]);
+    EXPECT_EQ(poo2d_mojo->padding->beginning->width, expected_padding[2]);
+    EXPECT_EQ(poo2d_mojo->padding->ending->width, expected_padding[3]);
     // Validate strides
-    EXPECT_EQ(pool2d_attributes->strides->height,
-              expected_attributes.strides[0]);
-    EXPECT_EQ(pool2d_attributes->strides->width,
-              expected_attributes.strides[1]);
+    EXPECT_EQ(poo2d_mojo->strides->height, expected_attributes.strides[0]);
+    EXPECT_EQ(poo2d_mojo->strides->width, expected_attributes.strides[1]);
     // Validate dilations.
-    EXPECT_EQ(pool2d_attributes->dilations->height,
-              expected_attributes.dilations[0]);
-    EXPECT_EQ(pool2d_attributes->dilations->width,
-              expected_attributes.dilations[1]);
-    EXPECT_EQ(pool2d_attributes->layout, expected_attributes.layout);
+    EXPECT_EQ(poo2d_mojo->dilations->height, expected_attributes.dilations[0]);
+    EXPECT_EQ(poo2d_mojo->dilations->width, expected_attributes.dilations[1]);
+    EXPECT_EQ(poo2d_mojo->layout, expected_attributes.layout);
     EXPECT_EQ(graph_info->output_operands.size(), 1u);
     auto output_operand_id = graph_info->output_operands[0];
     auto output_operand_iter =
@@ -1078,7 +1084,7 @@ TEST_P(MLGraphTestMojo, Pool2dTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -1257,13 +1263,15 @@ struct ReluTester {
     EXPECT_EQ(output_operand_iter->value->dimensions, expected.dimensions);
     EXPECT_EQ(output_operand_iter->value->name, "output");
     // Verify the `mojo::Operator`.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kRelu);
-    ASSERT_EQ(operation->input_operands.size(), 1u);
-    EXPECT_EQ(operation->input_operands[0], input_operand_id);
-    ASSERT_EQ(operation->output_operands.size(), 1u);
-    EXPECT_EQ(operation->output_operands[0], output_operand_id);
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    EXPECT_EQ(generic_operator->kind, blink_mojom::Operator::Kind::kRelu);
+    ASSERT_EQ(generic_operator->input_operands.size(), 1u);
+    EXPECT_EQ(generic_operator->input_operands[0], input_operand_id);
+    ASSERT_EQ(generic_operator->output_operands.size(), 1u);
+    EXPECT_EQ(generic_operator->output_operands[0], output_operand_id);
   }
 };
 
@@ -1273,7 +1281,7 @@ TEST_P(MLGraphTestMojo, ReluTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -1331,9 +1339,11 @@ struct ReshapeTester {
 
     auto graph_info = helper.GetGraphInfo();
     // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kReshape);
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    EXPECT_EQ(generic_operator->kind, blink_mojom::Operator::Kind::kReshape);
     EXPECT_EQ(graph_info->output_operands.size(), 1u);
     auto output_operand_id = graph_info->output_operands[0];
     auto output_operand_iter =
@@ -1350,7 +1360,7 @@ TEST_P(MLGraphTestMojo, ReshapeTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -1411,9 +1421,11 @@ struct SoftmaxTester {
 
     auto graph_info = helper.GetGraphInfo();
     // Verify the graph information of mojo are as expected.
-    ASSERT_EQ(graph_info->operators.size(), 1u);
-    auto& operation = graph_info->operators[0];
-    EXPECT_EQ(operation->kind, blink_mojom::Operator::Kind::kSoftmax);
+    ASSERT_EQ(graph_info->operations.size(), 1u);
+    auto& operation = graph_info->operations[0];
+    EXPECT_EQ(operation->is_generic_operator(), true);
+    auto& generic_operator = operation->get_generic_operator();
+    EXPECT_EQ(generic_operator->kind, blink_mojom::Operator::Kind::kSoftmax);
     EXPECT_EQ(graph_info->output_operands.size(), 1u);
     auto output_operand_id = graph_info->output_operands[0];
     auto output_operand_iter =
@@ -1430,7 +1442,7 @@ TEST_P(MLGraphTestMojo, SoftmaxTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -1504,7 +1516,7 @@ TEST_P(MLGraphTestMojo, ConstantTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);
@@ -1583,7 +1595,7 @@ TEST_P(MLGraphTestMojo, WebNNGraphComputeTest) {
   ScopedWebNNServiceBinder scoped_setup_binder(*this, scope);
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitAndEnableFeature(
-      blink::features::kEnableMachineLearningNeuralNetworkService);
+      webnn::features::kEnableMachineLearningNeuralNetworkService);
   auto* options = MLContextOptions::Create();
   // Create WebNN Context with GPU device preference.
   options->setDevicePreference(V8MLDevicePreference::Enum::kGpu);

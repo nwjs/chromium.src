@@ -15,7 +15,7 @@
 #import "ios/chrome/browser/ui/default_promo/tailored_promo_view_controller.h"
 #import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_action_handler.h"
 #import "ios/chrome/common/ui/elements/popover_label_view_controller.h"
-#import "ios/chrome/grit/ios_chromium_strings.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
@@ -152,6 +152,9 @@ using l10n_util::GetNSString;
 
 // Records that a default browser promo has been shown.
 - (void)recordDefaultBrowserPromoShown {
+  // Record the current state before updating the local storage.
+  RecordPromoDisplayStatsToUMA();
+
   RecordAction(
       UserMetricsAction("IOS.DefaultBrowserPromo.TailoredFullscreen.Appear"));
   base::UmaHistogramEnumeration("IOS.DefaultBrowserPromo.Shown",

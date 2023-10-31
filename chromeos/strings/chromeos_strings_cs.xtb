@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Denně měnit tapetu</translation>
 <translation id="1644574205037202324">Historie</translation>
 <translation id="1651925268237749928">Vybrali jste sdílené album. Ostatní lidé mohou přidávat nebo měnit fotografie. Jako tapeta se mohou zobrazit fotografie, které v tomto albu aktuálně nejsou.</translation>
+<translation id="1661865805917886535">Některé údaje o účtu a systému mohou být předány společnosti Google. Tyto informace používáme k řešení technických problémů a zlepšování našich služeb v souladu s našimi zásadami ochrany soukromí (<ph name="PRIVACYPOLICYURL" />) a smluvními podmínkami (<ph name="TERMSOFSERVICEURL" />). Pokud chcete požádat o změny obsahu, přejděte na stránku Právní nápověda (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Zastaveno – došel inkoust</translation>
 <translation id="1664796644829245314">Náhled <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">Vestavěná VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Zařízení je připojeno.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Odstranit stránku?}=1{Odstranit stránku {PAGE_NUMBER}?}few{Odstranit stránku {PAGE_NUMBER}?}many{Odstranit stránku {PAGE_NUMBER}?}other{Odstranit stránku {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Exkluzivní pro <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobilní datové přenosy</translation>
 <translation id="3156846309055100599">Skenování stránky <ph name="PAGE_NUMBER" />…</translation>
 <translation id="315738237743207937">Byl nalezen captive portál</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Vyhledávání skenerů</translation>
 <translation id="3226657629376379887">Nabídka akcí s rozvržením</translation>
 <translation id="3246869037381808805">Tiskové úlohy starší než 1 den budou odstraněny</translation>
-<translation id="3248223063252096240">Exkluzivní pro <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Tisk selhal – jsou otevřená dvířka</translation>
 <translation id="3275729367986477355">Obrázek avatara</translation>
 <translation id="3283504360622356314">{0,plural, =1{Upravit soubor}few{Upravit soubory}many{Upravit soubory}other{Upravit soubory}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Vybrat možnost <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Nástroje pro vývojáře</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Připojit</translation>
 <translation id="8206859287963243715">Mobil</translation>

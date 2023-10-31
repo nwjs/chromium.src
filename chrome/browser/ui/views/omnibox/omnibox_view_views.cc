@@ -253,9 +253,6 @@ void OmniboxViewViews::Init() {
 }
 
 void OmniboxViewViews::SaveStateToTab(content::WebContents* tab) {
-  if (base::FeatureList::IsEnabled(omnibox::kDiscardTemporaryInputOnTabSwitch))
-    return;
-
   DCHECK(tab);
 
   // We don't want to keep the IME status, so force quit the current
@@ -276,13 +273,6 @@ void OmniboxViewViews::SaveStateToTab(content::WebContents* tab) {
 }
 
 void OmniboxViewViews::OnTabChanged(content::WebContents* web_contents) {
-  if (base::FeatureList::IsEnabled(
-          omnibox::kDiscardTemporaryInputOnTabSwitch)) {
-    model()->RestoreState(nullptr);
-    ClearEditHistory();
-    return;
-  }
-
   const OmniboxState* state = static_cast<OmniboxState*>(
       web_contents->GetUserData(&OmniboxState::kKey));
   model()->RestoreState(state ? &state->model_state : nullptr);
@@ -310,7 +300,6 @@ void OmniboxViewViews::OnTabChanged(content::WebContents* web_contents) {
 }
 
 void OmniboxViewViews::ResetTabState(content::WebContents* web_contents) {
-  if (!base::FeatureList::IsEnabled(omnibox::kDiscardTemporaryInputOnTabSwitch))
     web_contents->SetUserData(OmniboxState::kKey, nullptr);
 }
 
@@ -635,6 +624,10 @@ void OmniboxViewViews::OnThemeChanged() {
 
   set_placeholder_text_color(GetColorProvider()->GetColor(
       gm3_text_color_enabled ? kColorOmniboxText : kColorOmniboxTextDimmed));
+  SetSelectionBackgroundColor(
+      GetColorProvider()->GetColor(kColorOmniboxSelectionBackground));
+  SetSelectionTextColor(
+      GetColorProvider()->GetColor(kColorOmniboxSelectionForeground));
 
   EmphasizeURLComponents();
 }

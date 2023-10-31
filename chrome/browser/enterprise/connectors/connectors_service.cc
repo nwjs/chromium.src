@@ -162,6 +162,10 @@ BASE_FEATURE(kEnterpriseConnectorsEnabledOnMGS,
              "EnterpriseConnectorsEnabledOnMGS",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kEnableRelaxedAffiliationCheck,
+             "EnableRelaxedAffiliationCheck",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // --------------------------------
 // ConnectorsService implementation
 // --------------------------------
@@ -496,9 +500,10 @@ ConnectorsService::GetBrowserDmToken() const {
 #if !BUILDFLAG(IS_CHROMEOS_ASH)
 absl::optional<ConnectorsService::DmToken>
 ConnectorsService::GetProfileDmToken() const {
-  if (!CanUseProfileDmToken())
+  if (!base::FeatureList::IsEnabled(kEnableRelaxedAffiliationCheck) &&
+      !CanUseProfileDmToken()) {
     return absl::nullopt;
-
+  }
   Profile* profile = Profile::FromBrowserContext(context_);
 
   policy::UserCloudPolicyManager* policy_manager =

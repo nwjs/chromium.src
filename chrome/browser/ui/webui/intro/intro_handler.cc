@@ -20,7 +20,7 @@
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/webui/intro/intro_ui.h"
-#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/policy/core/common/cloud/cloud_policy_store.h"
 #include "components/policy/core/common/cloud/machine_level_user_cloud_policy_manager.h"
@@ -347,7 +347,7 @@ void IntroHandler::HandleSetAsDefaultBrowser(const base::Value::List& args) {
   CHECK(args.empty());
   if (default_browser_callback_) {
     std::move(default_browser_callback_)
-        .Run(DefaultBrowserChoice::kSetAsDefault);
+        .Run(DefaultBrowserChoice::kClickSetAsDefault);
   }
 }
 

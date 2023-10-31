@@ -481,7 +481,10 @@ protocol::Response InspectorOverlayAgent::enable() {
 }
 
 void InspectorOverlayAgent::EnsureAXContext(Node* node) {
-  Document& document = node->GetDocument();
+  EnsureAXContext(node->GetDocument());
+}
+
+void InspectorOverlayAgent::EnsureAXContext(Document& document) {
   if (!document_to_ax_context_.Contains(&document)) {
     auto context = std::make_unique<AXContext>(document, ui::kAXModeComplete);
     document_to_ax_context_.Set(&document, std::move(context));
@@ -1515,7 +1518,7 @@ void InspectorOverlayAgent::Inspect(Node* inspected_node) {
     return;
   }
 
-  DOMNodeId backend_node_id = DOMNodeIds::IdForNode(node);
+  DOMNodeId backend_node_id = node->GetDomNodeId();
   if (!enabled_.Get()) {
     backend_node_id_to_inspect_ = backend_node_id;
     return;
@@ -1641,6 +1644,7 @@ protocol::Response InspectorOverlayAgent::SetInspectTool(
   LoadOverlayPageResource();
   EvaluateInOverlay("setOverlay", inspect_tool->GetOverlayName());
   EnsureEnableFrameOverlay();
+  EnsureAXContext(frame->GetDocument());
   ScheduleUpdate();
   return protocol::Response::Success();
 }

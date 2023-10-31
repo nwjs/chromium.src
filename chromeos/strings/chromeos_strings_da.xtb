@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Skift baggrundsbillede dagligt</translation>
 <translation id="1644574205037202324">Historik</translation>
 <translation id="1651925268237749928">Du har valgt et delt album. Andre personer kan tilføje eller skifte billeder. Din baggrund anvender muligvis billeder, der ikke er i dette album på nuværende tidspunkt.</translation>
+<translation id="1661865805917886535">Visse konto- og systemoplysninger kan blive sendt til Google. Vi bruger disse oplysninger til at løse tekniske problemer og forbedre vores tjenester i overensstemmelse med vores privatlivspolitik (<ph name="PRIVACYPOLICYURL" />) og servicevilkår (<ph name="TERMSOFSERVICEURL" />). Hvis du vil anmode om indholdsændringer, skal du gå til Hjælp til Juridisk (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Stoppet – Mangler blæk</translation>
 <translation id="1664796644829245314">Se forhåndsvisning af <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">Indbygget VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Enheden har forbindelse.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Vil du fjerne siden?}=1{Vil du fjerne side {PAGE_NUMBER}?}one{Remove page {PAGE_NUMBER}?}other{Vil du fjerne side {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Kun tilgængelig på <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobildata</translation>
 <translation id="3156846309055100599">Scanner side <ph name="PAGE_NUMBER" />...</translation>
 <translation id="315738237743207937">Der blev registreret en loginportal</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Søger efter scannere</translation>
 <translation id="3226657629376379887">Handlingsmenu for layout</translation>
 <translation id="3246869037381808805">Udskriftjobs, der er ældre end 1 dag, fjernes</translation>
-<translation id="3248223063252096240">Kun på <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Handlingen mislykkedes – Åben låge</translation>
 <translation id="3275729367986477355">Billede til avatar</translation>
 <translation id="3283504360622356314">{0,plural, =1{Rediger fil}one{Rediger fil}other{Rediger filer}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Vælg <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Udviklerværktøjer</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Vedhæft</translation>
 <translation id="8206859287963243715">Mobil</translation>

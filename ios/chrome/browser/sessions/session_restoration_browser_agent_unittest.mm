@@ -14,8 +14,8 @@
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper_delegate.h"
 #import "ios/chrome/browser/sessions/ios_chrome_session_tab_helper.h"
 #import "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
-#import "ios/chrome/browser/sessions/session_restoration_observer.h"
 #import "ios/chrome/browser/sessions/session_window_ios.h"
+#import "ios/chrome/browser/sessions/test_session_restoration_observer.h"
 #import "ios/chrome/browser/sessions/test_session_service.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
@@ -27,7 +27,6 @@
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/tabs/features.h"
-#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/navigation/referrer.h"
@@ -54,6 +53,8 @@ namespace {
 struct TabInfo {
   int opener_index = -1;
   bool pinned = false;
+  bool with_navigation = true;
+  NSString* stable_identifier = nil;
 };
 
 // Information about a collection of N tabs that needs to be restored.
@@ -91,10 +92,16 @@ CRWSessionUserData* CreateSessionUserData(TabInfo tab_info) {
 // Creates a CRWSessionStorage* from `tab_info`.
 CRWSessionStorage* CreateSessionStorage(TabInfo tab_info) {
   CRWSessionStorage* session_storage = [[CRWSessionStorage alloc] init];
-  session_storage.stableIdentifier = [[NSUUID UUID] UUIDString];
-  session_storage.uniqueIdentifier = SessionID::NewUnique();
-  session_storage.lastCommittedItemIndex = 0;
-  session_storage.itemStorages = CreateNavigationStorage();
+  session_storage.stableIdentifier =
+      tab_info.stable_identifier ?: [[NSUUID UUID] UUIDString];
+  session_storage.uniqueIdentifier = web::WebStateID::NewUnique();
+  if (tab_info.with_navigation) {
+    session_storage.lastCommittedItemIndex = 0;
+    session_storage.itemStorages = CreateNavigationStorage();
+  } else {
+    session_storage.lastCommittedItemIndex = -1;
+    session_storage.itemStorages = @[];
+  }
   session_storage.userData = CreateSessionUserData(tab_info);
   return session_storage;
 }
@@ -120,22 +127,6 @@ SessionWindowIOS* CreateSessionWindow(SessionInfo<N> session_info) {
   return [[SessionWindowIOS alloc] initWithSessions:sessions
                                       selectedIndex:session_info.active_index];
 }
-
-class TestRestorationObserver : public SessionRestorationObserver {
- public:
-  bool restore_started() { return restore_started_; }
-  int restored_web_states_count() { return restored_web_states_count_; }
-
- private:
-  void WillStartSessionRestoration() override { restore_started_ = true; }
-  void SessionRestorationFinished(
-      const std::vector<web::WebState*>& restored_web_states) override {
-    restored_web_states_count_ = restored_web_states.size();
-  }
-
-  bool restore_started_ = false;
-  int restored_web_states_count_ = -1;
-};
 
 class SessionRestorationBrowserAgentTest : public PlatformTest {
  public:
@@ -166,11 +157,6 @@ class SessionRestorationBrowserAgentTest : public PlatformTest {
     browser_ = std::make_unique<TestBrowser>(
         chrome_browser_state_.get(),
         std::make_unique<BrowserWebStateListDelegate>());
-    // Web usage is disabled during these tests.
-    WebUsageEnablerBrowserAgent::CreateForBrowser(browser_.get());
-    web_usage_enabler_ =
-        WebUsageEnablerBrowserAgent::FromBrowser(browser_.get());
-    web_usage_enabler_->SetWebUsageEnabled(false);
   }
 
   void TearDown() override {
@@ -231,28 +217,62 @@ class SessionRestorationBrowserAgentTest : public PlatformTest {
 
   __strong NSString* session_identifier_ = nil;
   TestSessionService* test_session_service_;
-  WebUsageEnablerBrowserAgent* web_usage_enabler_;
   SessionRestorationBrowserAgent* session_restoration_agent_;
 };
 
-// Tests that CRWSessionStorage with empty item_storages are not restored.
-TEST_F(SessionRestorationBrowserAgentTest, RestoreEmptySessions) {
+// Tests that restoring a session where all items have no navigation items
+// does not restore anything (as all items would be dropped).
+TEST_F(SessionRestorationBrowserAgentTest, RestoreSession_AllNoNavigation) {
   CreateSessionRestorationBrowserAgent(true);
 
-  NSMutableArray<CRWSessionStorage*>* sessions = [NSMutableArray array];
-  for (int i = 0; i < 3; i++) {
-    CRWSessionStorage* session_storage = [[CRWSessionStorage alloc] init];
-    session_storage.stableIdentifier = [[NSUUID UUID] UUIDString];
-    session_storage.uniqueIdentifier = SessionID::NewUnique();
-    session_storage.lastCommittedItemIndex = -1;
-    [sessions addObject:session_storage];
-  }
-  SessionWindowIOS* window = [[SessionWindowIOS alloc] initWithSessions:sessions
-                                                          selectedIndex:2];
+  SessionWindowIOS* window = CreateSessionWindow(SessionInfo<3>{
+      .active_index = 2,
+      .tab_infos =
+          {
+              TabInfo{.with_navigation = false},
+              TabInfo{.with_navigation = false},
+              TabInfo{.with_navigation = false},
+          },
+  });
 
   session_restoration_agent_->RestoreSessionWindow(
       window, SessionRestorationScope::kAll);
   ASSERT_EQ(0, browser_->GetWebStateList()->count());
+}
+
+// Tests that restoring a session where some items have no navigation items
+// only restore those items, and correct fix the opener-opened relationship.
+TEST_F(SessionRestorationBrowserAgentTest, RestoreSesssion_MixedNoNavigation) {
+  CreateSessionRestorationBrowserAgent(true);
+
+  SessionWindowIOS* window = CreateSessionWindow(SessionInfo<8>{
+      .active_index = 2,
+      .tab_infos =
+          {
+              TabInfo{.with_navigation = false},
+              TabInfo{.with_navigation = false},
+              TabInfo{.with_navigation = false},
+              TabInfo{.opener_index = 0},
+              TabInfo{.opener_index = 2},
+              TabInfo{.with_navigation = false},
+              TabInfo{.with_navigation = false},
+              TabInfo{.opener_index = 3},
+          },
+  });
+
+  session_restoration_agent_->RestoreSessionWindow(
+      window, SessionRestorationScope::kAll);
+
+  // Check that only tabs with navigation history have been restored, that
+  // the active index points to the child of the non-restored active tab,
+  // that the opener-opened relationship has been restored when possible.
+  WebStateList* web_state_list = browser_->GetWebStateList();
+  ASSERT_EQ(3, web_state_list->count());
+  EXPECT_EQ(1, web_state_list->active_index());
+  EXPECT_EQ(web_state_list->GetOpenerOfWebStateAt(0).opener, nullptr);
+  EXPECT_EQ(web_state_list->GetOpenerOfWebStateAt(1).opener, nullptr);
+  EXPECT_EQ(web_state_list->GetOpenerOfWebStateAt(2).opener,
+            web_state_list->GetWebStateAt(0));
 }
 
 // Tests that restoring a session works correctly on empty WebStateList.
@@ -789,7 +809,7 @@ TEST_F(SessionRestorationBrowserAgentTest, ObserverCalledWithRestore) {
                     /*pinned=*/false,
                     /*background=*/false);
 
-  TestRestorationObserver observer;
+  TestSessionRestorationObserver observer;
   session_restoration_agent_->AddObserver(&observer);
 
   SessionWindowIOS* window =
@@ -858,6 +878,25 @@ TEST_F(SessionRestorationBrowserAgentTest,
                     /*background=*/true);
   browser_->GetWebStateList()->CloseAllWebStates(WebStateList::CLOSE_NO_FLAGS);
   EXPECT_EQ(test_session_service_.saveSessionCallsCount, 7);
+}
+
+// Tests that SessionRestorationAgent doesn't restore duplicates in a session.
+TEST_F(SessionRestorationBrowserAgentTest, RestoreSessionFilterOutDuplicates) {
+  CreateSessionRestorationBrowserAgent(true);
+
+  SessionWindowIOS* window = CreateSessionWindow(SessionInfo<2>{
+      .active_index = 1,
+      .tab_infos =
+          {
+              TabInfo{.stable_identifier = @"I have an identical twin"},
+              TabInfo{.stable_identifier = @"I have an identical twin"},
+          },
+  });
+
+  session_restoration_agent_->RestoreSessionWindow(
+      window, SessionRestorationScope::kAll);
+  EXPECT_EQ(1, browser_->GetWebStateList()->count());
+  EXPECT_EQ(0, browser_->GetWebStateList()->active_index());
 }
 
 }  // anonymous namespace

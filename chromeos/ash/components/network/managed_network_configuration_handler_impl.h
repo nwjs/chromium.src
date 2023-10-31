@@ -7,6 +7,7 @@
 
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "base/compiler_specific.h"
 #include "base/component_export.h"
@@ -140,6 +141,8 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) ManagedNetworkConfigurationHandlerImpl
   void NotifyPolicyAppliedToNetwork(
       const std::string& service_path) const override;
 
+  void TriggerEphemeralNetworkConfigActions() override;
+
   void TriggerCellularPolicyApplication(
       const NetworkProfile& profile,
       const base::flat_set<std::string>& new_cellular_policy_guids);
@@ -152,6 +155,8 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) ManagedNetworkConfigurationHandlerImpl
   bool AllowOnlyPolicyWiFiToConnect() const override;
   bool AllowOnlyPolicyWiFiToConnectIfAvailable() const override;
   bool AllowOnlyPolicyNetworksToAutoconnect() const override;
+  bool RecommendedValuesAreEphemeral() const override;
+  bool UserCreatedNetworkConfigurationsAreEphemeral() const override;
   std::vector<std::string> GetBlockedHexSSIDs() const override;
 
   // NetworkProfileObserver overrides
@@ -208,6 +213,8 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) ManagedNetworkConfigurationHandlerImpl
     // Holds the set of ONC NetworkConfiguration GUIDs which have been modified
     // since network policy has been last applied.
     base::flat_set<std::string> modified_policy_guids;
+    // Additional PolicyApplicator options.
+    PolicyApplicator::Options options;
     // If true, network policy application needs to happen for this shill
     // profile, i.e. there were network policy changes that have not been
     // applied yet. Note that this can be true even if |modified_policy_guids|
@@ -320,13 +327,25 @@ class COMPONENT_EXPORT(CHROMEOS_NETWORK) ManagedNetworkConfigurationHandlerImpl
   // changed.
   void ApplyOrQueuePolicies(const std::string& userhash,
                             base::flat_set<std::string> modified_policies,
-                            bool can_affect_other_networks);
+                            bool can_affect_other_networks,
+                            PolicyApplicator::Options options);
 
   void SchedulePolicyApplication(const std::string& userhash);
   void StartPolicyApplication(const std::string& userhash);
 
   void set_ui_proxy_config_service(
       UIProxyConfigService* ui_proxy_config_service);
+
+  // Returns the device policy GlobalNetworkConfiguration boolean value under
+  // `key` or `absl::nullopt` if such a value doesn't exist or is not of type
+  // BOOLEAN.
+  absl::optional<bool> FindGlobalPolicyBool(std::string_view key) const;
+  // Returns the device policy GlobalNetworkConfiguration List value under
+  // `key` or `nullptr` if such a value doesn't exist or is not of type LIST.
+  const base::Value::List* FindGlobalPolicyList(std::string_view key) const;
+  // Returns the device policy GlobalNetworkConfiguration string value under
+  // `key` or `nullptr` if such a value doesn't exist or is not of type STRING.
+  const std::string* FindGlobalPolicyString(std::string_view key) const;
 
   // If present, the empty string maps to the device policy.
   UserToPoliciesMap policies_by_user_;

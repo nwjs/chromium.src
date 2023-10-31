@@ -331,4 +331,4 @@ void LensSidePanelCoordinator::UpdateNewTabButtonState() {
   }
 }
 
-WEB_CONTENTS_USER_DATA_KEY_IMPL(LensSidePanelCoordinator);
+BROWSER_USER_DATA_KEY_IMPL(LensSidePanelCoordinator);

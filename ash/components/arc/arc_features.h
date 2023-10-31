@@ -15,6 +15,7 @@ namespace arc {
 // Please keep alphabetized.
 BASE_DECLARE_FEATURE(kArcOnDemandFeature);
 BASE_DECLARE_FEATURE(kBootCompletedBroadcastFeature);
+BASE_DECLARE_FEATURE(kContainerAppKiller);
 BASE_DECLARE_FEATURE(kCustomTabsExperimentFeature);
 BASE_DECLARE_FEATURE(kDocumentsProviderUnknownSizeFeature);
 BASE_DECLARE_FEATURE(kEnableArcIdleManager);
@@ -58,9 +59,11 @@ BASE_DECLARE_FEATURE(kRtVcpuDualCore);
 BASE_DECLARE_FEATURE(kRtVcpuQuadCore);
 BASE_DECLARE_FEATURE(kSaveRawFilesOnTracing);
 BASE_DECLARE_FEATURE(kSwitchToKeyMintOnT);
+BASE_DECLARE_FEATURE(kSwitchToKeyMintOnTOverride);
 BASE_DECLARE_FEATURE(kSyncInstallPriority);
 BASE_DECLARE_FEATURE(kTouchscreenEmulation);
 BASE_DECLARE_FEATURE(kTrackpadScrollTouchscreenEmulation);
+BASE_DECLARE_FEATURE(kUnaffiliatedDeviceArcRestriction);
 BASE_DECLARE_FEATURE(kUsbStorageUIFeature);
 BASE_DECLARE_FEATURE(kUseDalvikMemoryProfile);
 BASE_DECLARE_FEATURE(kUseDefaultBlockSize);
@@ -70,6 +73,7 @@ extern const base::FeatureParam<int> kVmMemoryPSIReportsPeriod;
 BASE_DECLARE_FEATURE(kVmMemorySize);
 extern const base::FeatureParam<int> kVmMemorySizeShiftMiB;
 extern const base::FeatureParam<int> kVmMemorySizeMaxMiB;
+extern const base::FeatureParam<int> kVmMemorySizePercentage;
 BASE_DECLARE_FEATURE(kVmBroadcastPreNotifyANR);
 BASE_DECLARE_FEATURE(kVmmSwapoutGhostWindow);
 BASE_DECLARE_FEATURE(kVmmSwapKeyboardShortcut);

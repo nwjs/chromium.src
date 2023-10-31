@@ -382,6 +382,8 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
                                   bool animate) override;
   bool HasScrollLinkedAnimation(ElementId for_scroller) const override;
 
+  void DetachInputDelegateAndRenderFrameObserver();
+
   FrameSequenceTrackerCollection& frame_trackers() { return frame_trackers_; }
 
   // VisualDeviceViewportSize is the size of the global viewport across all
@@ -545,7 +547,7 @@ class CC_EXPORT LayerTreeHostImpl : public TileManagerClient,
   void SetNeedsRedrawForScrollbarAnimation() override;
   ScrollbarSet ScrollbarsFor(ElementId scroll_element_id) const override;
   void DidChangeScrollbarVisibility() override;
-  bool IsFluentScrollbar() const override;
+  bool IsFluentOverlayScrollbar() const override;
 
   // VideoBeginFrameSource implementation.
   void AddVideoFrameController(VideoFrameController* controller) override;

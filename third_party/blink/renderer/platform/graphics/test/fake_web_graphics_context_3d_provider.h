@@ -5,6 +5,7 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_TEST_FAKE_WEB_GRAPHICS_CONTEXT_3D_PROVIDER_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_GRAPHICS_TEST_FAKE_WEB_GRAPHICS_CONTEXT_3D_PROVIDER_H_
 
+#include "base/memory/raw_ptr.h"
 #include "cc/test/stub_decode_cache.h"
 #include "cc/tiles/image_decode_cache.h"
 #include "components/viz/test/test_context_provider.h"
@@ -49,11 +50,26 @@ class FakeWebGraphicsContext3DProvider : public WebGraphicsContext3DProvider {
     webgpu_interface_ = std::make_unique<gpu::webgpu::WebGPUInterfaceStub>();
 
     // enable all gpu features.
-    for (unsigned feature = 0; feature < gpu::NUMBER_OF_GPU_FEATURE_TYPES;
-         ++feature) {
-      gpu_feature_info_.status_values[feature] = gpu::kGpuFeatureStatusEnabled;
+    for (gpu::GpuFeatureStatus& status : gpu_feature_info_.status_values) {
+      status = gpu::kGpuFeatureStatusEnabled;
     }
   }
+
+  explicit FakeWebGraphicsContext3DProvider(
+      gpu::raster::RasterInterface* raster,
+      cc::ImageDecodeCache* cache = nullptr)
+      : external_raster_interface_(raster),
+        image_decode_cache_(cache ? cache : &stub_image_decode_cache_) {
+    CHECK(raster);
+
+    webgpu_interface_ = std::make_unique<gpu::webgpu::WebGPUInterfaceStub>();
+
+    // enable all gpu features.
+    for (gpu::GpuFeatureStatus& status : gpu_feature_info_.status_values) {
+      status = gpu::kGpuFeatureStatusEnabled;
+    }
+  }
+
   ~FakeWebGraphicsContext3DProvider() override = default;
 
   GrDirectContext* GetGrContext() override { return gr_context_.get(); }
@@ -73,9 +89,18 @@ class FakeWebGraphicsContext3DProvider : public WebGraphicsContext3DProvider {
 
   gpu::GLHelper* GetGLHelper() override { return nullptr; }
 
-  gpu::InterfaceBase* InterfaceBase() override { return gl_; }
+  gpu::InterfaceBase* InterfaceBase() override {
+    if (external_raster_interface_) {
+      return external_raster_interface_;
+    }
+    return gl_;
+  }
+
   gpu::gles2::GLES2Interface* ContextGL() override { return gl_; }
   gpu::raster::RasterInterface* RasterInterface() override {
+    if (external_raster_interface_) {
+      return external_raster_interface_;
+    }
     return raster_context_provider_
                ? raster_context_provider_->RasterInterface()
                : raster_interface_.get();
@@ -113,15 +138,19 @@ class FakeWebGraphicsContext3DProvider : public WebGraphicsContext3DProvider {
  private:
   cc::StubDecodeCache stub_image_decode_cache_;
   viz::TestSharedImageInterface test_shared_image_interface_;
-  gpu::gles2::GLES2Interface* gl_;
+  raw_ptr<gpu::gles2::GLES2Interface, ExperimentalRenderer> gl_ = nullptr;
   std::unique_ptr<gpu::raster::RasterInterface> raster_interface_;
+  raw_ptr<gpu::raster::RasterInterface, ExperimentalRenderer>
+      external_raster_interface_ = nullptr;
   std::unique_ptr<gpu::webgpu::WebGPUInterfaceStub> webgpu_interface_;
   sk_sp<GrDirectContext> gr_context_;
   gpu::Capabilities capabilities_;
   gpu::GpuFeatureInfo gpu_feature_info_;
   WebglPreferences webgl_preferences_;
-  cc::ImageDecodeCache* image_decode_cache_;
-  viz::RasterContextProvider* raster_context_provider_;
+  raw_ptr<cc::ImageDecodeCache, ExperimentalRenderer> image_decode_cache_ =
+      nullptr;
+  raw_ptr<viz::RasterContextProvider, ExperimentalRenderer>
+      raster_context_provider_ = nullptr;
 };
 
 }  // namespace blink

@@ -8,6 +8,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/system/sys_info.h"
+#include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "net/base/mime_sniffer.h"
 
@@ -120,14 +121,6 @@ const base::FeatureParam<std::string> kMaskedDomainListExperimentalVersion{
 // mDNS names (random UUIDs) in the TXT record data.
 BASE_FEATURE(kMdnsResponderGeneratedNameListing,
              "MdnsResponderGeneratedNameListing",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// When enabled, resource requests will be evaluated against the Network
-// Service's block list. The block list is populated by the MaskedDomainList, so
-// "MaskedDomainList" will need to also be enabled for the block list to have
-// any contents.
-BASE_FEATURE(kEnableNetworkServiceResourceBlockList,
-             "EnableNetworkServiceResourceBlockList",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables ORB blocked responses being treated as errors (according to the spec)
@@ -398,12 +391,6 @@ BASE_FEATURE(kPrefetchNoVarySearch,
              "PrefetchNoVarySearch",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-#if BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kNetworkServiceEmptyOutOfProcess,
-             "NetworkServiceEmptyOutOfProcess",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 // Enables the backend of the compression dictionary transport feature.
 // When this feature is enabled, the following will happen:
 //   * The network service loads the metadata database.
@@ -413,7 +400,7 @@ BASE_FEATURE(kNetworkServiceEmptyOutOfProcess,
 //     decompresses the response body using the dictionary.
 BASE_FEATURE(kCompressionDictionaryTransportBackend,
              "CompressionDictionaryTransportBackend",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When both this feature and the kCompressionDictionaryTransportBackend feature
 // are enabled, the following will happen:
@@ -433,6 +420,6 @@ BASE_FEATURE(kVisibilityAwareResourceScheduler,
              "VisibilityAwareResourceScheduler",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kSharedZstd, "SharedZstd", base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kSharedZstd, "SharedZstd", base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace network::features

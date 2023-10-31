@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Менувајте ја сликата за тапет секојдневно</translation>
 <translation id="1644574205037202324">Историја</translation>
 <translation id="1651925268237749928">Избравте споделен албум. Други луѓе може да додаваат или променуваат фотографии. Можно е вашиот тапет да користи фотографии што не се во албумов во моментов.</translation>
+<translation id="1661865805917886535">Можно е некои податоци за сметката и системот да се испраќаат до Google. Податоциве ги користиме за да помогнеме во решавањето на техничките проблеми и да ги подобриме нашите услуги, што подлежат на нашите „Политика за приватност“ (<ph name="PRIVACYPOLICYURL" />) и „Услови за користење“ (<ph name="TERMSOFSERVICEURL" />). За да побарате промени во содржините, одете на „Правна помош“ (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Запрено - нема мастило</translation>
 <translation id="1664796644829245314">Преглед на <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">Вградена VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">ЦПУ</translation>
 <translation id="3124039320086536031">Поврзан е уред.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Да се отстрани страницата?}=1{Да се отстрани страницата {PAGE_NUMBER}?}one{Да се отстрани страницата {PAGE_NUMBER}?}other{Да се отстрани страницата {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Ексклузивно за <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Мобилен интернет</translation>
 <translation id="3156846309055100599">Се скенира страницата <ph name="PAGE_NUMBER" />…</translation>
 <translation id="315738237743207937">Откриен е портал за проверка</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Се бараат скенери</translation>
 <translation id="3226657629376379887">Мени на дејства за распоред</translation>
 <translation id="3246869037381808805">Задачите за печатење постари од 1 ден ќе се отстранат</translation>
-<translation id="3248223063252096240">Ексклузивно за <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Неуспешно - вратата е отворена</translation>
 <translation id="3275729367986477355">Слика за аватар</translation>
 <translation id="3283504360622356314">{0,plural, =1{Измени датотека}one{Измени датотеки}other{Измени датотеки}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Изберете <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Програмерски алатки</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Прикачи</translation>
 <translation id="8206859287963243715">Мобилен</translation>

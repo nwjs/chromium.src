@@ -10,6 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/values.h"
 #include "chrome/browser/web_applications/web_app_id.h"
+#include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
 
 class Browser;
@@ -43,9 +44,9 @@ class WebAppFrameToolbarTestHelper {
       delete;
   ~WebAppFrameToolbarTestHelper();
 
-  web_app::AppId InstallAndLaunchWebApp(Browser* browser,
+  webapps::AppId InstallAndLaunchWebApp(Browser* browser,
                                         const GURL& start_url);
-  web_app::AppId InstallAndLaunchCustomWebApp(
+  webapps::AppId InstallAndLaunchCustomWebApp(
       Browser* browser,
       std::unique_ptr<web_app::WebAppInstallInfo> web_app_info,
       const GURL& start_url);
@@ -100,7 +101,7 @@ class WebAppFrameToolbarTestHelper {
   GURL LoadTestPageWithDataAndGetURL(
       net::test_server::EmbeddedTestServer* embedded_test_server,
       base::ScopedTempDir* temp_dir,
-      const char kTestHTML[]);
+      base::StringPiece test_html);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_WEB_APPS_FRAME_TOOLBAR_WEB_APP_FRAME_TOOLBAR_TEST_HELPER_H_

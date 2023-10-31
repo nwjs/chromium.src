@@ -71,6 +71,10 @@ class LazyNow;
 namespace blink {
 namespace scheduler {
 
+BASE_FEATURE(kTaskAttributionInfrastructureDisabledForTesting,
+             "TaskAttributionInfrastructureDisabledForTesting",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 using base::sequence_manager::TaskQueue;
 using base::sequence_manager::TaskTimeObserver;
 using base::sequence_manager::TimeDomain;
@@ -1150,6 +1154,8 @@ void MainThreadSchedulerImpl::SetHaveSeenABlockingGestureForTesting(
 }
 
 void MainThreadSchedulerImpl::PerformMicrotaskCheckpoint() {
+  TRACE_EVENT("toplevel", "BlinkScheduler_PerformMicrotaskCheckpoint");
+
   // This will fallback to execute the microtask checkpoint for the
   // default EventLoop for the isolate.
   if (isolate())
@@ -2095,6 +2101,14 @@ void MainThreadSchedulerImpl::RemoveRAILModeObserver(
   main_thread_only().rail_mode_observers.RemoveObserver(observer);
 }
 
+void MainThreadSchedulerImpl::ForEachMainThreadIsolate(
+    base::RepeatingCallback<void(v8::Isolate* isolate)> callback) {
+  // TODO(dtapuska): For each AgentGroupScheduler's isolate invoke the callback.
+  if (v8::Isolate* isolate = Isolate()) {
+    callback.Run(isolate);
+  }
+}
+
 void MainThreadSchedulerImpl::SetRendererProcessType(
     WebRendererProcessType type) {
   main_thread_only().process_type = type;
@@ -2281,7 +2295,8 @@ void MainThreadSchedulerImpl::EndAgentGroupSchedulerScope() {
   TRACE_EVENT_NESTABLE_ASYNC_END1(
       TRACE_DISABLED_BY_DEFAULT("renderer.scheduler"),
       agent_group_scheduler_scope.trace_event_scope_name,
-      agent_group_scheduler_scope.trace_event_scope_id, "agent_group_scheduler",
+      agent_group_scheduler_scope.trace_event_scope_id.get(),
+      "agent_group_scheduler",
       static_cast<void*>(
           agent_group_scheduler_scope.current_agent_group_scheduler));
 
@@ -2401,6 +2416,8 @@ void MainThreadSchedulerImpl::OnTaskCompleted(
     const base::sequence_manager::Task& task,
     TaskQueue::TaskTiming* task_timing,
     base::LazyNow* lazy_now) {
+  TRACE_EVENT("renderer.scheduler", "BlinkScheduler_OnTaskCompleted");
+
   // Microtasks may detach the task queue and invalidate |queue|.
   PerformMicrotaskCheckpoint();
 
@@ -2825,7 +2842,10 @@ bool MainThreadSchedulerImpl::AllPagesFrozen() const {
 }
 
 TaskAttributionTracker* MainThreadSchedulerImpl::GetTaskAttributionTracker() {
-  return main_thread_only().task_attribution_tracker.get();
+  return base::FeatureList::IsEnabled(
+             kTaskAttributionInfrastructureDisabledForTesting)
+             ? nullptr
+             : main_thread_only().task_attribution_tracker.get();
 }
 
 void MainThreadSchedulerImpl::InitializeTaskAttributionTracker(

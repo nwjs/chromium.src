@@ -19,7 +19,7 @@
 #import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_action_handler.h"
 #import "ios/chrome/common/ui/favicon/favicon_view.h"
 #import "ios/chrome/common/ui/table_view/table_view_cells_constants.h"
-#import "ios/chrome/grit/ios_chromium_strings.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 
@@ -77,7 +77,9 @@
   self.primaryActionString =
       l10n_util::GetNSString(IDS_IOS_PASSWORD_BOTTOM_SHEET_USE_PASSWORD);
   self.secondaryActionString =
-      l10n_util::GetNSString(IDS_IOS_PASSWORD_BOTTOM_SHEET_NO_THANKS);
+      l10n_util::GetNSString(IDS_IOS_PASSWORD_BOTTOM_SHEET_USE_KEYBOARD);
+  self.secondaryActionImage =
+      DefaultSymbolWithPointSize(kKeyboardSymbol, kSymbolActionPointSize);
 
   [super viewDidLoad];
 }
@@ -140,6 +142,10 @@
 
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
+  base::UmaHistogramBoolean(
+      "IOS.PasswordBottomSheet.UsernameTapped.MinimizedState",
+      _tableViewIsMinimized);
+
   if (_suggestions.count <= 1) {
     return;
   }
@@ -242,7 +248,7 @@
 }
 
 - (void)confirmationAlertSecondaryAction {
-  // "No thanks" button, which dismisses the bottom sheet.
+  // "Use Keyboard" button, which dismisses the bottom sheet.
   [self dismiss];
 }
 
@@ -313,7 +319,13 @@
 
 // Notifies the delegate that a password suggestion was selected by the user.
 - (void)didSelectSuggestion {
-  [self.delegate didSelectSuggestion:[self selectedRow]];
+  NSInteger index = [self selectedRow];
+  [self.delegate didSelectSuggestion:index];
+
+  if (_suggestions.count > 1) {
+    base::UmaHistogramCounts100("PasswordManager.TouchToFill.CredentialIndex",
+                                (int)index);
+  }
 }
 
 // Returns whether the provided index path points to the last row of the table

@@ -18,6 +18,7 @@
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/string_split.h"
 #include "base/strings/utf_string_conversions.h"
@@ -48,6 +49,7 @@
 #include "ui/accessibility/accessibility_switches.h"
 #include "ui/accessibility/ax_enum_util.h"
 #include "ui/accessibility/ax_event_intent.h"
+#include "ui/accessibility/ax_mode_histogram_logger.h"
 #include "ui/accessibility/ax_node.h"
 #include "ui/accessibility/ax_role_properties.h"
 #include "ui/accessibility/ax_tree_id.h"
@@ -92,30 +94,6 @@ void SetAccessibilityCrashKey(ui::AXMode mode) {
 
 namespace content {
 
-// Create this on the stack to freeze BlinkAXTreeSource and automatically
-// un-freeze it when it goes out of scope.
-class ScopedFreezeAXTreeSource {
- public:
-  explicit ScopedFreezeAXTreeSource(blink::WebAXContext* context)
-      : context_(context) {
-    if (context_) {
-      context_->Freeze();
-    }
-  }
-
-  ScopedFreezeAXTreeSource(const ScopedFreezeAXTreeSource&) = delete;
-  ScopedFreezeAXTreeSource& operator=(const ScopedFreezeAXTreeSource&) = delete;
-
-  ~ScopedFreezeAXTreeSource() {
-    if (context_) {
-      context_->Thaw();
-    }
-  }
-
- private:
-  blink::WebAXContext* context_;
-};
-
 RenderAccessibilityImpl::RenderAccessibilityImpl(
     RenderAccessibilityManager* const render_accessibility_manager,
     RenderFrameImpl* const render_frame,
@@ -126,7 +104,7 @@ RenderAccessibilityImpl::RenderAccessibilityImpl(
       plugin_tree_source_(nullptr),
       ukm_timer_(std::make_unique<base::ElapsedTimer>()),
       last_ukm_source_id_(ukm::kInvalidSourceId),
-      serialize_post_lifecycle_(true) {
+      serialize_post_lifecycle_(serialize_post_lifecycle) {
   mojo::Remote<ukm::mojom::UkmRecorderFactory> factory;
   content::RenderThread::Get()->BindHostReceiver(
       factory.BindNewPipeAndPassReceiver());
@@ -267,6 +245,11 @@ void RenderAccessibilityImpl::AccessibilityModeChanged(const ui::AXMode& mode) {
   DCHECK(ax_context_);
   DCHECK_EQ(accessibility_mode_, ax_context_->GetAXMode());
 
+  // Log individual mode flags transitioning to the set state, as well as usage
+  // of named bundles of node flags.
+  ui::RecordAccessibilityModeHistograms(ui::AXHistogramPrefix::kBlink,
+                                        accessibility_mode_, old_mode);
+
   // Build (or rebuild) the accessibility tree with the new mode.
   if (was_on) {
     ax_context_->MarkDocumentDirty();
@@ -332,7 +315,6 @@ void RenderAccessibilityImpl::HitTest(
 
   // If the result was in the same frame, return the result.
   ui::AXNodeData data;
-  ScopedFreezeAXTreeSource freeze(ax_context_.get());
   ax_object.Serialize(&data, ax_context_->GetAXMode());
   if (!data.HasStringAttribute(ax::mojom::StringAttribute::kChildTreeId)) {
     // Optionally fire an event, if requested to. This is a good fit for
@@ -469,11 +451,9 @@ void RenderAccessibilityImpl::PerformAction(const ui::AXActionData& data) {
       // not change.
       if (!ax_image_annotator_) {
         CreateAXImageAnnotator();
-        // Walk the tree to discover images, and mark them dirty so that
-        // they get added to the annotator.
+        // Rebuild the document tree so that images become annotated.
         DCHECK(ax_context_);
-        ScopedFreezeAXTreeSource freeze(ax_context_.get());
-        ax_context_->MarkAllImageAXObjectsDirty();
+        ax_context_->MarkDocumentDirty();
       }
       break;
     case ax::mojom::Action::kSignalEndOfTest:
@@ -1313,7 +1293,6 @@ void RenderAccessibilityImpl::SendPendingAccessibilityEvents() {
     ax_context_->UpdateAXForAllDocuments();
   }
 
-  ScopedFreezeAXTreeSource freeze(ax_context_.get());
   WebAXObject root = ComputeRoot();
 #if DCHECK_IS_ON()
   // Never causes a document lifecycle change during serialization,
@@ -1485,7 +1464,6 @@ void RenderAccessibilityImpl::OnGetImageData(const ui::AXActionTarget* target,
     return;
   }
   const WebAXObject& obj = blink_target->WebAXObject();
-  ScopedFreezeAXTreeSource freeze(ax_context_.get());
   obj.SetImageAsDataNodeId(max_size);
 
   const WebDocument& document = GetMainDocument();
@@ -1678,7 +1656,6 @@ blink::WebAXObject RenderAccessibilityImpl::GetPluginRoot() {
   if (!ax_context_)
     return WebAXObject();
   ax_context_->UpdateAXForAllDocuments();
-  ScopedFreezeAXTreeSource freeze(ax_context_.get());
   return ax_context_->GetPluginRoot();
 }
 

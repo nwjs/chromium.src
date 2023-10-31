@@ -58,6 +58,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.browserservices.intents.ColorProvider;
+import org.chromium.chrome.browser.customtabs.CustomTabIntentDataProvider.BackgroundInteractBehavior;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.util.browser.Features;
@@ -66,7 +67,9 @@ import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.device.mojom.ScreenOrientationLockType;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 
 /** Tests for {@link CustomTabIntentDataProvider}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -671,6 +674,22 @@ public class CustomTabIntentDataProviderTest {
     }
 
     @Test
+    public void testCanInteractWithBackground() {
+        Intent intent = new Intent();
+        CustomTabIntentDataProvider provider =
+                new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        assertTrue("Background interaction should be enabled by default",
+                provider.canInteractWithBackground());
+
+        intent.putExtra(CustomTabIntentDataProvider.EXTRA_ENABLE_BACKGROUND_INTERACTION,
+                BackgroundInteractBehavior.OFF);
+        provider = new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+        assertFalse("Background interaction should be overridden by the legacy extra",
+                provider.canInteractWithBackground());
+    }
+
+    @Test
     public void testActivityDecorationType_Default() {
         // Decoration not set
         Intent intent = new CustomTabsIntent.Builder().build().intent;
@@ -757,6 +776,46 @@ public class CustomTabIntentDataProviderTest {
                 dataProvider.getActivitySideSheetRoundedCornersPosition());
     }
 
+    @Test
+    @EnableFeatures(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB)
+    public void chromePihEnabled_pihOverflowMenuItemExtraAdded_pihOverflowMenuItemNotFound() {
+        String pihOverflowMenuItem = "View Page Insights";
+        List<String> overflowMenuItemList =
+                createIntentWithPihTitleAndReturnOverflowMenuList(pihOverflowMenuItem);
+        assertFalse(overflowMenuItemList.contains(pihOverflowMenuItem));
+    }
+
+    @Test
+    @DisableFeatures(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB)
+    public void chromePihDisabled_pihOverflowMenuItemExtraAdded_pihOverflowMenuItemFound() {
+        String pihOverflowMenuItem = "View Page Insights";
+        List<String> overflowMenuItemList =
+                createIntentWithPihTitleAndReturnOverflowMenuList(pihOverflowMenuItem);
+        assertTrue(overflowMenuItemList.contains(pihOverflowMenuItem));
+    }
+
+    private List<String> createIntentWithPihTitleAndReturnOverflowMenuList(
+            String pihOverflowMenuItem) {
+        CustomTabsConnection connection = Mockito.mock(CustomTabsConnection.class);
+        when(connection.shouldEnablePageInsightsForIntent(any())).thenReturn(true);
+        CustomTabsConnection.setInstanceForTesting(connection);
+
+        Intent intent = new Intent();
+        intent.putExtra(
+                CustomTabIntentDataProvider.EXTRA_PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE,
+                pihOverflowMenuItem);
+        intent.putExtra(
+                CustomTabsIntent.EXTRA_MENU_ITEMS,
+                new ArrayList<>(
+                        Arrays.asList(
+                                createMenuItemBundle(),
+                                createPageInsightsHubMenuItemBundle(pihOverflowMenuItem))));
+        CustomTabIntentDataProvider provider =
+                new CustomTabIntentDataProvider(intent, mContext, COLOR_SCHEME_LIGHT);
+
+        return provider.getMenuTitles();
+    }
+
     private Bundle createActionButtonInToolbarBundle() {
         Bundle bundle = new Bundle();
         bundle.putInt(CustomTabsIntent.KEY_ID, CustomTabsIntent.TOOLBAR_ACTION_BUTTON_ID);
@@ -776,6 +835,19 @@ public class CustomTabIntentDataProviderTest {
         bundle.putString(CustomTabsIntent.KEY_MENU_ITEM_TITLE, "title");
         bundle.putParcelable(CustomTabsIntent.KEY_PENDING_INTENT,
                 PendingIntent.getBroadcast(mContext, 0, new Intent(),
+                        IntentUtils.getPendingIntentMutabilityFlag(true)));
+        return bundle;
+    }
+
+    private Bundle createPageInsightsHubMenuItemBundle(String pihTitle) {
+        Bundle bundle = new Bundle();
+        bundle.putString(CustomTabsIntent.KEY_MENU_ITEM_TITLE, pihTitle);
+        bundle.putParcelable(
+                CustomTabsIntent.KEY_PENDING_INTENT,
+                PendingIntent.getBroadcast(
+                        mContext,
+                        0,
+                        new Intent(),
                         IntentUtils.getPendingIntentMutabilityFlag(true)));
         return bundle;
     }

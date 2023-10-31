@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Cambiar imaxe de fondo de pantalla todos os días</translation>
 <translation id="1644574205037202324">Historial</translation>
 <translation id="1651925268237749928">Seleccionaches un álbum compartido. Outras persoas poden engadir ou cambiar fotos. O fondo de pantalla pode usar fotos que actualmente non están neste álbum.</translation>
+<translation id="1661865805917886535">Pódese enviar parte da información da conta e do sistema a Google. Usamos esta información para tentar solucionar problemas técnicos e para mellorar os nosos servizos, sempre conforme o establecido na nosa Política de privacidade (<ph name="PRIVACYPOLICYURL" />) e nas Condicións de servizo (<ph name="TERMSOFSERVICEURL" />). Para solicitar cambios no contido, vai a Axuda legal (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Detívose (esgotouse a tinta)</translation>
 <translation id="1664796644829245314">Mostrar vista previa de: <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">VPN integrada</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">O dispositivo está conectado.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Queres quitar a páxina?}=1{Queres quitar a páxina {PAGE_NUMBER}?}other{Queres quitar a páxina {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Exclusivo de <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Datos móbiles</translation>
 <translation id="3156846309055100599">Escaneando páxina <ph name="PAGE_NUMBER" />…</translation>
 <translation id="315738237743207937">Detectouse un portal cativo</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Buscando escáneres</translation>
 <translation id="3226657629376379887">Menú de accións de deseño</translation>
 <translation id="3246869037381808805">Quitaranse os traballos de impresión de máis de 1 día</translation>
-<translation id="3248223063252096240">Exclusivos de <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Produciuse un erro: a tapa da impresora está aberta</translation>
 <translation id="3275729367986477355">Imaxe de avatar</translation>
 <translation id="3283504360622356314">{0,plural, =1{Editar ficheiro}other{Editar ficheiros}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Seleccionar <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Ferramentas para programadores</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Intro</translation>
 <translation id="8183974620058026102">Anexar</translation>
 <translation id="8206859287963243715">Móbil</translation>

@@ -615,8 +615,6 @@ class CORE_EXPORT LocalFrame final
 
   void ResumeSubresourceLoading();
 
-  void AnimateSnapFling(base::TimeTicks monotonic_time);
-
   ClientHintsPreferences& GetClientHintsPreferences() {
     return client_hints_preferences_;
   }
@@ -877,9 +875,6 @@ class CORE_EXPORT LocalFrame final
 
   void ScheduleNextServiceForScrollSnapshotClients();
 
-  void CollectAnchorPositionScrollerIds(
-      Vector<cc::ElementId>* scroll_container_ids) const;
-
   using BlockingDetailsList = Vector<mojom::blink::BlockingDetailsPtr>;
   static BlockingDetailsList ConvertFeatureAndLocationToMojomStruct(
       const BFCacheBlockingFeatureAndLocations&,
@@ -891,6 +886,8 @@ class CORE_EXPORT LocalFrame final
 
   // Sets a ResourceCache hosted by another frame in a different renderer.
   void SetResourceCacheRemote(mojo::PendingRemote<mojom::blink::ResourceCache>);
+
+  bool IsSameOrigin();
 
  private:
   friend class FrameNavigationDisabler;

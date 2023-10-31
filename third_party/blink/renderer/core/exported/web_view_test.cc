@@ -33,6 +33,7 @@
 #include <string>
 
 #include "base/functional/callback_helpers.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/time/time.h"
@@ -149,7 +150,6 @@
 #include "third_party/blink/renderer/platform/heap/thread_state.h"
 #include "third_party/blink/renderer/platform/keyboard_codes.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread.h"
-#include "third_party/blink/renderer/platform/testing/histogram_tester.h"
 #include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/unit_test_helpers.h"
 #include "third_party/blink/renderer/platform/testing/url_loader_mock_factory.h"
@@ -225,32 +225,6 @@ class AutoResizeWebViewClient : public WebViewClient {
 
 class WebViewTest : public testing::Test {
  public:
-  // Observer that remembers the most recent visibility callback, if any.
-  class MockWebViewObserver : public WebViewObserver {
-   public:
-    explicit MockWebViewObserver(WebView* web_view)
-        : WebViewObserver(web_view) {}
-    ~MockWebViewObserver() override = default;
-
-    blink::mojom::PageVisibilityState page_visibility_and_clear() {
-      auto t = *page_visibility_;
-      page_visibility_.reset();
-      return t;
-    }
-
-    // WebViewObserver
-    void OnPageVisibilityChanged(
-        blink::mojom::PageVisibilityState page_visibility) override {
-      page_visibility_ = page_visibility;
-    }
-
-    // We live on the stack, so do nothing here.
-    void OnDestruct() override {}
-
-   private:
-    absl::optional<blink::mojom::PageVisibilityState> page_visibility_;
-  };
-
   explicit WebViewTest(frame_test_helpers::CreateTestWebFrameWidgetCallback
                            create_web_frame_callback = base::NullCallback())
       : web_view_helper_(std::move(create_web_frame_callback)) {}
@@ -2551,7 +2525,7 @@ TEST_F(WebViewTest, BackForwardRestoreScroll) {
       item1->Url(), WebFrameLoadType::kBackForward, item1.Get(),
       ClientRedirectPolicy::kNotClientRedirect,
       /*has_transient_user_activation=*/false, /*initiator_origin=*/nullptr,
-      /*is_synchronously_committed=*/false,
+      /*is_synchronously_committed=*/false, /*source_element=*/nullptr,
       mojom::blink::TriggeringEventInfo::kNotFromEvent,
       /*is_browser_initiated=*/true,
       /*soft_navigation_heuristics_task_id=*/absl::nullopt);
@@ -2559,7 +2533,7 @@ TEST_F(WebViewTest, BackForwardRestoreScroll) {
       item2->Url(), WebFrameLoadType::kBackForward, item2.Get(),
       ClientRedirectPolicy::kNotClientRedirect,
       /*has_transient_user_activation=*/false, /*initiator_origin=*/nullptr,
-      /*is_synchronously_committed=*/false,
+      /*is_synchronously_committed=*/false, /*source_element=*/nullptr,
       mojom::blink::TriggeringEventInfo::kNotFromEvent,
       /*is_browser_initiated=*/true,
       /*soft_navigation_heuristics_task_id=*/absl::nullopt);
@@ -2567,7 +2541,7 @@ TEST_F(WebViewTest, BackForwardRestoreScroll) {
       item1->Url(), WebFrameLoadType::kBackForward, item1.Get(),
       ClientRedirectPolicy::kNotClientRedirect,
       /*has_transient_user_activation=*/false, /*initiator_origin=*/nullptr,
-      /*is_synchronously_committed=*/false,
+      /*is_synchronously_committed=*/false, /*source_element=*/nullptr,
       mojom::blink::TriggeringEventInfo::kNotFromEvent,
       /*is_browser_initiated=*/true,
       /*soft_navigation_heuristics_task_id=*/absl::nullopt);
@@ -2590,7 +2564,7 @@ TEST_F(WebViewTest, BackForwardRestoreScroll) {
       item1->Url(), WebFrameLoadType::kBackForward, item1.Get(),
       ClientRedirectPolicy::kNotClientRedirect,
       /*has_transient_user_activation=*/false, /*initiator_origin=*/nullptr,
-      /*is_synchronously_committed=*/false,
+      /*is_synchronously_committed=*/false, /*source_element=*/nullptr,
       mojom::blink::TriggeringEventInfo::kNotFromEvent,
       /*is_browser_initiated=*/true,
       /*soft_navigation_heuristics_task_id=*/absl::nullopt);
@@ -2599,7 +2573,7 @@ TEST_F(WebViewTest, BackForwardRestoreScroll) {
       item3->Url(), WebFrameLoadType::kBackForward, item3.Get(),
       ClientRedirectPolicy::kNotClientRedirect,
       /*has_transient_user_activation=*/false, /*initiator_origin=*/nullptr,
-      /*is_synchronously_committed=*/false,
+      /*is_synchronously_committed=*/false, /*source_element=*/nullptr,
       mojom::blink::TriggeringEventInfo::kNotFromEvent,
       /*is_browser_initiated=*/true,
       /*soft_navigation_heuristics_task_id=*/absl::nullopt);
@@ -5964,7 +5938,7 @@ TEST_F(WebViewTest, InputDelayReported) {
 
   test_task_runner_->FastForwardBy(base::Milliseconds(70));
 
-  HistogramTester histogram_tester;
+  base::HistogramTester histogram_tester;
   WebKeyboardEvent key_event1(WebInputEvent::Type::kRawKeyDown,
                               WebInputEvent::kNoModifiers,
                               WebInputEvent::GetStaticTimeStampForTests());
@@ -6585,61 +6559,6 @@ TEST_F(WebViewTest, EmulatingPopupRect) {
 
     static_cast<WebPagePopupImpl*>(popup)->ClosePopup();
   }
-}
-
-TEST_F(WebViewTest, HiddenButPaintingIsSentToObservers) {
-  // kHiddenButPainting should be sent to observers from both the visible and
-  // hidden states.
-  WebViewImpl* web_view = web_view_helper_.Initialize();
-  MockWebViewObserver observer(web_view);
-
-  web_view->SetVisibilityState(mojom::blink::PageVisibilityState::kHidden,
-                               /*is_initial_state=*/false);
-  EXPECT_EQ(observer.page_visibility_and_clear(),
-            mojom::blink::PageVisibilityState::kHidden);
-
-  web_view->SetVisibilityState(
-      mojom::blink::PageVisibilityState::kHiddenButPainting,
-      /*is_initial_state=*/false);
-  EXPECT_EQ(observer.page_visibility_and_clear(),
-            mojom::blink::PageVisibilityState::kHiddenButPainting);
-
-  web_view->SetVisibilityState(mojom::blink::PageVisibilityState::kVisible,
-                               /*is_initial_state=*/false);
-  EXPECT_EQ(observer.page_visibility_and_clear(),
-            mojom::blink::PageVisibilityState::kVisible);
-
-  web_view->SetVisibilityState(
-      mojom::blink::PageVisibilityState::kHiddenButPainting,
-      /*is_initial_state=*/false);
-  EXPECT_EQ(observer.page_visibility_and_clear(),
-            mojom::blink::PageVisibilityState::kHiddenButPainting);
-
-  web_view->RemoveObserver(&observer);
-}
-
-TEST_F(WebViewTest, HiddenButPaintingPageIsntThrottled) {
-  // The PageScheduler should consider `kHiddenButPainting` to be visible so
-  // that the page is not throttled.
-  WebViewImpl* web_view = web_view_helper_.Initialize();
-  auto* const page = web_view->GetPage();
-  auto* const scheduler = page->GetPageScheduler();
-
-  // `kHidden` should mark the page as hidden for the scheduler.
-  web_view->SetVisibilityState(mojom::blink::PageVisibilityState::kHidden,
-                               /*is_initial_state=*/false);
-  EXPECT_FALSE(scheduler->IsPageVisible());
-
-  // `kVisible` should mark the page as visible for the scheduler.
-  web_view->SetVisibilityState(mojom::blink::PageVisibilityState::kVisible,
-                               /*is_initial_state=*/false);
-  EXPECT_TRUE(scheduler->IsPageVisible());
-
-  // `kHiddenButPainting` should also mark the page scheduler as visible.
-  web_view->SetVisibilityState(
-      mojom::blink::PageVisibilityState::kHiddenButPainting,
-      /*is_initial_state=*/false);
-  EXPECT_TRUE(scheduler->IsPageVisible());
 }
 
 }  // namespace blink

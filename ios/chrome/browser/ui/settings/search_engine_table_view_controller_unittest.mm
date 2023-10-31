@@ -7,20 +7,34 @@
 #import <memory>
 
 #import "base/apple/foundation_util.h"
+#import "base/command_line.h"
 #import "base/files/scoped_temp_dir.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
+#import "base/test/scoped_feature_list.h"
+#import "components/country_codes/country_codes.h"
 #import "components/password_manager/core/common/password_manager_features.h"
+#import "components/policy/core/common/mock_policy_service.h"
+#import "components/policy/core/common/policy_namespace.h"
+#import "components/policy/core/common/schema_registry.h"
+#import "components/policy/policy_constants.h"
+#import "components/prefs/pref_registry_simple.h"
+#import "components/prefs/testing_pref_service.h"
+#import "components/search_engines/search_engines_pref_names.h"
+#import "components/search_engines/search_engines_switches.h"
 #import "components/search_engines/template_url_data_util.h"
 #import "components/search_engines/template_url_prepopulate_data.h"
 #import "components/search_engines/template_url_service.h"
+#import "components/signin/public/base/signin_switches.h"
+#import "components/strings/grit/components_strings.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
 #import "ios/chrome/browser/favicon/favicon_service_factory.h"
 #import "ios/chrome/browser/favicon/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/history/history_service_factory.h"
+#import "ios/chrome/browser/policy/browser_state_policy_connector_mock.h"
 #import "ios/chrome/browser/search_engines/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_controller_test.h"
@@ -28,6 +42,7 @@
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
+#import "ui/base/l10n/l10n_util_mac.h"
 
 using TemplateURLPrepopulateData::GetAllPrepopulatedEngines;
 using TemplateURLPrepopulateData::PrepopulatedEngine;
@@ -71,6 +86,17 @@ class SearchEngineTableViewControllerTest
     [base::apple::ObjCCastStrict<SearchEngineTableViewController>(controller())
         settingsWillBeDismissed];
     ChromeTableViewControllerTest::TearDown();
+  }
+
+  void SetupForChoiceScreenDisplay() {
+    feature_list_.InitAndEnableFeature(switches::kSearchEngineChoice);
+    country_codes::RegisterProfilePrefs(pref_service_.registry());
+    pref_service_.registry()->RegisterInt64Pref(
+        prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp, 0);
+
+    // Override the country checks to simulate being in Belgium.
+    base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
+        switches::kSearchEngineChoiceCountry, "BE");
   }
 
   ChromeTableViewController* InstantiateController() override {
@@ -211,6 +237,8 @@ class SearchEngineTableViewControllerTest
   std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
   base::HistogramTester histogram_tester_;
   TemplateURLService* template_url_service_;  // weak
+  TestingPrefServiceSimple pref_service_;
+  base::test::ScopedFeatureList feature_list_;
 };
 
 // Tests that no items are shown if TemplateURLService is empty.
@@ -268,6 +296,71 @@ TEST_F(SearchEngineTableViewControllerTest,
   CheckCustomItem(kEngineC3Name, kEngineC3Url, false, 1, 2);
 }
 
+// Tests that the table's first section subtitle is correctly set when the user
+// is eligible for the search engine choice screen.
+TEST_F(SearchEngineTableViewControllerTest,
+       TestSectionSubtitleForChoiceScreenSettings) {
+  SetupForChoiceScreenDisplay();
+
+  const std::string kEngineP1Name = "prepopulated-1";
+  const GURL kEngineP1Url = GURL("https://p1.com?q={searchTerms}");
+
+  AddPriorSearchEngine(kEngineP1Name, kEngineP1Url, 1001, true);
+
+  CreateController();
+  CheckController();
+
+  TableViewHeaderFooterItem* header =
+      [[controller() tableViewModel] headerForSectionIndex:0];
+  ASSERT_TRUE([header respondsToSelector:@selector(subtitle)]);
+  EXPECT_NSEQ(
+      l10n_util::GetNSString(IDS_SEARCH_ENGINE_CHOICE_SETTINGS_SUBTITLE),
+      [(id)header subtitle]);
+}
+
+// Tests that items are displayed correctly when the user is eligible for the
+// search engine choice screen and a prepopulated search engine is selected as
+// default.
+TEST_F(SearchEngineTableViewControllerTest,
+       TestChoiceScreenUrlsLoadedWithPrepopulatedSearchEngineAsDefault) {
+  SetupForChoiceScreenDisplay();
+
+  const std::string kEngineC1Name = "custom-1";
+  const GURL kEngineC1Url = GURL("https://c1.com?q={searchTerms}");
+  const std::string kEngineC2Name = "custom-2";
+  const GURL kEngineC2Url = GURL("https://c2.com?q={searchTerms}");
+  AddCustomSearchEngine(kEngineC1Name, kEngineC1Url,
+                        base::Time::Now() - base::Seconds(10), false);
+  AddCustomSearchEngine(kEngineC2Name, kEngineC2Url,
+                        base::Time::Now() - base::Hours(10), false);
+
+  // GetTemplateURLForChoiceScreen checks for the default search engine. Since
+  // default fallback is deisabled for testing, we set a fake prepopulated one
+  // then change it.
+  const std::string kEngineP1Name = "prepopulated-1";
+  const GURL kEngineP1Url = GURL("https://p1.com?q={searchTerms}");
+  AddPriorSearchEngine(kEngineP1Name, kEngineP1Url, 1001, true);
+  std::vector<std::unique_ptr<TemplateURL>> prepopulated_engines =
+      template_url_service_->GetTemplateURLsForChoiceScreen();
+  // Set a real prepopulated engine as the default.
+  TemplateURL* default_search_engine = prepopulated_engines[0].get();
+  template_url_service_->SetUserSelectedDefaultSearchProvider(
+      default_search_engine);
+
+  CreateController();
+  CheckController();
+
+  ASSERT_EQ(2, NumberOfSections());
+  // There are twelve required prepopulated search egines plus the previously
+  // added default one.
+  ASSERT_EQ(13, NumberOfItemsInSection(0));
+  // TODO(b/303006727): Once we figure out how to keep a constant seed for each
+  // profile, check the actual list of prepopulated items.
+  ASSERT_EQ(2, NumberOfItemsInSection(1));
+  CheckCustomItem(kEngineC1Name, kEngineC1Url, false, 1, 0);
+  CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 1);
+}
+
 // Tests that items are displayed correctly when TemplateURLService is filled
 // and a custom search engine is selected as default.
 TEST_F(SearchEngineTableViewControllerTest,
@@ -313,6 +406,39 @@ TEST_F(SearchEngineTableViewControllerTest,
   ASSERT_EQ(2, NumberOfItemsInSection(1));
   CheckCustomItem(kEngineC1Name, kEngineC1Url, false, 1, 0);
   CheckCustomItem(kEngineC3Name, kEngineC3Url, false, 1, 1);
+}
+
+// Tests that items are displayed correctly when the user is eligible for the
+// search engine choice screen and a custom search engine is selected as
+// default.
+TEST_F(SearchEngineTableViewControllerTest,
+       TestChoiceScreenUrlsLoadedWithCustomSearchEngineAsDefault) {
+  SetupForChoiceScreenDisplay();
+
+  const std::string kEngineC1Name = "custom-1";
+  const GURL kEngineC1Url = GURL("https://c1.com?q={searchTerms}");
+  const std::string kEngineC2Name = "custom-2";
+  const GURL kEngineC2Url = GURL("https://c2.com?q={searchTerms}");
+  AddCustomSearchEngine(kEngineC1Name, kEngineC1Url,
+                        base::Time::Now() - base::Seconds(10), true);
+  AddCustomSearchEngine(kEngineC2Name, kEngineC2Url,
+                        base::Time::Now() - base::Hours(10), false);
+
+  std::vector<std::unique_ptr<TemplateURL>> prepopulated_engines =
+      template_url_service_->GetTemplateURLsForChoiceScreen();
+
+  CreateController();
+  CheckController();
+
+  ASSERT_EQ(2, NumberOfSections());
+  // There are twelve required prepopulated search egines plus the default
+  // custom one, which should be the first in the list.
+  ASSERT_EQ(13, NumberOfItemsInSection(0));
+  CheckCustomItem(kEngineC1Name, kEngineC1Url, true, 0, 0);
+  // TODO(b/303006727): Once we figure out how to keep a constant seed for each
+  // profile, check the actual list of prepopulated items.
+  ASSERT_EQ(1, NumberOfItemsInSection(1));
+  CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 0);
 }
 
 // Tests that when TemplateURLService add or remove TemplateURLs, or update

@@ -691,8 +691,9 @@ bool GpuInit::InitializeAndStartSandbox(base::CommandLine* command_line,
   // information on Linux platform. Try to collect graphics information
   // based on core profile context after disabling platform extensions.
   if (!gl_disabled && !gl_use_swiftshader_) {
-    if (!CollectGraphicsInfo(&gpu_info_))
+    if (!CollectGraphicsInfo(&gpu_info_)) {
       return false;
+    }
     SetKeysForCrashLogging(gpu_info_);
     gpu_feature_info_ = ComputeGpuFeatureInfo(gpu_info_, gpu_preferences_,
                                               command_line, nullptr);

@@ -21,6 +21,7 @@
 #import "components/omnibox/browser/autocomplete_result.h"
 #import "components/omnibox/browser/remote_suggestions_service.h"
 #import "components/omnibox/common/omnibox_features.h"
+#import "components/password_manager/core/browser/manage_passwords_referrer.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/variations/variations_associated_data.h"
 #import "components/variations/variations_ids_provider.h"
@@ -30,6 +31,7 @@
 #import "ios/chrome/browser/ntp/new_tab_page_util.h"
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/default_browser_promo_scene_agent_utils.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state_browser_agent.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_backed_boolean.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
@@ -50,7 +52,6 @@
 #import "ios/chrome/browser/ui/omnibox/popup/popup_debug_info_consumer.h"
 #import "ios/chrome/browser/ui/omnibox/popup/popup_swift.h"
 #import "ios/chrome/browser/ui/omnibox/popup/remote_suggestions_service_observer_bridge.h"
-#import "ios/chrome/browser/ui/settings/utils/pref_backed_boolean.h"
 #import "ios/chrome/browser/ui/toolbar/public/toolbar_omnibox_consumer.h"
 #import "ios/chrome/common/ui/favicon/favicon_attributes.h"
 #import "ui/base/l10n/l10n_util.h"
@@ -255,6 +256,12 @@ const NSUInteger kMaxSuggestTileTypePosition = 15;
           "Omnibox.SuggestionUsed.Pedal",
           (OmniboxPedalId)pedalSuggestionWrapper.innerPedal.type,
           OmniboxPedalId::TOTAL_COUNT);
+      if ((OmniboxPedalId)pedalSuggestionWrapper.innerPedal.type ==
+          OmniboxPedalId::MANAGE_PASSWORDS) {
+        base::UmaHistogramEnumeration(
+            "PasswordManager.ManagePasswordsReferrer",
+            password_manager::ManagePasswordsReferrer::kOmniboxPedalSuggestion);
+      }
       pedalSuggestionWrapper.innerPedal.action();
     }
   } else if ([suggestion isKindOfClass:[AutocompleteMatchFormatter class]]) {

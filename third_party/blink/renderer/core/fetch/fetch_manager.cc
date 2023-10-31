@@ -4,6 +4,8 @@
 
 #include "third_party/blink/renderer/core/fetch/fetch_manager.h"
 
+#include <stdint.h>
+#include <algorithm>
 #include <utility>
 
 #include "base/check.h"
@@ -12,6 +14,7 @@
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/strcat.h"
 #include "base/task/single_thread_task_runner.h"
+#include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/network/public/cpp/features.h"
@@ -96,6 +99,38 @@ namespace blink {
 
 namespace {
 
+// 64 kilobytes.
+constexpr uint64_t kMaxScheduledDeferredBytesPerOrigin = 64 * 1024;
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// Must remain in sync with FetchKeepAliveRendererMetricType in
+// tools/metrics/histograms/enums.xml.
+enum class FetchKeepAliveRendererMetricType {
+  kLoadingSuceeded = 0,
+  kLoadingFailed = 1,
+  kAbortedByUser = 2,
+  kContextDestroyed = 3,
+  kMaxValue = kContextDestroyed,
+};
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// Must remain in sync with FetchLaterRendererMetricType in
+// tools/metrics/histograms/enums.xml.
+enum class FetchLaterRendererMetricType {
+  kAbortedByUser = 0,
+  kContextDestroyed = 1,
+  kActivatedByTimeout = 2,
+  kMaxValue = kActivatedByTimeout,
+};
+
+void LogFetchLaterMetric(const FetchLaterRendererMetricType& type) {
+  base::UmaHistogramEnumeration("FetchLater.Renderer.Metrics", type);
+}
+
 bool HasNonEmptyLocationHeader(const FetchHeaderList* headers) {
   String value;
   if (!headers->Get(http_names::kLocation, value))
@@ -168,6 +203,9 @@ class FetchManager::Loader : public GarbageCollected<FetchManager::Loader>,
   void Start();
   virtual void Dispose();
   virtual void Abort();
+
+  void LogIfKeepalive(const FetchKeepAliveRendererMetricType& type) const;
+  void LogIfKeepalive(const std::string& metric) const;
 
   class SRIVerifier final : public GarbageCollected<SRIVerifier>,
                             public BytesConsumer::Client {
@@ -282,6 +320,7 @@ class FetchManager::Loader : public GarbageCollected<FetchManager::Loader>,
   virtual void NotifyFinished();
   virtual bool IsDeferred() const;
   FetchManager* fetch_manager();
+  FetchRequestData* fetch_request_data() const;
   ExecutionContext* GetExecutionContext();
 
  private:
@@ -350,6 +389,7 @@ FetchManager::Loader::Loader(ExecutionContext* execution_context,
       V8ThrowException::CreateTypeError(isolate, "Failed to fetch");
   exception_.Reset(isolate, exception);
   SendHistogram(FetchManagerLoaderCheckPoint::kConstructor);
+  LogIfKeepalive("FetchKeepAlive.Renderer.Total");
 }
 
 FetchManager::Loader::~Loader() {
@@ -421,6 +461,8 @@ void FetchManager::Loader::DidReceiveResponse(
 
   auto response_type = response.GetType();
   DCHECK_NE(response_type, FetchResponseType::kError);
+
+  LogIfKeepalive(FetchKeepAliveRendererMetricType::kLoadingSuceeded);
 
   ScriptState::Scope scope(script_state_);
 
@@ -683,7 +725,7 @@ void FetchManager::Loader::Dispose() {
   // Prevent notification
   fetch_manager_ = nullptr;
   if (threadable_loader_) {
-    if (fetch_request_data_->Keepalive()) {
+    if (fetch_request_data_->Keepalive() && !IsDeferred()) {
       threadable_loader_->Detach();
     } else {
       threadable_loader_->Cancel();
@@ -707,6 +749,7 @@ void FetchManager::Loader::Abort() {
     threadable_loader_ = nullptr;
     loader->Cancel();
   }
+  LogIfKeepalive(FetchKeepAliveRendererMetricType::kAbortedByUser);
   NotifyFinished();
 }
 
@@ -969,12 +1012,14 @@ void FetchManager::Loader::Failed(
       }
       resolver_->Reject(value);
       SendHistogram(FetchManagerLoaderCheckPoint::kFailed);
+      LogIfKeepalive(FetchKeepAliveRendererMetricType::kLoadingFailed);
     }
   }
   NotifyFinished();
 }
 
 void FetchManager::Loader::NotifyFinished() {
+  LogIfKeepalive("FetchKeepAlive.Renderer.Total.Finished");
   if (fetch_manager_)
     fetch_manager_->OnLoaderFinished(this);
 }
@@ -987,8 +1032,25 @@ FetchManager* FetchManager::Loader::fetch_manager() {
   return fetch_manager_;
 }
 
+FetchRequestData* FetchManager::Loader::fetch_request_data() const {
+  return fetch_request_data_;
+}
+
 ExecutionContext* FetchManager::Loader::GetExecutionContext() {
   return execution_context_;
+}
+
+void FetchManager::Loader::LogIfKeepalive(
+    const FetchKeepAliveRendererMetricType& type) const {
+  if (fetch_request_data_->Keepalive()) {
+    base::UmaHistogramEnumeration("FetchKeepAlive.Renderer.Metrics", type);
+  }
+}
+
+void FetchManager::Loader::LogIfKeepalive(const std::string& metric) const {
+  if (fetch_request_data_->Keepalive()) {
+    base::UmaHistogramBoolean(metric, true);
+  }
 }
 
 // A subtype of Loader to handle the deferred fetching algorithm[1].
@@ -998,10 +1060,7 @@ ExecutionContext* FetchManager::Loader::GetExecutionContext() {
 //   - `IsDeferred()` is true, which helps the base generate different requests.
 //   - The response-related methods do nothing. See ThreadableLoaderClient
 //     overrides below.
-//   - TODO(crbug.com/1465781): Support backgroundTimeout from [2] to allow
-//     sending earlier after the context being in BFCache+backgroundTimeout
-//     time. This requires a mechanism to ask the browser companion
-//     (content::KeepAliveURLLoader) to send, after URLLoader creation.
+//   - Support activationTimeout from [2] to allow sending at specified time.
 //   - Support FetchLaterResult from [2].
 //
 // Underlying, this loader intends to create a "deferred" fetch request,
@@ -1015,22 +1074,49 @@ ExecutionContext* FetchManager::Loader::GetExecutionContext() {
 // the latter method can only be called when ResourcFetcher is not detached.
 // Plus, the browser companion must be notified when the context is still alive.
 //
-// [1]: https://whatpr.org/fetch/1647/53e4c3d...71fd383.html#deferred-fetching
-// [2]: https://whatpr.org/fetch/1647/53e4c3d...71fd383.html#fetch-later-method
+// [1]: https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#deferred-fetching
+// [2]: https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#fetch-later-method
 class FetchManager::DeferredLoader : public FetchManager::Loader {
  public:
   DeferredLoader(ExecutionContext* ec,
                  FetchManager* fetch_manager,
                  FetchRequestData* fetch_request_data,
                  ScriptState* script_state,
-                 AbortSignal* signal)
+                 AbortSignal* signal,
+                 const absl::optional<base::TimeDelta>& activation_timeout)
       : FetchManager::Loader(ec,
                              fetch_manager,
                              /*resolver=*/nullptr,
                              fetch_request_data,
                              script_state,
                              signal),
-        fetch_later_result_(MakeGarbageCollected<FetchLaterResult>()) {}
+        fetch_later_result_(MakeGarbageCollected<FetchLaterResult>()),
+        activation_timeout_(activation_timeout),
+        timer_(
+            ec->GetTaskRunner(
+                // TODO(crbug.com/1465781): Update to proper TaskType once the
+                // FetchLater API spec is finalized.
+                // Currently using the unfreezable type as a deferred fetch
+                // request needs to work when the ExecutionContext is frozen,
+                // e.g. put into BackForwardCache. See also
+                // https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/platform/scheduler/TaskSchedulingInBlink.md#task-types-and-task-sources
+                TaskType::kNetworkingUnfreezable),
+            this,
+            &DeferredLoader::TimerFired) {
+    base::UmaHistogramBoolean("FetchLater.Renderer.Total", true);
+
+    // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#request-a-deferred-fetch
+    // Continued with "request a deferred fetch"
+    // 9. If `activation_timeout_` is not null, then run the following steps in
+    // parallel:
+    if (activation_timeout_.has_value()) {
+      // 9-1. The user agent should wait until `activation_timeout_`
+      // milliseconds have passed. The user agent may wait for a longer or
+      // shorter period time, e.g., to optimize batching of deferred fetches.
+      // Implementation followed by `TimerFired()`.
+      timer_.StartOneShot(*activation_timeout_, FROM_HERE);
+    }
+  }
   ~DeferredLoader() override = default;
 
   FetchLaterResult* fetch_later_result() { return fetch_later_result_; }
@@ -1045,38 +1131,77 @@ class FetchManager::DeferredLoader : public FetchManager::Loader {
 
   // FetchManager::Loader overrides:
   void Dispose() override {
-    // https://whatpr.org/fetch/1647/53e4c3d...71fd383.html#concept-defer=fetch-record
-    // 1. Set deferredRecord’s invoke state to terminated.
-    SetInvokeState(InvokeState::TERMINATED);
-    // 2. Fetch deferredRecord’s request.
+    timer_.Stop();
     // The browser companion will take care of the actual request sending when
     // discoverying the URL loading connections from here are gone.
     FetchManager::Loader::Dispose();
   }
   void Abort() override {
-    // https://whatpr.org/fetch/1647/53e4c3d...71fd383.html#fetch-later-method
-    // 12. Add the following abort steps to requestObject’s signal:
-    //     1. Set deferredRecord’s invoke state to "aborted".
+    // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#fetch-later-method
+    // 13. Add the following abort steps to requestObject’s signal:
+    // 13-1. Set deferredRecord’s invoke state to "aborted".
     SetInvokeState(InvokeState::ABORTED);
-    //     2. Remove deferredRecord from request’s client’s fetch group’s
-    //     deferred fetch records.
+    LogFetchLaterMetric(FetchLaterRendererMetricType::kAbortedByUser);
+    // 13-2. Remove deferredRecord from request’s client’s fetch group’s
+    // deferred fetch records.
+    // TODO(crbug.com/1465781): Implement abort function.
     FetchManager::Loader::Abort();
+  }
+
+  void Process() {
+    // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#process-a-deferred-fetch
+    // To process a deferred fetch deferredRecord:
+    // 1. If deferredRecord’s invoke state is not "deferred", then return.
+    if (invoke_state_ != InvokeState::DEFERRED) {
+      return;
+    }
+    // 2. Set deferredRecord’s invoke state to "activated".
+    SetInvokeState(InvokeState::ACTIVATED);
+    // 3. Fetch deferredRecord’s request.
+    LogFetchLaterMetric(FetchLaterRendererMetricType::kActivatedByTimeout);
+    Dispose();
+  }
+
+  // Returns this loader's request body length if the followings are all true:
+  // - this loader's request has a non-null body.
+  // - `url` is "same origin" with this loader's request URL.
+  uint64_t GetDeferredBytesForUrlOrigin(const KURL& url) const {
+    return fetch_request_data()->Buffer() &&
+                   SecurityOrigin::AreSameOrigin(fetch_request_data()->Url(),
+                                                 url)
+               ? fetch_request_data()->BufferByteLength()
+               : 0;
   }
 
   void Trace(Visitor* visitor) const override {
     visitor->Trace(fetch_later_result_);
+    visitor->Trace(timer_);
     FetchManager::Loader::Trace(visitor);
   }
 
  private:
   enum class InvokeState {
     DEFERRED,
-    SCHEDULED,
-    TERMINATED,
     ABORTED,
     ACTIVATED
   };
   void SetInvokeState(InvokeState state) {
+    switch (state) {
+      case InvokeState::DEFERRED:
+        UseCounter::Count(GetExecutionContext(),
+                          WebFeature::kFetchLaterInvokeStateDeferred);
+        break;
+      case InvokeState::ABORTED:
+        UseCounter::Count(GetExecutionContext(),
+                          WebFeature::kFetchLaterInvokeStateAborted);
+        break;
+      case InvokeState::ACTIVATED:
+        UseCounter::Count(GetExecutionContext(),
+                          WebFeature::kFetchLaterInvokeStateActivated);
+        break;
+      default:
+        NOTREACHED_NORETURN();
+    };
     invoke_state_ = state;
     fetch_later_result_->SetActivated(state == InvokeState::ACTIVATED);
   }
@@ -1089,8 +1214,18 @@ class FetchManager::DeferredLoader : public FetchManager::Loader {
     }
   }
 
+  // Triggered by `timer_`.
+  void TimerFired(TimerBase*) {
+    // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#request-a-deferred-fetch
+    // Continued with "request a deferred fetch"
+
+    // 9-2. Process a deferred fetch given deferredRecord.
+    Process();
+  }
+
   // A deferred fetch record's "invoke state" field.
   InvokeState invoke_state_ = InvokeState::DEFERRED;
+
   // Retains strong reference to the returned V8 object of a FetchLater API call
   // that creates this loader.
   //
@@ -1099,6 +1234,12 @@ class FetchManager::DeferredLoader : public FetchManager::Loader {
   //
   // This field should be updated whenever `invoke_state_` changes.
   Member<FetchLaterResult> fetch_later_result_;
+
+  // The "activationTimeout" to request a deferred fetch.
+  // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#request-a-deferred-fetch
+  const absl::optional<base::TimeDelta> activation_timeout_;
+  // A timer to handle `activation_timeout_`.
+  HeapTaskRunnerTimer<DeferredLoader> timer_;
 };
 
 FetchManager::FetchManager(ExecutionContext* execution_context)
@@ -1128,11 +1269,13 @@ ScriptPromise FetchManager::Fetch(ScriptState* script_state,
   return promise;
 }
 
-FetchLaterResult* FetchManager::FetchLater(ScriptState* script_state,
-                                           FetchRequestData* request,
-                                           AbortSignal* signal,
-                                           ExceptionState& exception_state) {
-  // https://whatpr.org/fetch/1647/53e4c3d...71fd383.html#fetch-later-method
+FetchLaterResult* FetchManager::FetchLater(
+    ScriptState* script_state,
+    FetchRequestData* request,
+    AbortSignal* signal,
+    absl::optional<DOMHighResTimeStamp> activation_timeout_ms,
+    ExceptionState& exception_state) {
+  // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#fetch-later-method
   // Continuing the fetchLater(input, init) method steps:
   CHECK(signal);
   // 3. If request’s signal is aborted, then throw signal’s abort reason.
@@ -1150,16 +1293,85 @@ FetchLaterResult* FetchManager::FetchLater(ScriptState* script_state,
   // 6. If request’s URL is not a potentially trustworthy url ...
   if (!network::IsUrlPotentiallyTrustworthy(GURL(request->Url()))) {
     exception_state.ThrowSecurityError(
-        "fetchLater gots a not trustworthy URL.");
+        "fetchLater was passed an insecure URL.");
     return nullptr;
   }
 
+  absl::optional<base::TimeDelta> activation_timeout = absl::nullopt;
+  if (activation_timeout_ms.has_value()) {
+    activation_timeout = base::Milliseconds(*activation_timeout_ms);
+    // 11. If `activation_timeout` is less than 0 then throw a RangeError.
+    if (activation_timeout->is_negative()) {
+      exception_state.ThrowRangeError(
+          "fetchLater's activationTimeout cannot be negative.");
+      return nullptr;
+    }
+  }
+
+  // 12. Let deferredRecord be the result of calling request a deferred fetch
+  // given `request` and `activation_timeout`. This may throw an exception.
+  //
+  // "request a deferred fetch"
+  // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#request-a-deferred-fetch
+  uint64_t bytes_for_origin = 0;
+  // 3. If request’s body is not null then:
+  if (request->Buffer()) {
+    // 3.1 If request’s body’s length is null, then throw a TypeError.
+    if (request->BufferByteLength() == 0) {
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kFetchLaterErrorUnknownBodyLength);
+      exception_state.ThrowTypeError(
+          "fetchLater doesn't support body with unknown length.");
+      return nullptr;
+    }
+    // 3.2 Set `bytes_for_origin` to request’s body’s length.
+    bytes_for_origin = request->BufferByteLength();
+  }
+  // Run Step 5 for potential early termination. It also caps
+  // `bytes_per_origin`.
+  if (bytes_for_origin > kMaxScheduledDeferredBytesPerOrigin) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kFetchLaterErrorQuotaExceeded);
+    exception_state.ThrowDOMException(
+        DOMExceptionCode::kQuotaExceededError,
+        "fetchLater exceeds its quota for the origin.");
+    return nullptr;
+  }
+
+  // 4. For each deferredRecord in request’s client’s fetch group’s deferred
+  // fetch records: if deferredRecord’s request’s body is not null and
+  // deferredRecord’s request’s URL’s origin is same origin with request’s
+  // URL’s origin, then increment `bytes_for_origin` by deferredRecord’s
+  // request’s body’s length.
+  for (const auto& deferred_loader : deferred_loaders_) {
+    // `bytes_for_orign` is capped below the max (64 kilobytes), and the value
+    // returned by every deferred_loader has run through the same cap. Hence,
+    // the sum here is guaranteed to be <= 128 kilobytes.
+    bytes_for_origin +=
+        deferred_loader->GetDeferredBytesForUrlOrigin(request->Url());
+    // 5. If `bytes_for_origin` is greater than 64 kilobytes, then throw a
+    // QuotaExceededError.
+    if (bytes_for_origin > kMaxScheduledDeferredBytesPerOrigin) {
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kFetchLaterErrorQuotaExceeded);
+      exception_state.ThrowDOMException(
+          DOMExceptionCode::kQuotaExceededError,
+          "fetchLater exceeds its quota for the origin.");
+      return nullptr;
+    }
+  }
+
   request->SetDestination(network::mojom::RequestDestination::kEmpty);
-  // A fetchLater request is enforced to be a keepalive request.
+  // 6. Set request’s keepalive to true.
   request->SetKeepalive(true);
 
+  // 7. Let deferredRecord be a new deferred fetch record whose request is
+  // `request`.
   auto* deferred_loader = MakeGarbageCollected<DeferredLoader>(
-      GetExecutionContext(), this, request, script_state, signal);
+      GetExecutionContext(), this, request, script_state, signal,
+      activation_timeout);
+  // 8. Append deferredRecord to request’s client’s fetch group’s deferred fetch
+  // records.
   deferred_loaders_.insert(deferred_loader);
 
   deferred_loader->Start();
@@ -1167,15 +1379,24 @@ FetchLaterResult* FetchManager::FetchLater(ScriptState* script_state,
 }
 
 void FetchManager::ContextDestroyed() {
-  // https://whatpr.org/fetch/1647/53e4c3d...71fd383.html#concept-defer=fetch-record
+  // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#concept-defer=fetch-record
   // When a fetch group fetchGroup is terminated:
-  // 1. For each fetch record of fetchGroup's ...
-  for (auto& loader : loaders_)
+  // 1. For each fetch record of fetchGroup's fetch records, if record's
+  // controller is non-null and record’s done flag is unset and keepalive is
+  // false, terminate the fetch record’s controller .
+  for (auto& loader : loaders_) {
+    loader->LogIfKeepalive(FetchKeepAliveRendererMetricType::kContextDestroyed);
     loader->Dispose();
+  }
 
-  // 2. For each deferred fetch record of fetchGroup's ...
+  // 2. process deferred fetches for fetchGroup.
+  // https://whatpr.org/fetch/1647/9ca4bda...7bff4de.html#process-deferred-fetches
+  // To process deferred fetches given a fetch group fetchGroup:
   for (auto& deferred_loader : deferred_loaders_) {
-    deferred_loader->Dispose();
+    LogFetchLaterMetric(FetchLaterRendererMetricType::kContextDestroyed);
+    // 3. For each deferred fetch record deferredRecord, process a deferred
+    // fetch given deferredRecord.
+    deferred_loader->Process();
   }
 }
 

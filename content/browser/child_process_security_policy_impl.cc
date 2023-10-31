@@ -235,6 +235,12 @@ bool AllowProcessLockMismatchForNTP(const ProcessLock& expected_lock,
       expected_lock.lock_url(), actual_lock.site_url());
 }
 
+base::WeakPtr<ResourceContext> GetResourceContext(
+    BrowserContext* browser_context) {
+  ResourceContext* resource_context = browser_context->GetResourceContext();
+  return resource_context ? resource_context->GetWeakPtr() : nullptr;
+}
+
 }  // namespace
 
 ChildProcessSecurityPolicyImpl::Handle::Handle()
@@ -346,7 +352,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
         can_send_midi_(false),
         can_send_midi_sysex_(false),
         browser_context_(browser_context),
-        resource_context_(browser_context->GetResourceContext()) {
+        resource_context_(GetResourceContext(browser_context)) {
     if (!base::FeatureList::IsEnabled(
             permissions::features::kBlockMidiByDefault)) {
       can_send_midi_ = true;
@@ -642,7 +648,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
       return BrowserOrResourceContext(browser_context_);
 
     if (BrowserThread::CurrentlyOn(BrowserThread::IO) && resource_context_)
-      return BrowserOrResourceContext(resource_context_);
+      return BrowserOrResourceContext(resource_context_.get());
 
     return BrowserOrResourceContext();
   }
@@ -668,7 +674,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   bool CanRequestOrigin(const url::Origin& origin) {
     // Anything already in |origin_map_| must have at least request permissions
     // already.
-    return origin_map_.find(origin) != origin_map_.end();
+    return base::Contains(origin_map_, origin);
   }
 
   typedef std::map<std::string, CommitRequestPolicy> SchemeMap;
@@ -729,7 +735,7 @@ class ChildProcessSecurityPolicyImpl::SecurityState {
   FileSystemMap filesystem_permissions_;
 
   raw_ptr<BrowserContext> browser_context_;
-  raw_ptr<ResourceContext, AcrossTasksDanglingUntriaged> resource_context_;
+  base::WeakPtr<ResourceContext> resource_context_;
 };
 
 // IsolatedOriginEntry implementation.
@@ -853,7 +859,7 @@ void ChildProcessSecurityPolicyImpl::Add(int child_id,
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   DCHECK_NE(child_id, ChildProcessHost::kInvalidUniqueID);
   base::AutoLock lock(lock_);
-  if (security_state_.find(child_id) != security_state_.end()) {
+  if (base::Contains(security_state_, child_id)) {
     NOTREACHED() << "Add child process at most once.";
     return;
   }
@@ -1924,7 +1930,8 @@ bool ChildProcessSecurityPolicyImpl::CanAccessDataForMaybeOpaqueOrigin(
           // able to access data from origins that require a lock.
 
           // Allow the corresponding base::Feature to turn off enforcement.
-          if (!base::FeatureList::IsEnabled(kSiteIsolationCitadelEnforcement)) {
+          if (!base::FeatureList::IsEnabled(
+                  features::kSiteIsolationCitadelEnforcement)) {
             return true;
           }
 
@@ -2861,7 +2868,7 @@ bool ChildProcessSecurityPolicyImpl::AddProcessReferenceLocked(
 
   // Check to see if the SecurityState has been removed from |security_state_|
   // via a Remove() call. This corresponds to the process being destroyed.
-  if (security_state_.find(child_id) == security_state_.end()) {
+  if (!base::Contains(security_state_, child_id)) {
     if (!duplicating_handle) {
       // Do not allow Handles to be created after the process has been
       // destroyed, unless they are being duplicated.

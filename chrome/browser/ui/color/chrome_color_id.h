@@ -59,6 +59,8 @@
   E_CPONLY(kColorCaptionButtonBackground) \
   /* Captured tab colors. */ \
   E_CPONLY(kColorCapturedTabContentsBorder) \
+  /* Cast dialog colors. */ \
+  E_CPONLY(kColorCastDialogHelpIcon) \
   /* Desktop media tab list colors. */ \
   E_CPONLY(kColorDesktopMediaTabListBorder) \
   E_CPONLY(kColorDesktopMediaTabListPreviewBackground) \
@@ -291,6 +293,8 @@
   E_CPONLY(kColorOmniboxSecurityChipInkDropRipple) \
   E_CPONLY(kColorOmniboxSecurityChipSecure) \
   E_CPONLY(kColorOmniboxSecurityChipText) \
+  E_CPONLY(kColorOmniboxSelectionBackground) \
+  E_CPONLY(kColorOmniboxSelectionForeground) \
   E_CPONLY(kColorOmniboxText) \
   E_CPONLY(kColorOmniboxTextDimmed) \
   /* Page Info colors */ \
@@ -474,6 +478,8 @@
   E_CPONLY(kColorTabBackgroundSelectedHoverFrameInactive) \
   E_CPONLY(kColorTabCloseButtonFocusRingActive) \
   E_CPONLY(kColorTabCloseButtonFocusRingInactive) \
+  E_CPONLY(kColorTabDiscardRingFrameActive) \
+  E_CPONLY(kColorTabDiscardRingFrameInactive) \
   E_CPONLY(kColorTabFocusRingActive) \
   E_CPONLY(kColorTabFocusRingInactive) \
   E_CPONLY(kColorTabForegroundActiveFrameActive) \
@@ -526,6 +532,24 @@
   E_CPONLY(kColorTabGroupContextMenuRed) \
   E_CPONLY(kColorTabGroupContextMenuYellow) \
   /* The colors used for saved tab group chips on the bookmark bar. */ \
+  E_CPONLY(kColorSavedTabGroupForegroundGrey) \
+  E_CPONLY(kColorSavedTabGroupForegroundBlue) \
+  E_CPONLY(kColorSavedTabGroupForegroundRed) \
+  E_CPONLY(kColorSavedTabGroupForegroundYellow) \
+  E_CPONLY(kColorSavedTabGroupForegroundGreen) \
+  E_CPONLY(kColorSavedTabGroupForegroundPink) \
+  E_CPONLY(kColorSavedTabGroupForegroundPurple) \
+  E_CPONLY(kColorSavedTabGroupForegroundCyan) \
+  E_CPONLY(kColorSavedTabGroupForegroundOrange) \
+  E_CPONLY(kColorSavedTabGroupOutlineGrey) \
+  E_CPONLY(kColorSavedTabGroupOutlineBlue) \
+  E_CPONLY(kColorSavedTabGroupOutlineRed) \
+  E_CPONLY(kColorSavedTabGroupOutlineYellow) \
+  E_CPONLY(kColorSavedTabGroupOutlineGreen) \
+  E_CPONLY(kColorSavedTabGroupOutlinePink) \
+  E_CPONLY(kColorSavedTabGroupOutlinePurple) \
+  E_CPONLY(kColorSavedTabGroupOutlineCyan) \
+  E_CPONLY(kColorSavedTabGroupOutlineOrange) \
   E_CPONLY(kColorTabGroupBookmarkBarGrey) \
   E_CPONLY(kColorTabGroupBookmarkBarBlue) \
   E_CPONLY(kColorTabGroupBookmarkBarRed) \
@@ -676,6 +700,16 @@
   E_CPONLY(kColorReadAnythingFocusRingBackgroundDark) \
   E_CPONLY(kColorReadAnythingFocusRingBackgroundLight) \
   E_CPONLY(kColorReadAnythingFocusRingBackgroundYellow) \
+  E_CPONLY(kColorCurrentReadAloudHighlight) \
+  E_CPONLY(kColorCurrentReadAloudHighlightBlue) \
+  E_CPONLY(kColorCurrentReadAloudHighlightDark) \
+  E_CPONLY(kColorCurrentReadAloudHighlightLight) \
+  E_CPONLY(kColorCurrentReadAloudHighlightYellow) \
+  E_CPONLY(kColorPreviousReadAloudHighlight) \
+  E_CPONLY(kColorPreviousReadAloudHighlightBlue) \
+  E_CPONLY(kColorPreviousReadAloudHighlightDark) \
+  E_CPONLY(kColorPreviousReadAloudHighlightLight) \
+  E_CPONLY(kColorPreviousReadAloudHighlightYellow) \
 
 #if BUILDFLAG(IS_CHROMEOS)
 #define CHROME_PLATFORM_SPECIFIC_COLOR_IDS \

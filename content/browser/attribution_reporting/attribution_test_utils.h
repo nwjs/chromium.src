@@ -11,23 +11,18 @@
 #include <string>
 #include <vector>
 
-#include "base/containers/enum_set.h"
 #include "base/containers/flat_set.h"
-#include "base/functional/function_ref.h"
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "components/attribution_reporting/aggregatable_values.h"
-#include "components/attribution_reporting/aggregation_keys.h"
-#include "components/attribution_reporting/destination_set.h"
-#include "components/attribution_reporting/event_report_windows.h"
 #include "components/attribution_reporting/filters.h"
+#include "components/attribution_reporting/source_registration.h"
 #include "components/attribution_reporting/source_registration_time_config.mojom.h"
 #include "components/attribution_reporting/source_type.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "components/attribution_reporting/test_utils.h"
 #include "components/attribution_reporting/trigger_registration.h"
 #include "content/browser/attribution_reporting/aggregatable_histogram_contribution.h"
-#include "content/browser/attribution_reporting/attribution_config.h"
 #include "content/browser/attribution_reporting/attribution_info.h"
 #include "content/browser/attribution_reporting/attribution_report.h"
 #include "content/browser/attribution_reporting/attribution_storage_delegate.h"
@@ -40,6 +35,12 @@
 #include "content/public/browser/attribution_data_model.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+
+namespace attribution_reporting {
+class AggregationKeys;
+class DestinationSet;
+class EventReportWindows;
+}  // namespace attribution_reporting
 
 namespace net {
 class SchemefulSite;
@@ -55,31 +56,11 @@ class AttributionManager;
 
 enum class RateLimitResult : int;
 
-constexpr auto kSourceTypes =
-    base::EnumSet<attribution_reporting::mojom::SourceType,
-                  attribution_reporting::mojom::SourceType::kMinValue,
-                  attribution_reporting::mojom::SourceType::kMaxValue>::All();
-
 base::Uuid DefaultExternalReportID();
-
-base::Time GetExpiryTimeForTesting(base::TimeDelta declared_expiry,
-                                   base::Time source_time);
 
 absl::optional<base::Time> GetReportWindowTimeForTesting(
     absl::optional<base::TimeDelta> declared_window,
     base::Time source_time);
-
-AttributionConfig::RateLimitConfig RateLimitWith(
-    base::FunctionRef<void(AttributionConfig::RateLimitConfig&)> f);
-
-AttributionConfig::EventLevelLimit EventLevelLimitWith(
-    base::FunctionRef<void(content::AttributionConfig::EventLevelLimit&)> f);
-
-AttributionConfig::AggregateLimit AggregateLimitWith(
-    base::FunctionRef<void(content::AttributionConfig::AggregateLimit&)> f);
-
-AttributionConfig AttributionConfigWith(
-    base::FunctionRef<void(AttributionConfig&)> f);
 
 // Helper class to construct a StorableSource for tests using default data.
 // StorableSource members are not mutable after construction requiring a
@@ -151,35 +132,23 @@ class SourceBuilder {
   CommonSourceInfo BuildCommonInfo() const;
 
  private:
-  uint64_t source_event_id_ = 123;
   base::Time source_time_;
-  base::TimeDelta expiry_;
-  absl::optional<base::TimeDelta> event_report_window_;
-  absl::optional<base::TimeDelta> aggregatable_report_window_;
   attribution_reporting::SuitableOrigin source_origin_;
-  attribution_reporting::DestinationSet destination_sites_;
+  attribution_reporting::SourceRegistration registration_;
   attribution_reporting::SuitableOrigin reporting_origin_;
   attribution_reporting::mojom::SourceType source_type_ =
       attribution_reporting::mojom::SourceType::kNavigation;
-  int64_t priority_ = 0;
   StoredSource::AttributionLogic attribution_logic_ =
       StoredSource::AttributionLogic::kTruthfully;
-  attribution_reporting::FilterData filter_data_;
   StoredSource::ActiveState active_state_ = StoredSource::ActiveState::kActive;
-  absl::optional<uint64_t> debug_key_;
   // `base::StrongAlias` does not automatically initialize the value here.
   // Ensure that we don't use uninitialized memory.
   StoredSource::Id source_id_{0};
   std::vector<uint64_t> dedup_keys_;
-  attribution_reporting::AggregationKeys aggregation_keys_;
   int64_t aggregatable_budget_consumed_ = 0;
   double randomized_response_rate_ = 0;
   std::vector<uint64_t> aggregatable_dedup_keys_;
-  absl::optional<attribution_reporting::EventReportWindows>
-      event_report_windows_ = absl::nullopt;
-  absl::optional<int> max_event_level_reports_ = absl::nullopt;
   bool is_within_fenced_frame_ = false;
-  bool debug_reporting_ = false;
 };
 
 // Returns a AttributionTrigger with default data which matches the default
@@ -202,8 +171,6 @@ class TriggerBuilder {
 
   TriggerBuilder& SetTriggerData(uint64_t trigger_data);
 
-  TriggerBuilder& SetEventSourceTriggerData(uint64_t event_source_trigger_data);
-
   TriggerBuilder& SetDestinationOrigin(attribution_reporting::SuitableOrigin);
 
   TriggerBuilder& SetReportingOrigin(attribution_reporting::SuitableOrigin);
@@ -223,6 +190,9 @@ class TriggerBuilder {
   TriggerBuilder& SetAggregatableDedupKey(
       absl::optional<uint64_t> aggregatable_dedup_key);
 
+  TriggerBuilder& SetAggregatableDedupKeyFilterPair(
+      attribution_reporting::FilterPair filter_pair);
+
   TriggerBuilder& SetIsWithinFencedFrame(bool is_within_fenced_frame);
 
   TriggerBuilder& SetDebugReporting(bool debug_reporting);
@@ -236,13 +206,15 @@ class TriggerBuilder {
   TriggerBuilder& SetVerifications(
       std::vector<network::TriggerVerification> verifications);
 
+  TriggerBuilder& SetFilterPair(attribution_reporting::FilterPair filter_pair);
+
   AttributionTrigger Build(bool generate_event_trigger_data = true) const;
 
  private:
   uint64_t trigger_data_ = 111;
-  uint64_t event_source_trigger_data_ = 0;
   attribution_reporting::SuitableOrigin destination_origin_;
   attribution_reporting::SuitableOrigin reporting_origin_;
+  attribution_reporting::FilterPair filter_pair_;
   int64_t priority_ = 0;
   absl::optional<uint64_t> dedup_key_;
   absl::optional<uint64_t> debug_key_;
@@ -250,6 +222,7 @@ class TriggerBuilder {
       aggregatable_trigger_data_;
   attribution_reporting::AggregatableValues aggregatable_values_;
   absl::optional<uint64_t> aggregatable_dedup_key_;
+  attribution_reporting::FilterPair aggregatable_dedup_key_filter_pair_;
   bool is_within_fenced_frame_ = false;
   bool debug_reporting_ = false;
   absl::optional<attribution_reporting::SuitableOrigin>
@@ -545,6 +518,10 @@ MATCHER_P(TriggerPriorityIs, matcher, "") {
 
 MATCHER_P(ReportURLIs, matcher, "") {
   return ExplainMatchResult(matcher, arg.ReportURL(), result_listener);
+}
+
+MATCHER_P(ReportOriginIs, matcher, "") {
+  return ExplainMatchResult(matcher, arg.GetReportingOrigin(), result_listener);
 }
 
 MATCHER_P(ReportTypeIs, matcher, "") {

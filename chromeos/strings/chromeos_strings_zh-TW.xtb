@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">每天變更桌布圖片</translation>
 <translation id="1644574205037202324">歷史記錄</translation>
 <translation id="1651925268237749928">你已選取共享相簿。其他使用者可以新增或變更相片。系統不一定會使用目前這本相簿中的相片做為桌布。</translation>
+<translation id="1661865805917886535">系統可能會將部分帳戶和系統資訊傳送給 Google。我們會依據《隱私權政策》(<ph name="PRIVACYPOLICYURL" />) 和《服務條款》(<ph name="TERMSOFSERVICEURL" />) 的規定使用這項資訊，解決技術問題及改善服務品質。如要提出內容變更要求，請前往法律說明中心 (<ph name="LEGALHELPPAGEURL" />)。</translation>
 <translation id="1662989795263954667">已停止 - 墨水已用盡</translation>
 <translation id="1664796644829245314">預覽「<ph name="PREVIEW_OBJECT" />」</translation>
 <translation id="1668469839109562275">內建 VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">已連接裝置。</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{要移除頁面嗎？}=1{要移除第 {PAGE_NUMBER} 頁嗎？}other{要移除第 {PAGE_NUMBER} 頁嗎？}}</translation>
+<translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> 專屬影片</translation>
 <translation id="315116470104423982">行動數據</translation>
 <translation id="3156846309055100599">正在掃描第 <ph name="PAGE_NUMBER" /> 頁…</translation>
 <translation id="315738237743207937">已偵測到網頁認證入口</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">正在尋找掃描器</translation>
 <translation id="3226657629376379887">版面配置動作選單</translation>
 <translation id="3246869037381808805">系統會移除 1 天前的列印工作</translation>
-<translation id="3248223063252096240"><ph name="PRODUCT_NAME" /> 獨家設計</translation>
 <translation id="3268178239013324452">失敗 - 蓋子處於開啟狀態</translation>
 <translation id="3275729367986477355">顯示圖片</translation>
 <translation id="3283504360622356314">{0,plural, =1{編輯檔案}other{編輯檔案}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">選取「<ph name="TOPIC_SOURCE" /><ph name="TOPIC_SOURCE_DESC" />」</translation>
 <translation id="8151185429379586178">開發人員工具</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />，<ph name="ACCELERATOR_INFO" />。</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">連接</translation>
 <translation id="8206859287963243715">手機</translation>

@@ -26,12 +26,10 @@
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
-#include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_link.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_physical_box_fragment.h"
-#include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
 #include "ui/gfx/geometry/size_f.h"
@@ -104,8 +102,15 @@ gfx::Rect PrintContext::PageRect(wtf_size_t page_number) const {
     return gfx::Rect();
   }
   const LayoutView& layout_view = *frame_->GetDocument()->GetLayoutView();
+
+  if (!use_printing_layout_) {
+    // Remote frames end up here.
+    return ToPixelSnappedRect(layout_view.DocumentRect());
+  }
+
   const auto& fragments = layout_view.GetPhysicalFragment(0)->Children();
   CHECK_GE(fragments.size(), 1u);
+  DCHECK(fragments[0]->IsFragmentainerBox());
 
   // Make sure that the page number is within the range of pages that were laid
   // out. In cases of monolithic overflow (a large image sliced into multiple
@@ -170,11 +175,6 @@ void PrintContext::EndPrintMode() {
   is_printing_ = false;
   if (IsFrameValid()) {
     frame_->EndPrinting();
-
-    // Printing changes the viewport and content size which may result in
-    // changing the page scale factor. Call SetNeedsReset() so that we reset
-    // back to the initial page scale factor when we exit printing mode.
-    frame_->GetPage()->GetPageScaleConstraintsSet().SetNeedsReset(true);
   }
   linked_destinations_.clear();
   linked_destinations_valid_ = false;

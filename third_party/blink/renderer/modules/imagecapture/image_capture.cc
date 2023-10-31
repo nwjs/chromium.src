@@ -502,6 +502,7 @@ bool MayRejectWithOverconstrainedError(
 bool TrackIsInactive(const MediaStreamTrack& track) {
   // Spec instructs to return an exception if the Track's readyState() is not
   // "live". Also reject if the track is disabled or muted.
+  // TODO(https://crbug.com/1462012): Do not consider muted tracks inactive.
   return track.readyState() != "live" || !track.enabled() || track.muted();
 }
 

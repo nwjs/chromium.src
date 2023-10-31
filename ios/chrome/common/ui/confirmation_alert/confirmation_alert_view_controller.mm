@@ -17,7 +17,8 @@
 
 namespace {
 
-const CGFloat kActionsBottomMargin = 10;
+const CGFloat kDefaultActionsBottomMargin = 10;
+const CGFloat kActionButtonImageInsets = 10;
 // Gradient height.
 const CGFloat kGradientHeight = 40.;
 const CGFloat kScrollViewBottomInsets = 20;
@@ -85,6 +86,8 @@ const CGFloat kFaviconBadgeSideLength = 24;
     _scrollEnabled = YES;
     _showDismissBarButton = YES;
     _dismissBarButtonSystemItem = UIBarButtonSystemItemDone;
+    _shouldFillInformationStack = NO;
+    _actionStackBottomMargin = kDefaultActionsBottomMargin;
   }
   return self;
 }
@@ -131,6 +134,8 @@ const CGFloat kFaviconBadgeSideLength = 24;
   }
 
   if (self.underTitleView) {
+    self.underTitleView.accessibilityIdentifier =
+        kConfirmationAlertUnderTitleViewAccessibilityIdentifier;
     [stackSubviews addObject:self.underTitleView];
   }
 
@@ -206,7 +211,7 @@ const CGFloat kFaviconBadgeSideLength = 24;
     // Add a low priority width constraints to make sure that the buttons are
     // taking as much width as they can.
     CGFloat extraBottomMargin =
-        self.secondaryActionString ? 0 : kActionsBottomMargin;
+        self.secondaryActionString ? 0 : self.actionStackBottomMargin;
     NSLayoutConstraint* lowPriorityWidthConstraint =
         [actionStackView.widthAnchor
             constraintEqualToConstant:kContentOptimalWidth];
@@ -230,7 +235,7 @@ const CGFloat kFaviconBadgeSideLength = 24;
           constraintEqualToAnchor:stackView.widthAnchor],
       [actionStackView.bottomAnchor
           constraintLessThanOrEqualToAnchor:self.view.bottomAnchor
-                                   constant:-kActionsBottomMargin -
+                                   constant:-self.actionStackBottomMargin -
                                             extraBottomMargin],
       [actionStackView.bottomAnchor
           constraintLessThanOrEqualToAnchor:self.view.safeAreaLayoutGuide
@@ -433,8 +438,9 @@ const CGFloat kFaviconBadgeSideLength = 24;
   // margin calculated based on the safe area of the container view it will
   // eventually live in. This is needed in case the detent value is requested
   // before the view has been added to its superview.
-  height -= MAX(kActionsBottomMargin, self.view.safeAreaInsets.bottom);
-  height += MAX(kActionsBottomMargin, containerView.safeAreaInsets.bottom);
+  height -= MAX(self.actionStackBottomMargin, self.view.safeAreaInsets.bottom);
+  height +=
+      MAX(self.actionStackBottomMargin, containerView.safeAreaInsets.bottom);
 
   return height;
 }
@@ -534,10 +540,19 @@ const CGFloat kFaviconBadgeSideLength = 24;
   }
 
   if (self.showDismissBarButton) {
-    UIBarButtonItem* dismissButton = [[UIBarButtonItem alloc]
-        initWithBarButtonSystemItem:self.dismissBarButtonSystemItem
-                             target:self
-                             action:@selector(didTapDismissBarButton)];
+    UIBarButtonItem* dismissButton;
+    if (self.customDismissBarButtonImage) {
+      dismissButton = [[UIBarButtonItem alloc]
+          initWithImage:self.customDismissBarButtonImage
+                  style:UIBarButtonItemStylePlain
+                 target:self
+                 action:@selector(didTapDismissBarButton)];
+    } else {
+      dismissButton = [[UIBarButtonItem alloc]
+          initWithBarButtonSystemItem:self.dismissBarButtonSystemItem
+                               target:self
+                               action:@selector(didTapDismissBarButton)];
+    }
     navigationItem.rightBarButtonItem = dismissButton;
   }
 
@@ -744,7 +759,7 @@ const CGFloat kFaviconBadgeSideLength = 24;
   [stackView setCustomSpacing:self.customSpacingAfterImage
                     afterView:self.imageContainerView];
 
-  if (self.imageHasFixedSize) {
+  if (self.imageHasFixedSize && !self.shouldFillInformationStack) {
     stackView.alignment = UIStackViewAlignmentCenter;
   } else {
     stackView.alignment = UIStackViewAlignmentFill;
@@ -811,11 +826,18 @@ const CGFloat kFaviconBadgeSideLength = 24;
   [secondaryActionButton setTitleColor:titleColor
                               forState:UIControlStateNormal];
 
-  // TODO(crbug.com/1418068): Replace with UIButtonConfiguration when min
-  // deployment target is iOS 15.
-  UIEdgeInsets contentInsets =
-      UIEdgeInsetsMake(kButtonVerticalInsets, 0, kButtonVerticalInsets, 0);
-  SetContentEdgeInsets(secondaryActionButton, contentInsets);
+  UIButtonConfiguration* buttonConfiguration =
+      secondaryActionButton.configuration
+          ? secondaryActionButton.configuration
+          : [UIButtonConfiguration plainButtonConfiguration];
+  buttonConfiguration.contentInsets = NSDirectionalEdgeInsetsMake(
+      kButtonVerticalInsets, 0, kButtonVerticalInsets, 0);
+
+  if (self.secondaryActionImage) {
+    buttonConfiguration.image = self.secondaryActionImage;
+    buttonConfiguration.imagePadding = kActionButtonImageInsets;
+  }
+  secondaryActionButton.configuration = buttonConfiguration;
 
   secondaryActionButton.titleLabel.font =
       [UIFont preferredFontForTextStyle:UIFontTextStyleBody];

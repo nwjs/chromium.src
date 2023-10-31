@@ -11,12 +11,14 @@
 #import "base/sequence_checker.h"
 #import "base/values.h"
 #import "ios/web/public/annotations/annotations_text_observer.h"
+#import "ios/web/public/annotations/custom_text_checking_result.h"
 #import "ios/web/public/web_state_observer.h"
 #import "ios/web/public/web_state_user_data.h"
 #import "third_party/abseil-cpp/absl/types/optional.h"
 
 @protocol CRWWebViewHandlerDelegate;
 @protocol MiniMapCommands;
+@protocol ParcelTrackingOptInCommands;
 @class UIViewController;
 
 namespace web {
@@ -38,6 +40,11 @@ class AnnotationsTabHelper : public web::AnnotationsTextObserver,
   // Sets the MiniMapCommands that can display mini maps.
   void SetMiniMapCommands(id<MiniMapCommands> mini_map_handler);
 
+  // Sets the ParcelTrackingOptInCommands that can display the parcel tracking
+  // opt-in prompt.
+  void SetParcelTrackingOptInCommands(
+      id<ParcelTrackingOptInCommands> parcel_tracking_handler);
+
   // Returns pointer to latest metadata extracted or `nullptr`. See
   // i/w/p/a/annotations_text_observer.h for metadata key/pair values.
   base::Value::Dict* GetMetadata() { return metadata_.get(); }
@@ -57,6 +64,9 @@ class AnnotationsTabHelper : public web::AnnotationsTextObserver,
 
   // WebStateObserver methods:
   void WebStateDestroyed(web::WebState* web_state) override;
+  void PageLoaded(
+      web::WebState* web_state,
+      web::PageLoadCompletionStatus load_completion_status) override;
 
   WEB_STATE_USER_DATA_KEY_DECL();
 
@@ -72,13 +82,30 @@ class AnnotationsTabHelper : public web::AnnotationsTextObserver,
   void ApplyDeferredProcessing(int seq_id,
                                absl::optional<base::Value> deferred);
 
+  // Triggers the parcel tracking UI display if the given list of annotations
+  // contains at least one parcel number and the user is eligible for the
+  // prompt. Removes parcels from `annotations_list`.
+  void ProcessParcelTrackingNumbers(base::Value::List& annotations_list);
+
+  // Triggers the parcel tracking UI display for the given parcel
+  // list `parcels`.
+  void MaybeShowParcelTrackingUI(NSArray<CustomTextCheckingResult*>* parcels);
+
+  // Puts annotations data in `match_cache_` and replaces it with a uuid key
+  // to be passed to JS and expect back in `OnClick`.
+  void BuildCache(base::Value::List& annotations_list);
+
   UIViewController* base_view_controller_ = nil;
 
   id<MiniMapCommands> mini_map_handler_ = nil;
 
+  id<ParcelTrackingOptInCommands> parcel_tracking_handler_ = nil;
+
   web::WebState* web_state_ = nullptr;
 
   std::unique_ptr<base::Value::Dict> metadata_;
+
+  std::map<std::string, std::string> match_cache_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

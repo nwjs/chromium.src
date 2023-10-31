@@ -10,15 +10,12 @@ import {EntryLocation} from '../externs/entry_location.js';
 import {State} from '../externs/ts/state.js';
 import {VolumeManager} from '../externs/volume_manager.js';
 import {waitDeepEquals} from '../state/for_tests.js';
-import {getEmptyState, getStore, Store} from '../state/store.js';
+import {getEmptyState, getStore, type Store} from '../state/store.js';
 
 import {SearchContainer} from './search_container.js';
 
 
-const searchWrapper: HTMLElement = document.createElement('div');
-const optionsContainer: HTMLElement = document.createElement('div');
-const pathContainer: HTMLElement = document.createElement('div');
-
+let searchWrapper: HTMLElement|undefined;
 let store: Store|undefined;
 let searchContainer: SearchContainer|undefined;
 
@@ -32,22 +29,22 @@ function setupStore(): Store {
  * Creates new <search-container> element for each test.
  */
 export function setUp() {
-  const root = document.createElement('div');
-  document.body.replaceChildren(root);
-  searchWrapper.innerHTML = getTrustedHTML`
-      <cr-button id="search-button" tabindex="0">
-        <div class="icon"></div>
-      </cr-button>
-      <div id="search-box">
-        <cr-input type="search" disabled placeholder="Search">
-          <cr-button class="clear" slot="suffix" tabindex="0" has-tooltip>
-            <div class="icon"></div>
-          </cr-button>
-        </cr-input>
-      </div>`;
-  root.appendChild(searchWrapper);
-  root.appendChild(optionsContainer);
-  root.appendChild(pathContainer);
+  document.body.innerHTML = getTrustedHTML`
+    <div id="root">
+      <div id="search-wrapper" collapsed>
+        <cr-button id="search-button" tabindex="0">Open</cr-button>
+        <div id="search-box">
+          <cr-input type="search" disabled placeholder="Search">
+            <cr-button class="clear" slot="suffix" tabindex="0" has-tooltip>
+              Search
+            </cr-button>
+          </cr-input>
+        </div>
+        <div id="options-container"></div>
+        <div id="path-container"></div>
+      </div>
+    </div>`;
+  searchWrapper = document.querySelector('#search-wrapper') as HTMLElement;
 
   store = setupStore();
   const volumeManager: VolumeManager = {
@@ -57,7 +54,9 @@ export function setUp() {
   } as unknown as VolumeManager;
 
   searchContainer = new SearchContainer(
-      volumeManager, searchWrapper, optionsContainer, pathContainer);
+      volumeManager, searchWrapper,
+      document.querySelector('#options-container') as HTMLElement,
+      document.querySelector('#path-container') as HTMLElement);
 }
 
 /**
@@ -67,11 +66,13 @@ export function tearDown() {
   loadTimeData.resetForTesting();
 }
 
-export async function testQueryUpdatedV1() {
-  loadTimeData.overrideValues({FILES_SEARCH_V2: false});
+export async function testQueryUpdated() {
+  // Manually open the search container; without this the container is in the
+  // closed state and does not clean up query or option values on close.
+  searchContainer!.openSearch();
 
   // Test 1: Enter a query.
-  const input = searchWrapper.querySelector('cr-input') as CrInputElement;
+  const input = searchWrapper!.querySelector('cr-input') as CrInputElement;
   input.value = 'hello';
   input.dispatchEvent(new Event('input', {
     bubbles: true,
@@ -89,7 +90,7 @@ export async function testQueryUpdatedV1() {
   // Test 2: Clear the query.
   searchContainer!.clear();
   const want2 = {
-    query: '',
+    query: undefined,
     status: undefined,
     options: undefined,
   };

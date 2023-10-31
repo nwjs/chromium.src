@@ -24,6 +24,7 @@ BASE_DECLARE_FEATURE(kDestroyProfileOnBrowserClose);
 BASE_DECLARE_FEATURE(kDestroySystemProfiles);
 
 BASE_DECLARE_FEATURE(kDevToolsTabTarget);
+BASE_DECLARE_FEATURE(kDevToolsVeLogging);
 
 BASE_DECLARE_FEATURE(kNukeProfileBeforeCreateMultiAsync);
 
@@ -69,6 +70,7 @@ BASE_DECLARE_FEATURE(kKeyPinningComponentUpdater);
 #if BUILDFLAG(IS_WIN)
 BASE_DECLARE_FEATURE(kAppBoundEncryptionMetrics);
 BASE_DECLARE_FEATURE(kLockProfileCookieDatabase);
+BASE_DECLARE_FEATURE(kNoPreReadMainDll);
 #endif
 
 BASE_DECLARE_FEATURE(kFlexOrgManagementDisclosure);
@@ -128,12 +130,6 @@ BASE_DECLARE_FEATURE(kPrerenderDSEHoldback);
 BASE_DECLARE_FEATURE(kAutocompleteActionPredictorConfidenceCutoff);
 
 BASE_DECLARE_FEATURE(kOmniboxTriggerForNoStatePrefetch);
-
-#if !BUILDFLAG(IS_ANDROID)
-// This flag is used for enabling the Manta Service, a profile keyed service for
-// the google chrome Manta project.
-BASE_DECLARE_FEATURE(kMantaService);
-#endif
 
 }  // namespace features
 

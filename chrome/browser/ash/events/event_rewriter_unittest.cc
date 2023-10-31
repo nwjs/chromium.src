@@ -43,6 +43,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/events/ash/event_rewriter_ash.h"
 #include "ui/events/ash/keyboard_capability.h"
+#include "ui/events/ash/mojom/extended_fkeys_modifier.mojom-shared.h"
 #include "ui/events/ash/mojom/modifier_key.mojom-shared.h"
 #include "ui/events/ash/mojom/modifier_key.mojom.h"
 #include "ui/events/ash/mojom/simulate_right_click_modifier.mojom-shared.h"
@@ -1808,8 +1809,9 @@ TEST_F(EventRewriterTest, TestRewriteCapsLockMod3InUse) {
 // TODO(crbug.com/1179893): Remove once the feature is enabled permanently.
 TEST_F(EventRewriterTest, TestRewriteExtendedKeysAltVariantsOld) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
-  scoped_feature_list_.InitAndDisableFeature(
-      ::features::kImprovedKeyboardShortcuts);
+  scoped_feature_list_.InitWithFeatures(
+      {}, {::features::kImprovedKeyboardShortcuts,
+           features::kAltClickAndSixPackCustomization});
   TestNonAppleKeyboardVariants({
       // Alt+Backspace -> Delete
       {ui::ET_KEY_PRESSED,
@@ -1882,6 +1884,8 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeysAltVariantsOld) {
 // is disabled.
 TEST_F(EventRewriterTest, TestRewriteExtendedKeysAltVariantsM92) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAltClickAndSixPackCustomization);
   TestNonAppleKeyboardVariants({
       // Alt+Backspace -> Delete
       {ui::ET_KEY_PRESSED,
@@ -1954,8 +1958,9 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeysAltVariantsM92) {
 // kDeprecateAltBasedSixPack enabled.
 TEST_F(EventRewriterTest, TestRewriteExtendedKeysAltVariants) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
-  scoped_feature_list_.InitAndEnableFeature(
-      ::features::kDeprecateAltBasedSixPack);
+  scoped_feature_list_.InitWithFeatures(
+      {::features::kDeprecateAltBasedSixPack},
+      {features::kAltClickAndSixPackCustomization});
   // All the previously supported Alt based rewrites no longer have any
   // effect. The Search workarounds no longer take effect and the Search+Key
   // portion is rewritten as expected.
@@ -2044,8 +2049,9 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeysAltVariants) {
 // TODO(crbug.com/1179893): Remove once the feature is enabled permanently.
 TEST_F(EventRewriterTest, TestRewriteExtendedKeyInsertOld) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
-  scoped_feature_list_.InitAndDisableFeature(
-      ::features::kImprovedKeyboardShortcuts);
+  scoped_feature_list_.InitWithFeatures(
+      {}, {::features::kImprovedKeyboardShortcuts,
+           features::kAltClickAndSixPackCustomization});
   TestNonAppleKeyboardVariants({
       // Period -> Period
       {ui::ET_KEY_PRESSED,
@@ -2070,8 +2076,9 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeyInsertOld) {
 
 TEST_F(EventRewriterTest, TestRewriteExtendedKeyInsertDeprecatedNotification) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
-  scoped_feature_list_.InitAndEnableFeature(
-      ::features::kImprovedKeyboardShortcuts);
+  scoped_feature_list_.InitWithFeatures(
+      {::features::kImprovedKeyboardShortcuts},
+      {features::kAltClickAndSixPackCustomization});
   TestNonAppleKeyboardVariants({
       // Period -> Period
       {ui::ET_KEY_PRESSED,
@@ -2103,8 +2110,9 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeyInsertDeprecatedNotification) {
 // TODO(crbug.com/1179893): Rename once the feature is enabled permanently.
 TEST_F(EventRewriterTest, TestRewriteExtendedKeyInsertNew) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
-  scoped_feature_list_.InitAndEnableFeature(
-      ::features::kImprovedKeyboardShortcuts);
+  scoped_feature_list_.InitWithFeatures(
+      {::features::kImprovedKeyboardShortcuts},
+      {features::kAltClickAndSixPackCustomization});
   TestNonAppleKeyboardVariants({
       // Search+Shift+Backspace -> Insert
       {ui::ET_KEY_PRESSED,
@@ -2122,6 +2130,8 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeyInsertNew) {
 }
 
 TEST_F(EventRewriterTest, TestRewriteExtendedKeysSearchVariants) {
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAltClickAndSixPackCustomization);
   Preferences::RegisterProfilePrefs(prefs()->registry());
   TestNonAppleKeyboardVariants({
       // Search+Backspace -> Delete
@@ -2167,7 +2177,8 @@ TEST_F(EventRewriterTest, TestRewriteExtendedKeysSearchVariants) {
 
 TEST_F(EventRewriterTest, TestNumberRowIsNotRewritten) {
   Preferences::RegisterProfilePrefs(prefs()->registry());
-
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAltClickAndSixPackCustomization);
   TestNonAppleNonCustomLayoutKeyboardVariants({
       // The number row should not be rewritten without Search key.
       {ui::ET_KEY_PRESSED,
@@ -4329,6 +4340,8 @@ TEST_F(EventRewriterTest, TestRewriteFunctionKeysInvalidLayout) {
 TEST_F(EventRewriterTest, TestRewriteExtendedKeysWithControlRemapped) {
   // Remap Control to Search.
   Preferences::RegisterProfilePrefs(prefs()->registry());
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAltClickAndSixPackCustomization);
   IntegerPrefMember search;
   InitModifierKeyPref(&search, ::prefs::kLanguageRemapControlKeyTo,
                       ui::mojom::ModifierKey::kControl,
@@ -4760,6 +4773,8 @@ void EventRewriterTest::DontRewriteIfNotRewritten(int right_click_flags) {
 }
 
 TEST_F(EventRewriterTest, DontRewriteIfNotRewritten_AltClickIsRightClick) {
+  scoped_feature_list_.InitAndDisableFeature(
+      features::kAltClickAndSixPackCustomization);
   DontRewriteIfNotRewritten(ui::EF_LEFT_MOUSE_BUTTON | ui::EF_ALT_DOWN);
   EXPECT_EQ(message_center_.NotificationCount(), 0u);
 }
@@ -4767,15 +4782,17 @@ TEST_F(EventRewriterTest, DontRewriteIfNotRewritten_AltClickIsRightClick) {
 TEST_F(EventRewriterTest, DontRewriteIfNotRewritten_AltClickIsRightClick_New) {
   // Enabling the kImprovedKeyboardShortcuts feature does not change alt+click
   // behavior or create a notification.
-  scoped_feature_list_.InitAndEnableFeature(
-      ::features::kImprovedKeyboardShortcuts);
+  scoped_feature_list_.InitWithFeatures(
+      {::features::kImprovedKeyboardShortcuts},
+      {features::kAltClickAndSixPackCustomization});
   DontRewriteIfNotRewritten(ui::EF_LEFT_MOUSE_BUTTON | ui::EF_ALT_DOWN);
   EXPECT_EQ(message_center_.NotificationCount(), 0u);
 }
 
 TEST_F(EventRewriterTest, DontRewriteIfNotRewritten_SearchClickIsRightClick) {
-  scoped_feature_list_.InitAndEnableFeature(
-      features::kUseSearchClickForRightClick);
+  scoped_feature_list_.InitWithFeatures(
+      {features::kUseSearchClickForRightClick},
+      {features::kAltClickAndSixPackCustomization});
   DontRewriteIfNotRewritten(ui::EF_LEFT_MOUSE_BUTTON | ui::EF_COMMAND_DOWN);
   EXPECT_EQ(message_center_.NotificationCount(), 0u);
 }
@@ -4783,13 +4800,17 @@ TEST_F(EventRewriterTest, DontRewriteIfNotRewritten_SearchClickIsRightClick) {
 TEST_F(EventRewriterTest, DontRewriteIfNotRewritten_AltClickDeprecated) {
   // Pressing search+click with alt+click deprecated works, but does not
   // generate a notification.
-  scoped_feature_list_.InitAndEnableFeature(::features::kDeprecateAltClick);
+  scoped_feature_list_.InitWithFeatures(
+      {::features::kDeprecateAltClick},
+      {features::kAltClickAndSixPackCustomization});
   DontRewriteIfNotRewritten(ui::EF_LEFT_MOUSE_BUTTON | ui::EF_COMMAND_DOWN);
   EXPECT_EQ(message_center_.NotificationCount(), 0u);
 }
 
 TEST_F(EventRewriterTest, DeprecatedAltClickGeneratesNotification) {
-  scoped_feature_list_.InitAndEnableFeature(::features::kDeprecateAltClick);
+  scoped_feature_list_.InitWithFeatures(
+      {::features::kDeprecateAltClick},
+      {features::kAltClickAndSixPackCustomization});
   ui::DeviceDataManager* device_data_manager =
       ui::DeviceDataManager::GetInstance();
   std::vector<ui::TouchpadDevice> touchpad_devices(1);
@@ -5029,6 +5050,9 @@ TEST_F(EventRewriterAshTest, MouseWheelEventModifiersRewritten) {
 
 // Tests edge cases of key event rewriting (see https://crbug.com/913209).
 TEST_F(EventRewriterAshTest, KeyEventRewritingEdgeCases) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      features::kAltClickAndSixPackCustomization);
   std::vector<std::unique_ptr<ui::Event>> events;
 
   // Edge case 1: Press the Launcher button first. Then press the Up Arrow
@@ -5445,6 +5469,12 @@ class ExtensionRewriterInputTest : public EventRewriterAshTest,
       ui::mojom::SixPackShortcutModifier active_modifier,
       int device_id) override {}
 
+  absl::optional<ui::mojom::ExtendedFkeysModifier> GetExtendedFkeySetting(
+      int device_id,
+      ui::KeyboardCode key_code) override {
+    return absl::nullopt;
+  }
+
   std::map<std::string, ui::mojom::ModifierKey> modifier_remapping_;
   base::flat_set<ui::Accelerator> registered_extension_shortcuts_;
 };
@@ -5827,8 +5857,11 @@ class EventRewriterSixPackKeysTest : public EventRewriterTest {
  public:
   void SetUp() override {
     EventRewriterTest::SetUp();
-    scoped_feature_list_.InitAndEnableFeature(
-        ash::features::kAltClickAndSixPackCustomization);
+    scoped_feature_list_.InitWithFeatures(
+        {features::kInputDeviceSettingsSplit,
+         features::kAltClickAndSixPackCustomization,
+         ::features::kDeprecateAltBasedSixPack},
+        /*disabled_features=*/{});
   }
 };
 
@@ -5872,6 +5905,23 @@ TEST_F(EventRewriterSixPackKeysTest, TestRewriteSixPackKeysSearchVariants) {
        {ui::VKEY_RIGHT, ui::DomCode::ARROW_RIGHT, ui::EF_COMMAND_DOWN,
         ui::DomKey::ARROW_RIGHT},
        {ui::VKEY_END, ui::DomCode::END, ui::EF_NONE, ui::DomKey::END}},
+      // Search+Shift+Down -> Shift+Next (aka PageDown)
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_DOWN, ui::DomCode::ARROW_DOWN,
+        ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN, ui::DomKey::ARROW_DOWN},
+       {ui::VKEY_NEXT, ui::DomCode::PAGE_DOWN, ui::EF_SHIFT_DOWN,
+        ui::DomKey::PAGE_DOWN}},
+      // Search+Ctrl+Up -> Ctrl+Prior (aka PageUp)
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_UP, ui::DomCode::ARROW_UP,
+        ui::EF_CONTROL_DOWN | ui::EF_COMMAND_DOWN, ui::DomKey::ARROW_UP},
+       {ui::VKEY_PRIOR, ui::DomCode::PAGE_UP, ui::EF_CONTROL_DOWN,
+        ui::DomKey::PAGE_UP}},
+      // Search+Alt+Left -> Alt+Home
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_LEFT, ui::DomCode::ARROW_LEFT,
+        ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN, ui::DomKey::ARROW_LEFT},
+       {ui::VKEY_HOME, ui::DomCode::HOME, ui::EF_ALT_DOWN, ui::DomKey::HOME}},
   });
 }
 
@@ -5921,6 +5971,18 @@ TEST_F(EventRewriterSixPackKeysTest, TestRewriteSixPackKeysAltVariants) {
        {ui::VKEY_DOWN, ui::DomCode::ARROW_DOWN,
         ui::EF_ALT_DOWN | ui::EF_CONTROL_DOWN, ui::DomKey::ARROW_DOWN},
        {ui::VKEY_END, ui::DomCode::END, ui::EF_NONE, ui::DomKey::END}},
+      // Ctrl+Alt+Shift+Up -> Shift+Home
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_UP, ui::DomCode::ARROW_UP,
+        ui::EF_ALT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN,
+        ui::DomKey::ARROW_UP},
+       {ui::VKEY_HOME, ui::DomCode::HOME, ui::EF_SHIFT_DOWN, ui::DomKey::HOME}},
+      // Ctrl+Alt+Search+Down -> Search+End
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_DOWN, ui::DomCode::ARROW_DOWN,
+        ui::EF_ALT_DOWN | ui::EF_CONTROL_DOWN | ui::EF_COMMAND_DOWN,
+        ui::DomKey::ARROW_DOWN},
+       {ui::VKEY_END, ui::DomCode::END, ui::EF_COMMAND_DOWN, ui::DomKey::END}},
   });
 }
 
@@ -5965,6 +6027,115 @@ TEST_F(EventRewriterSixPackKeysTest, TestRewriteSixPackKeysBlockedBySetting) {
         ui::DomKey::BACKSPACE},
        kKeyboardDeviceId,
        /*triggers_notification=*/true},
+  });
+}
+
+class EventRewriterExtendedFkeysTest : public EventRewriterTest {
+ public:
+  void SetUp() override {
+    EventRewriterTest::SetUp();
+    scoped_feature_list_.InitWithFeatures(
+        {ash::features::kInputDeviceSettingsSplit,
+         ::features::kSupportF11AndF12KeyShortcuts},
+        {});
+  }
+};
+
+TEST_F(EventRewriterExtendedFkeysTest, TestRewriteExtendedFkeys) {
+  Preferences::RegisterProfilePrefs(prefs()->registry());
+  mojom::KeyboardSettings settings;
+  settings.f11 = ui::mojom::ExtendedFkeysModifier::kAlt;
+  settings.f12 = ui::mojom::ExtendedFkeysModifier::kShift;
+  settings.top_row_are_fkeys = true;
+
+  EXPECT_CALL(*input_device_settings_controller_mock_,
+              GetKeyboardSettings(kKeyboardDeviceId))
+      .WillRepeatedly(testing::Return(&settings));
+  TestInternalChromeKeyboard({
+      // Alt+F1 -> F11
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F1, ui::DomCode::F1, ui::EF_ALT_DOWN, ui::DomKey::F1},
+       {ui::VKEY_F11, ui::DomCode::F11, ui::EF_NONE, ui::DomKey::F11}},
+      // Shift+F2 -> F12
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F2, ui::DomCode::F2, ui::EF_SHIFT_DOWN, ui::DomKey::F2},
+       {ui::VKEY_F12, ui::DomCode::F12, ui::EF_NONE, ui::DomKey::F12}},
+  });
+
+  settings.f11 = ui::mojom::ExtendedFkeysModifier::kCtrlShift;
+  settings.f12 = ui::mojom::ExtendedFkeysModifier::kAlt;
+
+  TestInternalChromeKeyboard({
+      // Ctrl+Shift+F1 -> F11
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F1, ui::DomCode::F1, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN,
+        ui::DomKey::F1},
+       {ui::VKEY_F11, ui::DomCode::F11, ui::EF_NONE, ui::DomKey::F11}},
+      // Alt+F2 -> F12
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F2, ui::DomCode::F2, ui::EF_ALT_DOWN, ui::DomKey::F2},
+       {ui::VKEY_F12, ui::DomCode::F12, ui::EF_NONE, ui::DomKey::F12}},
+  });
+}
+
+TEST_F(EventRewriterExtendedFkeysTest,
+       TestRewriteExtendedFkeysBlockedBySetting) {
+  Preferences::RegisterProfilePrefs(prefs()->registry());
+  mojom::KeyboardSettings settings;
+  settings.f11 = ui::mojom::ExtendedFkeysModifier::kDisabled;
+  settings.f12 = ui::mojom::ExtendedFkeysModifier::kDisabled;
+  settings.top_row_are_fkeys = true;
+
+  EXPECT_CALL(*input_device_settings_controller_mock_,
+              GetKeyboardSettings(kKeyboardDeviceId))
+      .WillRepeatedly(testing::Return(&settings));
+  TestInternalChromeKeyboard({{
+      ui::ET_KEY_PRESSED,
+      {ui::VKEY_F1, ui::DomCode::F1, ui::EF_ALT_DOWN, ui::DomKey::F1},
+      {ui::VKEY_F1, ui::DomCode::F1, ui::EF_ALT_DOWN, ui::DomKey::F1},
+  }});
+}
+
+TEST_F(EventRewriterExtendedFkeysTest, TestRewriteExtendedFkeysTopRowAreFkeys) {
+  Preferences::RegisterProfilePrefs(prefs()->registry());
+  mojom::KeyboardSettings settings;
+  settings.f11 = ui::mojom::ExtendedFkeysModifier::kAlt;
+  settings.f12 = ui::mojom::ExtendedFkeysModifier::kShift;
+  settings.top_row_are_fkeys = true;
+
+  EXPECT_CALL(*input_device_settings_controller_mock_,
+              GetKeyboardSettings(kKeyboardDeviceId))
+      .WillRepeatedly(testing::Return(&settings));
+  TestInternalChromeKeyboard({
+      // Alt+F1 -> F11
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F1, ui::DomCode::F1, ui::EF_ALT_DOWN, ui::DomKey::F1},
+       {ui::VKEY_F11, ui::DomCode::F11, ui::EF_NONE, ui::DomKey::F11}},
+      // Ctrl+Alt+Shift+F1 -> Ctrl+Shift+F11
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F1, ui::DomCode::F1,
+        ui::EF_CONTROL_DOWN | ui::EF_ALT_DOWN | ui::EF_SHIFT_DOWN,
+        ui::DomKey::F1},
+       {ui::VKEY_F11, ui::DomCode::F11, ui::EF_CONTROL_DOWN | ui::EF_SHIFT_DOWN,
+        ui::DomKey::F11}},
+      // Shift+F2 -> F12
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F2, ui::DomCode::F2, ui::EF_SHIFT_DOWN, ui::DomKey::F2},
+       {ui::VKEY_F12, ui::DomCode::F12, ui::EF_NONE, ui::DomKey::F12}},
+  });
+
+  settings.top_row_are_fkeys = false;
+  TestInternalChromeKeyboard({
+      // Search+Alt+F1 -> F11
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F1, ui::DomCode::F1, ui::EF_COMMAND_DOWN | ui::EF_ALT_DOWN,
+        ui::DomKey::F1},
+       {ui::VKEY_F11, ui::DomCode::F11, ui::EF_NONE, ui::DomKey::F11}},
+      // Search+Shift+F2 -> F12
+      {ui::ET_KEY_PRESSED,
+       {ui::VKEY_F2, ui::DomCode::F2, ui::EF_COMMAND_DOWN | ui::EF_SHIFT_DOWN,
+        ui::DomKey::F2},
+       {ui::VKEY_F12, ui::DomCode::F12, ui::EF_NONE, ui::DomKey::F12}},
   });
 }
 
@@ -6109,8 +6280,10 @@ class EventRewriterRemapToRightClickTest
  public:
   void SetUp() override {
     EventRewriterTest::SetUp();
-    scoped_feature_list_.InitAndEnableFeature(
-        features::kAltClickAndSixPackCustomization);
+    scoped_feature_list_.InitWithFeatures(
+        {features::kInputDeviceSettingsSplit,
+         features::kAltClickAndSixPackCustomization},
+        /*disabled_features=*/{});
     auto deprecation_controller =
         std::make_unique<DeprecationNotificationController>(&message_center_);
     deprecation_controller_ = deprecation_controller.get();
@@ -6209,6 +6382,12 @@ class EventRewriterRemapToRightClickTest
       ui::mojom::SixPackShortcutModifier blocked_modifier,
       ui::mojom::SixPackShortcutModifier active_modifier,
       int device_id) override {}
+
+  absl::optional<ui::mojom::ExtendedFkeysModifier> GetExtendedFkeySetting(
+      int device_id,
+      ui::KeyboardCode key_code) override {
+    return absl::nullopt;
+  }
 };
 
 TEST_F(EventRewriterRemapToRightClickTest, AltClickRemappedToRightClick) {

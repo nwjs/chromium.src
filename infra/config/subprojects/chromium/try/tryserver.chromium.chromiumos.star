@@ -34,6 +34,13 @@ consoles.list_view(
 )
 
 try_.builder(
+    name = "chromeos-amd64-generic-asan-rel",
+    mirrors = [
+        "ci/chromeos-amd64-generic-asan-rel",
+    ],
+)
+
+try_.builder(
     name = "chromeos-amd64-generic-cfi-thin-lto-rel",
     mirrors = [
         "ci/chromeos-amd64-generic-cfi-thin-lto-rel",
@@ -143,62 +150,12 @@ try_.builder(
 try_.builder(
     name = "lacros-amd64-generic-rel-skylab",
     branch_selector = branches.selector.CROS_BRANCHES,
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "checkout_lacros_sdk",
-                "chromeos",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.CHROMEOS,
-            target_cros_boards = [
-                "amd64-generic",
-            ],
-        ),
-        build_gs_bucket = "chromium-chromiumos-archive",
-        # TODO(https://crbug.com/1399919): change skylab_upload_location
-        # as a property. Change try builder as CI mirrors
-        skylab_upload_location = builder_config.skylab_upload_location(
-            gs_bucket = "chromium-try-skylab",
-        ),
+    mirrors = [
+        "ci/lacros-amd64-generic-rel-skylab",
+    ],
+    tryjob = try_.job(
+        experiment_percentage = 1,
     ),
-)
-
-try_.builder(
-    name = "lacros-amd64-generic-rel-skylab-fyi",
-    branch_selector = branches.selector.CROS_BRANCHES,
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "chromeos",
-                "checkout_lacros_sdk",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = ["mb", "mb_no_luci_auth"],
-            target_bits = 64,
-            target_platform = "chromeos",
-            target_cros_boards = "eve",
-            cros_boards_with_qemu_images = "amd64-generic",
-        ),
-        build_gs_bucket = "chromium-fyi-archive",
-        skylab_upload_location = builder_config.skylab_upload_location(
-            gs_bucket = "gs://lacros-amd64-generic-rel-skylab-try",
-        ),
-    ),
-    builderless = not settings.is_main,
-    main_list_view = "try",
 )
 
 try_.builder(
@@ -293,6 +250,7 @@ try_.compilator_builder(
     branch_selector = branches.selector.CROS_LTS_BRANCHES,
     cores = 32,
     main_list_view = "try",
+    siso_enabled = True,
 )
 
 try_.orchestrator_builder(
@@ -313,19 +271,21 @@ This builder should be removed after migrating linux-chromeos-rel from Ninja to 
     },
     main_list_view = "try",
     tryjob = try_.job(
-        experiment_percentage = 20,
+        experiment_percentage = 10,
     ),
     use_clang_coverage = True,
 )
 
 try_.compilator_builder(
     name = "linux-chromeos-siso-rel-compilator",
+    cores = 32,
     main_list_view = "try",
     siso_enabled = True,
 )
 
 try_.builder(
     name = "linux-lacros-dbg",
+    branch_selector = branches.selector.CROS_BRANCHES,
     # TODO(crbug.com/1233247) Adds the CI tester when it's available.
     mirrors = [
         "ci/linux-lacros-dbg",
@@ -354,6 +314,7 @@ try_.compilator_builder(
     branch_selector = branches.selector.CROS_BRANCHES,
     cores = 32,
     main_list_view = "try",
+    siso_enabled = True,
 )
 
 try_.orchestrator_builder(
@@ -370,7 +331,7 @@ This builder should be removed after migrating linux-lacros-rel from Ninja to Si
     coverage_test_types = ["unit", "overall"],
     main_list_view = "try",
     tryjob = try_.job(
-        experiment_percentage = 20,
+        experiment_percentage = 10,
     ),
     use_clang_coverage = True,
 )

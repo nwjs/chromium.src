@@ -612,7 +612,7 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
     WorkerThreadDispatcher* worker_dispatcher = WorkerThreadDispatcher::Get();
     std::unique_ptr<IPCMessageSender> ipc_sender =
         IPCMessageSender::CreateWorkerThreadIPCMessageSender(
-            worker_dispatcher, service_worker_version_id);
+            worker_dispatcher, context_proxy, service_worker_version_id);
     base::UnguessableToken worker_activation_token =
         *RendererExtensionRegistry::Get()->GetWorkerActivationToken(
             extension->id());
@@ -639,6 +639,7 @@ void Dispatcher::WillEvaluateServiceWorkerOnWorkerThread(
     // TODO(lazyboy): Get rid of RequireGuestViewModules() as this doesn't seem
     // necessary for Extension SW.
     //RequireGuestViewModules(context); //NWJS#6624
+
     worker_dispatcher->DidInitializeContext(service_worker_version_id);
   }
 
@@ -1018,8 +1019,9 @@ void Dispatcher::RegisterNativeHandlers(
   module_system->RegisterNativeHandler(
       "logging",
       std::unique_ptr<NativeHandler>(new LoggingNativeHandler(context)));
-  module_system->RegisterNativeHandler("schema_registry",
-                                       v8_schema_registry->AsNativeHandler());
+  module_system->RegisterNativeHandler(
+      "schema_registry",
+      v8_schema_registry->AsNativeHandler(context->isolate()));
   module_system->RegisterNativeHandler(
       "test_features",
       std::unique_ptr<NativeHandler>(new TestFeaturesNativeHandler(context)));
@@ -1079,9 +1081,19 @@ void Dispatcher::RegisterNativeHandlers(
   module_system->RegisterNativeHandler(
       "runtime",
       std::unique_ptr<NativeHandler>(new RuntimeCustomBindings(context)));
+
+  scoped_refptr<base::SingleThreadTaskRunner> io_task_runner = nullptr;
+  // RenderThread::Get() returns nullptr from some tests.
+  if (context->IsForServiceWorker() && RenderThread::Get()) {
+    io_task_runner = RenderThread::Get()->GetIOTaskRunner();
+  } else if (context->web_frame()) {
+    io_task_runner =
+        context->web_frame()->GetTaskRunner(blink::TaskType::kInternalDefault);
+  }
   module_system->RegisterNativeHandler(
       "automationInternal", std::make_unique<AutomationInternalCustomBindings>(
-                                context, bindings_system));
+                                context, bindings_system, io_task_runner,
+                                content::WorkerThread::GetCurrentId()));
 }
 
 bool Dispatcher::OnControlMessageReceived(const IPC::Message& message) {

@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "content/public/renderer/render_frame.h"
@@ -34,6 +35,7 @@
 #include "mojo/public/cpp/bindings/pending_associated_remote.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
+#include "third_party/blink/public/web/modules/service_worker/web_service_worker_context_proxy.h"
 
 namespace extensions {
 
@@ -317,7 +319,7 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
     return renderer_host_.get();
   }
 
-  content::RenderThread* const render_thread_;
+  const raw_ptr<content::RenderThread, ExperimentalRenderer> render_thread_;
   mojo::AssociatedRemote<mojom::EventRouter> event_router_remote_;
   mojo::AssociatedRemote<mojom::RendererHost> renderer_host_;
   mojo::AssociatedRemote<extensions::mojom::RendererAutomationRegistry>
@@ -328,9 +330,12 @@ class MainThreadIPCMessageSender : public IPCMessageSender {
 
 class WorkerThreadIPCMessageSender : public IPCMessageSender {
  public:
-  WorkerThreadIPCMessageSender(WorkerThreadDispatcher* dispatcher,
-                               int64_t service_worker_version_id)
+  WorkerThreadIPCMessageSender(
+      WorkerThreadDispatcher* dispatcher,
+      blink::WebServiceWorkerContextProxy* context_proxy,
+      int64_t service_worker_version_id)
       : dispatcher_(dispatcher),
+        context_proxy_(context_proxy),
         service_worker_version_id_(service_worker_version_id) {}
 
   WorkerThreadIPCMessageSender(const WorkerThreadIPCMessageSender&) = delete;
@@ -446,11 +451,8 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
       ScriptContext* context,
       mojo::PendingAssociatedRemote<ax::mojom::Automation> pending_remote)
       override {
-    // TODO(b:260590502): May need to update this when migrating extensions to
-    // Manifest V3.
-    // Only the main thread may register an automation, so if we reached this
-    // path, this should raise a problem.
-    NOTREACHED_NORETURN();
+    CHECK(context->IsForServiceWorker());
+    dispatcher_->SendBindAutomation(std::move(pending_remote));
   }
 
   void SendOpenMessageChannel(ScriptContext* script_context,
@@ -534,18 +536,14 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
                           const std::string& call_name,
                           base::Value::List args,
                           const std::string& extra) override {
-    ExtensionHostMsg_APIActionOrEvent_Params params;
-    params.api_call = call_name;
-    params.arguments = std::move(args);
-    params.extra = extra;
     switch (call_type) {
       case ActivityLogCallType::APICALL:
-        dispatcher_->Send(new ExtensionHostMsg_AddAPIActionToActivityLog(
-            extension_id, params));
+        GetRendererHost()->AddAPIActionToActivityLog(extension_id, call_name,
+                                                     std::move(args), extra);
         break;
       case ActivityLogCallType::EVENT:
-        dispatcher_->Send(
-            new ExtensionHostMsg_AddEventToActivityLog(extension_id, params));
+        GetRendererHost()->AddEventToActivityLog(extension_id, call_name,
+                                                 std::move(args), extra);
         break;
     }
   }
@@ -562,9 +560,20 @@ class WorkerThreadIPCMessageSender : public IPCMessageSender {
                                   service_worker_version_id_, GetExtensionId());
   }
 
-  WorkerThreadDispatcher* const dispatcher_;
+  mojom::RendererHost* GetRendererHost() {
+    if (!renderer_host_.is_bound()) {
+      context_proxy_->GetRemoteAssociatedInterface(
+          renderer_host_.BindNewEndpointAndPassReceiver());
+    }
+    return renderer_host_.get();
+  }
+
+  const raw_ptr<WorkerThreadDispatcher, ExperimentalRenderer> dispatcher_;
+  const raw_ptr<blink::WebServiceWorkerContextProxy, ExperimentalRenderer>
+      context_proxy_;
   const int64_t service_worker_version_id_;
   absl::optional<ExtensionId> extension_id_;
+  mojo::AssociatedRemote<mojom::RendererHost> renderer_host_;
 };
 
 }  // namespace
@@ -583,9 +592,10 @@ IPCMessageSender::CreateMainThreadIPCMessageSender() {
 std::unique_ptr<IPCMessageSender>
 IPCMessageSender::CreateWorkerThreadIPCMessageSender(
     WorkerThreadDispatcher* dispatcher,
+    blink::WebServiceWorkerContextProxy* context_proxy,
     int64_t service_worker_version_id) {
   return std::make_unique<WorkerThreadIPCMessageSender>(
-      dispatcher, service_worker_version_id);
+      dispatcher, context_proxy, service_worker_version_id);
 }
 
 }  // namespace extensions

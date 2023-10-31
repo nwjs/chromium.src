@@ -20,6 +20,7 @@
 #import "components/segmentation_platform/public/segmentation_platform_service.h"
 #import "components/signin/public/base/signin_pref_names.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
+#import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
 #import "ios/chrome/browser/default_browser/utils_test_support.h"
 #import "ios/chrome/browser/favicon/ios_chrome_large_icon_cache_factory.h"
 #import "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
@@ -47,7 +48,7 @@
 #import "ios/chrome/browser/signin/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/identity_manager_factory.h"
-#import "ios/chrome/browser/sync/sync_service_factory.h"
+#import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_action_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/query_suggestion_view.h"
@@ -176,6 +177,9 @@ class ContentSuggestionsMediatorTest : public PlatformTest {
                           syncService:sync_service
                 authenticationService:authentication_service
                       identityManager:identityManager
+                      shoppingService:commerce::ShoppingServiceFactory::
+                                          GetForBrowserState(
+                                              chrome_browser_state_.get())
                               browser:browser_.get()];
     mediator_.dispatcher = dispatcher_;
     mediator_.consumer = consumer_;
@@ -361,7 +365,7 @@ TEST_F(ContentSuggestionsMediatorTest, TestOpenWhatsNew) {
 TEST_F(ContentSuggestionsMediatorTest, TestMagicStackConsumerCall) {
   consumer_ = OCMStrictProtocolMock(@protocol(ContentSuggestionsConsumer));
   scoped_feature_list_.Reset();
-  scoped_feature_list_.InitWithFeatures({kMagicStack, kIOSSetUpList}, {});
+  scoped_feature_list_.InitWithFeatures({kMagicStack}, {});
   OCMExpect([consumer_ setMagicStackOrder:[OCMArg any]]);
   OCMExpect([consumer_ showSetUpListWithItems:[OCMArg any]]);
   OCMExpect([consumer_ setShortcutTilesWithConfigs:[OCMArg any]]);
@@ -392,7 +396,7 @@ TEST_F(ContentSuggestionsMediatorTest,
            {{segmentation_platform::kDefaultModelEnabledParam, "true"}}},
           {kMagicStack, {{kMagicStackMostVisitedModuleParam, "true"}}},
       },
-      {});
+      {kIOSSetUpList});
   OCMExpect(
       [consumer_ setMagicStackOrder:[OCMArg checkWithBlock:^BOOL(id value) {
                    NSArray<NSNumber*>* magicStackOrder = (NSArray*)value;
@@ -428,7 +432,7 @@ TEST_F(ContentSuggestionsMediatorTest,
         {{segmentation_platform::kDefaultModelEnabledParam, "true"}}},
        {kMagicStack, {{kMagicStackMostVisitedModuleParam, "true"}}},
        {kSafetyCheckMagicStack, {}}},
-      {});
+      {kIOSSetUpList});
   OCMExpect(
       [consumer_ setMagicStackOrder:[OCMArg checkWithBlock:^BOOL(id value) {
                    NSArray<NSNumber*>* magicStackOrder = (NSArray*)value;
@@ -486,4 +490,15 @@ TEST_F(ContentSuggestionsMediatorTest, TestOnServiceStatusChanged) {
   item_state = set_up_list_prefs::GetItemState(local_state_.Get(),
                                                SetUpListItemType::kSignInSync);
   EXPECT_EQ(item_state, SetUpListItemState::kCompleteInList);
+}
+
+// Tests that the -loadParcelTrackingPage ContentSuggestionsCommands
+// implementation logs the correct metric and loads the passed URL.
+TEST_F(ContentSuggestionsMediatorTest, TestParcelTracking) {
+  GURL parcelTrackingURL = GURL("http://chromium.org");
+  [mediator_ loadParcelTrackingPage:parcelTrackingURL];
+  histogram_tester_->ExpectUniqueSample(
+      "IOS.MagicStack.Module.Click",
+      ContentSuggestionsModuleType::kParcelTracking, 1);
+  EXPECT_EQ(parcelTrackingURL, url_loader_->last_params.web_params.url);
 }

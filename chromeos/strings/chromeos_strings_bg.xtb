@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Ежедневна промяна на изображението на тапета</translation>
 <translation id="1644574205037202324">История</translation>
 <translation id="1651925268237749928">Избрахте споделен албум. Другите хора могат да добавят или променят снимки. Тапетът ви може да използва снимки, които понастоящем не са в този албум.</translation>
+<translation id="1661865805917886535">Част от информацията за профила и системата може да бъде изпратена до Google. Използваме тази информация за отстраняване на технически проблеми и за подобряване на услугите ни в съответствие с Декларацията ни за поверителност (<ph name="PRIVACYPOLICYURL" />) и Общите ни условия (<ph name="TERMSOFSERVICEURL" />). За да поискате промени в съдържанието, отворете Помощния център за правни въпроси (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Спряло – няма мастило</translation>
 <translation id="1664796644829245314">Визуализация на „<ph name="PREVIEW_OBJECT" />“</translation>
 <translation id="1668469839109562275">Вградена VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">Процесор</translation>
 <translation id="3124039320086536031">Устройството е свързано.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Да се премахне ли страницата?}=1{Да се премахне ли страница {PAGE_NUMBER}?}other{Да се премахне ли страница {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Само за <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Мобилни данни</translation>
 <translation id="3156846309055100599">Страница <ph name="PAGE_NUMBER" /> се сканира...</translation>
 <translation id="315738237743207937">Открит е портал за удостоверяване</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Търсят се скенери</translation>
 <translation id="3226657629376379887">Меню с действия за оформлението</translation>
 <translation id="3246869037381808805">Заданията за отпечатване, по-стари от 1 ден, ще бъдат премахнати</translation>
-<translation id="3248223063252096240">Специално за <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Неуспешно – вратичката е отворена</translation>
 <translation id="3275729367986477355">Изображение на аватара</translation>
 <translation id="3283504360622356314">{0,plural, =1{Редактиране на файла}other{Редактиране на файловете}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Избиране на <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Инстр. за програмисти</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Първоначално свързване</translation>
 <translation id="8206859287963243715">Клетъчно</translation>

@@ -22,7 +22,7 @@
 #include "ash/focus_cycler.h"
 #include "ash/frame/non_client_frame_view_ash.h"
 #include "ash/game_dashboard/game_dashboard_controller.h"
-#include "ash/glanceables/glanceables_v2_controller.h"
+#include "ash/glanceables/glanceables_controller.h"
 #include "ash/ime/ime_controller_impl.h"
 #include "ash/keyboard/keyboard_controller_impl.h"
 #include "ash/media/media_controller_impl.h"
@@ -1270,8 +1270,8 @@ void ToggleCalendar() {
       RootWindowController::ForWindow(target_root)->GetStatusAreaWidget();
 
   DateTray* date_tray = status_area_widget->date_tray();
-  GlanceablesV2Controller* const glanceables_controller =
-      Shell::Get()->glanceables_v2_controller();
+  GlanceablesController* const glanceables_controller =
+      Shell::Get()->glanceables_controller();
   if (glanceables_controller &&
       glanceables_controller->AreGlanceablesAvailable()) {
     if (date_tray->is_active()) {
@@ -1687,13 +1687,6 @@ void UnpinWindow() {
 void VolumeDown() {
   auto* audio_handler = CrasAudioHandler::Get();
   if (features::IsQsRevampEnabled()) {
-    if (audio_handler->IsOutputMuted() &&
-        !audio_handler->IsOutputVolumeBelowDefaultMuteLevel()) {
-      // The output node can be muted while the previous level is preserved.
-      // First update the mute state to update the slider style if the level is
-      // greater than `kMuteThresholdPercent`, and then adjust the volume level.
-      audio_handler->SetOutputMute(false);
-    }
     // Only plays the audio if unmuted.
     if (!audio_handler->IsOutputMuted()) {
       AcceleratorController::PlayVolumeAdjustmentSound();
@@ -1716,6 +1709,14 @@ void VolumeDown() {
 void VolumeMute() {
   CrasAudioHandler::Get()->SetOutputMute(
       true, CrasAudioHandler::AudioSettingsChangeSource::kAccelerator);
+}
+
+void VolumeMuteToggle() {
+  auto* audio_handler = CrasAudioHandler::Get();
+  CHECK(audio_handler);
+  audio_handler->SetOutputMute(
+      !audio_handler->IsOutputMuted(),
+      CrasAudioHandler::AudioSettingsChangeSource::kAccelerator);
 }
 
 void VolumeUp() {

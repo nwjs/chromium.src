@@ -43,6 +43,8 @@
 #include "gpu/ipc/service/gpu_memory_buffer_factory.h"
 #include "gpu/ipc/service/gpu_watchdog_thread.h"
 #include "third_party/skia/include/core/SkGraphics.h"
+#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/GrTypes.h"
 #include "ui/gl/gl_bindings.h"
 #include "ui/gl/gl_enums.h"
 #include "ui/gl/gl_features.h"
@@ -491,7 +493,9 @@ GpuChannel* GpuChannelManager::EstablishChannel(
     const base::UnguessableToken& channel_token,
     int client_id,
     uint64_t client_tracing_id,
-    bool is_gpu_host) {
+    bool is_gpu_host,
+    const gfx::GpuExtraInfo& gpu_extra_info,
+    gpu::GpuMemoryBufferFactory* gpu_memory_buffer_factory) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
 
   // Remove existing GPU channel with same client id before creating
@@ -509,7 +513,8 @@ GpuChannel* GpuChannelManager::EstablishChannel(
   std::unique_ptr<GpuChannel> gpu_channel = GpuChannel::Create(
       this, channel_token, scheduler_, sync_point_manager_, share_group_,
       task_runner_, io_task_runner_, client_id, client_tracing_id, is_gpu_host,
-      image_decode_accelerator_worker_);
+      image_decode_accelerator_worker_, gpu_extra_info,
+      gpu_memory_buffer_factory);
 
   if (!gpu_channel)
     return nullptr;
@@ -845,7 +850,7 @@ void GpuChannelManager::PerformImmediateCleanup() {
 
     // TODO(lizeb): Also perform this on GL devices.
     if (auto* context = shared_context_state_->gr_context()) {
-      context->flushAndSubmit(true);
+      context->flushAndSubmit(GrSyncCpu::kYes);
     }
   }
 #endif

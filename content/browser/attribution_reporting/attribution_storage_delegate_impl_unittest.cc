@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -25,7 +26,6 @@
 #include "content/browser/attribution_reporting/stored_source.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
-#include "third_party/blink/public/common/features.h"
 
 namespace content {
 namespace {
@@ -69,14 +69,22 @@ void RunRandomFakeReportsTest(const SourceType source_type,
           .SetEventReportWindows(
               AttributionStorageDelegateImpl().GetDefaultEventReportWindows(
                   source_type, /*last_report_window=*/kDefaultExpiry))
+          .SetMaxEventLevelReports(
+              source_type ==
+                      attribution_reporting::mojom::SourceType::kNavigation
+                  ? 3
+                  : 1)
           .BuildStored();
 
   base::flat_map<std::vector<FakeReport>, int> output_counts;
   for (int i = 0; i < num_samples; i++) {
-    std::vector<FakeReport> fake_reports =
-        AttributionStorageDelegateImpl().GetRandomFakeReports(
-            source.common_info(), source.event_report_windows(),
-            source.source_time(), source.max_event_level_reports());
+    const AttributionStorageDelegateImpl delegate;
+    const int64_t num_states =
+        delegate.GetNumStates(source_type, source.event_report_windows(),
+                              source.max_event_level_reports());
+    std::vector<FakeReport> fake_reports = delegate.GetRandomFakeReports(
+        source.common_info().source_type(), source.event_report_windows(),
+        source.max_event_level_reports(), source.source_time(), num_states);
     output_counts[fake_reports]++;
   }
 
@@ -215,16 +223,77 @@ TEST(AttributionStorageDelegateImplTest, NewReportID_IsValidGUID) {
 }
 
 TEST(AttributionStorageDelegateImplTest,
-     RandomizedResponse_NoNoiseModeReturnsNull) {
-  for (auto source_type : kSourceTypes) {
+     RandomizedResponse_NoNoiseModeReturnsRealRateAndNullResponse) {
+  for (auto source_type : {SourceType::kNavigation, SourceType::kEvent}) {
     const auto source =
-        SourceBuilder().SetSourceType(source_type).BuildStored();
-    EXPECT_EQ(AttributionStorageDelegateImpl(AttributionNoiseMode::kNone)
-                  .GetRandomizedResponse(
-                      source.common_info(), source.event_report_windows(),
-                      source.source_time(), source.max_event_level_reports(),
-                      source.randomized_response_rate()),
-              absl::nullopt);
+        SourceBuilder()
+            .SetSourceType(source_type)
+            .SetMaxEventLevelReports(
+                source_type ==
+                        attribution_reporting::mojom::SourceType::kNavigation
+                    ? 3
+                    : 1)
+            .BuildStored();
+
+    auto result = AttributionStorageDelegateImpl(AttributionNoiseMode::kNone)
+                      .GetRandomizedResponse(source.common_info().source_type(),
+                                             source.event_report_windows(),
+                                             source.max_event_level_reports(),
+                                             source.source_time());
+    ASSERT_TRUE(result.has_value());
+    ASSERT_GT(result->rate(), 0);
+    ASSERT_EQ(result->response(), absl::nullopt);
+  }
+}
+
+TEST(AttributionStorageDelegateImplTest,
+     RandomizedResponse_ExceedsLimit_ReturnsError) {
+  const struct {
+    SourceType source_type;
+    double max_navigation_info_gain = std::numeric_limits<double>::infinity();
+    double max_event_info_gain = std::numeric_limits<double>::infinity();
+    bool expected_ok;
+  } kTestCases[] = {
+      {
+          .source_type = SourceType::kNavigation,
+          .max_event_info_gain = 0,
+          .expected_ok = true,
+      },
+      {
+          .source_type = SourceType::kNavigation,
+          .max_navigation_info_gain = 0,
+          .expected_ok = false,
+      },
+      {
+          .source_type = SourceType::kEvent,
+          .max_navigation_info_gain = 0,
+          .expected_ok = true,
+      },
+      {
+          .source_type = SourceType::kEvent,
+          .max_event_info_gain = 0,
+          .expected_ok = false,
+      },
+  };
+
+  for (const auto& test_case : kTestCases) {
+    AttributionConfig config;
+    config.event_level_limit.max_navigation_info_gain =
+        test_case.max_navigation_info_gain;
+    config.event_level_limit.max_event_info_gain =
+        test_case.max_event_info_gain;
+
+    auto delegate = AttributionStorageDelegateImpl::CreateForTesting(
+        AttributionNoiseMode::kDefault, AttributionDelayMode::kDefault, config);
+
+    const auto source =
+        SourceBuilder().SetSourceType(test_case.source_type).BuildStored();
+
+    auto result = delegate->GetRandomizedResponse(
+        test_case.source_type, source.event_report_windows(),
+        source.max_event_level_reports(), source.source_time());
+
+    EXPECT_EQ(result.has_value(), test_case.expected_ok);
   }
 }
 
@@ -348,12 +417,18 @@ TEST(AttributionStorageDelegateImplTest, GetFakeReportsForSequenceIndex) {
             .SetEventReportWindows(
                 AttributionStorageDelegateImpl().GetDefaultEventReportWindows(
                     test_case.source_type, /*last_report_window=*/kExpiry))
+            .SetMaxEventLevelReports(
+                test_case.source_type ==
+                        attribution_reporting::mojom::SourceType::kNavigation
+                    ? 3
+                    : 1)
             .BuildStored();
-    EXPECT_EQ(test_case.expected,
-              AttributionStorageDelegateImpl().GetFakeReportsForSequenceIndex(
-                  source.common_info(), source.source_time(),
-                  source.event_report_windows(),
-                  source.max_event_level_reports(), test_case.sequence_index))
+    EXPECT_EQ(
+        test_case.expected,
+        AttributionStorageDelegateImpl().GetFakeReportsForSequenceIndex(
+            source.common_info().source_type(), source.event_report_windows(),
+            source.max_event_level_reports(), source.source_time(),
+            test_case.sequence_index))
         << test_case.sequence_index;
   }
 }
@@ -404,16 +479,24 @@ TEST(AttributionStorageDelegateImplTest,
                 AttributionStorageDelegateImpl().GetDefaultEventReportWindows(
                     test_case.source_type,
                     /*last_report_window=*/base::Days(30)))
+            .SetMaxEventLevelReports(
+                test_case.source_type ==
+                        attribution_reporting::mojom::SourceType::kNavigation
+                    ? 3
+                    : 1)
             .BuildStored();
+
+    const AttributionStorageDelegateImpl delegate;
+
     double value =
-        std::round(
-            AttributionStorageDelegateImpl().ComputeChannelCapacity(
-                source.common_info(), source.event_report_windows(),
-                source.source_time(), source.max_event_level_reports(),
-                AttributionStorageDelegateImpl().GetRandomizedResponseRate(
-                    source.event_report_windows(), test_case.source_type,
-                    source.max_event_level_reports())) *
-            100000.0) /
+        std::round(ComputeChannelCapacity(
+                       delegate.GetNumStates(test_case.source_type,
+                                             source.event_report_windows(),
+                                             source.max_event_level_reports()),
+                       delegate.GetRandomizedResponseRate(
+                           test_case.source_type, source.event_report_windows(),
+                           source.max_event_level_reports())) *
+                   100000.0) /
         100000.0;
     EXPECT_EQ(test_case.expected, value);
   }
@@ -440,33 +523,11 @@ TEST(AttributionStorageDelegateImplTest, SanitizeTriggerData) {
   }
 }
 
-TEST(AttributionStorageDelegateImplTest, NoExpiryForImpression_DefaultUsed) {
-  const base::Time source_time = base::Time::Now();
-
-  for (auto source_type : kSourceTypes) {
-    EXPECT_EQ(source_time + base::Days(30),
-              AttributionStorageDelegateImpl().GetExpiryTime(
-                  /*declared_expiry=*/absl::nullopt, source_time, source_type));
-  }
-}
-
 TEST(AttributionStorageDelegateImplTest,
      NoReportWindowForImpression_NullOptReturned) {
   EXPECT_EQ(absl::nullopt, AttributionStorageDelegateImpl().GetReportWindowTime(
                                /*declared_window=*/absl::nullopt,
                                /*source_time=*/base::Time::Now()));
-}
-
-TEST(AttributionStorageDelegateImplTest,
-     LargeImpressionExpirySpecified_ClampedTo30Days) {
-  constexpr base::TimeDelta declared_expiry = base::Days(60);
-  const base::Time source_time = base::Time::Now();
-
-  for (auto source_type : kSourceTypes) {
-    EXPECT_EQ(source_time + base::Days(30),
-              AttributionStorageDelegateImpl().GetExpiryTime(
-                  declared_expiry, source_time, source_type));
-  }
 }
 
 TEST(AttributionStorageDelegateImplTest,
@@ -477,28 +538,6 @@ TEST(AttributionStorageDelegateImplTest,
   EXPECT_EQ(source_time + base::Days(30),
             AttributionStorageDelegateImpl().GetReportWindowTime(
                 declared_report_window, source_time));
-}
-
-TEST(AttributionStorageDelegateImplTest,
-     SmallImpressionExpirySpecified_ClampedTo1Day) {
-  const struct {
-    base::TimeDelta declared_expiry;
-    base::TimeDelta want_expiry;
-  } kTestCases[] = {
-      {base::Days(-1), base::Days(1)},
-      {base::Days(0), base::Days(1)},
-      {base::Days(1) - base::Milliseconds(1), base::Days(1)},
-  };
-
-  const base::Time source_time = base::Time::Now();
-
-  for (auto source_type : kSourceTypes) {
-    for (const auto& test_case : kTestCases) {
-      EXPECT_EQ(source_time + test_case.want_expiry,
-                AttributionStorageDelegateImpl().GetExpiryTime(
-                    test_case.declared_expiry, source_time, source_type));
-    }
-  }
 }
 
 TEST(AttributionStorageDelegateImplTest,
@@ -518,44 +557,6 @@ TEST(AttributionStorageDelegateImplTest,
     EXPECT_EQ(source_time + test_case.want_report_window,
               AttributionStorageDelegateImpl().GetReportWindowTime(
                   test_case.declared_report_window, source_time));
-  }
-}
-
-TEST(AttributionStorageDelegateImplTest,
-     NonWholeDayImpressionExpirySpecified_Rounded) {
-  const struct {
-    SourceType source_type;
-    base::TimeDelta declared_expiry;
-    base::TimeDelta want_expiry;
-  } kTestCases[] = {
-      {SourceType::kNavigation, base::Hours(36), base::Hours(36)},
-      {SourceType::kEvent, base::Hours(36), kDefaultFirstWindow},
-
-      {SourceType::kNavigation, base::Days(1) + base::Milliseconds(1),
-       base::Days(1) + base::Milliseconds(1)},
-      {SourceType::kEvent, base::Days(1) + base::Milliseconds(1),
-       base::Days(1)},
-  };
-
-  const base::Time source_time = base::Time::Now();
-
-  for (const auto& test_case : kTestCases) {
-    EXPECT_EQ(
-        source_time + test_case.want_expiry,
-        AttributionStorageDelegateImpl().GetExpiryTime(
-            test_case.declared_expiry, source_time, test_case.source_type));
-  }
-}
-
-TEST(AttributionStorageDelegateImplTest,
-     ImpressionExpirySpecified_ExpiryOverrideDefault) {
-  constexpr base::TimeDelta declared_expiry = base::Days(10);
-  const base::Time source_time = base::Time::Now();
-
-  for (auto source_type : kSourceTypes) {
-    EXPECT_EQ(source_time + base::Days(10),
-              AttributionStorageDelegateImpl().GetExpiryTime(
-                  declared_expiry, source_time, source_type));
   }
 }
 
@@ -609,86 +610,6 @@ TEST(AttributionStorageDelegateImplTest, GetDefaultReportWindows_AsExpected) {
   }
 }
 
-class AttributionStorageDelegateImplTestEventFlagEnabled
-    : public testing::Test {
- public:
-  AttributionStorageDelegateImplTestEventFlagEnabled() {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kConversionMeasurement,
-          {{"vtc_early_reporting_windows", "true"}}}},
-        /*disabled_features=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-TEST_F(AttributionStorageDelegateImplTestEventFlagEnabled,
-       GetFeatureReportWindows_AsExpected) {
-  const struct {
-    SourceType source_type;
-    base::TimeDelta last_report_window;
-    attribution_reporting::EventReportWindows expected;
-  } kTestCases[] = {
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(30),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(7), base::Days(30)}),
-      },
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(5),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(5)}),
-      },
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(1),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(30),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(7), base::Days(30)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(5),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(5)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(1),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1)}),
-      },
-  };
-  for (const auto& test_case : kTestCases) {
-    EXPECT_EQ(test_case.expected,
-              AttributionStorageDelegateImpl().GetDefaultEventReportWindows(
-                  test_case.source_type, test_case.last_report_window));
-  }
-}
-
-TEST_F(AttributionStorageDelegateImplTestEventFlagEnabled,
-       GetRandomFakeReports_Event_MatchesExpectedDistribution) {
-  // The probability that not all of the 3 states are seen after `num_samples`
-  // trials is at most ~1e-14476, which is 0 for all practical purposes, so the
-  // `expected_num_combinations` check should always pass.
-  //
-  // For the distribution check, the probability of failure with `tolerance` is
-  // at most 1e-9.
-  RunRandomFakeReportsTest(SourceType::kEvent,
-                           /*num_stars=*/1,
-                           /*num_bars=*/6,
-                           /*num_samples=*/100'000,
-                           /*tolerance=*/0.03);
-}
-
 // Change test to verify that expected value is returned (test
 // GetDefaultReportWindows())
 class AttributionStorageDelegateImplTestFeatureConfigured
@@ -696,13 +617,8 @@ class AttributionStorageDelegateImplTestFeatureConfigured
  public:
   AttributionStorageDelegateImplTestFeatureConfigured() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kConversionMeasurement,
-          {{"vtc_early_reporting_windows", "true"},
-           {"first_report_window_deadline", "1d"},
-           {"second_report_window_deadline", "5d"},
-           {"first_event_report_window_deadline", "1d"},
-           {"second_event_report_window_deadline", "5d"},
-           {"aggregate_report_min_delay", "1m"},
+        {{attribution_reporting::features::kConversionMeasurement,
+          {{"aggregate_report_min_delay", "1m"},
            {"aggregate_report_delay_span", "29m"}}}},
         /*disabled_features=*/{});
   }
@@ -710,57 +626,6 @@ class AttributionStorageDelegateImplTestFeatureConfigured
  private:
   base::test::ScopedFeatureList feature_list_;
 };
-
-TEST_F(AttributionStorageDelegateImplTestFeatureConfigured,
-       GetFeatureReportWindows_AsExpected) {
-  const struct {
-    SourceType source_type;
-    base::TimeDelta last_report_window;
-    attribution_reporting::EventReportWindows expected;
-  } kTestCases[] = {
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(30),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1), base::Days(5), base::Days(30)}),
-      },
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(5),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1), base::Days(5)}),
-      },
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(1),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(30),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1), base::Days(5), base::Days(30)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(5),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1), base::Days(5)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(1),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1)}),
-      },
-  };
-  for (const auto& test_case : kTestCases) {
-    EXPECT_EQ(test_case.expected,
-              AttributionStorageDelegateImpl().GetDefaultEventReportWindows(
-                  test_case.source_type, test_case.last_report_window));
-  }
-}
 
 TEST_F(AttributionStorageDelegateImplTestFeatureConfigured,
        GetFeatureAggregatableReportTime) {
@@ -777,13 +642,8 @@ class AttributionStorageDelegateImplTestInvalidFeatureConfigured
  public:
   AttributionStorageDelegateImplTestInvalidFeatureConfigured() {
     feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kConversionMeasurement,
-          {{"vtc_early_reporting_windows", "true"},
-           {"first_report_window_deadline", "-1d"},
-           {"second_report_window_deadline", "-5d"},
-           {"first_event_report_window_deadline", "-1d"},
-           {"second_event_report_window_deadline", "-5d"},
-           {"aggregate_report_min_delay", "-1m"},
+        {{attribution_reporting::features::kConversionMeasurement,
+          {{"aggregate_report_min_delay", "-1m"},
            {"aggregate_report_delay_span", "-29m"}}}},
         /*disabled_features=*/{});
   }
@@ -791,57 +651,6 @@ class AttributionStorageDelegateImplTestInvalidFeatureConfigured
  private:
   base::test::ScopedFeatureList feature_list_;
 };
-
-TEST_F(AttributionStorageDelegateImplTestInvalidFeatureConfigured,
-       GetFeatureReportWindows_DefaultsUsed) {
-  const struct {
-    SourceType source_type;
-    base::TimeDelta last_report_window;
-    attribution_reporting::EventReportWindows expected;
-  } kTestCases[] = {
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(30),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(7), base::Days(30)}),
-      },
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(5),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(5)}),
-      },
-      {
-          .source_type = SourceType::kNavigation,
-          .last_report_window = base::Days(1),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(30),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(7), base::Days(30)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(5),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(2), base::Days(5)}),
-      },
-      {
-          .source_type = SourceType::kEvent,
-          .last_report_window = base::Days(1),
-          .expected = *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Days(0), {base::Days(1)}),
-      },
-  };
-  for (const auto& test_case : kTestCases) {
-    EXPECT_EQ(test_case.expected,
-              AttributionStorageDelegateImpl().GetDefaultEventReportWindows(
-                  test_case.source_type, test_case.last_report_window));
-  }
-}
 
 TEST_F(AttributionStorageDelegateImplTestInvalidFeatureConfigured,
        NegativeAggregateParams_DefaultsUsed) {
@@ -854,7 +663,8 @@ TEST_F(AttributionStorageDelegateImplTestInvalidFeatureConfigured,
 TEST(AttributionStorageDelegateImplTest,
      NullAggregatableReports_IncludeSourceRegistrationTime) {
   base::test::ScopedFeatureList scoped_feature_list(
-      attribution_reporting::kAttributionReportingNullAggregatableReports);
+      attribution_reporting::features::
+          kAttributionReportingNullAggregatableReports);
 
   const auto trigger = DefaultTrigger();
 
@@ -883,7 +693,8 @@ TEST(AttributionStorageDelegateImplTest,
 TEST(AttributionStorageDelegateImplTest,
      NullAggregatableReports_ExcludeSourceRegistrationTime) {
   base::test::ScopedFeatureList scoped_feature_list(
-      attribution_reporting::kAttributionReportingNullAggregatableReports);
+      attribution_reporting::features::
+          kAttributionReportingNullAggregatableReports);
 
   const auto trigger = TriggerBuilder()
                            .SetSourceRegistrationTimeConfig(
@@ -902,28 +713,6 @@ TEST(AttributionStorageDelegateImplTest,
                   trigger, /*trigger_time=*/base::Time::Now(),
                   /*attributed_source_time=*/base::Time::Now() - base::Days(1)),
               IsEmpty());
-}
-
-TEST(AttributionStorageDelegateImplTest, GetMaxAttributionsPerSource) {
-  EXPECT_EQ(1, AttributionStorageDelegateImpl().GetDefaultAttributionsPerSource(
-                   SourceType::kEvent));
-  EXPECT_EQ(3, AttributionStorageDelegateImpl().GetDefaultAttributionsPerSource(
-                   SourceType::kNavigation));
-
-  {
-    base::test::ScopedFeatureList feature_list;
-    feature_list.InitWithFeaturesAndParameters(
-        {{blink::features::kConversionMeasurement,
-          {{"max_attributions_per_event_source", "5"}}}},
-        /*disabled_features=*/{});
-
-    EXPECT_EQ(5,
-              AttributionStorageDelegateImpl().GetDefaultAttributionsPerSource(
-                  SourceType::kEvent));
-    EXPECT_EQ(3,
-              AttributionStorageDelegateImpl().GetDefaultAttributionsPerSource(
-                  SourceType::kNavigation));
-  }
 }
 
 }  // namespace

@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Háttérkép módosítása naponta</translation>
 <translation id="1644574205037202324">Előzmények</translation>
 <translation id="1651925268237749928">Egy megosztott albumot választott ki. Mások is módosíthatják a benne lévő fotókat, illetve hozzáadhatnak újakat. Háttérképként olyan fotók is megjelenhetnek, amelyek jelenleg nem találhatók meg ebben az albumban.</translation>
+<translation id="1661865805917886535">A Google megkaphat bizonyos adatokat a fiókról és a rendszerről. Ezeket az adatokat a technikai problémák kezelésére és szolgáltatásaink fejlesztésére használjuk az adatvédelmi irányelveinknek (<ph name="PRIVACYPOLICYURL" />) és az Általános Szerződési Feltételeknek (<ph name="TERMSOFSERVICEURL" />) megfelelően. Tartalommódosítás kéréséhez lépjen a Jogi súgóba (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Leállt – Kifogyott a tinta</translation>
 <translation id="1664796644829245314">Előnézet: <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">Beépített VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Az eszköz csatlakoztatva van.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Eltávolítja az oldalt?}=1{Eltávolítja a(z) {PAGE_NUMBER}. oldalt?}other{Eltávolítja a(z) {PAGE_NUMBER}. oldalt?}}</translation>
+<translation id="3146655726035122603">Kizárólag a következőnél: <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Mobiladatok</translation>
 <translation id="3156846309055100599"><ph name="PAGE_NUMBER" />. oldal beolvasása…</translation>
 <translation id="315738237743207937">Hitelesítési portál észlelve</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Szkennerek keresése</translation>
 <translation id="3226657629376379887">Elrendezésműveletek menüje</translation>
 <translation id="3246869037381808805">Az 1 napnál régebbi nyomtatási feladatokat eltávolítja a rendszer</translation>
-<translation id="3248223063252096240"><ph name="PRODUCT_NAME" /> exkluzív</translation>
 <translation id="3268178239013324452">Sikertelen – Nyitva van a nyomtató fedele</translation>
 <translation id="3275729367986477355">Avatarkép</translation>
 <translation id="3283504360622356314">{0,plural, =1{Fájl szerkesztése}other{Fájlok szerkesztése}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> kiválasztása</translation>
 <translation id="8151185429379586178">Fejlesztői eszközök</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Csatolás</translation>
 <translation id="8206859287963243715">Mobil</translation>

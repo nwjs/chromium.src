@@ -45,6 +45,7 @@ import androidx.browser.trusted.sharing.ShareTarget;
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.IntentUtils;
+import org.chromium.base.LocaleUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.metrics.RecordHistogram;
@@ -59,6 +60,7 @@ import org.chromium.chrome.browser.flags.ActivityType;
 import org.chromium.chrome.browser.flags.BooleanCachedFieldTrialParameter;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.StringCachedFieldTrialParameter;
+import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.version_info.VersionInfo;
@@ -103,15 +105,17 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         int NUM_ENTRIES = 5;
     }
 
-    @IntDef({BACKGROUND_INTERACT_DEFAULT, BACKGROUND_INTERACT_ON, BACKGROUND_INTERACT_OFF})
+    @IntDef({BackgroundInteractBehavior.DEFAULT, BackgroundInteractBehavior.ON,
+            BackgroundInteractBehavior.OFF})
     @Retention(RetentionPolicy.SOURCE)
-    public @interface BackgroundInteractBehavior {}
+    public @interface BackgroundInteractBehavior {
+        int DEFAULT = 0;
+        int ON = 1;
+        int OFF = 2;
 
-    public static final int BACKGROUND_INTERACT_DEFAULT = 0;
-
-    public static final int BACKGROUND_INTERACT_ON = 1;
-
-    public static final int BACKGROUND_INTERACT_OFF = 2;
+        // Must be the last one.
+        int NUM_ENTRIES = 3;
+    }
 
     /**
      * Extra that specifies the position of the side sheet. By default it is set to
@@ -149,14 +153,6 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     public static final String EXTRA_INITIAL_BACKGROUND_COLOR =
             "org.chromium.chrome.browser.customtabs.EXTRA_INITIAL_BACKGROUND_COLOR";
 
-    /** Extra that enables the client to disable the star button in menu. */
-    public static final String EXTRA_DISABLE_STAR_BUTTON =
-            "org.chromium.chrome.browser.customtabs.EXTRA_DISABLE_STAR_BUTTON";
-
-    /** Extra that enables the client to disable the download button in menu. */
-    public static final String EXTRA_DISABLE_DOWNLOAD_BUTTON =
-            "org.chromium.chrome.browser.customtabs.EXTRA_DISABLE_DOWNLOAD_BUTTON";
-
     /**
      * Indicates the source where the Custom Tab is launched. The value is defined as
      * {@link LaunchSourceType}.
@@ -164,16 +160,12 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     public static final String EXTRA_BROWSER_LAUNCH_SOURCE =
             "org.chromium.chrome.browser.customtabs.EXTRA_BROWSER_LAUNCH_SOURCE";
 
-    // TODO(yusufo): Move this to CustomTabsIntent.
-    /** Signals custom tabs to favor sending initial urls to external handler apps if possible. */
-    public static final String EXTRA_SEND_TO_EXTERNAL_DEFAULT_HANDLER =
-            "android.support.customtabs.extra.SEND_TO_EXTERNAL_HANDLER";
-
-    // TODO(amalova): Move this to CustomTabsIntent.
+    // Deprecated. Use CustomTabsIntent#EXTRA_TRANSLATE_LANGUAGE_TAG
     /**
      * Extra that, if set, specifies Translate UI should be triggered with
      * specified target language.
      */
+    @Deprecated
     @VisibleForTesting
     static final String EXTRA_TRANSLATE_LANGUAGE =
             "androidx.browser.customtabs.extra.TRANSLATE_LANGUAGE";
@@ -258,8 +250,10 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             "androidx.browser.customtabs.extra.INITIAL_ACTIVITY_WIDTH_PX";
 
     /**
-     * Extra that, if set, allows you to interact with the background app when a PCCT is launched
+     * Extra that, if set, allows you to interact with the background app when a PCCT is launched.
+     * Note: Deprecated. Use {@link CustomTabsIntent#isBackgroundInteractionEnabled(Intent)}.
      */
+    @Deprecated
     public static final String EXTRA_ENABLE_BACKGROUND_INTERACTION =
             "androidx.browser.customtabs.extra.ENABLE_BACKGROUND_INTERACTION";
 
@@ -317,10 +311,18 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
             new StringCachedFieldTrialParameter(ChromeFeatureList.CCT_RESIZABLE_FOR_THIRD_PARTIES,
                     ALLOWLIST_ENTRIES_PARAM_NAME, "");
 
+    // TODO(b/306597895): Remove the String when Page Insights Hub (Chrome Side Implementation)
+    // experiment is completed
+    public static final String EXTRA_PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE =
+            "org.chromium.chrome.browser.customtabs.extra.PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE";
+
     /**
      * Extra that specifies the {@link PendingIntent} to be sent when the user swipes up from the
      * secondary (bottom) toolbar.
+     * <p>Use {@link CustomTabsIntent.Builder#setSecondaryToolbarSwipeUpGesture(PendingIntent)} or
+     * {@link CustomTabsIntent#EXTRA_SECONDARY_TOOLBAR_SWIPE_UP_GESTURE} as this is deprecated.
      */
+    @Deprecated
     public static final String EXTRA_SECONDARY_TOOLBAR_SWIPE_UP_ACTION =
             "androidx.browser.customtabs.extra.SECONDARY_TOOLBAR_SWIPE_UP_ACTION";
 
@@ -596,8 +598,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         mRemoteViewsPendingIntent = IntentUtils.safeGetParcelableExtra(
                 intent, CustomTabsIntent.EXTRA_REMOTEVIEWS_PENDINGINTENT);
         if (ChromeFeatureList.sCctBottomBarSwipeUpGesture.isEnabled()) {
-            mSecondaryToolbarSwipeUpPendingIntent = IntentUtils.safeGetParcelableExtra(
-                    intent, EXTRA_SECONDARY_TOOLBAR_SWIPE_UP_ACTION);
+            mSecondaryToolbarSwipeUpPendingIntent = getSecondaryToolbarSwipeUpGesture(intent);
         }
         mMediaViewerUrl = isMediaViewer()
                 ? IntentUtils.safeGetStringExtra(intent, EXTRA_MEDIA_VIEWER_URL)
@@ -609,11 +610,11 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 && (IntentUtils.safeGetIntExtra(
                             intent, EXTRA_BROWSER_LAUNCH_SOURCE, LaunchSourceType.OTHER)
                            == LaunchSourceType.MEDIA_LAUNCHER_ACTIVITY);
-        mDisableStar = IntentUtils.safeGetBooleanExtra(intent, EXTRA_DISABLE_STAR_BUTTON, false);
-        mDisableDownload =
-                IntentUtils.safeGetBooleanExtra(intent, EXTRA_DISABLE_DOWNLOAD_BUTTON, false);
+        mDisableStar = !CustomTabsIntent.isBookmarksButtonEnabled(intent);
+        mDisableDownload = !CustomTabsIntent.isDownloadButtonEnabled(intent);
 
-        mTranslateLanguage = IntentUtils.safeGetStringExtra(intent, EXTRA_TRANSLATE_LANGUAGE);
+        mTranslateLanguage = getTranslateLanguage(intent);
+
         mAutoTranslateLanguage =
                 IntentUtils.safeGetStringExtra(intent, EXTRA_AUTO_TRANSLATE_LANGUAGE);
 
@@ -636,10 +637,13 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 intent, EXTRA_ACTIVITY_HEIGHT_RESIZE_BEHAVIOR, ACTIVITY_HEIGHT_DEFAULT);
         mIsPartialCustomTabFixedHeight = activityHeightResizeBehavior == ACTIVITY_HEIGHT_FIXED;
 
-        @BackgroundInteractBehavior
-        int backgroundInteractBehavior = IntentUtils.safeGetIntExtra(
-                intent, EXTRA_ENABLE_BACKGROUND_INTERACTION, BACKGROUND_INTERACT_DEFAULT);
-        mInteractWithBackground = backgroundInteractBehavior != BACKGROUND_INTERACT_OFF;
+        mInteractWithBackground = CustomTabsIntent.isBackgroundInteractionEnabled(intent);
+        if (IntentUtils.safeHasExtra(intent, EXTRA_ENABLE_BACKGROUND_INTERACTION)) {
+            @BackgroundInteractBehavior
+            int backgroundInteractBehavior = IntentUtils.safeGetIntExtra(intent,
+                    EXTRA_ENABLE_BACKGROUND_INTERACTION, BackgroundInteractBehavior.DEFAULT);
+            mInteractWithBackground = backgroundInteractBehavior != BackgroundInteractBehavior.OFF;
+        }
         mSideSheetDecorationType = getActivitySideSheetDecorationTypeFromIntent(intent);
         mSideSheetRoundedCornersPosition =
                 getActivitySideSheetRoundedCornersPositionFromIntent(intent);
@@ -663,16 +667,49 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         return defaultRadius;
     }
 
+    private static PendingIntent getSecondaryToolbarSwipeUpGesture(Intent intent) {
+        PendingIntent pendingIntent = CustomTabsIntent.getSecondaryToolbarSwipeUpGesture(intent);
+        if (pendingIntent == null) {
+            pendingIntent = IntentUtils.safeGetParcelableExtra(
+                    intent, CustomTabIntentDataProvider.EXTRA_SECONDARY_TOOLBAR_SWIPE_UP_ACTION);
+        }
+        return pendingIntent;
+    }
+
+    private static String getTranslateLanguage(Intent intent) {
+        String translateLanguage = null;
+        Locale locale = CustomTabsIntent.getTranslateLocale(intent);
+        if (locale != null) translateLanguage = LocaleUtils.toLanguageTag(locale);
+        if (TextUtils.isEmpty(translateLanguage)) {
+            translateLanguage = IntentUtils.safeGetStringExtra(intent, EXTRA_TRANSLATE_LANGUAGE);
+        }
+        return translateLanguage;
+    }
+
     private void updateExtraMenuItems(List<Bundle> menuItems) {
         if (menuItems == null) return;
+        boolean isPageInsightsHubEnabled = isPageInsightsHubEnabled();
+        String pihOverflowMenuItemTitle =
+                IntentUtils.safeGetStringExtra(mIntent, EXTRA_PAGE_INSIGHTS_OVERFLOW_ITEM_TITLE);
         for (int i = 0; i < Math.min(MAX_CUSTOM_MENU_ITEMS, menuItems.size()); i++) {
             Bundle bundle = menuItems.get(i);
             String title = IntentUtils.safeGetString(bundle, CustomTabsIntent.KEY_MENU_ITEM_TITLE);
             PendingIntent pendingIntent =
                     IntentUtils.safeGetParcelable(bundle, CustomTabsIntent.KEY_PENDING_INTENT);
-            if (TextUtils.isEmpty(title) || pendingIntent == null) continue;
+            if (TextUtils.isEmpty(title)
+                    || pendingIntent == null
+                    // Discard Page Insights overflow menu item provided by embedder if the Chrome
+                    // implementation is enabled
+                    || (isPageInsightsHubEnabled && title.equals(pihOverflowMenuItemTitle))) {
+                continue;
+            }
             mMenuEntries.add(new Pair<String, PendingIntent>(title, pendingIntent));
         }
+    }
+
+    private boolean isPageInsightsHubEnabled() {
+        return (PageInsightsCoordinator.isFeatureEnabled()
+                && CustomTabsConnection.getInstance().shouldEnablePageInsightsForIntent(this));
     }
 
     /**
@@ -1056,10 +1093,15 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
     @Override
     public boolean shouldAnimateOnFinish() {
-        return mAnimationBundle != null && getClientPackageName() != null;
+        return getInsecureClientPackageNameForOnFinishAnimation() != null;
     }
 
+    /**
+     * Returns client package name for finishing animation.
+     */
     public String getInsecureClientPackageNameForOnFinishAnimation() {
+        // The package name may come from the insecure info contained in the animation
+        // bundle which won't do any harm in the operation.
         if (mAnimationBundle == null) return null;
         return mAnimationBundle.getString(BUNDLE_PACKAGE_NAME);
     }

@@ -90,7 +90,17 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
 
   class CONTENT_EXPORT InterestGroupObserver : public base::CheckedObserver {
    public:
-    enum AccessType { kJoin, kLeave, kUpdate, kLoaded, kBid, kWin };
+    enum AccessType {
+      kJoin,
+      kLeave,
+      kUpdate,
+      kLoaded,
+      kBid,
+      kAdditionalBid,
+      kWin,
+      kAdditionalBidWin,
+      kClear,
+    };
     virtual void OnInterestGroupAccessed(const base::Time& access_time,
                                          AccessType type,
                                          const url::Origin& owner_origin,
@@ -150,6 +160,19 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
       network::mojom::URLLoaderFactory& url_loader_factory,
       blink::mojom::AdAuctionService::LeaveInterestGroupCallback callback);
 
+  // Much like CheckPermissionsAndJoinInterestGroup(), except for an operation
+  // that leaves all interest groups previously joined from the main frame
+  // origin, except those listed in `interest_groups_to_keep`.
+  void CheckPermissionsAndClearOriginJoinedInterestGroups(
+      const url::Origin& owner,
+      const std::vector<std::string>& interest_groups_to_keep,
+      const url::Origin& main_frame_origin,
+      const url::Origin& frame_origin,
+      const net::NetworkIsolationKey& network_isolation_key,
+      bool report_result_only,
+      network::mojom::URLLoaderFactory& url_loader_factory,
+      blink::mojom::AdAuctionService::LeaveInterestGroupCallback callback);
+
   // Joins an interest group. If the interest group does not exist, a new one
   // is created based on the provided group information. If the interest group
   // exists, the existing interest group is overwritten. In either case a join
@@ -158,9 +181,16 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // Remove the interest group if it exists.
   void LeaveInterestGroup(const blink::InterestGroupKey& group_key,
                           const url::Origin& main_frame);
-  // Loads all interest groups owned by `owner`, then updates their definitions
-  // by fetching their `dailyUpdateUrl`. Interest group updates that fail to
-  // load or validate are skipped, but other updates will proceed.
+  // Removes all interest groups owned by `owner` joined from
+  // `main_frame_origin` except `interest_groups_to_keep`, if they exist.
+  void ClearOriginJoinedInterestGroups(
+      const url::Origin& owner,
+      std::set<std::string> interest_groups_to_keep,
+      url::Origin main_frame_origin);
+  // Loads all interest groups owned by `owner`, then updates their
+  // definitions by fetching their `dailyUpdateUrl`. Interest group updates
+  // that fail to load or validate are skipped, but other updates will
+  // proceed.
   void UpdateInterestGroupsOfOwner(
       const url::Origin& owner,
       network::mojom::ClientSecurityStatePtr client_security_state,
@@ -190,6 +220,7 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
 
   // Adds an entry to the bidding history for this interest group.
   void RecordInterestGroupBids(const blink::InterestGroupSet& groups);
+
   // Adds an entry to the win history for this interest group. `ad_json` is a
   // piece of opaque data to identify the winning ad.
   void RecordInterestGroupWin(const blink::InterestGroupKey& group_key,
@@ -312,9 +343,18 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // update request for the k-anonymity of all parts of the interest group
   // (including ads). Also reports membership in the interest group to the
   // k-anonymity of interest-group service.
-  void QueueKAnonymityUpdateForInterestGroup(const StorageInterestGroup& group);
+  void QueueKAnonymityUpdateForInterestGroup(
+      const blink::InterestGroupKey& group_key);
   // Records K-anonymity to the database.
   void UpdateKAnonymity(const StorageInterestGroup::KAnonymityData& data);
+
+  // Gets all KAnonymityData for ads part of the interest group specified by
+  // `interest_group_key`.
+  void GetKAnonymityDataForUpdate(
+      const blink::InterestGroupKey& group_key,
+      base::OnceCallback<void(
+          const std::vector<StorageInterestGroup::KAnonymityData>&)> callback);
+
   // Gets the last time that the key was reported to the k-anonymity server.
   void GetLastKAnonymityReported(
       const std::string& key,
@@ -329,6 +369,7 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
 
   void GetBiddingAndAuctionServerKey(
       network::mojom::URLLoaderFactory* loader,
+      blink::mojom::AdAuctionCoordinator coordinator,
       base::OnceCallback<void(absl::optional<BiddingAndAuctionServerKey>)>
           callback);
 
@@ -340,6 +381,18 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
       std::unique_ptr<InterestGroupKAnonymityManager> k_anonymity_manager) {
     k_anonymity_manager_ = std::move(k_anonymity_manager);
   }
+
+  // Notifies an interest group has been accessed. Used for devtools interest
+  // group view and testing.
+  //
+  // For calls that affect the database, should be invoked after the database
+  // update, so that the calls are all in the same order they're applied to the
+  // database (can't log them all before the database update, since for, e.g.,
+  // calls to retrieve all interest groups for an owner, the name may not be
+  // known until after the database has been accessed).
+  void NotifyInterestGroupAccessed(InterestGroupObserver::AccessType type,
+                                   const url::Origin& owner_origin,
+                                   const std::string& name);
 
  private:
   // InterestGroupUpdateManager calls private members to write updates to the
@@ -368,10 +421,10 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
     base::OnceCallback<void(BiddingAndAuctionData)> callback;
   };
 
-  // Callbacks for CheckPermissionsAndJoinInterestGroup() and
-  // CheckPermissionsAndLeaveInterestGroup(), respectively. Call
-  // JoinInterestGroup() and LeaveInterestGroup() if the results of the
-  // permissions check allows it.
+  // Callbacks for CheckPermissionsAndJoinInterestGroup(),
+  // CheckPermissionsAndLeaveInterestGroup(), and
+  // CheckPermissionsAndClearOriginJoinedInterestGroups(), respectively. Perform
+  // requested operation if the results of the permissions check allows it.
   void OnJoinInterestGroupPermissionsChecked(
       blink::InterestGroup group,
       const GURL& joining_url,
@@ -385,21 +438,25 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
       bool report_result_only,
       blink::mojom::AdAuctionService::LeaveInterestGroupCallback callback,
       bool can_leave);
+  void OnClearOriginJoinedInterestGroupsPermissionsChecked(
+      url::Origin owner,
+      std::set<std::string> interest_groups_to_keep,
+      url::Origin main_frame_origin,
+      bool report_result_only,
+      blink::mojom::AdAuctionService::LeaveInterestGroupCallback callback,
+      bool can_leave);
+  void OnClearOriginJoinedInterestGroupsComplete(
+      const url::Origin& owner,
+      std::vector<std::string> left_interest_group_names);
 
-  // Like GetInterestGroupsForOwner(), but doesn't return any interest groups
-  // that are currently rate-limited for updates. Additionally, this will update
-  // the `next_update_after` field such that a subsequent
-  // GetInterestGroupsForUpdate() call with the same `owner` won't return
-  // anything until after the success rate limit period passes.
-  //
-  // `groups_limit` sets a limit on the maximum number of interest groups that
-  // may be returned.
-  //
-  // To be called only by `update_manager_`.
+  // For a given owner, gets interest group keys along with their update urls.
+  // `groups_limit` sets a limit on the maximum number of interest group keys
+  // that may be returned.
   void GetInterestGroupsForUpdate(
       const url::Origin& owner,
       int groups_limit,
-      base::OnceCallback<void(std::vector<StorageInterestGroup>)> callback);
+      base::OnceCallback<void(
+          std::vector<std::pair<blink::InterestGroupKey, GURL>>)> callback);
 
   // Updates the interest group of the same name based on the information in
   // the provided group. This does not update the interest group expiration
@@ -413,15 +470,19 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
                            InterestGroupUpdate update,
                            base::OnceCallback<void(bool)> callback);
 
+  // Called when a call to UpdateInterestGroup() completes. Sends a notification
+  // about the update and invokes `callback` with `success`.
+  void OnUpdateComplete(const url::Origin& owner_origin,
+                        const std::string& name,
+                        base::OnceCallback<void(bool)> callback,
+                        bool success);
+
   // Modifies the update rate limits stored in the database, with a longer delay
   // for parse failure.
   //
   // To be called only by `update_manager_`.
   void ReportUpdateFailed(const blink::InterestGroupKey& group_key,
                           bool parse_failure);
-  void NotifyInterestGroupAccessed(InterestGroupObserver::AccessType type,
-                                   const url::Origin& owner_origin,
-                                   const std::string& name);
 
   void OnGetInterestGroupsComplete(
       base::OnceCallback<void(std::vector<StorageInterestGroup>)> callback,
@@ -439,12 +500,6 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // Clears `report_requests_`.  Does not abort currently pending requests.
   void TimeoutReports();
 
-  // A version of QueueKAnonymityUpdateForInterestGroup() called from
-  // JoinInterestGroup which passes the group in an optional (the group must
-  // always exist). Called from JoinInterestGroup.
-  void QueueKAnonymityUpdateForInterestGroupFromJoinInterestGroup(
-      absl::optional<StorageInterestGroup> maybe_group);
-
   // Loads the next owner's interest group data. If there are no more owners
   // whose interest groups need to be loaded, calls OnAdAuctionDataLoadComplete.
   void LoadNextInterestGroupAdAuctionData(AdAuctionDataLoaderState state,
@@ -461,6 +516,13 @@ class CONTENT_EXPORT InterestGroupManagerImpl : public InterestGroupManager {
   // Constructs the AuctionAdata when the load is complete and calls the
   // provided callback.
   void OnAdAuctionDataLoadComplete(AdAuctionDataLoaderState state);
+
+  // Helper to that returns bound NotifyInterestGroupAccessed() callbacks to
+  // allow notifications to be sent after a database update.
+  base::OnceClosure CreateNotifyInterestGroupAccessedCallback(
+      InterestGroupObserver::AccessType type,
+      const url::Origin& owner_origin,
+      const std::string& name);
 
   // Owns and manages access to the InterestGroupStorage living on a different
   // thread.

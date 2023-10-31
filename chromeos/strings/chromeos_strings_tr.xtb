@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Duvar kağıdı resmini günlük olarak değiştir</translation>
 <translation id="1644574205037202324">Geçmiş</translation>
 <translation id="1651925268237749928">Paylaşılan bir albüm seçtiniz. Diğer kullanıcılar fotoğraf ekleyebilir veya değiştirebilir. Duvar kağıdınızda şu anda bu albümde olmayan fotoğraflar kullanılabilir.</translation>
+<translation id="1661865805917886535">Bazı hesap ve sistem bilgileri Google'a gönderilebilir. Bu bilgileri, Gizlilik Politikamıza (<ph name="PRIVACYPOLICYURL" />) ve Hizmet Şartlarımıza (<ph name="TERMSOFSERVICEURL" />) uygun şekilde teknik sorunları gidermek ve size daha iyi hizmet sunmak için kullanırız. İçerik değişikliği talep etmek için Yasal Yardım sayfasına (<ph name="LEGALHELPPAGEURL" />) gidin.</translation>
 <translation id="1662989795263954667">Durduruldu - Mürekkep bitti</translation>
 <translation id="1664796644829245314"><ph name="PREVIEW_OBJECT" /> adlı takvimi önizle</translation>
 <translation id="1668469839109562275">Yerleşik VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Cihaz bağlandı.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Sayfa kaldırılsın mı?}=1{{PAGE_NUMBER}. sayfa kaldırılsın mı?}other{{PAGE_NUMBER}. sayfa kaldırılsın mı?}}</translation>
+<translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> cihazlara özel</translation>
 <translation id="315116470104423982">Mobil veriler</translation>
 <translation id="3156846309055100599"><ph name="PAGE_NUMBER" />. sayfa taranıyor...</translation>
 <translation id="315738237743207937">Giriş portalı algılandı</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Tarayıcılar aranıyor</translation>
 <translation id="3226657629376379887">Düzen işlemleri menüsü</translation>
 <translation id="3246869037381808805">1 günden daha eski yazdırma işleri kaldırılır</translation>
-<translation id="3248223063252096240"><ph name="PRODUCT_NAME" /> cihazlara özel</translation>
 <translation id="3268178239013324452">İşlem başarısız - Kapak açık</translation>
 <translation id="3275729367986477355">Avatar resmi</translation>
 <translation id="3283504360622356314">{0,plural, =1{Dosyayı düzenle}other{Dosyaları düzenle}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Seç: <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Geliştirici araçları</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Ekle</translation>
 <translation id="8206859287963243715">Cep telefonu</translation>

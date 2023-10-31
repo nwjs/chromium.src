@@ -22,9 +22,6 @@ BASE_FEATURE(kIPHDummyFeature, "IPH_Dummy", base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
-BASE_FEATURE(kIPHAutofillFeedbackNewBadgeFeature,
-             "IPH_AutofillFeedbackNewBadge",
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHBatterySaverModeFeature,
              "IPH_BatterySaverMode",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -130,6 +127,9 @@ BASE_FEATURE(kIPHSideSearchPageActionLabelFeature,
 BASE_FEATURE(kIPHTabSearchFeature,
              "IPH_TabSearch",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHTrackingProtectionOnboardingFeature,
+             "IPH_TrackingProtectionOnboarding",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHWebUITabStripFeature,
              "IPH_WebUITabStrip",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -253,6 +253,9 @@ BASE_FEATURE(kIPHRequestDesktopSiteOptInFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature,
              "IPH_RequestDesktopSiteExceptionsGeneric",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature,
+             "IPH_RequestDesktopSiteWindowSetting",
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHShoppingListSaveFlowFeature,
              "IPH_ShoppingListSaveFlow",
@@ -423,6 +426,9 @@ BASE_FEATURE(kIPHWebFeedFollowFeature,
 BASE_FEATURE(kIPHWebFeedPostFollowDialogFeature,
              "IPH_WebFeedPostFollowDialog",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHWebFeedPostFollowDialogFeatureWithUIUpdate,
+             "IPH_WebFeedPostFollowDialogWithUIUpdate",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHSharedHighlightingBuilder,
              "IPH_SharedHighlightingBuilder",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -485,7 +491,7 @@ BASE_FEATURE(kIPHiOSPromoAppStoreFeature,
              base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoWhatsNewFeature,
              "IPH_iOSPromoWhatsNew",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSPromoPostRestoreFeature,
              "IPH_iOSPromoPostRestore",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -495,6 +501,9 @@ BASE_FEATURE(kIPHiOSPromoCredentialProviderExtensionFeature,
 BASE_FEATURE(kIPHiOSPromoDefaultBrowserFeature,
              "IPH_iOSPromoDefaultBrowser",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSPromoDefaultBrowserReminderFeature,
+             "IPH_iOSPromoDefaultBrowserReminder",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHiOSNewTabToolbarItemFeature,
              "IPH_iOSNewTabToolbarItemFeature",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -516,6 +525,18 @@ BASE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature,
 BASE_FEATURE(kIPHiOSPromoPasswordManagerWidgetFeature,
              "IPH_iOSPromoPasswordManagerWidget",
              base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHiOSChoiceScreenFeature,
+             "IPH_iOSChoiceScreenFeature",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Non-FET feature.
+BASE_FEATURE(kDefaultBrowserEligibilitySlidingWindow,
+             "DefaultBrowserEligibilitySlidingWindow",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+constexpr base::FeatureParam<int> kDefaultBrowserEligibilitySlidingWindowParam{
+    &kDefaultBrowserEligibilitySlidingWindow, /*name=*/"sliding-window-days",
+    /*default_value=*/365};
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -532,6 +553,9 @@ BASE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature,
 BASE_FEATURE(kIPHCookieControlsFeature,
              "IPH_CookieControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kIPH3pcdUserBypassFeature,
+             "IPH_3pcdUserBypass",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)
@@ -635,6 +659,9 @@ BASE_FEATURE(kIPHScalableIphHelpAppBasedNineFeature,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kIPHScalableIphHelpAppBasedTenFeature,
              "IPH_ScalableIphHelpAppBasedTen",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kIPHScalableIphGamingFeature,
+             "IPH_ScalableIphGaming",
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 

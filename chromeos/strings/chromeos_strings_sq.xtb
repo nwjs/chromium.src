@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Ndryshoje çdo ditë imazhin e sfondit</translation>
 <translation id="1644574205037202324">Historiku</translation>
 <translation id="1651925268237749928">Ke zgjedhur një album të ndarë. Të tjerët mund të shtojnë ose të ndryshojnë fotografitë. Imazhi yt i sfondit mund të përdorë fotografi që nuk janë aktualisht në këtë album.</translation>
+<translation id="1661865805917886535">Disa prej informacioneve të llogarisë dhe të sistemit mund të dërgohen te Google. Në e përdorim këtë informacion për të ndihmuar në zgjidhjen e problemeve teknike dhe për të përmirësuar shërbimet tona, sipas "Politikës së privatësisë" (<ph name="PRIVACYPOLICYURL" />) dhe "Kushteve të shërbimit" (<ph name="TERMSOFSERVICEURL" />). Për të kërkuar ndryshime të përmbajtjes, shko te "Ndihma ligjore" (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Ndaloi - Nuk ka bojë</translation>
 <translation id="1664796644829245314">Shiko paraprakisht <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">VPN e integruar</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Pajisja është lidhur.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Të hiqet faqja?}=1{Të hiqet faqja {PAGE_NUMBER}?}other{Të hiqet faqja {PAGE_NUMBER}?}}</translation>
+<translation id="3146655726035122603">Ekskluzive për <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Të dhëna celulare</translation>
 <translation id="3156846309055100599">Po skanon faqen <ph name="PAGE_NUMBER" />...</translation>
 <translation id="315738237743207937">U zbulua portal izolues</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Po kërkon për skanerë</translation>
 <translation id="3226657629376379887">Menyja e veprimeve të strukturës</translation>
 <translation id="3246869037381808805">Printimet më të vjetra se 1 ditë do të hiqen</translation>
-<translation id="3248223063252096240">Ekskluzive për <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Dështoi - Kapaku i hapur</translation>
 <translation id="3275729367986477355">Imazhi i simbolit</translation>
 <translation id="3283504360622356314">{0,plural, =1{Modifiko skedarin}other{Modifiko skedarët}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Zgjidh "<ph name="TOPIC_SOURCE_DESC" />" nga "<ph name="TOPIC_SOURCE" />"</translation>
 <translation id="8151185429379586178">Mjetet e zhvilluesit</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Bashkëngjit</translation>
 <translation id="8206859287963243715">Rrjeti celular</translation>

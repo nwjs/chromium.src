@@ -388,10 +388,12 @@ void VpxVideoEncoder::Initialize(VideoCodecProfile profile,
   output_cb_ = BindCallbackToCurrentLoopIfNeeded(std::move(output_cb));
   codec_ = std::move(codec);
 
-  VideoEncoderInfo info;
-  info.implementation_name = "VpxVideoEncoder";
-  info.is_hardware_accelerated = false;
-  BindCallbackToCurrentLoopIfNeeded(std::move(info_cb)).Run(info);
+  if (info_cb) {
+    VideoEncoderInfo info;
+    info.implementation_name = "VpxVideoEncoder";
+    info.is_hardware_accelerated = false;
+    BindCallbackToCurrentLoopIfNeeded(std::move(info_cb)).Run(info);
+  }
 
   std::move(done_cb).Run(EncoderStatus::Codes::kOk);
 }
@@ -630,7 +632,7 @@ void VpxVideoEncoder::ChangeOptions(const Options& options,
         options.frame_size.height() > originally_configured_size_.height()) {
       auto status = EncoderStatus(
           EncoderStatus::Codes::kEncoderUnsupportedConfig,
-          "libvpx/VP9 doesn't support dynamically increasing frame dimentions");
+          "libvpx/VP9 doesn't support dynamically increasing frame dimensions");
       std::move(done_cb).Run(std::move(status));
       return;
     }
@@ -642,6 +644,10 @@ void VpxVideoEncoder::ChangeOptions(const Options& options,
     std::move(done_cb).Run(status);
     return;
   }
+
+  // libvpx doesn't support adjusting the number of threads
+  // midway through an encoding session. More details: crbug.com/1486441
+  new_config.g_threads = codec_config_.g_threads;
 
   status = ReallocateVpxImageIfNeeded(&vpx_image_, vpx_image_.fmt,
                                       options.frame_size.width(),

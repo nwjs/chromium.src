@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/field_types.h"
 
+#include "components/autofill/core/browser/field_type_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -85,7 +86,6 @@ TEST(FieldTypesTest, IsValidServerFieldType) {
       NOT_PASSWORD,
       SINGLE_USERNAME,
       NOT_USERNAME,
-      UPI_VPA,
       IBAN_VALUE,
       ADDRESS_HOME_STREET_NAME,
       ADDRESS_HOME_HOUSE_NUMBER,
@@ -122,6 +122,28 @@ TEST(FieldTypesTest, IsValidServerFieldType) {
     EXPECT_EQ(ToSafeServerFieldType(raw_value, kInvalidValue),
               kValidFieldTypes.count(raw_value) ? raw_value : kInvalidValue);
   }
+}
+
+TEST(FieldTypesTest, TestWith2DigitExpirationYear) {
+  FormFieldData field_data;
+  field_data.name = u"expiration_year";
+  field_data.value = u"23";
+  AutofillField field(field_data);
+  ServerFieldType assumed_field_type =
+      ToSafeServerFieldType(CREDIT_CARD_EXP_2_DIGIT_YEAR, NO_SERVER_DATA);
+  size_t result = DetermineExpirationYearLength(field, assumed_field_type);
+  EXPECT_EQ(result, static_cast<size_t>(2));
+}
+
+TEST(FieldTypesTest, TestWith4DigitExpirationYear) {
+  FormFieldData field_data;
+  field_data.name = u"expiration_year";
+  field_data.value = u"2023";
+  AutofillField field(field_data);
+  ServerFieldType assumed_field_type =
+      ToSafeServerFieldType(CREDIT_CARD_EXP_4_DIGIT_YEAR, NO_SERVER_DATA);
+  size_t result = DetermineExpirationYearLength(field, assumed_field_type);
+  EXPECT_EQ(result, static_cast<size_t>(4));
 }
 
 }  // namespace autofill

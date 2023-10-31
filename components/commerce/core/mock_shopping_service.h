@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "base/uuid.h"
+#include "components/bookmarks/browser/bookmark_model.h"
 #include "components/commerce/core/shopping_service.h"
 #include "components/commerce/core/subscriptions/commerce_subscription.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -103,9 +104,14 @@ class MockShoppingService : public commerce::ShoppingService {
   MOCK_METHOD(bool, IsMerchantViewerEnabled, (), (override));
   MOCK_METHOD(bool, IsPriceInsightsEligible, (), (override));
   MOCK_METHOD(bool, IsDiscountEligibleToShowOnNavigation, (), (override));
+  MOCK_METHOD(bool, IsParcelTrackingEligible, (), (override));
   MOCK_METHOD(void,
               GetDiscountInfoForUrls,
               (const std::vector<GURL>& urls, DiscountInfoCallback callback),
+              (override));
+  MOCK_METHOD(bookmarks::BookmarkModel*,
+              GetBookmarkModelUsedForSync,
+              (),
               (override));
 
   void SetResponseForGetProductInfoForUrl(
@@ -133,6 +139,13 @@ class MockShoppingService : public commerce::ShoppingService {
   void SetIsPriceInsightsEligible(bool is_eligible);
   void SetIsDiscountEligibleToShowOnNavigation(bool is_eligible);
   void SetResponseForGetDiscountInfoForUrls(const DiscountsMap& discounts_map);
+  void SetBookmarkModelUsedForSync(bookmarks::BookmarkModel* bookmark_model);
+  void SetIsParcelTrackingEligible(bool is_eligible);
+
+ private:
+  // Since the discount API wants a const ref to some map, keep a default
+  // instance here.
+  DiscountsMap default_discounts_map_;
 };
 
 }  // namespace commerce

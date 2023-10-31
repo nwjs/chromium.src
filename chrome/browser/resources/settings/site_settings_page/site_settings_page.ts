@@ -20,6 +20,7 @@ import './unused_site_permissions.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
 import {assert} from 'chrome://resources/js/assert_ts.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
+import {PluralStringProxyImpl} from 'chrome://resources/js/plural_string_proxy.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
 import {FocusConfig} from '../focus_config.js';
@@ -42,7 +43,7 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
   }
   // The following list is ordered alphabetically by |id|. The order in which
   // these appear in the UI is determined elsewhere in this file.
-  const categoryList = [
+  const categoryList: CategoryListItem[] = [
     {
       route: routes.SITE_SETTINGS_ADS,
       id: Id.ADS,
@@ -132,17 +133,6 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       icon: 'settings:clipboard',
       enabledLabel: 'siteSettingsClipboardAllowed',
       disabledLabel: 'siteSettingsClipboardBlocked',
-    },
-    {
-      route: routes.COOKIES,
-      id: Id.COOKIES,
-      label: loadTimeData.getBoolean('isPrivacySandboxSettings4') ?
-          'thirdPartyCookiesLinkRowLabel' :
-          'siteSettingsCookies',
-      icon: 'settings:cookie',
-      enabledLabel: 'siteSettingsCookiesAllowed',
-      disabledLabel: 'siteSettingsBlocked',
-      otherLabel: 'cookiePageClearOnExit',
     },
     {
       route: routes.SITE_SETTINGS_LOCATION,
@@ -238,8 +228,6 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       id: Id.NOTIFICATIONS,
       label: 'siteSettingsNotifications',
       icon: 'settings:notifications',
-      enabledLabel: 'siteSettingsAskBeforeSending',
-      disabledLabel: 'siteSettingsBlocked',
     },
     {
       route: routes.SITE_SETTINGS_PAYMENT_HANDLER,
@@ -356,7 +344,29 @@ function getCategoryItemMap(): Map<ContentSettingsTypes, CategoryListItem> {
       icon: 'settings:zoom-in',
     },
   ];
-
+  if (loadTimeData.getBoolean('is3pcdCookieSettingsRedesignEnabled')) {
+    categoryList.push({
+      route: routes.TRACKING_PROTECTION,
+      id: Id.COOKIES,
+      label: 'trackingProtectionLinkRowLabel',
+      icon: 'settings:visibility-off',
+      enabledLabel: 'siteSettingsCookiesAllowed',
+      disabledLabel: 'siteSettingsBlocked',
+      otherLabel: 'cookiePageClearOnExit',
+    });
+  } else {
+    categoryList.push({
+      route: routes.COOKIES,
+      id: Id.COOKIES,
+      label:
+          (loadTimeData.getBoolean('isPrivacySandboxSettings4') ?
+               'thirdPartyCookiesLinkRowLabel' :
+               'siteSettingsCookies'),
+      icon: 'settings:cookie',
+      enabledLabel: 'trackingProtectionLinkRowSubLabel',
+      disabledLabel: 'trackingProtectionLinkRowSubLabel',
+    });
+  }
   categoryItemMap = new Map(categoryList.map(item => [item.id, item]));
   return categoryItemMap;
 }
@@ -493,6 +503,9 @@ export class SettingsSiteSettingsPageElement extends
           return loadTimeData.getBoolean('enableSafetyHub');
         },
       },
+
+      unusedSitePermissionsHeader_: String,
+      unusedSitePermissionsSubeader_: String,
     };
   }
 
@@ -516,6 +529,8 @@ export class SettingsSiteSettingsPageElement extends
   private noRecentSitePermissions_: boolean;
   private showUnusedSitePermissions_: boolean;
   private unusedSitePermissionsEnabled_: boolean;
+  private unusedSitePermissionsHeader_: string;
+  private unusedSitePermissionsSubheader_: string;
   private safetyHubBrowserProxy_: SafetyHubBrowserProxy =
       SafetyHubBrowserProxyImpl.getInstance();
 
@@ -542,8 +557,8 @@ export class SettingsSiteSettingsPageElement extends
     Router.getInstance().navigateTo(routes.SITE_SETTINGS_ALL);
   }
 
-  private onUnusedSitePermissionListChanged_(permissions:
-                                                 UnusedSitePermissions[]) {
+  private async onUnusedSitePermissionListChanged_(
+      permissions: UnusedSitePermissions[]) {
     // The unused site permissions review is shown when there are items to
     // review (provided the feature is enabled). Once visible it remains that
     // way to show completion info, even if the list is emptied.
@@ -553,11 +568,22 @@ export class SettingsSiteSettingsPageElement extends
 
     this.showUnusedSitePermissions_ = this.unusedSitePermissionsEnabled_ &&
         permissions.length > 0 && !loadTimeData.getBoolean('isGuest');
+    this.unusedSitePermissionsHeader_ =
+        await PluralStringProxyImpl.getInstance().getPluralString(
+            'safetyCheckUnusedSitePermissionsPrimaryLabel', permissions.length);
+    this.unusedSitePermissionsSubheader_ =
+        await PluralStringProxyImpl.getInstance().getPluralString(
+            'safetyCheckUnusedSitePermissionsSecondaryLabel',
+            permissions.length);
   }
 
   /** @return Class for the all site settings link */
   private getClassForSiteSettingsAllLink_(): string {
     return this.noRecentSitePermissions_ ? '' : 'hr';
+  }
+
+  private onSafetyHubButtonClick_() {
+    Router.getInstance().navigateTo(routes.SAFETY_HUB);
   }
 }
 

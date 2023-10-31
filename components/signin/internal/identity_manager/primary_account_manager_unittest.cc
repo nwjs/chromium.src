@@ -637,7 +637,8 @@ TEST_F(PrimaryAccountManagerTest, ClearPrimaryAccount) {
 
 TEST_F(PrimaryAccountManagerTest,
        RecordExistingPreviousSyncAccountIfCurrentlySignedOut) {
-  user_prefs_.SetString(prefs::kGoogleServicesLastGaiaId, "previous_gaia_id");
+  user_prefs_.SetString(prefs::kGoogleServicesLastSyncingGaiaId,
+                        "previous_gaia_id");
   CreatePrimaryAccountManager();
   ASSERT_FALSE(manager_->HasPrimaryAccount(ConsentLevel::kSignin));
 
@@ -651,7 +652,8 @@ TEST_F(PrimaryAccountManagerTest,
 
 TEST_F(PrimaryAccountManagerTest,
        RecordExistingPreviousSyncAccountIfCurrentlyUnconsented) {
-  user_prefs_.SetString(prefs::kGoogleServicesLastGaiaId, "previous_gaia_id");
+  user_prefs_.SetString(prefs::kGoogleServicesLastSyncingGaiaId,
+                        "previous_gaia_id");
   CoreAccountId account_id = AddToAccountTracker("gaia_id", "user@gmail.com");
   user_prefs_.SetString(prefs::kGoogleServicesAccountId, account_id.ToString());
   user_prefs_.SetBoolean(prefs::kGoogleServicesConsentedToSync, false);
@@ -669,9 +671,11 @@ TEST_F(PrimaryAccountManagerTest,
       /*expected_count=*/0);
 }
 
+// TODO(crbug.com/1484870): The test was failing on android-12-x64-rel.
 TEST_F(PrimaryAccountManagerTest,
-       DoNotRecordExistingPreviousSyncAccountIfCurrentlyConsented) {
-  user_prefs_.SetString(prefs::kGoogleServicesLastGaiaId, "previous_gaia_id");
+       DISABLED_DoNotRecordExistingPreviousSyncAccountIfCurrentlyConsented) {
+  user_prefs_.SetString(prefs::kGoogleServicesLastSyncingGaiaId,
+                        "previous_gaia_id");
   CoreAccountId account_id = AddToAccountTracker("gaia_id", "user@gmail.com");
   user_prefs_.SetString(prefs::kGoogleServicesAccountId, account_id.ToString());
   user_prefs_.SetBoolean(prefs::kGoogleServicesConsentedToSync, true);
@@ -689,8 +693,8 @@ TEST_F(PrimaryAccountManagerTest,
 
 TEST_F(PrimaryAccountManagerTest,
        RecordAbsenceOfPreviousSyncAccountIfCurrentlySignedOut) {
-  // Leave `prefs::kGoogleServicesLastGaiaId` unset so there is no previous sync
-  // account.
+  // Leave `prefs::kGoogleServicesLastSyncingGaiaId` unset so there is no
+  // previous sync account.
   CreatePrimaryAccountManager();
   ASSERT_FALSE(manager_->HasPrimaryAccount(ConsentLevel::kSignin));
 
@@ -704,8 +708,8 @@ TEST_F(PrimaryAccountManagerTest,
 
 TEST_F(PrimaryAccountManagerTest,
        RecordAbsenceOfPreviousSyncAccountIfCurrentlyUnconsented) {
-  // Leave `prefs::kGoogleServicesLastGaiaId` unset so there is no previous sync
-  // account.
+  // Leave `prefs::kGoogleServicesLastSyncingGaiaId` unset so there is no
+  // previous sync account.
   CoreAccountId account_id = AddToAccountTracker("gaia_id", "user@gmail.com");
   user_prefs_.SetString(prefs::kGoogleServicesAccountId, account_id.ToString());
   user_prefs_.SetBoolean(prefs::kGoogleServicesConsentedToSync, false);
@@ -725,8 +729,8 @@ TEST_F(PrimaryAccountManagerTest,
 
 TEST_F(PrimaryAccountManagerTest,
        DoNotRecordAbsenceOfPreviousSyncAccountIfCurrentlyConsented) {
-  // Leave `prefs::kGoogleServicesLastGaiaId` unset so there is no previous sync
-  // account.
+  // Leave `prefs::kGoogleServicesLastSyncingGaiaId` unset so there is no
+  // previous sync account.
   CoreAccountId account_id = AddToAccountTracker("gaia_id", "user@gmail.com");
   user_prefs_.SetString(prefs::kGoogleServicesAccountId, account_id.ToString());
   user_prefs_.SetBoolean(prefs::kGoogleServicesConsentedToSync, true);

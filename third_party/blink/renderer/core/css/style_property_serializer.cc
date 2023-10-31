@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/core/css/css_pending_system_font_value.h"
 #include "third_party/blink/renderer/core/css/css_value_pair.h"
 #include "third_party/blink/renderer/core/css/css_value_pool.h"
+#include "third_party/blink/renderer/core/css/cssom_utils.h"
 #include "third_party/blink/renderer/core/css/properties/css_property.h"
 #include "third_party/blink/renderer/core/css/properties/css_property_instances.h"
 #include "third_party/blink/renderer/core/css/properties/longhand.h"
@@ -574,11 +575,11 @@ String StylePropertySerializer::SerializeShorthand(
     case CSSPropertyID::kGridTemplate:
       return GetShorthandValueForGridTemplate(gridTemplateShorthand());
     case CSSPropertyID::kGridColumn:
-      return GetShorthandValue(gridColumnShorthand(), " / ");
+      return GetShorthandValueForGridLine(gridColumnShorthand());
     case CSSPropertyID::kGridRow:
-      return GetShorthandValue(gridRowShorthand(), " / ");
+      return GetShorthandValueForGridLine(gridRowShorthand());
     case CSSPropertyID::kGridArea:
-      return GetShorthandValue(gridAreaShorthand(), " / ");
+      return GetShorthandValueForGridArea(gridAreaShorthand());
     case CSSPropertyID::kGap:
       return Get2Values(gapShorthand());
     case CSSPropertyID::kInset:
@@ -1402,8 +1403,8 @@ String StylePropertySerializer::OffsetValue() const {
       path && (use_rotate || use_distance ||
                !is_initial_identifier_value(path, CSSValueID::kNone));
   bool use_position =
-      position &&
-      (!use_path || !is_initial_identifier_value(position, CSSValueID::kAuto));
+      position && (!use_path ||
+                   !is_initial_identifier_value(position, CSSValueID::kNormal));
   bool use_anchor =
       anchor && (!is_initial_identifier_value(anchor, CSSValueID::kAuto));
 
@@ -2024,6 +2025,77 @@ String StylePropertySerializer::GetShorthandValueForGrid(
   return result.ReleaseString();
 }
 
+String StylePropertySerializer::GetShorthandValueForGridArea(
+    const StylePropertyShorthand& shorthand) const {
+  const String separator = " / ";
+
+  DCHECK_EQ(shorthand.length(), 4u);
+  const CSSValue* grid_row_start =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[0]);
+  const CSSValue* grid_column_start =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[1]);
+  const CSSValue* grid_row_end =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[2]);
+  const CSSValue* grid_column_end =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[3]);
+
+  // `grid-row-end` depends on `grid-row-start`, and `grid-column-end` depends
+  // on on `grid-column-start`, but what's not consistent is that
+  // `grid-column-start` has a dependency on `grid-row-start`. For more details,
+  // see https://www.w3.org/TR/css-grid-2/#placement-shorthands
+  const bool include_column_start =
+      CSSOMUtils::IncludeDependentGridLineEndValue(grid_row_start,
+                                                   grid_column_start);
+  const bool include_row_end = CSSOMUtils::IncludeDependentGridLineEndValue(
+      grid_row_start, grid_row_end);
+  const bool include_column_end = CSSOMUtils::IncludeDependentGridLineEndValue(
+      grid_column_start, grid_column_end);
+
+  StringBuilder result;
+
+  // `grid-row-start` is always included.
+  result.Append(grid_row_start->CssText());
+
+  // If `IncludeDependentGridLineEndValue` returns true for a property,
+  // all preceding values must be included.
+  if (include_column_start || include_row_end || include_column_end) {
+    result.Append(separator);
+    result.Append(grid_column_start->CssText());
+  }
+  if (include_row_end || include_column_end) {
+    result.Append(separator);
+    result.Append(grid_row_end->CssText());
+  }
+  if (include_column_end) {
+    result.Append(separator);
+    result.Append(grid_column_end->CssText());
+  }
+
+  return result.ReleaseString();
+}
+
+String StylePropertySerializer::GetShorthandValueForGridLine(
+    const StylePropertyShorthand& shorthand) const {
+  const String separator = " / ";
+
+  DCHECK_EQ(shorthand.length(), 2u);
+  const CSSValue* line_start =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[0]);
+  const CSSValue* line_end =
+      property_set_.GetPropertyCSSValue(*shorthand.properties()[1]);
+
+  StringBuilder result;
+
+  // `grid-line-start` is always included.
+  result.Append(line_start->CssText());
+  if (CSSOMUtils::IncludeDependentGridLineEndValue(line_start, line_end)) {
+    result.Append(separator);
+    result.Append(line_end->CssText());
+  }
+
+  return result.ReleaseString();
+}
+
 String StylePropertySerializer::GetShorthandValueForGridTemplate(
     const StylePropertyShorthand& shorthand) const {
   const CSSValue* template_row_values =
@@ -2033,25 +2105,38 @@ String StylePropertySerializer::GetShorthandValueForGridTemplate(
   const CSSValue* template_area_values =
       property_set_.GetPropertyCSSValue(*shorthand.properties()[2]);
 
-  // 1- 'none' case.
-  if (IsA<CSSIdentifierValue>(template_row_values) &&
+  const bool has_initial_template_rows =
+      IsA<CSSIdentifierValue>(template_row_values) &&
       To<CSSIdentifierValue>(template_row_values)->GetValueID() ==
-          CSSValueID::kNone &&
+          CSSValueID::kNone;
+  const bool has_initial_template_columns =
       IsA<CSSIdentifierValue>(template_column_values) &&
       To<CSSIdentifierValue>(template_column_values)->GetValueID() ==
-          CSSValueID::kNone) {
+          CSSValueID::kNone;
+  const bool has_initial_template_areas =
+      !template_area_values ||
+      (IsA<CSSIdentifierValue>(template_area_values) &&
+       To<CSSIdentifierValue>(template_area_values)->GetValueID() ==
+           CSSValueID::kNone);
+
+  // 1- 'none' case.
+  if (has_initial_template_areas && has_initial_template_rows &&
+      has_initial_template_columns) {
     return "none";
   }
 
-  const auto* template_row_value_list =
+  // It is invalid to specify `grid-template-areas` without
+  // `grid-template-rows`.
+  if (!has_initial_template_areas && has_initial_template_rows) {
+    return "";
+  }
+
+  const CSSValueList* template_row_value_list =
       DynamicTo<CSSValueList>(template_row_values);
   StringBuilder result;
 
   // 2- <grid-template-rows> / <grid-template-columns>
-  if (!template_row_value_list ||
-      (IsA<CSSIdentifierValue>(template_area_values) &&
-       To<CSSIdentifierValue>(template_area_values)->GetValueID() ==
-           CSSValueID::kNone)) {
+  if (!template_row_value_list || has_initial_template_areas) {
     result.Append(template_row_values->CssText());
     result.Append(" / ");
     result.Append(template_column_values->CssText());
@@ -2068,7 +2153,7 @@ String StylePropertySerializer::GetShorthandValueForGridTemplate(
     // then we append the 'grid-template-area' values.
     result.Append(template_area_values->CssText());
   } else {
-    const auto* template_areas =
+    const cssvalue::CSSGridTemplateAreasValue* template_areas =
         DynamicTo<cssvalue::CSSGridTemplateAreasValue>(template_area_values);
     DCHECK(template_areas);
     const NamedGridAreaMap& grid_area_map = template_areas->GridAreaMap();
@@ -2100,15 +2185,22 @@ String StylePropertySerializer::GetShorthandValueForGridTemplate(
         result.Append('"');
         ++grid_area_index;
       }
-      if (!result.empty()) {
-        result.Append(' ');
+
+      // Omit `auto` values.
+      const bool is_auto_value =
+          IsA<CSSIdentifierValue>(row_value.Get()) &&
+          To<CSSIdentifierValue>(row_value.Get())->GetValueID() ==
+              CSSValueID::kAuto;
+      if (!is_auto_value) {
+        if (!result.empty()) {
+          result.Append(' ');
+        }
+        result.Append(row_value_text);
       }
-      result.Append(row_value_text);
     }
   }
-  if (const auto* ident_value =
-          DynamicTo<CSSIdentifierValue>(template_column_values);
-      !ident_value || ident_value->GetValueID() != CSSValueID::kNone) {
+
+  if (!has_initial_template_columns) {
     result.Append(" / ");
     result.Append(template_column_values->CssText());
   }

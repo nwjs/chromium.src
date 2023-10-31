@@ -8,6 +8,7 @@
 
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/raw_ptr.h"
 #include "base/numerics/ranges.h"
 #include "base/run_loop.h"
 #include "base/synchronization/waitable_event.h"
@@ -326,9 +327,9 @@ class VideoTrackAdapterFixtureTest : public ::testing::Test {
     }
   }
 
-  void OnFrameDropped() {
+  void OnFrameDropped(media::VideoCaptureFrameDropReason reason) {
     if (frame_dropped_callback_) {
-      frame_dropped_callback_.Run();
+      frame_dropped_callback_.Run(reason);
       frame_processed_.Signal();
     }
   }
@@ -366,12 +367,13 @@ class VideoTrackAdapterFixtureTest : public ::testing::Test {
             did_process_all_frames.Signal();
           }
         }));
-    SetFrameDroppedCallback(base::BindLambdaForTesting([&]() {
-      num_dropped++;
-      if (num_delivered + num_dropped == num_frames) {
-        did_process_all_frames.Signal();
-      }
-    }));
+    SetFrameDroppedCallback(
+        base::BindLambdaForTesting([&](media::VideoCaptureFrameDropReason) {
+          num_dropped++;
+          if (num_delivered + num_dropped == num_frames) {
+            did_process_all_frames.Signal();
+          }
+        }));
 
     for (int i = 0; i < num_frames; ++i) {
       auto frame = CreateTestFrame(
@@ -820,7 +822,7 @@ class VideoTrackAdapterEncodedTest : public ::testing::Test {
       platform_support_;
   base::Thread render_thread_;
   WebMediaStreamSource web_source_;
-  MockMediaStreamVideoSource* mock_source_;
+  raw_ptr<MockMediaStreamVideoSource, ExperimentalRenderer> mock_source_;
   scoped_refptr<VideoTrackAdapter> adapter_;
 };
 

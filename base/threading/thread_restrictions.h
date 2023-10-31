@@ -177,6 +177,7 @@ class OutputDevice;
 }
 
 namespace blink {
+class AudioDestination;
 class DiskDataAllocator;
 class IdentifiabilityActiveSampler;
 class RTCVideoDecoderAdapter;
@@ -825,6 +826,7 @@ class BASE_EXPORT
   friend class base::StackSamplingProfiler;
   friend class base::internal::JobTaskSource;
   friend class base::sequence_manager::internal::TaskQueueImpl;
+  friend class blink::AudioDestination;
   friend class blink::RTCVideoDecoderAdapter;
   friend class blink::RTCVideoEncoder;
   friend class blink::WebRtcVideoFrameAdapter;

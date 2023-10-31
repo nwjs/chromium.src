@@ -28,7 +28,9 @@
 
   BrowserStatePolicyConnector* policyConnector =
       browserState->GetPolicyConnector();
-  if (search_engines::ShouldShowChoiceScreen(
+  if (search_engines::IsChoiceScreenFlagEnabled(
+          search_engines::ChoicePromo::kFre) &&
+      search_engines::ShouldShowChoiceScreen(
           *policyConnector->GetPolicyService(),
           /*profile_properties=*/{.is_regular_profile = true,
                                   .pref_service = browserState->GetPrefs()})) {

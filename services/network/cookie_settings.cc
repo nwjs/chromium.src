@@ -183,18 +183,6 @@ net::NetworkDelegate::PrivacySetting CookieSettings::IsPrivacyModeEnabled(
       url, site_for_cookies, base::OptionalToPtr(top_frame_origin), overrides));
 }
 
-CookieSettings::ThirdPartyBlockingScope
-CookieSettings::GetThirdPartyBlockingScope(const GURL& first_party_url) const {
-  // If cookies are allowed for the first-party URL then we allow
-  // partitioned cross-site cookies.
-  if (const ContentSettingPatternSource* match = FindMatchingSetting(
-          first_party_url, first_party_url, content_settings_);
-      !match || match->GetContentSetting() == CONTENT_SETTING_ALLOW) {
-    return ThirdPartyBlockingScope::kUnpartitionedOnly;
-  }
-  return ThirdPartyBlockingScope::kUnpartitionedAndPartitioned;
-}
-
 CookieSettings::CookieSettingWithMetadata
 CookieSettings::GetCookieSettingWithMetadata(
     const GURL& url,
@@ -348,6 +336,10 @@ bool CookieSettings::IsThirdPartyCookiesAllowedScheme(
 
 bool CookieSettings::ShouldBlockThirdPartyCookies() const {
   return block_third_party_cookies_;
+}
+
+bool CookieSettings::MitigationsEnabledFor3pcd() const {
+  return mitigations_enabled_for_3pcd_;
 }
 
 bool CookieSettings::IsStorageAccessApiEnabled() const {

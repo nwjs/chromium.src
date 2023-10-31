@@ -803,8 +803,12 @@ template("mojom") {
           "--add-module-metadata",
           "webui_module_path=${invoker.webui_module_path}",
         ]
-        if (defined(invoker.generate_legacy_js_bindings)) {
-          args += [ "legacy_js_only=${invoker.generate_legacy_js_bindings}" ]
+        if (!defined(invoker.use_typescript_sources) ||
+            !invoker.use_typescript_sources) {
+          args += [
+            "--add-module-metadata",
+            "generate_webui_js=True",
+          ]
         }
       }
     }
@@ -963,6 +967,7 @@ template("mojom") {
         inputs += [ "$root_gen_dir/$dirname/${filename}-module" ]
 
         outputs += [
+          "$root_gen_dir/$base_path-features.h",
           "$root_gen_dir/$base_path-params-data.h",
           "$root_gen_dir/$base_path-shared-internal.h",
           "$root_gen_dir/$base_path-shared.cc",
@@ -1014,6 +1019,7 @@ template("mojom") {
       sources = []
       foreach(base_path, output_file_base_paths) {
         sources += [
+          "$root_gen_dir/$base_path-features.h",
           "$root_gen_dir/$base_path-params-data.h",
           "$root_gen_dir/$base_path-shared-internal.h",
           "$root_gen_dir/$base_path-shared.cc",

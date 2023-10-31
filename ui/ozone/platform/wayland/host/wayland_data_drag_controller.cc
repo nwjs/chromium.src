@@ -11,8 +11,11 @@
 #include <memory>
 
 #include "base/check.h"
+#include "base/functional/bind.h"
+#include "base/location.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/task/single_thread_task_runner.h"
 #include "ui/base/clipboard/clipboard_constants.h"
 #include "ui/base/dragdrop/drag_drop_types.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom.h"
@@ -131,6 +134,8 @@ bool WaylandDataDragController::StartSession(const OSExchangeData& data,
     return false;
   }
 
+  VLOG(1) << "Starting DND session.";
+
   // Create new data source and offers |data|.
   SetOfferedExchangeDataProvider(data);
   data_source_ = data_device_manager_->CreateSource(this);
@@ -170,6 +175,9 @@ bool WaylandDataDragController::StartSession(const OSExchangeData& data,
                           this);
 
   origin_window_ = origin_window;
+  // Start observing for potential destructions of windows involved in this
+  // outcoming drag session, eg: origin and entered window. For this type of
+  // sessions, observer is removed in OnDataSourceFinish.
   window_manager_->AddObserver(this);
 
   SetUpWindowDraggingSessionIfNeeded(data);
@@ -264,6 +272,8 @@ SkBitmap WaylandDataDragController::GetIconBitmap() {
 }
 
 void WaylandDataDragController::DrawIconInternal() {
+  VLOG(1) << "Draw drag icon.";
+
   // If there was a drag icon before but now there isn't, attach a null buffer
   // to the icon surface to hide it.
   if (icon_surface_ && icon_image_.isNull()) {
@@ -320,6 +330,7 @@ void WaylandDataDragController::DrawIconInternal() {
 void WaylandDataDragController::OnDragOffer(
     std::unique_ptr<WaylandDataOffer> offer) {
   DCHECK(!data_offer_);
+  VLOG(1) << __FUNCTION__;
   data_offer_ = std::move(offer);
 }
 
@@ -328,7 +339,14 @@ void WaylandDataDragController::OnDragEnter(WaylandWindow* window,
                                             uint32_t serial) {
   DCHECK(window);
   DCHECK(data_offer_);
+  VLOG(1) << __FUNCTION__ << " is_source=" << IsDragSource();
+
+  // Store the entered |window| and, for incoming drag sessions, start observing
+  // its lifetime so that memory corruption issues can be avoided.
   window_ = window;
+  if (!IsDragSource()) {
+    window_manager_->AddObserver(this);
+  }
 
   unprocessed_mime_types_.clear();
   for (auto mime : data_offer_->mime_types()) {
@@ -374,6 +392,10 @@ void WaylandDataDragController::OnDragEnter(WaylandWindow* window,
 }
 
 void WaylandDataDragController::OnDragMotion(const gfx::PointF& location) {
+  VLOG(2) << __FUNCTION__ << " window=" << !!window_
+          << " location=" << location.ToString()
+          << " transferring=" << (state_ == State::kTransferring);
+
   if (!window_) {
     return;
   }
@@ -382,6 +404,7 @@ void WaylandDataDragController::OnDragMotion(const gfx::PointF& location) {
     last_drag_location_ = location;
     return;
   }
+
   DCHECK(data_offer_);
   int available_operations =
       DndActionsToDragOperations(data_offer_->source_actions());
@@ -391,6 +414,9 @@ void WaylandDataDragController::OnDragMotion(const gfx::PointF& location) {
 }
 
 void WaylandDataDragController::OnDragLeave() {
+  VLOG(2) << __FUNCTION__ << " window=" << !!window_
+          << " transferring=" << (state_ == State::kTransferring);
+
   if (state_ == State::kTransferring) {
     // We cannot leave until the transfer is finished.  Postponing.
     is_leave_pending_ = true;
@@ -401,12 +427,19 @@ void WaylandDataDragController::OnDragLeave() {
     window_->OnDragLeave();
   }
 
+  // For incoming drag sessions, where leave event is processed instantly, it
+  // must stop observing windows' state right away.
+  if (!IsDragSource()) {
+    window_manager_->RemoveObserver(this);
+  }
+
   window_ = nullptr;
   data_offer_.reset();
   is_leave_pending_ = false;
 }
 
 void WaylandDataDragController::OnDragDrop() {
+  VLOG(1) << __FUNCTION__ << " window=" << !!window_;
   if (!window_) {
     return;
   }
@@ -422,6 +455,9 @@ void WaylandDataDragController::OnDragDrop() {
 
 void WaylandDataDragController::OnDataSourceFinish(bool completed) {
   DCHECK(data_source_);
+  VLOG(1) << __FUNCTION__ << " window=" << !!window_
+          << " origin=" << !!origin_window_
+          << " nested_dispatcher=" << !!nested_dispatcher_;
 
   if (origin_window_) {
     origin_window_->OnDragSessionClose(
@@ -467,6 +503,7 @@ void WaylandDataDragController::OnDataSourceSend(const std::string& mime_type,
                                                  std::string* buffer) {
   DCHECK(data_source_);
   DCHECK(buffer);
+  VLOG(1) << __FUNCTION__ << " mime=" << mime_type;
   if (!GetOfferedExchangeDataProvider()->ExtractData(mime_type, buffer)) {
     LOG(WARNING) << "Cannot deliver data of type " << mime_type
                  << " and no text representation is available.";
@@ -496,7 +533,9 @@ void WaylandDataDragController::OnWindowRemoved(WaylandWindow* window) {
 void WaylandDataDragController::HandleUnprocessedMimeTypes(
     base::TimeTicks start_time) {
   std::string mime_type = GetNextUnprocessedMimeType();
-  if (mime_type.empty() || is_leave_pending_ || state_ == State::kIdle) {
+  VLOG(1) << __FUNCTION__ << " mime=" << mime_type;
+  if (mime_type.empty() || is_leave_pending_ || state_ == State::kIdle ||
+      !window_) {
     OnDataTransferFinished(start_time,
                            std::make_unique<OSExchangeData>(
                                std::move(received_exchange_data_provider_)));
@@ -509,15 +548,29 @@ void WaylandDataDragController::HandleUnprocessedMimeTypes(
   }
 }
 
+// Post |data_transferred_callback_for_testing_|, if any, to be executed in the
+// current task runner, such that test code is run only when current event is
+// fully processed, ie: internal drag controller state consistency is assured.
+void WaylandDataDragController::RunDataTransferredCallbackForTesting(
+    const std::string& mime_type) {
+  if (data_transferred_callback_for_testing_) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(data_transferred_callback_for_testing_, mime_type));
+  }
+}
+
 void WaylandDataDragController::OnMimeTypeDataTransferred(
     base::TimeTicks start_time,
     PlatformClipboard::Data contents) {
   DCHECK(contents);
+  std::string mime_type = unprocessed_mime_types_.front();
   if (!contents->data().empty()) {
-    std::string mime_type = unprocessed_mime_types_.front();
     received_exchange_data_provider_->AddData(contents, mime_type);
   }
   unprocessed_mime_types_.pop_front();
+
+  RunDataTransferredCallbackForTesting(mime_type);  // IN-TEST
 
   // Continue reading data for other negotiated mime types.
   HandleUnprocessedMimeTypes(start_time);
@@ -526,6 +579,8 @@ void WaylandDataDragController::OnMimeTypeDataTransferred(
 void WaylandDataDragController::OnDataTransferFinished(
     base::TimeTicks start_time,
     std::unique_ptr<OSExchangeData> received_data) {
+  VLOG(1) << __FUNCTION__ << " unprocessed=" << unprocessed_mime_types_.size()
+          << " leave_pending=" << is_leave_pending_ << " window=" << !!window_;
   unprocessed_mime_types_.clear();
   if (state_ == State::kIdle) {
     return;
@@ -533,16 +588,21 @@ void WaylandDataDragController::OnDataTransferFinished(
 
   state_ = State::kIdle;
 
-  // If |is_leave_pending_| is set, it means a 'leave' event was fired while
-  // data was on transit (see OnDragLeave for more context).  Sending
-  // OnDragEnter to the window makes no sense anymore because the drag is no
-  // longer over it.  Reset and exit.
+  RunDataTransferredCallbackForTesting();  // IN-TEST
+
+  // If a 'leave' event was received while incoming data was on transit (see
+  // OnDragLeave function), propagating 'enter' event at this point makes no
+  // sense anymore. So reset internal state and exit.
   if (is_leave_pending_) {
+    DCHECK(!IsDragSource());
     if (data_offer_) {
       data_offer_->FinishOffer();
       data_offer_.reset();
     }
     offered_exchange_data_provider_.reset();
+    // When processing a deferred leave event, controller must be removed from
+    // window observers here, just before to stop handling other dnd events.
+    window_manager_->RemoveObserver(this);
     data_device_->ResetDragDelegateIfNotDragSource();
     is_leave_pending_ = false;
     return;
@@ -572,6 +632,8 @@ std::string WaylandDataDragController::GetNextUnprocessedMimeType() {
 void WaylandDataDragController::PropagateOnDragEnter(
     const gfx::PointF& location,
     std::unique_ptr<OSExchangeData> data) {
+  VLOG(1) << __func__ << " window=" << !!window_ << " offer=" << !!data_offer_;
+
   // |data_offer_| may have already been destroyed at this point if, for
   // example, the drop event comes in while the data fetching was ongoing and no
   // subsequent 'leave' is received, so just early-out in this case.
@@ -579,7 +641,12 @@ void WaylandDataDragController::PropagateOnDragEnter(
     return;
   }
 
-  DCHECK(window_);
+  // |window_| may have already been unset here if, for instance, user has
+  // dragged out of it in incoming dnd sessions. See https://crbug.com/1487387.
+  if (!window_) {
+    return;
+  }
+
   window_->OnDragEnter(
       location, std::move(data),
       DndActionsToDragOperations(data_offer_->source_actions()));

@@ -466,6 +466,7 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HelpBubbleView,
                                       kDefaultButtonIdForTesting);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HelpBubbleView,
                                       kFirstNonDefaultButtonIdForTesting);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HelpBubbleView, kCloseButtonIdForTesting);
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HelpBubbleView, kBodyTextIdForTesting);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(HelpBubbleView, kTitleTextIdForTesting);
@@ -534,8 +535,7 @@ HelpBubbleView::HelpBubbleView(const HelpBubbleDelegate* delegate,
   timeout_ = params.timeout.value_or(params.buttons.empty()
                                          ? kDefaultTimeoutWithoutButtons
                                          : kDefaultTimeoutWithButtons);
-  if (!timeout_.is_zero())
-    timeout_callback_ = std::move(params.timeout_callback);
+  timeout_callback_ = std::move(params.timeout_callback);
   SetCancelCallback(std::move(params.dismiss_callback));
 
   accessible_name_ = params.title_text;
@@ -646,6 +646,8 @@ HelpBubbleView::HelpBubbleView(const HelpBubbleDelegate* delegate,
                           delegate, alt_text,
                           base::BindRepeating(&DialogDelegate::CancelDialog,
                                               base::Unretained(this))));
+  close_button_->SetProperty(views::kElementIdentifierKey,
+                             kCloseButtonIdForTesting);
 
   // Add other buttons.
   if (!params.buttons.empty()) {
@@ -750,6 +752,8 @@ HelpBubbleView::HelpBubbleView(const HelpBubbleDelegate* delegate,
             .WithAlignment(views::LayoutAlignment::kEnd));
     close_button_->SetProperty(views::kMarginsKey,
                                gfx::Insets::TLBR(0, default_spacing, 0, 0));
+    close_button_->SetProperty(views::kElementIdentifierKey,
+                               kCloseButtonIdForTesting);
   }
 
   // Icon view should have padding between it and the title or body label.
@@ -900,7 +904,9 @@ void HelpBubbleView::MaybeStartAutoCloseTimer() {
 }
 
 void HelpBubbleView::OnTimeout() {
-  std::move(timeout_callback_).Run();
+  if (timeout_callback_) {
+    std::move(timeout_callback_).Run();
+  }
   GetWidget()->Close();
 }
 

@@ -74,7 +74,7 @@ void BookmarkSubMenuModel::Build(Browser* browser) {
       auto index = GetIndexOfCommandId(command_id);
       if (index) {
         SetIcon(index.value(),
-                ui::ImageModel::FromVectorIcon(vector_icon, ui::kColorMenuIcon, 16));
+                ui::ImageModel::FromVectorIcon(vector_icon, SK_ColorBLACK, 16));
       }
     };
 

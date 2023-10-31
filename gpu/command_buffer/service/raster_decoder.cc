@@ -78,6 +78,7 @@
 #include "third_party/skia/include/gpu/GrBackendSemaphore.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/GrTypes.h"
 #include "third_party/skia/include/gpu/GrYUVABackendTextures.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
@@ -583,7 +584,6 @@ class RasterDecoderImpl final : public RasterDecoder,
     }
     return shared_context_state_->context_state();
   }
-  gl::GLApi* api() const { return api_; }
   GrDirectContext* gr_context() const {
     return shared_context_state_->gr_context();
   }
@@ -624,8 +624,10 @@ class RasterDecoderImpl final : public RasterDecoder,
     if (!flush_workaround_disabled_for_test_) {
       TRACE_EVENT0("gpu", "RasterDecoderImpl::FlushToWorkAroundMacCrashes");
       if (gr_context())
-        gr_context()->flushAndSubmit();
-      api()->glFlushFn();
+        gr_context()->flushAndSubmit(GrSyncCpu::kNo);
+
+      gl::GLApi* const api = gl::g_current_gl_context;
+      api->glFlushFn();
 
       // Flushes can be expensive, yield to allow interruption after each flush.
       ExitCommandProcessingEarly();
@@ -720,7 +722,11 @@ class RasterDecoderImpl final : public RasterDecoder,
                                         GLuint v_stride,
                                         const volatile GLbyte* mailbox);
 
-  void DoConvertYUVAMailboxesToRGBINTERNAL(GLenum yuv_color_space,
+  void DoConvertYUVAMailboxesToRGBINTERNAL(GLint src_x,
+                                           GLint src_y,
+                                           GLsizei width,
+                                           GLsizei height,
+                                           GLenum yuv_color_space,
                                            GLenum plane_config,
                                            GLenum subsampling,
                                            const volatile GLbyte* mailboxes);
@@ -844,7 +850,7 @@ class RasterDecoderImpl final : public RasterDecoder,
       // representation does not set semaphores, and we are not enabling DrDC
       // with Graphite.
       CHECK(gr_context());
-      gr_context()->submit(sync_cpu);
+      gr_context()->submit(sync_cpu ? GrSyncCpu::kYes : GrSyncCpu::kNo);
     }
   }
 
@@ -972,8 +978,6 @@ class RasterDecoderImpl final : public RasterDecoder,
   const bool is_raw_draw_enabled_;
 
   const bool is_drdc_enabled_;
-
-  raw_ptr<gl::GLApi, AcrossTasksDanglingUntriaged> api_ = nullptr;
 
   base::WeakPtrFactory<DecoderContext> weak_ptr_factory_{this};
 };
@@ -1109,8 +1113,6 @@ ContextResult RasterDecoderImpl::Initialize(
   TRACE_EVENT0("gpu", "RasterDecoderImpl::Initialize");
   DCHECK(shared_context_state_->IsCurrent(nullptr));
 
-  api_ = gl::g_current_gl_context;
-
   set_initialized();
 
   if (!offscreen) {
@@ -1198,8 +1200,6 @@ bool RasterDecoderImpl::MakeCurrent() {
     return false;
   }
 
-  DCHECK_EQ(api(), gl::g_current_gl_context);
-
   // Rebind textures if the service ids may have changed.
   RestoreAllExternalTextureBindingsIfNeeded();
 
@@ -1233,8 +1233,6 @@ Capabilities RasterDecoderImpl::GetCapabilities() {
   caps.texture_format_bgra8888 =
       feature_info()->feature_flags().ext_texture_format_bgra8888;
   caps.texture_rg = feature_info()->feature_flags().ext_texture_rg;
-  caps.supports_scanout_shared_images =
-      SharedImageManager::SupportsScanoutImages();
   caps.supports_luminance_shared_images =
       !feature_info()->gl_version_info().is_angle_metal;
   caps.disable_r8_shared_images =
@@ -1558,8 +1556,9 @@ error::Error RasterDecoderImpl::DoCommandsImpl(unsigned int num_commands,
 
         if (DebugImpl && shared_context_state_->GrContextIsGL() && debug() &&
             !WasContextLost()) {
+          gl::GLApi* const api = gl::g_current_gl_context;
           GLenum error;
-          while ((error = api()->glGetErrorFn()) != GL_NO_ERROR) {
+          while ((error = api->glGetErrorFn()) != GL_NO_ERROR) {
             LOG(ERROR) << "[" << logger_.GetLogPrefix() << "] "
                        << "GL ERROR: " << gles2::GLES2Util::GetStringEnum(error)
                        << " : " << GetCommandName(command);
@@ -1872,7 +1871,7 @@ error::Error RasterDecoderImpl::HandleQueryCounterEXT(
 
 void RasterDecoderImpl::DoFinish() {
   if (gr_context()) {
-    gr_context()->flushAndSubmit(/*syncCpu=*/true);
+    gr_context()->flushAndSubmit(GrSyncCpu::kYes);
   } else if (graphite_context()) {
     GraphiteFlushAndSubmit(skgpu::graphite::SyncToCpu::kYes);
   }
@@ -1881,7 +1880,7 @@ void RasterDecoderImpl::DoFinish() {
 
 void RasterDecoderImpl::DoFlush() {
   if (gr_context()) {
-    gr_context()->flushAndSubmit(/*syncCpu=*/false);
+    gr_context()->flushAndSubmit(GrSyncCpu::kNo);
   } else if (graphite_context()) {
     GraphiteFlushAndSubmit();
   }
@@ -2773,6 +2772,10 @@ void RasterDecoderImpl::DoReadbackYUVImagePixelsINTERNAL(
 }
 
 void RasterDecoderImpl::DoConvertYUVAMailboxesToRGBINTERNAL(
+    GLint src_x,
+    GLint src_y,
+    GLsizei width,
+    GLsizei height,
     GLenum planes_yuv_color_space,
     GLenum plane_config,
     GLenum subsampling,
@@ -2780,7 +2783,8 @@ void RasterDecoderImpl::DoConvertYUVAMailboxesToRGBINTERNAL(
   CopySharedImageHelper helper(&shared_image_representation_factory_,
                                shared_context_state_.get());
   auto result = helper.ConvertYUVAMailboxesToRGB(
-      planes_yuv_color_space, plane_config, subsampling, bytes_in);
+      src_x, src_y, width, height, planes_yuv_color_space, plane_config,
+      subsampling, bytes_in);
   if (!result.has_value()) {
     LOCAL_SET_GL_ERROR(result.error().gl_error,
                        result.error().function_name.c_str(),

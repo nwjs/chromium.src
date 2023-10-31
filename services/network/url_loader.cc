@@ -282,11 +282,11 @@ bool ShouldNotifyAboutCookie(net::CookieInclusionStatus status) {
       net::CookieInclusionStatus::
           WARN_TENTATIVELY_ALLOWING_SECURE_SOURCE_SCHEME);
 
-  // TODO(crbug.com/1469135): We may want to notify about cookies blocked due to
-  // 3PCD enabled via local switch.
   return status.IsInclude() || status.ShouldWarn() ||
          status.HasExclusionReason(
              net::CookieInclusionStatus::EXCLUDE_USER_PREFERENCES) ||
+         status.HasExclusionReason(
+             net::CookieInclusionStatus::EXCLUDE_THIRD_PARTY_PHASEOUT) ||
          status.HasExclusionReason(
              net::CookieInclusionStatus::EXCLUDE_DOMAIN_NON_ASCII);
 }
@@ -1100,7 +1100,7 @@ void URLLoader::FollowRedirect(
   }
 
   // Propagate removal of shared storage eligiblity to the helper if the
-  // "Shared-Storage-Writable" request header has been removed.
+  // "Sec-Shared-Storage-Writable" request header has been removed.
   DCHECK(shared_storage_request_helper_);
   shared_storage_request_helper_
       ->RemoveEligibilityIfSharedStorageWritableRemoved(removed_headers);
@@ -1549,7 +1549,7 @@ void URLLoader::OnSSLCertificateError(net::URLRequest* request,
                                       const net::SSLInfo& ssl_info,
                                       bool fatal) {
   if (!url_loader_network_observer_) {
-    OnSSLCertificateErrorResponse(ssl_info, net::ERR_INSECURE_RESPONSE);
+    OnSSLCertificateErrorResponse(ssl_info, net_error);
     return;
   }
   url_loader_network_observer_->OnSSLCertificateError(

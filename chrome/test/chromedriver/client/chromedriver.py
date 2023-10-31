@@ -746,6 +746,10 @@ class ChromeDriver(object):
     params = {'accountIndex': index}
     return self.ExecuteCommand(Command.SELECT_ACCOUNT, params)
 
+  def ConfirmIdpLogin(self, vendorId):
+    params = {'vendorId': vendorId}
+    return self.ExecuteCommand(Command.CONFIRM_IDP_LOGIN, params)
+
   def GetAccounts(self):
     return self.ExecuteCommand(Command.GET_ACCOUNTS, {})
 

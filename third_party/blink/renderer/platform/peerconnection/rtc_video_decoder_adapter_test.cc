@@ -11,6 +11,7 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/memory/ptr_util.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/gmock_callback_support.h"
@@ -350,7 +351,7 @@ class RTCVideoDecoderAdapterTest : public ::testing::TestWithParam<bool> {
     } else {
       input_image._frameType = webrtc::VideoFrameType::kVideoFrameDelta;
     }
-    input_image.SetTimestamp(timestamp);
+    input_image.SetRtpTimestamp(timestamp);
     return adapter_wrapper_->Decode(input_image, false, 0);
   }
 
@@ -382,7 +383,7 @@ class RTCVideoDecoderAdapterTest : public ::testing::TestWithParam<bool> {
     input_image.SetEncodedData(
         webrtc::EncodedImageBuffer::Create(data, sizeof(data)));
     input_image._frameType = webrtc::VideoFrameType::kVideoFrameKey;
-    input_image.SetTimestamp(timestamp);
+    input_image.SetRtpTimestamp(timestamp);
     webrtc::ColorSpace webrtc_color_space;
     webrtc_color_space.set_primaries_from_uint8(1);
     webrtc_color_space.set_transfer_from_uint8(1);
@@ -400,7 +401,7 @@ class RTCVideoDecoderAdapterTest : public ::testing::TestWithParam<bool> {
     input_image.SetEncodedData(
         webrtc::EncodedImageBuffer::Create(data, sizeof(data)));
     input_image._frameType = webrtc::VideoFrameType::kVideoFrameKey;
-    input_image.SetTimestamp(timestamp);
+    input_image.SetRtpTimestamp(timestamp);
     // Input image only has 1 spatial layer, but non-zero spatial index.
     input_image.SetSpatialIndex(kSpatialIndex);
     input_image.SetSpatialLayerFrameSize(kSpatialIndex, sizeof(data));
@@ -450,7 +451,8 @@ class RTCVideoDecoderAdapterTest : public ::testing::TestWithParam<bool> {
   base::Thread media_thread_;
 
   // Owned by |rtc_video_decoder_adapter_|.
-  StrictMock<MockVideoDecoder>* video_decoder_ = nullptr;
+  raw_ptr<StrictMock<MockVideoDecoder>, ExperimentalRenderer> video_decoder_ =
+      nullptr;
 
   StrictMock<base::MockCallback<
       base::RepeatingCallback<void(const webrtc::VideoFrame&)>>>

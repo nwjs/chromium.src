@@ -18,8 +18,10 @@
 #include <string>
 
 #include "base/at_exit.h"
+#include "base/clang_profiling_buildflags.h"
 #include "base/command_line.h"
 #include "base/dcheck_is_on.h"
+#include "base/debug/alias.h"
 #include "base/debug/handle_hooks_win.h"
 #include "base/file_version_info.h"
 #include "base/files/file_path.h"
@@ -36,9 +38,9 @@
 #include "base/process/memory.h"
 #include "base/process/process.h"
 #include "base/process/process_metrics.h"
+#include "base/strings/strcat_win.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_executor.h"
 #include "base/threading/platform_thread.h"
@@ -105,6 +107,10 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
+#if BUILDFLAG(CLANG_PROFILING)
+#include "base/test/clang_profiling.h"
+#endif
+
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 #include "chrome/installer/util/google_update_util.h"
 #endif
@@ -156,17 +162,17 @@ LONG OverwriteDisplayVersions(const std::wstring& product,
                               const std::wstring& value) {
   // The version is held in two places.  First change it in the MSI Installer
   // registry entry.  It is held under a "squashed guid" key.
-  std::wstring reg_path = base::StringPrintf(
-      L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData\\"
-      L"%ls\\Products\\%ls\\InstallProperties",
-      kSystemPrincipalSid, InstallUtil::GuidToSquid(product).c_str());
+  std::wstring reg_path = base::StrCat(
+      {L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UserData\\",
+       kSystemPrincipalSid, L"\\Products\\", InstallUtil::GuidToSquid(product),
+       L"\\InstallProperties"});
   LONG result1 = OverwriteDisplayVersion(reg_path, value, KEY_WOW64_64KEY);
 
   // The display version also exists under the Unininstall registry key with
   // the original guid.  Check both WOW64_64 and WOW64_32.
-  reg_path = base::StringPrintf(
-      L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{%ls}",
-      product.c_str());
+  reg_path = base::StrCat(
+      {L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\{", product,
+       L"}"});
   // Consider the operation a success if either of these succeeds.
   LONG result2 = OverwriteDisplayVersion(reg_path, value, KEY_WOW64_64KEY);
   LONG result3 = OverwriteDisplayVersion(reg_path, value, KEY_WOW64_32KEY);
@@ -494,16 +500,20 @@ installer::InstallStatus RepeatDeleteOldVersions(
       return installer::SETUP_SINGLETON_RELEASED;
     }
 
-    // Note that Windows 11 22H2 has a bug whereby process priorities are not
-    // altered by PROCESS_MODE_BACKGROUND_BEGIN, but I/O and memory priorities
-    // still are. See https://crbug.com/1396155 for details.
+    // SetPriorityClass with PROCESS_MODE_BACKGROUND_BEGIN will cap the process
+    // working set to 32 MiB. This was experimentally determined after being
+    // reported in https://crbug.com/1475179. This can lead to extreme
+    // inefficiency as most CPU time is spent faulting in pages and then
+    // immediately trimming the working set. In one trace 99% of CPU time was
+    // spent handling page faults, so avoid SetPriorityClass with
+    // PROCESS_MODE_BACKGROUND_BEGIN.
     base::ScopedClosureRunner restore_priority;
-    if (::SetPriorityClass(::GetCurrentProcess(),
-                           PROCESS_MODE_BACKGROUND_BEGIN) != 0) {
-      // Be aware that a process restoring itself to normal priority from
+    if (::SetThreadPriority(::GetCurrentThread(),
+                            THREAD_MODE_BACKGROUND_BEGIN) != 0) {
+      // Be aware that a thread restoring itself to normal priority from
       // background priority is inherently somewhat of a priority inversion.
       restore_priority.ReplaceClosure(base::BindOnce([]() {
-        ::SetPriorityClass(::GetCurrentProcess(), PROCESS_MODE_BACKGROUND_END);
+        ::SetThreadPriority(::GetCurrentThread(), THREAD_MODE_BACKGROUND_END);
       }));
     }
     const bool delete_old_versions_success =
@@ -795,7 +805,7 @@ installer::InstallStatus InstallProducts(InstallationState& original_state,
   // normal process priority class. This is done here because InstallProducts-
   // Helper has read-only access to the state and because the action also
   // affects everything else that runs below.
-  const bool entered_background_mode = installer::AdjustProcessPriority();
+  const bool entered_background_mode = installer::AdjustThreadPriority();
   VLOG_IF(1, entered_background_mode) << "Entered background processing mode.";
 
   if (CheckPreInstallConditions(original_state, *installer_state,
@@ -874,12 +884,11 @@ installer::InstallStatus RegisterDevChrome(
   if (!existing_chrome)
     existing_chrome = original_state.GetProductState(true);
   if (existing_chrome) {
-    static const wchar_t kPleaseUninstallYourChromeMessage[] =
-        L"You already have a full-installation (non-dev) of %1ls, please "
-        L"uninstall it first using Add/Remove Programs in the control panel.";
-    std::wstring name(InstallUtil::GetDisplayName());
-    std::wstring message(
-        base::StringPrintf(kPleaseUninstallYourChromeMessage, name.c_str()));
+    const std::wstring name = InstallUtil::GetDisplayName();
+    const std::wstring message = base::StrCat(
+        {L"You already have a full-installation (non-dev) of ", name,
+         L", please uninstall it first using Add/Remove Programs in the "
+         L"control panel."});
 
     LOG(ERROR) << "Aborting operation: another installation of " << name
                << " was found, as a last resort (if the product is not present "
@@ -1751,8 +1760,37 @@ int WINAPI wWinMain(HINSTANCE instance,
                     HINSTANCE prev_instance,
                     wchar_t* command_line,
                     int show_command) {
+  const auto process_exit_code = SetupMain();
+
   // https://crbug.com/896565: Graceful shutdown sometimes fails for reasons out
   // of the installer's control. Crashes from such failures are inactionable, so
-  // terminate the process forthwith.
-  base::Process::TerminateCurrentProcessImmediately(SetupMain());
+  // terminate the process forthwith. Do not use
+  // base::Process::TerminateCurrentProcessImmediately because it will crash the
+  // process with int 3 in cases where ::TerminateProcess returns; see
+  // https://crbug.com/1489598. It is better for the installer to try to return
+  // the actual exit code (risking the original crash).
+#if BUILDFLAG(CLANG_PROFILING)
+  base::WriteClangProfilingProfile();
+#endif
+
+  ::SetLastError(ERROR_SUCCESS);
+  const auto terminate_result = ::TerminateProcess(
+      ::GetCurrentProcess(), static_cast<UINT>(process_exit_code));
+
+  // It is unexpected that this code is reached. In the event that it is,
+  // capture error information left behind by TerminateProcess in case the
+  // process crashes during exit and put it on the stack in the hopes that
+  // we can find it in a post-return crash dump.
+  const auto terminate_error_code = ::GetLastError();
+
+  DWORD exit_codes[] = {
+      0xDEADBECF,
+      static_cast<DWORD>(process_exit_code),
+      static_cast<DWORD>(terminate_result),
+      terminate_error_code,
+      0xDEADBEDF,
+  };
+  base::debug::Alias(exit_codes);
+
+  return process_exit_code;
 }

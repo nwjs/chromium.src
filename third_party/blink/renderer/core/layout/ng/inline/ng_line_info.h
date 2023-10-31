@@ -98,11 +98,23 @@ class CORE_EXPORT NGLineInfo {
   // break.
   bool IsEndParagraph() const { return !BreakToken() || HasForcedBreak(); }
 
-  HeapVector<Member<const NGBlockBreakToken>>& PropagatedBreakTokens() {
-    return propagated_break_tokens_;
+  HeapVector<Member<const NGBreakToken>>& ParallelFlowBreakTokens() {
+    return parallel_flow_break_tokens_;
   }
-  void PropagateBreakToken(const NGBlockBreakToken* token) {
-    propagated_break_tokens_.push_back(token);
+  void PropagateParallelFlowBreakToken(const NGBreakToken* token) {
+    parallel_flow_break_tokens_.push_back(token);
+  }
+
+  absl::optional<LayoutUnit> MinimumSpaceShortage() const {
+    return minimum_space_shortage_;
+  }
+  void PropagateMinimumSpaceShortage(LayoutUnit shortage) {
+    DCHECK_GT(shortage, LayoutUnit());
+    if (minimum_space_shortage_) {
+      minimum_space_shortage_ = std::min(*minimum_space_shortage_, shortage);
+    } else {
+      minimum_space_shortage_ = shortage;
+    }
   }
 
   void SetTextIndent(LayoutUnit indent) { text_indent_ = indent; }
@@ -116,15 +128,17 @@ class CORE_EXPORT NGLineInfo {
   NGBfcOffset BfcOffset() const { return bfc_offset_; }
   LayoutUnit AvailableWidth() const { return available_width_; }
 
-  // The width of this line. Includes trailing spaces if they were preserved.
+  // The width of this line, including the hanging width from trailing spaces.
   // Negative width created by negative 'text-indent' is clamped to zero.
   LayoutUnit Width() const { return width_.ClampNegativeToZero(); }
-  // Same as |Width()| but returns negative value as is. Preserved trailing
-  // spaces may or may not be included, depends on |ShouldHangTrailingSpaces()|.
+  // Same as |Width()| but returns negatives value as is. The hanging width
+  // (e.g. from preserved trailing spaces) may or may not be included, depends
+  // on |ShouldHangTrailingSpaces()|.
   LayoutUnit WidthForAlignment() const {
     return width_ - HangWidthForAlignment();
   }
   // Width that hangs over the end of the line; e.g., preserved trailing spaces.
+  // See https://drafts.csswg.org/css-text/#hanging.
   LayoutUnit HangWidth() const { return hang_width_; }
   // Same as |HangWidth()| but it may be 0 depending on
   // |ShouldHangTrailingSpaces()|.
@@ -253,9 +267,11 @@ class CORE_EXPORT NGLineInfo {
   NGBfcOffset bfc_offset_;
 
   const NGInlineBreakToken* break_token_ = nullptr;
-  HeapVector<Member<const NGBlockBreakToken>> propagated_break_tokens_;
+  HeapVector<Member<const NGBreakToken>> parallel_flow_break_tokens_;
 
   const NGLayoutResult* block_in_inline_layout_result_ = nullptr;
+
+  absl::optional<LayoutUnit> minimum_space_shortage_;
 
   LayoutUnit available_width_;
   LayoutUnit width_;

@@ -165,7 +165,10 @@ struct URLRequest {
   // content script of an extension, with its own, separate origin).  This
   // needs to be true even if the request might be "proxied" in the browser
   // process on behalf of a web origin (e.g. as is the case for PaymentRequest
-  // API).
+  // API). In that sense, it is equivalent to the Fetch Standard's request
+  // origin concept [1].
+  //
+  // [1]: https://fetch.spec.whatwg.org/#concept-request-origin
   //
   // |request_initiator| should be omitted (i.e. set to absl::nullopt) for
   // browser-initiated requests (e.g. navigations initiated via omnibox or
@@ -327,7 +330,7 @@ struct URLRequest {
   // https://github.com/WICG/turtledove/blob/main/FLEDGE_browser_bidding_and_auction_API.md#step-3-get-response-blobs-to-browser
   bool ad_auction_headers;
 
-  // True if the request should send the `Shared-Storage-Writable` request
+  // True if the request should send the `Sec-Shared-Storage-Writable` request
   // header.
   bool shared_storage_writable;
 

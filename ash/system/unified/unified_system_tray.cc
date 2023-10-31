@@ -160,9 +160,7 @@ bool UnifiedSystemTray::UiDelegate::ShowPopups() {
   return true;
 }
 
-void UnifiedSystemTray::UiDelegate::HidePopups() {
-  message_popup_collection_->SetBaselineOffset(0);
-}
+void UnifiedSystemTray::UiDelegate::HidePopups() {}
 
 bool UnifiedSystemTray::UiDelegate::ShowMessageCenter() {
   if (owner_->IsBubbleShown()) {
@@ -190,8 +188,8 @@ UnifiedSystemTray::UnifiedSystemTray(Shelf* shelf)
               ? nullptr
               : std::make_unique<NotificationIconsController>(shelf,
                                                               model_.get())) {
-  SetPressedCallback(base::BindRepeating(&UnifiedSystemTray::OnButtonPressed,
-                                         base::Unretained(this)));
+  SetCallback(base::BindRepeating(&UnifiedSystemTray::OnButtonPressed,
+                                  base::Unretained(this)));
 
   if (features::IsUserEducationEnabled()) {
     // NOTE: Set `kHelpBubbleContextKey` before `views::kElementIdentifierKey`
@@ -406,17 +404,38 @@ void UnifiedSystemTray::ShowVolumeSliderBubble() {
 
 void UnifiedSystemTray::ShowAudioDetailedViewBubble() {
   ShowBubble();
-  bubble_->ShowAudioDetailedView();
+
+  // There is a case that `bubble_` is still a nullptr after `ShowBubble()` is
+  // called (e.g. in kiosk mode, `ShowBubbleInternal()` will early return, and
+  // `bubble_` is still uninitialized). Only show detailed view if `bubble_` is
+  // not null.
+  if (bubble_) {
+    bubble_->ShowAudioDetailedView();
+  }
 }
 
 void UnifiedSystemTray::ShowDisplayDetailedViewBubble() {
   ShowBubble();
-  bubble_->ShowDisplayDetailedView();
+
+  // There is a case that `bubble_` is still a nullptr after `ShowBubble()` is
+  // called (e.g. in kiosk mode, `ShowBubbleInternal()` will early return, and
+  // `bubble_` is still uninitialized). Only show detailed view if `bubble_` is
+  // not null.
+  if (bubble_) {
+    bubble_->ShowDisplayDetailedView();
+  }
 }
 
 void UnifiedSystemTray::ShowNetworkDetailedViewBubble() {
   ShowBubble();
-  bubble_->ShowNetworkDetailedView(true /* force */);
+
+  // There is a case that `bubble_` is still a nullptr after `ShowBubble()` is
+  // called (e.g. in kiosk mode, `ShowBubbleInternal()` will early return, and
+  // `bubble_` is still uninitialized). Only show detailed view if `bubble_` is
+  // not null.
+  if (bubble_) {
+    bubble_->ShowNetworkDetailedView(/*force=*/true);
+  }
 }
 
 void UnifiedSystemTray::NotifySecondaryBubbleHeight(int height) {
@@ -500,6 +519,10 @@ bool UnifiedSystemTray::ShouldEnableExtraKeyboardAccessibility() {
 
 views::Widget* UnifiedSystemTray::GetBubbleWidget() const {
   return bubble_ ? bubble_->GetBubbleWidget() : nullptr;
+}
+
+TrayBubbleView* UnifiedSystemTray::GetBubbleView() {
+  return bubble_ ? bubble_->GetBubbleView() : nullptr;
 }
 
 const char* UnifiedSystemTray::GetClassName() const {

@@ -133,7 +133,7 @@ class RenderViewContextMenu
   void ExecuteCommand(int command_id, int event_flags) override;
   void AddSpellCheckServiceItem(bool is_checked) override;
   void AddAccessibilityLabelsServiceItem(bool is_checked) override;
-  void AddPdfOcrMenuItem(bool is_always_active) override;
+  void AddPdfOcrMenuItem() override;
 
   // Registers a one-time callback that will be called the next time a context
   // menu is shown.
@@ -394,6 +394,10 @@ class RenderViewContextMenu
   // checks multiple criteria, e.g. whether translation is disabled by a policy
   // or whether the current page can be translated.
   bool CanTranslate(bool menu_logging);
+
+  // Under the correct conditions, issues a preconnection to the Lens URL and
+  // warms up a renderer process.
+  void MaybePrepareForLensQuery();
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   // Does not execute "Save link as" if the URL is blocked by the URL filter.

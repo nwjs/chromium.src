@@ -237,13 +237,13 @@ export class SettingsLockScreenElement extends SettingsLockScreenElementBase {
     this.authFactorConfig.observeFactorChanges(remote);
   }
 
-  override connectedCallback() {
+  override connectedCallback(): void {
     super.connectedCallback();
 
     this.updateNumFingerprints_();
   }
 
-  override currentRouteChanged(newRoute: Route) {
+  override currentRouteChanged(newRoute: Route): void {
     if (newRoute === routes.LOCK_SCREEN) {
       this.updateNumFingerprints_();
       this.attemptDeepLink();
@@ -299,7 +299,7 @@ export class SettingsLockScreenElement extends SettingsLockScreenElementBase {
     if (!this.cryptohomeRecoveryEnabled_ || this.recovery_) {
       return '';
     }
-    return this.i18n('recoveryNotSupportedMessage');
+    return this.i18n('recoveryLearnMoreUrl');
   }
 
   private recoveryToggleDisabled_(): boolean {

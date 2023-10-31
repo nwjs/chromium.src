@@ -29,24 +29,14 @@ class LazyLineBreakIterator;
 // This allows for significantly faster and more efficient line breaking by only
 // reshaping when absolutely necessarily and by only evaluating likely candidate
 // break opportunities instead of measuring and evaluating all possible options.
-class PLATFORM_EXPORT ShapingLineBreaker final {
+class PLATFORM_EXPORT ShapingLineBreaker {
   STACK_ALLOCATED();
 
  public:
-  // Callback function to reshape line edges.
-  //
-  // std::function is forbidden in Chromium and base::RepeatingCallback is way
-  // too expensive so we resort to a good old function pointer instead.
-  using ShapeCallback = scoped_refptr<ShapeResult> (*)(void* context,
-                                                       unsigned start,
-                                                       unsigned end);
-
   // Construct a ShapingLineBreaker.
   ShapingLineBreaker(scoped_refptr<const ShapeResult> result,
                      const LazyLineBreakIterator* break_iterator,
-                     const Hyphenation* hyphenation,
-                     ShapeCallback shape_callback,
-                     void* shape_callback_context);
+                     const Hyphenation* hyphenation);
 
   // Represents details of the result of |ShapeLine()|.
   struct Result {
@@ -78,9 +68,8 @@ class PLATFORM_EXPORT ShapingLineBreaker final {
   // based on the shaping results for the entire paragraph.
   enum Options {
     kDefaultOptions = 0,
-    // Disable reshpaing the start edge even if the start offset is not safe-
-    // to-break. Set if this is not at the start edge of a wrapped line.
-    kDontReshapeStart = 1 << 0,
+    // Set when the start is at the start of a wrapped line.
+    kStartOfLine = 1 << 0,
     // Disable reshaping the end edge if it is at a breakable space, even if it
     // is not safe-to-break. Good for performance if accurate width is not
     // critical.
@@ -104,6 +93,11 @@ class PLATFORM_EXPORT ShapingLineBreaker final {
   scoped_refptr<const ShapeResultView> ShapeLineAt(unsigned start,
                                                    unsigned end,
                                                    unsigned options);
+
+ protected:
+  const ShapeResult& GetShapeResult() const { return *result_; }
+
+  virtual scoped_refptr<ShapeResult> Shape(unsigned start, unsigned end) = 0;
 
  private:
   const String& GetText() const;
@@ -139,9 +133,6 @@ class PLATFORM_EXPORT ShapingLineBreaker final {
                      unsigned word_end,
                      bool backwards) const;
 
-  scoped_refptr<ShapeResult> Shape(unsigned start, unsigned end) {
-    return (*shape_callback_)(shape_callback_context_, start, end);
-  }
   scoped_refptr<const ShapeResultView> ShapeToEnd(unsigned start,
                                                   unsigned first_safe,
                                                   unsigned range_start,
@@ -157,8 +148,6 @@ class PLATFORM_EXPORT ShapingLineBreaker final {
   void SetBreakOffset(unsigned break_offset, const String&, Result*);
   void SetBreakOffset(const BreakOpportunity&, const String&, Result*);
 
-  const ShapeCallback shape_callback_;
-  void* shape_callback_context_;
   scoped_refptr<const ShapeResult> result_;
   const LazyLineBreakIterator* break_iterator_;
   const Hyphenation* hyphenation_;

@@ -46,7 +46,9 @@ struct PossibleUsernameFieldIdentifier {
   }
 
   friend bool operator==(const PossibleUsernameFieldIdentifier& lhs,
-                         const PossibleUsernameFieldIdentifier& rhs) = default;
+                         const PossibleUsernameFieldIdentifier& rhs) {
+    return lhs.driver_id == rhs.driver_id && lhs.renderer_id == rhs.renderer_id;
+  }
 };
 
 // Contains information that the user typed in a text field. It might be the
@@ -93,6 +95,11 @@ struct PossibleUsernameData {
   // Returns whether the field identified by |renderer_id| has a
   // single username prediction stored in |form_predictions|.
   bool HasSingleUsernameServerPrediction() const;
+
+  // Returns whether the field identified by |renderer_id| has a
+  // single username prediction stored in |form_predictions| that is an
+  // override.
+  bool HasSingleUsernameOverride() const;
 
   // Returns whether the field identified by |renderer_id| has
   // any server prediction stored in |form_predictions|.

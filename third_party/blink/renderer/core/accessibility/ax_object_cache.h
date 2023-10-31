@@ -54,7 +54,6 @@ class HTMLOptionElement;
 class HTMLTableElement;
 class HTMLFrameOwnerElement;
 class HTMLSelectElement;
-class LayoutBlockFlow;
 class LocalFrameView;
 class NGAbstractInlineTextBox;
 struct PhysicalRect;
@@ -79,6 +78,7 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
   // A Freeze() occurs during a serialization run.
   virtual void Freeze() = 0;
   virtual void Thaw() = 0;
+  virtual bool IsFrozen() const = 0;
 
   // Ensure that accessibility is clean and up-to-date for both the main and
   // popup document. Ensures layout is clean as well.
@@ -104,7 +104,7 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
   virtual void Remove(AccessibleNode*) = 0;
   virtual void Remove(LayoutObject*) = 0;
   virtual void Remove(Node*) = 0;
-  virtual void RemoveSubtreeWhenSafe(Node*) = 0;
+  virtual void RemoveSubtreeWhenSafe(Node*, bool remove_root = true) = 0;
   virtual void RemovePopup(Document*) = 0;
   virtual void Remove(NGAbstractInlineTextBox*) = 0;
 
@@ -117,8 +117,6 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
   // Called by a node when text or a text equivalent (e.g. alt) attribute is
   // changed.
   virtual void TextChanged(const LayoutObject*) = 0;
-  // Called when the NGOffsetMapping is invalidated for the given object.
-  virtual void TextOffsetsChanged(const LayoutBlockFlow*) = 0;
   virtual void DocumentTitleChanged() = 0;
   // Called when a node is connected to the document.
   virtual void NodeIsConnected(Node*) = 0;
@@ -247,8 +245,6 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
 
   virtual void MarkElementDirty(const Node*) = 0;
 
-  virtual void MarkAllImageAXObjectsDirty() = 0;
-
   // Notifies that an AXObject is dirty and its state needs
   // to be serialized again. If |subtree| is true, the entire subtree is
   // dirty.
@@ -305,6 +301,28 @@ class CORE_EXPORT AXObjectCache : public GarbageCollected<AXObjectCache> {
   AXObjectCache() = default;
 
   static AXObjectCacheCreateFunction create_function_;
+};
+
+class ScopedFreezeAXCache : public GarbageCollected<ScopedFreezeAXCache> {
+ public:
+  explicit ScopedFreezeAXCache(AXObjectCache& cache) : cache_(&cache) {
+    CHECK(!cache.IsFrozen());
+    cache.Freeze();
+  }
+
+  ScopedFreezeAXCache(const ScopedFreezeAXCache&) = delete;
+  ScopedFreezeAXCache& operator=(const ScopedFreezeAXCache&) = delete;
+
+  ~ScopedFreezeAXCache() {
+    CHECK(cache_);
+    CHECK(cache_->IsFrozen());
+    cache_->Thaw();
+  }
+
+  void Trace(Visitor* visitor) const { visitor->Trace(cache_); }
+
+ private:
+  WeakMember<AXObjectCache> cache_;
 };
 
 }  // namespace blink

@@ -207,7 +207,8 @@ BuiltInBackendToAndroidBackendMigrator::GetMigrationType(
 
   // TODO(crbug.com/1445497): Re-evaluate migration code for local passwords.
   bool upm_for_local_active = base::FeatureList::IsEnabled(
-      password_manager::features::kUnifiedPasswordManagerLocalPasswordsAndroid);
+      password_manager::features::
+          kUnifiedPasswordManagerLocalPasswordsAndroidWithMigration);
 
   // If the user enables or disables password sync, the new active backend needs
   // non-syncable data from the previously active backend, as logins are
@@ -270,7 +271,7 @@ void BuiltInBackendToAndroidBackendMigrator::PrepareForMigration(
     // Migrate non-syncable data that is associated with a previously
     // synced account from the android backend to the built-in backend.
     android_backend_->GetAllLoginsForAccountAsync(
-        prefs_->GetString(::prefs::kGoogleServicesLastUsername),
+        prefs_->GetString(::prefs::kGoogleServicesLastSyncingUsername),
         base::BindOnce(
             &BuiltInBackendToAndroidBackendMigrator::MigrateNonSyncableData,
             weak_ptr_factory_.GetWeakPtr(), built_in_backend_));

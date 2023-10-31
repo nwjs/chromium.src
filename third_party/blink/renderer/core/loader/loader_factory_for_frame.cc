@@ -192,13 +192,8 @@ std::unique_ptr<URLLoader> LoaderFactoryForFrame::CreateURLLoader(
                         back_forward_cache_loader_helper, std::move(throttles));
 }
 
-std::unique_ptr<WebCodeCacheLoader>
-LoaderFactoryForFrame::CreateCodeCacheLoader() {
-  if (document_loader_->GetCodeCacheHost() == nullptr) {
-    return nullptr;
-  }
-  return blink::WebCodeCacheLoader::Create(
-      document_loader_->GetCodeCacheHost());
+CodeCacheHost* LoaderFactoryForFrame::GetCodeCacheHost() {
+  return document_loader_->GetCodeCacheHost();
 }
 
 void LoaderFactoryForFrame::IssueKeepAliveHandleIfRequested(
@@ -206,8 +201,9 @@ void LoaderFactoryForFrame::IssueKeepAliveHandleIfRequested(
     mojom::blink::LocalFrameHost& local_frame_host,
     mojo::PendingReceiver<mojom::blink::KeepAliveHandle> pending_receiver) {
   DCHECK(pending_receiver);
-  if (!blink::features::IsKeepAliveInBrowserMigrationEnabled() &&
-      request.GetKeepalive() && keep_alive_handle_factory_.is_bound()) {
+  if (!base::FeatureList::IsEnabled(features::kKeepAliveInBrowserMigration) &&
+      request.GetKeepalive() && keep_alive_handle_factory_.is_bound() &&
+      !request.IsFetchLaterAPI()) {
     keep_alive_handle_factory_->IssueKeepAliveHandle(
         std::move(pending_receiver));
   }

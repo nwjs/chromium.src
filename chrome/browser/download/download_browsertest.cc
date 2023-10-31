@@ -160,8 +160,8 @@
 
 #if !BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/download/bubble/download_bubble_ui_controller.h"
-#include "chrome/browser/download/bubble/download_display.h"
 #include "chrome/browser/download/bubble/download_display_controller.h"
+#include "chrome/browser/ui/download/download_display.h"
 #endif
 
 #if BUILDFLAG(FULL_SAFE_BROWSING)
@@ -2212,7 +2212,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
       net::IsolationInfo::RequestType::kMainFrame,
       url::Origin::Create(https_test_server()->GetURL("a.test", "/")),
       url::Origin::Create(https_test_server()->GetURL("a.test", "/")),
-      expected_site_for_cookies, std::set<net::SchemefulSite>());
+      expected_site_for_cookies);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2295,7 +2295,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
       net::IsolationInfo::RequestType::kSubFrame,
       url::Origin::Create(https_test_server()->GetURL("a.test", "/")),
       url::Origin::Create(https_test_server()->GetURL("b.test", "/")),
-      expected_site_for_cookies, std::set<net::SchemefulSite>());
+      expected_site_for_cookies);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2383,7 +2383,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
       net::IsolationInfo::RequestType::kSubFrame,
       url::Origin::Create(https_test_server()->GetURL("a.test", "/")),
       url::Origin::Create(https_test_server()->GetURL("b.test", "/")),
-      expected_site_for_cookies, std::set<net::SchemefulSite>());
+      expected_site_for_cookies);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -2460,7 +2460,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTestSplitCacheEnabled,
       net::IsolationInfo::RequestType::kSubFrame,
       url::Origin::Create(https_test_server()->GetURL("a.test", "/")),
       url::Origin::Create(https_test_server()->GetURL("b.test", "/")),
-      expected_site_for_cookies, std::set<net::SchemefulSite>());
+      expected_site_for_cookies);
 
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
@@ -5149,7 +5149,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, WebAppDownloadOnlyShowsUiInWebAppWindow) {
   GURL url = embedded_test_server()->GetURL("/downloads/a_zip_file.zip");
 
   // Load an app.
-  web_app::AppId app_id = web_app::test::InstallDummyWebApp(
+  webapps::AppId app_id = web_app::test::InstallDummyWebApp(
       browser()->profile(), "testapp", embedded_test_server()->GetURL("/"));
   Browser* app_browser =
       web_app::LaunchWebAppBrowserAndWait(browser()->profile(), app_id);
@@ -5169,7 +5169,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest,
   GURL url = embedded_test_server()->GetURL("/downloads/a_zip_file.zip");
 
   // Load an app.
-  web_app::AppId app_id = web_app::test::InstallDummyWebApp(
+  webapps::AppId app_id = web_app::test::InstallDummyWebApp(
       browser()->profile(), "testapp", embedded_test_server()->GetURL("/"));
   Browser* app_browser =
       web_app::LaunchWebAppBrowserAndWait(browser()->profile(), app_id);
@@ -5188,7 +5188,7 @@ IN_PROC_BROWSER_TEST_F(DownloadTest, DownloadFromWebApp) {
   GURL url = embedded_test_server()->GetURL("/downloads/a_zip_file.zip");
 
   // Load an app.
-  web_app::AppId app_id = web_app::test::InstallDummyWebApp(
+  webapps::AppId app_id = web_app::test::InstallDummyWebApp(
       browser()->profile(), "testapp", embedded_test_server()->GetURL("/"));
   Browser* app_browser =
       web_app::LaunchWebAppBrowserAndWait(browser()->profile(), app_id);

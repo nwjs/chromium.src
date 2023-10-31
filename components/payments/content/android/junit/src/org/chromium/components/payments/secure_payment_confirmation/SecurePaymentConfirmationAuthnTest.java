@@ -4,10 +4,6 @@
 
 package org.chromium.components.payments.secure_payment_confirmation;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -43,13 +39,11 @@ import org.chromium.components.payments.CurrencyFormatter;
 import org.chromium.components.payments.CurrencyFormatterJni;
 import org.chromium.components.payments.InputProtector;
 import org.chromium.components.payments.test_support.FakeClock;
-import org.chromium.components.url_formatter.SchemeDisplay;
-import org.chromium.components.url_formatter.UrlFormatter;
-import org.chromium.components.url_formatter.UrlFormatterJni;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.payments.mojom.PaymentCurrencyAmount;
 import org.chromium.payments.mojom.PaymentItem;
 import org.chromium.ui.base.WindowAndroid;
+import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
 import java.lang.ref.WeakReference;
@@ -108,12 +102,6 @@ public class SecurePaymentConfirmationAuthnTest {
                 .when(windowAndroid)
                 .getContext();
 
-        UrlFormatter.Natives urlFormatterJniMock = Mockito.mock(UrlFormatter.Natives.class);
-        mJniMocker.mock(UrlFormatterJni.TEST_HOOKS, urlFormatterJniMock);
-        when(urlFormatterJniMock.formatOriginForSecurityDisplay(
-                     any(), eq(SchemeDisplay.OMIT_HTTP_AND_HTTPS)))
-                .then(inv -> ((Origin) (inv.getArgument(0))).getHost());
-
         CurrencyFormatter.Natives currencyFormatterJniMock =
                 Mockito.mock(CurrencyFormatter.Natives.class);
         mJniMocker.mock(CurrencyFormatterJni.TEST_HOOKS, currencyFormatterJniMock);
@@ -123,12 +111,7 @@ public class SecurePaymentConfirmationAuthnTest {
                         Mockito.anyString());
 
         mPayeeName = "My Store";
-        org.chromium.url.internal.mojom.Origin origin =
-                new org.chromium.url.internal.mojom.Origin();
-        origin.scheme = "https";
-        origin.host = "store.example";
-        origin.port = 443;
-        mPayeeOrigin = new Origin(origin);
+        mPayeeOrigin = Origin.create(new GURL("https://store.example:443"));
         mTotal = new PaymentItem();
         mTotal.amount = new PaymentCurrencyAmount();
         mTotal.amount.currency = "USD";

@@ -82,32 +82,6 @@ struct CONTENT_EXPORT AttributionConfig {
     // destination.
     int max_reports_per_destination = 1024;
 
-    static constexpr int kDefaultMaxAttributionsPerEventSource = 1;
-
-    // Controls how many times a single source can create an event-level report.
-    int max_attributions_per_navigation_source = 3;
-    int max_attributions_per_event_source =
-        kDefaultMaxAttributionsPerEventSource;
-
-    // Default constants for report window deadlines.
-    static constexpr base::TimeDelta kDefaultFirstReportWindowDeadline =
-        base::Days(2);
-    static constexpr base::TimeDelta kDefaultSecondReportWindowDeadline =
-        base::Days(7);
-
-    // Controls the report window deadlines for scheduling navigation report
-    // times.
-    base::TimeDelta first_navigation_report_window_deadline =
-        kDefaultFirstReportWindowDeadline;
-    base::TimeDelta second_navigation_report_window_deadline =
-        kDefaultSecondReportWindowDeadline;
-
-    // Controls the report window deadlines for scheduling event report times.
-    base::TimeDelta first_event_report_window_deadline =
-        kDefaultFirstReportWindowDeadline;
-    base::TimeDelta second_event_report_window_deadline =
-        kDefaultSecondReportWindowDeadline;
-
     // Default constants for max info gain in bits per source type.
     // Rounded up to nearest e-5 digit.
     static constexpr double kDefaultMaxNavigationInfoGain = 11.46173;

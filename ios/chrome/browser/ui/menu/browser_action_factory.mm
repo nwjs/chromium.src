@@ -272,7 +272,8 @@
 
 - (UIAction*)actionToSaveToPhotosWithImageURL:(const GURL&)imageURL
                                      referrer:(const web::Referrer&)referrer
-                                     webState:(web::WebState*)webState {
+                                     webState:(web::WebState*)webState
+                                        block:(ProceduralBlock)block {
   __weak id<SaveToPhotosCommands> handler = HandlerForProtocol(
       self.browser->GetCommandDispatcher(), SaveToPhotosCommands);
   SaveImageToPhotosCommand* command =
@@ -281,12 +282,8 @@
                                                 webState:webState];
 
 #if BUILDFLAG(IOS_USE_BRANDED_SYMBOLS)
-  UIImage* image = CustomSymbolWithConfiguration(
-      kGooglePhotosSymbol,
-      [UIImageSymbolConfiguration
-          configurationWithPointSize:kSymbolActionPointSize
-                              weight:UIImageSymbolWeightThin
-                               scale:UIImageSymbolScaleMedium]);
+  UIImage* image =
+      CustomSymbolWithPointSize(kGooglePhotosSymbol, kSymbolActionPointSize);
 #else
   UIImage* image = DefaultSymbolWithPointSize(kSaveImageActionSymbol,
                                               kSymbolActionPointSize);
@@ -297,6 +294,9 @@
                          image:image
                           type:MenuActionType::SaveImageToGooglePhotos
                          block:^{
+                           if (block) {
+                             block();
+                           }
                            [handler saveImageToPhotos:command];
                          }];
 }

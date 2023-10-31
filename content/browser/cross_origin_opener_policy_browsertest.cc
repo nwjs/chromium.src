@@ -177,32 +177,6 @@ CoopAndCspSandboxRedirectHandler(const net::test_server::HttpRequest& request) {
   return http_response;
 }
 
-std::unique_ptr<net::test_server::HttpResponse>
-RedirectToTargetOnSecondNavigation(
-    unsigned int& navigation_counter,
-    const net::test_server::HttpRequest& request) {
-  ++navigation_counter;
-  if (navigation_counter == 1) {
-    auto http_response =
-        std::make_unique<net::test_server::BasicHttpResponse>();
-    http_response->set_code(net::HttpStatusCode::HTTP_OK);
-    http_response->AddCustomHeader("Cache-Control",
-                                   "no-store, must-revalidate");
-    return http_response;
-  }
-
-  GURL request_url = request.GetURL();
-  std::string dest =
-      base::UnescapeBinaryURLComponent(request_url.query_piece());
-  net::test_server::RequestQuery query =
-      net::test_server::ParseQuery(request_url);
-
-  auto http_response = std::make_unique<net::test_server::BasicHttpResponse>();
-  http_response->set_code(net::HttpStatusCode::HTTP_FOUND);
-  http_response->AddCustomHeader("Location", dest);
-  return http_response;
-}
-
 std::unique_ptr<net::test_server::HttpResponse> ServeCoopOnSecondNavigation(
     unsigned int& navigation_counter,
     const net::test_server::HttpRequest& request) {
@@ -303,13 +277,8 @@ class CrossOriginOpenerPolicyBrowserTest
         &net::test_server::HandlePrefixedRequest,
         "/redirect-with-coop-and-csp-headers",
         base::BindRepeating(CoopAndCspSandboxRedirectHandler)));
-
+    AddRedirectOnSecondNavigationHandler(&https_server_);
     unsigned int navigation_counter = 0;
-    https_server_.RegisterDefaultHandler(base::BindRepeating(
-        &net::test_server::HandlePrefixedRequest,
-        "/redirect-to-target-on-second-navigation",
-        base::BindRepeating(&RedirectToTargetOnSecondNavigation,
-                            base::OwnedRef(navigation_counter))));
     https_server_.RegisterDefaultHandler(base::BindRepeating(
         &net::test_server::HandlePrefixedRequest,
         "/serve-coop-on-second-navigation",
@@ -4054,8 +4023,7 @@ IN_PROC_BROWSER_TEST_P(CrossOriginOpenerPolicyBrowserTest,
                              "/set-header?"
                              "Cross-Origin-Opener-Policy: same-origin"));
   GURL redirect_page(https_server()->GetURL(
-      "a.test",
-      "/redirect-to-target-on-second-navigation?" + coop_page.spec()));
+      "a.test", "/redirect-on-second-navigation?" + coop_page.spec()));
 
   // Navigate to the redirect page. On the first navigation, this is a simple
   // empty page with no headers.
@@ -4575,15 +4543,18 @@ IN_PROC_BROWSER_TEST_P(CrossOriginOpenerPolicyBrowserTest,
   int rph_id_3 = current_frame_host()->GetProcess()->GetID();
   EXPECT_EQ(rph_id_2, rph_id_3);
 
-  // This test is parameterized on whether the bfcache is enabled.  With
-  // bfcache, we force a BrowsingInstance swap at the very beginning when the
-  // navigation to `url_2` starts, so there's no need to create a new
-  // SiteInstance when we learn about COOP at response time, since the
+  // The original speculative RFH should always be destroyed.
+  //
+  // Subtle note: this happens even when bfcache is enabled. With bfcache,
+  // we force a BrowsingInstance swap at the very beginning when the navigation
+  // to `url_2` starts.  So when we learn about COOP at response time, the
   // candidate (speculative RFH's) SiteInstance is already in a fresh
-  // BrowsingInstance.  Therefore, with bfcache, the original speculative RFH
-  // will be the RFH that eventually commits.  Otherwise, the original
-  // speculative RFH should be destroyed and replaced by another RFH.
-  EXPECT_NE(IsBackForwardCacheEnabled(), speculative_rfh.IsDestroyed());
+  // BrowsingInstance. However, it cannot be reused, because COOP requires a
+  // BrowsingInstance with b.test as its common_coop_origin(), and the
+  // candidate SiteInstance's BrowsingInstance has no common_coop_origin(), so
+  // it cannot be reused, and we end up creating a new speculative RFH and
+  // destroying the original one.
+  EXPECT_TRUE(speculative_rfh.IsDestroyed());
 }
 
 // Ensure that same-site navigations that result in a COOP mismatch avoid an
@@ -9855,6 +9826,62 @@ IN_PROC_BROWSER_TEST_P(
   // Always-allowed properties should still be accessible.
   EXPECT_EQ(true, EvalJs(current_frame_host(), "window.w.closed == false"));
   EXPECT_EQ(true, EvalJs(popup_rfh, "opener.closed == false"));
+}
+
+// Regression test for https://crbug.com/1491282.  Ensure that when a
+// navigation to a COOP: RP page requires a new BrowsingInstance in a new
+// CoopRelatedGroup, a subsequent navigation that stays in the same
+// CoopRelatedGroup does not crash.  In this case, it is essential that when a
+// new non-COOP BrowsingInstance in a new CoopRelatedGroup is created at
+// request start time, that BrowsingInstance isn't incorrectly reused at
+// response started time, if the response came back with COOP: RP headers and
+// requires a BrowsingInstance with a different common_coop_origin().
+IN_PROC_BROWSER_TEST_P(CoopRestrictPropertiesAccessBrowserTest,
+                       NewBrowsingInstanceFromBeginNavigationCannotBeReused) {
+  // Start on a WebUI page. The repro for https://crbug.com/1491282 required
+  // this, because the security swap from WebUI to normal pages requires a new
+  // BrowsingInstance (with no common_coop_origin) and a new CoopRelatedGroup
+  // at both request and response time. In contrast, navigating from a normal
+  // page to a COOP:RP page would pick a new BrowsingInstance (with a
+  // common_coop_origin) in the same CoopRelatedGroup at response time, because
+  // the kRelatedCoopSwap reason is chosen after checking for security swaps
+  // but before checking for proactive swaps. A new CoopRelatedGroup guarantees
+  // that ConvertToSiteInstance() will attempt to reuse the speculative
+  // RenderFrameHost's SiteInstance (the "candidate_instance") at response
+  // time, rather than getting a SiteInstance + BrowsingInstance in the same
+  // CoopRelatedGroup.
+  GURL webui_page("chrome://ukm");
+  ASSERT_TRUE(NavigateToURL(shell(), webui_page));
+  scoped_refptr<SiteInstanceImpl> webui_instance(
+      current_frame_host()->GetSiteInstance());
+
+  // Now, navigate to a COOP: restrict-properties page.  This will create a
+  // fresh BrowsingInstance at request start time, and evaluate whether it can
+  // stay in that BrowsingInstance after receiving the response.  In
+  // https://crbug.com/1491282, the BrowsingInstance from request start was
+  // incorrectly reused, resulting in not having a common_coop_origin() at the
+  // end of this navigation.  Ensure this is not the case.
+  GURL coop_rp_page(https_server()->GetURL(
+      "a.test",
+      "/set-header"
+      "?cross-origin-opener-policy: restrict-properties"));
+  ASSERT_TRUE(NavigateToURL(shell(), coop_rp_page));
+  scoped_refptr<SiteInstanceImpl> coop_rp_instance(
+      current_frame_host()->GetSiteInstance());
+  EXPECT_FALSE(
+      webui_instance->IsCoopRelatedSiteInstance(coop_rp_instance.get()));
+  EXPECT_TRUE(coop_rp_instance->GetCommonCoopOrigin().has_value());
+  EXPECT_EQ("a.test", coop_rp_instance->GetCommonCoopOrigin()->host());
+
+  // Ensure that we can navigate to a page without COOP: restrict-properties.
+  // This should swap BrowsingInstances but stay in the same CoopRelatedGroup,
+  // and this shouldn't crash.
+  GURL non_coop_rp_page(https_server()->GetURL("b.test", "/title1.html"));
+  ASSERT_TRUE(NavigateToURL(shell(), non_coop_rp_page));
+  SiteInstanceImpl* non_coop_instance(current_frame_host()->GetSiteInstance());
+  EXPECT_FALSE(non_coop_instance->GetCommonCoopOrigin().has_value());
+  EXPECT_FALSE(coop_rp_instance->IsRelatedSiteInstance(non_coop_instance));
+  EXPECT_TRUE(coop_rp_instance->IsCoopRelatedSiteInstance(non_coop_instance));
 }
 
 IN_PROC_BROWSER_TEST_P(CoopRestrictPropertiesAccessBrowserTest, Prerender) {

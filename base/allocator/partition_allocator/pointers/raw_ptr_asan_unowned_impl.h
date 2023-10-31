@@ -27,7 +27,7 @@ template <bool IsAdjustablePtr, bool MayDangle>
 struct RawPtrAsanUnownedImpl {
   // The first two are needed for correctness. The last one isn't technically a
   // must, but better to set it.
-  static constexpr bool kMustZeroOnInit = true;
+  static constexpr bool kMustZeroOnConstruct = true;
   static constexpr bool kMustZeroOnMove = true;
   static constexpr bool kMustZeroOnDestruct = true;
 
@@ -144,8 +144,6 @@ struct RawPtrAsanUnownedImpl {
   // This is for accounting only, used by unit tests.
   PA_ALWAYS_INLINE static constexpr void IncrementSwapCountForTest() {}
   PA_ALWAYS_INLINE static constexpr void IncrementLessCountForTest() {}
-  PA_ALWAYS_INLINE static constexpr void
-  IncrementPointerToMemberOperatorCountForTest() {}
 };
 
 }  // namespace base::internal

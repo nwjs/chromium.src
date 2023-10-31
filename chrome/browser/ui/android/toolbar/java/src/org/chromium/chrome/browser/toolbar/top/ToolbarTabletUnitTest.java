@@ -7,16 +7,21 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.animation.ObjectAnimator;
 import android.app.Activity;
+import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.view.View;
+import android.view.View.OnClickListener;
+import android.view.View.OnLongClickListener;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
+
+import androidx.appcompat.content.res.AppCompatResources;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -38,9 +43,11 @@ import org.chromium.chrome.browser.omnibox.LocationBarCoordinator;
 import org.chromium.chrome.browser.omnibox.LocationBarCoordinatorTablet;
 import org.chromium.chrome.browser.omnibox.LocationBarLayout;
 import org.chromium.chrome.browser.omnibox.status.StatusCoordinator;
-import org.chromium.chrome.browser.omnibox.status.StatusView;
+import org.chromium.chrome.browser.toolbar.ButtonData.ButtonSpec;
+import org.chromium.chrome.browser.toolbar.ButtonDataImpl;
 import org.chromium.chrome.browser.toolbar.HomeButton;
 import org.chromium.chrome.browser.toolbar.R;
+import org.chromium.chrome.browser.toolbar.adaptive.AdaptiveToolbarButtonVariant;
 import org.chromium.chrome.browser.toolbar.menu_button.MenuButtonCoordinator;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarAllowCaptureReason;
 import org.chromium.chrome.browser.toolbar.top.CaptureReadinessResult.TopToolbarBlockCaptureReason;
@@ -344,32 +351,52 @@ public final class ToolbarTabletUnitTest {
     }
 
     @Test
-    public void testStatusViewHoverAction() {
-        StatusView statusViewSpy = spy(mToolbarTablet.findViewById(R.id.location_bar_status));
-        // Do NOT show status view tooltip and background when status icon is NOT visible.
-        when(statusViewSpy.isSearchEngineStatusIconVisible()).thenReturn(false);
-        statusViewSpy.setHoverActionOnVisibilityChange();
-        Assert.assertEquals("Tooltip text for Status view is not as expected", null,
-                statusViewSpy.getTooltipText());
-        Assert.assertEquals("Background for Status view is not as expected", null,
-                statusViewSpy.getBackground());
+    public void testOptionalButtonTooltipText() {
+        Drawable iconDrawable = AppCompatResources.getDrawable(mActivity, R.drawable.new_tab_icon);
+        OnClickListener clickListener = mock(OnClickListener.class);
+        OnLongClickListener longClickListener = mock(OnLongClickListener.class);
+        String contentDescription = mActivity.getString(R.string.actionbar_share);
+        ButtonDataImpl buttonData = new ButtonDataImpl();
 
-        // Show status view tooltip and background when status icon is visible.
-        when(statusViewSpy.isSearchEngineStatusIconVisible()).thenReturn(true);
-        statusViewSpy.setHoverActionOnVisibilityChange();
-        Assert.assertEquals("Tooltip text for Status view is not as expected",
-                mActivity.getResources().getString(R.string.accessibility_menu_info),
-                statusViewSpy.getTooltipText());
-        Assert.assertNotEquals("Background for Status view is not as expected", null,
-                statusViewSpy.getBackground());
+        // Verify reader mode tooltip text is null.
+        ButtonSpec buttonSpec = new ButtonSpec(iconDrawable, clickListener, longClickListener,
+                contentDescription, true, null, /* buttonVariant= */
+                AdaptiveToolbarButtonVariant.READER_MODE, 0, 0, false);
+        buttonData.setButtonSpec(buttonSpec);
+        mToolbarTablet.updateOptionalButton(buttonData);
+        Assert.assertEquals(
+                null, mToolbarTablet.getOptionalButtonViewForTesting().getTooltipText());
 
-        // Only show status view tooltip when verbose status text is visible.
-        statusViewSpy.setVerboseStatusTextVisible(true);
-        Assert.assertEquals("Tooltip text for Status view is not as expected",
-                mActivity.getResources().getString(R.string.accessibility_menu_info),
-                statusViewSpy.getTooltipText());
-        Assert.assertEquals("Background for Status view is not as expected", null,
-                statusViewSpy.getBackground());
+        // Test whether share button tooltip Text is set correctly.
+        buttonSpec = new ButtonSpec(iconDrawable, clickListener, longClickListener,
+                contentDescription, true, null, /* buttonVariant= */
+                AdaptiveToolbarButtonVariant.SHARE, 0,
+                R.string.adaptive_toolbar_button_preference_share, true);
+        buttonData.setButtonSpec(buttonSpec);
+        mToolbarTablet.updateOptionalButton(buttonData);
+        Assert.assertEquals(mActivity.getResources().getString(
+                                    R.string.adaptive_toolbar_button_preference_share),
+                mToolbarTablet.getOptionalButtonViewForTesting().getTooltipText());
+
+        // Test whether voice search button tooltip Text is set correctly.
+        buttonSpec = new ButtonSpec(iconDrawable, clickListener, longClickListener,
+                contentDescription, true, null, /* buttonVariant= */
+                AdaptiveToolbarButtonVariant.VOICE, 0,
+                R.string.adaptive_toolbar_button_preference_voice_search, true);
+        buttonData.setButtonSpec(buttonSpec);
+        mToolbarTablet.updateOptionalButton(buttonData);
+        Assert.assertEquals(mActivity.getResources().getString(
+                                    R.string.adaptive_toolbar_button_preference_voice_search),
+                mToolbarTablet.getOptionalButtonViewForTesting().getTooltipText());
+
+        // Test whether new tab button tooltip Text is set correctly.
+        buttonSpec = new ButtonSpec(iconDrawable, clickListener, longClickListener,
+                contentDescription, true, null, /* buttonVariant= */
+                AdaptiveToolbarButtonVariant.NEW_TAB, 0, R.string.new_tab_title, true);
+        buttonData.setButtonSpec(buttonSpec);
+        mToolbarTablet.updateOptionalButton(buttonData);
+        Assert.assertEquals(mActivity.getResources().getString(R.string.new_tab_title),
+                mToolbarTablet.getOptionalButtonViewForTesting().getTooltipText());
     }
 
     @Test

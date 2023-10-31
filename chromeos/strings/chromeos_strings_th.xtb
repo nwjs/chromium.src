@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">เปลี่ยนรูปภาพวอลเปเปอร์ทุกวัน</translation>
 <translation id="1644574205037202324">ประวัติการเข้าชม</translation>
 <translation id="1651925268237749928">คุณได้เลือกอัลบั้มที่แชร์ ผู้อื่นจะเพิ่มหรือเปลี่ยนรูปภาพได้ วอลเปเปอร์อาจใช้รูปภาพที่ไม่ได้อยู่ในอัลบั้มนี้ในปัจจุบัน</translation>
+<translation id="1661865805917886535">อาจมีการส่งข้อมูลระบบและบัญชีบางอย่างไปยัง Google เราใช้ข้อมูลนี้เพื่อช่วยแก้ไขปัญหาทางเทคนิคและปรับปรุงบริการ โดยเป็นไปตามนโยบายความเป็นส่วนตัว (<ph name="PRIVACYPOLICYURL" />) และข้อกำหนดในการให้บริการ (<ph name="TERMSOFSERVICEURL" />) หากต้องการส่งคำขอเปลี่ยนแปลงเนื้อหา โปรดไปที่ความช่วยเหลือด้านกฎหมาย (<ph name="LEGALHELPPAGEURL" />)</translation>
 <translation id="1662989795263954667">หยุดพิมพ์ - หมึกหมด</translation>
 <translation id="1664796644829245314">ตัวอย่าง <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">VPN ในตัว</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">อุปกรณ์เชื่อมต่ออยู่</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{นำหน้าออกไหม}=1{นำหน้าที่ {PAGE_NUMBER} ออกไหม}other{นำหน้าที่ {PAGE_NUMBER} ออกไหม}}</translation>
+<translation id="3146655726035122603">พิเศษสำหรับ <ph name="PRODUCT_NAME" /> โดยเฉพาะ</translation>
 <translation id="315116470104423982">เน็ตมือถือ</translation>
 <translation id="3156846309055100599">กำลังสแกนหน้า <ph name="PAGE_NUMBER" />...</translation>
 <translation id="315738237743207937">ตรวจพบแคพทีฟพอร์ทัล</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">กำลังค้นหาเครื่องสแกน</translation>
 <translation id="3226657629376379887">เมนูการทำงานสำหรับเลย์เอาต์</translation>
 <translation id="3246869037381808805">ระบบจะนำงานพิมพ์ที่เก่ากว่า 1 วันออก</translation>
-<translation id="3248223063252096240">สุดพิเศษจาก <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">ไม่สำเร็จ - ฝาเครื่องเปิดอยู่</translation>
 <translation id="3275729367986477355">รูปโปรไฟล์</translation>
 <translation id="3283504360622356314">{0,plural, =1{แก้ไขไฟล์}other{แก้ไขไฟล์}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">เลือก <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">เครื่องมือสำหรับนักพัฒนาซอฟต์แวร์</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" /></translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">แนบ</translation>
 <translation id="8206859287963243715">โทรศัพท์มือถือ</translation>

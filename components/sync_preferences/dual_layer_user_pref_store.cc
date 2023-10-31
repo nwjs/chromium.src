@@ -88,7 +88,7 @@ bool DualLayerUserPrefStore::UnderlyingPrefStoreObserver::
 DualLayerUserPrefStore::DualLayerUserPrefStore(
     scoped_refptr<PersistentPrefStore> local_pref_store,
     scoped_refptr<PersistentPrefStore> account_pref_store,
-    const PrefModelAssociatorClient* pref_model_associator_client)
+    scoped_refptr<PrefModelAssociatorClient> pref_model_associator_client)
     : local_pref_store_(std::move(local_pref_store)),
       account_pref_store_(std::move(account_pref_store)),
       local_pref_store_observer_(this, /*is_account_store=*/false),
@@ -165,11 +165,15 @@ base::Value::Dict DualLayerUserPrefStore::GetValues() const {
   base::Value::Dict values = local_pref_store_->GetValues();
 
   for (const std::string& pref_name : GetPrefNamesInAccountStore()) {
-    const base::Value* value = nullptr;
-    // GetValue() will merge the value if needed.
-    GetValue(pref_name, &value);
-    CHECK(value);
-    values.SetByDottedPath(pref_name, value->Clone());
+    // Filter out prefs which should not be queried from the account store, for
+    // example, prefs requiring history opt-in if history sync is off.
+    if (ShouldGetValueFromAccountStore(pref_name)) {
+      const base::Value* value = nullptr;
+      // GetValue() will merge the value if needed.
+      GetValue(pref_name, &value);
+      CHECK(value);
+      values.SetByDottedPath(pref_name, value->Clone());
+    }
   }
   return values;
 }
@@ -498,14 +502,16 @@ void DualLayerUserPrefStore::DisableTypeAndClearAccountStore(
                 .GetSyncablePrefMetadata(pref_name);
         metadata.has_value() && metadata->model_type() == model_type) {
       const base::Value* value = nullptr;
-      CHECK(GetValue(pref_name, &value));
-
       // Should only notify observers if the effective value changes.
       // Note: A notification is still sent if a pref goes from an
       // explicitly-set value to an equal default value.
-      bool should_notify = true;
+      // Note: If the pref requires history opt-in, but history sync is
+      // disabled, GetValue() will not return the account value, and in case
+      // no value for the pref exists in the local store, no notification should
+      // be sent out.
+      bool should_notify = GetValue(pref_name, &value);
       if (const base::Value* local_value = nullptr;
-          local_pref_store_->GetValue(pref_name, &local_value)) {
+          value && local_pref_store_->GetValue(pref_name, &local_value)) {
         should_notify = (*local_value != *value);
       }
       {
@@ -544,15 +550,21 @@ bool DualLayerUserPrefStore::IsPrefKeyMergeable(const std::string& key) const {
   if (!pref_model_associator_client_) {
     return false;
   }
-  // TODO(crbug.com/1416479): Also cover prefs with custom merge logic.
-  return pref_model_associator_client_->IsMergeableListPreference(key) ||
-         pref_model_associator_client_->IsMergeableDictionaryPreference(key);
+  const auto& syncable_prefs_database =
+      pref_model_associator_client_->GetSyncablePrefsDatabase();
+  return syncable_prefs_database.IsPreferenceSyncable(key) &&
+         syncable_prefs_database.IsPreferenceMergeable(key);
 }
 
 const base::Value* DualLayerUserPrefStore::MaybeMerge(
     const std::string& pref_name,
     const base::Value& local_value,
     const base::Value& account_value) const {
+  // Return the account value if `pref_name` is not mergeable.
+  if (!IsPrefKeyMergeable(pref_name)) {
+    return &account_value;
+  }
+
   // Note: The merged value is evaluated every time and not re-used from
   // `merged_prefs_`. This is to:
   // 1. Handle the cases where SetValueSilently() or
@@ -560,19 +572,9 @@ const base::Value* DualLayerUserPrefStore::MaybeMerge(
   // without a corresponding call to ReportValueChanged().
   // 2. Avoid removing the entry from `merged_prefs_` every time pref is
   // updated.
-  base::Value merged_value = helper::MergePreference(
-      pref_model_associator_client_, pref_name, local_value, account_value);
-
-  if (merged_value == account_value) {
-    // Most likely this is not a mergeable pref. Should be safe to just return
-    // the account value.
-    // This check is workaround as there doesn't exist a reliable way to check
-    // if a pref is mergeable.
-    // TODO(crbug.com/1416479): Use IsPrefKeyMergeable() instead once it covers
-    // custom prefs with custom merge logic.
-    return &account_value;
-  }
-  // Now it is definitely a mergeable pref.
+  base::Value merged_value =
+      helper::MergePreference(pref_model_associator_client_.get(), pref_name,
+                              local_value, account_value);
 
   // Add to `merged_prefs_` only if value doesn't already exist. This is done
   // because the previously returned value might be in use and replacing the
@@ -603,12 +605,13 @@ std::pair<base::Value, base::Value> DualLayerUserPrefStore::UnmergeValue(
     const std::string& pref_name,
     base::Value value,
     uint32_t flags) const {
-  DCHECK(ShouldSetValueInAccountStore(pref_name));
+  CHECK(ShouldSetValueInAccountStore(pref_name));
 
   // Note: There is no "standard" unmerging logic for list or scalar prefs.
   // TODO(crbug.com/1416479): Allow support for custom unmerge logic.
-  if (pref_model_associator_client_->IsMergeableDictionaryPreference(
-          pref_name)) {
+  if (pref_model_associator_client_->GetSyncablePrefsDatabase()
+          .GetSyncablePrefMetadata(pref_name)
+          ->merge_behavior() == MergeBehavior::kMergeableDict) {
     // Per crbug.com/1430854, it is possible for the value to not be of dict
     // type. However, in this case, whatever is the type of `value` it's bound
     // to be correct, as UnmergeValue() is called by setters which in turn are

@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">वॉलपेपर रोज़ बदलें</translation>
 <translation id="1644574205037202324">इतिहास</translation>
 <translation id="1651925268237749928">आपने शेयर किया गया एल्बम चुना है. इसमें अन्य लोग फ़ोटो जोड़ सकते हैं या बदल सकते हैं. आपके वॉलपेपर में ऐसी फ़ोटो इस्तेमाल की जा सकती हैं जो फ़िलहाल इस एल्बम में नहीं हैं.</translation>
+<translation id="1661865805917886535">खाते और सिस्टम की कुछ जानकारी Google को भेजी जा सकती है. इस जानकारी का इस्तेमाल हम तकनीकी समस्याओं को हल करने और हमारी सेवाओं को बेहतर बनाने के लिए करते हैं. ऐसा Google की निजता नीति (<ph name="PRIVACYPOLICYURL" />) और सेवा की शर्तों (<ph name="TERMSOFSERVICEURL" />) के मुताबिक किया जाता है. कॉन्टेंट में बदलावों का अनुरोध करने के लिए, कानूनी सहायता (<ph name="LEGALHELPPAGEURL" />) पेज पर जाएं.</translation>
 <translation id="1662989795263954667">बंद हो गया - स्याही खत्म हो गई</translation>
 <translation id="1664796644829245314"><ph name="PREVIEW_OBJECT" /> की झलक देखें</translation>
 <translation id="1668469839109562275">पहले से मौजूद वीपीएन</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">डिवाइस कनेक्ट है.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{पेज को हटाना चाहते हैं?}=1{पेज {PAGE_NUMBER} को हटाना चाहते हैं?}one{पेज {PAGE_NUMBER} को हटाना चाहते हैं?}other{पेज {PAGE_NUMBER} को हटाना चाहते हैं?}}</translation>
+<translation id="3146655726035122603">सिर्फ़ <ph name="PRODUCT_NAME" /> पर उपलब्ध</translation>
 <translation id="315116470104423982">मोबाइल डेटा</translation>
 <translation id="3156846309055100599">पेज <ph name="PAGE_NUMBER" /> को स्कैन किया जा रहा है...</translation>
 <translation id="315738237743207937">कैप्टिव पोर्टल की पहचान की गई</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">स्कैनर खोजे जा रहे हैं</translation>
 <translation id="3226657629376379887">लेआउट ऐक्शन मेन्यू</translation>
 <translation id="3246869037381808805">एक दिन से ज़्यादा पुरानी, प्रिंट की गई फ़ाइलों को हटा दिया जाएगा</translation>
-<translation id="3248223063252096240"><ph name="PRODUCT_NAME" /> के लिए खास</translation>
 <translation id="3268178239013324452">प्रिंट नहीं हो पाया - प्रिंटर का दरवाज़ा खुला है</translation>
 <translation id="3275729367986477355">अवतार इमेज की सेटिंग पर जाएं</translation>
 <translation id="3283504360622356314">{0,plural, =1{फ़ाइल में बदलाव करें}one{फ़ाइल में बदलाव करें}other{फ़ाइलों में बदलाव करें}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> चुनें</translation>
 <translation id="8151185429379586178">डेवलपर टूल</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">अटैच करें</translation>
 <translation id="8206859287963243715">सेलुलर</translation>

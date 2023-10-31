@@ -54,7 +54,8 @@ enum class IOSDefaultBrowserVideoPromoAction {
   kPrimaryActionTapped = 0,
   kSecondaryActionTapped = 1,
   kSwipeDown = 2,
-  kMaxValue = kSwipeDown,
+  kTertiaryActionTapped = 3,
+  kMaxValue = kTertiaryActionTapped,
 };
 
 // The feature parameter to activate the remind me later button.
@@ -196,6 +197,9 @@ bool IsDefaultBrowserPromoOnlyGenericArmTrain();
 // Returns true if default Browser full-screen promo should be shown on omnibox
 // copy-paste instead of non-modal promo.
 bool IsFullScreenPromoOnOmniboxCopyPasteEnabled();
+
+// Returns true if client is in default browser video in settings experiment.
+bool IsDefaultBrowserVideoInSettingsEnabled();
 
 // Returns true if the user has interacted with the Fullscreen Promo previously.
 // Returns false otherwise.
@@ -342,6 +346,9 @@ void RecordPromoStatsToUMAForAction(PromoStatistics* promo_stats,
 
 // Records given promo stats for "Appear" action into UMA histograms.
 void RecordPromoStatsToUMAForAppear(PromoStatistics* promo_stats);
+
+// Records stats related to promo display to UMA histograms.
+void RecordPromoDisplayStatsToUMA();
 
 // Logs browser launched for default browser promo trigger criteria experiment
 // stats to NSUserDefaults. `LogBrowserIndirectlylaunched` and

@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">وال پیپر کی تصویر کو روزانہ تبدیل کریں</translation>
 <translation id="1644574205037202324">سرگزشت</translation>
 <translation id="1651925268237749928">آپ نے ایک اشتراک کردہ البم منتخب کیا ہے۔ دوسرے لوگ تصاویر شامل یا تبدیل کر سکتے ہیں۔ آپ کا وال پیپر ایسی تصاویر استعمال کر سکتا ہے جو فی الحال اس البم میں موجود نہیں ہیں۔</translation>
+<translation id="1661865805917886535">‏اکاؤنٹ اور سسٹم کی کچھ معلومات Google کو بھیجی جا سکتی ہے۔ ہم اس معلومات کو تکنیکی مسائل کو حل کرنے اور اپنی سروسز کو بہتر بنانے کے لیے استعمال کرتے ہیں، جو ہماری رازداری کی پالیسی (<ph name="PRIVACYPOLICYURL" />) اور سروس کی شرائط (<ph name="TERMSOFSERVICEURL" />) کے ساتھ مشروط ہے۔ مواد کی تبدیلیوں کی درخواست دینے کی خاطر قانونی امداد (<ph name="LEGALHELPPAGEURL" />) پر جائیں۔</translation>
 <translation id="1662989795263954667">رک گیا - سیاہی ختم ہو گئی</translation>
 <translation id="1664796644829245314"><ph name="PREVIEW_OBJECT" /> کا پیش منظر دیکھیں</translation>
 <translation id="1668469839109562275">‏پہلے سے موجود VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">آلہ منسلک ہے۔</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{صفحہ ہٹائیں؟}=1{{PAGE_NUMBER} صفحہ ہٹائیں؟}other{{PAGE_NUMBER} صفحہ ہٹائیں؟}}</translation>
+<translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> کیلئے مخصوص</translation>
 <translation id="315116470104423982">موبائل ڈیٹا</translation>
 <translation id="3156846309055100599">صفحہ <ph name="PAGE_NUMBER" /> کو اسکین کیا جا رہا ہے...</translation>
 <translation id="315738237743207937">کیپٹو پورٹل کا پتا چلا</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">اسکینرز کی تلاش جاری ہے</translation>
 <translation id="3226657629376379887">لے آؤٹ کارروائیوں کا مینیو</translation>
 <translation id="3246869037381808805">1 دن سے پرانی پرنٹ جابز کو ہٹا دیا جائے گا</translation>
-<translation id="3248223063252096240"><ph name="PRODUCT_NAME" /> خاص</translation>
 <translation id="3268178239013324452">ناکام ہو گیا - دروازہ کھلا ہے</translation>
 <translation id="3275729367986477355">اوتار کی تصویر</translation>
 <translation id="3283504360622356314">{0,plural, =1{فائل میں ترمیم کریں}other{فائلز میں ترمیم کریں}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> منتخب کریں</translation>
 <translation id="8151185429379586178">ڈویلپر ٹولز</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />، <ph name="ACCELERATOR_INFO" />۔</translation>
 <translation id="8179976553408161302">انٹر</translation>
 <translation id="8183974620058026102">منسلک کریں</translation>
 <translation id="8206859287963243715">سیلولر</translation>

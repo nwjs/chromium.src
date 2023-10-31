@@ -27,6 +27,8 @@ MockShoppingService::MockShoppingService()
                                 nullptr,
                                 nullptr,
                                 nullptr,
+                                nullptr,
+                                nullptr,
                                 nullptr) {
   // Set up some defaults so tests don't have to explicitly set up each.
   SetIsReady(true);
@@ -37,6 +39,7 @@ MockShoppingService::MockShoppingService()
       .WillByDefault(testing::Return(30));
   SetResponseForGetMerchantInfoForUrl(absl::nullopt);
   SetResponseForIsShoppingPage(absl::nullopt);
+  SetResponseForGetDiscountInfoForUrls(default_discounts_map_);
   SetSubscribeCallbackValue(true);
   SetUnsubscribeCallbackValue(true);
   SetIsSubscribedCallbackValue(true);
@@ -237,6 +240,17 @@ void MockShoppingService::SetResponseForGetDiscountInfoForUrls(
         base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
             FROM_HERE, base::BindOnce(std::move(callback), discounts_map));
       });
+}
+
+void MockShoppingService::SetBookmarkModelUsedForSync(
+    bookmarks::BookmarkModel* bookmark_model) {
+  ON_CALL(*this, GetBookmarkModelUsedForSync)
+      .WillByDefault(testing::Return(bookmark_model));
+}
+
+void MockShoppingService::SetIsParcelTrackingEligible(bool is_eligible) {
+  ON_CALL(*this, IsParcelTrackingEligible)
+      .WillByDefault(testing::Return(is_eligible));
 }
 
 }  // namespace commerce

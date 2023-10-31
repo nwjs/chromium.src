@@ -39,11 +39,13 @@
 #include "chromeos/ash/components/network/network_type_pattern.h"
 #include "chromeos/ash/components/network/network_util.h"
 #include "chromeos/ash/components/network/onc/onc_translation_tables.h"
+#include "chromeos/ash/components/network/policy_util.h"
 #include "chromeos/ash/components/network/prohibited_technologies_handler.h"
 #include "chromeos/ash/components/network/proxy/ui_proxy_config_service.h"
 #include "chromeos/ash/components/network/technology_state_controller.h"
 #include "chromeos/ash/components/network/text_message_suppression_state.h"
 #include "chromeos/ash/components/sync_wifi/network_eligibility_checker.h"
+#include "chromeos/ash/components/system/statistics_provider.h"
 #include "chromeos/services/network_config/public/cpp/cros_network_config_util.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config.mojom-shared.h"
 #include "chromeos/services/network_config/public/mojom/cros_network_config_mojom_traits.h"
@@ -601,7 +603,8 @@ mojom::DeviceStatePropertiesPtr DeviceStateToMojo(
     const DeviceState* device,
     NetworkStateHandler* network_state_handler,
     CellularInhibitor* cellular_inhibitor,
-    mojom::DeviceStateType technology_state) {
+    mojom::DeviceStateType technology_state,
+    const absl::optional<base::StringPiece> serial_number) {
   mojom::NetworkType type = ShillTypeToMojo(device->type());
   if (type == mojom::NetworkType::kAll) {
     NET_LOG(ERROR) << "Unexpected device type: " << device->type()
@@ -640,6 +643,10 @@ mojom::DeviceStatePropertiesPtr DeviceStateToMojo(
     result->inhibit_reason =
         GetInhibitReason(network_state_handler, cellular_inhibitor);
     result->imei = device->imei();
+    if (features::IsCellularCarrierLockEnabled() && serial_number &&
+        !serial_number->empty()) {
+      result->serial = std::string(serial_number.value());
+    }
   }
   return result;
 }
@@ -2245,6 +2252,12 @@ CrosNetworkConfig::CrosNetworkConfig(
       network_profile_handler_(network_profile_handler),
       technology_state_controller_(technology_state_controller) {
   CHECK(network_state_handler);
+  if (features::IsCellularCarrierLockEnabled()) {
+    serial_number_ = system::StatisticsProvider::GetInstance()->GetMachineID();
+    if (!serial_number_ || serial_number_->empty()) {
+      LOG(WARNING) << "Serial number not set.";
+    }
+  }
 }
 
 CrosNetworkConfig::~CrosNetworkConfig() {
@@ -2360,8 +2373,9 @@ void CrosNetworkConfig::GetDeviceStateList(
       NET_LOG(ERROR) << "Device state unavailable: " << device->name();
       continue;
     }
-    mojom::DeviceStatePropertiesPtr mojo_device = DeviceStateToMojo(
-        device, network_state_handler_, cellular_inhibitor_, technology_state);
+    mojom::DeviceStatePropertiesPtr mojo_device =
+        DeviceStateToMojo(device, network_state_handler_, cellular_inhibitor_,
+                          technology_state, serial_number_);
     if (mojo_device)
       result.emplace_back(std::move(mojo_device));
   }
@@ -3021,6 +3035,20 @@ void CrosNetworkConfig::GetGlobalPolicy(GetGlobalPolicyCallback callback) {
       global_policy_dict, ::onc::global_network_config::kBlockedHexSSIDs);
   if (blocked_hex_ssids) {
     result->blocked_hex_ssids = std::move(*blocked_hex_ssids);
+  }
+
+  if (policy_util::AreEphemeralNetworkPoliciesEnabled()) {
+    result->recommended_values_are_ephemeral =
+        GetBoolean(global_policy_dict,
+                   ::onc::global_network_config::kRecommendedValuesAreEphemeral,
+                   /*value_if_key_missing_from_dict=*/
+                   result->recommended_values_are_ephemeral);
+    result->user_created_network_configurations_are_ephemeral =
+        GetBoolean(global_policy_dict,
+                   ::onc::global_network_config::
+                       kUserCreatedNetworkConfigurationsAreEphemeral,
+                   /*value_if_key_missing_from_dict=*/
+                   result->user_created_network_configurations_are_ephemeral);
   }
 
   std::move(callback).Run(std::move(result));

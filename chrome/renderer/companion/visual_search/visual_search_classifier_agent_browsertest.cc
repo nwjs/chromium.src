@@ -9,6 +9,7 @@
 #include "base/files/file_util.h"
 #include "base/functional/callback.h"
 #include "base/memory/discardable_memory_allocator.h"
+#include "base/memory/raw_ptr.h"
 #include "base/path_service.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -144,8 +145,8 @@ class VisualSearchClassifierAgentTest : public ChromeRenderViewTest {
     std::vector<base::test::FeatureRef> disabled_features;
     base::FieldTrialParams params;
     params["max_visual_suggestions"] = "2";
-    enabled_features.emplace_back(base::test::FeatureRefAndParams(
-        companion::visual_search::features::kVisualSearchSuggestions, params));
+    enabled_features.emplace_back(
+        companion::visual_search::features::kVisualSearchSuggestions, params);
     enabled_features.emplace_back(base::test::FeatureRefAndParams(
         companion::visual_search::features::kVisualSearchSuggestionsAgent,
         /* params */ {}));
@@ -161,7 +162,8 @@ class VisualSearchClassifierAgentTest : public ChromeRenderViewTest {
   }
 
  protected:
-  VisualSearchClassifierAgent* agent_;  // Owned by RenderFrame
+  raw_ptr<VisualSearchClassifierAgent, ExperimentalRenderer>
+      agent_;  // Owned by RenderFrame
   base::HistogramTester histogram_tester_;
   TestVisualResultHandler test_handler_;
   base::File model_file_;

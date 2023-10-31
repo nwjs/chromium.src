@@ -61,9 +61,6 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView,
   gfx::Rect GetWindowBoundsForClientBounds(
       const gfx::Rect& client_bounds) const override;
   int NonClientHitTest(const gfx::Point& point) override;
-  void GetWindowMask(const gfx::Size& size, SkPath* window_mask) override;
-  void UpdateWindowIcon() override;
-  void SizeConstraintsChanged() override;
   void UpdateMinimumSize() override;
   void WindowControlsOverlayEnabledChanged() override;
 
@@ -73,7 +70,7 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView,
   gfx::Size GetMaximumSize() const override;
 
   // web_app::WebAppRegistrarObserver
-  void OnAlwaysShowToolbarInFullscreenChanged(const web_app::AppId& app_id,
+  void OnAlwaysShowToolbarInFullscreenChanged(const webapps::AppId& app_id,
                                               bool show) override;
   void OnAppRegistrarDestroyed() override;
 
@@ -118,12 +115,6 @@ class BrowserNonClientFrameViewMac : public BrowserNonClientFrameView,
   // window controls overlay display override when entering full screen or when
   // toolbar style is changed.
   void ToggleWebAppFrameToolbarViewVisibility();
-
-  // Returns the current value of the "always show toolbar in fullscreen"
-  // preference, either reading the value from the kShowFullscreenToolbar
-  // preference or if this is a window for an app, from the settings for that
-  // app.
-  bool AlwaysShowToolbarInFullscreen() const;
 
   // Emits the duration of the current fullscreen session, if any.
   void EmitFullscreenSessionHistograms();

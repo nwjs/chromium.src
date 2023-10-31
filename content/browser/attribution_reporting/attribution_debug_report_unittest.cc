@@ -15,6 +15,7 @@
 #include "content/browser/attribution_reporting/os_registration.h"
 #include "content/browser/attribution_reporting/storable_source.h"
 #include "content/browser/attribution_reporting/store_source_result.h"
+#include "content/public/browser/global_routing_id.h"
 #include "net/base/schemeful_site.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -583,7 +584,7 @@ TEST(AttributionDebugReportTest, EventLevelAttributionDebugging) {
          },
          "type": "trigger-event-low-priority"
        }])json"},
-      {EventLevelResult::kDroppedForNoise,
+      {EventLevelResult::kNeverAttributedSource,
        /*replaced_event_level_report=*/absl::nullopt,
        /*new_event_level_report=*/absl::nullopt,
        /*source=*/SourceBuilder().BuildStored(), CreateReportResult::Limits(),
@@ -954,7 +955,9 @@ TEST(AttributionDebugReportTest, OsRegistrationDebugging) {
               /*registration_url=*/GURL("https://a.test/x"),
               /*debug_reporting=*/true,
               /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
-              AttributionInputEvent(), /*is_within_fenced_frame=*/false),
+              AttributionInputEvent(),
+              /*is_within_fenced_frame=*/false,
+              /*render_frame_id=*/GlobalRenderFrameHostId()),
           R"json([{
             "body": {
               "context_site": "https://b.test",
@@ -969,7 +972,8 @@ TEST(AttributionDebugReportTest, OsRegistrationDebugging) {
               /*registration_url=*/GURL("https://a.test/x"),
               /*debug_reporting=*/true,
               /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
-              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false),
+              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false,
+              /*render_frame_id=*/GlobalRenderFrameHostId()),
           R"json([{
             "body": {
               "context_site": "https://b.test",
@@ -984,7 +988,8 @@ TEST(AttributionDebugReportTest, OsRegistrationDebugging) {
               /*registration_url=*/GURL("https://a.test/x"),
               /*debug_reporting=*/false,
               /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
-              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false),
+              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false,
+              /*render_frame_id=*/GlobalRenderFrameHostId()),
           nullptr,
       },
       {
@@ -993,7 +998,8 @@ TEST(AttributionDebugReportTest, OsRegistrationDebugging) {
               /*registration_url=*/GURL("https://a.test/x"),
               /*debug_reporting=*/true,
               /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
-              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/true),
+              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/true,
+              /*render_frame_id=*/GlobalRenderFrameHostId()),
           nullptr,
       },
       {
@@ -1002,7 +1008,8 @@ TEST(AttributionDebugReportTest, OsRegistrationDebugging) {
               /*registration_url=*/GURL("http://a.test/x"),
               /*debug_reporting=*/true,
               /*top_level_origin=*/url::Origin::Create(GURL("https://b.test")),
-              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false),
+              /*input_event=*/absl::nullopt, /*is_within_fenced_frame=*/false,
+              /*render_frame_id=*/GlobalRenderFrameHostId()),
           nullptr,
       },
   };

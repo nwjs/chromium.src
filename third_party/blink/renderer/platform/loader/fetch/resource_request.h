@@ -230,9 +230,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
     SetHttpHeaderField(http_names::kAccept, http_accept);
   }
 
-  bool AllowStoredCredentials() const;
-  void SetAllowStoredCredentials(bool allow_credentials);
-
   // The initial priority for the request.
   ResourceLoadPriority InitialPriority() const;
 
@@ -301,8 +298,8 @@ class PLATFORM_EXPORT ResourceRequestHead {
   }
 
   // True if the request and any subsequent redirects should have the
-  // `http_names::kSharedStorageWritable` header attached and allow writing to
-  // shared storage via the response headers.
+  // `http_names::kSecSharedStorageWritable` header attached and allow writing
+  // to shared storage via the response headers.
   bool GetSharedStorageWritable() const { return shared_storage_writable_; }
   void SetSharedStorageWritable(bool shared_storage_writable) {
     shared_storage_writable_ = shared_storage_writable;
@@ -647,7 +644,6 @@ class PLATFORM_EXPORT ResourceRequestHead {
 
   AtomicString http_method_;
   HTTPHeaderMap http_header_fields_;
-  bool allow_stored_credentials_ : 1;
   bool report_upload_progress_ : 1;
   bool has_user_gesture_ : 1;
   bool has_text_fragment_token_ : 1;

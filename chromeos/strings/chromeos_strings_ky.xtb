@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Тушкагаздын сүрөтүн күн сайын өзгөртүү</translation>
 <translation id="1644574205037202324">Таржымал</translation>
 <translation id="1651925268237749928">Жалпы альбомду тандадыңыз. Башка адамдар сүрөттөрдү кошуп же өзгөртө алышат. Учурда бул альбомдо жок сүрөттөр тушкагаз катары көрсөтүлүшү мүмкүн.</translation>
+<translation id="1661865805917886535">Аккаунт жана тутум жөнүндө айрым маалымат Google'га жөнөтүлүшү мүмкүн. Бул маалыматты Купуялык саясаты (<ph name="PRIVACYPOLICYURL" />) жана Тейлөө шарттарына (<ph name="TERMSOFSERVICEURL" />) ылайык техникалык маселелерди чечүү жана кызматтарыбызды жакшыртуу үчүн колдонобуз. Контентке өзгөртүүлөрдү киргизүүнү сурануу үчүн Юридикалык жардам (<ph name="LEGALHELPPAGEURL" />) барагына өтүңүз.</translation>
 <translation id="1662989795263954667">Токтоду – Сыя түгөнүп калды</translation>
 <translation id="1664796644829245314"><ph name="PREVIEW_OBJECT" /> алдын ала көрүү</translation>
 <translation id="1668469839109562275">Камтылган VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Түзмөк туташты.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Барак өчүрүлсүнбү?}=1{{PAGE_NUMBER} барак өчүрүлсүнбү?}other{{PAGE_NUMBER} барак өчүрүлсүнбү?}}</translation>
+<translation id="3146655726035122603"><ph name="PRODUCT_NAME" /> үчүн жеткиликтүү</translation>
 <translation id="315116470104423982">Мобилдик Интернет</translation>
 <translation id="3156846309055100599"><ph name="PAGE_NUMBER" />-бет скандалууда...</translation>
 <translation id="315738237743207937">Кирүү бети аныкталды</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Сканерлер изделүүдө</translation>
 <translation id="3226657629376379887">Калып боюнча аракеттер менюсу</translation>
 <translation id="3246869037381808805">1 күндөн мурунку басып чыгаруу тапшырмалары өчүрүлөт</translation>
-<translation id="3248223063252096240">Өзгөчө <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Басылып чыгарылган жок - Принтердин эшиги ачык</translation>
 <translation id="3275729367986477355">Аватардын сүрөтү</translation>
 <translation id="3283504360622356314">{0,plural, =1{Файлды түзөтүү}other{Файлдарды түзөтүү}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073"><ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /> тандоо</translation>
 <translation id="8151185429379586178">Иштеп чыгуучунун куралдары</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Тиркөө</translation>
 <translation id="8206859287963243715">Уюктук</translation>

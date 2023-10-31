@@ -27,6 +27,8 @@
 #include "gpu/ipc/common/gpu_client_ids.h"
 #include "gpu/vulkan/buildflags.h"
 #include "skia/buildflags.h"
+#include "third_party/skia/include/gpu/GrTypes.h"
+#include "third_party/skia/include/gpu/ganesh/gl/GrGLDirectContext.h"
 #include "third_party/skia/include/gpu/graphite/Context.h"
 #include "third_party/skia/include/gpu/mock/GrMockTypes.h"
 #include "ui/gl/gl_bindings.h"
@@ -267,6 +269,15 @@ bool SharedContextState::IsGraphiteDawnVulkan() const {
 #endif
 }
 
+bool SharedContextState::IsGraphiteDawnVulkanSwiftShader() const {
+#if BUILDFLAG(SKIA_USE_DAWN)
+  return gr_context_type_ == GrContextType::kGraphiteDawn &&
+         dawn_context_provider_->is_vulkan_swiftshader_adapter();
+#else
+  return false;
+#endif
+}
+
 bool SharedContextState::InitializeSkia(
     const GpuPreferences& gpu_preferences,
     const GpuDriverBugWorkarounds& workarounds,
@@ -359,7 +370,7 @@ bool SharedContextState::InitializeGanesh(
       DCHECK(owned_gr_context_);
     } else {
       owned_gr_context_ =
-          GrDirectContext::MakeGL(std::move(gr_gl_interface), options);
+          GrDirectContexts::MakeGL(std::move(gr_gl_interface), options);
     }
 
     gr_context_ = owned_gr_context_.get();
@@ -682,7 +693,7 @@ bool SharedContextState::OnMemoryDump(
     return true;
 
   if (args.level_of_detail ==
-      base::trace_event::MemoryDumpLevelOfDetail::BACKGROUND) {
+      base::trace_event::MemoryDumpLevelOfDetail::kBackground) {
     raster::DumpBackgroundGrMemoryStatistics(gr_context_, pmd);
   } else {
     raster::DumpGrMemoryStatistics(gr_context_, pmd, absl::nullopt);
@@ -714,7 +725,8 @@ void SharedContextState::PurgeMemory(
     case base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_MODERATE:
       // With moderate pressure, clear any unlocked resources.
       sk_surface_cache_.Clear();
-      gr_context_->purgeUnlockedResources(true /* scratchResourcesOnly */);
+      gr_context_->purgeUnlockedResources(
+          GrPurgeResourceOptions::kScratchResourcesOnly);
       UpdateSkiaOwnedMemorySize();
       scratch_deserialization_buffer_.resize(
           kInitialScratchDeserializationBufferSize);

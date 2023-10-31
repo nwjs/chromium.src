@@ -18,7 +18,6 @@
 #import "components/autofill/core/browser/payments/payments_client.h"
 #import "components/autofill/core/browser/ui/popup_item_ids.h"
 #import "components/autofill/core/common/autofill_prefs.h"
-#import "components/autofill/ios/browser/autofill_driver_ios.h"
 #import "components/autofill/ios/browser/autofill_util.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/security_state/ios/security_state_utils.h"
@@ -266,13 +265,16 @@ void WebViewAutofillClientIOS::ConfirmSaveAddressProfile(
 }
 
 void WebViewAutofillClientIOS::ShowEditAddressProfileDialog(
-    const AutofillProfile& profile) {
+    const AutofillProfile& profile,
+    AddressProfileSavePromptCallback on_user_decision_callback) {
   // Please note: This method is only implemented on desktop and is therefore
   // unreachable here.
   NOTREACHED();
 }
 
-void WebViewAutofillClientIOS::ShowDeleteAddressProfileDialog() {
+void WebViewAutofillClientIOS::ShowDeleteAddressProfileDialog(
+    const AutofillProfile& profile,
+    AddressProfileDeleteDialogCallback delete_dialog_callback) {
   // Please note: This method is only implemented on desktop and is therefore
   // unreachable here.
   NOTREACHED();
@@ -346,16 +348,6 @@ bool WebViewAutofillClientIOS::IsAutocompleteEnabled() const {
 bool WebViewAutofillClientIOS::IsPasswordManagerEnabled() {
   return GetPrefs()->GetBoolean(
       password_manager::prefs::kCredentialsEnableService);
-}
-
-void WebViewAutofillClientIOS::PropagateAutofillPredictionsDeprecated(
-    AutofillDriver* driver,
-    const std::vector<FormStructure*>& forms) {
-  [bridge_
-      propagateAutofillPredictionsForForms:forms
-                                   inFrame:(static_cast<AutofillDriverIOS*>(
-                                                driver))
-                                               ->web_frame()];
 }
 
 void WebViewAutofillClientIOS::DidFillOrPreviewForm(

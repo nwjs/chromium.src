@@ -441,14 +441,6 @@ void MediaStreamDispatcherHost::GenerateStreams(
     return;
   }
 
-  // TODO(crbug/1379794): Move into ValidateControlsForGenerateStreams().
-  if (controls.video.stream_type ==
-          blink::mojom::MediaStreamType::DISPLAY_VIDEO_CAPTURE_SET &&
-      !base::FeatureList::IsEnabled(blink::features::kGetAllScreensMedia)) {
-    mojo::ReportBadMessage("This API has not been enabled");
-    return;
-  }
-
   if (audio_stream_selection_info_ptr->strategy ==
           blink::mojom::StreamSelectionStrategy::SEARCH_BY_SESSION_ID &&
       (!audio_stream_selection_info_ptr->session_id.has_value() ||
@@ -797,6 +789,12 @@ MediaStreamDispatcherHost::ValidateControlsForGenerateStreams(
 
     if (controls.disable_local_echo) {
       return bad_message::MSDH_DISABLE_LOCAL_ECHO_BUT_AUDIO_NOT_REQUESTED;
+    }
+
+    if (controls.exclude_monitor_type_surfaces &&
+        controls.preferred_display_surface ==
+            blink::mojom::PreferredDisplaySurface::MONITOR) {
+      return bad_message::MSDH_EXCLUDE_MONITORS_BUT_PREFERRED_MONITOR_REQUESTED;
     }
   }
 

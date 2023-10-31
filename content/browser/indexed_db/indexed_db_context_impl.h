@@ -27,7 +27,6 @@
 #include "components/services/storage/public/mojom/quota_client.mojom.h"
 #include "components/services/storage/public/mojom/storage_policy_update.mojom.h"
 #include "content/browser/indexed_db/indexed_db_backing_store.h"
-#include "content/browser/indexed_db/indexed_db_dispatcher_host.h"
 #include "content/common/content_export.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -64,7 +63,6 @@ class CONTENT_EXPORT IndexedDBContextImpl
       scoped_refptr<IndexedDBContextImpl>&& context);
 
   // If `base_data_path` is empty, nothing will be saved to disk.
-  // `task_runner` is optional, and only set during testing.
   // This is *not* called on the IDBTaskRunner, unlike most other functions.
   IndexedDBContextImpl(
       const base::FilePath& base_data_path,
@@ -162,14 +160,17 @@ class CONTENT_EXPORT IndexedDBContextImpl
 
   int64_t GetBucketDiskUsage(const storage::BucketLocator& bucket_locator);
 
-  // This getter is thread-safe.
-  base::SequencedTaskRunner* IDBTaskRunner() { return idb_task_runner_.get(); }
+  const scoped_refptr<base::SequencedTaskRunner>& IDBTaskRunner() {
+    return idb_task_runner_;
+  }
+
+  const scoped_refptr<base::TaskRunner>& IOTaskRunner() {
+    return io_task_runner_;
+  }
 
   // Methods called by IndexedDBFactory or IndexedDBDispatcherHost for
   // quota support.
   void FactoryOpened(const storage::BucketLocator& bucket_locator);
-  void ConnectionOpened(const storage::BucketLocator& bucket_locator);
-  void ConnectionClosed(const storage::BucketLocator& bucket_locator);
   void TransactionComplete(const storage::BucketLocator& bucket_locator);
   void DatabaseDeleted(const storage::BucketLocator& bucket_locator);
 
@@ -191,7 +192,7 @@ class CONTENT_EXPORT IndexedDBContextImpl
   std::vector<base::FilePath> GetStoragePaths(
       const storage::BucketLocator& bucket_locator) const;
 
-  const base::FilePath GetDataPath(
+  base::FilePath GetDataPath(
       const storage::BucketLocator& bucket_locator) const;
   const base::FilePath GetFirstPartyDataPathForTesting() const;
 
@@ -222,6 +223,8 @@ class CONTENT_EXPORT IndexedDBContextImpl
 
  private:
   friend class base::RefCountedThreadSafe<IndexedDBContextImpl>;
+  friend class IndexedDBTest;
+  friend class IndexedDBFactoryTest;
 
   class IndexedDBGetUsageAndQuotaCallback;
 
@@ -301,7 +304,7 @@ class CONTENT_EXPORT IndexedDBContextImpl
       std::vector<storage::QuotaErrorOr<storage::BucketInfo>> bucket_infos);
 
   const scoped_refptr<base::SequencedTaskRunner> idb_task_runner_;
-  IndexedDBDispatcherHost dispatcher_host_;
+  const scoped_refptr<base::TaskRunner> io_task_runner_;
 
   // Bound and accessed on the `idb_task_runner_`.
   mojo::Remote<storage::mojom::BlobStorageContext> blob_storage_context_;

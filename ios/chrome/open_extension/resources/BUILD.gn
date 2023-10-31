@@ -1,0 +1,46 @@
+# Copyright 2023 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//build/config/ios/asset_catalog.gni")
+
+group("resources") {
+  deps = [
+    ":empty_pixel",
+    ":extension_icon",
+  ]
+}
+
+# The extension only use one app icon.
+# As a consequence, the asset compiler will not output any Assets.car file,
+# which is not supported by the toolchain.
+# To solve the issue, add an empty unused image.
+imageset("empty_pixel") {
+  sources = [
+    "empty_pixel.imageset/Contents.json",
+    "empty_pixel.imageset/empty_pixel.png",
+    "empty_pixel.imageset/empty_pixel@2x.png",
+    "empty_pixel.imageset/empty_pixel@3x.png",
+  ]
+}
+
+appiconset("extension_icon") {
+  sources = [
+    "ExtensionIcon.appiconset/Contents.json",
+    "ExtensionIcon.appiconset/chrome_logo_1024.png",
+    "ExtensionIcon.appiconset/chrome_logo_114.png",
+    "ExtensionIcon.appiconset/chrome_logo_120.png",
+    "ExtensionIcon.appiconset/chrome_logo_128.png",
+    "ExtensionIcon.appiconset/chrome_logo_136.png",
+    "ExtensionIcon.appiconset/chrome_logo_152.png",
+    "ExtensionIcon.appiconset/chrome_logo_167.png",
+    "ExtensionIcon.appiconset/chrome_logo_180.png",
+    "ExtensionIcon.appiconset/chrome_logo_192.png",
+    "ExtensionIcon.appiconset/chrome_logo_40.png",
+    "ExtensionIcon.appiconset/chrome_logo_58.png",
+    "ExtensionIcon.appiconset/chrome_logo_60.png",
+    "ExtensionIcon.appiconset/chrome_logo_76.png",
+    "ExtensionIcon.appiconset/chrome_logo_80.png",
+    "ExtensionIcon.appiconset/chrome_logo_87.png",
+  ]
+}

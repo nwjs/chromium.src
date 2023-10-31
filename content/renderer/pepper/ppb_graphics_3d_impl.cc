@@ -8,6 +8,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
@@ -152,7 +153,7 @@ class PPB_Graphics3D_Impl::ColorBuffer {
   enum class State { kDetached, kAttached, kInCompositor };
 
   State state = State::kDetached;
-  gpu::SharedImageInterface* const sii_;
+  const raw_ptr<gpu::SharedImageInterface, ExperimentalRenderer> sii_;
   const gfx::Size size_;
   gpu::Mailbox mailbox_;
   // SyncToken to wait on before re-using this color buffer.
@@ -490,7 +491,8 @@ int32_t PPB_Graphics3D_Impl::DoSwapBuffers(const gpu::SyncToken& sync_token,
     auto mailbox = current_color_buffer_->Export();
     viz::TransferableResource resource = viz::TransferableResource::MakeGpu(
         mailbox, target, sync_token, current_color_buffer_->size(),
-        viz::SinglePlaneFormat::kRGBA_8888, is_overlay_candidate);
+        viz::SinglePlaneFormat::kRGBA_8888, is_overlay_candidate,
+        viz::TransferableResource::ResourceSource::kPPBGraphics3D);
     HostGlobals::Get()
         ->GetInstance(pp_instance())
         ->CommitTransferableResource(resource);

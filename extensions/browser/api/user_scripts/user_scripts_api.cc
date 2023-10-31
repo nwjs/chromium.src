@@ -4,6 +4,9 @@
 
 #include "extensions/browser/api/user_scripts/user_scripts_api.h"
 
+#include <vector>
+
+#include "base/functional/bind.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/types/optional_util.h"
 #include "extensions/browser/api/scripting/scripting_constants.h"
@@ -33,7 +36,6 @@ constexpr char kMatchesMissingError[] =
 std::unique_ptr<UserScript> ParseUserScript(
     const Extension& extension,
     const api::user_scripts::RegisteredUserScript& user_script,
-    int definition_index,
     std::u16string* error) {
   auto result = std::make_unique<UserScript>();
   result->set_id(user_script.id);
@@ -55,18 +57,15 @@ std::unique_ptr<UserScript> ParseUserScript(
     return nullptr;
   }
 
-  // TODO(crbug.com/1385165): Update error messages to not be specific to
-  // scripting API. Eg: kInvalidMatch should not be specific to
-  // 'content_scripts[*].matches'.
   const int valid_schemes = UserScript::ValidUserScriptSchemes(
       scripting::kScriptsCanExecuteEverywhere);
   if (!script_parsing::ParseMatchPatterns(
           *user_script.matches,
-          base::OptionalToPtr(user_script.exclude_matches), definition_index,
+          base::OptionalToPtr(user_script.exclude_matches),
           extension.creation_flags(), scripting::kScriptsCanExecuteEverywhere,
           valid_schemes, scripting::kAllUrlsIncludesChromeUrls, result.get(),
-          error,
-          /*wants_file_access=*/nullptr)) {
+          error, /*wants_file_access=*/nullptr,
+          /*definition_index=*/absl::nullopt)) {
     return nullptr;
   }
 
@@ -90,7 +89,7 @@ std::unique_ptr<UserScript> ParseUserScript(
       DCHECK(source.file);
       GURL url = extension.GetResourceURL(*source.file);
       ExtensionResource resource = extension.GetResource(*source.file);
-      result->js_scripts().push_back(std::make_unique<UserScript::File>(
+      result->js_scripts().push_back(UserScript::Content::CreateFile(
           resource.extension_root(), resource.relative_path(), url));
     }
   }
@@ -170,9 +169,9 @@ ExtensionFunction::ResponseAction UserScriptsRegisterFunction::Run() {
   parsed_scripts->reserve(scripts.size());
   std::u16string parse_error;
 
-  for (size_t i = 0; i < scripts.size(); ++i) {
+  for (const auto& script : scripts) {
     std::unique_ptr<UserScript> user_script =
-        ParseUserScript(*extension(), scripts[i], i, &parse_error);
+        ParseUserScript(*extension(), script, &parse_error);
     if (!user_script) {
       return RespondNow(Error(base::UTF16ToASCII(parse_error)));
     }
@@ -192,8 +191,7 @@ ExtensionFunction::ResponseAction UserScriptsRegisterFunction::Run() {
       base::BindOnce(&UserScriptsRegisterFunction::OnUserScriptFilesValidated,
                      this));
 
-  // Balanced in `OnUserScriptFilesValidated()` or
-  // `OnUserScriptFilesValidated()`.
+  // Balanced in `OnUserScriptFilesValidated()` or `OnUserScriptsRegistered()`.
   AddRef();
   return RespondLater();
 }
@@ -319,6 +317,136 @@ void UserScriptsUnregisterFunction::OnUserScriptsUnregistered(
   } else {
     Respond(NoArguments());
   }
+}
+
+ExtensionFunction::ResponseAction UserScriptsUpdateFunction::Run() {
+  absl::optional<api::user_scripts::Update::Params> params(
+      api::user_scripts::Update::Params::Create(args()));
+  EXTENSION_FUNCTION_VALIDATE(params);
+  EXTENSION_FUNCTION_VALIDATE(extension());
+
+  std::vector<api::user_scripts::RegisteredUserScript>& scripts_to_update =
+      params->scripts;
+  std::string error;
+
+  // Add the prefix for dynamic user scripts onto the IDs of all `scripts`
+  // before continuing.
+  std::set<std::string> ids_to_update = scripting::CreateDynamicScriptIds(
+      scripts_to_update, UserScript::Source::kDynamicUserScript,
+      /*existing_script_ids=*/std::set<std::string>(), &error);
+
+  if (!error.empty()) {
+    CHECK(ids_to_update.empty());
+    return RespondNow(Error(std::move(error)));
+  }
+
+  ExtensionUserScriptLoader* loader =
+      ExtensionSystem::Get(browser_context())
+          ->user_script_manager()
+          ->GetUserScriptLoaderForExtension(extension()->id());
+
+  std::unique_ptr<UserScriptList> parsed_scripts = scripting::UpdateScripts(
+      scripts_to_update, UserScript::Source::kDynamicUserScript, *loader,
+      base::BindRepeating(&CreateRegisteredUserScriptInfo),
+      base::BindRepeating(&UserScriptsUpdateFunction::ApplyUpdate, this),
+      &error);
+
+  if (!error.empty()) {
+    CHECK(!parsed_scripts);
+    return RespondNow(Error(std::move(error)));
+  }
+
+  // Add new script IDs now in case another call with the same script IDs is
+  // made immediately following this one.
+  loader->AddPendingDynamicScriptIDs(std::move(ids_to_update));
+
+  GetExtensionFileTaskRunner()->PostTaskAndReplyWithResult(
+      FROM_HERE,
+      base::BindOnce(&scripting::ValidateParsedScriptsOnFileThread,
+                     script_parsing::GetSymlinkPolicy(extension()),
+                     std::move(parsed_scripts)),
+      base::BindOnce(&UserScriptsUpdateFunction::OnUserScriptFilesValidated,
+                     this));
+
+  // Balanced in `OnUserScriptFilesValidated()`.
+  AddRef();
+  return RespondLater();
+}
+
+std::unique_ptr<UserScript> UserScriptsUpdateFunction::ApplyUpdate(
+    api::user_scripts::RegisteredUserScript& new_script,
+    api::user_scripts::RegisteredUserScript& original_script,
+    int definition_index,
+    std::u16string* parse_error) {
+  if (new_script.run_at != api::extension_types::RunAt::kNone) {
+    original_script.run_at = new_script.run_at;
+  }
+
+  if (new_script.all_frames) {
+    original_script.all_frames = *new_script.all_frames;
+  }
+
+  if (new_script.matches) {
+    original_script.matches = std::move(new_script.matches);
+  }
+
+  if (new_script.exclude_matches) {
+    original_script.exclude_matches = std::move(new_script.exclude_matches);
+  }
+
+  if (!new_script.js.empty()) {
+    original_script.js = std::move(new_script.js);
+  }
+
+  std::unique_ptr<UserScript> parsed_script =
+      ParseUserScript(*extension(), original_script, parse_error);
+  return parsed_script;
+}
+
+void UserScriptsUpdateFunction::OnUserScriptFilesValidated(
+    scripting::ValidateScriptsResult result) {
+  // We cannot proceed if the `browser_context` is not valid as the
+  // `ExtensionSystem` will not exist.
+  if (!browser_context()) {
+    Release();  // Matches the `AddRef()` in `Run()`.
+    return;
+  }
+
+  auto error = std::move(result.second);
+  auto scripts = std::move(result.first);
+  ExtensionUserScriptLoader* loader =
+      ExtensionSystem::Get(browser_context())
+          ->user_script_manager()
+          ->GetUserScriptLoaderForExtension(extension()->id());
+
+  std::set<std::string> script_ids;
+  for (const auto& script : *scripts) {
+    script_ids.insert(script->id());
+  }
+
+  if (error.has_value()) {
+    loader->RemovePendingDynamicScriptIDs(script_ids);
+    Respond(Error(std::move(*error)));
+    Release();  // Matches the `AddRef()` in `Run()`.
+    return;
+  }
+
+  // User scripts are always persisted across sessions.
+  std::set<std::string> persistent_script_ids = script_ids;
+  loader->UpdateDynamicScripts(
+      std::move(scripts), std::move(script_ids),
+      std::move(persistent_script_ids),
+      base::BindOnce(&UserScriptsUpdateFunction::OnUserScriptsUpdated, this));
+}
+
+void UserScriptsUpdateFunction::OnUserScriptsUpdated(
+    const absl::optional<std::string>& error) {
+  if (error.has_value()) {
+    Respond(Error(std::move(*error)));
+  } else {
+    Respond(NoArguments());
+  }
+  Release();  // Matches the `AddRef()` in `Run()`.
 }
 
 }  // namespace extensions

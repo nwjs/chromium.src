@@ -448,30 +448,6 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
   return true;
 }
 
-[[nodiscard]] bool TryToCopyAdditionalBidKey(
-    const base::Value::Dict& dict,
-    InterestGroupUpdate& interest_group_update) {
-  const std::string* maybe_additional_bid_key =
-      dict.FindString("additionalBidKey");
-  if (!maybe_additional_bid_key) {
-    return true;
-  }
-  absl::optional<std::vector<uint8_t>> decoded_additional_bid_key =
-      base::Base64Decode(*maybe_additional_bid_key);
-  if (!decoded_additional_bid_key.has_value()) {
-    // Failed to base64 decode the additional bid key.
-    return false;
-  }
-  if (decoded_additional_bid_key->size() != ED25519_PUBLIC_KEY_LEN) {
-    return false;
-  }
-  interest_group_update.additional_bid_key.emplace();
-  std::copy(decoded_additional_bid_key->begin(),
-            decoded_additional_bid_key->end(),
-            interest_group_update.additional_bid_key->begin());
-  return true;
-}
-
 absl::optional<InterestGroupUpdate> ParseUpdateJson(
     const blink::InterestGroupKey& group_key,
     const data_decoder::DataDecoder::ValueOrError& result) {
@@ -586,9 +562,6 @@ absl::optional<InterestGroupUpdate> ParseUpdateJson(
     return absl::nullopt;
   }
   if (!TryToCopyAuctionServerRequestFlags(*dict, interest_group_update)) {
-    return absl::nullopt;
-  }
-  if (!TryToCopyAdditionalBidKey(*dict, interest_group_update)) {
     return absl::nullopt;
   }
   return interest_group_update;
@@ -706,7 +679,8 @@ void InterestGroupUpdateManager::MaybeContinueUpdatingCurrentOwner() {
 
 void InterestGroupUpdateManager::GetInterestGroupsForUpdate(
     const url::Origin& owner,
-    base::OnceCallback<void(std::vector<StorageInterestGroup>)> callback) {
+    base::OnceCallback<
+        void(std::vector<std::pair<blink::InterestGroupKey, GURL>>)> callback) {
   DCHECK_EQ(num_in_flight_updates_, 0);
   DCHECK(!waiting_on_db_read_);
   waiting_on_db_read_ = true;
@@ -716,14 +690,14 @@ void InterestGroupUpdateManager::GetInterestGroupsForUpdate(
 
 void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerDbLoad(
     url::Origin owner,
-    std::vector<StorageInterestGroup> storage_groups) {
+    std::vector<std::pair<blink::InterestGroupKey, GURL>> ig_to_update_urls) {
   DCHECK_EQ(owner, owners_to_update_.FrontOwner());
   DCHECK_EQ(num_in_flight_updates_, 0);
   DCHECK(waiting_on_db_read_);
-  DCHECK_LE(storage_groups.size(),
+  DCHECK_LE(ig_to_update_urls.size(),
             static_cast<unsigned int>(max_parallel_updates_));
   waiting_on_db_read_ = false;
-  if (storage_groups.empty()) {
+  if (ig_to_update_urls.empty()) {
     // All interest groups for `owner` are up to date, so we can pop it off the
     // queue.
     owners_to_update_.PopFront();
@@ -733,19 +707,15 @@ void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerDbLoad(
   net::IsolationInfo per_update_isolation_info =
       net::IsolationInfo::CreateTransient();
 
-  for (auto& storage_group : storage_groups) {
-    manager_->QueueKAnonymityUpdateForInterestGroup(storage_group);
-    if (!storage_group.interest_group.update_url) {
-      continue;
-    }
+  for (auto& [interest_group_key, update_url] : ig_to_update_urls) {
+    manager_->QueueKAnonymityUpdateForInterestGroup(interest_group_key);
     // TODO(behamilton): Don't update unless daily update url is k-anonymous
     ++num_in_flight_updates_;
     base::UmaHistogramCounts100000(
         "Ads.InterestGroup.Net.RequestUrlSizeBytes.Update",
-        storage_group.interest_group.update_url->spec().size());
+        update_url.spec().size());
     auto resource_request = std::make_unique<network::ResourceRequest>();
-    resource_request->url =
-        std::move(storage_group.interest_group.update_url).value();
+    resource_request->url = std::move(update_url);
     resource_request->redirect_mode = network::mojom::RedirectMode::kError;
     resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
     resource_request->request_initiator = owner;
@@ -766,9 +736,7 @@ void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerDbLoad(
             base::BindOnce(&InterestGroupUpdateManager::
                                DidUpdateInterestGroupsOfOwnerNetFetch,
                            weak_factory_.GetWeakPtr(), simple_url_loader_it,
-                           blink::InterestGroupKey(
-                               std::move(storage_group.interest_group.owner),
-                               std::move(storage_group.interest_group.name))),
+                           interest_group_key),
             kMaxUpdateSize);
   }
 }

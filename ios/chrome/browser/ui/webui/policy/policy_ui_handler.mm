@@ -40,7 +40,7 @@
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/ui/util/pasteboard_util.h"
 #import "ios/chrome/common/channel_info.h"
-#import "ios/chrome/grit/ios_chromium_strings.h"
+#import "ios/chrome/grit/ios_branded_strings.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 #import "ui/base/webui/web_ui_util.h"
@@ -268,8 +268,10 @@ void PolicyUIHandler::HandleListenPoliciesUpdates(
 
 void PolicyUIHandler::HandleReloadPolicies(const base::Value::List& args) {
   reload_policies_count_ += 1;
-  GetPolicyService()->RefreshPolicies(base::BindOnce(
-      &PolicyUIHandler::OnRefreshPoliciesDone, weak_factory_.GetWeakPtr()));
+  GetPolicyService()->RefreshPolicies(
+      base::BindOnce(&PolicyUIHandler::OnRefreshPoliciesDone,
+                     weak_factory_.GetWeakPtr()),
+      policy::PolicyFetchReason::kUserRequest);
 }
 
 void PolicyUIHandler::SendPolicies() {

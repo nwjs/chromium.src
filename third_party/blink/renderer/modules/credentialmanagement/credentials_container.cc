@@ -63,6 +63,7 @@
 #include "third_party/blink/renderer/modules/credentialmanagement/credential_manager_type_converters.h"  // IWYU pragma: keep
 #include "third_party/blink/renderer/modules/credentialmanagement/federated_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/identity_credential.h"
+#include "third_party/blink/renderer/modules/credentialmanagement/identity_credential_error.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/otp_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/password_credential.h"
 #include "third_party/blink/renderer/modules/credentialmanagement/public_key_credential.h"
@@ -88,6 +89,7 @@ namespace blink {
 namespace {
 
 using mojom::blink::AttestationConveyancePreference;
+using mojom::blink::AuthenticationExtensionsClientOutputsPtr;
 using mojom::blink::AuthenticatorAttachment;
 using mojom::blink::AuthenticatorStatus;
 using mojom::blink::CredentialInfo;
@@ -535,6 +537,7 @@ void OnRequestToken(ScriptPromiseResolver* resolver,
                     RequestTokenStatus status,
                     const absl::optional<KURL>& selected_idp_config_url,
                     const WTF::String& token,
+                    mojom::blink::TokenErrorPtr error,
                     bool is_account_auto_selected) {
   switch (status) {
     case RequestTokenStatus::kErrorTooManyRequests: {
@@ -558,8 +561,13 @@ void OnRequestToken(ScriptPromiseResolver* resolver,
       return;
     }
     case RequestTokenStatus::kError: {
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kNetworkError, "Error retrieving a token."));
+      if (!RuntimeEnabledFeatures::FedCmErrorEnabled() || !error) {
+        resolver->Reject(MakeGarbageCollected<DOMException>(
+            DOMExceptionCode::kNetworkError, "Error retrieving a token."));
+        return;
+      }
+      resolver->Reject(MakeGarbageCollected<IdentityCredentialError>(
+          "Error retrieving a token.", error->code, error->url));
       return;
     }
     case RequestTokenStatus::kSuccess: {
@@ -819,60 +827,63 @@ void OnGetAssertionComplete(
             std::move(credential->info->authenticator_data),
             std::move(credential->signature), credential->user_handle);
 
+    AuthenticationExtensionsClientOutputsPtr& extensions =
+        credential->extensions;
+
     AuthenticationExtensionsClientOutputs* extension_outputs =
         AuthenticationExtensionsClientOutputs::Create();
-    if (credential->echo_appid_extension) {
-      extension_outputs->setAppid(credential->appid_extension);
+    if (extensions->echo_appid_extension) {
+      extension_outputs->setAppid(extensions->appid_extension);
     }
 #if BUILDFLAG(IS_ANDROID)
-    if (credential->echo_user_verification_methods) {
+    if (extensions->echo_user_verification_methods) {
       extension_outputs->setUvm(
-          UvmEntryToArray(std::move(*credential->user_verification_methods)));
+          UvmEntryToArray(std::move(*extensions->user_verification_methods)));
       UseCounter::Count(resolver->GetExecutionContext(),
                         WebFeature::kCredentialManagerGetSuccessWithUVM);
     }
 #endif
-    if (credential->echo_large_blob) {
+    if (extensions->echo_large_blob) {
       DCHECK(
           RuntimeEnabledFeatures::WebAuthenticationLargeBlobExtensionEnabled());
       AuthenticationExtensionsLargeBlobOutputs* large_blob_outputs =
           AuthenticationExtensionsLargeBlobOutputs::Create();
-      if (credential->large_blob) {
+      if (extensions->large_blob) {
         large_blob_outputs->setBlob(
-            VectorToDOMArrayBuffer(std::move(*credential->large_blob)));
+            VectorToDOMArrayBuffer(std::move(*extensions->large_blob)));
       }
-      if (credential->echo_large_blob_written) {
-        large_blob_outputs->setWritten(credential->large_blob_written);
+      if (extensions->echo_large_blob_written) {
+        large_blob_outputs->setWritten(extensions->large_blob_written);
       }
       extension_outputs->setLargeBlob(large_blob_outputs);
     }
-    if (credential->get_cred_blob) {
+    if (extensions->get_cred_blob) {
       extension_outputs->setGetCredBlob(
-          VectorToDOMArrayBuffer(std::move(*credential->get_cred_blob)));
+          VectorToDOMArrayBuffer(std::move(*extensions->get_cred_blob)));
     }
-    if (credential->device_public_key) {
+    if (extensions->device_public_key) {
       AuthenticationExtensionsDevicePublicKeyOutputs*
           device_public_key_outputs =
               AuthenticationExtensionsDevicePublicKeyOutputs::Create();
       device_public_key_outputs->setAuthenticatorOutput(VectorToDOMArrayBuffer(
-          std::move(credential->device_public_key->authenticator_output)));
+          std::move(extensions->device_public_key->authenticator_output)));
       device_public_key_outputs->setSignature(VectorToDOMArrayBuffer(
-          std::move(credential->device_public_key->signature)));
+          std::move(extensions->device_public_key->signature)));
       extension_outputs->setDevicePubKey(device_public_key_outputs);
     }
-    if (credential->echo_prf) {
+    if (extensions->echo_prf) {
       auto* prf_outputs = AuthenticationExtensionsPRFOutputs::Create();
-      if (credential->prf_results) {
+      if (extensions->prf_results) {
         auto* values = AuthenticationExtensionsPRFValues::Create();
         values->setFirst(
             MakeGarbageCollected<V8UnionArrayBufferOrArrayBufferView>(
                 VectorToDOMArrayBuffer(
-                    std::move(credential->prf_results->first))));
-        if (credential->prf_results->second) {
+                    std::move(extensions->prf_results->first))));
+        if (extensions->prf_results->second) {
           values->setSecond(
               MakeGarbageCollected<V8UnionArrayBufferOrArrayBufferView>(
                   VectorToDOMArrayBuffer(
-                      std::move(credential->prf_results->second.value()))));
+                      std::move(extensions->prf_results->second.value()))));
         }
         prf_outputs->setResults(values);
       }
@@ -1413,7 +1424,7 @@ ScriptPromise CredentialsContainer::get(ScriptState* script_state,
           !RuntimeEnabledFeatures::FedCmMultipleIdentityProvidersEnabled()) {
         // TODO(https://crbug.com/1416939): make sure the MDocs API
         // works well with the Multiple IdP API.
-        if (provider->hasMdoc()) {
+        if (provider->hasHolder()) {
           auto identity_provider =
               blink::mojom::blink::IdentityProvider::From(*provider);
           identity_provider_ptrs.push_back(std::move(identity_provider));
@@ -1470,6 +1481,14 @@ ScriptPromise CredentialsContainer::get(ScriptState* script_state,
     }
     base::UmaHistogramEnumeration("Blink.FedCm.RpContext", rp_context);
 
+    mojom::blink::RpMode rp_mode = mojom::blink::RpMode::kWidget;
+    if (options->identity()->hasMode()) {
+      // TODO(crbug.com/1429083): add use counters for rp mode.
+      rp_mode =
+          mojo::ConvertTo<mojom::blink::RpMode>(options->identity()->mode());
+    }
+    // TODO(crbug.com/1429083): add uma histograms for rp mode.
+
     CredentialMediationRequirement mediation_requirement;
     if (options->mediation() == "conditional") {
       resolver->Reject(MakeGarbageCollected<DOMException>(
@@ -1517,7 +1536,7 @@ ScriptPromise CredentialsContainer::get(ScriptState* script_state,
       Vector<mojom::blink::IdentityProviderGetParametersPtr> idp_get_params;
       mojom::blink::IdentityProviderGetParametersPtr get_params =
           mojom::blink::IdentityProviderGetParameters::New(
-              std::move(identity_provider_ptrs), rp_context);
+              std::move(identity_provider_ptrs), rp_context, rp_mode);
       idp_get_params.push_back(std::move(get_params));
 
       auto* auth_request =
@@ -1541,8 +1560,9 @@ ScriptPromise CredentialsContainer::get(ScriptState* script_state,
           std::move(scoped_abort_state));
     }
 
-    web_identity_requester_->AppendGetCall(
-        WrapPersistent(resolver), options->identity()->providers(), rp_context);
+    web_identity_requester_->AppendGetCall(WrapPersistent(resolver),
+                                           options->identity()->providers(),
+                                           rp_context, rp_mode);
 
     return promise;
   }

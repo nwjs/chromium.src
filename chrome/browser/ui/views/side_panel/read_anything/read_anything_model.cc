@@ -27,34 +27,6 @@
 using read_anything::mojom::LetterSpacing;
 using read_anything::mojom::LineSpacing;
 
-namespace {
-
-const char* kLanguagesSupportedByPoppins[] = {
-    "af", "ca", "cs", "da", "de", "en", "es", "et", "fi", "fil",
-    "fr", "hi", "hr", "hu", "id", "it", "lt", "lv", "mr", "ms",
-    "nl", "pl", "pt", "ro", "sk", "sl", "sv", "sw", "tr"};
-
-const char* kLanguagesSupportedByComicNeue[] = {
-    "af", "ca", "cs", "da", "de", "en", "es", "et", "fi", "fil", "fr", "hr",
-    "hu", "id", "it", "ms", "nl", "pl", "pt", "sk", "sl", "sv",  "sw"};
-
-const char* kLanguagesSupportedByLexendDeca[] = {
-    "af", "ca", "cs", "da", "de", "en", "es", "et", "fi", "fil",
-    "fr", "hr", "hu", "id", "it", "lt", "lv", "ms", "nl", "pl",
-    "pt", "ro", "sk", "sl", "sv", "sw", "tr", "vi"};
-
-const char* kLanguagesSupportedByEbGaramond[] = {
-    "af", "bg", "ca", "cs", "da", "de", "en", "es", "et", "fi", "fil",
-    "fr", "hr", "hu", "id", "it", "lt", "lv", "ms", "nl", "pl", "pt",
-    "ro", "ru", "sk", "sl", "sr", "sv", "sw", "tr", "uk", "vi"};
-
-const char* kLanguagesSupportedByStixTwoText[] = {
-    "af", "bg", "ca", "cs", "da", "de", "en", "es", "et", "fi", "fil",
-    "fr", "hr", "hu", "id", "it", "lt", "lv", "ms", "nl", "pl", "pt",
-    "ro", "ru", "sk", "sl", "sr", "sv", "sw", "tr", "uk", "vi"};
-
-}  // namespace
-
 ReadAnythingModel::ReadAnythingModel()
     : font_name_(string_constants::kReadAnythingPlaceholderFontName),
       font_scale_(kReadAnythingDefaultFontScale),
@@ -326,6 +298,7 @@ ReadAnythingColorsModel::ColorInfo&
 ReadAnythingColorsModel::ColorInfo::operator=(const ColorInfo&) = default;
 ReadAnythingColorsModel::ColorInfo&
 ReadAnythingColorsModel::ColorInfo::operator=(ColorInfo&&) = default;
+ReadAnythingColorsModel::ColorInfo::~ColorInfo() = default;
 
 ReadAnythingColorsModel::ReadAnythingColorsModel() {
   // Define the possible sets of colors available to the user.

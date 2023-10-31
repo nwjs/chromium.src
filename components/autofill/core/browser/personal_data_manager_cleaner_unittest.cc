@@ -4,6 +4,7 @@
 
 #include "components/autofill/core/browser/personal_data_manager_cleaner.h"
 
+#include "base/i18n/time_formatting.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
@@ -16,6 +17,7 @@
 #include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/icu/source/i18n/unicode/timezone.h"
 
 using testing::Matcher;
 using testing::Pointee;
@@ -101,7 +103,7 @@ class PersonalDataManagerCleanerTest : public PersonalDataManagerTestBase,
     PersonalDataProfileTaskWaiter waiter(*personal_data_);
     EXPECT_CALL(waiter.mock_observer(), OnPersonalDataChanged()).Times(1);
     personal_data_->AddProfile(profile);
-    waiter.Wait();
+    std::move(waiter).Wait();
   }
 
   void SetServerCards(const std::vector<CreditCard>& server_cards) {
@@ -631,7 +633,8 @@ TEST_F(PersonalDataManagerCleanerTest, ApplyDedupingRoutine_OncePerVersion) {
   EXPECT_EQ(2U, personal_data_->GetProfiles().size());
 
   // The deduping routine should be run a first time.
-  EXPECT_TRUE(personal_data_manager_cleaner_->ApplyDedupingRoutineForTesting());
+  EXPECT_TRUE(
+      personal_data_manager_cleaner_->ApplyAddressFixesAndCleanupsForTesting());
   PersonalDataProfileTaskWaiter(*personal_data_).Wait();
 
   std::vector<AutofillProfile*> profiles = personal_data_->GetProfiles();
@@ -652,7 +655,7 @@ TEST_F(PersonalDataManagerCleanerTest, ApplyDedupingRoutine_OncePerVersion) {
 
   // The deduping routine should not be run.
   EXPECT_FALSE(
-      personal_data_manager_cleaner_->ApplyDedupingRoutineForTesting());
+      personal_data_manager_cleaner_->ApplyAddressFixesAndCleanupsForTesting());
 
   // The two duplicate profiles should still be present.
   EXPECT_EQ(2U, personal_data_->GetProfiles().size());
@@ -812,13 +815,13 @@ TEST_F(PersonalDataManagerCleanerTest,
   // It is expected to remain.
   CreditCard credit_card3(base::Uuid::GenerateRandomV4().AsLowercaseString(),
                           test::kEmptyOrigin);
-  base::Time expiry_date = now - base::Days(32);
-  base::Time::Exploded exploded;
-  expiry_date.UTCExplode(&exploded);
+  const base::Time expiry_date = now - base::Days(32);
+  const std::string month = base::UnlocalizedTimeFormatWithPattern(
+      expiry_date, "MM", icu::TimeZone::getGMT());
+  const std::string year = base::UnlocalizedTimeFormatWithPattern(
+      expiry_date, "yyyy", icu::TimeZone::getGMT());
   test::SetCreditCardInfo(&credit_card3, "Clyde", "4111111111111111" /* Visa */,
-                          base::StringPrintf("%02d", exploded.month).c_str(),
-                          base::StringPrintf("%04d", exploded.year).c_str(),
-                          "1");
+                          month.c_str(), year.c_str(), "1");
   credit_card3.set_use_date(now - base::Days(400));
 
   // Create a local card expired 400 days ago, and last used 400 days ago.

@@ -32,6 +32,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAppAutoLaunched[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAppOemManifestFile[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcAvailability[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcAvailable[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcBlockKeyMint[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcDataCleanupOnStart[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcDisableAppSync[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kArcDisableDownloadProvider[];
@@ -82,6 +83,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAshEnableWaylandServer[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAshForceEnableStylusTools[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAshForceStatusAreaCollapsible[];
+COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kGrowthCampaignsPath[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kAshHideNotificationsForFactory[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kAshNoNudges[];
@@ -130,6 +132,8 @@ extern const char kDisableFineGrainedTimeZoneDetection[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableGaiaServices[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableHIDDetectionOnOOBEForTesting[];
+COMPONENT_EXPORT(ASH_CONSTANTS)
+extern const char kSkipMultideviceScreenForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kDisableLacrosKeepAliveForTesting[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kDisableLoginAnimations[];
@@ -333,6 +337,7 @@ COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kSuppressMessageCenterPopups[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
 extern const char kTelemetryExtensionDirectory[];
+extern const char kTemporaryAllowEmptyPasswordsInTests[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kTestEncryptionMigrationUI[];
 COMPONENT_EXPORT(ASH_CONSTANTS) extern const char kTestWallpaperServer[];
 COMPONENT_EXPORT(ASH_CONSTANTS)
@@ -395,6 +400,10 @@ COMPONENT_EXPORT(ASH_CONSTANTS) bool IsTabletFormFactor();
 // Returns true if GAIA services has been disabled.
 COMPONENT_EXPORT(ASH_CONSTANTS) bool IsGaiaServicesDisabled();
 
+// Returns true if we should skip MultideviceSetup screen.
+COMPONENT_EXPORT(ASH_CONSTANTS)
+bool ShouldMultideviceScreenBeSkippedForTesting();
+
 // Returns true if |kDisableArcCpuRestriction| is true.
 COMPONENT_EXPORT(ASH_CONSTANTS) bool IsArcCpuRestrictionDisabled();
 
@@ -426,6 +435,10 @@ bool IsOOBEChromeVoxHintTimerDisabledForTesting();
 // connection is disabled for testing.
 COMPONENT_EXPORT(ASH_CONSTANTS)
 bool IsOOBENetworkScreenSkippingDisabledForTesting();
+
+// Returns true if empty passwords can be used by automated tests.
+COMPONENT_EXPORT(ASH_CONSTANTS)
+bool AreEmptyPasswordsAllowedForForTesting();
 
 // Returns true if the OOBE ChromeVox hint is enabled for dev mode.
 COMPONENT_EXPORT(ASH_CONSTANTS)

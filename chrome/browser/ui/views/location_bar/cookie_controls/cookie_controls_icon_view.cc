@@ -10,6 +10,7 @@
 #include "base/metrics/user_metrics.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_finder.h"
@@ -21,6 +22,7 @@
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
 #include "components/omnibox/browser/vector_icons.h"
+#include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "content/public/browser/web_contents.h"
 #include "cookie_controls_bubble_coordinator.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -129,6 +131,43 @@ void CookieControlsIconView::UpdateImpl() {
   UpdateVisibilityAndAnimate();
 }
 
+bool CookieControlsIconView::MaybeShowIPH() {
+  CHECK(browser_->window());
+  // Need to make element visible or calls to show IPH will fail.
+  SetVisible(true);
+  // IPH for UB on high-confidence site.
+  if (confidence_ == CookieControlsBreakageConfidenceLevel::kHigh) {
+    user_education::FeaturePromoParams params(
+        feature_engagement::kIPHCookieControlsFeature);
+    params.close_callback = base::BindOnce(&CookieControlsIconView::OnIPHClosed,
+                                           weak_ptr_factory_.GetWeakPtr());
+    if (browser_->window()->MaybeShowFeaturePromo(std::move(params))) {
+      SetHighlighted(true);
+      return true;
+    }
+  }
+
+  auto* const web_contents = delegate()->GetWebContentsForPageActionIconView();
+  if (!web_contents) {
+    return false;
+  }
+  Profile* const profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  // IPH for UB in 3PCD experiment.
+  if (TrackingProtectionSettingsFactory::GetForProfile(profile)
+          ->IsTrackingProtection3pcdEnabled()) {
+    user_education::FeaturePromoParams params(
+        feature_engagement::kIPH3pcdUserBypassFeature);
+    params.close_callback = base::BindOnce(&CookieControlsIconView::OnIPHClosed,
+                                           weak_ptr_factory_.GetWeakPtr());
+    if (browser_->window()->MaybeShowFeaturePromo(std::move(params))) {
+      SetHighlighted(true);
+      return true;
+    }
+  }
+  return false;
+}
+
 void CookieControlsIconView::OnIPHClosed() {
   SetHighlighted(false);
 }
@@ -140,23 +179,13 @@ void CookieControlsIconView::UpdateVisibilityAndAnimate(
   if (should_show) {
     // TODO(crbug.com/1446230): Don't animate when the LHS toggle is used.
     if (!GetAssociatedBubble() && (!GetVisible() || confidence_changed)) {
-      if (confidence_ == CookieControlsBreakageConfidenceLevel::kHigh) {
-        bool promo_shown = false;
-        SetVisible(true);
-        CHECK(browser_->window());
-        promo_shown = browser_->window()->MaybeShowFeaturePromo(
-            feature_engagement::kIPHCookieControlsFeature,
-            base::BindOnce(&CookieControlsIconView::OnIPHClosed,
-                           weak_ptr_factory_.GetWeakPtr()));
-        if (promo_shown) {
-          SetHighlighted(true);
-        } else {
-          auto label = GetLabelForStatus();
-          AnimateIn(label);
-          if (label.has_value()) {
-            GetViewAccessibility().AnnounceText(
-                l10n_util::GetStringUTF16(label.value()));
-          }
+      if (!MaybeShowIPH() &&
+          confidence_ == CookieControlsBreakageConfidenceLevel::kHigh) {
+        auto label = GetLabelForStatus();
+        AnimateIn(label);
+        if (label.has_value()) {
+          GetViewAccessibility().AnnounceText(
+              l10n_util::GetStringUTF16(label.value()));
         }
         if (controller_) {
           controller_->OnEntryPointAnimated();
@@ -169,7 +198,6 @@ void CookieControlsIconView::UpdateVisibilityAndAnimate(
   } else {
     UnpauseAnimation();
     ResetSlideAnimation(false);
-    SetVisible(false);
   }
   SetVisible(should_show);
   SetLabel(l10n_util::GetStringUTF16(
@@ -220,7 +248,9 @@ void CookieControlsIconView::OnFinishedPageReloadWithChangedSettings() {
   // Do not attempt to change the visibility of the icon, only animate it, as
   // it should have already been visible for the user to have changed the
   // setting.
-  AnimateIn(GetLabelForStatus());
+  if (ShouldBeVisible()) {
+    AnimateIn(GetLabelForStatus());
+  }
 }
 
 bool CookieControlsIconView::ShouldBeVisible() const {
@@ -257,6 +287,8 @@ void CookieControlsIconView::ShowCookieControlsBubble() {
   bubble_coordinator_->ShowBubble(
       delegate()->GetWebContentsForPageActionIconView(), controller_.get());
   CHECK(browser_->window());
+  browser_->window()->CloseFeaturePromo(
+      feature_engagement::kIPH3pcdUserBypassFeature);
   browser_->window()->CloseFeaturePromo(
       feature_engagement::kIPHCookieControlsFeature);
   browser_->window()->NotifyFeatureEngagementEvent(

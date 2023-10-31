@@ -21,6 +21,7 @@ source_set("form_input_accessory") {
     "form_suggestion_view.mm",
   ]
   deps = [
+    ":common",
     "//base",
     "//components/autofill/core/browser",
     "//components/autofill/ios/browser",
@@ -30,6 +31,7 @@ source_set("form_input_accessory") {
     "//components/password_manager/core/browser",
     "//components/password_manager/core/common:features",
     "//components/password_manager/ios",
+    "//components/prefs",
     "//components/strings",
     "//ios/chrome/app/application_delegate:app_state_header",
     "//ios/chrome/app/strings",
@@ -45,6 +47,8 @@ source_set("form_input_accessory") {
     "//ios/chrome/browser/shared/coordinator/layout_guide",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser_state",
+    "//ios/chrome/browser/shared/model/prefs",
+    "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
@@ -55,6 +59,7 @@ source_set("form_input_accessory") {
     "//ios/chrome/browser/ui/autofill/manual_fill",
     "//ios/chrome/browser/ui/autofill/manual_fill:manual_fill_ui",
     "//ios/chrome/browser/ui/bubble",
+    "//ios/chrome/browser/ui/toolbar/public",
     "//ios/chrome/common:button_config",
     "//ios/chrome/common/ui/colors:colors",
     "//ios/chrome/common/ui/elements:form_input_accessory",
@@ -78,6 +83,7 @@ source_set("unit_tests") {
     "//components/autofill/ios/form_util",
     "//components/autofill/ios/form_util:form_util_feature",
     "//components/autofill/ios/form_util:test_support",
+    "//ios/chrome/browser/autofill:autofill_shared",
     "//ios/chrome/browser/shared/model/browser/test:test_support",
     "//ios/chrome/browser/shared/model/browser_state:test_support",
     "//ios/chrome/browser/shared/model/web_state_list",
@@ -86,5 +92,45 @@ source_set("unit_tests") {
     "//ios/web/public/test/fakes",
     "//testing/gtest",
     "//third_party/ocmock",
+  ]
+}
+
+source_set("common") {
+  sources = [
+    "scoped_form_input_accessory_reauth_module_override.h",
+    "scoped_form_input_accessory_reauth_module_override.mm",
+  ]
+  deps = [
+    "//base",
+    "//ios/chrome/common/ui/reauthentication",
+  ]
+}
+
+source_set("eg_app_support+eg2") {
+  configs += [ "//build/config/ios:xctest_config" ]
+  testonly = true
+  sources = [
+    "form_input_accessory_app_interface.h",
+    "form_input_accessory_app_interface.mm",
+  ]
+  deps = [
+    ":common",
+    "//base",
+    "//ios/chrome/common/ui/reauthentication",
+    "//ios/chrome/test/app:test_support",
+  ]
+}
+
+source_set("eg_test_support+eg2") {
+  configs += [ "//build/config/ios:xctest_config" ]
+  testonly = true
+
+  sources = [
+    "form_input_accessory_app_interface.h",
+    "form_input_accessory_app_interface_stub.mm",
+  ]
+  deps = [
+    "//ios/chrome/common/ui/reauthentication",
+    "//ios/testing/earl_grey:eg_test_support+eg2",
   ]
 }

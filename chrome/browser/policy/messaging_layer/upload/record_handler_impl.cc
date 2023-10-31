@@ -76,6 +76,7 @@ static absl::optional<Priority> GetPriorityProtoFromSequenceInformationValue(
   return priority;
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 // Returns true if `generation_guid` is required and missing.
 // Returns false otherwise.
 static bool IsMissingGenerationGuid(const std::string* generation_guid) {
@@ -88,6 +89,7 @@ static bool IsMissingGenerationGuid(const std::string* generation_guid) {
   }
   return !generation_guid || generation_guid->empty();
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Returns true if any required sequence info is missing. Returns
 // false otherwise.
@@ -97,11 +99,14 @@ static bool IsMissingSequenceInformation(
     const absl::optional<Priority> priority_result,
     const std::string* generation_guid) {
   return !sequencing_id || !generation_id || generation_id->empty() ||
+#if BUILDFLAG(IS_CHROMEOS)
+         IsMissingGenerationGuid(generation_guid) ||
+#endif  // BUILDFLAG(IS_CHROMEOS)
          !priority_result.has_value() ||
-         !Priority_IsValid(priority_result.value()) ||
-         IsMissingGenerationGuid(generation_guid);
+         !Priority_IsValid(priority_result.value());
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 // Returns true if `generation_guid` can be parsed as a GUID or if
 // `generation_guid` does not need to be parsed based on the type of device.
 // Returns false otherwise.
@@ -116,6 +121,7 @@ static bool GenerationGuidIsValid(const std::string& generation_guid) {
   }
   return base::Uuid::ParseCaseInsensitive(generation_guid).is_valid();
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Processes LOG_UPLOAD event.
 void ProcessFileUpload(base::WeakPtr<FileUploadJob::Delegate> delegate,
@@ -234,6 +240,14 @@ StatusOr<ConfigFile> GetConfigurationProtoFromDict(
     const base::Value::Dict& file) {
   ConfigFile config_file;
 
+  // Handle the version.
+  const auto config_file_version = file.FindInt("version");
+  if (!config_file_version.has_value()) {
+    return Status(error::INVALID_ARGUMENT,
+                  "Field version is missing from configurationFile");
+  }
+  config_file.set_version(config_file_version.value());
+
   // Handle the signature.
   const std::string* config_file_signature =
       file.FindString("configFileSignature");
@@ -244,15 +258,16 @@ StatusOr<ConfigFile> GetConfigurationProtoFromDict(
   }
   config_file.set_config_file_signature(*config_file_signature);
 
-  auto* const event_config_result = file.FindList("eventConfigs");
+  auto* const event_config_result = file.FindList("blockedEventConfigs");
   if (!event_config_result) {
-    return Status(error::INVALID_ARGUMENT,
-                  "Field eventConfigs is missing from configurationFile");
+    return Status(
+        error::INVALID_ARGUMENT,
+        "Field blockedEventConfigs is missing from configurationFile");
   }
 
   // Parse the list of event configs.
   for (auto& entry : *event_config_result) {
-    auto* const current_config = config_file.add_event_configs();
+    auto* const current_config = config_file.add_blocked_event_configs();
     auto* const dict = entry.GetIfDict();
     if (dict->empty()) {
       return Status(error::INVALID_ARGUMENT,
@@ -317,6 +332,12 @@ RecordHandlerImpl::SequenceInformationValueToProto(
   }
   const auto [seq_id, gen_id] = parse_seq_id_gen_id_result.ValueOrDie();
 
+  SequenceInformation proto;
+  proto.set_sequencing_id(seq_id);
+  proto.set_generation_id(gen_id);
+  proto.set_priority(Priority(priority_result.value()));
+
+#if BUILDFLAG(IS_CHROMEOS)
   // If `generation_guid` does not exist, set it to be an empty string.
   const std::string gen_guid = generation_guid ? *generation_guid : "";
   if (!GenerationGuidIsValid(gen_guid)) {
@@ -326,12 +347,8 @@ RecordHandlerImpl::SequenceInformationValueToProto(
                       "SequenceInformation proto. Invalid generation guid : ",
                       value.DebugString()}));
   }
-
-  SequenceInformation proto;
-  proto.set_sequencing_id(seq_id);
-  proto.set_generation_id(gen_id);
-  proto.set_priority(Priority(priority_result.value()));
   proto.set_generation_guid(gen_guid);
+#endif  // BUILDFLAG(IS_CHROMEOS)
   return proto;
 }
 
@@ -342,6 +359,7 @@ class RecordHandlerImpl::ReportUploader
   ReportUploader(
       base::WeakPtr<FileUploadJob::Delegate> delegate,
       bool need_encryption_key,
+      int config_file_version,
       std::vector<EncryptedRecord> records,
       ScopedReservation scoped_reservation,
       CompletionCallback upload_complete_cb,
@@ -377,6 +395,7 @@ class RecordHandlerImpl::ReportUploader
   const base::WeakPtr<FileUploadJob::Delegate> delegate_;
 
   bool need_encryption_key_ GUARDED_BY_CONTEXT(sequence_checker_);
+  int config_file_version_ GUARDED_BY_CONTEXT(sequence_checker_);
   std::vector<EncryptedRecord> records_ GUARDED_BY_CONTEXT(sequence_checker_);
   ScopedReservation scoped_reservation_ GUARDED_BY_CONTEXT(sequence_checker_);
 
@@ -400,6 +419,7 @@ class RecordHandlerImpl::ReportUploader
 RecordHandlerImpl::ReportUploader::ReportUploader(
     base::WeakPtr<FileUploadJob::Delegate> delegate,
     bool need_encryption_key,
+    int config_file_version,
     std::vector<EncryptedRecord> records,
     ScopedReservation scoped_reservation,
     CompletionCallback completion_cb,
@@ -409,6 +429,7 @@ RecordHandlerImpl::ReportUploader::ReportUploader(
                                             sequenced_task_runner),
       delegate_(delegate),
       need_encryption_key_(need_encryption_key),
+      config_file_version_(config_file_version),
       records_(std::move(records)),
       scoped_reservation_(std::move(scoped_reservation)),
       encryption_key_attached_cb_(std::move(encryption_key_attached_cb)) {
@@ -449,13 +470,14 @@ void RecordHandlerImpl::ReportUploader::StartUpload() {
   }
 
   request_builder_ = std::make_unique<UploadEncryptedReportingRequestBuilder>(
-      need_encryption_key_);
+      need_encryption_key_, config_file_version_);
   ResumeUpload(/*next_record=*/0);
 }
 
 void RecordHandlerImpl::ReportUploader::LogNumRecordsInUpload(
     size_t num_records) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+#if BUILDFLAG(IS_CHROMEOS)
   if (policy::ManagementServiceFactory::GetForPlatform()
           ->HasManagementAuthority(
               policy::EnterpriseManagementAuthority::CLOUD_DOMAIN)) {
@@ -466,6 +488,8 @@ void RecordHandlerImpl::ReportUploader::LogNumRecordsInUpload(
     base::UmaHistogramCounts1000(
         "Browser.ERP.RecordsPerUploadFromUnmanagedDevice", num_records);
   }
+// TODO(b/304623373): Add separate UMA for non-ChromeOS devices.
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 void RecordHandlerImpl::ReportUploader::ResumeUpload(size_t next_record) {
@@ -769,6 +793,7 @@ RecordHandlerImpl::~RecordHandlerImpl() {
 
 void RecordHandlerImpl::HandleRecords(
     bool need_encryption_key,
+    int config_file_version,
     std::vector<EncryptedRecord> records,
     ScopedReservation scoped_reservation,
     CompletionCallback upload_complete_cb,
@@ -781,7 +806,7 @@ void RecordHandlerImpl::HandleRecords(
     delegate = delegate_->GetWeakPtr();
   }
   Start<RecordHandlerImpl::ReportUploader>(
-      delegate, need_encryption_key, std::move(records),
+      delegate, need_encryption_key, config_file_version, std::move(records),
       std::move(scoped_reservation), std::move(upload_complete_cb),
       std::move(encryption_key_attached_cb), sequenced_task_runner_);
 }

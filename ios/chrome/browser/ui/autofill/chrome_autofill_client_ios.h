@@ -108,8 +108,12 @@ class ChromeAutofillClientIOS : public AutofillClient {
       const AutofillProfile* original_profile,
       SaveAddressProfilePromptOptions options,
       AddressProfileSavePromptCallback callback) override;
-  void ShowEditAddressProfileDialog(const AutofillProfile& profile) override;
-  void ShowDeleteAddressProfileDialog() override;
+  void ShowEditAddressProfileDialog(
+      const AutofillProfile& profile,
+      AddressProfileSavePromptCallback on_user_decision_callback) override;
+  void ShowDeleteAddressProfileDialog(
+      const AutofillProfile& profile,
+      AddressProfileDeleteDialogCallback delete_dialog_callback) override;
   bool HasCreditCardScanFeature() override;
   void ScanCreditCard(CreditCardScanCallback callback) override;
   bool IsTouchToFillCreditCardSupported() override;
@@ -133,9 +137,6 @@ class ChromeAutofillClientIOS : public AutofillClient {
   void HideAutofillPopup(PopupHidingReason reason) override;
   bool IsAutocompleteEnabled() const override;
   bool IsPasswordManagerEnabled() override;
-  void PropagateAutofillPredictionsDeprecated(
-      AutofillDriver* driver,
-      const std::vector<FormStructure*>& forms) override;
   void DidFillOrPreviewForm(mojom::AutofillActionPersistence action_persistence,
                             AutofillTriggerSource trigger_source,
                             bool is_refill) override;

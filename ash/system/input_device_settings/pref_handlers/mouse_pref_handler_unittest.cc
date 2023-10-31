@@ -12,12 +12,14 @@
 #include "ash/system/input_device_settings/input_device_settings_pref_names.h"
 #include "ash/system/input_device_settings/input_device_settings_utils.h"
 #include "ash/system/input_device_settings/input_device_tracker.h"
+#include "ash/system/input_device_settings/settings_updated_metrics_info.h"
 #include "ash/test/ash_test_base.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/account_id/account_id.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/user_manager/known_user.h"
+#include "mojo/public/cpp/bindings/clone_traits.h"
 
 namespace ash {
 
@@ -27,6 +29,7 @@ const std::string kDictFakeValue = "fake_value";
 
 const std::string kMouseKey1 = "device_key1";
 const std::string kMouseKey2 = "device_key2";
+const std::string kMouseKey3 = "device_key3";
 
 constexpr char kUserEmail[] = "example@email.com";
 constexpr char kUserEmail2[] = "example2@email.com";
@@ -45,7 +48,8 @@ const mojom::ButtonRemapping button_remapping1(
     /*button=*/
     mojom::Button::NewCustomizableButton(mojom::CustomizableButton::kBack),
     /*remapping_action=*/
-    mojom::RemappingAction::NewAction(ash::AcceleratorAction::kBrightnessDown));
+    mojom::RemappingAction::NewAcceleratorAction(
+        ash::AcceleratorAction::kBrightnessDown));
 
 const mojom::MouseSettings kMouseSettingsDefault(
     /*swap_right=*/kDefaultSwapRight,
@@ -113,6 +117,11 @@ class MousePrefHandlerTest : public AshTestBase {
         prefs::kMouseDeviceSettingsDictPref);
     pref_service_->registry()->RegisterDictionaryPref(
         prefs::kMouseButtonRemappingsDictPref);
+    pref_service_->registry()->RegisterDictionaryPref(
+        prefs::kMouseDefaultSettings);
+    pref_service_->registry()->RegisterDictionaryPref(
+        prefs::kMouseUpdateSettingsMetricInfo);
+
     // We are using these test constants as a a way to differentiate values
     // retrieved from prefs or default mouse settings.
     pref_service_->registry()->RegisterBooleanPref(
@@ -213,6 +222,8 @@ class MousePrefHandlerTest : public AshTestBase {
     mojom::MousePtr mouse = mojom::Mouse::New();
     mouse->settings = settings.Clone();
     mouse->device_key = device_key;
+    mouse->customization_restriction =
+        mojom::CustomizationRestriction::kAllowCustomizations;
 
     pref_handler_->UpdateMouseSettings(pref_service_.get(),
                                        /*mouse_policies=*/{}, *mouse);
@@ -228,10 +239,22 @@ class MousePrefHandlerTest : public AshTestBase {
         local_state(), account_id, /*mouse_policies=*/{}, *mouse);
   }
 
+  void CallUpdateDefaultMouseSettings(const std::string& device_key,
+                                      const mojom::MouseSettings& settings) {
+    mojom::MousePtr mouse = mojom::Mouse::New();
+    mouse->settings = settings.Clone();
+    mouse->device_key = device_key;
+
+    pref_handler_->UpdateDefaultMouseSettings(pref_service_.get(),
+                                              /*mouse_policies=*/{}, *mouse);
+  }
+
   mojom::MouseSettingsPtr CallInitializeMouseSettings(
       const std::string& device_key) {
     mojom::MousePtr mouse = mojom::Mouse::New();
     mouse->device_key = device_key;
+    mouse->customization_restriction =
+        mojom::CustomizationRestriction::kAllowCustomizations;
 
     pref_handler_->InitializeMouseSettings(pref_service_.get(),
                                            /*mouse_policies=*/{}, mouse.get());
@@ -274,6 +297,12 @@ class MousePrefHandlerTest : public AshTestBase {
     return dict && dict->is_dict();
   }
 
+  bool HasLoginScreenMouseButtonRemappingList(AccountId account_id) {
+    const auto* button_remapping_list = known_user().FindPath(
+        account_id, prefs::kMouseLoginScreenButtonRemappingListPref);
+    return button_remapping_list && button_remapping_list->is_list();
+  }
+
   base::Value::Dict GetInternalLoginScreenSettingsDict(AccountId account_id) {
     return known_user()
         .FindPath(account_id, prefs::kMouseLoginScreenInternalSettingsPref)
@@ -296,6 +325,57 @@ TEST_F(MousePrefHandlerTest, InitializeLoginScreenMouseSettings) {
 
   EXPECT_FALSE(HasInternalLoginScreenSettingsDict(account_id_1));
   CheckMouseSettingsAreSetToDefaultValues(*settings);
+
+  EXPECT_FALSE(HasLoginScreenMouseButtonRemappingList(account_id_1));
+  EXPECT_EQ(std::vector<mojom::ButtonRemappingPtr>(),
+            settings->button_remappings);
+
+  // Update the button remappings pref list to mock adding a new
+  // button remapping in the future.
+  std::vector<mojom::ButtonRemappingPtr> button_remappings;
+  button_remappings.push_back(button_remapping1.Clone());
+  known_user().SetPath(
+      account_id_1, prefs::kMouseLoginScreenButtonRemappingListPref,
+      absl::optional<base::Value>(
+          ConvertButtonRemappingArrayToList(button_remappings)));
+
+  mojom::MouseSettingsPtr updated_settings =
+      CallInitializeLoginScreenMouseSettings(account_id_1, mouse);
+  EXPECT_EQ(button_remappings, updated_settings->button_remappings);
+}
+
+TEST_F(MousePrefHandlerTest, UpdateLoginScreenButtonRemappingList) {
+  mojom::Mouse mouse;
+  mouse.device_key = kMouseKey1;
+  mouse.is_external = false;
+  mojom::MouseSettingsPtr settings =
+      CallInitializeLoginScreenMouseSettings(account_id_1, mouse);
+
+  // Update button_remappings in mouse settings.
+  mojom::MouseSettingsPtr updated_settings = settings->Clone();
+  std::vector<mojom::ButtonRemappingPtr> button_remapping_list;
+  button_remapping_list.push_back(button_remapping1.Clone());
+  updated_settings->button_remappings = mojo::Clone(button_remapping_list);
+  CallUpdateLoginScreenMouseSettings(account_id_1, kMouseKey1,
+                                     *updated_settings);
+  EXPECT_TRUE(HasLoginScreenMouseButtonRemappingList(account_id_1));
+
+  // Verify the updated button remapping list.
+  const auto* updated_button_remapping_list = GetLoginScreenButtonRemappingList(
+      local_state(), account_id_1,
+      prefs::kMouseLoginScreenButtonRemappingListPref);
+  ASSERT_NE(nullptr, updated_button_remapping_list);
+  ASSERT_EQ(1u, updated_button_remapping_list->size());
+  const auto& button_remapping = (*updated_button_remapping_list)[0].GetDict();
+  EXPECT_EQ(button_remapping1.name,
+            *button_remapping.FindString(prefs::kButtonRemappingName));
+  EXPECT_EQ(
+      static_cast<int>(button_remapping1.button->get_customizable_button()),
+      *button_remapping.FindInt(prefs::kButtonRemappingCustomizableButton));
+  EXPECT_EQ(
+      static_cast<int>(
+          button_remapping1.remapping_action->get_accelerator_action()),
+      *button_remapping.FindInt(prefs::kButtonRemappingAcceleratorAction));
 }
 
 TEST_F(MousePrefHandlerTest, UpdateLoginScreenMouseSettings) {
@@ -329,6 +409,18 @@ TEST_F(MousePrefHandlerTest, LoginScreenPrefsNotPersistedWhenFlagIsDisabled) {
   CallInitializeLoginScreenMouseSettings(account_id_1, mouse2);
   EXPECT_FALSE(HasInternalLoginScreenSettingsDict(account_id_1));
   EXPECT_FALSE(HasExternalLoginScreenSettingsDict(account_id_1));
+}
+
+TEST_F(MousePrefHandlerTest,
+       LoginScreenButtonRemappingListNotPersistedWhenFlagIsDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kPeripheralCustomization);
+  mojom::Mouse mouse1;
+  mouse1.device_key = kMouseKey1;
+  mouse1.is_external = false;
+
+  CallInitializeLoginScreenMouseSettings(account_id_1, mouse1);
+  EXPECT_FALSE(HasLoginScreenMouseButtonRemappingList(account_id_1));
 }
 
 TEST_F(MousePrefHandlerTest, MultipleDevices) {
@@ -679,8 +771,10 @@ TEST_F(MousePrefHandlerTest, UpdateButtonRemapping) {
       *updated_button_remapping_dict.FindInt(
           prefs::kButtonRemappingCustomizableButton));
   EXPECT_EQ(
-      static_cast<int>(button_remappings[0]->remapping_action->get_action()),
-      *updated_button_remapping_dict.FindInt(prefs::kButtonRemappingAction));
+      static_cast<int>(
+          button_remappings[0]->remapping_action->get_accelerator_action()),
+      *updated_button_remapping_dict.FindInt(
+          prefs::kButtonRemappingAcceleratorAction));
 }
 
 TEST_F(MousePrefHandlerTest, InitializeButtonRemappings) {
@@ -708,6 +802,77 @@ TEST_F(MousePrefHandlerTest, InitializeButtonRemappings) {
   mojom::MouseSettingsPtr updated_settings =
       CallInitializeMouseSettings(kMouseKey1);
   EXPECT_EQ(button_remappings, updated_settings->button_remappings);
+}
+
+TEST_F(MousePrefHandlerTest, RememberDefaultsFromLastUpdatedSettings) {
+  mojom::MouseSettingsPtr settings = CallInitializeMouseSettings(kMouseKey1);
+  settings->swap_right = !kDefaultSwapRight;
+  settings->sensitivity = 1;
+  CallUpdateMouseSettings(kMouseKey1, *settings);
+  CallUpdateDefaultMouseSettings(kMouseKey1, *settings);
+
+  mojom::MouseSettingsPtr settings2 = CallInitializeMouseSettings(kMouseKey2);
+  EXPECT_EQ(*settings2, *settings);
+
+  settings2->sensitivity = 5;
+  CallUpdateDefaultMouseSettings(kMouseKey2, *settings2);
+
+  mojom::MouseSettingsPtr settings_duplicate =
+      CallInitializeMouseSettings(kMouseKey1);
+  EXPECT_EQ(*settings, *settings_duplicate);
+}
+
+TEST_F(MousePrefHandlerTest, SettingsUpdateMetricTest) {
+  const auto settings1 = CallInitializeMouseSettings(kMouseKey1);
+
+  // When its the first device of the type the category should be kFirstEver.
+  {
+    const auto& metric_dict =
+        pref_service_->GetDict(prefs::kMouseUpdateSettingsMetricInfo);
+    ASSERT_TRUE(metric_dict.contains(kMouseKey1));
+
+    auto metrics_info =
+        SettingsUpdatedMetricsInfo::FromDict(*metric_dict.FindDict(kMouseKey1));
+    ASSERT_TRUE(metrics_info);
+    EXPECT_EQ(SettingsUpdatedMetricsInfo::Category::kFirstEver,
+              metrics_info->category());
+  }
+
+  // When its taken off the the defaults, the category should be kDefault.
+  {
+    CallUpdateDefaultMouseSettings(kMouseKey1, *settings1);
+    CallInitializeMouseSettings(kMouseKey2);
+    const auto& metric_dict =
+        pref_service_->GetDict(prefs::kMouseUpdateSettingsMetricInfo);
+    ASSERT_TRUE(metric_dict.contains(kMouseKey2));
+
+    auto metrics_info =
+        SettingsUpdatedMetricsInfo::FromDict(*metric_dict.FindDict(kMouseKey2));
+    ASSERT_TRUE(metrics_info);
+    EXPECT_EQ(SettingsUpdatedMetricsInfo::Category::kDefault,
+              metrics_info->category());
+  }
+
+  // When its taken from synced prefs on a different device, category should
+  // match.
+  {
+    auto devices_dict =
+        pref_service_->GetDict(prefs::kMouseDeviceSettingsDictPref).Clone();
+    devices_dict.Set(kMouseKey3, base::Value::Dict());
+    pref_service_->SetDict(prefs::kMouseDeviceSettingsDictPref,
+                           std::move(devices_dict));
+
+    CallInitializeMouseSettings(kMouseKey3);
+    const auto& metric_dict =
+        pref_service_->GetDict(prefs::kMouseUpdateSettingsMetricInfo);
+    ASSERT_TRUE(metric_dict.contains(kMouseKey3));
+
+    auto metrics_info =
+        SettingsUpdatedMetricsInfo::FromDict(*metric_dict.FindDict(kMouseKey3));
+    ASSERT_TRUE(metrics_info);
+    EXPECT_EQ(SettingsUpdatedMetricsInfo::Category::kSynced,
+              metrics_info->category());
+  }
 }
 
 class MouseSettingsPrefConversionTest

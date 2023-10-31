@@ -787,7 +787,7 @@ TEST_F(WebStateImplTest, UncommittedRestoreSession) {
   GURL url("http://test.com");
   CRWSessionStorage* session_storage = [[CRWSessionStorage alloc] init];
   session_storage.stableIdentifier = [[NSUUID UUID] UUIDString];
-  session_storage.uniqueIdentifier = SessionID::NewUnique();
+  session_storage.uniqueIdentifier = web::WebStateID::NewUnique();
   session_storage.lastCommittedItemIndex = 0;
   CRWNavigationItemStorage* item_storage =
       [[CRWNavigationItemStorage alloc] init];
@@ -854,7 +854,7 @@ TEST_F(WebStateImplTest, UncommittedRestoreSessionOptimisedStorage) {
   active_page->set_page_url(url.spec());
 
   WebStateImpl web_state =
-      WebStateImpl(GetBrowserState(), SessionID::NewUnique(), metadata,
+      WebStateImpl(GetBrowserState(), web::WebStateID::NewUnique(), metadata,
                    base::BindOnce(
                        [](proto::WebStateStorage storage,
                           proto::WebStateStorage& inner_storage) {
@@ -1100,6 +1100,42 @@ TEST_F(WebStateImplTest, LastActiveTimeUpdatedWhenBecomeVisible) {
   web_state.WasShown();
   EXPECT_GT(web_state.GetLastActiveTime(), last_active_time);
   EXPECT_EQ(web_state.GetCreationTime(), creation_time);
+}
+
+// Tests that at creation the last active time is initialized to the creation
+// time if unspecified in CreateParams.
+TEST_F(WebStateImplTest, LastActiveTimeSetOnCreation) {
+  WebStateImpl web_state =
+      WebStateImpl(WebState::CreateParams(GetBrowserState()));
+
+  EXPECT_NE(web_state.GetLastActiveTime(), base::Time());
+  EXPECT_EQ(web_state.GetLastActiveTime(), web_state.GetCreationTime());
+}
+
+// Tests that at creation the last active time is initialized to the time
+// specified in CreateParams.
+TEST_F(WebStateImplTest, LastActiveTimeSetOnCreationToCreateParamsValue) {
+  const base::Time last_active_time = base::Time::Now() + base::Days(1);
+  WebState::CreateParams params = WebState::CreateParams(GetBrowserState());
+  params.last_active_time = last_active_time;
+
+  WebStateImpl web_state = WebStateImpl(params);
+
+  EXPECT_NE(web_state.GetLastActiveTime(), base::Time());
+  EXPECT_NE(web_state.GetLastActiveTime(), web_state.GetCreationTime());
+  EXPECT_EQ(web_state.GetLastActiveTime(), last_active_time);
+}
+
+// Tests that at creation the last active time is initialized to the time
+// specified in CreateParams, even if set to the epoch.
+TEST_F(WebStateImplTest, LastActiveTimeCanBeForcedToEpochViaCreateParams) {
+  WebState::CreateParams params = WebState::CreateParams(GetBrowserState());
+  params.last_active_time = base::Time();
+
+  WebStateImpl web_state = WebStateImpl(params);
+
+  EXPECT_EQ(web_state.GetLastActiveTime(), base::Time());
+  EXPECT_NE(web_state.GetLastActiveTime(), web_state.GetCreationTime());
 }
 
 // Tests that WebState sessionState data can be read and writen.

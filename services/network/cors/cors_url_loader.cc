@@ -19,6 +19,7 @@
 #include "net/base/load_flags.h"
 #include "net/cookies/cookie_partition_key.h"
 #include "net/http/http_status_code.h"
+#include "net/log/net_log_values.h"
 #include "services/network/cors/cors_url_loader_factory.h"
 #include "services/network/cors/cors_util.h"
 #include "services/network/masked_domain_list/network_service_resource_block_list.h"
@@ -109,7 +110,7 @@ base::Value::Dict NetLogCorsURLLoaderStartParams(
   return base::Value::Dict()
       .Set("url", request.url.possibly_invalid_spec())
       .Set("method", request.method)
-      .Set("headers", request.headers.ToString())
+      .Set("headers", net::NetLogStringValue(request.headers.ToString()))
       .Set("is_revalidating", request.is_revalidating)
       .Set("cors_preflight_policy", cors_preflight_policy);
 }
@@ -396,7 +397,8 @@ void CorsURLLoader::Start() {
 }
 
 bool CorsURLLoader::ShouldBlockRequestForAfpExperiment(GURL request_url) {
-  if (context_ && context_->network_service() &&
+  if (context_ && context_->AfpBlockListExperimentEnabled() &&
+      context_->network_service() &&
       context_->network_service()->network_service_resource_block_list()) {
     return context_->network_service()
         ->network_service_resource_block_list()
@@ -459,7 +461,7 @@ void CorsURLLoader::FollowRedirect(
   }
   request_.headers.MergeFrom(modified_headers);
 
-  if (base::Contains(removed_headers, kSharedStorageWritableHeader)) {
+  if (base::Contains(removed_headers, kSecSharedStorageWritableHeader)) {
     request_.shared_storage_writable = false;
   }
 

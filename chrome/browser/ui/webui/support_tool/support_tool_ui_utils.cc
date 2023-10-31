@@ -19,7 +19,7 @@
 #include "chrome/browser/support_tool/data_collection_module.pb.h"
 #include "chrome/browser/support_tool/data_collector.h"
 #include "chrome/browser/support_tool/support_tool_util.h"
-#include "chrome/grit/chromium_strings.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/feedback/redaction_tool/pii_types.h"
 #include "net/base/url_util.h"
@@ -111,7 +111,7 @@ std::string GetDataCollectorName(
     case support_tool::PERFORMANCE:
       return l10n_util::GetStringUTF8(IDS_SUPPORT_TOOL_PERFORMANCE);
     case support_tool::CHROMEOS_APP_SERVICE:
-      return "ChromeOS App Service";
+      return l10n_util::GetStringUTF8(IDS_SUPPORT_TOOL_CHROMEOS_APP_SERVICE);
     default:
       return "Error: Undefined";
   }

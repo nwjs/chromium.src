@@ -30,6 +30,7 @@
 #include <algorithm>
 
 #include "base/feature_list.h"
+#include "base/memory/raw_ptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/numerics/checked_math.h"
 #include "base/numerics/safe_conversions.h"
@@ -115,7 +116,7 @@ class KURLCharsetConverter final : public url::CharsetConverter {
   }
 
  private:
-  const WTF::TextEncoding* encoding_;
+  raw_ptr<const WTF::TextEncoding, ExperimentalRenderer> encoding_;
 };
 
 }  // namespace
@@ -813,6 +814,11 @@ String EncodeWithURLEscapeSequences(const String& not_encoded_string) {
   // Unescape '/'; it's safe and much prettier.
   escaped.Replace("%2F", "/");
   return escaped;
+}
+
+bool HasInvalidURLEscapeSequences(const String& string) {
+  StringUTF8Adaptor string_utf8(string);
+  return url::HasInvalidURLEscapeSequences(string_utf8.AsStringPiece());
 }
 
 bool KURL::IsHierarchical() const {

@@ -15,7 +15,10 @@ constexpr char kAttributionReportingRegisterSourceHeader[] =
 constexpr char kAttributionReportingRegisterOsSourceHeader[] =
     "Attribution-Reporting-Register-OS-Source";
 
-constexpr base::TimeDelta kDefaultAttributionSourceExpiry = base::Days(30);
+// TODO(crbug.com/1479944): Relocate these constants to
+// //components/attribution_reporting/event_report_windows.cc.
+constexpr base::TimeDelta kDefaultNavigationReportWindow1 = base::Days(2);
+constexpr base::TimeDelta kDefaultNavigationReportWindow2 = base::Days(7);
 
 }  // namespace content
 

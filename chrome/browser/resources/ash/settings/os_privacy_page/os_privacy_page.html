@@ -58,7 +58,7 @@
 </if>
       <template is="dom-if" if="[[!showPrivacyHubPage_]]" restamp>
         <settings-toggle-button
-            id="suggested-content"
+            id="contentRecommendationsToggle"
             pref="{{prefs.settings.suggested_content_enabled}}"
             label="$i18n{enableSuggestedContent}"
             sub-label="$i18n{enableSuggestedContentDesc}"
@@ -170,6 +170,8 @@
     </template>
     <template is="dom-if" route-path="/osPrivacy/privacyHub/microphone">
       <os-settings-subpage page-title="$i18n{microphoneToggleTitle}">
+        <settings-privacy-hub-microphone-subpage prefs="{{prefs}}">
+        </settings-privacy-hub-microphone-subpage>
       </os-settings-subpage>
     </template>
   </template>

@@ -16,9 +16,12 @@
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_install_params.h"
 #include "chrome/browser/web_applications/web_app_logging.h"
+#include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "components/webapps/browser/install_result_code.h"
 #include "components/webapps/browser/installable/installable_logging.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "components/webapps/common/web_app_id.h"
+#include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/blink/public/mojom/manifest/manifest.mojom-forward.h"
 
@@ -54,6 +57,7 @@ class FetchManifestAndInstallCommand : public WebAppCommandTemplate<NoopLock>,
       WebAppInstallDialogCallback dialog_callback,
       OnceInstallCallback callback,
       bool use_fallback,
+      base::WeakPtr<WebAppUiManager> ui_manager,
       std::unique_ptr<WebAppDataRetriever> data_retriever);
 
   ~FetchManifestAndInstallCommand() override;
@@ -69,6 +73,8 @@ class FetchManifestAndInstallCommand : public WebAppCommandTemplate<NoopLock>,
   // content::WebContentsObserver:
   void DidFinishNavigation(
       content::NavigationHandle* navigation_handle) override;
+  void OnVisibilityChanged(content::Visibility visibility) override;
+  void WebContentsDestroyed() override;
 
   void Abort(webapps::InstallResultCode code);
   bool IsWebContentsDestroyed();
@@ -114,11 +120,12 @@ class FetchManifestAndInstallCommand : public WebAppCommandTemplate<NoopLock>,
       DownloadedIconsHttpResults icons_http_results);
   void OnDialogCompleted(bool user_accepted,
                          std::unique_ptr<WebAppInstallInfo> web_app_info);
-  void OnInstallFinalizedMaybeReparentTab(const AppId& app_id,
+  void OnInstallFinalizedMaybeReparentTab(const webapps::AppId& app_id,
                                           webapps::InstallResultCode code,
                                           OsHooksErrors os_hooks_errors);
 
-  void OnInstallCompleted(const AppId& app_id, webapps::InstallResultCode code);
+  void OnInstallCompleted(const webapps::AppId& app_id,
+                          webapps::InstallResultCode code);
 
   void LogInstallInfo();
 
@@ -136,11 +143,14 @@ class FetchManifestAndInstallCommand : public WebAppCommandTemplate<NoopLock>,
   // Whether using fallback installation data from the document.
   bool use_fallback_ = false;
 
+  bool did_navigation_occur_before_start_ = false;
+
+  base::WeakPtr<WebAppUiManager> ui_manager_;
   std::unique_ptr<WebAppDataRetriever> data_retriever_;
 
   InstallErrorLogEntry install_error_log_entry_;
 
-  AppId app_id_;
+  webapps::AppId app_id_;
   std::unique_ptr<WebAppInstallInfo> web_app_info_;
   blink::mojom::ManifestPtr opt_manifest_;
   base::Value::Dict debug_log_;

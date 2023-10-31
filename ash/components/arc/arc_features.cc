@@ -20,6 +20,12 @@ BASE_FEATURE(kBootCompletedBroadcastFeature,
              "ArcBootCompletedBroadcast",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Controls whether independent ARC container app killer is enabled to replace
+// the ARC container app killing in TabManagerDelegate.
+BASE_FEATURE(kContainerAppKiller,
+             "ContainerAppKiller",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls experimental Custom Tabs feature for ARC.
 BASE_FEATURE(kCustomTabsExperimentFeature,
              "ArcCustomTabsExperiment",
@@ -257,6 +263,12 @@ BASE_FEATURE(kSwitchToKeyMintOnT,
              "ArcSwitchToKeyMintOnT",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// On boards that blocks KeyMint at launch, enable this feature to force enable
+// KeyMint.
+BASE_FEATURE(kSwitchToKeyMintOnTOverride,
+             "ArcSwitchToKeyMintOnTOverride",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, ARC will pass install priority to Play in sync install
 // requests.
 BASE_FEATURE(kSyncInstallPriority,
@@ -273,6 +285,11 @@ BASE_FEATURE(kTouchscreenEmulation,
 // specific apps.
 BASE_FEATURE(kTrackpadScrollTouchscreenEmulation,
              "ArcTrackpadScrollTouchscreenEmulation",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether ARC should be enabled on unaffiliated devices on client side
+BASE_FEATURE(kUnaffiliatedDeviceArcRestriction,
+             "UnaffiliatedDeviceArcRestriction",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls ARC USB Storage UI feature.
@@ -314,7 +331,7 @@ const base::FeatureParam<int> kVmMemoryPSIReportsPeriod{&kVmMemoryPSIReports,
 
 // Controls whether a custom memory size is used when creating ARCVM. When
 // enabled, ARCVM is sized with the following formula:
-//  min(max_mib, RAM + shift_mib)
+//  min(max_mib, ram_percentage / 100 * RAM + shift_mib)
 // If disabled, memory is sized by concierge which, at the time of writing, uses
 // RAM - 1024 MiB.
 BASE_FEATURE(kVmMemorySize,
@@ -330,6 +347,12 @@ const base::FeatureParam<int> kVmMemorySizeShiftMiB{&kVmMemorySize, "shift_mib",
 // INT32_MAX means that ARCVM's memory is not capped.
 const base::FeatureParam<int> kVmMemorySizeMaxMiB{&kVmMemorySize, "max_mib",
                                                   INT32_MAX};
+
+// Controls the percentage of system RAM for calculation of ARCVM size. The
+// default value of 100 means the whole system RAM will be used in ARCM size
+// calculation.
+const base::FeatureParam<int> kVmMemorySizePercentage{&kVmMemorySize,
+                                                      "ram_percentage", 100};
 
 // Controls experimental key to enable pre-ANR handling for BroadcastQueue in
 // ARCVM.

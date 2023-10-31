@@ -35,9 +35,6 @@ using storage::FileSystemURL;
 namespace ash::cloud_upload {
 namespace {
 
-constexpr char kUploadResultMetricName[] =
-    "FileBrowser.OfficeFiles.Open.UploadResult.OneDrive";
-
 // Runs the callback provided to `OneDriveUploadHandler::Upload`.
 void OnUploadDone(scoped_refptr<OneDriveUploadHandler> one_drive_upload_handler,
                   OneDriveUploadHandler::UploadCallback callback,
@@ -154,7 +151,7 @@ void OneDriveUploadHandler::Run(UploadCallback callback) {
 void OneDriveUploadHandler::OnEndUpload(
     base::expected<storage::FileSystemURL, std::string> url,
     OfficeFilesUploadResult result_metric) {
-  UMA_HISTOGRAM_ENUMERATION(kUploadResultMetricName, result_metric);
+  UMA_HISTOGRAM_ENUMERATION(kOneDriveUploadResultMetricName, result_metric);
   if (url.has_value()) {
     // Resolve notifications.
     if (notification_manager_) {
@@ -222,15 +219,17 @@ void OneDriveUploadHandler::OnIOTaskStatus(
 void OneDriveUploadHandler::OnGetReauthenticationRequired(
     base::expected<ODFSMetadata, base::File::Error> metadata_or_error) {
   std::string error_message = GetGenericErrorMessage();
+  OfficeFilesUploadResult upload_result =
+      OfficeFilesUploadResult::kCloudAccessDenied;
   if (!metadata_or_error.has_value()) {
     LOG(ERROR) << "Failed to get reauthentication required state: "
                << metadata_or_error.error();
   } else if (metadata_or_error->reauthentication_required) {
     // Show the reauthentication required error notification.
     error_message = GetReauthenticationRequiredMessage();
+    upload_result = OfficeFilesUploadResult::kCloudReauthRequired;
   }
-  OnEndUpload(base::unexpected(error_message),
-              OfficeFilesUploadResult::kCloudAuthError);
+  OnEndUpload(base::unexpected(error_message), upload_result);
 }
 
 void OneDriveUploadHandler::ShowAccessDeniedError() {
@@ -238,7 +237,7 @@ void OneDriveUploadHandler::ShowAccessDeniedError() {
       GetODFS(profile_);
   if (!file_system) {
     OnEndUpload(base::unexpected(GetGenericErrorMessage()),
-                OfficeFilesUploadResult::kCloudAuthError);
+                OfficeFilesUploadResult::kCloudAccessDenied);
     return;
   }
   GetODFSMetadata(

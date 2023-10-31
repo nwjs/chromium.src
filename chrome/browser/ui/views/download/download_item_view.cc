@@ -98,6 +98,7 @@
 #include "ui/views/controls/progress_ring_utils.h"
 #include "ui/views/controls/styled_label.h"
 #include "ui/views/style/typography.h"
+#include "ui/views/style/typography_provider.h"
 #include "ui/views/vector_icons.h"
 #include "ui/views/widget/root_view.h"
 #include "ui/views/widget/widget.h"
@@ -158,8 +159,10 @@ class TransparentButton : public views::Button {
           // TODO(crbug.com/1423975): Replace by a `ui::ColorId` and use it in
           // `InkDropHost::SetBaseColorId`.
           return color_utils::DeriveDefaultIconColor(
-              host->GetColorProvider()->GetColor(views::style::GetColorId(
-                  views::style::CONTEXT_BUTTON, views::style::STYLE_PRIMARY)));
+              host->GetColorProvider()->GetColor(
+                  views::TypographyProvider::Get().GetColorId(
+                      views::style::CONTEXT_BUTTON,
+                      views::style::STYLE_PRIMARY)));
         },
         this));
   }
@@ -1110,16 +1113,16 @@ gfx::Size DownloadItemView::GetButtonSize() const {
 
 std::u16string DownloadItemView::ElidedFilename(
     const views::Label& label) const {
-  const gfx::FontList& font_list =
-      views::style::GetFont(CONTEXT_DOWNLOAD_SHELF, GetFilenameStyle(label));
+  const gfx::FontList& font_list = views::TypographyProvider::Get().GetFont(
+      CONTEXT_DOWNLOAD_SHELF, GetFilenameStyle(label));
   return gfx::ElideFilename(model_->GetFileNameToReportUser(), font_list,
                             kTextWidth);
 }
 
 std::u16string DownloadItemView::ElidedFilename(
     const views::StyledLabel& label) const {
-  const gfx::FontList& font_list =
-      views::style::GetFont(CONTEXT_DOWNLOAD_SHELF, GetFilenameStyle(label));
+  const gfx::FontList& font_list = views::TypographyProvider::Get().GetFont(
+      CONTEXT_DOWNLOAD_SHELF, GetFilenameStyle(label));
   return gfx::ElideFilename(model_->GetFileNameToReportUser(), font_list,
                             kTextWidth);
 }
@@ -1179,7 +1182,6 @@ void DownloadItemView::OpenButtonPressed() {
   if (mode_ == download::DownloadItemMode::kNormal) {
     complete_animation_.End();
     announce_accessible_alert_soon_ = true;
-    RecordDownloadOpenButtonPressed(model_->IsDone());
     model_->OpenDownload();
     // WARNING: |this| may be deleted!
   } else {
@@ -1241,7 +1243,7 @@ void DownloadItemView::ShowOpenDialog(content::WebContents* web_contents) {
                        DownloadCommands::DEEP_SCAN),
         base::BindOnce(&DownloadItemView::ExecuteCommand,
                        weak_ptr_factory_.GetWeakPtr(),
-                       DownloadCommands::BYPASS_DEEP_SCANNING));
+                       DownloadCommands::BYPASS_DEEP_SCANNING_AND_OPEN));
   }
 #endif
 }

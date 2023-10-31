@@ -6,6 +6,7 @@
 #define COMPONENTS_FEATURE_ENGAGEMENT_PUBLIC_FEATURE_CONSTANTS_H_
 
 #include "base/feature_list.h"
+#include "base/metrics/field_trial_params.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 
@@ -24,7 +25,6 @@ BASE_DECLARE_FEATURE(kIPHDummyFeature);
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_FUCHSIA)
-BASE_DECLARE_FEATURE(kIPHAutofillFeedbackNewBadgeFeature);
 BASE_DECLARE_FEATURE(kIPHBatterySaverModeFeature);
 BASE_DECLARE_FEATURE(kIPHCompanionSidePanelFeature);
 BASE_DECLARE_FEATURE(kIPHCompanionSidePanelRegionSearchFeature);
@@ -60,6 +60,7 @@ BASE_DECLARE_FEATURE(kIPHSideSearchAutoTriggeringFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchFeature);
 BASE_DECLARE_FEATURE(kIPHSideSearchPageActionLabelFeature);
 BASE_DECLARE_FEATURE(kIPHTabSearchFeature);
+BASE_DECLARE_FEATURE(kIPHTrackingProtectionOnboardingFeature);
 BASE_DECLARE_FEATURE(kIPHWebUITabStripFeature);
 BASE_DECLARE_FEATURE(kIPHDesktopSnoozeFeature);
 BASE_DECLARE_FEATURE(kIPHDesktopPwaInstallFeature);
@@ -149,6 +150,7 @@ BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteAppMenuFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteDefaultOnFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteOptInFeature);
 BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature);
+BASE_DECLARE_FEATURE(kIPHRequestDesktopSiteWindowSettingFeature);
 BASE_DECLARE_FEATURE(kIPHShoppingListMenuItemFeature);
 BASE_DECLARE_FEATURE(kIPHShoppingListSaveFlowFeature);
 BASE_DECLARE_FEATURE(kIPHTabGroupsQuicklyComparePagesFeature);
@@ -175,6 +177,7 @@ BASE_DECLARE_FEATURE(kIPHShareScreenshotFeature);
 BASE_DECLARE_FEATURE(kIPHSharingHubLinkToggleFeature);
 BASE_DECLARE_FEATURE(kIPHWebFeedFollowFeature);
 BASE_DECLARE_FEATURE(kIPHWebFeedPostFollowDialogFeature);
+BASE_DECLARE_FEATURE(kIPHWebFeedPostFollowDialogFeatureWithUIUpdate);
 BASE_DECLARE_FEATURE(kIPHSharedHighlightingBuilder);
 BASE_DECLARE_FEATURE(kIPHSharedHighlightingReceiverFeature);
 BASE_DECLARE_FEATURE(kIPHSharingHubWebnotesStylizeFeature);
@@ -201,6 +204,7 @@ BASE_DECLARE_FEATURE(kIPHiOSPromoWhatsNewFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoPostRestoreFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoCredentialProviderExtensionFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoDefaultBrowserFeature);
+BASE_DECLARE_FEATURE(kIPHiOSPromoDefaultBrowserReminderFeature);
 BASE_DECLARE_FEATURE(kIPHiOSNewTabToolbarItemFeature);
 BASE_DECLARE_FEATURE(kIPHiOSTabGridToolbarItemFeature);
 BASE_DECLARE_FEATURE(kIPHiOSHistoryOnOverflowMenuFeature);
@@ -208,6 +212,18 @@ BASE_DECLARE_FEATURE(kIPHiOSShareToolbarItemFeature);
 BASE_DECLARE_FEATURE(kIPHiOSDefaultBrowserVideoPromoTriggerFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoPostRestoreDefaultBrowserFeature);
 BASE_DECLARE_FEATURE(kIPHiOSPromoPasswordManagerWidgetFeature);
+BASE_DECLARE_FEATURE(kIPHiOSChoiceScreenFeature);
+
+// A feature flag to enable and parametrize the sliding window of time for a
+// user's eligibility to be shown a default browser promo. This is not an FET
+// feature, but there is a related FET feature that needs to adjust its config
+// rules based on this feature, so it needs to be declared here.
+BASE_DECLARE_FEATURE(kDefaultBrowserEligibilitySlidingWindow);
+
+// The param for the default browser eligibility sliding window, measured in
+// days.
+extern const base::FeatureParam<int>
+    kDefaultBrowserEligibilitySlidingWindowParam;
 #endif  // BUILDFLAG(IS_IOS)
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) || \
@@ -216,6 +232,7 @@ BASE_DECLARE_FEATURE(kIPHAutofillExternalAccountProfileSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHAutofillVirtualCardSuggestionFeature);
 BASE_DECLARE_FEATURE(kIPHCookieControlsFeature);
+BASE_DECLARE_FEATURE(kIPH3pcdUserBypassFeature);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE) || BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID) ||
         // BUILDFLAG(IS_FUCHSIA)
@@ -254,6 +271,7 @@ BASE_DECLARE_FEATURE(kIPHScalableIphHelpAppBasedSevenFeature);
 BASE_DECLARE_FEATURE(kIPHScalableIphHelpAppBasedEightFeature);
 BASE_DECLARE_FEATURE(kIPHScalableIphHelpAppBasedNineFeature);
 BASE_DECLARE_FEATURE(kIPHScalableIphHelpAppBasedTenFeature);
+BASE_DECLARE_FEATURE(kIPHScalableIphGamingFeature);
 #endif
 
 #if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(GOOGLE_CHROME_BRANDING)

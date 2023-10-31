@@ -638,11 +638,7 @@ if (is_win || (is_linux && !is_component_build)) {
     outputs = []
 
     foreach(locale, platform_pak_locales) {
-      if (is_chrome_branded) {
-        _strings_file = "google_chrome_strings"
-      } else {
-        _strings_file = "chromium_strings"
-      }
+      _strings_file = "${branding_path_product}_strings"
 
       inputs += [ "$root_gen_dir/chrome/${_strings_file}_${locale}.pak" ]
     }
@@ -667,7 +663,7 @@ if (is_win || (is_linux && !is_component_build)) {
           "main",
         ] + platform_pak_locales
 
-    deps = [ "//chrome/app:chromium_strings" ]
+    deps = [ "//chrome/app:branded_strings" ]
   }
 
   foreach(locale, locales_as_apple_outputs) {
@@ -1731,7 +1727,7 @@ if (!is_android) {
 
 group("strings") {
   public_deps = [
-    "//chrome/app:chromium_strings",
+    "//chrome/app:branded_strings",
     "//chrome/app:generated_resources",
     "//chrome/app/resources:locale_settings",
   ]

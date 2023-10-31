@@ -23,10 +23,16 @@
 #include "url/gurl.h"
 
 namespace {
-// The relevance score for suggest tiles.
+// The relevance score for suggest tiles represented as a single tiling match.
 // Suggest tiles are placed in a dedicated SECTION_MOBILE_MOST_VISITED
 // making its relative relevance score not important.
-constexpr const int kMostVisitedTilesRelevance = 1;
+constexpr const int kMostVisitedTilesAggregateRelevance = 1;
+
+// The relevance score for suggest tiles represented as individual matches.
+// Repeatable Queries are recognized as searches, and may get merged to higher
+// ranking search suggestions listed below the carousel.
+constexpr const int kMostVisitedTilesIndividualRelevance = 1600;
+
 constexpr const int kMaxRecordedTileIndex = 15;
 
 constexpr char kHistogramTileTypeCountSearch[] =
@@ -87,11 +93,14 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
     return false;
   }
 
+  size_t num_search_tiles = 0;
+  size_t num_url_tiles = 0;
+
   if (base::FeatureList::IsEnabled(
           omnibox::kMostVisitedTilesHorizontalRenderGroup)) {
     auto* const url_service = client->GetTemplateURLService();
     auto* const dse = url_service->GetDefaultSearchProvider();
-    int relevance = 100;
+    int relevance = kMostVisitedTilesIndividualRelevance;
     for (const auto& tile : container) {
       // TODO(crbug/1474087): pass this information from History layer via
       // history::MostVisitedURL.
@@ -113,20 +122,25 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
         match.fill_into_edit = query;
         match.contents = query;
         match.suggest_type = omnibox::TYPE_QUERY;
+
+        // Supply blanket SearchTermsArgs so we can also report SearchBoxStats.
+        match.search_terms_args =
+            std::make_unique<TemplateURLRef::SearchTermsArgs>(query);
+        num_search_tiles++;
+      } else {
+        num_url_tiles++;
       }
       matches.emplace_back(std::move(match));
       --relevance;
     }
   } else if (base::FeatureList::IsEnabled(omnibox::kMostVisitedTiles)) {
-    AutocompleteMatch match = BuildMatch(
-        provider, client, std::u16string(), GURL::EmptyGURL(),
-        kMostVisitedTilesRelevance, AutocompleteMatchType::TILE_NAVSUGGEST);
+    AutocompleteMatch match =
+        BuildMatch(provider, client, std::u16string(), GURL::EmptyGURL(),
+                   kMostVisitedTilesAggregateRelevance,
+                   AutocompleteMatchType::TILE_NAVSUGGEST);
 
     match.suggest_tiles.reserve(container.size());
     auto* const url_service = client->GetTemplateURLService();
-
-    size_t num_search_tiles = 0;
-    size_t num_url_tiles = 0;
 
     for (const auto& tile : container) {
       bool is_search =
@@ -145,11 +159,6 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
       }
     }
 
-    base::UmaHistogramExactLinear(kHistogramTileTypeCountSearch,
-                                  num_search_tiles, kMaxRecordedTileIndex);
-    base::UmaHistogramExactLinear(kHistogramTileTypeCountURL, num_url_tiles,
-                                  kMaxRecordedTileIndex);
-
     matches.push_back(std::move(match));
   } else {
     int relevance = 600;
@@ -160,6 +169,12 @@ bool BuildTileSuggest(AutocompleteProvider* provider,
       --relevance;
     }
   }
+
+  base::UmaHistogramExactLinear(kHistogramTileTypeCountSearch, num_search_tiles,
+                                kMaxRecordedTileIndex);
+  base::UmaHistogramExactLinear(kHistogramTileTypeCountURL, num_url_tiles,
+                                kMaxRecordedTileIndex);
+
   return true;
 }
 }  // namespace

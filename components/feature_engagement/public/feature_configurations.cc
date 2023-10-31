@@ -169,6 +169,36 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPH3pcdUserBypassFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+    // Show promo once
+    config->trigger =
+        EventConfig("iph_3pcd_user_bypass_triggered", Comparator(EQUAL, 0),
+                    feature_engagement::kMaxStoragePeriod,
+                    feature_engagement::kMaxStoragePeriod);
+    config->used =
+        EventConfig(feature_engagement::events::kCookieControlsBubbleShown,
+                    Comparator(ANY, 0), 360, 360);
+    return config;
+  }
+
+  if (kIPHTrackingProtectionOnboardingFeature.name == feature->name) {
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->trigger =
+        EventConfig("iph_tracking_protection_onboarding_triggered",
+                    Comparator(GREATER_THAN_OR_EQUAL, 0), 0, 0);
+    config->used = EventConfig("iph_tracking_protection_onboarding_used",
+                               Comparator(ANY, 0), 0, 0);
+    return config;
+  }
+
   if (kIPHBatterySaverModeFeature.name == feature->name) {
     // Show promo once a year when the battery saver toolbar icon is visible.
     absl::optional<FeatureConfig> config = FeatureConfig();
@@ -347,7 +377,9 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     absl::optional<FeatureConfig> config = FeatureConfig();
     config->valid = true;
     config->availability = Comparator(ANY, 0);
-    config->session_rate = Comparator(EQUAL, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->session_rate_impact.type = SessionRateImpact::Type::NONE;
+
     // Show the promo up to 3 times a year.
     config->trigger = EventConfig("iph_companion_side_panel_trigger",
                                   Comparator(LESS_THAN, 3), 360, 360);
@@ -917,6 +949,22 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
     return config;
   }
 
+  if (kIPHWebFeedPostFollowDialogFeatureWithUIUpdate.name == feature->name) {
+    // A config that allows one of the WebFeed post follow dialogs to be
+    // presented 3 times after the UI update.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(ANY, 0);
+    config->trigger =
+        EventConfig("web_feed_post_follow_dialog_trigger_with_ui_update",
+                    Comparator(LESS_THAN, 3), 360, 360);
+    config->used =
+        EventConfig("web_feed_post_follow_dialog_shown_with_ui_update",
+                    Comparator(ANY, 0), 360, 360);
+    return config;
+  }
+
   if (kIPHVideoTutorialNTPChromeIntroFeature.name == feature->name) {
     // A config that allows the chrome intro video tutorial card to show up
     // until explicitly interacted upon.
@@ -1330,6 +1378,21 @@ absl::optional<FeatureConfig> GetClientSideFeatureConfig(
         EventConfig("restore_tabs_promo_used", Comparator(EQUAL, 0), 14, 14);
     config->event_configs.insert(EventConfig(
         "restore_tabs_on_first_run_show_promo", Comparator(EQUAL, 1), 14, 14));
+    return config;
+  }
+
+  if (kIPHRequestDesktopSiteWindowSettingFeature.name == feature->name) {
+    // A config that allows the RDS window setting IPH to be shown at most once
+    // in 3 years per device.
+    absl::optional<FeatureConfig> config = FeatureConfig();
+    config->valid = true;
+    config->availability = Comparator(ANY, 0);
+    config->session_rate = Comparator(EQUAL, 0);
+    config->used = EventConfig("request_desktop_site_window_setting_iph_shown",
+                               Comparator(EQUAL, 0), 1080, 1080);
+    config->trigger =
+        EventConfig("request_desktop_site_window_setting_iph_trigger",
+                    Comparator(EQUAL, 0), 1080, 1080);
     return config;
   }
 

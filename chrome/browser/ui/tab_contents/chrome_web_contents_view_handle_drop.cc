@@ -134,7 +134,7 @@ class HandleDropScanData : public content::WebContentsObserver {
 #endif
 }  // namespace
 
-void HandleOnPerformDrop(
+void HandleOnPerformingDrop(
     content::WebContents* web_contents,
     content::DropData drop_data,
     content::WebContentsViewDelegate::DropCompletionCallback callback) {
@@ -148,9 +148,15 @@ void HandleOnPerformDrop(
           : enterprise_connectors::AnalysisConnector::FILE_ATTACHED;
   if (!enterprise_connectors::ContentAnalysisDelegate::IsEnabled(
           profile, web_contents->GetLastCommittedURL(), &data, connector)) {
+    // If the enterprise policy is not enabled, make sure that the renderer
+    // never forces a default action.
+    drop_data.document_is_handling_drag = true;
+    std::move(callback).Run(std::move(drop_data));
+    return;
+  }
+
 #endif
-  if (true) { //!safe_browsing::DeepScanningDialogDelegate::IsEnabled(
-              //profile, web_contents->GetLastCommittedURL(), &data)) {
+  if (true) {
     std::move(callback).Run(std::move(drop_data));
     return;
   }

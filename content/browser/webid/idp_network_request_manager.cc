@@ -65,7 +65,8 @@ constexpr char kIdAssertionEndpoint[] = "id_assertion_endpoint";
 constexpr char kAccountsEndpointKey[] = "accounts_endpoint";
 constexpr char kClientMetadataEndpointKey[] = "client_metadata_endpoint";
 constexpr char kMetricsEndpoint[] = "metrics_endpoint";
-constexpr char kSigninUrlKey[] = "signin_url";
+constexpr char kLoginUrlKeyDeprecated[] = "signin_url";
+constexpr char kLoginUrlKey[] = "login_url";
 
 // Keys in fedcm.json 'branding' dictionary.
 constexpr char kIdpBrandingBackgroundColor[] = "background_color";
@@ -165,6 +166,14 @@ GURL ExtractUrl(const base::Value::Dict& response, const char* key) {
     return GURL();
   }
   return url;
+}
+
+std::string ExtractString(const base::Value::Dict& response, const char* key) {
+  const std::string* str = response.FindString(key);
+  if (!str) {
+    return "";
+  }
+  return *str;
 }
 
 absl::optional<content::IdentityRequestAccount> ParseAccount(
@@ -488,7 +497,11 @@ void OnConfigParsed(const GURL& provider,
                                   idp_brand_icon_ideal_size,
                                   idp_brand_icon_minimum_size, idp_metadata);
   }
-  idp_metadata.idp_signin_url = ExtractEndpoint(kSigninUrlKey);
+  idp_metadata.idp_login_url = ExtractEndpoint(kLoginUrlKey);
+  // TODO(cbiesinger): remove this fallback before 120
+  if (idp_metadata.idp_login_url.is_empty()) {
+    idp_metadata.idp_login_url = ExtractEndpoint(kLoginUrlKeyDeprecated);
+  }
 
   std::move(callback).Run({ParseStatus::kSuccess, fetch_status.response_code},
                           endpoints, std::move(idp_metadata));
@@ -574,6 +587,11 @@ void OnTokenRequestParsed(
   TokenResult token_result;
 
   if (fetch_status.parse_status != ParseStatus::kSuccess) {
+    if (IsFedCmErrorEnabled() &&
+        fetch_status.parse_status == ParseStatus::kNoResponseError) {
+      token_result.error = TokenError{"server_error", GURL()};
+    }
+
     std::move(callback).Run(fetch_status, token_result);
     return;
   }
@@ -602,9 +620,9 @@ void OnTokenRequestParsed(
   if (IsFedCmErrorEnabled()) {
     const base::Value::Dict* response_error = response.FindDict(kErrorKey);
     if (response_error) {
-      int error_code = response_error->FindInt(kErrorCodeKey).value_or(0);
+      std::string error_code = ExtractString(*response_error, kErrorCodeKey);
       GURL error_url = ExtractUrl(*response_error, kErrorUrlKey);
-      token_result.error = TokenError(error_code, error_url);
+      token_result.error = TokenError{error_code, error_url};
     }
   }
 

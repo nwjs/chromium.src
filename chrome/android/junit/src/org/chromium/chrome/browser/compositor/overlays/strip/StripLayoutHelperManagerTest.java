@@ -12,6 +12,7 @@ import android.content.Context;
 import android.graphics.RectF;
 import android.view.ContextThemeWrapper;
 import android.view.View;
+import android.view.ViewStub;
 
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.test.core.app.ApplicationProvider;
@@ -37,6 +38,7 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutRenderHost;
 import org.chromium.chrome.browser.compositor.layouts.LayoutUpdateHost;
 import org.chromium.chrome.browser.compositor.layouts.components.TintedCompositorButton;
+import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.compositor.overlays.strip.StripLayoutHelperManager.TabModelStartupInfo;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayer;
 import org.chromium.chrome.browser.compositor.scene_layer.TabStripSceneLayerJni;
@@ -91,11 +93,17 @@ public class StripLayoutHelperManagerTest {
     @Mock
     private TabModelFilterProvider mTabModelFilterProvider;
     @Mock
-    private TabModel mTabModel;
+    private TabModel mStandardTabModel;
+    @Mock
+    private TabModel mIncognitoTabModel;
     @Mock
     private Tab mSelectedTab;
     @Mock
     private StripLayoutTab mHoveredStripTab;
+    @Mock
+    private ViewStub mTabHoverCardViewStub;
+    @Mock
+    private ObservableSupplierImpl<TabContentManager> mTabContentManagerSupplier;
 
     private StripLayoutHelperManager mStripLayoutHelperManager;
     private Context mContext;
@@ -127,7 +135,8 @@ public class StripLayoutHelperManagerTest {
         mTabModelStartupInfoSupplier = new ObservableSupplierImpl<>();
         mStripLayoutHelperManager = new StripLayoutHelperManager(mContext, mManagerHost,
                 mUpdateHost, mRenderHost, mLayerTitleCacheSupplier, mTabModelStartupInfoSupplier,
-                mLifecycleDispatcher, mMultiInstanceManager, mToolbarContainerView);
+                mLifecycleDispatcher, mMultiInstanceManager, mToolbarContainerView,
+                mTabHoverCardViewStub, mTabContentManagerSupplier);
         mStripLayoutHelperManager.setTabModelSelector(mTabModelSelector, mTabCreatorManager);
     }
 
@@ -406,9 +415,9 @@ public class StripLayoutHelperManagerTest {
         int selectedTabId = 2;
         mStripLayoutHelperManager.setTabStripTreeProviderForTesting(mTabStripTreeProvider);
 
-        when(mTabModelSelector.getCurrentModel()).thenReturn(mTabModel);
-        when(mTabModel.index()).thenReturn(selectedTabId);
-        when(mTabModel.getTabAt(selectedTabId)).thenReturn(mSelectedTab);
+        when(mTabModelSelector.getCurrentModel()).thenReturn(mStandardTabModel);
+        when(mStandardTabModel.index()).thenReturn(selectedTabId);
+        when(mStandardTabModel.getTabAt(selectedTabId)).thenReturn(mSelectedTab);
         when(mSelectedTab.getId()).thenReturn(selectedTabId);
 
         when(mHoveredStripTab.getId()).thenReturn(hoveredTabId);

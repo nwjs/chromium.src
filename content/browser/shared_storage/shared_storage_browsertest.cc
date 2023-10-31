@@ -23,6 +23,7 @@
 #include "base/test/simple_test_clock.h"
 #include "base/test/test_future.h"
 #include "base/test/with_feature_override.h"
+#include "base/time/time.h"
 #include "content/browser/private_aggregation/private_aggregation_manager_impl.h"
 #include "content/browser/private_aggregation/private_aggregation_test_utils.h"
 #include "content/browser/renderer_host/navigation_request.h"
@@ -121,7 +122,7 @@ const int kStalenessThresholdDays = 1;
 
 const int kSelectURLOverallBitBudget = 12;
 
-const int kSelectURLOriginBitBudget = 6;
+const int kSelectURLSiteBitBudget = 6;
 
 const char kGenerateURLsListScript[] = R"(
   function generateUrls(size) {
@@ -859,7 +860,7 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
     base::test::TestFuture<SharedStorageWorkletHost::BudgetResult> future;
     static_cast<StoragePartitionImpl*>(GetStoragePartition())
         ->GetSharedStorageManager()
-        ->GetRemainingBudget(origin, future.GetCallback());
+        ->GetRemainingBudget(net::SchemefulSite(origin), future.GetCallback());
     return future.Take().bits;
   }
 
@@ -915,7 +916,8 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
       size_t expected_total_host_count = 1u,
       bool keep_alive_after_operation = true,
       absl::optional<std::string> context_id = absl::nullopt,
-      std::string* out_error = nullptr) {
+      std::string* out_error = nullptr,
+      bool wait_for_operation_finish = true) {
     DCHECK(out_module_script_url);
 
     base::StringPairs run_function_body_replacement;
@@ -964,9 +966,11 @@ class SharedStorageBrowserTestBase : public ContentBrowserTest {
       return;
     }
 
-    test_worklet_host_manager()
-        .GetAttachedWorkletHostForFrame(execution_target.render_frame_host())
-        ->WaitForWorkletResponses();
+    if (wait_for_operation_finish) {
+      test_worklet_host_manager()
+          .GetAttachedWorkletHostForFrame(execution_target.render_frame_host())
+          ->WaitForWorkletResponses();
+    }
   }
 
   FrameTreeNode* CreateIFrame(FrameTreeNode* root, const GURL& url) {
@@ -2683,7 +2687,8 @@ IN_PROC_BROWSER_TEST_P(
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, 0.0);
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -2792,7 +2797,8 @@ IN_PROC_BROWSER_TEST_P(
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, 0.0);
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -2905,7 +2911,8 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("b.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("b.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, std::log2(3));
 
   SharedStorageReportingMap reporting_map =
@@ -4011,7 +4018,8 @@ IN_PROC_BROWSER_TEST_P(SharedStorageBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, 0.0);
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -4922,7 +4930,8 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameInteractionBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, std::log2(3));
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -5094,7 +5103,8 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameInteractionBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, std::log2(3));
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -5288,7 +5298,8 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameInteractionBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, 0.0);
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -5393,7 +5404,8 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameInteractionBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, std::log2(3));
 
   EXPECT_TRUE(GetSharedStorageReportingMap(observed_urn_uuid.value()).empty());
@@ -5502,7 +5514,8 @@ IN_PROC_BROWSER_TEST_F(SharedStorageFencedFrameInteractionBrowserTest,
   SharedStorageBudgetMetadata* metadata =
       GetSharedStorageBudgetMetadata(observed_urn_uuid.value());
   EXPECT_TRUE(metadata);
-  EXPECT_EQ(metadata->origin, https_server()->GetOrigin("a.test"));
+  EXPECT_EQ(metadata->site,
+            net::SchemefulSite(https_server()->GetOrigin("a.test")));
   EXPECT_DOUBLE_EQ(metadata->budget_to_charge, std::log2(3));
 
   EXPECT_THAT(GetSharedStorageReportingMap(observed_urn_uuid.value()),
@@ -6596,8 +6609,10 @@ class SharedStoragePrivateAggregationEnabledBrowserTest
   };
 
   SharedStoragePrivateAggregationEnabledBrowserTest() {
-    private_aggregation_feature_.InitAndEnableFeature(
-        blink::features::kPrivateAggregationApi);
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{blink::features::kPrivateAggregationApi,
+                              blink::features::kSharedStorageAPIM118},
+        /*disabled_features=*/{});
   }
 
   void SetUpOnMainThread() override {
@@ -6609,7 +6624,7 @@ class SharedStoragePrivateAggregationEnabledBrowserTest
         static_cast<StoragePartitionImpl*>(GetStoragePartition());
 
     private_aggregation_host_ = new PrivateAggregationHost(
-        /*on_report_request_received=*/mock_callback_.Get(),
+        /*on_report_request_details_received=*/mock_callback_.Get(),
         storage_partition_impl->browser_context());
 
     storage_partition_impl->OverridePrivateAggregationManagerForTesting(
@@ -6627,8 +6642,11 @@ class SharedStoragePrivateAggregationEnabledBrowserTest
         std::make_unique<MockPrivateAggregationShellContentBrowserClient>();
   }
 
-  const base::MockRepeatingCallback<void(AggregatableReportRequest,
-                                         PrivateAggregationBudgetKey)>&
+  const base::MockRepeatingCallback<
+      void(PrivateAggregationHost::ReportRequestGenerator,
+           std::vector<blink::mojom::AggregatableReportHistogramContribution>,
+           PrivateAggregationBudgetKey,
+           PrivateAggregationBudgeter::BudgetDeniedBehavior)>&
   mock_callback() {
     return mock_callback_;
   }
@@ -6639,10 +6657,13 @@ class SharedStoragePrivateAggregationEnabledBrowserTest
  private:
   raw_ptr<PrivateAggregationHost, DanglingUntriaged> private_aggregation_host_;
 
-  base::test::ScopedFeatureList private_aggregation_feature_;
+  base::test::ScopedFeatureList scoped_feature_list_;
 
-  base::MockRepeatingCallback<void(AggregatableReportRequest,
-                                   PrivateAggregationBudgetKey)>
+  base::MockRepeatingCallback<void(
+      PrivateAggregationHost::ReportRequestGenerator,
+      std::vector<blink::mojom::AggregatableReportHistogramContribution>,
+      PrivateAggregationBudgetKey,
+      PrivateAggregationBudgeter::BudgetDeniedBehavior)>
       mock_callback_;
 };
 
@@ -6653,18 +6674,28 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
   base::RunLoop run_loop;
 
   EXPECT_CALL(mock_callback(), Run)
-      .WillOnce(testing::Invoke([&](AggregatableReportRequest request,
-                                    PrivateAggregationBudgetKey budget_key) {
-        ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
-        EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
-        EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
-        EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
-        EXPECT_EQ(budget_key.origin(), a_test_origin_);
-        EXPECT_EQ(budget_key.api(),
-                  PrivateAggregationBudgetKey::Api::kSharedStorage);
-        EXPECT_TRUE(request.additional_fields().empty());
-        run_loop.Quit();
-      }));
+      .WillOnce(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
+            ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
+            EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
+            EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
+            EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
+            EXPECT_EQ(budget_key.origin(), a_test_origin_);
+            EXPECT_EQ(budget_key.api(),
+                      PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_TRUE(request.additional_fields().empty());
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kDontSendReport);
+            run_loop.Quit();
+          }));
 
   EXPECT_CALL(browser_client(),
               LogWebFeatureForCurrentPage(
@@ -6731,19 +6762,29 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
   base::RunLoop run_loop;
 
   EXPECT_CALL(mock_callback(), Run)
-      .WillOnce(testing::Invoke([&](AggregatableReportRequest request,
-                                    PrivateAggregationBudgetKey budget_key) {
-        ASSERT_EQ(request.payload_contents().contributions.size(), 2u);
-        EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
-        EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
-        EXPECT_EQ(request.payload_contents().contributions[1].bucket, 3);
-        EXPECT_EQ(request.payload_contents().contributions[1].value, 4);
-        EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
-        EXPECT_EQ(budget_key.origin(), a_test_origin_);
-        EXPECT_EQ(budget_key.api(),
-                  PrivateAggregationBudgetKey::Api::kSharedStorage);
-        run_loop.Quit();
-      }));
+      .WillOnce(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
+            ASSERT_EQ(request.payload_contents().contributions.size(), 2u);
+            EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
+            EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
+            EXPECT_EQ(request.payload_contents().contributions[1].bucket, 3);
+            EXPECT_EQ(request.payload_contents().contributions[1].value, 4);
+            EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
+            EXPECT_EQ(budget_key.origin(), a_test_origin_);
+            EXPECT_EQ(budget_key.api(),
+                      PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kDontSendReport);
+            run_loop.Quit();
+          }));
 
   EXPECT_CALL(browser_client(),
               LogWebFeatureForCurrentPage(
@@ -6772,26 +6813,99 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
+                       TimeoutBeforeOperationFinish) {
+  EXPECT_CALL(mock_callback(), Run)
+      .WillOnce(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
+            ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
+            EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
+            EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
+            EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
+            EXPECT_EQ(budget_key.origin(), a_test_origin_);
+            EXPECT_EQ(budget_key.api(),
+                      PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kSendNullReport);
+            EXPECT_THAT(request.additional_fields(),
+                        testing::ElementsAre(
+                            testing::Pair("context_id", "example_context_id")));
+          }));
+
+  EXPECT_CALL(browser_client(),
+              LogWebFeatureForCurrentPage(
+                  shell()->web_contents()->GetPrimaryMainFrame(),
+                  blink::mojom::WebFeature::kPrivateAggregationApiAll));
+  EXPECT_CALL(
+      browser_client(),
+      LogWebFeatureForCurrentPage(
+          shell()->web_contents()->GetPrimaryMainFrame(),
+          blink::mojom::WebFeature::kPrivateAggregationApiSharedStorage));
+  ON_CALL(browser_client(), IsPrivateAggregationAllowed)
+      .WillByDefault(testing::Return(true));
+  ON_CALL(browser_client(), IsSharedStorageAllowed)
+      .WillByDefault(testing::Return(true));
+
+  GURL out_script_url;
+
+  // Run an operation that returns a promise that never resolves.
+  ExecuteScriptInWorklet(shell(), R"(
+      privateAggregation.contributeToHistogram({bucket: 1n, value: 2});
+      return new Promise(() => {});
+    )",
+                         &out_script_url, /*expected_total_host_count=*/1u,
+                         /*keep_alive_after_operation=*/true,
+                         /*context_id=*/"example_context_id",
+                         /*out_error=*/nullptr,
+                         /*wait_for_operation_finish=*/false);
+
+  // Wait for 5 seconds for the timeout to be reached.
+  {
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE, run_loop.QuitClosure(), base::Seconds(5));
+    run_loop.Run();
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
                        ContextId) {
   WebContentsConsoleObserver console_observer(shell()->web_contents());
 
   base::RunLoop run_loop;
 
   EXPECT_CALL(mock_callback(), Run)
-      .WillOnce(testing::Invoke([&](AggregatableReportRequest request,
-                                    PrivateAggregationBudgetKey budget_key) {
-        ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
-        EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
-        EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
-        EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
-        EXPECT_EQ(budget_key.origin(), a_test_origin_);
-        EXPECT_EQ(budget_key.api(),
-                  PrivateAggregationBudgetKey::Api::kSharedStorage);
-        EXPECT_THAT(request.additional_fields(),
-                    testing::ElementsAre(
-                        testing::Pair("context_id", "example_context_id")));
-        run_loop.Quit();
-      }));
+      .WillOnce(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
+            ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
+            EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
+            EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
+            EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
+            EXPECT_EQ(budget_key.origin(), a_test_origin_);
+            EXPECT_EQ(budget_key.api(),
+                      PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_THAT(request.additional_fields(),
+                        testing::ElementsAre(
+                            testing::Pair("context_id", "example_context_id")));
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kSendNullReport);
+            run_loop.Quit();
+          }));
 
   EXPECT_CALL(browser_client(),
               LogWebFeatureForCurrentPage(
@@ -6827,19 +6941,29 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
   base::RunLoop run_loop;
 
   EXPECT_CALL(mock_callback(), Run)
-      .WillOnce(testing::Invoke([&](AggregatableReportRequest request,
-                                    PrivateAggregationBudgetKey budget_key) {
-        ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
-        EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
-        EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
-        EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
-        EXPECT_EQ(budget_key.origin(), a_test_origin_);
-        EXPECT_EQ(budget_key.api(),
-                  PrivateAggregationBudgetKey::Api::kSharedStorage);
-        EXPECT_THAT(request.additional_fields(),
-                    testing::ElementsAre(testing::Pair("context_id", "")));
-        run_loop.Quit();
-      }));
+      .WillOnce(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
+            ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
+            EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
+            EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
+            EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
+            EXPECT_EQ(budget_key.origin(), a_test_origin_);
+            EXPECT_EQ(budget_key.api(),
+                      PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_THAT(request.additional_fields(),
+                        testing::ElementsAre(testing::Pair("context_id", "")));
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kSendNullReport);
+            run_loop.Quit();
+          }));
 
   EXPECT_CALL(browser_client(),
               LogWebFeatureForCurrentPage(
@@ -6876,22 +7000,32 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
   base::RunLoop run_loop;
 
   EXPECT_CALL(mock_callback(), Run)
-      .WillOnce(testing::Invoke([&](AggregatableReportRequest request,
-                                    PrivateAggregationBudgetKey budget_key) {
-        ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
-        EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
-        EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
-        EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
-        EXPECT_EQ(budget_key.origin(), a_test_origin_);
-        EXPECT_EQ(budget_key.api(),
-                  PrivateAggregationBudgetKey::Api::kSharedStorage);
-        EXPECT_THAT(request.additional_fields(),
-                    testing::ElementsAre(
-                        testing::Pair("context_id",
-                                      "an_example_of_a_context_id_with_the_"
-                                      "exact_maximum_allowed_length")));
-        run_loop.Quit();
-      }));
+      .WillOnce(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
+            ASSERT_EQ(request.payload_contents().contributions.size(), 1u);
+            EXPECT_EQ(request.payload_contents().contributions[0].bucket, 1);
+            EXPECT_EQ(request.payload_contents().contributions[0].value, 2);
+            EXPECT_EQ(request.shared_info().reporting_origin, a_test_origin_);
+            EXPECT_EQ(budget_key.origin(), a_test_origin_);
+            EXPECT_EQ(budget_key.api(),
+                      PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_THAT(request.additional_fields(),
+                        testing::ElementsAre(
+                            testing::Pair("context_id",
+                                          "an_example_of_a_context_id_with_the_"
+                                          "exact_maximum_allowed_length")));
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kSendNullReport);
+            run_loop.Quit();
+          }));
 
   EXPECT_CALL(browser_client(),
               LogWebFeatureForCurrentPage(
@@ -7032,9 +7166,15 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
 
   EXPECT_CALL(mock_callback(), Run)
       .Times(3)
-      .WillRepeatedly(
-          testing::Invoke([&](AggregatableReportRequest request,
-                              PrivateAggregationBudgetKey budget_key) {
+      .WillRepeatedly(testing::Invoke(
+          [&](PrivateAggregationHost::ReportRequestGenerator generator,
+              std::vector<blink::mojom::AggregatableReportHistogramContribution>
+                  contributions,
+              PrivateAggregationBudgetKey budget_key,
+              PrivateAggregationBudgeter::BudgetDeniedBehavior
+                  budget_denied_behavior) {
+            AggregatableReportRequest request =
+                std::move(generator).Run(contributions);
             if (request.payload_contents().contributions.size() == 1u) {
               EXPECT_EQ(request.payload_contents().contributions[0].bucket, 3);
               EXPECT_EQ(request.payload_contents().contributions[0].value, 1);
@@ -7050,6 +7190,9 @@ IN_PROC_BROWSER_TEST_F(SharedStoragePrivateAggregationEnabledBrowserTest,
             EXPECT_EQ(budget_key.origin(), a_test_origin_);
             EXPECT_EQ(budget_key.api(),
                       PrivateAggregationBudgetKey::Api::kSharedStorage);
+            EXPECT_EQ(budget_denied_behavior,
+                      PrivateAggregationBudgeter::BudgetDeniedBehavior::
+                          kDontSendReport);
             barrier.Run();
           }));
 
@@ -7077,8 +7220,8 @@ class SharedStorageSelectURLLimitBrowserTest
           {{blink::features::kSharedStorageSelectURLLimit,
             {{"SharedStorageSelectURLBitBudgetPerPageLoad",
               base::NumberToString(kSelectURLOverallBitBudget)},
-             {"SharedStorageSelectURLBitBudgetPerOriginPerPageLoad",
-              base::NumberToString(kSelectURLOriginBitBudget)}}}},
+             {"SharedStorageSelectURLBitBudgetPerSitePerPageLoad",
+              base::NumberToString(kSelectURLSiteBitBudget)}}}},
           /*disabled_features=*/{});
     } else {
       select_url_limit_feature_list_.InitAndDisableFeature(
@@ -7186,7 +7329,8 @@ class SharedStorageSelectURLLimitBrowserTest
     if (!metadata) {
       return absl::nullopt;
     }
-    EXPECT_EQ(metadata->origin, https_server()->GetOrigin(host_str));
+    EXPECT_EQ(metadata->site,
+              net::SchemefulSite(https_server()->GetOrigin(host_str)));
 
     return std::make_pair(config->mapped_url_->GetValueIgnoringVisibility(),
                           metadata->budget_to_charge);
@@ -7245,7 +7389,7 @@ INSTANTIATE_TEST_SUITE_P(All,
                          });
 
 IN_PROC_BROWSER_TEST_P(SharedStorageSelectURLLimitBrowserTest,
-                       SelectURL_MainFrame_SameEntropy_OriginLimitReached) {
+                       SelectURL_MainFrame_SameEntropy_SiteLimitReached) {
   GURL main_url = https_server()->GetURL("a.test", kSimplePagePath);
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
 
@@ -7256,12 +7400,12 @@ IN_PROC_BROWSER_TEST_P(SharedStorageSelectURLLimitBrowserTest,
     )"));
 
   // This test relies on the assumption that `kSelectURLOverallBitBudget` is set
-  // to be greater than or equal to `kSelectURLOriginBitBudget`.
-  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLOriginBitBudget);
+  // to be greater than or equal to `kSelectURLSiteBitBudget`.
+  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLSiteBitBudget);
 
   // Here each call to `selectURL()` will have 8 input URLs, and hence
   // 3 = log2(8) bits of entropy.
-  int call_limit = kSelectURLOriginBitBudget / 3;
+  int call_limit = kSelectURLSiteBitBudget / 3;
 
   for (int i = 0; i < call_limit; i++) {
     RunSuccessfulSelectURLInMainFrame("a.test", /*num_urls=*/8,
@@ -7270,7 +7414,7 @@ IN_PROC_BROWSER_TEST_P(SharedStorageSelectURLLimitBrowserTest,
 
   if (LimitSelectURLCalls()) {
     // The limit for `selectURL()` has now been reached for "a.test". Make one
-    // more call, which will return the default URL due to insufficient origin
+    // more call, which will return the default URL due to insufficient site
     // pageload budget.
     absl::optional<std::pair<GURL, double>> result_pair =
         RunSelectURLExtractingMappedURLAndBudgetToCharge(shell(), "a.test",
@@ -7296,9 +7440,8 @@ IN_PROC_BROWSER_TEST_P(SharedStorageSelectURLLimitBrowserTest,
                                      call_limit + 1);
 }
 
-IN_PROC_BROWSER_TEST_P(
-    SharedStorageSelectURLLimitBrowserTest,
-    SelectURL_MainFrame_DifferentEntropy_OriginLimitReached) {
+IN_PROC_BROWSER_TEST_P(SharedStorageSelectURLLimitBrowserTest,
+                       SelectURL_MainFrame_DifferentEntropy_SiteLimitReached) {
   GURL main_url = https_server()->GetURL("a.test", kSimplePagePath);
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
 
@@ -7309,15 +7452,15 @@ IN_PROC_BROWSER_TEST_P(
     )"));
 
   // This test relies on the assumptions that `kSelectURLOverallBitBudget` is
-  // set to be greater than or equal to `kSelectURLOriginBitBudget` and that the
+  // set to be greater than or equal to `kSelectURLSiteBitBudget` and that the
   // latter is at least 3.
-  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLOriginBitBudget);
-  EXPECT_GE(kSelectURLOriginBitBudget, 3);
+  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLSiteBitBudget);
+  EXPECT_GE(kSelectURLSiteBitBudget, 3);
 
   // Here the first call to `selectURL()` will have 8 input URLs, and hence
   // 3 = log2(8) bits of entropy, and the subsequent calls will each have 4
   // input URLs, and hence 2 = log2(4) bits of entropy.
-  int input4_call_limit = (kSelectURLOriginBitBudget - 3) / 2;
+  int input4_call_limit = (kSelectURLSiteBitBudget - 3) / 2;
 
   RunSuccessfulSelectURLInMainFrame("a.test", /*num_urls=*/8,
                                     &console_observer);
@@ -7329,7 +7472,7 @@ IN_PROC_BROWSER_TEST_P(
 
   if (LimitSelectURLCalls()) {
     // The limit for `selectURL()` has now been reached for "a.test". Make one
-    // more call, which will return the default URL due to insufficient origin
+    // more call, which will return the default URL due to insufficient site
     // pageload budget.
     absl::optional<std::pair<GURL, double>> result_pair =
         RunSelectURLExtractingMappedURLAndBudgetToCharge(shell(), "a.test",
@@ -7357,19 +7500,19 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     SharedStorageSelectURLLimitBrowserTest,
-    SelectURL_IframesSharingCommonOrigin_SameEntropy_OriginLimitReached) {
+    SelectURL_IframesSharingCommonSite_SameEntropy_SiteLimitReached) {
   GURL main_url = https_server()->GetURL("a.test", kSimplePagePath);
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
 
   WebContentsConsoleObserver console_observer(shell()->web_contents());
 
   // This test relies on the assumption that `kSelectURLOverallBitBudget` is set
-  // to be greater than or equal to `kSelectURLOriginBitBudget`.
-  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLOriginBitBudget);
+  // to be greater than or equal to `kSelectURLSiteBitBudget`.
+  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLSiteBitBudget);
 
   // Here each call to `selectURL()` will have 8 input URLs, and hence
   // 3 = log2(8) bits of entropy.
-  int call_limit = kSelectURLOriginBitBudget / 3;
+  int call_limit = kSelectURLSiteBitBudget / 3;
 
   GURL iframe_url = https_server()->GetURL("b.test", kSimplePagePath);
 
@@ -7392,7 +7535,7 @@ IN_PROC_BROWSER_TEST_P(
     )"));
 
     // The limit for `selectURL()` has now been reached for "b.test". Make one
-    // more call, which will return the default URL due to insufficient origin
+    // more call, which will return the default URL due to insufficient site
     // pageload budget.
     absl::optional<std::pair<GURL, double>> result_pair =
         RunSelectURLExtractingMappedURLAndBudgetToCharge(iframe_node, "b.test",
@@ -7419,7 +7562,7 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     SharedStorageSelectURLLimitBrowserTest,
-    SelectURL_IframesSharingCommonOrigin_DifferentEntropy_OriginLimitReached) {
+    SelectURL_IframesSharingCommonSite_DifferentEntropy_SiteLimitReached) {
   GURL main_url = https_server()->GetURL("a.test", kSimplePagePath);
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
 
@@ -7435,15 +7578,15 @@ IN_PROC_BROWSER_TEST_P(
                                  &console_observer);
 
   // This test relies on the assumptions that `kSelectURLOverallBitBudget` is
-  // set to be greater than or equal to `kSelectURLOriginBitBudget` and that the
+  // set to be greater than or equal to `kSelectURLSiteBitBudget` and that the
   // latter is at least 3.
-  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLOriginBitBudget);
-  EXPECT_GE(kSelectURLOriginBitBudget, 3);
+  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLSiteBitBudget);
+  EXPECT_GE(kSelectURLSiteBitBudget, 3);
 
   // Here the first call to `selectURL()` will have 8 input URLs, and hence
   // 3 = log2(8) bits of entropy, and the subsequent calls will each have 4
   // input URLs, and hence 2 = log2(4) bits of entropy.
-  int input4_call_limit = (kSelectURLOriginBitBudget - 3) / 2;
+  int input4_call_limit = (kSelectURLSiteBitBudget - 3) / 2;
 
   for (int i = 0; i < input4_call_limit; i++) {
     // Create a new iframe.
@@ -7464,7 +7607,7 @@ IN_PROC_BROWSER_TEST_P(
     )"));
 
     // The limit for `selectURL()` has now been reached for "b.test". Make one
-    // more call, which will return the default URL due to insufficient origin
+    // more call, which will return the default URL due to insufficient site
     // pageload budget.
     absl::optional<std::pair<GURL, double>> result_pair =
         RunSelectURLExtractingMappedURLAndBudgetToCharge(last_iframe_node,
@@ -7492,24 +7635,24 @@ IN_PROC_BROWSER_TEST_P(
 
 IN_PROC_BROWSER_TEST_P(
     SharedStorageSelectURLLimitBrowserTest,
-    SelectURL_IframesDifferentOrigin_SameEntropy_OverallLimitNotReached) {
+    SelectURL_IframesDifferentSite_SameEntropy_OverallLimitNotReached) {
   GURL main_url = https_server()->GetURL("a.test", kSimplePagePath);
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
 
   WebContentsConsoleObserver console_observer(shell()->web_contents());
 
   // This test relies on the assumption that `kSelectURLOverallBitBudget` is set
-  // to be strictly greater than `kSelectURLOriginBitBudget`, enough for at
-  // least one 8-URL call to `selectURL()` beyond the per-origin limit.
-  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLOriginBitBudget + 3);
+  // to be strictly greater than `kSelectURLSiteBitBudget`, enough for at
+  // least one 8-URL call to `selectURL()` beyond the per-site limit.
+  EXPECT_GE(kSelectURLOverallBitBudget, kSelectURLSiteBitBudget + 3);
 
   // Here each call to `selectURL()` will have 8 input URLs, and hence
   // 3 = log2(8) bits of entropy.
-  int per_origin_call_limit = kSelectURLOriginBitBudget / 3;
+  int per_site_call_limit = kSelectURLSiteBitBudget / 3;
 
   GURL iframe_url1 = https_server()->GetURL("b.test", kSimplePagePath);
 
-  for (int i = 0; i < per_origin_call_limit; i++) {
+  for (int i = 0; i < per_site_call_limit; i++) {
     // Create a new iframe.
     FrameTreeNode* iframe_node =
         CreateIFrame(PrimaryFrameTreeNodeRoot(), iframe_url1);
@@ -7528,7 +7671,7 @@ IN_PROC_BROWSER_TEST_P(
     )"));
 
     // The limit for `selectURL()` has now been reached for "b.test". Make one
-    // more call, which will return the default URL due to insufficient origin
+    // more call, which will return the default URL due to insufficient site
     // pageload budget.
     absl::optional<std::pair<GURL, double>> result_pair =
         RunSelectURLExtractingMappedURLAndBudgetToCharge(
@@ -7549,7 +7692,7 @@ IN_PROC_BROWSER_TEST_P(
                                    /*num_urls=*/4, &console_observer);
   }
 
-  // Create a new iframe with a different origin.
+  // Create a new iframe with a different site.
   GURL iframe_url2 = https_server()->GetURL("c.test", kSimplePagePath);
   FrameTreeNode* last_iframe_node =
       CreateIFrame(PrimaryFrameTreeNodeRoot(), iframe_url2);
@@ -7562,34 +7705,34 @@ IN_PROC_BROWSER_TEST_P(
 
   WaitForHistograms({kTimingSelectUrlExecutedInWorkletHistogram});
   histogram_tester_.ExpectTotalCount(kTimingSelectUrlExecutedInWorkletHistogram,
-                                     per_origin_call_limit + 2);
+                                     per_site_call_limit + 2);
 }
 
 IN_PROC_BROWSER_TEST_P(
     SharedStorageSelectURLLimitBrowserTest,
-    SelectURL_IframesDifferentOrigin_DifferentEntropy_OverallLimitReached) {
+    SelectURL_IframesDifferentSite_DifferentEntropy_OverallLimitReached) {
   GURL main_url = https_server()->GetURL("a.test", kSimplePagePath);
   EXPECT_TRUE(NavigateToURL(shell(), main_url));
 
   WebContentsConsoleObserver console_observer(shell()->web_contents());
 
   // This test relies on the assumptions that `kSelectURLOverallBitBudget` is
-  // set to be strictly greater than `kSelectURLOriginBitBudget` and that the
+  // set to be strictly greater than `kSelectURLSiteBitBudget` and that the
   // latter is at least 3.
-  EXPECT_GT(kSelectURLOverallBitBudget, kSelectURLOriginBitBudget);
-  EXPECT_GE(kSelectURLOriginBitBudget, 3);
+  EXPECT_GT(kSelectURLOverallBitBudget, kSelectURLSiteBitBudget);
+  EXPECT_GE(kSelectURLSiteBitBudget, 3);
 
-  int num_origin_limit = kSelectURLOverallBitBudget / kSelectURLOriginBitBudget;
+  int num_site_limit = kSelectURLOverallBitBudget / kSelectURLSiteBitBudget;
 
-  // We will run out of chars if we have too many origins.
-  EXPECT_LT(num_origin_limit, 25);
+  // We will run out of chars if we have too many sites.
+  EXPECT_LT(num_site_limit, 25);
 
-  // For each origin, the first call to `selectURL()` will have 8 input URLs,
+  // For each site, the first call to `selectURL()` will have 8 input URLs,
   // and hence 3 = log2(8) bits of entropy, whereas the subsequent calls for
-  // that origin will have 2 input URLs, and hence 1 = log2(2) bit of entropy.
-  int per_origin_input2_call_limit = kSelectURLOriginBitBudget - 3;
+  // that site will have 2 input URLs, and hence 1 = log2(2) bit of entropy.
+  int per_site_input2_call_limit = kSelectURLSiteBitBudget - 3;
 
-  for (int i = 0; i < num_origin_limit; i++) {
+  for (int i = 0; i < num_site_limit; i++) {
     std::string iframe_host = base::StrCat({std::string(1, 'b' + i), ".test"});
     GURL iframe_url = https_server()->GetURL(iframe_host, kSimplePagePath);
 
@@ -7600,7 +7743,7 @@ IN_PROC_BROWSER_TEST_P(
     RunSuccessfulSelectURLInIframe(first_loop_iframe_node,
                                    /*num_urls=*/8, &console_observer);
 
-    for (int j = 0; j < per_origin_input2_call_limit; j++) {
+    for (int j = 0; j < per_site_input2_call_limit; j++) {
       // Create a new iframe.
       FrameTreeNode* loop_iframe_node =
           CreateIFrame(PrimaryFrameTreeNodeRoot(), iframe_url);
@@ -7620,7 +7763,7 @@ IN_PROC_BROWSER_TEST_P(
 
       // The limit for `selectURL()` has now been reached for `iframe_host`.
       // Make one more call, which will return the default URL due to
-      // insufficient origin pageload budget.
+      // insufficient site pageload budget.
       absl::optional<std::pair<GURL, double>> result_pair =
           RunSelectURLExtractingMappedURLAndBudgetToCharge(
               last_loop_iframe_node, iframe_host,
@@ -7643,11 +7786,11 @@ IN_PROC_BROWSER_TEST_P(
   }
 
   std::string iframe_host =
-      base::StrCat({std::string(1, 'b' + num_origin_limit), ".test"});
+      base::StrCat({std::string(1, 'b' + num_site_limit), ".test"});
   GURL iframe_url = https_server()->GetURL(iframe_host, kSimplePagePath);
 
   int overall_budget_remaining =
-      kSelectURLOverallBitBudget % kSelectURLOriginBitBudget;
+      kSelectURLOverallBitBudget % kSelectURLSiteBitBudget;
 
   for (int j = 0; j < overall_budget_remaining; j++) {
     // Create a new iframe.
@@ -7693,7 +7836,7 @@ IN_PROC_BROWSER_TEST_P(
   WaitForHistograms({kTimingSelectUrlExecutedInWorkletHistogram});
   histogram_tester_.ExpectTotalCount(
       kTimingSelectUrlExecutedInWorkletHistogram,
-      num_origin_limit * (2 + per_origin_input2_call_limit) +
+      num_site_limit * (2 + per_site_input2_call_limit) +
           overall_budget_remaining + 1);
 }
 
@@ -8437,10 +8580,10 @@ class SharedStorageHeaderObserverBrowserTest
     response.WaitForRequest();
     if (expect_writable_header) {
       ASSERT_TRUE(base::Contains(response.http_request()->headers,
-                                 "Shared-Storage-Writable"));
+                                 "Sec-Shared-Storage-Writable"));
     } else {
       EXPECT_FALSE(base::Contains(response.http_request()->headers,
-                                  "Shared-Storage-Writable"));
+                                  "Sec-Shared-Storage-Writable"));
     }
     EXPECT_EQ(response.http_request()->content, "");
     response.Send(http_status, content_type,

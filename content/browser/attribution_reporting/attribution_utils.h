@@ -12,16 +12,10 @@
 
 namespace base {
 class Time;
-class TimeDelta;
 class ValueView;
 }  // namespace base
 
 namespace content {
-
-// Calculates the impression expiry deadline used for report time scheduling.
-CONTENT_EXPORT base::TimeDelta ExpiryDeadline(
-    base::Time source_time,
-    base::Time event_report_window_time);
 
 // Calculates the last trigger time that could have produced `report_time`.
 CONTENT_EXPORT base::Time LastTriggerTimeForReportTime(base::Time report_time);
@@ -29,7 +23,7 @@ CONTENT_EXPORT base::Time LastTriggerTimeForReportTime(base::Time report_time);
 CONTENT_EXPORT std::string SerializeAttributionJson(base::ValueView body,
                                                     bool pretty_print = false);
 
-CONTENT_EXPORT base::Time ComputeReportWindowTime(
+base::Time ComputeReportWindowTime(
     absl::optional<base::Time> report_window_time,
     base::Time expiry_time);
 

@@ -687,7 +687,20 @@ bool IsNonModalDefaultBrowserPromoCooldownRefactorEnabled() {
       kNonModalDefaultBrowserPromoCooldownRefactor);
 }
 
+bool IsDefaultBrowserVideoInSettingsEnabled() {
+  return base::FeatureList::IsEnabled(kDefaultBrowserVideoInSettings);
+}
+
 bool HasUserInteractedWithFullscreenPromoBefore() {
+  if (base::FeatureList::IsEnabled(
+          feature_engagement::kDefaultBrowserEligibilitySlidingWindow)) {
+    return HasRecordedEventForKeyLessThanDelay(
+        kLastTimeUserInteractedWithFullscreenPromo,
+        base::Days(
+            feature_engagement::kDefaultBrowserEligibilitySlidingWindowParam
+                .Get()));
+  }
+
   NSNumber* number = GetObjectFromStorageForKey<NSNumber>(
       kUserHasInteractedWithFullscreenPromo);
   return number.boolValue;
@@ -1199,6 +1212,18 @@ void RecordPromoStatsToUMAForAction(PromoStatistics* promo_stats,
 
 void RecordPromoStatsToUMAForAppear(PromoStatistics* promo_stats) {
   RecordPromoStatsToUMAForActionString(promo_stats, kAppearAction);
+}
+
+void RecordPromoDisplayStatsToUMA() {
+  base::UmaHistogramCounts100(
+      "IOS.DefaultBrowserPromo.DaysSinceLastPromoInteraction",
+      NumDaysSincePromoInteraction());
+  base::UmaHistogramCounts100(
+      "IOS.DefaultBrowserPromo.GenericPromoDisplayCount",
+      GenericPromoInteractionCount());
+  base::UmaHistogramCounts100(
+      "IOS.DefaultBrowserPromo.TailoredPromoDisplayCount",
+      TailoredPromoInteractionCount());
 }
 
 void LogBrowserLaunched(bool is_cold_start) {

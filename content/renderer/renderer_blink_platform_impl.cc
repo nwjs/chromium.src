@@ -98,7 +98,6 @@
 #include "third_party/blink/public/platform/url_conversion.h"
 #include "third_party/blink/public/platform/web_audio_latency_hint.h"
 #include "third_party/blink/public/platform/web_audio_sink_descriptor.h"
-#include "third_party/blink/public/platform/web_code_cache_loader.h"
 #include "third_party/blink/public/platform/web_security_origin.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
 #include "third_party/blink/public/platform/web_url.h"
@@ -689,19 +688,16 @@ RendererBlinkPlatformImpl::CreateOffscreenGraphicsContext3DProvider(
 
   constexpr bool automatic_flushes = true;
   constexpr bool support_locking = false;
-  bool use_grcontext =
+  const bool use_grcontext =
       !attributes.enable_oop_rasterization && web_attributes.support_grcontext;
 
-  scoped_refptr<viz::ContextProviderCommandBuffer> provider(
-      new viz::ContextProviderCommandBuffer(
-          std::move(gpu_channel_host),
-
-          kGpuStreamIdDefault, kGpuStreamPriorityDefault,
-          gpu::kNullSurfaceHandle, GURL(document_url), automatic_flushes,
-          support_locking, use_grcontext, gpu::SharedMemoryLimits(), attributes,
-          viz::command_buffer_metrics::ContextType::WEBGL));
   return std::make_unique<WebGraphicsContext3DProviderImpl>(
-      std::move(provider));
+      base::MakeRefCounted<viz::ContextProviderCommandBuffer>(
+          std::move(gpu_channel_host), kGpuStreamIdDefault,
+          kGpuStreamPriorityDefault, gpu::kNullSurfaceHandle,
+          GURL(document_url), automatic_flushes, support_locking, use_grcontext,
+          gpu::SharedMemoryLimits(), attributes,
+          viz::command_buffer_metrics::ContextType::WEBGL));
 }
 
 //------------------------------------------------------------------------------
@@ -765,17 +761,14 @@ RendererBlinkPlatformImpl::CreateWebGPUGraphicsContext3DProvider(
   base::SharedMemoryMapper* buffer_mapper =
       gin::GetSharedMemoryMapperForArrayBuffers();
 
-  scoped_refptr<viz::ContextProviderCommandBuffer> provider(
-      new viz::ContextProviderCommandBuffer(
-          std::move(gpu_channel_host),
-
-          kGpuStreamIdDefault, kGpuStreamPriorityDefault,
-          gpu::kNullSurfaceHandle, GURL(document_url), automatic_flushes,
-          support_locking, support_grcontext,
-          gpu::SharedMemoryLimits::ForWebGPUContext(), attributes,
-          viz::command_buffer_metrics::ContextType::WEBGPU, buffer_mapper));
   return std::make_unique<WebGraphicsContext3DProviderImpl>(
-      std::move(provider));
+      base::MakeRefCounted<viz::ContextProviderCommandBuffer>(
+          std::move(gpu_channel_host), kGpuStreamIdDefault,
+          kGpuStreamPriorityDefault, gpu::kNullSurfaceHandle,
+          GURL(document_url), automatic_flushes, support_locking,
+          support_grcontext, gpu::SharedMemoryLimits::ForWebGPUContext(),
+          attributes, viz::command_buffer_metrics::ContextType::WEBGPU,
+          buffer_mapper));
 #endif
 }
 
@@ -905,7 +898,8 @@ void RendererBlinkPlatformImpl::CreateServiceWorkerSubresourceLoaderFactory(
           /*remote_controller=*/mojo::NullRemote(),
           /*remote_cache_storage=*/mojo::NullRemote(), client_id.Utf8(),
           blink::mojom::ServiceWorkerFetchHandlerBypassOption::kDefault,
-          /*router_rules=*/absl::nullopt, blink::EmbeddedWorkerStatus::STOPPED),
+          /*router_rules=*/absl::nullopt, blink::EmbeddedWorkerStatus::kStopped,
+          /*running_status_receiver=*/mojo::NullReceiver()),
       network::SharedURLLoaderFactory::Create(std::move(fallback_factory)),
       std::move(receiver), std::move(task_runner));
 }

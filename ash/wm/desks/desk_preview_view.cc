@@ -64,7 +64,7 @@ constexpr int kCornerRadius = 4;
 constexpr gfx::RoundedCornersF kCornerRadiiOld(kCornerRadius);
 
 // The rounded corner radii when feature flag Jellyroll is enabled.
-// TODO(https://b/291622042): After CrOS Next is launched, remove
+// TODO(http://b/291622042): After CrOS Next is launched, remove
 // `kCornerRadiiOld`.
 constexpr gfx::RoundedCornersF kCornerRadii(8);
 
@@ -359,6 +359,7 @@ DeskPreviewView::DeskPreviewView(PressedCallback callback,
   views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
   SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
   SetPaintToLayer(ui::LAYER_TEXTURED);
+  SetAccessibleName(l10n_util::GetStringUTF16(IDS_ASH_DESKS_DESK_PREVIEW));
   layer()->SetFillsBoundsOpaquely(false);
   layer()->SetMasksToBounds(false);
 

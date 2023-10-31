@@ -17,9 +17,8 @@
       </if>
       <if expr="not is_android">
         <structure name="IDR_INCOGNITO_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
-        <structure name="IDR_REVAMPED_INCOGNITO_TAB_HTML" file="resources\ntp4\revamped_incognito_tab.html" flattenhtml="true" type="chrome_html" />
-        <structure name="IDR_INCOGNITO_TAB_THEME_CSS" file="resources\ntp4\incognito_tab_theme.css" compress="gzip" flattenhtml="true" type="chrome_html" />
-        <structure name="IDR_MD_INCOGNITO_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_REVAMPED_INCOGNITO_TAB_HTML" file="resources\new_tab_page_incognito_guest\revamped_incognito_tab.html" flattenhtml="true" type="chrome_html" />
+        <structure name="IDR_INCOGNITO_TAB_THEME_CSS" file="resources\new_tab_page_incognito_guest\incognito_tab_theme.css" flattenhtml="true" type="chrome_html" />
         <structure name="IDR_GUEST_TAB_HTML" file="resources\empty.html" flattenhtml="true" type="chrome_html" />
         <!-- WebAuthn Lottie resources -->
         <structure type="lottie" name="IDR_WEBAUTHN_HYBRID_CONNECTING_LIGHT" file="resources/webauthn/hybrid_connecting_light.json" compress="brotli" />
@@ -58,10 +57,6 @@
         <include name="IDR_ABOUT_CONFLICTS_HTML" file="resources\conflicts\about_conflicts.html" type="BINDATA" />
         <include name="IDR_ABOUT_CONFLICTS_JS" file="${root_gen_dir}\chrome\browser\resources\conflicts\tsc\about_conflicts.js" use_base_dir="false" type="BINDATA" />
         <include name="IDR_ABOUT_CONFLICTS_WARNING_SVG" file="resources\conflicts\warning.svg" type="BINDATA" />
-      </if>
-      <if expr="not is_android">
-        <include name="IDR_ABOUT_SYS_CSS" file="resources\about_sys\about_sys.css" flattenhtml="true" type="BINDATA" />
-        <include name="IDR_ABOUT_SYS_JS" file="resources\about_sys\about_sys.js" preprocess="true" type="BINDATA" />
       </if>
       <if expr="enable_webui_certificate_viewer">
         <include name="IDR_CERTIFICATE_VIEWER_HTML" file="resources\certificate_viewer\certificate_viewer.html" type="BINDATA" />

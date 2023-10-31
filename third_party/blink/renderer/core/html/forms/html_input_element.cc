@@ -332,8 +332,6 @@ void HTMLInputElement::UpdateSelectionOnFocus(
     // TODO(tkent): scrollRectToVisible is a workaround of a bug of
     // FrameSelection::revealSelection().  It doesn't scroll correctly in a
     // case of RangeSelection. crbug.com/443061.
-    GetDocument().EnsurePaintLocationDataValidForNode(
-        this, DocumentUpdateReason::kFocus);
     if (!options->preventScroll()) {
       if (GetLayoutObject()) {
         scroll_into_view_util::ScrollRectToVisible(
@@ -467,8 +465,17 @@ void HTMLInputElement::UpdateType() {
   const bool previously_selectable = input_type_->SupportsSelectionAPI();
 
   input_type_view_->WillBeDestroyed();
+  InputType* old_type = input_type_;
   input_type_ = new_type;
   input_type_view_ = input_type_->CreateView();
+
+  const AtomicString& dir = FastGetAttribute(html_names::kDirAttr);
+  if ((!dir && (old_type->IsTelephoneInputType() || IsTelephone())) ||
+      (EqualIgnoringASCIICase(dir, "auto") &&
+       (old_type->ShouldAutoDirUseValue() || ShouldAutoDirUseValue()))) {
+    const AtomicString& value_dir = AtomicString(DirectionForFormData());
+    UpdateDirectionalityAfterInputTypeChange(dir, value_dir);
+  }
 
   input_type_view_->CreateShadowSubtreeIfNeeded();
 
@@ -914,6 +921,7 @@ void HTMLInputElement::ParseAttribute(
 void HTMLInputElement::ParserDidSetAttributes() {
   DCHECK(parsing_in_progress_);
   InitializeTypeInParsing();
+  TextControlElement::ParserDidSetAttributes();
 }
 
 void HTMLInputElement::FinishParsingChildren() {
@@ -1004,6 +1012,14 @@ bool HTMLInputElement::IsTextField() const {
   return input_type_->IsTextField();
 }
 
+bool HTMLInputElement::IsTelephone() const {
+  return input_type_->IsTelephoneInputType();
+}
+
+bool HTMLInputElement::ShouldAutoDirUseValue() const {
+  return input_type_->ShouldAutoDirUseValue();
+}
+
 bool HTMLInputElement::HasBeenPasswordField() const {
   return has_been_password_field_;
 }
@@ -1031,7 +1047,7 @@ bool HTMLInputElement::Checked() const {
 }
 
 void HTMLInputElement::setCheckedForBinding(bool now_checked) {
-  if (GetAutofillState() != WebAutofillState::kAutofilled) {
+  if (!IsAutofilled()) {
     SetChecked(now_checked);
   } else {
     bool old_value = this->Checked();
@@ -1206,7 +1222,7 @@ void HTMLInputElement::setValueForBinding(const String& value,
                                       "to the empty string.");
     return;
   }
-  if (GetAutofillState() != WebAutofillState::kAutofilled) {
+  if (!IsAutofilled()) {
     SetValue(value);
   } else {
     String old_value = this->Value();
@@ -1525,10 +1541,6 @@ bool HTMLInputElement::IsURLAttribute(const Attribute& attribute) const {
 bool HTMLInputElement::HasLegalLinkAttribute(const QualifiedName& name) const {
   return input_type_->HasLegalLinkAttribute(name) ||
          TextControlElement::HasLegalLinkAttribute(name);
-}
-
-const QualifiedName& HTMLInputElement::SubResourceAttributeName() const {
-  return input_type_->SubResourceAttributeName();
 }
 
 const AtomicString& HTMLInputElement::DefaultValue() const {
@@ -2297,13 +2309,9 @@ void HTMLInputElement::showPicker(ExceptionState& exception_state) {
   // https://github.com/whatwg/html/issues/6909#issuecomment-917138991
   if (type() != input_type_names::kFile && type() != input_type_names::kColor &&
       frame) {
-    const SecurityOrigin* security_origin =
-        frame->GetSecurityContext()->GetSecurityOrigin();
-    const SecurityOrigin* top_security_origin =
-        frame->Tree().Top().GetSecurityContext()->GetSecurityOrigin();
-    if (!security_origin->IsSameOriginWith(top_security_origin)) {
+    if (!frame->IsSameOrigin()) {
       exception_state.ThrowSecurityError(
-          "HTMLInputElement::showPicker() called from cross-origin iframe.");
+          "showPicker() called from cross-origin iframe.");
       return;
     }
   }

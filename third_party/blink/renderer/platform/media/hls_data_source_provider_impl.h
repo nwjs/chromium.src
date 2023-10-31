@@ -1,4 +1,4 @@
-// Copyright 2023 The Chromium Authors. All rights reserved.
+// Copyright 2023 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,12 +7,14 @@
 
 #include <deque>
 #include <memory>
+#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/tick_clock.h"
 #include "base/types/pass_key.h"
 #include "media/base/media_log.h"
 #include "media/filters/hls_data_source_provider.h"
+#include "third_party/blink/renderer/platform/platform_export.h"
 
 namespace blink {
 
@@ -21,16 +23,24 @@ class BufferedDataSourceHostImpl;
 class MultiBufferDataSource;
 class HlsDataSourceImpl;
 
-class HlsDataSourceProviderImpl : public media::HlsDataSourceProvider {
+class PLATFORM_EXPORT HlsDataSourceProviderImpl
+    : public media::HlsDataSourceProvider {
   using Self = HlsDataSourceProviderImpl;
 
  public:
+  ~HlsDataSourceProviderImpl() override;
   HlsDataSourceProviderImpl(
       media::MediaLog* media_log,
       UrlIndex* url_index,
       scoped_refptr<base::SingleThreadTaskRunner> main_task_runner,
       scoped_refptr<base::SequencedTaskRunner> media_task_runner,
       const base::TickClock* tick_clock);
+
+  void RequestMockDataSourceForTesting(
+      std::unique_ptr<MultiBufferDataSource> mock_ds,
+      RequestCb callback) {
+    RequestDataSourceInternal(std::move(mock_ds), std::move(callback));
+  }
 
   // `media::DataSourceProvider` implementation
   void RequestDataSource(GURL uri,
@@ -48,6 +58,10 @@ class HlsDataSourceProviderImpl : public media::HlsDataSourceProvider {
                                  std::unique_ptr<MultiBufferDataSource>);
 
  private:
+  void RequestDataSourceInternal(
+      std::unique_ptr<MultiBufferDataSource> data_source,
+      RequestCb callback);
+
   void NotifyDataSourceProgress();
 
   void NotifyDownloading(const std::string& uri, bool is_downloading);
@@ -58,7 +72,7 @@ class HlsDataSourceProviderImpl : public media::HlsDataSourceProvider {
                              bool success);
 
   std::unique_ptr<media::MediaLog> media_log_;
-  UrlIndex* url_index_;
+  raw_ptr<UrlIndex, ExperimentalRenderer> url_index_;
   scoped_refptr<base::SingleThreadTaskRunner> main_task_runner_;
   scoped_refptr<base::SequencedTaskRunner> media_task_runner_;
   std::unique_ptr<BufferedDataSourceHostImpl> buffered_data_source_host_;

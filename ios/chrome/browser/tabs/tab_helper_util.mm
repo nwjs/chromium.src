@@ -24,13 +24,13 @@
 #import "ios/chrome/browser/autofill/autofill_tab_helper.h"
 #import "ios/chrome/browser/autofill/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/form_suggestion_tab_helper.h"
-#import "ios/chrome/browser/commerce/price_alert_util.h"
-#import "ios/chrome/browser/commerce/price_notifications/price_notifications_tab_helper.h"
-#import "ios/chrome/browser/commerce/push_notification/push_notification_feature.h"
-#import "ios/chrome/browser/commerce/shopping_persisted_data_tab_helper.h"
-#import "ios/chrome/browser/commerce/shopping_service_factory.h"
-#import "ios/chrome/browser/complex_tasks/ios_task_tab_helper.h"
-#import "ios/chrome/browser/crash_report/breadcrumbs/breadcrumb_manager_tab_helper.h"
+#import "ios/chrome/browser/commerce/model/price_alert_util.h"
+#import "ios/chrome/browser/commerce/model/price_notifications/price_notifications_tab_helper.h"
+#import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
+#import "ios/chrome/browser/commerce/model/shopping_persisted_data_tab_helper.h"
+#import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
+#import "ios/chrome/browser/complex_tasks/model/ios_task_tab_helper.h"
+#import "ios/chrome/browser/crash_report/model/breadcrumbs/breadcrumb_manager_tab_helper.h"
 #import "ios/chrome/browser/download/ar_quick_look_tab_helper.h"
 #import "ios/chrome/browser/download/download_manager_tab_helper.h"
 #import "ios/chrome/browser/download/pass_kit_tab_helper.h"
@@ -54,6 +54,7 @@
 #import "ios/chrome/browser/infobars/overlays/infobar_overlay_tab_helper.h"
 #import "ios/chrome/browser/infobars/overlays/translate_overlay_tab_helper.h"
 #import "ios/chrome/browser/itunes_urls/itunes_urls_handler_tab_helper.h"
+#import "ios/chrome/browser/lens/lens_tab_helper.h"
 #import "ios/chrome/browser/link_to_text/link_to_text_tab_helper.h"
 #import "ios/chrome/browser/metrics/pageload_foreground_duration_tab_helper.h"
 #import "ios/chrome/browser/ntp/features.h"
@@ -77,12 +78,12 @@
 #import "ios/chrome/browser/sessions/ios_chrome_session_tab_helper.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
-#import "ios/chrome/browser/sharing/share_file_download_tab_helper.h"
+#import "ios/chrome/browser/sharing/model/share_file_download_tab_helper.h"
 #import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
 #import "ios/chrome/browser/ssl/captive_portal_tab_helper.h"
 #import "ios/chrome/browser/supervised_user/supervised_user_error_container.h"
 #import "ios/chrome/browser/supervised_user/supervised_user_url_filter_tab_helper.h"
-#import "ios/chrome/browser/sync/ios_chrome_synced_tab_delegate.h"
+#import "ios/chrome/browser/sync/model/ios_chrome_synced_tab_delegate.h"
 #import "ios/chrome/browser/translate/chrome_ios_translate_client.h"
 #import "ios/chrome/browser/voice/voice_search_navigations_tab_helper.h"
 #import "ios/chrome/browser/web/annotations/annotations_tab_helper.h"
@@ -98,8 +99,8 @@
 #import "ios/chrome/browser/web/sad_tab_tab_helper.h"
 #import "ios/chrome/browser/web/session_state/web_session_state_tab_helper.h"
 #import "ios/chrome/browser/web/web_performance_metrics/web_performance_metrics_tab_helper.h"
-#import "ios/chrome/browser/web_selection/web_selection_tab_helper.h"
-#import "ios/chrome/browser/webui/net_export_tab_helper.h"
+#import "ios/chrome/browser/web_selection/model/web_selection_tab_helper.h"
+#import "ios/chrome/browser/webui/model/net_export_tab_helper.h"
 #import "ios/components/security_interstitials/https_only_mode/feature.h"
 #import "ios/components/security_interstitials/https_only_mode/https_only_mode_container.h"
 #import "ios/components/security_interstitials/ios_blocking_page_tab_helper.h"
@@ -143,6 +144,11 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
   commerce::CommerceTabHelper::CreateForWebState(
       web_state, is_off_the_record,
       commerce::ShoppingServiceFactory::GetForBrowserState(browser_state));
+
+  // Since LensTabHelper listens for a custom scheme, it needs to be
+  // created before AppLauncherTabHelper, which will filter out
+  // unhandled schemes.
+  LensTabHelper::CreateForWebState(web_state);
   AppLauncherTabHelper::CreateForWebState(
       web_state, [[AppLauncherAbuseDetector alloc] init]);
   security_interstitials::IOSBlockingPageTabHelper::CreateForWebState(
@@ -165,9 +171,7 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
     BreadcrumbManagerTabHelper::CreateForWebState(web_state);
   }
 
-  if (web::WebPageAnnotationsEnabled()) {
-    AnnotationsTabHelper::CreateForWebState(web_state);
-  }
+  AnnotationsTabHelper::CreateForWebState(web_state);
 
   SafeBrowsingClient* client =
       SafeBrowsingClientFactory::GetForBrowserState(browser_state);
@@ -176,12 +180,9 @@ void AttachTabHelpers(web::WebState* web_state, bool for_prerender) {
   SafeBrowsingUrlAllowList::CreateForWebState(web_state);
   SafeBrowsingUnsafeResourceContainer::CreateForWebState(web_state);
 
-  if (base::FeatureList::IsEnabled(
-          safe_browsing::kTailoredSecurityIntegration)) {
-    TailoredSecurityTabHelper::CreateForWebState(
-        web_state,
-        TailoredSecurityServiceFactory::GetForBrowserState(browser_state));
-  }
+  TailoredSecurityTabHelper::CreateForWebState(
+      web_state,
+      TailoredSecurityServiceFactory::GetForBrowserState(browser_state));
 
   PolicyUrlBlockingTabHelper::CreateForWebState(web_state);
 

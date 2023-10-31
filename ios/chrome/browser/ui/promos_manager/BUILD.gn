@@ -65,7 +65,7 @@ source_set("promos_manager") {
     ":promos_manager_scene_agent",
     "//components/crash/core/common:crash_key",
     "//ios/chrome/app/strings",
-    "//ios/chrome/browser/credential_provider_promo:features",
+    "//ios/chrome/browser/credential_provider_promo/model:features",
     "//ios/chrome/browser/default_browser:utils",
     "//ios/chrome/browser/ntp:features",
     "//ios/chrome/browser/promos_manager:constants",
@@ -90,10 +90,7 @@ source_set("promos_manager") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [
-    "promos_manager_coordinator_unittest.h",
-    "promos_manager_coordinator_unittest.mm",
-  ]
+  sources = [ "promos_manager_coordinator_unittest.mm" ]
   deps = [
     ":promos",
     ":promos_manager",

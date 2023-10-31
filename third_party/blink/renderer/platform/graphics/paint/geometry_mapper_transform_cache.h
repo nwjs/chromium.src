@@ -7,6 +7,7 @@
 
 #include "base/check_op.h"
 #include "base/dcheck_is_on.h"
+#include "base/memory/raw_ptr.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
@@ -125,6 +126,10 @@ class PLATFORM_EXPORT GeometryMapperTransformCache {
     DCHECK(nearest_scroll_translation_);
     return *nearest_scroll_translation_;
   }
+  const TransformPaintPropertyNode& scroll_translation_state() const {
+    DCHECK(scroll_translation_state_);
+    return *scroll_translation_state_;
+  }
 
   const TransformPaintPropertyNode* nearest_directly_composited_ancestor()
       const {
@@ -144,7 +149,8 @@ class PLATFORM_EXPORT GeometryMapperTransformCache {
   // The parent of the root of consecutive identity or 2d translations from the
   // transform node, or the root of the tree if the whole path from the
   // transform node to the root contains identity or 2d translations only.
-  const TransformPaintPropertyNode* root_of_2d_translation_;
+  raw_ptr<const TransformPaintPropertyNode, ExperimentalRenderer>
+      root_of_2d_translation_;
 
   // The cached values here can be categorized in two logical groups:
   //
@@ -221,6 +227,7 @@ class PLATFORM_EXPORT GeometryMapperTransformCache {
   absl::optional<ScreenTransform> screen_transform_;
 
   const TransformPaintPropertyNode* nearest_scroll_translation_ = nullptr;
+  const TransformPaintPropertyNode* scroll_translation_state_ = nullptr;
   const TransformPaintPropertyNode* nearest_directly_composited_ancestor_ =
       nullptr;
 

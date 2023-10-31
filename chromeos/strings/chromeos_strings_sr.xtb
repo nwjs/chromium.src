@@ -91,6 +91,7 @@
 <translation id="1643449475550628585">Мењајте слику позадине сваког дана</translation>
 <translation id="1644574205037202324">Историја</translation>
 <translation id="1651925268237749928">Изабрали сте дељени албум. Други људи могу да додају или мењају слике. Позадина може да користи слике које тренутно нису у овом албуму.</translation>
+<translation id="1661865805917886535">Неке информације о налогу и систему могу да се шаљу Google-у. Те информације користимо за решавање техничких проблема и побољшавање услуга, у складу са политиком приватности (<ph name="PRIVACYPOLICYURL" />) и условима коришћења услуге (<ph name="TERMSOFSERVICEURL" />). Да бисте затражили промене садржаја, посетите правну помоћ (<ph name="LEGALHELPPAGEURL" />).</translation>
 <translation id="1662989795263954667">Заустављено – нема више мастила</translation>
 <translation id="1664796644829245314">Преглед за <ph name="PREVIEW_OBJECT" /></translation>
 <translation id="1668469839109562275">Уграђени VPN</translation>
@@ -265,6 +266,7 @@
 <translation id="3122464029669770682">CPU</translation>
 <translation id="3124039320086536031">Уређај је повезан.</translation>
 <translation id="3127341325625468058">{PAGE_NUMBER,plural, =0{Желите да уклоните страницу?}=1{Желите да уклоните {PAGE_NUMBER}. страницу?}one{Желите да уклоните {PAGE_NUMBER}. страницу?}few{Желите да уклоните {PAGE_NUMBER}. страницу?}other{Желите да уклоните {PAGE_NUMBER}. страницу?}}</translation>
+<translation id="3146655726035122603">Ексклузивно за <ph name="PRODUCT_NAME" /></translation>
 <translation id="315116470104423982">Мобилни подаци</translation>
 <translation id="3156846309055100599">Скенира се <ph name="PAGE_NUMBER" />. страница...</translation>
 <translation id="315738237743207937">Откривен је улазни портал</translation>
@@ -280,7 +282,6 @@
 <translation id="3226405216343213872">Траже се скенери</translation>
 <translation id="3226657629376379887">Мени са радњама за распоред</translation>
 <translation id="3246869037381808805">Задаци штампања старији од 1 дана се уклањају</translation>
-<translation id="3248223063252096240">Ексклузивно за <ph name="PRODUCT_NAME" /></translation>
 <translation id="3268178239013324452">Није успело – врата су отворена</translation>
 <translation id="3275729367986477355">Слика аватара</translation>
 <translation id="3283504360622356314">{0,plural, =1{Измени фајл}one{Измени фајлове}few{Измени фајлове}other{Измени фајлове}}</translation>
@@ -921,6 +922,7 @@
 <translation id="8138405288920084977">LTEAdvanced</translation>
 <translation id="8143951647992294073">Изаберите <ph name="TOPIC_SOURCE" /> <ph name="TOPIC_SOURCE_DESC" /></translation>
 <translation id="8151185429379586178">Алатке за програмере</translation>
+<translation id="8152370627892825"><ph name="DESCRIPTION" />, <ph name="ACCELERATOR_INFO" />.</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8183974620058026102">Прилог</translation>
 <translation id="8206859287963243715">Мобилни уређај</translation>

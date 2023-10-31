@@ -37,7 +37,7 @@
 #include "extensions/browser/api/declarative_net_request/declarative_net_request_prefs_helper.h"
 #include "extensions/browser/api/declarative_net_request/file_backed_ruleset_source.h"
 #include "extensions/browser/api/declarative_net_request/parse_info.h"
-#include "extensions/browser/api/declarative_net_request/rules_count_pair.h"
+#include "extensions/browser/api/declarative_net_request/rule_counts.h"
 #include "extensions/browser/api/declarative_net_request/rules_monitor_service.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_manager.h"
 #include "extensions/browser/api/declarative_net_request/ruleset_matcher.h"
@@ -1518,11 +1518,12 @@ TEST_P(SingleRulesetTest, SharedDynamicAndSessionRuleLimits) {
 
   const RulesMonitorService* service =
       RulesMonitorService::Get(browser_context());
-  RulesCountPair expected_count(100 /* rule_count */, 0 /* regex_rule_count */);
+  RuleCounts expected_count(/*rule_count=*/100, /*unsafe_rule_count=*/0,
+                            /*regex_rule_count=*/0);
   EXPECT_EQ(expected_count,
-            service->GetRulesCountPair(extension()->id(), kDynamicRulesetID));
+            service->GetRuleCounts(extension()->id(), kDynamicRulesetID));
   EXPECT_EQ(expected_count,
-            service->GetRulesCountPair(extension()->id(), kSessionRulesetID));
+            service->GetRuleCounts(extension()->id(), kSessionRulesetID));
 
   // Adding any more dynamic rules will fail.
   expected_error = kDynamicRuleCountExceeded;
@@ -1549,46 +1550,47 @@ TEST_P(SingleRulesetTest, SharedDynamicAndSessionRegexRuleLimits) {
     session_rules.push_back(CreateGenericRule(rule_id++));
 
   ASSERT_NO_FATAL_FAILURE(
-      RunUpdateRulesFunction(*extension(), {} /* rule_ids_to_remove */,
+      RunUpdateRulesFunction(*extension(), /*rule_ids_to_remove=*/{},
                              session_rules, RulesetScope::kSession));
 
   // Add the same number of dynamic rules, it should succeed as well.
   std::vector<TestRule> dynamic_rules = session_rules;
   ASSERT_NO_FATAL_FAILURE(
-      RunUpdateRulesFunction(*extension(), {} /*   rule_ids_to_remove */,
+      RunUpdateRulesFunction(*extension(), /*rule_ids_to_remove=*/{},
                              dynamic_rules, RulesetScope::kDynamic));
 
   const RulesMonitorService* service =
       RulesMonitorService::Get(browser_context());
-  RulesCountPair expected_count(60 /* rule_count */, 50 /* regex_rule_count */);
+  RuleCounts expected_count(/*rule_count=*/60, /*unsafe_rule_count=*/0,
+                            /*regex_rule_count=*/50);
   EXPECT_EQ(expected_count,
-            service->GetRulesCountPair(extension()->id(), kDynamicRulesetID));
+            service->GetRuleCounts(extension()->id(), kDynamicRulesetID));
   EXPECT_EQ(expected_count,
-            service->GetRulesCountPair(extension()->id(), kSessionRulesetID));
+            service->GetRuleCounts(extension()->id(), kSessionRulesetID));
 
   // Adding more regex based dynamic or session rules should fail.
   std::string expected_error = kDynamicRegexRuleCountExceeded;
   ASSERT_NO_FATAL_FAILURE(RunUpdateRulesFunction(
-      *extension(), {} /*   rule_ids_to_remove */, {CreateRegexRule(rule_id++)},
+      *extension(), /*rule_ids_to_remove=*/{}, {CreateRegexRule(rule_id++)},
       RulesetScope::kDynamic, &expected_error));
   expected_error = kSessionRegexRuleCountExceeded;
   ASSERT_NO_FATAL_FAILURE(RunUpdateRulesFunction(
-      *extension(), {} /*   rule_ids_to_remove */, {CreateRegexRule(rule_id++)},
+      *extension(), /*rule_ids_to_remove=*/{}, {CreateRegexRule(rule_id++)},
       RulesetScope::kSession, &expected_error));
 
   // Adding non-regex dynamic or session rules should still succeed.
   ASSERT_NO_FATAL_FAILURE(RunUpdateRulesFunction(
-      *extension(), {} /*   rule_ids_to_remove */,
-      {CreateGenericRule(rule_id++)}, RulesetScope::kDynamic));
+      *extension(), /*rule_ids_to_remove=*/{}, {CreateGenericRule(rule_id++)},
+      RulesetScope::kDynamic));
   ASSERT_NO_FATAL_FAILURE(RunUpdateRulesFunction(
-      *extension(), {} /*   rule_ids_to_remove */,
-      {CreateGenericRule(rule_id++)}, RulesetScope::kSession));
+      *extension(), /*rule_ids_to_remove=*/{}, {CreateGenericRule(rule_id++)},
+      RulesetScope::kSession));
 
   expected_count.rule_count++;
   EXPECT_EQ(expected_count,
-            service->GetRulesCountPair(extension()->id(), kDynamicRulesetID));
+            service->GetRuleCounts(extension()->id(), kDynamicRulesetID));
   EXPECT_EQ(expected_count,
-            service->GetRulesCountPair(extension()->id(), kSessionRulesetID));
+            service->GetRuleCounts(extension()->id(), kSessionRulesetID));
 }
 
 // Test that getMatchedRules will return an error if an invalid tab id is

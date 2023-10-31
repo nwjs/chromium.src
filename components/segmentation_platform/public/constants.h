@@ -144,6 +144,10 @@ std::string GetSubsegmentKey(const std::string& segmentation_key);
 
 // TODO(shaktisahu): Move these to a nicer location.
 
+// Legacy label used for users not in the segment for binary user segment
+// classifier.
+const char kLegacyNegativeLabel[] = "Other";
+
 // Labels for adaptive toolbar model.
 const char kAdaptiveToolbarModelLabelNewTab[] = "NewTab";
 const char kAdaptiveToolbarModelLabelShare[] = "Share";
@@ -154,6 +158,17 @@ const char kAdaptiveToolbarModelLabelAddToBookmarks[] = "AddToBookmarks";
 // Labels for contextual page actions model.
 const char kContextualPageActionModelLabelPriceTracking[] = "price_tracking";
 const char kContextualPageActionModelLabelReaderMode[] = "reader_mode";
+
+// Labels for cross device segment.
+const char kNoCrossDeviceUsage[] = "NoCrossDeviceUsage";
+const char kCrossDeviceMobile[] = "CrossDeviceMobile";
+const char kCrossDeviceDesktop[] = "CrossDeviceDesktop";
+const char kCrossDeviceTablet[] = "CrossDeviceTablet";
+const char kCrossDeviceMobileAndDesktop[] = "CrossDeviceMobileAndDesktop";
+const char kCrossDeviceMobileAndTablet[] = "CrossDeviceMobileAndTablet";
+const char kCrossDeviceDesktopAndTablet[] = "CrossDeviceDesktopAndTablet";
+const char kCrossDeviceAllDeviceTypes[] = "CrossDeviceAllDeviceTypes";
+const char kCrossDeviceOther[] = "CrossDeviceOther";
 
 // Labels for search user model.
 // Any updates to these strings need to also update the field trials allowlist

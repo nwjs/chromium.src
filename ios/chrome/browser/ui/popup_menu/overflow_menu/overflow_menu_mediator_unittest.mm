@@ -8,6 +8,7 @@
 #import "base/ios/ios_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
+#import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_feature_list.h"
 #import "base/time/default_clock.h"
 #import "components/bookmarks/browser/bookmark_model.h"
@@ -1013,8 +1014,88 @@ TEST_F(OverflowMenuMediatorTest, DestinationLongpressItems) {
   mediator_.model = model_;
 
   // The 1st action group should contain modifiable actions with 2 longpress
-  // items.
+  // items. Settings and Site Info are exceptions, as they are not hideable, so
+  // they shold only have one longpress item
   for (OverflowMenuDestination* destination in mediator_.model.destinations) {
+    overflow_menu::Destination destinationType =
+        static_cast<overflow_menu::Destination>(destination.destination);
+    if (destinationType == overflow_menu::Destination::Settings ||
+        destinationType == overflow_menu::Destination::SiteInfo) {
+      EXPECT_EQ(destination.longPressItems.count, 1ul);
+      continue;
+    }
     EXPECT_EQ(destination.longPressItems.count, 2ul);
   }
+}
+
+// Tests that when a destination becomes hidden during customization, the
+// corresponding action gains a subtitle and a highlight.
+TEST_F(OverflowMenuMediatorTest, DestinationHideShowsActionSubtitle) {
+  base::test::ScopedFeatureList scoped_feature_list(kOverflowMenuCustomization);
+  CreateMediator(/*is_incognito=*/NO);
+
+  mediator_.model = model_;
+
+  // Start customization sessions.
+  DestinationCustomizationModel* destinationModel =
+      orderer_.destinationCustomizationModel;
+  ActionCustomizationModel* actionModel = orderer_.actionCustomizationModel;
+
+  // Find destination in customization model.
+  OverflowMenuDestination* bookmarksDestination;
+  for (OverflowMenuDestination* destination in destinationModel
+           .shownDestinations) {
+    if (destination.accessibilityIdentifier == kToolsMenuBookmarksId) {
+      bookmarksDestination = destination;
+      break;
+    }
+  }
+  bookmarksDestination.shown = NO;
+
+  // Find corresponding action.
+  OverflowMenuAction* addToBookmarksAction;
+  for (OverflowMenuAction* action in actionModel.shownActions) {
+    if (action.accessibilityIdentifier == kToolsMenuAddToBookmarks) {
+      addToBookmarksAction = action;
+      break;
+    }
+  }
+
+  // Make sure that the corresponding action has a subtitle.
+  EXPECT_NE(addToBookmarksAction, nil);
+  EXPECT_TRUE(addToBookmarksAction.highlighted);
+  EXPECT_NE(addToBookmarksAction.subtitle, nil);
+}
+
+// Tests that when the the right metric is recorder when the Password Manager
+// item is tapped.
+TEST_F(OverflowMenuMediatorTest, OpenPasswordsMetricLogged) {
+  CreateMediator(/*is_incognito=*/NO);
+
+  mediator_.model = model_;
+
+  // Find the Password Manager destination.
+  OverflowMenuDestination* passwordsDestination;
+  for (OverflowMenuDestination* destination in mediator_.model.destinations) {
+    if (destination.accessibilityIdentifier == kToolsMenuPasswordsId) {
+      passwordsDestination = destination;
+      break;
+    }
+  }
+  EXPECT_NSNE(nil, passwordsDestination);
+
+  base::HistogramTester histogram_tester;
+
+  // Verify that bucker count is zero.
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.ManagePasswordsReferrer",
+      password_manager::ManagePasswordsReferrer::kChromeMenuItem, 0);
+
+  // Call Password Manager destination's handler.
+  passwordsDestination.handler();
+
+  // Bucket count should now be one.
+  histogram_tester.ExpectBucketCount(
+      "PasswordManager.ManagePasswordsReferrer",
+      password_manager::ManagePasswordsReferrer::kChromeMenuItem, 1);
 }

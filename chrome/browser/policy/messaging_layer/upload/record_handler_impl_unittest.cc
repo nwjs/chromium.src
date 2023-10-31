@@ -15,6 +15,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/uuid.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/policy/messaging_layer/public/report_client.h"
 #include "chrome/browser/policy/messaging_layer/public/report_client_test_util.h"
@@ -173,7 +174,9 @@ BuildTestRecordsVector(size_t number_of_test_records,
     auto* sequence_information =
         encrypted_record.mutable_sequence_information();
     sequence_information->set_generation_id(generation_id);
+#if BUILDFLAG(IS_CHROMEOS)
     sequence_information->set_generation_guid(generation_guid);
+#endif  // BUILDFLAG(IS_CHROMEOS)
     sequence_information->set_sequencing_id(i);
     sequence_information->set_priority(Priority::IMMEDIATE);
     ScopedReservation record_reservation(encrypted_record.ByteSizeLong(),
@@ -196,7 +199,8 @@ TEST_P(RecordHandlerImplTest, UploadRecords) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -230,7 +234,8 @@ TEST_P(RecordHandlerImplTest, MissingPriorityField) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -258,7 +263,8 @@ TEST_P(RecordHandlerImplTest, InvalidPriorityField) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -290,7 +296,8 @@ TEST_P(RecordHandlerImplTest, ContainsGenerationGuid) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -303,6 +310,7 @@ TEST_P(RecordHandlerImplTest, ContainsGenerationGuid) {
                       .Build();
   ASSERT_TRUE(response.has_value());
 
+#if BUILDFLAG(IS_CHROMEOS)
   // Verify generation guid exists and equals kGenerationGuid.
   ASSERT_THAT(response->FindStringByDottedPath(
                   "lastSucceedUploadedRecord.generationGuid"),
@@ -310,6 +318,7 @@ TEST_P(RecordHandlerImplTest, ContainsGenerationGuid) {
   EXPECT_THAT(*(response->FindStringByDottedPath(
                   "lastSucceedUploadedRecord.generationGuid")),
               StrEq(kGenerationGuid));
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
   test_env_.SimulateCustomResponseForRequest(0, std::move(response.value()));
 
@@ -325,7 +334,8 @@ TEST_P(RecordHandlerImplTest, ValidGenerationGuid) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -350,6 +360,7 @@ TEST_P(RecordHandlerImplTest, ValidGenerationGuid) {
   EXPECT_OK(result) << result.status();
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 TEST_P(RecordHandlerImplTest, InvalidGenerationGuid) {
   auto test_records = BuildTestRecordsVector(kNumTestRecords, kGenerationId,
                                              kGenerationGuid, memory_resource_);
@@ -358,7 +369,8 @@ TEST_P(RecordHandlerImplTest, InvalidGenerationGuid) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -381,6 +393,7 @@ TEST_P(RecordHandlerImplTest, InvalidGenerationGuid) {
   EXPECT_THAT(result.status(),
               Property(&Status::error_code, Eq(error::INTERNAL)));
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 TEST_P(RecordHandlerImplTest, MissingGenerationGuidFromManagedDeviceIsOk) {
   // Set device as managed
@@ -396,7 +409,8 @@ TEST_P(RecordHandlerImplTest, MissingGenerationGuidFromManagedDeviceIsOk) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -420,6 +434,7 @@ TEST_P(RecordHandlerImplTest, MissingGenerationGuidFromManagedDeviceIsOk) {
   EXPECT_OK(result) << result.status();
 }
 
+#if BUILDFLAG(IS_CHROMEOS)
 TEST_P(RecordHandlerImplTest,
        MissingGenerationGuidFromUnmanagedDeviceReturnError) {
   // Set device as unmanaged
@@ -435,7 +450,8 @@ TEST_P(RecordHandlerImplTest,
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -459,6 +475,7 @@ TEST_P(RecordHandlerImplTest,
   EXPECT_THAT(result.status(),
               Property(&Status::error_code, Eq(error::INTERNAL)));
 }
+#endif  // BUILDFLAG(IS_CHROMEOS)
 
 TEST_P(RecordHandlerImplTest, MissingSequenceInformation) {
   // test records that has one record with missing sequence information.
@@ -469,7 +486,8 @@ TEST_P(RecordHandlerImplTest, MissingSequenceInformation) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> responder_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -490,7 +508,8 @@ TEST_P(RecordHandlerImplTest, ReportsUploadFailure) {
 
   test::TestEvent<CompletionResponse> response_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), response_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -526,7 +545,8 @@ TEST_P(RecordHandlerImplTest, DISABLED_UploadsGapRecordOnServerFailure) {
   test::TestEvent<CompletionResponse> response_event;
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), response_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -579,7 +599,8 @@ TEST_P(RecordHandlerImplTest, HandleUnknownResponseFromServer) {
   test::TestEvent<SignedEncryptionInfo> encryption_key_attached_event;
   test::TestEvent<CompletionResponse> response_event;
 
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), response_event.cb(),
                           encryption_key_attached_event.repeating_cb());
   task_environment_.RunUntilIdle();
@@ -606,7 +627,8 @@ TEST_P(RecordHandlerImplTest, AssignsRequestIdForRecordUploads) {
       .force_confirm = force_confirm()};
 
   test::TestEvent<CompletionResponse> responder_event;
-  handler_->HandleRecords(need_encryption_key(), std::move(test_records.second),
+  handler_->HandleRecords(need_encryption_key(), /*config_file_version=*/-1,
+                          std::move(test_records.second),
                           std::move(test_records.first), responder_event.cb(),
                           base::DoNothing());
   task_environment_.RunUntilIdle();

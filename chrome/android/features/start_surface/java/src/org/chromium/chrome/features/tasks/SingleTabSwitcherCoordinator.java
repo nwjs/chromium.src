@@ -7,6 +7,7 @@ package org.chromium.chrome.features.tasks;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
+import android.util.Size;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,6 +31,7 @@ import org.chromium.chrome.browser.tasks.tab_management.RecyclerViewPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabListFaviconProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherCustomViewManager;
+import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
@@ -55,7 +57,7 @@ public class SingleTabSwitcherCoordinator implements TabSwitcher {
             boolean isScrollableMvtEnabled, Tab mostRecentTab,
             @Nullable Runnable singleTabCardClickedCallback,
             @Nullable Runnable snapshotParentViewRunnable,
-            @Nullable TabContentManager tabContentManager) {
+            @Nullable TabContentManager tabContentManager, @Nullable UiConfig uiConfig) {
         mTabModelSelector = tabModelSelector;
         mIsTablet = isTablet;
         mLastActiveTab = mostRecentTab;
@@ -82,7 +84,8 @@ public class SingleTabSwitcherCoordinator implements TabSwitcher {
             mMediatorOnTablet = new SingleTabSwitcherOnTabletMediator(activity, propertyModel,
                     activityLifecycleDispatcher, tabModelSelector, mTabListFaviconProvider,
                     mostRecentTab, isScrollableMvtEnabled, singleTabCardClickedCallback,
-                    isSurfacePolishEnabled ? tabContentManager : null);
+                    isSurfacePolishEnabled ? tabContentManager : null,
+                    isSurfacePolishEnabled ? uiConfig : null);
             mMediator = null;
         }
         if (ChromeFeatureList.sInstantStart.isEnabled()) {
@@ -93,12 +96,6 @@ public class SingleTabSwitcherCoordinator implements TabSwitcher {
         mTabListDelegate = new TabSwitcher.TabListDelegate() {
             @Override
             public int getResourceId() {
-                return 0;
-            }
-
-            @Override
-            public long getLastDirtyTime() {
-                assert false : "should not reach here";
                 return 0;
             }
 
@@ -132,6 +129,12 @@ public class SingleTabSwitcherCoordinator implements TabSwitcher {
             }
 
             @Override
+            @VisibleForTesting
+            public Rect getRecyclerViewLocation() {
+                return null;
+            }
+
+            @Override
             public int getListModeForTesting() {
                 assert false : "should not reach here";
                 return 0;
@@ -152,6 +155,12 @@ public class SingleTabSwitcherCoordinator implements TabSwitcher {
 
             @Override
             public Rect getThumbnailLocationOfCurrentTab() {
+                assert false : "should not reach here";
+                return null;
+            }
+
+            @Override
+            public Size getThumbnailSize() {
                 assert false : "should not reach here";
                 return null;
             }

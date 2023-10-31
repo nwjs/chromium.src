@@ -45,6 +45,7 @@ import org.chromium.content_public.browser.HostZoomMap;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.modaldialog.ModalDialogManager.ModalDialogType;
 import org.chromium.ui.modaldialog.ModalDialogProperties;
+import org.chromium.ui.modaldialog.ModalDialogProperties.ButtonType;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.ArrayList;
@@ -60,7 +61,7 @@ import java.util.Set;
  * is launched to allow the user to see or modify the settings for that particular website.
  */
 @UsedByReflection("all_site_preferences.xml")
-public class AllSiteSettings extends SiteSettingsPreferenceFragment
+public class AllSiteSettings extends BaseSiteSettingsFragment
         implements PreferenceManager.OnPreferenceTreeClickListener, View.OnClickListener,
                    CustomDividerFragment {
     // The key to use to pass which category this preference should display,
@@ -240,14 +241,23 @@ public class AllSiteSettings extends SiteSettingsPreferenceFragment
         return new ModalDialogProperties.Controller() {
             @Override
             public void onClick(PropertyModel model, int buttonType) {
-                clearZooms();
-                mDialogManager.destroy();
+                switch (buttonType) {
+                    case ButtonType.POSITIVE:
+                        clearZooms();
+                        mDialogManager.destroy();
+                        break;
+                    case ButtonType.NEGATIVE:
+                        mDialogManager.destroy();
+                        break;
+                    default:
+                        // Should never reach this case, as there are only two buttons displayed.
+                        assert false;
+                        break;
+                }
             }
 
             @Override
-            public void onDismiss(PropertyModel model, int dismissalCause) {
-                mDialogManager.destroy();
-            }
+            public void onDismiss(PropertyModel model, int dismissalCause) {}
         };
     }
 
@@ -289,7 +299,7 @@ public class AllSiteSettings extends SiteSettingsPreferenceFragment
                         Formatter.formatShortFileSize(getContext(), totalUsage));
         message.setText(dialogFormattedText);
         builder.setView(dialogView);
-        builder.setPositiveButton(R.string.storage_clear_dialog_clear_storage_option,
+        builder.setPositiveButton(R.string.storage_delete_dialog_clear_storage_option,
                 new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int id) {
@@ -297,7 +307,7 @@ public class AllSiteSettings extends SiteSettingsPreferenceFragment
                     }
                 });
         builder.setNegativeButton(R.string.cancel, null);
-        builder.setTitle(R.string.storage_clear_site_storage_title);
+        builder.setTitle(R.string.storage_delete_site_storage_title);
         builder.create().show();
     }
 

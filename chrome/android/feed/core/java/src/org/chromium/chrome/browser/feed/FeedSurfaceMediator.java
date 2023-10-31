@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.feed.sort_ui.FeedOptionsCoordinator.OptionCha
 import org.chromium.chrome.browser.feed.v2.ContentOrder;
 import org.chromium.chrome.browser.feed.v2.FeedUserActionType;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.new_tab_url.DseNewTabUrlManager;
 import org.chromium.chrome.browser.ntp.NewTabPageLaunchOrigin;
 import org.chromium.chrome.browser.ntp.cards.SignInPromo;
 import org.chromium.chrome.browser.preferences.Pref;
@@ -48,6 +49,9 @@ import org.chromium.chrome.browser.ui.signin.PersonalizedSigninPromoView;
 import org.chromium.chrome.browser.ui.signin.SyncPromoController;
 import org.chromium.chrome.browser.xsurface.ListLayoutHelper;
 import org.chromium.chrome.browser.xsurface.feed.StreamType;
+import org.chromium.components.browser_ui.widget.displaystyle.DisplayStyleObserver;
+import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
+import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
 import org.chromium.components.browser_ui.widget.listmenu.ListMenu;
 import org.chromium.components.browser_ui.widget.listmenu.ListMenuItemProperties;
 import org.chromium.components.prefs.PrefService;
@@ -201,6 +205,10 @@ public class FeedSurfaceMediator
     private final FeedActionDelegate mActionDelegate;
     private final FeedOptionsCoordinator mOptionsCoordinator;
 
+    // It is non-null for NTP on tablets when SurfacePolish is enabled.
+    private @Nullable final UiConfig mUiConfig;
+    private final DisplayStyleObserver mDisplayStyleObserver = this::onDisplayStyleChanged;
+
     private @Nullable RecyclerView.OnScrollListener mStreamScrollListener;
     private final ObserverList<ScrollListener> mScrollListeners = new ObserverList<>();
     private HasContentListener mHasContentListener;
@@ -232,6 +240,8 @@ public class FeedSurfaceMediator
     // Whether we're currently adding the streams. If this is true, streams should not be bound yet.
     // This avoids automatically binding the first stream when it's added.
     private boolean mSettingUpStreams;
+    private boolean mIsNewTabSearchEngineUrlAndroidEnabled;
+    private boolean mIsPropertiesInitializedForStream;
 
     /**
      * @param coordinator The {@link FeedSurfaceCoordinator} that interacts with this class.
@@ -240,11 +250,12 @@ public class FeedSurfaceMediator
      * @param headerModel The {@link PropertyModel} that contains this mediator should work with.
      * @param openingTabId The {@link FeedSurfaceCoordinator.StreamTabId} the feed should open to.
      * @param optionsCoordinator The {@link FeedOptionsCoordinator} for the feed.
+     * @param uiConfig The {@link UiConfig} for screen display.
      */
     FeedSurfaceMediator(FeedSurfaceCoordinator coordinator, Context context,
             @Nullable SnapScrollHelper snapScrollHelper, PropertyModel headerModel,
             @FeedSurfaceCoordinator.StreamTabId int openingTabId, FeedActionDelegate actionDelegate,
-            FeedOptionsCoordinator optionsCoordinator) {
+            FeedOptionsCoordinator optionsCoordinator, @Nullable UiConfig uiConfig) {
         mCoordinator = coordinator;
         mHasContentListener = coordinator;
         mContext = context;
@@ -255,6 +266,25 @@ public class FeedSurfaceMediator
         mActionDelegate = actionDelegate;
         mOptionsCoordinator = optionsCoordinator;
         mOptionsCoordinator.setOptionsListener(this);
+        mIsNewTabSearchEngineUrlAndroidEnabled =
+                DseNewTabUrlManager.isNewTabSearchEngineUrlAndroidEnabled();
+        mUiConfig = uiConfig;
+
+        /**
+         * When feature flag isNewTabSearchEngineUrlAndroidEnabled is enabled, the Feeds may be
+         * hidden without showing its header. Therefore, FeedSurfaceMediator needs to observe
+         * whether the DSE is changed and update Pref.ENABLE_SNIPPETS_BY_DSE even when Feeds isn't
+         * visible.
+         */
+        mTemplateUrlService.addObserver(this);
+        if (mIsNewTabSearchEngineUrlAndroidEnabled) {
+            // It is possible that the default search engine has been changed before any NTP or
+            // Start is showing, update the value of Pref.ENABLE_SNIPPETS_BY_DSE here. The
+            // value should be updated before adding an observer to prevent an extra call of
+            // updateContent().
+            getPrefService().setBoolean(
+                    Pref.ENABLE_SNIPPETS_BY_DSE, mTemplateUrlService.isDefaultSearchEngineGoogle());
+        }
 
         if (sTestPrefChangeRegistar != null) {
             mPrefChangeRegistrar = sTestPrefChangeRegistar;
@@ -262,6 +292,7 @@ public class FeedSurfaceMediator
             mPrefChangeRegistrar = new PrefChangeRegistrar();
         }
         mPrefChangeRegistrar.addObserver(Pref.ENABLE_SNIPPETS, this::updateContent);
+        mPrefChangeRegistrar.addObserver(Pref.ENABLE_SNIPPETS_BY_DSE, this::updateContent);
 
         if (openingTabId == FeedSurfaceCoordinator.StreamTabId.DEFAULT) {
             mRestoreTabId = FeedFeatures.getFeedTabIdToRestore();
@@ -277,6 +308,11 @@ public class FeedSurfaceMediator
         mStreamContentChangedListener = contents
                 -> mRecyclerViewAnimationFinishDetector.runWhenAnimationComplete(
                         this::onContentsChanged);
+
+        if (mUiConfig != null) {
+            mUiConfig.addObserver(mDisplayStyleObserver);
+            onDisplayStyleChanged(mUiConfig.getCurrentDisplayStyle());
+        }
 
         initialize();
     }
@@ -344,6 +380,9 @@ public class FeedSurfaceMediator
         destroyPropertiesForStream();
         mPrefChangeRegistrar.destroy();
         mTemplateUrlService.removeObserver(this);
+        if (mUiConfig != null) {
+            mUiConfig.removeObserver(mDisplayStyleObserver);
+        }
     }
 
     public void destroyForTesting() {
@@ -460,12 +499,14 @@ public class FeedSurfaceMediator
                 new FeedSurfaceHeaderSelectedCallback());
 
         mPrefChangeRegistrar.addObserver(Pref.ARTICLES_LIST_VISIBLE, this::updateSectionHeader);
-        mTemplateUrlService.addObserver(this);
 
         boolean suggestionsVisible = isSuggestionsVisible();
 
+        @StreamKind
+        int streamKind = mCoordinator.isPrimaryAccountSupervised() ? StreamKind.SUPERVISED_USER
+                                                                   : StreamKind.FOR_YOU;
         addHeaderAndStream(getInterestFeedHeaderText(suggestionsVisible),
-                mCoordinator.createFeedStream(StreamKind.FOR_YOU, new StreamsMediatorImpl()));
+                mCoordinator.createFeedStream(streamKind, new StreamsMediatorImpl()));
         setHeaderIndicatorState(suggestionsVisible);
 
         // Build menu after section enabled key is set.
@@ -519,6 +560,8 @@ public class FeedSurfaceMediator
         mMemoryPressureCallback =
                 pressure -> mCoordinator.getRecyclerView().getRecycledViewPool().clear();
         MemoryPressureListener.addCallback(mMemoryPressureCallback);
+
+        mIsPropertiesInitializedForStream = true;
     }
 
     private void updateStickyHeaderVisibility() {
@@ -752,7 +795,8 @@ public class FeedSurfaceMediator
     }
 
     /** Clear any dependencies related to the {@link Stream}. */
-    private void destroyPropertiesForStream() {
+    @VisibleForTesting
+    void destroyPropertiesForStream() {
         if (mTabToStreamMap.isEmpty()) return;
 
         if (mStreamScrollListener != null) {
@@ -777,10 +821,10 @@ public class FeedSurfaceMediator
         mStreamContentChangedListener = null;
 
         mPrefChangeRegistrar.removeObserver(Pref.ARTICLES_LIST_VISIBLE);
-        mTemplateUrlService.removeObserver(this);
         mSigninManager.getIdentityManager().removeObserver(this);
 
         mSectionHeaderModel.get(SectionHeaderListProperties.SECTION_HEADERS_KEY).clear();
+        mIsPropertiesInitializedForStream = false;
 
         if (mCoordinator.getSurfaceScope() != null) {
             mCoordinator.getSurfaceScope().getLaunchReliabilityLogger().cancelPendingEvents();
@@ -837,6 +881,16 @@ public class FeedSurfaceMediator
      * Called when a settings change or update to this/another NTP caused the feed to show/hide.
      */
     void updateSectionHeader() {
+        // It is possible that updateSectionHeader() is called when the surface which contains the
+        // Feeds isn't visible or headers of streams haven't been added, returns here.
+        // See https://crbug.com/1485070 and https://crbug.com/1488210.
+        // TODO(https://crbug.com/1488630): Figure out the root cause of setting
+        // SectionHeaderListProperties.CURRENT_TAB_INDEX_KEY to -1 and fix it.
+        if (!mIsPropertiesInitializedForStream
+                || mSectionHeaderModel.get(SectionHeaderListProperties.CURRENT_TAB_INDEX_KEY) < 0) {
+            return;
+        }
+
         boolean suggestionsVisible = isSuggestionsVisible();
         mSectionHeaderModel.get(SectionHeaderListProperties.SECTION_HEADERS_KEY)
                 .get(INTEREST_FEED_HEADER_POSITION)
@@ -1078,6 +1132,11 @@ public class FeedSurfaceMediator
 
     @Override
     public void onTemplateURLServiceChanged() {
+        if (mIsNewTabSearchEngineUrlAndroidEnabled) {
+            getPrefService().setBoolean(
+                    Pref.ENABLE_SNIPPETS_BY_DSE, mTemplateUrlService.isDefaultSearchEngineGoogle());
+            return;
+        }
         updateSectionHeader();
     }
 
@@ -1238,5 +1297,11 @@ public class FeedSurfaceMediator
 
     int getTabToStreamSizeForTesting() {
         return mTabToStreamMap.size();
+    }
+
+    private void onDisplayStyleChanged(UiConfig.DisplayStyle newDisplayStyle) {
+        mSectionHeaderModel.set(
+                SectionHeaderListProperties.IS_NARROW_WINDOW_ON_TABLET_KEY,
+                newDisplayStyle.horizontal < HorizontalDisplayStyle.WIDE);
     }
 }

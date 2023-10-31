@@ -13,6 +13,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/time/time.h"
 #include "base/values.h"
+#include "components/aggregation_service/features.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
 #include "components/attribution_reporting/aggregatable_values.h"
 #include "components/attribution_reporting/aggregation_keys.h"
@@ -188,8 +189,8 @@ TEST(AggregatableAttributionUtilsTest, RoundsSourceRegistrationTime) {
 }
 
 TEST(AggregatableAttributionUtilsTest, AggregationCoordinatorSet) {
-  auto coordinator_origin =
-      attribution_reporting::SuitableOrigin::Deserialize("https://a.test");
+  auto coordinator_origin = attribution_reporting::SuitableOrigin::Deserialize(
+      ::aggregation_service::kAggregationServiceCoordinatorAwsCloud.Get());
   AttributionReport report =
       ReportBuilder(AttributionInfoBuilder().Build(),
                     SourceBuilder().BuildStored())
@@ -213,9 +214,7 @@ TEST(AggregatableAttributionUtilsTest, AggregatableReportRequestForNullReport) {
                             .BuildStored())
               .BuildNullAggregatable());
   ASSERT_TRUE(request.has_value());
-  EXPECT_THAT(request->payload_contents().contributions,
-              ElementsAre(blink::mojom::AggregatableReportHistogramContribution(
-                  /*bucket=*/0, /*value=*/0)));
+  EXPECT_TRUE(request->payload_contents().contributions.empty());
   EXPECT_FALSE(
       request->payload_contents().aggregation_coordinator_origin.has_value());
   const std::string* source_registration_time =

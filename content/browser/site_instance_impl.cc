@@ -22,12 +22,12 @@
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/site_instance_group.h"
 #include "content/browser/storage_partition_impl.h"
+#include "content/common/features.h"
 #include "content/public/browser/browser_or_resource_context.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/web_ui_controller_factory.h"
 #include "content/public/common/content_client.h"
-#include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
@@ -1202,6 +1202,12 @@ bool SiteInstanceImpl::DoesSiteInfoForURLMatch(const UrlInfo& url_info) {
   // WebExposedIsolationInfo must be compatible.
   if (!WebExposedIsolationInfo::AreCompatible(
           url_info.web_exposed_isolation_info, GetWebExposedIsolationInfo())) {
+    return false;
+  }
+
+  // Similarly, the common_coop_origin in the UrlInfo and in this
+  // SiteInstance's BrowsingInstance must be compatible.
+  if (url_info.common_coop_origin != GetCommonCoopOrigin()) {
     return false;
   }
 

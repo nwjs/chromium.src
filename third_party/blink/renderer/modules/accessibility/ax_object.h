@@ -35,6 +35,7 @@
 
 #include "base/dcheck_is_on.h"
 #include "base/gtest_prod_util.h"
+#include "base/memory/raw_ref.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/web/web_ax_enums.h"
@@ -127,7 +128,7 @@ class NameSource {
   bool superseded = false;
   bool invalid = false;
   ax::mojom::blink::NameFrom type = ax::mojom::blink::NameFrom::kNone;
-  const QualifiedName& attribute;
+  const raw_ref<const QualifiedName, ExperimentalRenderer> attribute;
   AtomicString attribute_value;
   AXTextSource native_source = kAXTextFromNativeSourceUninitialized;
   AXRelatedObjectVector related_objects;
@@ -150,7 +151,7 @@ class DescriptionSource {
   bool invalid = false;
   ax::mojom::blink::DescriptionFrom type =
       ax::mojom::blink::DescriptionFrom::kNone;
-  const QualifiedName& attribute;
+  const raw_ref<const QualifiedName, ExperimentalRenderer> attribute;
   AtomicString attribute_value;
   AXTextSource native_source = kAXTextFromNativeSourceUninitialized;
   AXRelatedObjectVector related_objects;
@@ -326,6 +327,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // AXObjectCacheImpl::InvalidateCachedValuesOnSubtree().
   void InvalidateCachedValues();
   bool NeedsToUpdateCachedValues() const { return cached_values_need_update_; }
+  bool CanAccessCachedValues() const;
 
   // The AXObjectCacheImpl that owns this object, and its unique ID within this
   // cache.
@@ -473,8 +475,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool IsDisabled() const;
   virtual AccessibilityExpanded IsExpanded() const;
   virtual bool IsFocused() const;
-  // aria-grabbed is deprecated in WAI-ARIA 1.1.
-  virtual AccessibilityGrabbedState IsGrabbed() const;
   virtual bool IsHovered() const;
 
   // Returns true if this object starts a new paragraph in the accessibility
@@ -865,7 +865,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool AriaCheckedIsPresent() const;
   bool AriaPressedIsPresent() const;
   bool SupportsARIAExpanded() const;
-  virtual bool SupportsARIADragging() const { return false; }
   virtual void Dropeffects(
       Vector<ax::mojom::blink::Dropeffect>& dropeffects) const {}
   bool SupportsARIAReadOnly() const;
@@ -1379,8 +1378,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
 
   void PopulateAXRelativeBounds(ui::AXRelativeBounds& bounds,
                                 bool* clips_children) const;
-
-  void MarkAllImageAXObjectsDirty();
 
  protected:
   AXID id_;
