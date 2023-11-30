@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "components/performance_manager/public/resource_attribution/cpu_measurement_monitor.h"
+#include "components/performance_manager/resource_attribution/cpu_measurement_monitor.h"
 
 #include <algorithm>
 #include <map>
@@ -28,9 +28,9 @@
 #include "components/performance_manager/public/graph/process_node.h"
 #include "components/performance_manager/public/graph/worker_node.h"
 #include "components/performance_manager/public/resource_attribution/attribution_helpers.h"
-#include "components/performance_manager/public/resource_attribution/frame_context_registry.h"
-#include "components/performance_manager/public/resource_attribution/graph_change.h"
-#include "components/performance_manager/public/resource_attribution/worker_context_registry.h"
+#include "components/performance_manager/public/resource_attribution/frame_context.h"
+#include "components/performance_manager/public/resource_attribution/worker_context.h"
+#include "components/performance_manager/resource_attribution/graph_change.h"
 #include "content/public/browser/browser_child_process_host.h"
 #include "content/public/common/process_type.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
@@ -39,8 +39,7 @@ namespace performance_manager::resource_attribution {
 
 namespace {
 
-class CPUMeasurementDelegateImpl final
-    : public CPUMeasurementMonitor::CPUMeasurementDelegate {
+class CPUMeasurementDelegateImpl final : public CPUMeasurementDelegate {
  public:
   // Default factory function.
   static std::unique_ptr<CPUMeasurementDelegate> Create(
@@ -264,6 +263,11 @@ void CPUMeasurementMonitor::StopMonitoring() {
   graph_ = nullptr;
 }
 
+bool CPUMeasurementMonitor::IsMonitoring() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return graph_;
+}
+
 std::map<ResourceContext, CPUTimeResult>
 CPUMeasurementMonitor::UpdateAndGetCPUMeasurements() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -482,11 +486,6 @@ void CPUMeasurementMonitor::ApplyMeasurementDeltas(
     const std::map<ResourceContext, CPUTimeResult>& measurement_deltas,
     GraphChange graph_change) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK(graph_);
-  const auto* frame_registry = FrameContextRegistry::GetFromGraph(graph_);
-  CHECK(frame_registry);
-  const auto* worker_registry = WorkerContextRegistry::GetFromGraph(graph_);
-  CHECK(worker_registry);
   for (const auto& [context, delta] : measurement_deltas) {
     CHECK(!ContextIs<PageContext>(context));
 
@@ -497,14 +496,14 @@ void CPUMeasurementMonitor::ApplyMeasurementDeltas(
     // Aggregate new frame and worker measurements to pages.
     if (ContextIs<FrameContext>(context)) {
       const FrameNode* frame_node =
-          frame_registry->GetFrameNodeForContext(context);
+          AsContext<FrameContext>(context).GetFrameNode();
       CHECK(frame_node);
       ApplyOverlappingDelta(
           measurement_results_[frame_node->GetPageNode()->GetResourceContext()],
           delta);
     } else if (ContextIs<WorkerContext>(context)) {
       const WorkerNode* worker_node =
-          worker_registry->GetWorkerNodeForContext(context);
+          AsContext<WorkerContext>(context).GetWorkerNode();
       CHECK(worker_node);
       for (const PageNode* page_node :
            GetClientPages(worker_node, graph_change)) {

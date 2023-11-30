@@ -40,6 +40,7 @@ class PopupRowStrategy {
   // row. It will be `nullptr` by default for most types of popup suggestions.
   virtual std::unique_ptr<PopupCellView> CreateControl() = 0;
 
+ private:
   // Returns the line number of the popup row that this strategy is for.
   virtual int GetLineNumber() const = 0;
 };
@@ -90,6 +91,24 @@ class PopupSuggestionStrategy : public PopupRowBaseStrategy {
   // Adds content and labels for a suggestion. A helper method used by all
   // suggestion types.
   void AddContentLabelsAndCallbacks(PopupCellView& view);
+};
+
+// A `PopupRowStrategy` that creates the content of a Compose row.
+class PopupComposeSuggestionStrategy : public PopupRowBaseStrategy {
+ public:
+  PopupComposeSuggestionStrategy(
+      base::WeakPtr<AutofillPopupController> controller,
+      int line_number,
+      bool show_new_badge);
+  ~PopupComposeSuggestionStrategy() override;
+
+  // PopupRowStrategy:
+  std::unique_ptr<PopupCellView> CreateContent() override;
+  std::unique_ptr<PopupCellView> CreateControl() override;
+
+ private:
+  // Indicates whether to show the "NEW" IPH badge.
+  const bool show_new_badge_;
 };
 
 // A `PopupRowStrategy` that creates the content for password suggestion rows.

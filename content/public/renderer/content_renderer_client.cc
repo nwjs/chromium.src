@@ -17,6 +17,7 @@
 #include "third_party/blink/public/platform/web_prescient_networking.h"
 #include "ui/gfx/icc_profile.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace content {
 
@@ -109,7 +110,8 @@ bool ContentRendererClient::ShouldNotifyServiceWorkerOnWebSocketActivity(
 }
 
 blink::ProtocolHandlerSecurityLevel
-ContentRendererClient::GetProtocolHandlerSecurityLevel() {
+ContentRendererClient::GetProtocolHandlerSecurityLevel(
+    const url::Origin& origin) {
   return blink::ProtocolHandlerSecurityLevel::kStrict;
 }
 

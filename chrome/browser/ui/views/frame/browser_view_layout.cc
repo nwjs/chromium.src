@@ -100,7 +100,8 @@ class BrowserViewLayout::WebContentsModalDialogHostViews
   }
 
   gfx::Point GetDialogPosition(const gfx::Size& size) override {
-    views::View* view = browser_view_layout_->top_container_;
+    // Horizontally places the dialog at the center of the content.
+    views::View* view = browser_view_layout_->contents_container_;
     gfx::Rect rect = view->ConvertRectToWidget(view->GetLocalBounds());
     const int middle_x = rect.x() + rect.width() / 2;
     const int top = rect.y() + rect.height() / 2 - size.height() / 2; //browser_view_layout_->web_contents_modal_dialog_top_y_;
@@ -662,12 +663,16 @@ int BrowserViewLayout::LayoutInfoBar(int top) {
     top = (browser_view_ ? browser_view_->y() : 0) +
           immersive_mode_controller_->GetMinimumContentOffset();
   }
-
+  // The content usually starts at the bottom of the infobar. When there is an
+  // extra infobar offset the infobar is shifted down while the content stays.
+  int infobar_top = top;
+  int content_top = infobar_top + infobar_container_->height();
+  infobar_top += delegate_->GetExtraInfobarOffset();
   SetViewVisibility(infobar_container_, IsInfobarVisible());
   infobar_container_->SetBounds(
-      vertical_layout_rect_.x(), top, vertical_layout_rect_.width(),
+      vertical_layout_rect_.x(), infobar_top, vertical_layout_rect_.width(),
       infobar_container_->GetPreferredSize().height());
-  return top + infobar_container_->height();
+  return content_top;
 }
 
 void BrowserViewLayout::LayoutContentsContainerView(int top, int bottom) {
@@ -912,6 +917,5 @@ int BrowserViewLayout::GetMinWebContentsWidth() const {
 }
 
 bool BrowserViewLayout::IsInfobarVisible() const {
-  // NOTE: Can't check if the size IsEmpty() since it's always 0-width.
-  return infobar_container_->GetPreferredSize().height() != 0;
+  return !infobar_container_->IsEmpty();
 }

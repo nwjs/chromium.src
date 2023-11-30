@@ -115,6 +115,35 @@ ScopedActionUpdate::~ScopedActionUpdate() {
   }
 }
 
+ActionInvocationContext::ContextBuilder::ContextBuilder() = default;
+
+ActionInvocationContext::ContextBuilder::ContextBuilder(ContextBuilder&&) =
+    default;
+
+ActionInvocationContext::ContextBuilder&
+ActionInvocationContext::ContextBuilder::operator=(ContextBuilder&&) = default;
+
+ActionInvocationContext::ContextBuilder::ContextBuilder::~ContextBuilder() =
+    default;
+
+ActionInvocationContext ActionInvocationContext::ContextBuilder::Build() && {
+  return std::move(*context_);
+}
+
+ActionInvocationContext::ActionInvocationContext() = default;
+
+ActionInvocationContext::ActionInvocationContext(ActionInvocationContext&&) =
+    default;
+
+ActionInvocationContext& ActionInvocationContext::operator=(
+    ActionInvocationContext&&) = default;
+
+ActionInvocationContext::~ActionInvocationContext() = default;
+
+ActionInvocationContext::ContextBuilder ActionInvocationContext::Builder() {
+  return ContextBuilder();
+}
+
 ActionItem::ActionItemBuilder::ActionItemBuilder() {
   action_item_ = std::make_unique<ActionItem>();
 }
@@ -141,6 +170,18 @@ ActionItem::ActionItemBuilder& ActionItem::ActionItemBuilder::AddChild(
 ActionItem::ActionItemBuilder&& ActionItem::ActionItemBuilder::AddChild(
     ActionItemBuilder&& child_item) && {
   return std::move(this->AddChild(std::move(child_item)));
+}
+
+ActionItem::ActionItemBuilder& ActionItem::ActionItemBuilder::SetAccessibleName(
+    const std::u16string accessible_name) & {
+  action_item_->SetAccessibleName(accessible_name);
+  return *this;
+}
+
+ActionItem::ActionItemBuilder&&
+ActionItem::ActionItemBuilder::SetAccessibleName(
+    const std::u16string accessible_name) && {
+  return std::move(this->SetAccessibleName(accessible_name));
 }
 
 ActionItem::ActionItemBuilder& ActionItem::ActionItemBuilder::SetActionId(
@@ -277,6 +318,18 @@ ActionItem::ActionItem(InvokeActionCallback callback)
     : callback_(std::move(callback)) {}
 
 ActionItem::~ActionItem() = default;
+
+std::u16string ActionItem::GetAccessibleName() const {
+  return accessible_name_;
+}
+
+void ActionItem::SetAccessibleName(const std::u16string accessible_name) {
+  if (accessible_name_ == accessible_name) {
+    return;
+  }
+  accessible_name_ = accessible_name;
+  ActionItemChanged();
+}
 
 absl::optional<ActionId> ActionItem::GetActionId() const {
   return action_id_;
@@ -416,12 +469,12 @@ void ActionItem::AddSynonyms(std::initializer_list<std::u16string> synonyms) {
   synonyms_.insert(synonyms_.end(), synonyms);
 }
 
-void ActionItem::InvokeAction() {
+void ActionItem::InvokeAction(ActionInvocationContext context) {
   if (enabled_) {
     invoke_count_++;
     last_invoke_time_ = base::TimeTicks::Now();
     if (callback_) {
-      callback_.Run(this);
+      callback_.Run(this, std::move(context));
     }
   }
 }
@@ -432,6 +485,10 @@ int ActionItem::GetInvokeCount() const {
 
 absl::optional<base::TimeTicks> ActionItem::GetLastInvokeTime() const {
   return last_invoke_time_;
+}
+
+base::WeakPtr<ActionItem> ActionItem::GetAsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }
 
 // static
@@ -474,6 +531,7 @@ void ActionItem::EndUpdate() {
 }
 
 BEGIN_METADATA(ActionItem, BaseAction)
+ADD_PROPERTY_METADATA(std::u16string, AccessibleName)
 ADD_PROPERTY_METADATA(absl::optional<ActionId>, ActionId)
 ADD_PROPERTY_METADATA(ui::Accelerator, Accelerator)
 ADD_PROPERTY_METADATA(bool, Checked)
@@ -511,15 +569,39 @@ void ActionManager::ResetForTesting() {
   GetGlobalManager().reset();
 }
 
+// static
+void ActionIdMap::ResetMapsForTesting() {
+  GetGlobalActionIdToStringMap().reset();
+  GetGlobalStringToActionIdMap().reset();
+}
+
+// static
+absl::optional<ActionIdMap::ActionIdToStringMap>&
+ActionIdMap::GetGlobalActionIdToStringMap() {
+  static base::NoDestructor<absl::optional<ActionIdMap::ActionIdToStringMap>>
+      map;
+  return *map;
+}
+
+// static
+absl::optional<ActionIdMap::StringToActionIdMap>&
+ActionIdMap::GetGlobalStringToActionIdMap() {
+  static base::NoDestructor<absl::optional<ActionIdMap::StringToActionIdMap>>
+      map;
+  return *map;
+}
+
 #define MAP_ACTION_IDS_TO_STRINGS
 #include "ui/actions/action_id_macros.inc"
 
 // static
-ActionManager::ActionIdToStringMap& ActionManager::GetActionIdToStringMap() {
-  static ActionIdToStringMap map =
-      base::MakeFlatMap<ActionId, std::string_view>(
-          std::vector<std::pair<ActionId, std::string_view>>{ACTION_IDS});
-  return map;
+ActionIdMap::ActionIdToStringMap& ActionIdMap::GetActionIdToStringMap() {
+  absl::optional<ActionIdMap::ActionIdToStringMap>& map =
+      GetGlobalActionIdToStringMap();
+  if (!map.has_value()) {
+    map.emplace(std::vector<std::pair<ActionId, std::string>>{ACTION_IDS});
+  }
+  return map.value();
 }
 
 #include "ui/actions/action_id_macros.inc"
@@ -529,28 +611,30 @@ ActionManager::ActionIdToStringMap& ActionManager::GetActionIdToStringMap() {
 #include "ui/actions/action_id_macros.inc"
 
 // static
-ActionManager::StringToActionIdMap& ActionManager::GetStringToActionIdMap() {
-  static StringToActionIdMap map =
-      base::MakeFlatMap<std::string_view, ActionId>(
-          std::vector<std::pair<std::string_view, ActionId>>{ACTION_IDS});
-  return map;
+ActionIdMap::StringToActionIdMap& ActionIdMap::GetStringToActionIdMap() {
+  absl::optional<ActionIdMap::StringToActionIdMap>& map =
+      GetGlobalStringToActionIdMap();
+  if (!map.has_value()) {
+    map.emplace(std::vector<std::pair<std::string, ActionId>>{ACTION_IDS});
+  }
+  return map.value();
 }
 
 #include "ui/actions/action_id_macros.inc"
 #undef MAP_STRING_TO_ACTION_IDS
 
 // static
-absl::optional<std::string> ActionManager::ActionIdToString(
+absl::optional<std::string> ActionIdMap::ActionIdToString(
     const ActionId action_id) {
   auto iter = GetActionIdToStringMap().find(action_id);
   if (iter != GetActionIdToStringMap().end()) {
-    return std::string(iter->second);
+    return iter->second;
   }
   return absl::nullopt;
 }
 
 // static
-absl::optional<ActionId> ActionManager::StringToActionId(
+absl::optional<ActionId> ActionIdMap::StringToActionId(
     const std::string action_id_string) {
   auto iter = GetStringToActionIdMap().find(action_id_string);
   if (iter != GetStringToActionIdMap().end()) {
@@ -560,7 +644,7 @@ absl::optional<ActionId> ActionManager::StringToActionId(
 }
 
 // static
-std::vector<absl::optional<std::string>> ActionManager::ActionIdsToStrings(
+std::vector<absl::optional<std::string>> ActionIdMap::ActionIdsToStrings(
     std::vector<ActionId> action_ids) {
   std::vector<absl::optional<std::string>> action_id_strings;
   action_id_strings.reserve(action_ids.size());
@@ -572,7 +656,7 @@ std::vector<absl::optional<std::string>> ActionManager::ActionIdsToStrings(
 }
 
 // static
-std::vector<absl::optional<ActionId>> ActionManager::StringsToActionIds(
+std::vector<absl::optional<ActionId>> ActionIdMap::StringsToActionIds(
     std::vector<std::string> action_id_strings) {
   std::vector<absl::optional<ActionId>> action_ids;
   action_ids.reserve(action_id_strings.size());
@@ -584,8 +668,8 @@ std::vector<absl::optional<ActionId>> ActionManager::StringsToActionIds(
 }
 
 template <typename T, typename U>
-void ActionManager::MergeMaps(base::flat_map<T, U>& map1,
-                              base::flat_map<T, U>& map2) {
+void ActionIdMap::MergeMaps(base::flat_map<T, U>& map1,
+                            base::flat_map<T, U>& map2) {
   auto vec1 = std::move(map1).extract();
   auto vec2 = std::move(map2).extract();
   std::vector<std::pair<T, U>> vec3(vec1.size() + vec2.size());
@@ -594,17 +678,17 @@ void ActionManager::MergeMaps(base::flat_map<T, U>& map1,
 }
 
 // static
-void ActionManager::AddActionIdToStringMappings(ActionIdToStringMap map) {
-  MergeMaps<ActionId, std::string_view>(GetActionIdToStringMap(), map);
+void ActionIdMap::AddActionIdToStringMappings(ActionIdToStringMap map) {
+  MergeMaps(GetActionIdToStringMap(), map);
 }
 
 // static
-void ActionManager::AddStringToActionIdMappings(StringToActionIdMap map) {
+void ActionIdMap::AddStringToActionIdMappings(StringToActionIdMap map) {
   MergeMaps(GetStringToActionIdMap(), map);
 }
 
 // static
-std::pair<ActionId, bool> ActionManager::CreateActionId(
+std::pair<ActionId, bool> ActionIdMap::CreateActionId(
     const std::string& action_name) {
   static ActionId new_action_id = std::numeric_limits<ActionId>::max();
 
@@ -681,7 +765,11 @@ void ActionManager::ResetActionItemInitializerList() {
 base::CallbackListSubscription ActionManager::AppendActionItemInitializer(
     ActionItemInitializerList::CallbackType initializer) {
   DCHECK(initializer_list_);
-  ResetActions();
+  // If an initializer is added after items have already been added, just run
+  // the initializer immediately.
+  if (!root_action_parent_.GetChildren().children().empty()) {
+    initializer.Run(this);
+  }
 
   return initializer_list_->Add(std::move(initializer));
 }

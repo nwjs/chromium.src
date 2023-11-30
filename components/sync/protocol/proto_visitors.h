@@ -577,7 +577,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntityMetadata& proto) {
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
-  static_assert(48 == GetNumModelTypes(),
+  static_assert(47 == GetNumModelTypes(),
                 "When adding a new protocol type, you will likely need to add "
                 "it here as well.");
   VISIT(encrypted);
@@ -967,6 +967,7 @@ VISIT_PROTO_FIELDS(const sync_pb::PasswordSpecificsData& proto) {
   VISIT(sender_name);
   VISIT(date_received_windows_epoch_micros);
   VISIT(sharing_notification_displayed);
+  VISIT(sender_profile_image_url);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::PasswordIssues& proto) {

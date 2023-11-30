@@ -15,6 +15,7 @@
 #include "ash/ambient/metrics/ambient_metrics.h"
 #include "ash/ambient/metrics/managed_screensaver_metrics.h"
 #include "ash/ambient/test/ambient_ash_test_base.h"
+#include "ash/ambient/test/ambient_ash_test_helper.h"
 #include "ash/ambient/test/test_ambient_client.h"
 #include "ash/ambient/ui/ambient_container_view.h"
 #include "ash/ambient/ui/ambient_view_ids.h"
@@ -474,6 +475,7 @@ TEST_F(AmbientControllerTest, NotShowAmbientWhenLockSecondaryUser) {
 
 TEST_P(AmbientControllerTestForAnyUiSettings,
        ShouldRequestAccessTokenWhenLockingScreen) {
+  GetAmbientAshTestHelper()->ambient_client().SetAutomaticalyIssueToken(false);
   EXPECT_FALSE(IsAccessTokenRequestPending());
 
   // Lock the screen will request a token.
@@ -500,6 +502,7 @@ TEST_F(AmbientControllerTest, ShouldNotRequestAccessTokenWhenPrefNotEnabled) {
 }
 
 TEST_P(AmbientControllerTestForAnyUiSettings, ShouldReturnCachedAccessToken) {
+  GetAmbientAshTestHelper()->ambient_client().SetAutomaticalyIssueToken(false);
   EXPECT_FALSE(IsAccessTokenRequestPending());
 
   // Lock the screen will request a token.
@@ -540,6 +543,7 @@ TEST_P(AmbientControllerTestForAnyUiSettings,
 }
 
 TEST_F(AmbientControllerTest, ShouldReturnEmptyAccessToken) {
+  GetAmbientAshTestHelper()->ambient_client().SetAutomaticalyIssueToken(false);
   EXPECT_FALSE(IsAccessTokenRequestPending());
 
   // Lock the screen will request a token.
@@ -582,6 +586,7 @@ TEST_F(AmbientControllerTest, ShouldReturnEmptyAccessToken) {
 }
 
 TEST_F(AmbientControllerTest, ShouldRetryRefreshAccessTokenAfterFailure) {
+  GetAmbientAshTestHelper()->ambient_client().SetAutomaticalyIssueToken(false);
   EXPECT_FALSE(IsAccessTokenRequestPending());
 
   // Lock the screen will request a token.
@@ -599,6 +604,7 @@ TEST_F(AmbientControllerTest, ShouldRetryRefreshAccessTokenAfterFailure) {
 }
 
 TEST_F(AmbientControllerTest, ShouldRetryRefreshAccessTokenWithBackoffPolicy) {
+  GetAmbientAshTestHelper()->ambient_client().SetAutomaticalyIssueToken(false);
   EXPECT_FALSE(IsAccessTokenRequestPending());
 
   // Lock the screen will request a token.
@@ -624,6 +630,7 @@ TEST_F(AmbientControllerTest, ShouldRetryRefreshAccessTokenWithBackoffPolicy) {
 }
 
 TEST_F(AmbientControllerTest, ShouldRetryRefreshAccessTokenOnlyThreeTimes) {
+  GetAmbientAshTestHelper()->ambient_client().SetAutomaticalyIssueToken(false);
   EXPECT_FALSE(IsAccessTokenRequestPending());
 
   // Lock the screen will request a token.
@@ -2106,6 +2113,83 @@ TEST_F(AmbientControllerForManagedScreensaverLoginScreenTest,
   // Fast forward a tiny amount to run any async tasks.
   FastForwardTiny();
   EXPECT_FALSE(ambient_controller()->ShouldShowAmbientUi());
+}
+
+TEST_F(AmbientControllerForManagedScreensaverLoginScreenTest,
+       ManagedScreensaverNotShownInKioskSessions) {
+  // Confirm that the screensaver is still triggered on the login screen
+  TriggerScreensaverOnLoginScreen();
+  // New tests are flaky most of the time in the flakiness cluster on CQ due to
+  // mocked time, fast forward by 20% time to make sure that they work as
+  // expected.
+  // TODO(b/305199163) Remove after investigating the root cause and coming
+  // up with a general solution.
+  FastForwardByLockScreenInactivityTimeout(/*factor=*/0.2f);
+  EXPECT_TRUE(ambient_controller()->ShouldShowAmbientUi());
+  ASSERT_TRUE(GetContainerView());
+
+  SimulateKioskMode(user_manager::UserType::USER_TYPE_WEB_KIOSK_APP);
+  EXPECT_FALSE(ambient_controller()->ShouldShowAmbientUi());
+  SetAmbientModeManagedScreensaverEnabled(true);
+  EXPECT_EQ(AmbientUiModel::Get()->ui_visibility(),
+            AmbientUiVisibility::kClosed);
+  // There is no lock screen in kiosk sessions so we just try to forward the
+  // time and try setting screen state to idle.
+  FastForwardByLockScreenInactivityTimeout();
+  EXPECT_EQ(AmbientUiModel::Get()->ui_visibility(),
+            AmbientUiVisibility::kClosed);
+  SetScreenIdleStateAndWait(/*is_screen_dimmed=*/true, /*is_off=*/false);
+  EXPECT_EQ(AmbientUiModel::Get()->ui_visibility(),
+            AmbientUiVisibility::kClosed);
+}
+
+TEST_F(AmbientControllerForManagedScreensaverLoginScreenTest,
+       ManagedScreensaverDoesNotShowCursorWhenDisabledOrNotStarted) {
+  SetAmbientModeManagedScreensaverEnabled(/*enabled=*/false);
+  TriggerScreensaverOnLoginScreen();
+  ASSERT_FALSE(GetContainerView());
+
+  // Hide the cursor.
+  Shell::Get()->cursor_manager()->HideCursor();
+
+  // Disabling an already disabled screensaver shouldn't show the cursor.
+  SetAmbientModeManagedScreensaverEnabled(/*enabled=*/false);
+  EXPECT_FALSE(Shell::Get()->cursor_manager()->IsCursorVisible());
+
+  // Just enabling the screensaver and updating the images one by one should not
+  // change the cursor visibility.
+  SetAmbientModeManagedScreensaverEnabled(/*enabled=*/true);
+  managed_policy_handler()->SetImagesForTesting({image_file_paths_[0]});
+  managed_policy_handler()->SetImagesForTesting(image_file_paths_);
+  EXPECT_FALSE(Shell::Get()->cursor_manager()->IsCursorVisible());
+
+  // Waiting for some time without activity should not change the cursor
+  // visibility.
+  FastForwardByLockScreenInactivityTimeout(/*factor=*/0.5f);
+  EXPECT_FALSE(ambient_controller()->ShouldShowAmbientUi());
+  EXPECT_FALSE(Shell::Get()->cursor_manager()->IsCursorVisible());
+}
+
+TEST_F(AmbientControllerForManagedScreensaverLoginScreenTest,
+       ManagedScreensaverInsufficientImagesErrorClearedOnGettingNewData) {
+  TriggerScreensaverOnLoginScreen();
+  // TODO(b/305199163) Remove after investigating the flakiness root cause and
+  // coming up with a general solution.
+  FastForwardByLockScreenInactivityTimeout(/*factor=*/0.2f);
+  EXPECT_TRUE(ambient_controller()->ShouldShowAmbientUi());
+  EXPECT_FALSE(managed_photo_controller()->HasScreenUpdateErrors());
+
+  // Only set one image to trigger insufficient images error.
+  managed_policy_handler()->SetImagesForTesting({image_file_paths_[0]});
+  EXPECT_FALSE(ambient_controller()->ShouldShowAmbientUi());
+  EXPECT_TRUE(managed_photo_controller()->HasScreenUpdateErrors());
+
+  managed_policy_handler()->SetImagesForTesting(image_file_paths_);
+  FastForwardByLockScreenInactivityTimeout(/*factor=*/1.2f);
+
+  // Confirm that the screensaver is shown and errors are cleared.
+  EXPECT_TRUE(ambient_controller()->ShouldShowAmbientUi());
+  EXPECT_FALSE(managed_photo_controller()->HasScreenUpdateErrors());
 }
 
 TEST_F(AmbientControllerForManagedScreensaverTest,

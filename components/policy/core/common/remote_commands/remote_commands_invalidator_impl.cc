@@ -111,13 +111,12 @@ void RemoteCommandsInvalidatorImpl::OnStoreError(CloudPolicyStore* core) {}
 
 void RemoteCommandsInvalidatorImpl::RecordInvalidationMetric(
     const invalidation::Invalidation& invalidation) const {
-  const auto last_fetch_time =
-      base::Time::FromJavaTime(core_->store()->policy()->timestamp());
+  const auto last_fetch_time = base::Time::FromMillisecondsSinceUnixEpoch(
+      core_->store()->policy()->timestamp());
   const auto current_time = clock_->Now();
   const bool is_expired =
       IsInvalidationExpired(invalidation, last_fetch_time, current_time);
-  const bool is_missing_payload =
-      invalidation.is_unknown_version() || invalidation.payload().empty();
+  const bool is_missing_payload = invalidation.payload().empty();
 
   base::UmaHistogramEnumeration(
       GetInvalidationMetricName(scope_),

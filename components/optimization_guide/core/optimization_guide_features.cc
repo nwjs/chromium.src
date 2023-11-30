@@ -302,11 +302,6 @@ BASE_FEATURE(kOptimizationGuidePersonalizedFetching,
              "OptimizationPersonalizedHintsFetching",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Whether to resolve all URLs (minus fragments) to the same URL.
-BASE_FEATURE(kOptimizationGuideHintsURLKeyedCacheDropFragments,
-             "OptimizationGuideHintsURLKeyedCacheDropFragments",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enables text embeddings to annotated on every page visit and later queried.
 BASE_FEATURE(kQueryInMemoryTextEmbeddings,
              "QueryInMemoryTextEmbeddings",
@@ -500,14 +495,14 @@ size_t MaxConcurrentPageNavigationFetches() {
       "max_concurrent_page_navigation_fetches", 20);
 }
 
-int ActiveTabsHintsFetchRandomMinDelaySecs() {
-  return GetFieldTrialParamByFeatureAsInt(kRemoteOptimizationGuideFetching,
-                                          "fetch_random_min_delay_secs", 30);
+base::TimeDelta ActiveTabsHintsFetchRandomMinDelay() {
+  return base::Seconds(GetFieldTrialParamByFeatureAsInt(
+      kRemoteOptimizationGuideFetching, "fetch_random_min_delay_secs", 30));
 }
 
-int ActiveTabsHintsFetchRandomMaxDelaySecs() {
-  return GetFieldTrialParamByFeatureAsInt(kRemoteOptimizationGuideFetching,
-                                          "fetch_random_max_delay_secs", 60);
+base::TimeDelta ActiveTabsHintsFetchRandomMaxDelay() {
+  return base::Seconds(GetFieldTrialParamByFeatureAsInt(
+      kRemoteOptimizationGuideFetching, "fetch_random_max_delay_secs", 60));
 }
 
 base::TimeDelta StoredHostModelFeaturesFreshnessDuration() {
@@ -605,14 +600,14 @@ bool ShouldOverrideOptimizationTargetDecisionForMetricsPurposes(
       kOptimizationTargetPrediction, "painful_page_load_metrics_only", false);
 }
 
-int PredictionModelFetchRandomMinDelaySecs() {
-  return GetFieldTrialParamByFeatureAsInt(kOptimizationTargetPrediction,
-                                          "fetch_random_min_delay_secs", 30);
+base::TimeDelta PredictionModelFetchRandomMinDelay() {
+  return base::Seconds(GetFieldTrialParamByFeatureAsInt(
+      kOptimizationTargetPrediction, "fetch_random_min_delay_secs", 30));
 }
 
-int PredictionModelFetchRandomMaxDelaySecs() {
-  return GetFieldTrialParamByFeatureAsInt(kOptimizationTargetPrediction,
-                                          "fetch_random_max_delay_secs", 60);
+base::TimeDelta PredictionModelFetchRandomMaxDelay() {
+  return base::Seconds(GetFieldTrialParamByFeatureAsInt(
+      kOptimizationTargetPrediction, "fetch_random_max_delay_secs", 60));
 }
 
 base::TimeDelta PredictionModelFetchRetryDelay() {
@@ -862,11 +857,6 @@ bool ShouldPersistSalientImageMetadata(const std::string& locale,
          IsSupportedCountryForFeature(
              country_code, kPageContentAnnotationsPersistSalientImageMetadata,
              "us");
-}
-
-bool ShouldDropFragmentsForURLKeyedHintCacheKey() {
-  return base::FeatureList::IsEnabled(
-      kOptimizationGuideHintsURLKeyedCacheDropFragments);
 }
 
 bool ShouldQueryEmbeddings() {

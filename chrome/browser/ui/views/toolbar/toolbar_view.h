@@ -54,6 +54,7 @@ class IntentChipButton;
 class MediaToolbarButtonView;
 class ReloadButton;
 class SidePanelToolbarContainer;
+class PinnedToolbarActionsContainer;
 class ToolbarButton;
 class AvatarToolbarButtonBrowserTest;
 class ToolbarController;
@@ -158,6 +159,9 @@ class ToolbarView : public views::AccessiblePaneView,
   SidePanelToolbarContainer* side_panel_container() const {
     return side_panel_container_;
   }
+  PinnedToolbarActionsContainer* pinned_toolbar_actions_container() const {
+    return pinned_toolbar_actions_container_;
+  }
   SidePanelToolbarButton* GetSidePanelButton() override;
   MediaToolbarButtonView* media_button() const { return media_button_; }
   send_tab_to_self::SendTabToSelfToolbarIconView* send_tab_to_self_button()
@@ -172,6 +176,8 @@ class ToolbarView : public views::AccessiblePaneView,
   const ToolbarController* toolbar_controller() const {
     return toolbar_controller_.get();
   }
+
+  views::View* new_tab_button_for_testing() { return new_tab_button_; }
 
   // LocationBarView::Delegate:
   content::WebContents* GetWebContents() override;
@@ -266,6 +272,8 @@ class ToolbarView : public views::AccessiblePaneView,
   // Called when active state for the window changes.
   void ActiveStateChanged();
 
+  void NewTabButtonPressed(const ui::Event& event);
+
   gfx::SlideAnimation size_animation_{this};
 
   // Controls. Most of these can be null, e.g. in popup windows. Only
@@ -283,6 +291,8 @@ class ToolbarView : public views::AccessiblePaneView,
   raw_ptr<BatterySaverButton> battery_saver_button_ = nullptr;
   raw_ptr<media_router::CastToolbarButton> cast_ = nullptr;
   raw_ptr<SidePanelToolbarContainer> side_panel_container_ = nullptr;
+  raw_ptr<PinnedToolbarActionsContainer> pinned_toolbar_actions_container_ =
+      nullptr;
   raw_ptr<SidePanelToolbarButton> side_panel_button_ = nullptr;
   raw_ptr<AvatarToolbarButton> avatar_ = nullptr;
   raw_ptr<MediaToolbarButtonView> media_button_ = nullptr;
@@ -290,6 +300,7 @@ class ToolbarView : public views::AccessiblePaneView,
       send_tab_to_self_button_ = nullptr;
   raw_ptr<BrowserAppMenuButton> app_menu_button_ = nullptr;
   raw_ptr<DownloadToolbarButtonView> download_button_ = nullptr;
+  raw_ptr<views::View> new_tab_button_ = nullptr;
 
   const raw_ptr<Browser> browser_;
   const raw_ptr<BrowserView> browser_view_;

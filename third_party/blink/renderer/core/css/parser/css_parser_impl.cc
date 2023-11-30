@@ -1390,7 +1390,7 @@ StyleRuleFontFeatureValues* CSSParserImpl::ConsumeFontFeatureValuesRule(
   FontFeatureAliases ornaments;
   FontFeatureAliases annotation;
 
-  HeapVector<StyleRuleFontFeature*> feature_rules;
+  HeapVector<Member<StyleRuleFontFeature>> feature_rules;
   bool had_valid_rules = false;
   // ConsumeRuleList returns true only if the first rule is true, but we need to
   // be more generous with the internals of what's inside a font feature value
@@ -1408,7 +1408,7 @@ StyleRuleFontFeatureValues* CSSParserImpl::ConsumeFontFeatureValuesRule(
     // https://drafts.csswg.org/css-fonts-4/#font-feature-values-syntax
     // "Specifying the same <font-feature-value-type> more than once is valid;
     // their contents are cascaded together."
-    for (auto* feature_rule : feature_rules) {
+    for (auto& feature_rule : feature_rules) {
       switch (feature_rule->GetFeatureType()) {
         case StyleRuleFontFeature::FeatureType::kStylistic:
           feature_rule->OverrideAliasesIn(stylistic);
@@ -1516,30 +1516,37 @@ StyleRuleProperty* CSSParserImpl::ConsumePropertyRule(
   StyleRuleProperty* rule = MakeGarbageCollected<StyleRuleProperty>(
       name,
       CreateCSSPropertyValueSet(parsed_properties_, kCSSPropertyRuleMode));
-  if (observer_ && rule) {
+
+  absl::optional<CSSSyntaxDefinition> syntax =
+      PropertyRegistration::ConvertSyntax(rule->GetSyntax());
+  absl::optional<bool> inherits =
+      PropertyRegistration::ConvertInherits(rule->Inherits());
+  absl::optional<const CSSValue*> initial =
+      syntax.has_value() ? PropertyRegistration::ConvertInitial(
+                               rule->GetInitialValue(), *syntax, *context_)
+                         : absl::nullopt;
+
+  bool invalid_rule =
+      !syntax.has_value() || !inherits.has_value() || !initial.has_value();
+
+  if (observer_ && invalid_rule) {
     Vector<CSSPropertyID, 2> failed_properties;
-    absl::optional<CSSSyntaxDefinition> syntax =
-        PropertyRegistration::ConvertSyntax(rule->GetSyntax());
     if (!syntax.has_value()) {
       failed_properties.push_back(CSSPropertyID::kSyntax);
     }
-    absl::optional<bool> inherits =
-        PropertyRegistration::ConvertInherits(rule->Inherits());
     if (!inherits.has_value()) {
       failed_properties.push_back(CSSPropertyID::kInherits);
     }
-    absl::optional<const CSSValue*> initial =
-        syntax.has_value() ? PropertyRegistration::ConvertInitial(
-                                 rule->GetInitialValue(), *syntax, *context_)
-                           : absl::nullopt;
     if (!initial.has_value() && syntax.has_value()) {
       failed_properties.push_back(CSSPropertyID::kInitialValue);
     }
-    if (!failed_properties.empty()) {
-      observer_->ObserveErroneousAtRule(prelude_offset_start,
-                                        CSSAtRuleID::kCSSAtRuleProperty,
-                                        failed_properties);
-    }
+    DCHECK(!failed_properties.empty());
+    observer_->ObserveErroneousAtRule(prelude_offset_start,
+                                      CSSAtRuleID::kCSSAtRuleProperty,
+                                      failed_properties);
+  }
+  if (invalid_rule) {
+    return nullptr;
   }
   return rule;
 }
@@ -2181,9 +2188,18 @@ void CSSParserImpl::ConsumeDeclarationList(
             DCHECK_EQ(stream.UncheckedPeek().GetType(), kSemicolonToken);
             stream.UncheckedConsume();  // kSemicolonToken
           }
+          if (child_rules && !child_rules->empty()) {
+            // https://github.com/w3c/csswg-drafts/issues/8738
+            context_->Count(WebFeature::kCSSDeclarationAfterNestedRule);
+          }
           break;
-        } else if (!RuntimeEnabledFeatures::CSSNestingIdentEnabled()) {
-          // Error recovery.
+        } else if (!RuntimeEnabledFeatures::CSSNestingIdentEnabled() ||
+                   stream.UncheckedPeek().GetType() == kSemicolonToken) {
+          // Recover from an error when CSSNestingIdent is not enabled.
+          // When CSSNestingIdent is enabled, we would instead normally Restore
+          // the stream and retry as a nested style rule, but as an optimization
+          // we avoid this restart if we ended on a kSemicolonToken, as this situation
+          // can't produce a valid rule.
           stream.ConsumeUntilPeekedTypeIs<kSemicolonToken>();
           if (!stream.AtEnd()) {
             stream.UncheckedConsume();  // kSemicolonToken

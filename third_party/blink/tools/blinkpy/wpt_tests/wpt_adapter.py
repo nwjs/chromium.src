@@ -126,6 +126,10 @@ class StructuredLogAdapter(logging.Handler):
 
 
 class WPTAdapter:
+    PORT_NAME_BY_PRODUCT = {
+        'chrome': 'chrome',
+    }
+
     def __init__(self, product, port, options, paths):
         self.product = product
         self.port = port
@@ -134,6 +138,8 @@ class WPTAdapter:
         self.finder = path_finder.PathFinder(self.fs)
         self.options = options
         self.paths = paths
+        self.failure_threshold = 0
+        self.crash_timeout_threshold = 0
 
     @classmethod
     def from_args(cls,
@@ -145,7 +151,13 @@ class WPTAdapter:
         # only run virtual tests for content shell
         cls._ensure_value(options, 'no_virtual_tests',
                           options.product != 'content_shell')
-        port = host.port_factory.get(port_name, options)
+
+        if options.product in cls.PORT_NAME_BY_PRODUCT:
+            port = host.port_factory.get(
+                cls.PORT_NAME_BY_PRODUCT[options.product], options)
+        else:
+            port = host.port_factory.get(port_name, options)
+
         if options.product == 'chrome':
             port.set_option_default('driver_name', port.CHROME_NAME)
         product = make_product(port, options)
@@ -196,6 +208,7 @@ class WPTAdapter:
             install_webdriver=False,
             channel='nightly',
             affected=None,
+            logcat_dir=None,
         )
 
         # Install customized versions of `mozlog` formatters.
@@ -222,7 +235,10 @@ class WPTAdapter:
         # Set up logging as early as possible.
         self._set_up_runner_output_options(runner_options)
         self._set_up_runner_config_options(runner_options)
-        self._set_up_runner_ssl_options(runner_options)
+        # TODO(crbug.com/1351820): Find the difference of the host cert ssl set up and make iOS
+        # use the same.
+        if self.product.name != 'chrome_ios':
+            self._set_up_runner_ssl_options(runner_options)
         self._set_up_runner_debugging_options(runner_options)
         self._set_up_runner_tests(runner_options, tmp_dir)
 
@@ -468,6 +484,11 @@ class WPTAdapter:
             runner_options.test_types = self.options.test_types
             runner_options.retry_unexpected = self.options.num_retries
 
+            self.failure_threshold = self.port.max_allowed_failures(
+                len(include_tests))
+            self.crash_timeout_threshold = self.port.max_allowed_crash_or_timeouts(
+                len(include_tests))
+
             # sharding is done inside wrapper
             runner_options.total_chunks = 1
             runner_options.this_chunk = 1
@@ -593,9 +614,8 @@ class WPTAdapter:
             self.fs,
             self.port,
             artifacts_dir=artifacts_dir,
-            failure_threshold=self.port.get_option('exit_after_n_failures'),
-            crash_timeout_threshold=self.port.get_option(
-                'exit_after_n_crashes_or_timeouts'))
+            failure_threshold=self.failure_threshold,
+            crash_timeout_threshold=self.crash_timeout_threshold)
         with processor.stream_results() as events:
             runner_options.log.add_handler(events.put)
             yield

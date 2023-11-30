@@ -318,10 +318,6 @@ void SyncEngineImpl::DisconnectDataType(ModelType type) {
   model_type_connector_->DisconnectDataType(type);
 }
 
-void SyncEngineImpl::SetProxyTabsDatatypeEnabled(bool enabled) {
-  model_type_connector_->SetProxyTabsDatatypeEnabled(enabled);
-}
-
 const SyncEngineImpl::Status& SyncEngineImpl::GetDetailedStatus() const {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(IsInitialized());
@@ -549,6 +545,15 @@ void SyncEngineImpl::GetNigoriNodeForDebugging(AllNodesCallback callback) {
       FROM_HERE,
       base::BindOnce(&SyncEngineBackend::GetNigoriNodeForDebugging, backend_,
                      base::BindPostTaskToCurrentDefault(std::move(callback))));
+}
+
+void SyncEngineImpl::RecordNigoriMemoryUsageAndCountsHistograms() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  sync_task_runner_->PostTask(
+      FROM_HERE,
+      base::BindOnce(
+          &SyncEngineBackend::RecordNigoriMemoryUsageAndCountsHistograms,
+          backend_));
 }
 
 void SyncEngineImpl::OnInvalidationReceived(const std::string& payload) {

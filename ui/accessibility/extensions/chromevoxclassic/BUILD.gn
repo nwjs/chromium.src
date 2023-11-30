@@ -8,10 +8,13 @@ import(
 import(
     "//chrome/browser/resources/chromeos/accessibility/tools/run_jsbundler.gni")
 import("//chrome/common/features.gni")
-import("//chrome/test/base/js2gtest.gni")
 import("//testing/test.gni")
 import("//third_party/closure_compiler/compile_js.gni")
 import("//third_party/liblouis/liblouis_library.gni")
+
+if (is_chromeos_ash) {
+  import("//chrome/test/base/ash/js2gtest.gni")
+}
 
 closure_library_dir =
     "//third_party/chromevox/third_party/closure-library/closure/goog"
@@ -505,16 +508,16 @@ if (is_chromeos_ash) {
       "//chrome/browser/extensions/browsertest_util.h",
       "//chrome/browser/ui/webui/web_ui_test_handler.cc",
       "//chrome/browser/ui/webui/web_ui_test_handler.h",
+      "//chrome/test/base/ash/extension_js_browser_test.cc",
+      "//chrome/test/base/ash/extension_js_browser_test.h",
+      "//chrome/test/base/ash/javascript_browser_test.cc",
+      "//chrome/test/base/ash/javascript_browser_test.h",
+      "//chrome/test/base/ash/web_ui_browser_test.cc",
+      "//chrome/test/base/ash/web_ui_browser_test.h",
       "//chrome/test/base/devtools_listener.cc",
       "//chrome/test/base/devtools_listener.h",
-      "//chrome/test/base/extension_js_browser_test.cc",
-      "//chrome/test/base/extension_js_browser_test.h",
-      "//chrome/test/base/javascript_browser_test.cc",
-      "//chrome/test/base/javascript_browser_test.h",
       "//chrome/test/base/test_chrome_web_ui_controller_factory.cc",
       "//chrome/test/base/test_chrome_web_ui_controller_factory.h",
-      "//chrome/test/base/web_ui_browser_test.cc",
-      "//chrome/test/base/web_ui_browser_test.h",
     ]
 
     deps = [

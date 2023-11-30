@@ -13,9 +13,6 @@
 #include "components/password_manager/core/browser/affiliation/affiliation_utils.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/password_manager/core/browser/password_form.h"
-#include "components/password_manager/core/browser/password_list_sorter.h"
-#include "components/password_manager/core/browser/password_manager_util.h"
-#include "components/password_manager/core/browser/password_ui_utils.h"
 #include "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #include "components/url_formatter/elide_url.h"
 
@@ -61,7 +58,8 @@ std::string GetFacetRepresentation(const PasswordForm& form) {
 }
 
 std::string GetFacetRepresentation(const PasskeyCredential& passkey) {
-  std::string as_url = RPIDToURL(passkey.rp_id()).possibly_invalid_spec();
+  std::string as_url = base::StrCat(
+      {url::kHttpsScheme, url::kStandardSchemeSeparator, passkey.rp_id()});
   return FacetURI::FromPotentiallyInvalidSpec(as_url)
       .potentially_invalid_spec();
 }
@@ -116,7 +114,7 @@ std::string CreateUsernamePasswordSortKey(const CredentialUIEntry& credential) {
   } else {
     // Key for blocked by user credential since it does not store username and
     // password. These credentials are not grouped together.
-    key = GetShownOrigin(credential);
+    key = credential.GetAffiliatedDomains()[0].name;
   }
   return key;
 }

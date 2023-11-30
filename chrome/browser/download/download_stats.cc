@@ -79,11 +79,6 @@ void RecordDownloadShelfDragInfo(DownloadDragInfo drag_info) {
                                 DownloadDragInfo::COUNT);
 }
 
-void RecordDownloadBubbleDragInfo(DownloadDragInfo drag_info) {
-  base::UmaHistogramEnumeration("Download.Bubble.DragInfo", drag_info,
-                                DownloadDragInfo::COUNT);
-}
-
 void RecordDownloadStartPerProfileType(Profile* profile) {
   base::UmaHistogramEnumeration(
       "Download.Start.PerProfileType",
@@ -102,9 +97,6 @@ DownloadShelfContextMenuAction DownloadCommandToShelfAction(
     DownloadCommands::Command download_command,
     bool clicked) {
   switch (download_command) {
-    case DownloadCommands::Command::MAX:
-      NOTREACHED();
-      return DownloadShelfContextMenuAction::kMaxValue;
     case DownloadCommands::Command::SHOW_IN_FOLDER:
       return clicked ? DownloadShelfContextMenuAction::kShowInFolderClicked
                      : DownloadShelfContextMenuAction::kShowInFolderEnabled;

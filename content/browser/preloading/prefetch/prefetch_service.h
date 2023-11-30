@@ -22,10 +22,6 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
-namespace base {
-class OneShotTimer;
-}  // namespace base
-
 namespace network::mojom {
 class NetworkContext;
 class URLLoaderFactory;
@@ -97,13 +93,6 @@ class CONTENT_EXPORT PrefetchService {
   virtual PrefetchOriginProber* GetPrefetchOriginProber() const;
   virtual void PrefetchUrl(base::WeakPtr<PrefetchContainer> prefetch_container);
 
-  // Called when a navigation to `url` that will be served by
-  // `prefetch_container` is likely to occur in the immediate future.
-  // |url| and |prefetch_container.GetURL()| might not be the same
-  // because of No-Vary-Search non-exact url match.
-  virtual void PrepareToServe(const GURL& url,
-                              PrefetchContainer& prefetch_container);
-
   // Finds the prefetch (if any) that can be used to serve a navigation to
   // |url|, and then calls |on_prefetch_to_serve_ready| with that prefetch.
   using OnPrefetchToServeReady =
@@ -147,6 +136,14 @@ class CONTENT_EXPORT PrefetchService {
   // ownership over the course of the test.
   static void SetNetworkContextForProxyLookupForTesting(
       network::mojom::NetworkContext* network_context);
+
+  // Set a callback for waiting for prefetch completion in tests.
+  using OnPrefetchResponseCompletedForTesting =
+      base::RepeatingCallback<void(base::WeakPtr<PrefetchContainer>)>;
+  void SetOnPrefetchResponseCompletedForTesting(
+      OnPrefetchResponseCompletedForTesting callback) {
+    on_prefetch_response_completed_for_testing_ = std::move(callback);
+  }
 
  private:
   // Checks whether the given |prefetch_container| is eligible for prefetch.
@@ -262,9 +259,9 @@ class CONTENT_EXPORT PrefetchService {
 
   // Called when the response for |prefetch_container| has started. Based on
   // |head|, returns a status to inform the |PrefetchStreamingURLLoader| whether
-  // the prefetch is servable. If servable, then |kHeadReceivedWaitingOnBody|
-  // will be returned, otherwise a valid failure status is returned.
-  PrefetchStreamingURLLoaderStatus OnPrefetchResponseStarted(
+  // the prefetch is servable. If servable, then `absl::nullopt` will be
+  // returned, otherwise a failure status is returned.
+  absl::optional<PrefetchErrorOnResponseReceived> OnPrefetchResponseStarted(
       base::WeakPtr<PrefetchContainer> prefetch_container,
       network::mojom::URLResponseHead* head);
 
@@ -369,32 +366,17 @@ class CONTENT_EXPORT PrefetchService {
 
   // Prefetches owned by |this|. Once the network request for a prefetch is
   // started, |this| takes ownership of the prefetch so the response can be used
-  // on future page loads. A timer of
-  // |PrefetchContainerLifetimeInPrefetchService| is set that deletes the
-  // prefetch. If |PrefetchContainerLifetimeInPrefetchService| zero or less,
-  // then, the prefetch is kept forever.
-  std::map<PrefetchContainer::Key,
-           std::pair<std::unique_ptr<PrefetchContainer>,
-                     std::unique_ptr<base::OneShotTimer>>>
+  // on future page loads.
+  std::map<PrefetchContainer::Key, std::unique_ptr<PrefetchContainer>>
       owned_prefetches_;
-
-  // The set of prefetches that are ready to serve. In order to be in this map,
-  // the prefetch must also be in |owned_prefetches_|, have a valid prefetched
-  // response, and have started the cookie copy process. A prefetch is added to
-  // this map when |PrepareToServe| is called on it, and once in this map, it
-  // can be returned by |GetPrefetchToServe|.
-  // The other way a prefetch could be in this map is if the prefetch matches
-  // exactly by URL and we're waiting for head.
-  //
-  // Unlike other maps, the URL in `PrefetchContainer::Key` can be different
-  // from `PrefetchContainer::GetURL()` due to No-Vary-Search.
-  std::map<PrefetchContainer::Key, base::WeakPtr<PrefetchContainer>>
-      prefetches_ready_to_serve_;
 
 // Protects against Prefetch() being called recursively.
 #if DCHECK_IS_ON()
   bool prefetch_reentrancy_guard_ = false;
 #endif
+
+  OnPrefetchResponseCompletedForTesting
+      on_prefetch_response_completed_for_testing_;
 
   SEQUENCE_CHECKER(sequence_checker_);
 

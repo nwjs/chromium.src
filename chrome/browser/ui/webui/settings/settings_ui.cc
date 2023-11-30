@@ -24,6 +24,7 @@
 #include "chrome/browser/preloading/preloading_features.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_service_factory.h"
+#include "chrome/browser/privacy_sandbox/tracking_protection_onboarding_factory.h"
 #include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
@@ -40,6 +41,7 @@
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/metrics_handler.h"
 #include "chrome/browser/ui/webui/plural_string_handler.h"
+#include "chrome/browser/ui/webui/search_engine_choice/icon_utils.h"
 #include "chrome/browser/ui/webui/settings/about_handler.h"
 #include "chrome/browser/ui/webui/settings/accessibility_main_handler.h"
 #include "chrome/browser/ui/webui/settings/appearance_handler.h"
@@ -81,6 +83,8 @@
 #include "components/account_manager_core/account_manager_facade.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/commerce/core/shopping_service.h"
+#include "components/compose/buildflags.h"
+#include "components/compose/core/browser/compose_features.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -92,7 +96,9 @@
 #include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_utils.h"
 #include "components/safe_browsing/core/common/features.h"
+#include "components/search_engines/search_engine_choice_utils.h"
 #include "components/signin/public/base/signin_pref_names.h"
+#include "components/signin/public/base/signin_switches.h"
 #include "components/sync/base/features.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
@@ -135,8 +141,8 @@
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
+#include "chrome/browser/ui/webui/ash/settings/pages/multidevice/multidevice_handler.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/people/account_manager_ui_handler.h"
-#include "chrome/browser/ui/webui/settings/ash/multidevice_handler.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/grit/browser_resources.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
@@ -311,6 +317,16 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
         ->FetchPriceEmailPref();
   }
 
+  const bool is_search_engine_choice_settings_ui =
+      base::FeatureList::IsEnabled(switches::kSearchEngineChoiceSettingsUi) &&
+      search_engines::IsChoiceScreenFlagEnabled(
+          search_engines::ChoicePromo::kAny);
+  html_source->AddBoolean("searchEngineChoiceSettingsUi",
+                          is_search_engine_choice_settings_ui);
+  if (is_search_engine_choice_settings_ui) {
+    AddGeneratedIconResources(html_source, /*directory=*/"images/");
+  }
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   html_source->AddBoolean(
       "userCannotManuallyEnterPassword",
@@ -344,16 +360,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           base::FeatureList::IsEnabled(features::kPrivacyGuide3));
 
   html_source->AddBoolean(
-      "enableExtendedSettingsDescriptions",
-      base::FeatureList::IsEnabled(features::kExtendedSettingsDescriptions));
-
-  html_source->AddBoolean("esbSettingsImprovementsEnabled",
-                          base::FeatureList::IsEnabled(
-                              safe_browsing::kEsbIphBubbleAndCollapseSettings));
+      "enableCbdTimeframeRequired",
+      base::FeatureList::IsEnabled(features::kCbdTimeframeRequired));
 
   html_source->AddBoolean(
-      "enableEsbCollapse",
-      safe_browsing::kEsbIphBubbleAndCollapseSettingsEnableCollapse.Get());
+      "enableExtendedSettingsDescriptions",
+      base::FeatureList::IsEnabled(features::kExtendedSettingsDescriptions));
 
   html_source->AddBoolean(
       "enableFriendlierSafeBrowsingSettings",
@@ -372,6 +384,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(features::kPageContentOptIn) ||
           base::FeatureList::IsEnabled(
               companion::features::kCompanionEnablePageContent));
+
+#if BUILDFLAG(ENABLE_COMPOSE)
+  html_source->AddBoolean(
+      "enableComposeSetting",
+      base::FeatureList::IsEnabled(compose::features::kEnableCompose));
+#endif
 
   html_source->AddBoolean(
       "downloadBubblePartialViewControlledByPref",
@@ -426,6 +444,12 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
   plural_string_handler->AddLocalizedString(
       "safetyCheckUnusedSitePermissionsToastBulkLabel",
       IDS_SETTINGS_SAFETY_CHECK_UNUSED_SITE_PERMISSIONS_TOAST_BULK_LABEL);
+  plural_string_handler->AddLocalizedString(
+      "safetyHubNotificationPermissionsPrimaryLabel",
+      IDS_SETTINGS_SAFETY_HUB_NOTIFICATION_PERMISSIONS_PRIMARY_LABEL);
+  plural_string_handler->AddLocalizedString(
+      "safetyHubNotificationPermissionsSecondaryLabel",
+      IDS_SETTINGS_SAFETY_HUB_NOTIFICATION_PERMISSIONS_SECONDARY_LABEL);
   web_ui->AddMessageHandler(std::move(plural_string_handler));
 
   // Add the metrics handler to write uma stats.
@@ -494,6 +518,13 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
       "is3pcdCookieSettingsRedesignEnabled",
       TrackingProtectionSettingsFactory::GetForProfile(profile)
           ->IsTrackingProtection3pcdEnabled());
+  auto* onboarding_service =
+      TrackingProtectionOnboardingFactory::GetForProfile(profile);
+  html_source->AddBoolean(
+      "showTrackingProtectionSettingsRollbackNotice",
+      onboarding_service && onboarding_service->IsOffboarded() &&
+          base::FeatureList::IsEnabled(
+              privacy_sandbox::kTrackingProtectionSettingsPageRollbackNotice));
 
   // Performance
   AddSettingsPageUIHandler(std::make_unique<PerformanceHandler>());

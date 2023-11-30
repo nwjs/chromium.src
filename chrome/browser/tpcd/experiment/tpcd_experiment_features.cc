@@ -8,6 +8,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
+#include "components/content_settings/core/common/features.h"
 #include "content/public/common/content_features.h"
 
 namespace tpcd::experiment {
@@ -79,5 +80,59 @@ const base::FeatureParam<bool> kExcludePwaOrTwaInstalled{
     /*name=*/kExcludePwaOrTwaInstalledName,
     /*default_value=*/true};
 #endif
+
+const char kTpcdWritePopupCurrentInteractionHeuristicsGrantsName[] =
+    "TpcdWritePopupCurrentInteractionHeuristicsGrants";
+const char kTpcdWritePopupPastInteractionHeuristicsGrantsName[] =
+    "TpcdWritePopupPastInteractionHeuristicsGrants";
+const char kTpcdBackfillPopupHeuristicsGrantsName[] =
+    "TpcdBackfillPopupHeuristicsGrants";
+const char kTpcdPopupHeuristicDisableForAdTaggedPopupsName[] =
+    "TpcdPopupHeuristicDisableForAdTaggedPopups";
+const char kTpcdPopupHeuristicEnableForIframeInitiatorName[] =
+    "TpcdPopupHeuristicEnableForIframeInitiator";
+const char kTpcdWriteRedirectHeuristicGrantsName[] =
+    "TpcdWriteRedirectHeuristicGrants";
+const char kTpcdRedirectHeuristicRequireABAFlowName[] =
+    "TpcdRedirectHeuristicRequireABAFlow";
+const char kTpcdRedirectHeuristicRequireCurrentInteractionName[] =
+    "TpcdRedirectHeuristicRequireCurrentInteraction";
+
+const base::FeatureParam<base::TimeDelta>
+    kTpcdWritePopupCurrentInteractionHeuristicsGrants{
+        &content_settings::features::kTpcdHeuristicsGrants,
+        kTpcdWritePopupCurrentInteractionHeuristicsGrantsName,
+        base::TimeDelta()};
+
+const base::FeatureParam<base::TimeDelta>
+    kTpcdWritePopupPastInteractionHeuristicsGrants{
+        &content_settings::features::kTpcdHeuristicsGrants,
+        kTpcdWritePopupPastInteractionHeuristicsGrantsName, base::TimeDelta()};
+
+const base::FeatureParam<base::TimeDelta> kTpcdBackfillPopupHeuristicsGrants{
+    &content_settings::features::kTpcdHeuristicsGrants,
+    kTpcdBackfillPopupHeuristicsGrantsName, base::TimeDelta()};
+
+const base::FeatureParam<bool> kTpcdPopupHeuristicDisableForAdTaggedPopups{
+    &content_settings::features::kTpcdHeuristicsGrants,
+    kTpcdPopupHeuristicDisableForAdTaggedPopupsName, false};
+
+const base::FeatureParam<EnableForIframeTypes>
+    kTpcdPopupHeuristicEnableForIframeInitiator{
+        &content_settings::features::kTpcdHeuristicsGrants,
+        kTpcdPopupHeuristicEnableForIframeInitiatorName,
+        EnableForIframeTypes::kNone, &kEnableForIframeTypesOptions};
+
+const base::FeatureParam<base::TimeDelta> kTpcdWriteRedirectHeuristicGrants{
+    &content_settings::features::kTpcdHeuristicsGrants,
+    kTpcdWriteRedirectHeuristicGrantsName, base::TimeDelta()};
+
+const base::FeatureParam<bool> kTpcdRedirectHeuristicRequireABAFlow{
+    &content_settings::features::kTpcdHeuristicsGrants,
+    kTpcdRedirectHeuristicRequireABAFlowName, true};
+
+const base::FeatureParam<bool> kTpcdRedirectHeuristicRequireCurrentInteraction{
+    &content_settings::features::kTpcdHeuristicsGrants,
+    kTpcdRedirectHeuristicRequireCurrentInteractionName, true};
 
 }  // namespace tpcd::experiment

@@ -4,7 +4,6 @@
 
 #include "chrome/browser/ash/policy/reporting/metrics_reporting/fatal_crash/fatal_crash_events_observer.h"
 
-#include <sstream>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -12,15 +11,18 @@
 #include "ash/public/cpp/session/session_types.h"
 #include "ash/shell.h"
 #include "base/files/file_path.h"
-#include "base/files/file_util.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
-#include "base/no_destructor.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/sequence_checker.h"
-#include "base/strings/string_number_conversions.h"
-#include "base/strings/string_split.h"
-#include "base/strings/string_util.h"
+#include "base/task/sequenced_task_runner.h"
+#include "base/task/task_runner.h"
+#include "base/task/thread_pool.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
+#include "base/values.h"
+#include "chrome/browser/ash/policy/reporting/metrics_reporting/fatal_crash/fatal_crash_events_observer_reported_local_id_manager.h"
+#include "chrome/browser/ash/policy/reporting/metrics_reporting/fatal_crash/fatal_crash_events_observer_uploaded_crash_info_manager.h"
 #include "chromeos/ash/services/cros_healthd/public/cpp/service_connection.h"
 #include "components/reporting/proto/synced/metric_data.pb.h"
 #include "components/user_manager/user_type.h"
@@ -30,11 +32,15 @@ namespace reporting {
 
 using ::ash::cros_healthd::mojom::CrashEventInfo;
 using ::ash::cros_healthd::mojom::CrashEventInfoPtr;
+using ::ash::cros_healthd::mojom::CrashUploadInfoPtr;
 
 namespace {
 
-constexpr std::string_view kDefaultReportedLocalIdFilePath =
+constexpr std::string_view kDefaultReportedLocalIdSaveFilePath =
     "/var/lib/reporting/crash_events/REPORTED_LOCAL_IDS";
+constexpr std::string_view kDefaultUploadedCrashInfoSaveFilePath =
+    "/var/lib/reporting/crash_events/UPLOADED_CRASH_INFO";
+constexpr base::TimeDelta kDefaultBackoffTimeForLoading = base::Seconds(5);
 
 // Get current user session.
 const ash::UserSession* GetCurrentUserSession() {
@@ -82,14 +88,21 @@ absl::optional<std::string> GetUserEmail(const ash::UserSession* user_session) {
 
 FatalCrashEventsObserver::FatalCrashEventsObserver()
     : FatalCrashEventsObserver(
-          base::FilePath(kDefaultReportedLocalIdFilePath)) {}
+          base::FilePath(kDefaultReportedLocalIdSaveFilePath),
+          base::FilePath(kDefaultUploadedCrashInfoSaveFilePath),
+          kDefaultBackoffTimeForLoading) {}
 
 FatalCrashEventsObserver::FatalCrashEventsObserver(
-    base::FilePath reported_local_id_save_file)
+    base::FilePath reported_local_id_save_file,
+    base::FilePath uploaded_crash_info_save_file,
+    base::TimeDelta backoff_time_for_loading)
     : MojoServiceEventsObserverBase<ash::cros_healthd::mojom::EventObserver>(
           this),
       reported_local_id_manager_{ReportedLocalIdManager::Create(
-          std::move(reported_local_id_save_file))} {}
+          std::move(reported_local_id_save_file))},
+      uploaded_crash_info_manager_{UploadedCrashInfoManager::Create(
+          std::move(uploaded_crash_info_save_file))},
+      backoff_time_for_loading_{backoff_time_for_loading} {}
 
 FatalCrashEventsObserver::~FatalCrashEventsObserver() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -102,18 +115,37 @@ std::unique_ptr<FatalCrashEventsObserver> FatalCrashEventsObserver::Create() {
 
 // static
 int64_t FatalCrashEventsObserver::ConvertTimeToMicroseconds(base::Time t) {
-  return t.ToJavaTime() * base::Time::kMicrosecondsPerMillisecond;
+  return t.InMillisecondsSinceUnixEpoch() *
+         base::Time::kMicrosecondsPerMillisecond;
 }
 
-void FatalCrashEventsObserver::SetSkippedCrashCallback(
+void FatalCrashEventsObserver::SetSkippedUnuploadedCrashCallback(
     base::RepeatingCallback<void(LocalIdEntry)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  skipped_callback_ = std::move(callback);
+  skipped_unuploaded_callback_ = std::move(callback);
+}
+
+void FatalCrashEventsObserver::SetSkippedUploadedCrashCallback(
+    SkippedUploadedCrashCallback callback) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  skipped_uploaded_callback_ = std::move(callback);
 }
 
 void FatalCrashEventsObserver::OnEvent(
-    const ash::cros_healthd::mojom::EventInfoPtr info) {
+    ash::cros_healthd::mojom::EventInfoPtr info) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (!AreLoaded()) {
+    // If save files are still being loaded, wait for
+    // `backoff_time_for_loading_` (5 seconds in production code).
+    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&FatalCrashEventsObserver::OnEvent,
+                       weak_factory_.GetWeakPtr(), std::move(info)),
+        backoff_time_for_loading_);
+    return;
+  }
+
   if (!info->is_crash_event_info()) {
     return;
   }
@@ -122,18 +154,33 @@ void FatalCrashEventsObserver::OnEvent(
   if (crash_event_info->upload_info.is_null()) {
     // Unuploaded crash. Need to look up whether the crash has been reported or
     // not.
-    if (auto capture_timestamp_us =
-            ConvertTimeToMicroseconds(crash_event_info->capture_time);
-        !reported_local_id_manager_->ShouldReport(crash_event_info->local_id,
-                                                  capture_timestamp_us)) {
-      // Crash is already reported. Skip.
-      skipped_callback_.Run({.local_id = std::move(crash_event_info->local_id),
-                             .capture_timestamp_us = capture_timestamp_us});
+    const auto capture_timestamp_us =
+        ConvertTimeToMicroseconds(crash_event_info->capture_time);
+    const auto should_report_result = reported_local_id_manager_->ShouldReport(
+        crash_event_info->local_id, capture_timestamp_us);
+    // Currently impossible to reach `ShouldReportResult::kNegativeTimestamp`,
+    // as it can only happen when loading a save file.
+    base::UmaHistogramEnumeration(kUmaUnuploadedCrashShouldNotReportReason,
+                                  should_report_result);
+    if (should_report_result !=
+        ReportedLocalIdManager::ShouldReportResult::kYes) {
+      skipped_unuploaded_callback_.Run(
+          {.local_id = std::move(crash_event_info->local_id),
+           .capture_timestamp_us = capture_timestamp_us});
+      return;
+    }
+  } else {
+    // Uploaded crash.
+    if (!uploaded_crash_info_manager_->ShouldReport(
+            crash_event_info->upload_info)) {
+      // The crash is from an earlier part of uploads.log. Skip.
+      const auto& upload_info = crash_event_info->upload_info;
+      skipped_uploaded_callback_.Run(upload_info->crash_report_id,
+                                     upload_info->creation_time,
+                                     upload_info->offset);
       return;
     }
   }
-  // TODO(b/266018440): If the crash is found to have been uploaded, need to
-  // remove it from reported local IDs.
 
   MetricData metric_data = FillFatalCrashTelemetry(crash_event_info);
   OnEventObserved(std::move(metric_data));
@@ -151,6 +198,18 @@ void FatalCrashEventsObserver::OnEvent(
       LOG(ERROR) << "Failed to update local ID: " << crash_event_info->local_id;
       return;
     }
+  } else {
+    // Uploaded crash.
+    uploaded_crash_info_manager_->Update(
+        crash_event_info->upload_info->creation_time,
+        crash_event_info->upload_info->offset);
+    // Once uploaded, the crash's local ID must be removed from saved local IDs.
+    // Reason is that when the number of saved local IDs reach the max, the
+    // crash with the earliest capture time will be removed. However, crashes do
+    // not come in the order of capture time. If we leave uploaded crashes in
+    // the saved local IDs, some late-coming crashes with early capture time may
+    // not get reported because of this.
+    reported_local_id_manager_->Remove(crash_event_info->local_id);
   }
 }
 
@@ -160,6 +219,12 @@ void FatalCrashEventsObserver::AddObserver() {
       ->GetEventService()
       ->AddEventObserver(ash::cros_healthd::mojom::EventCategoryEnum::kCrash,
                          BindNewPipeAndPassRemote());
+}
+
+bool FatalCrashEventsObserver::AreLoaded() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // TODO(b/266018440): Also off-load uploaded_crash_info_manager_'s save file.
+  return reported_local_id_manager_->IsLoaded();
 }
 
 MetricData FatalCrashEventsObserver::FillFatalCrashTelemetry(
@@ -195,10 +260,12 @@ MetricData FatalCrashEventsObserver::FillFatalCrashTelemetry(
   data.set_timestamp_us(ConvertTimeToMicroseconds(info->capture_time));
   if (!info->upload_info.is_null()) {
     *data.mutable_crash_report_id() = info->upload_info->crash_report_id;
+    // If reported_local_id_manager_->HasBeenReported indicates a crash with the
+    // same local ID has been reported, it implies that it has been reported
+    // once as an unuploaded crash, which does not have a crash report ID.
+    data.set_been_reported_without_crash_report_id(
+        reported_local_id_manager_->HasBeenReported(data.local_id()));
   }
-
-  // TODO(b/266018440): was_reported_without_id is not filled. It involves logic
-  // related to determining whether a crash event should be reported.
 
   return metric_data;
 }
@@ -208,141 +275,4 @@ void FatalCrashEventsObserver::SetInterruptedAfterEventObservedForTest(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   interrupted_after_event_observed_for_test_ = interrupted_after_event_observed;
 }
-
-FatalCrashEventsObserver::ReportedLocalIdManager::ReportedLocalIdManager(
-    base::FilePath save_file_path)
-    : save_file_{std::move(save_file_path)} {
-  LoadSaveFile();
-}
-
-FatalCrashEventsObserver::ReportedLocalIdManager::~ReportedLocalIdManager() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-}
-
-// static
-std::unique_ptr<FatalCrashEventsObserver::ReportedLocalIdManager>
-FatalCrashEventsObserver::ReportedLocalIdManager::Create(
-    base::FilePath save_file_path) {
-  return base::WrapUnique(
-      new ReportedLocalIdManager(std::move(save_file_path)));
-}
-
-bool FatalCrashEventsObserver::ReportedLocalIdManager::ShouldReport(
-    const std::string& local_id,
-    int64_t capture_timestamp_us) const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  CHECK_EQ(local_id_entries_.size(), local_ids_.size());
-
-  if (capture_timestamp_us < 0) {
-    // Only possible when loading a corrupt save file.
-    LOG(ERROR) << "Negative timestamp found: " << local_id << ','
-               << capture_timestamp_us;
-    return false;
-  }
-
-  // Local ID already reported.
-  if (local_ids_.find(local_id) != local_ids_.end()) {
-    return false;
-  }
-  // Max number of crash events reached and the current crash event is too old.
-  if (local_id_entries_.size() >= kMaxNumOfLocalIds &&
-      capture_timestamp_us <= local_id_entries_.top().capture_timestamp_us) {
-    return false;
-  }
-
-  return true;
-}
-
-bool FatalCrashEventsObserver::ReportedLocalIdManager::UpdateLocalId(
-    const std::string& local_id,
-    int64_t capture_timestamp_us) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  if (!ShouldReport(local_id, capture_timestamp_us)) {
-    return false;
-  }
-
-  // Remove the oldest local ID if too many local IDs are saved.
-  if (local_ids_.size() >= kMaxNumOfLocalIds) {
-    local_ids_.erase(local_id_entries_.top().local_id);
-    local_id_entries_.pop();
-  }
-
-  CHECK(local_ids_.try_emplace(local_id, capture_timestamp_us).second)
-      << "Local ID " << local_id << " already saved while trying to emplace.";
-  local_id_entries_.emplace(local_id, capture_timestamp_us);
-  WriteSaveFile();
-
-  return true;
-}
-
-void FatalCrashEventsObserver::ReportedLocalIdManager::LoadSaveFile() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!base::PathExists(save_file_)) {
-    // File has never been written yet, skip loading it.
-    return;
-  }
-
-  std::string content;
-  if (!base::ReadFileToString(save_file_, &content)) {
-    LOG(ERROR) << "Failed to read save file: " << save_file_;
-    return;
-  }
-
-  // Parse the CSV file line by line. If one line is erroneous, stop parsing the
-  // rest.
-  for (const auto line : base::SplitStringPiece(
-           content, "\n", base::KEEP_WHITESPACE, base::SPLIT_WANT_NONEMPTY)) {
-    // Parse.
-    const auto csv_line_items = base::SplitStringPiece(
-        base::TrimWhitespaceASCII(line, base::TRIM_ALL), ",",
-        base::KEEP_WHITESPACE, base::SPLIT_WANT_ALL);
-    if (csv_line_items.size() != 2u) {
-      LOG(ERROR) << "CSV line does not contain 2 rows: " << line;
-      return;
-    }
-
-    const auto local_id = csv_line_items[0];
-    int64_t capture_timestamp_us;
-    if (!base::StringToInt64(csv_line_items[1], &capture_timestamp_us)) {
-      LOG(ERROR) << "Failed to parse the timestamp: " << line;
-      return;
-    }
-
-    // Load to RAM.
-    if (!UpdateLocalId(std::string(local_id), capture_timestamp_us)) {
-      LOG(ERROR) << "Not able to add the current crash: " << line;
-      return;
-    }
-  }
-}
-
-void FatalCrashEventsObserver::ReportedLocalIdManager::WriteSaveFile() const {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  // Create the content of the CSV.
-  std::ostringstream csv_content;
-  for (const auto& [local_id, capture_timestamp_us] : local_ids_) {
-    csv_content << local_id << ',' << capture_timestamp_us << '\n';
-  }
-
-  // Write to the temp save file first, then rename it to the official save
-  // file. This would prevent partly written file to be effective, as renaming
-  // within the same partition is atomic on POSIX systems.
-  if (!base::WriteFile(save_file_tmp_, csv_content.str())) {
-    LOG(ERROR) << "Failed to write save file " << save_file_tmp_;
-    return;
-  }
-  if (base::File::Error err;
-      !base::ReplaceFile(save_file_tmp_, save_file_, &err)) {
-    LOG(ERROR) << "Failed to move file from " << save_file_tmp_ << " to "
-               << save_file_ << ": " << err;
-    return;
-  }
-}
-
-bool FatalCrashEventsObserver::ReportedLocalIdManager::LocalIdEntryComparator::
-operator()(const LocalIdEntry& a, const LocalIdEntry& b) const {
-  return a.capture_timestamp_us > b.capture_timestamp_us;
-}
-
 }  // namespace reporting

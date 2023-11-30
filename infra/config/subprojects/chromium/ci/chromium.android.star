@@ -65,8 +65,10 @@ ci.builder(
     ),
     builderless = False,
     cores = None,
-    # TODO(crbug.com/1486663): Restore tree-closing when bot is fixed.
+    # TODO(crbug.com/1486663): Restore tree-closing and sheriff rotation if/when
+    # bot is fixed.
     # tree_closing = True,
+    sheriff_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "builder|arm",
         short_name = "san",
@@ -76,43 +78,6 @@ ci.builder(
     # build.
     # TODO(crbug.com/1395760): Check why the compile takes longer time.
     execution_timeout = 8 * time.hour,
-)
-
-ci.thin_tester(
-    name = "Android WebView N (dbg)",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    triggered_by = ["ci/Android arm64 Builder (dbg)"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "download_xr_test_apks",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "main_builder_mb",
-            apply_configs = [
-                "remove_all_system_webviews",
-            ],
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|webview",
-        short_name = "N",
-    ),
-    cq_mirrors_console_view = "mirrors",
-    contact_team_email = "woa-engprod@google.com",
 )
 
 ci.thin_tester(
@@ -516,40 +481,6 @@ ci.builder(
 )
 
 ci.thin_tester(
-    name = "Nougat Phone Tester",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    triggered_by = ["ci/Android arm64 Builder (dbg)"],
-    builder_spec = builder_config.builder_spec(
-        execution_mode = builder_config.execution_mode.TEST,
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = [
-                "android",
-            ],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            apply_configs = [
-                "download_xr_test_apks",
-            ],
-            build_config = builder_config.build_config.DEBUG,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "main_builder_mb",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    console_view_entry = consoles.console_view_entry(
-        category = "tester|phone",
-        short_name = "N",
-    ),
-    cq_mirrors_console_view = "mirrors",
-    contact_team_email = "clank-engprod@google.com",
-)
-
-ci.thin_tester(
     name = "Oreo Phone Tester",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     triggered_by = ["ci/Android arm64 Builder (dbg)"],
@@ -751,6 +682,7 @@ ci.builder(
         short_name = "dbg",
     ),
     cq_mirrors_console_view = "mirrors",
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -785,6 +717,7 @@ ci.builder(
         short_name = "rel",
     ),
     cq_mirrors_console_view = "mirrors",
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -813,6 +746,7 @@ ci.builder(
         category = "cronet|arm64",
         short_name = "dbg",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -841,6 +775,7 @@ ci.builder(
         category = "cronet|arm64",
         short_name = "rel",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -868,6 +803,7 @@ ci.builder(
     console_view_entry = consoles.console_view_entry(
         category = "cronet|asan",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -897,6 +833,7 @@ ci.builder(
         category = "cronet|mainline_clang|arm64",
         short_name = "dbg",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -926,6 +863,7 @@ ci.builder(
         category = "cronet|mainline_clang|arm64",
         short_name = "rel",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -960,6 +898,7 @@ ci.builder(
         category = "cronet|mainline_clang|x86",
         short_name = "dbg",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -989,6 +928,7 @@ ci.builder(
         category = "cronet|mainline_clang|x86",
         short_name = "rel",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1004,7 +944,7 @@ ci.builder(
         category = "cronet|test|perf",
         short_name = "m",
     ),
-    contact_team_email = "clank-engprod@google.com",
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
     reclient_jobs = reclient.jobs.DEFAULT,
 )
@@ -1039,6 +979,7 @@ ci.builder(
         category = "cronet|x86",
         short_name = "dbg",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1072,6 +1013,7 @@ ci.builder(
         category = "cronet|x64",
         short_name = "dbg",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1104,8 +1046,9 @@ ci.thin_tester(
     sheriff_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "cronet|test",
-        short_name = "s",
+        short_name = "12",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1138,8 +1081,45 @@ ci.thin_tester(
     sheriff_rotations = args.ignore_default(None),
     console_view_entry = consoles.console_view_entry(
         category = "cronet|test",
-        short_name = "t",
+        short_name = "13",
     ),
+    contact_team_email = "cronet-team@google.com",
+    notifies = ["cronet"],
+)
+
+ci.thin_tester(
+    name = "android-cronet-x64-dbg-14-tests",
+    description_html = "Tests Cronet against Android 14",
+    triggered_by = ["ci/android-cronet-x64-dbg"],
+    builder_spec = builder_config.builder_spec(
+        execution_mode = builder_config.execution_mode.TEST,
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "android",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "android",
+            apply_configs = [
+                "cronet_builder",
+                "mb",
+            ],
+            build_config = builder_config.build_config.DEBUG,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.ANDROID,
+        ),
+        android_config = builder_config.android_config(
+            config = "x64_builder",
+        ),
+        build_gs_bucket = "chromium-android-archive",
+    ),
+    sheriff_rotations = args.ignore_default(None),
+    console_view_entry = consoles.console_view_entry(
+        category = "cronet|test",
+        short_name = "14",
+    ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1174,6 +1154,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "l",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1208,6 +1189,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "m",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1242,6 +1224,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "n",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1276,6 +1259,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "o",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1310,6 +1294,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "p",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1345,6 +1330,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "10",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1379,6 +1365,7 @@ ci.thin_tester(
         category = "cronet|test",
         short_name = "11",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1407,6 +1394,7 @@ ci.builder(
         category = "cronet|x86",
         short_name = "rel",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
@@ -1435,11 +1423,12 @@ ci.builder(
         category = "cronet|x64",
         short_name = "rel",
     ),
+    contact_team_email = "cronet-team@google.com",
     notifies = ["cronet"],
 )
 
 ci.builder(
-    name = "android-nougat-x86-rel",
+    name = "android-oreo-x86-rel",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
@@ -1460,35 +1449,6 @@ ci.builder(
     tree_closing = True,
     console_view_entry = consoles.console_view_entry(
         category = "on_cq|x86",
-        short_name = "N",
-    ),
-    contact_team_email = "clank-engprod@google.com",
-    execution_timeout = 4 * time.hour,
-)
-
-# TODO(crbug.com/1459433): Enable the branch once the builder is ready.
-ci.builder(
-    name = "android-oreo-x86-rel",
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-            apply_configs = ["android", "enable_wpr_tests"],
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "android",
-            build_config = builder_config.build_config.RELEASE,
-            target_bits = 32,
-            target_platform = builder_config.target_platform.ANDROID,
-        ),
-        android_config = builder_config.android_config(
-            config = "x86_builder_mb",
-        ),
-        build_gs_bucket = "chromium-android-archive",
-    ),
-    tree_closing = True,
-    # TODO(crbug.com/1459433): Update the console view config once on CQ
-    console_view_entry = consoles.console_view_entry(
-        category = "builder_tester|x86",
         short_name = "O",
     ),
     contact_team_email = "clank-engprod@google.com",

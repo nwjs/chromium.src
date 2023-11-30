@@ -15,7 +15,7 @@
 #import "ios/chrome/browser/policy/policy_util.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/snapshots/snapshot_browser_agent.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_consumer.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_toolbars_mutator.h"
@@ -134,19 +134,19 @@ bool ShouldFilterWebSitesForSupervisedUsers() {
   [self.toolbarsMutator setToolbarsButtonsDelegate:self];
 
   BOOL authenticationRequired = self.reauthSceneAgent.authenticationRequired;
+  if (_incognitoDisabled || authenticationRequired) {
+    [self.toolbarsMutator setToolbarConfiguration:[TabGridToolbarsConfiguration
+                                                      disabledConfiguration]];
+    return;
+  }
 
   TabGridToolbarsConfiguration* toolbarsConfiguration =
       [[TabGridToolbarsConfiguration alloc] init];
-  toolbarsConfiguration.closeAllButton =
-      (!authenticationRequired && !self.webStateList->empty());
-  toolbarsConfiguration.doneButton = !authenticationRequired;
-  toolbarsConfiguration.newTabButton =
-      (!authenticationRequired &&
-       IsAddNewTabAllowedByPolicy(self.browser->GetBrowserState()->GetPrefs(),
-                                  YES));
+  toolbarsConfiguration.closeAllButton = !self.webStateList->empty();
+  toolbarsConfiguration.doneButton = YES;
+  toolbarsConfiguration.newTabButton = YES;
   toolbarsConfiguration.searchButton = YES;
-  toolbarsConfiguration.selectTabsButton =
-      (!authenticationRequired && !self.webStateList->empty());
+  toolbarsConfiguration.selectTabsButton = !self.webStateList->empty();
   [self.toolbarsMutator setToolbarConfiguration:toolbarsConfiguration];
 }
 

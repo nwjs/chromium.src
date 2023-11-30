@@ -21,7 +21,7 @@ std::ostream& operator<<(std::ostream& o, ServerFieldTypeSet field_type_set) {
     } else {
       first = false;
     }
-    o << FieldTypeToStringPiece(type);
+    o << FieldTypeToStringView(type);
   }
   o << "]";
   return o;
@@ -251,7 +251,7 @@ bool IsFillableFieldType(ServerFieldType field_type) {
   return false;
 }
 
-std::string_view FieldTypeToStringPiece(ServerFieldType type) {
+std::string_view FieldTypeToStringView(ServerFieldType type) {
   static const base::NoDestructor<
       base::flat_map<ServerFieldType, std::string_view>>
       kFieldTypeToTypeName(base::MakeFlatMap<ServerFieldType, std::string_view>(
@@ -264,6 +264,10 @@ std::string_view FieldTypeToStringPiece(ServerFieldType type) {
     return it->second;
   }
   NOTREACHED_NORETURN();
+}
+
+std::string FieldTypeToString(ServerFieldType type) {
+  return std::string(FieldTypeToStringView(type));
 }
 
 ServerFieldType TypeNameToFieldType(std::string_view type_name) {
@@ -550,6 +554,7 @@ FieldTypeGroup GroupTypeOfServerFieldType(ServerFieldType field_type) {
     case FIELD_WITH_DEFAULT_VALUE:
     case MERCHANT_EMAIL_SIGNUP:
     case MERCHANT_PROMO_CODE:
+    case ONE_TIME_CODE:
       return FieldTypeGroup::kNoGroup;
 
     case USERNAME:
@@ -563,7 +568,6 @@ FieldTypeGroup GroupTypeOfServerFieldType(ServerFieldType field_type) {
     case PRICE:
     case SEARCH_TERM:
     case NUMERIC_QUANTITY:
-    case ONE_TIME_CODE:
       return FieldTypeGroup::kUnfillable;
 
     case UNKNOWN_TYPE:
@@ -647,7 +651,7 @@ FieldTypeGroup GroupTypeOfHtmlFieldType(HtmlFieldType field_type) {
       return FieldTypeGroup::kNoGroup;
 
     case HtmlFieldType::kIban:
-      return FieldTypeGroup::kNoGroup;
+      return FieldTypeGroup::kIban;
 
     case HtmlFieldType::kUnspecified:
     case HtmlFieldType::kUnrecognized:
@@ -787,12 +791,14 @@ ServerFieldType HtmlFieldTypeToBestCorrespondingServerFieldType(
     case HtmlFieldType::kOneTimeCode:
       return ONE_TIME_CODE;
 
+    case HtmlFieldType::kIban:
+      return IBAN_VALUE;
+
     // These types aren't stored; they're transient.
     case HtmlFieldType::kUpiVpa:
     case HtmlFieldType::kTransactionAmount:
     case HtmlFieldType::kTransactionCurrency:
     case HtmlFieldType::kMerchantPromoCode:
-    case HtmlFieldType::kIban:
       return UNKNOWN_TYPE;
 
     case HtmlFieldType::kUnrecognized:

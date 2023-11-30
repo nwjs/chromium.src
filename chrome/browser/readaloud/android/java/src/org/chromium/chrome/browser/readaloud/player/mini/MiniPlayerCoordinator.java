@@ -4,8 +4,14 @@
 
 package org.chromium.chrome.browser.readaloud.player.mini;
 
+import android.app.Activity;
+import android.content.Context;
+import android.view.LayoutInflater;
 import android.view.ViewStub;
 
+import androidx.annotation.VisibleForTesting;
+
+import org.chromium.chrome.browser.readaloud.player.R;
 import org.chromium.chrome.browser.readaloud.player.VisibilityState;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -13,17 +19,43 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 
 /** Coordinator responsible for Read Aloud mini player lifecycle. */
 public class MiniPlayerCoordinator {
-    private final ViewStub mViewStub;
     private final PropertyModel mModel;
-    private PropertyModelChangeProcessor<PropertyModel, MiniPlayerLayout, PropertyKey>
+    private final PropertyModelChangeProcessor<PropertyModel, MiniPlayerLayout, PropertyKey>
             mModelChangeProcessor;
-    private MiniPlayerMediator mMediator;
-    private MiniPlayerLayout mLayout;
+    private final MiniPlayerMediator mMediator;
+    private final MiniPlayerLayout mLayout;
 
-    public MiniPlayerCoordinator(ViewStub viewStub, PropertyModel model) {
-        assert viewStub != null;
-        mViewStub = viewStub;
+    /**
+     * @param activity App activity containing a placeholder FrameLayout with ID
+     *     R.id.readaloud_mini_player.
+     * @param context View-inflation-capable Context for read_aloud_playback isolated split.
+     * @param model Player UI property model.
+     */
+    public MiniPlayerCoordinator(Activity activity, Context context, PropertyModel model) {
+        this(model, new MiniPlayerMediator(model), inflateLayout(activity, context));
+    }
+
+    private static MiniPlayerLayout inflateLayout(Activity activity, Context context) {
+        ViewStub stub = activity.findViewById(R.id.readaloud_mini_player_stub);
+        assert stub != null;
+        stub.setLayoutResource(R.layout.readaloud_mini_player_layout);
+        stub.setLayoutInflater(LayoutInflater.from(context));
+        return (MiniPlayerLayout) stub.inflate();
+    }
+
+    @VisibleForTesting
+    MiniPlayerCoordinator(
+            PropertyModel model, MiniPlayerMediator mediator, MiniPlayerLayout layout) {
         mModel = model;
+        mModelChangeProcessor =
+                PropertyModelChangeProcessor.create(mModel, layout, MiniPlayerViewBinder::bind);
+        mMediator = mediator;
+        mLayout = layout;
+        assert layout != null;
+    }
+
+    public void destroy() {
+        mLayout.destroy();
     }
 
     /**
@@ -32,12 +64,6 @@ public class MiniPlayerCoordinator {
      *         instantly appear.
      */
     public void show(boolean animate) {
-        if (mLayout == null) {
-            mLayout = (MiniPlayerLayout) mViewStub.inflate();
-            mModelChangeProcessor = PropertyModelChangeProcessor.create(
-                    mModel, mLayout, MiniPlayerViewBinder::bind);
-            mMediator = new MiniPlayerMediator(mModel);
-        }
         mMediator.show(animate);
     }
 
@@ -45,9 +71,6 @@ public class MiniPlayerCoordinator {
      * Returns the mini player visibility state.
      */
     public @VisibilityState int getVisibility() {
-        if (mMediator == null) {
-            return VisibilityState.GONE;
-        }
         return mMediator.getVisibility();
     }
 
@@ -60,9 +83,6 @@ public class MiniPlayerCoordinator {
      *                behind).
      */
     public void dismiss(boolean animate) {
-        if (mMediator == null) {
-            return;
-        }
         mMediator.dismiss(animate);
     }
 }

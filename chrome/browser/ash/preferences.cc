@@ -39,7 +39,6 @@
 #include "chrome/browser/ash/login/hid_detection_revamp_field_trial.h"
 #include "chrome/browser/ash/login/login_pref_names.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
-#include "chrome/browser/ash/night_light/night_light_client.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ash/settings/cros_settings.h"
 #include "chrome/browser/ash/system/input_device_settings.h"
@@ -47,7 +46,6 @@
 #include "chrome/browser/ash/system/timezone_util.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/download/download_prefs.h"
 #include "chrome/browser/prefs/pref_service_syncable_util.h"
 #include "chrome/browser/ui/ash/system_tray_client_impl.h"
@@ -445,6 +443,11 @@ void Preferences::RegisterProfilePrefs(
 
   registry->RegisterBooleanPref(::prefs::kHatsAudioDeviceIsSelected, false);
 
+  registry->RegisterInt64Pref(::prefs::kHatsBluetoothAudioSurveyCycleEndTs, 0);
+
+  registry->RegisterBooleanPref(::prefs::kHatsBluetoothAudioDeviceIsSelected,
+                                false);
+
   registry->RegisterInt64Pref(::prefs::kHatsEntSurveyCycleEndTs, 0);
 
   registry->RegisterBooleanPref(::prefs::kHatsEntDeviceIsSelected, false);
@@ -604,6 +607,10 @@ void Preferences::RegisterProfilePrefs(
                                 false);
 
   registry->RegisterBooleanPref(::prefs::kHasEverRevokedMetricsConsent, true);
+
+  registry->RegisterBooleanPref(prefs::kShowHumanPresenceSensorScreenEnabled,
+                                true);
+  registry->RegisterListPref(prefs::kUserFeedbackWithLowLevelDebugDataAllowed);
 }
 
 void Preferences::InitUserPrefs(sync_preferences::PrefServiceSyncable* prefs) {
@@ -1155,13 +1162,10 @@ void Preferences::ApplyPreferences(ApplyReason reason,
         g_browser_process->platform_part()->GetTimezoneResolverManager();
     GeolocationController* geolocation_controller =
         ash::Shell::Get()->geolocation_controller();
-    NightLightClient* night_light_client = ash::NightLightClient::Get();
 
     timezone_resolver_manager->OnSystemGeolocationPermissionChanged(
         system_geolocation_permission_enabled);
     geolocation_controller->OnSystemGeolocationPermissionChanged(
-        system_geolocation_permission_enabled);
-    night_light_client->OnSystemGeolocationPermissionChanged(
         system_geolocation_permission_enabled);
   }
 

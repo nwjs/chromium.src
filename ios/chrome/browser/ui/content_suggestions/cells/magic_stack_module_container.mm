@@ -6,12 +6,13 @@
 
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/ntp/home/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
+#import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/magic_stack_module_container_delegate.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
-#import "ios/chrome/browser/ui/content_suggestions/content_suggestions_feature.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
@@ -66,6 +67,7 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
   UILabel* _title;
   UILabel* _subtitle;
   BOOL _isPlaceholder;
+  UIButton* _seeMoreButton;
 }
 
 - (instancetype)initWithType:(ContentSuggestionsModuleType)type {
@@ -163,6 +165,8 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
           setContentHuggingPriority:UILayoutPriorityDefaultHigh
                             forAxis:UILayoutConstraintAxisHorizontal];
       [titleStackView addArrangedSubview:showMoreButton];
+      showMoreButton.accessibilityIdentifier = showMoreButton.titleLabel.text;
+      _seeMoreButton = showMoreButton;
     } else if ([self shouldShowSubtitle]) {
       // TODO(crbug.com/1474992): Update MagicStackModuleContainer to take an id
       // config in its initializer so the container can build itself from a
@@ -180,9 +184,11 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
       [_subtitle setContentHuggingPriority:UILayoutPriorityRequired
                                    forAxis:UILayoutConstraintAxisHorizontal];
       [_subtitle
-          setContentCompressionResistancePriority:UILayoutPriorityRequired
+          setContentCompressionResistancePriority:UILayoutPriorityDefaultHigh
                                           forAxis:
                                               UILayoutConstraintAxisHorizontal];
+      _subtitle.textAlignment =
+          UseRTLLayout() ? NSTextAlignmentLeft : NSTextAlignmentRight;
 
       [titleStackView addArrangedSubview:_subtitle];
     }
@@ -226,7 +232,16 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
     }
     [stackView addArrangedSubview:contentView];
 
-    self.accessibilityElements = @[ _title, contentView ];
+    NSMutableArray* accessibilityElements =
+        [[NSMutableArray alloc] initWithObjects:_title, nil];
+    if ([self shouldShowSeeMore]) {
+      [accessibilityElements addObject:_seeMoreButton];
+    }
+    [accessibilityElements addObject:contentView];
+    if ([self shouldShowSubtitle]) {
+      [accessibilityElements addObject:_subtitle];
+    }
+    self.accessibilityElements = accessibilityElements;
 
     _contentViewWidthAnchor = [contentView.widthAnchor
         constraintEqualToConstant:[self contentViewWidth]];

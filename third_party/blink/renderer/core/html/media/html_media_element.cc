@@ -139,15 +139,10 @@ using DocumentElementSetMap =
 
 namespace {
 
-// When enabled, this feature brings back the old behavior of periodically
-// dispatching the "progress" event when the source of a HTMLMediaElement is a
-// MediaStream.
-//
-// TODO(crbug.com/1260456): Cleanup in M98 if not the dispatching the "progress"
-// event periodically doesn't cause issues in M97.
-BASE_FEATURE(kRepeatProgressEventForMediaStream,
-             "RepeatProgressEventForMediaStream",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+// When enabled, CSS media queries are supported in <source> elements.
+BASE_FEATURE(kVideoSourceMediaQuerySupport,
+             "VideoSourceMediaQuerySupport",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // This enum is used to record histograms. Do not reorder.
 enum class MediaControlsShow {
@@ -724,11 +719,13 @@ bool HTMLMediaElement::SupportsFocus() const {
   return ShouldShowControls() || HTMLElement::SupportsFocus();
 }
 
-bool HTMLMediaElement::IsFocusable() const {
+bool HTMLMediaElement::IsFocusable(
+    bool disallow_layout_updates_for_accessibility_only) const {
   if (!SupportsFocus()) {
     return false;
   }
-  return !IsFullscreen() || HTMLElement::IsFocusable();
+  return !IsFullscreen() || HTMLElement::IsFocusable(
+                                disallow_layout_updates_for_accessibility_only);
 }
 
 bool HTMLMediaElement::IsKeyboardFocusable() const {
@@ -912,7 +909,7 @@ void HTMLMediaElement::LoadTimerFired(TimerBase*) {
 }
 
 MediaError* HTMLMediaElement::error() const {
-  return error_;
+  return error_.Get();
 }
 
 void HTMLMediaElement::SetSrc(const AtomicString& url) {
@@ -2086,7 +2083,7 @@ void HTMLMediaElement::SetReadyState(ReadyState state) {
           current_src_after_redirects_ == current_src_for_check
               ? ResourceRequest::RedirectStatus::kNoRedirect
               : ResourceRequest::RedirectStatus::kFollowedRedirect,
-          current_src_after_redirects_, /* devtools_id= */ absl::nullopt,
+          current_src_after_redirects_, /* devtools_id= */ String(),
           ReportingDisposition::kReport,
           GetDocument().Loader()->GetContentSecurityNotifier());
     }
@@ -2243,8 +2240,7 @@ void HTMLMediaElement::ProgressEventTimerFired() {
   // was made to periodically dispatch the "progress" event to allow updates to
   // buffering UIs. Therefore, the timer is not stopped below.
   // https://groups.google.com/a/chromium.org/g/media-dev/c/Y8ITyIFmUC0/m/avBYOy_UFwAJ
-  if (GetLoadType() == WebMediaPlayer::kLoadTypeMediaStream &&
-      !base::FeatureList::IsEnabled(kRepeatProgressEventForMediaStream)) {
+  if (GetLoadType() == WebMediaPlayer::kLoadTypeMediaStream) {
     progress_event_timer_.Stop();
   }
 
@@ -3434,7 +3430,7 @@ KURL HTMLMediaElement::SelectNextSourceChild(
   Node* node;
   HTMLSourceElement* source = nullptr;
   String type;
-  bool looking_for_start_node = next_child_node_to_consider_;
+  bool looking_for_start_node = next_child_node_to_consider_ != nullptr;
   bool can_use_source_element = false;
 
   NodeVector potential_source_nodes;
@@ -3448,8 +3444,9 @@ KURL HTMLMediaElement::SelectNextSourceChild(
     looking_for_start_node = false;
 
     source = DynamicTo<HTMLSourceElement>(node);
-    if (!source || node->parentNode() != this)
+    if (!source || node->parentNode() != this) {
       continue;
+    }
 
     // 2. If candidate does not have a src attribute, or if its src
     // attribute's value is the empty string ... jump down to the failed
@@ -3460,22 +3457,30 @@ KURL HTMLMediaElement::SelectNextSourceChild(
       DVLOG(3) << "selectNextSourceChild(" << *this << ") - 'src' is "
                << UrlForLoggingMedia(media_url);
     }
-    if (src_value.empty())
+    if (src_value.empty()) {
       goto checkAgain;
+    }
 
-    // 3. Let urlString be the resulting URL string that would have resulted
-    // from parsing the URL specified by candidate's src attribute's value
-    // relative to the candidate's node document when the src attribute was
-    // last changed.
+    // 3. If candidate has a media attribute whose value does not match the
+    // environment, then end the synchronous section, and jump down to the
+    // failed with elements step below.
+    if (!source->MediaQueryMatches() &&
+        base::FeatureList::IsEnabled(kVideoSourceMediaQuerySupport)) {
+      goto checkAgain;
+    }
+
+    // 4. Let urlRecord be the result of encoding-parsing a URL given
+    // candidate's src attribute's value, relative to candidate's node document
+    // when the src attribute was last changed.
     media_url = source->GetDocument().CompleteURL(src_value);
 
-    // 4. If urlString was not obtained successfully, then end the
-    // synchronous section, and jump down to the failed with elements step
-    // below.
-    if (!IsSafeToLoadURL(media_url, action_if_invalid))
+    // 5. If urlRecord is failure, then end the synchronous section, and jump
+    // down to the failed with elements step below.
+    if (!IsSafeToLoadURL(media_url, action_if_invalid)) {
       goto checkAgain;
+    }
 
-    // 5. If candidate has a type attribute whose value, when parsed as a
+    // 6. If candidate has a type attribute whose value, when parsed as a
     // MIME type ...
     type = source->type();
     if (type.empty() && media_url.ProtocolIsData())
@@ -3733,8 +3738,10 @@ void HTMLMediaElement::SizeChanged() {
 }
 
 WebTimeRanges HTMLMediaElement::BufferedInternal() const {
-  if (media_source_attachment_)
-    return media_source_attachment_->BufferedInternal(media_source_tracer_);
+  if (media_source_attachment_) {
+    return media_source_attachment_->BufferedInternal(
+        media_source_tracer_.Get());
+  }
 
   if (!web_media_player_)
     return {};
@@ -3763,8 +3770,10 @@ WebTimeRanges HTMLMediaElement::SeekableInternal() const {
   if (!web_media_player_)
     return {};
 
-  if (media_source_attachment_)
-    return media_source_attachment_->SeekableInternal(media_source_tracer_);
+  if (media_source_attachment_) {
+    return media_source_attachment_->SeekableInternal(
+        media_source_tracer_.Get());
+  }
 
   return web_media_player_->Seekable();
 }
@@ -4136,7 +4145,7 @@ SpeechSynthesisBase* HTMLMediaElement::SpeechSynthesis() {
     speech_synthesis_->SetOnSpeakingCompletedCallback(WTF::BindRepeating(
         &HTMLMediaElement::OnSpeakingCompleted, WrapWeakPersistent(this)));
   }
-  return speech_synthesis_;
+  return speech_synthesis_.Get();
 }
 
 void HTMLMediaElement::MediaControlsDidBecomeVisible() {
@@ -4228,7 +4237,7 @@ void HTMLMediaElement::SetShouldDelayLoadEvent(bool should_delay) {
 }
 
 MediaControls* HTMLMediaElement::GetMediaControls() const {
-  return media_controls_;
+  return media_controls_.Get();
 }
 
 void HTMLMediaElement::EnsureMediaControls() {

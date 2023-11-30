@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.js';
 
 import {ActionChoice, Button, ButtonPressObserverInterface, GraphicsTablet, GraphicsTabletObserverInterface, GraphicsTabletSettings, InputDeviceSettingsProviderInterface, Keyboard, KeyboardObserverInterface, KeyboardSettings, MetaKey, ModifierKey, Mouse, MouseObserverInterface, MouseSettings, PointingStick, PointingStickObserverInterface, PointingStickSettings, SixPackShortcutModifier, Stylus, StylusObserverInterface, Touchpad, TouchpadObserverInterface, TouchpadSettings} from './input_device_settings_types.js';
 
@@ -150,6 +150,7 @@ export class FakeInputDeviceSettingsProvider implements
 
   setFakeGraphicsTablets(graphicsTablets: GraphicsTablet[]): void {
     this.methods.setResult('fakeGraphicsTablets', graphicsTablets);
+    this.notifyGraphicsTabletListUpdated();
   }
 
   getConnectedGraphicsTabletSettings(): Promise<GraphicsTablet[]> {

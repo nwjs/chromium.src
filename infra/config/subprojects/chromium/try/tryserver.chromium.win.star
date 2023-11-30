@@ -23,6 +23,7 @@ try_.defaults.set(
     reclient_instance = reclient.instance.DEFAULT_UNTRUSTED,
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     service_account = try_.DEFAULT_SERVICE_ACCOUNT,
+    siso_configs = ["builder"],
     siso_enable_cloud_profiler = True,
     siso_enable_cloud_trace = True,
     siso_project = siso.project.DEFAULT_UNTRUSTED,
@@ -63,6 +64,7 @@ try_.builder(
     mirrors = [
         "ci/win-archive-rel",
     ],
+    contact_team_email = "chrome-desktop-engprod@google.com",
 )
 
 try_.builder(
@@ -142,6 +144,7 @@ try_.builder(
     mirrors = [
         "ci/win32-archive-rel",
     ],
+    contact_team_email = "chrome-desktop-engprod@google.com",
 )
 
 try_.builder(

@@ -47,6 +47,7 @@ enum NavigationPolicy {
   kNavigationPolicyNewWindow,
   kNavigationPolicyNewPopup,
   kNavigationPolicyPictureInPicture,
+  kNavigationPolicyLinkPreview,
 };
 
 // Returns a NavigationPolicy to use for starting a navigation

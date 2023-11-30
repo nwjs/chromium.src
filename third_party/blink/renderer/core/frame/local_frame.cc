@@ -51,6 +51,7 @@
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_input_event_attribution.h"
+#include "third_party/blink/public/common/loader/lcp_critical_path_predictor_util.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-blink.h"
@@ -69,6 +70,7 @@
 #include "third_party/blink/public/platform/interface_registry.h"
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/url_conversion.h"
+#include "third_party/blink/public/platform/web_background_resource_fetch_assets.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/public/platform/web_string.h"
 #include "third_party/blink/public/platform/web_url_request.h"
@@ -86,6 +88,7 @@
 #include "third_party/blink/renderer/core/css/background_color_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/box_shadow_paint_image_generator.h"
 #include "third_party/blink/renderer/core/css/clip_path_paint_image_generator.h"
+#include "third_party/blink/renderer/core/css/css_default_style_sheets.h"
 #include "third_party/blink/renderer/core/css/document_style_environment_variables.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
 #include "third_party/blink/renderer/core/dom/child_frame_disconnector.h"
@@ -141,6 +144,7 @@
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_frame_widget_impl.h"
 #include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
+#include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/fullscreen/scoped_allow_fullscreen.h"
 #include "third_party/blink/renderer/core/html/html_frame_element_base.h"
 #include "third_party/blink/renderer/core/html/html_link_element.h"
@@ -190,6 +194,7 @@
 #include "third_party/blink/renderer/platform/bindings/source_location.h"
 #include "third_party/blink/renderer/platform/bindings/v8_binding.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
+#include "third_party/blink/renderer/platform/graphics/image_data_buffer.h"
 #include "third_party/blink/renderer/platform/graphics/paint/drawing_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_controller.h"
@@ -197,6 +202,7 @@
 #include "third_party/blink/renderer/platform/heap/collection_support/heap_vector.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/persistent.h"
+#include "third_party/blink/renderer/platform/image-encoders/image_encoder_utils.h"
 #include "third_party/blink/renderer/platform/instrumentation/instance_counters.h"
 #include "third_party/blink/renderer/platform/instrumentation/resource_coordinator/document_resource_coordinator.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
@@ -785,7 +791,7 @@ ClipPathPaintImageGenerator* LocalFrame::GetClipPathPaintImageGenerator() {
 }
 
 LCPCriticalPathPredictor* LocalFrame::GetLCPP() {
-  if (!base::FeatureList::IsEnabled(features::kLCPCriticalPathPredictor)) {
+  if (!LcppEnabled()) {
     return nullptr;
   }
 
@@ -1481,6 +1487,15 @@ void LocalFrame::WindowSegmentsChanged(
   // "horizontal-viewport-segments" and "vertical-viewport-segments" features).
   MediaQueryAffectingValueChangedForLocalSubtree(MediaValueChange::kOther);
 
+  // Fullscreen element has its own document and uses the viewport media queries,
+  // so we need to make sure the media queries are re-evaluated.
+  if (Element* fullscreen = Fullscreen::FullscreenElementFrom(*GetDocument())) {
+    GetDocument()->GetStyleEngine().MarkAllElementsForStyleRecalc(
+        StyleChangeReasonForTracing::Create(style_change_reason::kFullscreen));
+    CSSDefaultStyleSheets::Instance()
+        .RebuildFullscreenRuleSetIfMediaQueriesChanged(*fullscreen);
+  }
+
   // Also need to update the environment variables related to window segments.
   UpdateViewportSegmentCSSEnvironmentVariables(window_segments);
 }
@@ -1491,9 +1506,21 @@ void LocalFrame::UpdateViewportSegmentCSSEnvironmentVariables(
 
   // Update the variable values on the root instance so that documents that
   // are created after the values change automatically have the right values.
-  StyleEnvironmentVariables& vars =
-      StyleEnvironmentVariables::GetRootInstance();
+  UpdateViewportSegmentCSSEnvironmentVariables(
+      StyleEnvironmentVariables::GetRootInstance(), window_segments);
 
+  if (Element* fullscreen = Fullscreen::FullscreenElementFrom(*GetDocument())) {
+    // Fullscreen has its own document so we need to update its variables as
+    // well.
+    UpdateViewportSegmentCSSEnvironmentVariables(
+        fullscreen->GetDocument().GetStyleEngine().EnsureEnvironmentVariables(),
+        window_segments);
+  }
+}
+
+void LocalFrame::UpdateViewportSegmentCSSEnvironmentVariables(
+    StyleEnvironmentVariables& vars,
+    const WebVector<gfx::Rect>& window_segments) {
   // Unset all variables, since they will be set as a whole by the code below.
   // Since the number and configurations of the segments can change, and
   // removing variables clears all values that have previously been set,
@@ -1666,10 +1693,9 @@ LocalFrame::LocalFrame(LocalFrameClient* client,
       text_zoom_factor_(ParentTextZoomFactor(this)),
       inspector_task_runner_(InspectorTaskRunner::Create(
           GetTaskRunner(TaskType::kInternalInspector))),
-      interface_registry_(interface_registry
-                              ? interface_registry
-                              : InterfaceRegistry::GetEmptyInterfaceRegistry()),
-      lifecycle_state_(mojom::FrameLifecycleState::kRunning) {
+      interface_registry_(
+          interface_registry ? interface_registry
+                             : InterfaceRegistry::GetEmptyInterfaceRegistry()) {
   auto frame_tracking_result =
       GetLocalFramesMap().insert(FrameToken::Hasher()(GetFrameToken()), this);
   CHECK(frame_tracking_result.stored_value) << "Inserting a duplicate item.";
@@ -2021,7 +2047,7 @@ ContentCaptureManager* LocalFrame::GetOrResetContentCaptureManager() {
     content_capture_manager_->Shutdown();
     content_capture_manager_ = nullptr;
   }
-  return content_capture_manager_;
+  return content_capture_manager_.Get();
 }
 
 BrowserInterfaceBrokerProxy& LocalFrame::GetBrowserInterfaceBroker() {
@@ -2097,6 +2123,11 @@ LocalFrame::GetURLLoaderFactory() {
 
 std::unique_ptr<URLLoader> LocalFrame::CreateURLLoaderForTesting() {
   return Client()->CreateURLLoaderForTesting();
+}
+
+scoped_refptr<WebBackgroundResourceFetchAssets>
+LocalFrame::MaybeGetBackgroundResourceFetchAssets() {
+  return Client()->MaybeGetBackgroundResourceFetchAssets();
 }
 
 WebPluginContainerImpl* LocalFrame::GetWebPluginContainer(Node* node) const {
@@ -2436,7 +2467,7 @@ void LocalFrame::FinishedScrollSequence() {
 SmoothScrollSequencer* LocalFrame::GetSmoothScrollSequencer() const {
   if (!IsLocalRoot())
     return LocalFrameRoot().GetSmoothScrollSequencer();
-  return smooth_scroll_sequencer_;
+  return smooth_scroll_sequencer_.Get();
 }
 
 ukm::UkmRecorder* LocalFrame::GetUkmRecorder() {
@@ -3266,27 +3297,48 @@ void LocalFrame::MediaPlayerActionAtViewportPoint(
     case mojom::blink::MediaPlayerActionType::kControls:
       media_element->SetUserWantsControlsVisible(enable);
       break;
+    case mojom::blink::MediaPlayerActionType::kSaveVideoFrameAs:
+      if (auto* video = DynamicTo<HTMLVideoElement>(media_element); video) {
+        auto image = video->CreateStaticBitmapImage();
+        if (!image) {
+          return;
+        }
+        auto data_buffer = ImageDataBuffer::Create(image);
+        if (!data_buffer) {
+          return;
+        }
+
+        ImageEncodingMimeType encoding_mime_type =
+            ImageEncoderUtils::ToEncodingMimeType(
+                "image/png", ImageEncoderUtils::kEncodeReasonToDataURL);
+        String data_url =
+            data_buffer->ToDataURL(encoding_mime_type, /*quality=*/0);
+
+        auto params = mojom::blink::DownloadURLParams::New();
+        params->is_context_menu_save = true;
+        params->suggested_name = media_element->title();
+        params->data_url_blob = DataURLToBlob(data_url);
+        GetLocalFrameHostRemote().DownloadURL(std::move(params));
+      }
+      break;
     case mojom::blink::MediaPlayerActionType::kCopyVideoFrame:
-      DCHECK(IsA<HTMLVideoElement>(media_element));
-      {
-        auto* video_element = To<HTMLVideoElement>(media_element);
-        auto image = video_element->CreateStaticBitmapImage();
+      if (auto* video = DynamicTo<HTMLVideoElement>(media_element); video) {
+        auto image = video->CreateStaticBitmapImage();
         if (image) {
           GetEditor().CopyImage(result, image);
         }
       }
       break;
     case mojom::blink::MediaPlayerActionType::kPictureInPicture:
-      DCHECK(IsA<HTMLVideoElement>(media_element));
-      if (enable) {
-        PictureInPictureController::From(node->GetDocument())
-            .EnterPictureInPicture(To<HTMLVideoElement>(media_element),
-                                   /*promise=*/nullptr);
-      } else {
-        PictureInPictureController::From(node->GetDocument())
-            .ExitPictureInPicture(To<HTMLVideoElement>(media_element), nullptr);
+      if (auto* video = DynamicTo<HTMLVideoElement>(media_element); video) {
+        if (enable) {
+          PictureInPictureController::From(node->GetDocument())
+              .EnterPictureInPicture(video, /*promise=*/nullptr);
+        } else {
+          PictureInPictureController::From(node->GetDocument())
+              .ExitPictureInPicture(video, nullptr);
+        }
       }
-
       break;
   }
 }

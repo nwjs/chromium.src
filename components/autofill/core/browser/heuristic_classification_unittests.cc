@@ -210,8 +210,8 @@ void ResultAnalyzer::AnalyzeClassification(const FormStructure& form_structure,
     }
 
     // Determine the type assigned to the field by the heuristic classification.
-    std::string heuristic_type = std::string(FieldTypeToStringPiece(
-        form_structure.field(i)->Type().GetStorableType()));
+    std::string heuristic_type =
+        FieldTypeToString(form_structure.field(i)->Type().GetStorableType());
 
     // Record metrics on the divergence between tester and heuristics.
     if (fields_in_scope_.contains(tester_type)) {
@@ -280,7 +280,7 @@ base::Value ResultAnalyzer::GetResult() {
 const base::FilePath& GetInputDir() {
   static base::NoDestructor<base::FilePath> dir([]() {
     base::FilePath dir;
-    base::PathService::Get(base::DIR_SOURCE_ROOT, &dir);
+    base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &dir);
     return dir.AppendASCII("components")
         .AppendASCII("test")
         .AppendASCII("data")
@@ -332,24 +332,11 @@ FormFieldData ParseFieldFromJsonDict(const base::Value::Dict& field_dict,
   if (const std::string* label = field_dict.FindString("label_attr")) {
     field.label = base::UTF8ToUTF16(*label);
   }
-  // Token list taken from
-  // out/*/gen/third_party/blink/renderer/core/input_type_names.cc
-  // and extended by textarea.
-  constexpr std::string_view valid_control_types[] = {
-      "button",   "checkbox", "color",  "date",  "datetime", "datetime-local",
-      "email",    "file",     "hidden", "image", "month",    "number",
-      "password", "radio",    "range",  "reset", "search",   "submit",
-      "tel",      "text",     "time",   "url",   "week",     "textarea"};
-  if (const std::string* type = field_dict.FindString("type_attr")) {
-    if (*type == "select") {
-      field.form_control_type = FormControlType::kSelectOne;
-    } else if (*type == "input") {
-      field.form_control_type = FormControlType::kInputText;
-    } else if (base::Contains(valid_control_types, *type)) {
-      field.form_control_type = StringToFormControlType(*type);
-    } else {
-      field.form_control_type = FormControlType::kInputText;
-    }
+  field.form_control_type = FormControlType::kInputText;
+  if (const std::string* json_type = field_dict.FindString("type_attr")) {
+    std::string type = *json_type == "select" ? "select-one" : *json_type;
+    field.form_control_type = autofill::StringToFormControlTypeDiscouraged(
+        type, /*fallback=*/autofill::FormControlType::kInputText);
   }
   if (const std::string* autocomplete =
           field_dict.FindString("autocomplete_attr")) {
@@ -542,6 +529,7 @@ TEST_P(HeuristicClassificationTests, EndToEnd) {
       features::kAutofillEnableSupportForApartmentNumbers,
       features::kAutofillEnableDependentLocalityParsing,
       features::kAutofillEnableExpirationDateImprovements,
+      features::kAutofillEnableSupportForBetweenStreetsOrLandmark,
       // Allow local heuristics to take precedence.
       features::kAutofillStreetNameOrHouseNumberPrecedenceOverAutocomplete,
       features::kAutofillLocalHeuristicsOverrides,

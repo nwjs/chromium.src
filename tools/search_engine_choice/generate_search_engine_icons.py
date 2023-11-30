@@ -90,8 +90,9 @@ def delete_files_in_directory(directory_path):
     for file in files:
       file_path = os.path.join(directory_path, file)
 
-      # Make sure not to remove the default icon (globe)
-      if os.path.basename(file_path) == 'default_favicon.png':
+      # Only remove pngs and don't remove the default icon (globe)
+      filename = os.path.basename(file_path)
+      if not filename.endswith('.png') or filename == 'default_favicon.png':
         continue
 
       if os.path.isfile(file_path):
@@ -101,7 +102,7 @@ def delete_files_in_directory(directory_path):
     print('Error occurred while deleting files in ' + directory_path)
 
 
-def get_largest_icon_index_and_size(icon_path):
+def get_largest_icon_index_and_size(icon_path, name):
   """Fetches the index and size of largest icon in the .ico file.
 
   Some .ico files contain more than 1 icon. The function finds the largest icon
@@ -114,6 +115,7 @@ def get_largest_icon_index_and_size(icon_path):
 
   Args:
     icon_path: The path to the .ico file.
+    name: Name/keyword of the search engine.
   """
   images_stream = os.popen('identify ' + icon_path).read()
   images_stream_strings = images_stream.splitlines()
@@ -126,7 +128,7 @@ def get_largest_icon_index_and_size(icon_path):
     # The image size is the integer before the 'x' character.
     sizes = image_dimensions.split('x')
     if sizes[0] != sizes[1]:
-      print('Warning: Icon %s is not square' % icon_path)
+      print('Warning: Icon for %s is not square' % name)
     image_size = int(sizes[0])
     if image_size > max_image_size:
       max_image_size = image_size
@@ -140,9 +142,9 @@ def create_icons_from_json_file():
 
   Reads the json file and downloads the icons that are referenced in the
   "favicon_url" section of the search_engine.
-  Scales those icons to 24x24 and 48x48 formats and converts them to PNG
-  format. After finishing the previous step, the function moves the icons to
-  their corresponding directories.
+  Scales those icons down to 48x48 size and converts them to PNG format. After
+  finishing the previous step, the function moves the icons to the destination
+  directory and runs png optimization.
   The function filters the search engines based on the search engines that are
   used in `template_url_prepopulate_data.cc` so that icons that are never used
   don't get downloaded.
@@ -155,14 +157,12 @@ def create_icons_from_json_file():
   """
   print('Creating icons from json file...')
   prepopulated_engines_file_path = '../search_engines/prepopulated_engines.json'
-  default_100_path = './default_100_percent/search_engine_choice/'
-  default_200_path = './default_200_percent/search_engine_choice/'
-  icon_sizes = [24, 48]
+  image_destination_path = './default_100_percent/search_engine_choice/'
+  icon_sizes = [48]
   favicon_hash_to_icon_name = {}
 
   # Delete the previously added search engine icons
-  delete_files_in_directory(default_100_path)
-  delete_files_in_directory(default_200_path)
+  delete_files_in_directory(image_destination_path)
 
   with open(prepopulated_engines_file_path, 'r',
             encoding='utf-8') as engines_json:
@@ -204,23 +204,21 @@ def create_icons_from_json_file():
           os.remove('original.ico')
           continue
 
-        (largest_index,
-         largest_size) = get_largest_icon_index_and_size('original.ico')
+        (largest_index, largest_size) = get_largest_icon_index_and_size(
+            'original.ico', icon_name)
 
         # Using ImageMagick command line interface, scale the icons, convert
         # them to PNG format and move them to their corresponding folders.
         last_size = 0
-        for icon_size in icon_sizes:
+        for desired_size in icon_sizes:
           if largest_size >= last_size:
+            last_size = desired_size
+            desired_size = min(desired_size, largest_size)
             os.system('convert original.ico[' + str(largest_index) +
-                      '] -thumbnail ' + str(icon_size) + 'x' + str(icon_size) +
-                      ' ' + icon_name + '.png')
-            icon_destination = default_100_path
-            if icon_size == 48:
-              icon_destination = default_200_path
+                      '] -thumbnail ' + str(desired_size) + 'x' +
+                      str(desired_size) + ' ' + icon_name + '.png')
 
-            shutil.move(icon_name + '.png', icon_destination)
-            last_size = icon_size
+            shutil.move(icon_name + '.png', image_destination_path)
 
         engine_keyword_to_icon_name[search_engine_keyword] = icon_name
         favicon_hash_to_icon_name[icon_hash] = icon_name
@@ -235,8 +233,8 @@ def create_icons_from_json_file():
         # default icon in that case.
         engine_keyword_to_icon_name[search_engine_keyword] = ''
         continue
-  os.system('../../tools/resources/optimize-png-files.sh ' + default_100_path)
-  os.system('../../tools/resources/optimize-png-files.sh ' + default_200_path)
+  os.system('../../tools/resources/optimize-png-files.sh ' +
+            image_destination_path)
 
 
 def generate_icon_resource_code():
@@ -282,100 +280,61 @@ def generate_icon_resource_code():
     grdp_file.write('</grit-part>\n')
 
 
-def delete_previously_generated_code():
-  """Deletes the previously generated code.
-
-  Deletes the previously generated code in `search_engine_choice_ui.cc`.
-  """
-  print('Deleting previously generated code from search_engine_choice_ui.cc...')
-  with open(
-      '../../chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.cc',
-      'r',
-      encoding='utf-8') as desktop_webui_file:
-    # Search for the string that delimit the start and end of the
-    # generated code.
-    lines = desktop_webui_file.readlines()
-
-  with open(
-      '../../chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.cc',
-      'w',
-      encoding='utf-8',
-      newline='') as desktop_webui_file:
-    inside_generated_code = False
-
-    for line in lines:
-      if line.find('// Start of generated code.') != -1:
-        inside_generated_code = True
-
-      if not inside_generated_code:
-        desktop_webui_file.write(line)
-
-      if line.find('// End of generated code.') != -1:
-        inside_generated_code = False
-
-
 def create_adding_icons_to_source_function():
-  """Generates the `AddGeneratedIconResources` in `search_engine_choice_ui.cc`.
+  """Generates the `AddGeneratedIconResources` in
+  `search_engine_choice/generated_icon_utils.cc`.
 
   Generates the function that will be used to populate the `WebUIDataSource`
   with the generated icons.
   """
   print('Creating `AddGeneratedIconResources` function...')
-  with open(
-      '../../chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.cc',
-      'r',
-      encoding='utf-8') as desktop_webui_file:
-    lines = desktop_webui_file.readlines()
 
   with open(
-      '../../chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.cc',
+      '../../chrome/browser/ui/webui/search_engine_choice/generated_icon_utils.cc',
       'w',
       encoding='utf-8',
-      newline='') as desktop_webui_file:
-    for line in lines:
-      if line.find('namespace {') != -1:
-        desktop_webui_file.write('namespace {\n')
-        # Create the function name
-        desktop_webui_file.write('// Start of generated code.\n')
-        desktop_webui_file.write(
-            '// This code is generated using `generate_search_engine_icons.py`.'
-            " Don't modify\n")
-        desktop_webui_file.write('// it manually.\n')
-        desktop_webui_file.write(
-            'void AddGeneratedIconResources(content::WebUIDataSource*'
-            ' source) {\n')
-        desktop_webui_file.write('\tCHECK(source);\n')
+      newline='') as utils_file:
 
-        # Add google to the source
-        desktop_webui_file.write('\t#if BUILDFLAG(GOOGLE_CHROME_BRANDING)\n')
-        desktop_webui_file.write(
-            '\tsource->AddResourcePath("images/google_com.png",'
-            ' IDR_GOOGLE_COM_PNG);\n')
-        desktop_webui_file.write('\t#endif\n')
+    # Add the copyright notice.
+    utils_file.write('// Copyright 2023 The Chromium Authors\n')
+    utils_file.write('// Use of this source code is governed by a BSD-style'
+                     ' license that can be\n')
+    utils_file.write('// found in the LICENSE file.\n\n')
 
-        for engine_keyword in engine_keyword_to_icon_name:
-          engine_name = keyword_to_identifer(engine_keyword)
-          local_image_path = 'images/' + engine_name + '.png'
-          image_resource_id = 'IDR_' + engine_name.upper() + '_PNG'
-          desktop_webui_file.write('\tsource->AddResourcePath("' +
-                                   local_image_path + '", ' +
-                                   image_resource_id + ');\n')
+    # Include the required header files.
+    utils_file.write(
+        '#include "chrome/browser/ui/webui/search_engine_choice/icon_utils.h"\n\n'
+    )
+    utils_file.write('#include "base/check_op.h"\n')
+    utils_file.write('#include "build/branding_buildflags.h"\n')
+    utils_file.write(
+        '#include "components/grit/components_scaled_resources.h"\n')
+    utils_file.write(
+        '#include "content/public/browser/web_ui_data_source.h"\n\n')
 
-        desktop_webui_file.write('}\n')
-        desktop_webui_file.write('// End of generated code.\n')
-      else:
-        desktop_webui_file.write(line)
+    # Create the function name.
+    utils_file.write(
+        '// This code is generated using `generate_search_engine_icons.py`.'
+        " Don't modify it manually.\n")
+    utils_file.write('void AddGeneratedIconResources(content::WebUIDataSource*'
+                     ' source, const std::string& directory) {\n')
+    utils_file.write('\tCHECK(source);\n')
+    utils_file.write("\tCHECK_EQ(directory.back(), '/');\n")
 
+    # Add google to the source
+    utils_file.write('\t#if BUILDFLAG(GOOGLE_CHROME_BRANDING)\n')
+    utils_file.write('\tsource->AddResourcePath(directory + "google_com.png",'
+                     ' IDR_GOOGLE_COM_PNG);\n')
+    utils_file.write('\t#endif\n')
 
-def add_icon_resources_to_desktop_webui_data_source():
-  """Handles code generation in `search_engine_choice_ui.cc`.
+    for engine_keyword in engine_keyword_to_icon_name:
+      engine_name = keyword_to_identifer(engine_keyword)
+      local_image_path = engine_name + '.png'
+      image_resource_id = 'IDR_' + engine_name.upper() + '_PNG'
+      utils_file.write('\tsource->AddResourcePath(directory + "' +
+                       local_image_path + '", ' + image_resource_id + ');\n')
 
-  Handles the deletion of the previously generated code in the generation of the
-  new code in `search_engine_choice_ui.cc`.
-  """
-  print('Adding icon resources to desktop webUI data source...')
-  delete_previously_generated_code()
-  create_adding_icons_to_source_function()
+    utils_file.write('}\n')
 
 
 if sys.platform != 'linux':
@@ -398,7 +357,7 @@ engine_keyword_to_icon_name = {}
 populate_used_engines()
 create_icons_from_json_file()
 generate_icon_resource_code()
-add_icon_resources_to_desktop_webui_data_source()
+create_adding_icons_to_source_function()
 # Format the generated code
 os.system('git cl format')
 print('Icon and code generation completed.')

@@ -110,7 +110,7 @@ class CORE_EXPORT RuleData {
            AddRuleFlags);
 
   unsigned GetPosition() const { return position_; }
-  StyleRule* Rule() const { return rule_; }
+  StyleRule* Rule() const { return rule_.Get(); }
   const CSSSelector& Selector() const {
     return rule_->SelectorAt(selector_index_);
   }
@@ -453,7 +453,7 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
     return slotted_pseudo_element_rules_;
   }
 
-  bool HasCascadeLayers() const { return implicit_outer_layer_; }
+  bool HasCascadeLayers() const { return implicit_outer_layer_ != nullptr; }
   const CascadeLayer& CascadeLayers() const {
     DCHECK(implicit_outer_layer_);
     return *implicit_outer_layer_;
@@ -483,8 +483,21 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
     return !ua_shadow_pseudo_element_rules_.IsEmpty();
   }
 
-  bool NeedsFullRecalcForRuleSetInvalidation() const {
-    return features_.NeedsFullRecalcForRuleSetInvalidation();
+  // If a single @scope rule covers all rules in this RuleSet,
+  // returns the corresponding StyleScope rule, or returns nullptr otherwise.
+  //
+  // This is useful for rejecting entire RuleSets early when implicit @scopes
+  // aren't in scope.
+  //
+  // See ElementRuleCollector::CanRejectScope.
+  const StyleScope* SingleScope() const {
+    if (scope_intervals_.size() == 1u) {
+      const Interval<StyleScope>& interval = scope_intervals_.front();
+      if (interval.start_position == 0) {
+        return interval.value.Get();
+      }
+    }
+    return nullptr;
   }
 
   bool DidMediaQueryResultsChange(const MediaQueryEvaluator& evaluator) const;
@@ -593,7 +606,7 @@ class CORE_EXPORT RuleSet final : public GarbageCollected<RuleSet> {
     if (!implicit_outer_layer_) {
       implicit_outer_layer_ = MakeGarbageCollected<CascadeLayer>();
     }
-    return implicit_outer_layer_;
+    return implicit_outer_layer_.Get();
   }
 
   CascadeLayer* GetOrAddSubLayer(CascadeLayer*,

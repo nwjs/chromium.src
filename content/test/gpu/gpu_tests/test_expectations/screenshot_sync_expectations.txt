@@ -11,8 +11,8 @@
 # tags: [ android-nexus-5x android-pixel-2 android-pixel-4
 #             android-pixel-6 android-shield-android-tv android-sm-a135m
 #             android-sm-a235m
-#         chromeos-board-amd64-generic chromeos-board-kevin chromeos-board-eve
-#             chromeos-board-jacuzzi chromeos-board-octopus
+#         chromeos-board-amd64-generic chromeos-board-eve chromeos-board-jacuzzi
+#             chromeos-board-octopus
 #         fuchsia-board-astro fuchsia-board-nelson fuchsia-board-sherlock
 #             fuchsia-board-qemu-x64 ]
 # Platform
@@ -99,7 +99,6 @@
 ###################
 # Non-"Skip" expectations go here to suppress regular flakes/failures.
 
-crbug.com/1469275 [ ventura intel-0x3e9b angle-metal asan ] ScreenshotSync_SWRasterWithCanvas [ Failure ]
 
 #######################################################################
 # Automated Entries After This Point - Do Not Manually Add Below Here #

@@ -247,6 +247,7 @@
       "is_component_build": false,
       "is_debug": false,
       "symbol_level": 1,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -313,6 +314,7 @@
       "is_component_build": false,
       "is_debug": false,
       "symbol_level": 1,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -406,6 +408,7 @@
       "target_environment": "simulator",
       "target_os": "ios",
       "use_blink": true,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -678,6 +681,7 @@
       "is_debug": false,
       "is_tsan": true,
       "symbol_level": 1,
+      "use_dummy_lastchange": true,
       "use_goma": true
     }
   },
@@ -711,6 +715,7 @@
       "is_debug": false,
       "proprietary_codecs": true,
       "target_os": "chromeos",
+      "use_cups": true,
       "use_remoteexec": true
     }
   },
@@ -856,32 +861,39 @@
       "is_debug": false,
       "is_lsan": true,
       "symbol_level": 1,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
   "linux-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
   },
   "linux-wpt-content-shell-leak-detection": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
   },
   "linux-wpt-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
@@ -921,6 +933,7 @@
       "is_debug": true,
       "proprietary_codecs": true,
       "symbol_level": 0,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -944,9 +957,11 @@
   },
   "mac10.15-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
@@ -954,17 +969,22 @@
   "mac11-arm64-wpt-content-shell-fyi-rel": {
     "gn_args": {
       "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
+      "symbol_level": 1,
       "target_cpu": "arm64",
       "use_remoteexec": true
     }
   },
   "mac11-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
@@ -972,17 +992,22 @@
   "mac12-arm64-wpt-content-shell-fyi-rel": {
     "gn_args": {
       "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
+      "symbol_level": 1,
       "target_cpu": "arm64",
       "use_remoteexec": true
     }
   },
   "mac12-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
@@ -990,17 +1015,22 @@
   "mac13-arm64-wpt-content-shell-fyi-rel": {
     "gn_args": {
       "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
+      "symbol_level": 1,
       "target_cpu": "arm64",
       "use_remoteexec": true
     }
   },
   "mac13-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
@@ -1071,18 +1101,22 @@
   },
   "win10-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }
   },
   "win11-wpt-content-shell-fyi-rel": {
     "gn_args": {
-      "dcheck_always_on": true,
+      "dcheck_always_on": false,
+      "ffmpeg_branding": "Chrome",
       "is_component_build": false,
       "is_debug": false,
+      "proprietary_codecs": true,
       "symbol_level": 1,
       "use_remoteexec": true
     }

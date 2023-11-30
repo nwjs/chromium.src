@@ -47,9 +47,9 @@ class PrefRegistrySyncable;
 class AuthenticationService;
 class Browser;
 @protocol BrowserCoordinatorCommands;
+@protocol ContentSuggestionsDelegate;
 @class ContentSuggestionsMetricsRecorder;
 enum class ContentSuggestionsModuleType;
-@protocol FeedDelegate;
 class GURL;
 class LargeIconCache;
 @protocol NewTabPageMetricsDelegate;
@@ -96,8 +96,8 @@ class WebStateList;
     id<ContentSuggestionsCommands, ContentSuggestionsGestureCommands>
         commandHandler;
 
-// Delegate used to communicate to communicate events to the feed.
-@property(nonatomic, weak) id<FeedDelegate> feedDelegate;
+// Delegate used to communicate Content Suggestions events to the delegate.
+@property(nonatomic, weak) id<ContentSuggestionsDelegate> delegate;
 
 // The consumer that will be notified when the data change.
 @property(nonatomic, weak) id<ContentSuggestionsConsumer> consumer;
@@ -174,6 +174,9 @@ class WebStateList;
 
 // Returns the latest fetched tracked parcels.
 - (NSArray<ParcelTrackingItem*>*)parcelTrackingItems;
+
+// Logs a user Magic Stack engagement for module `type`.
+- (void)logMagicStackEngagementForType:(ContentSuggestionsModuleType)type;
 
 @end
 

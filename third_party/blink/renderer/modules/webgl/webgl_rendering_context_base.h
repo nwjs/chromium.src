@@ -607,6 +607,14 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
       return nullptr;
     return d->ContextGL();
   }
+  const gpu::Capabilities& ContextGLCapabilities() const {
+    // This should only be called in contexts where ContextGL() is guaranteed
+    // to exist.
+    CHECK(ContextGL());
+    // Note: DrawingBuffer::ContextGL() comes from
+    // DrawingBuffer::ContextProvider::ContextGL().
+    return GetDrawingBuffer()->ContextProvider()->GetCapabilities();
+  }
   gpu::SharedImageInterface* SharedImageInterface() const {
     DrawingBuffer* d = GetDrawingBuffer();
     if (!d)
@@ -723,7 +731,6 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
   friend class WebGLMultiDrawCommon;
   friend class WebGLMultiDrawInstancedBaseVertexBaseInstance;
   friend class WebGLShaderPixelLocalStorage;
-  friend class WebGLVideoTexture;
 
   WebGLRenderingContextBase(CanvasRenderingContextHost*,
                             std::unique_ptr<WebGraphicsContext3DProvider>,
@@ -1036,7 +1043,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
         extension_field_ = extension_;
       }
 
-      return extension_;
+      return extension_.Get();
     }
 
     bool Supported(WebGLRenderingContextBase* context) const override {
@@ -1054,7 +1061,7 @@ class MODULES_EXPORT WebGLRenderingContextBase : public CanvasRenderingContext,
     }
 
     WebGLExtension* GetExtensionObjectIfAlreadyEnabled() override {
-      return extension_;
+      return extension_.Get();
     }
 
     void Trace(Visitor* visitor) const override {

@@ -24,6 +24,7 @@
 #include "components/password_manager/core/browser/form_fetcher.h"
 #include "components/password_manager/core/browser/form_parsing/form_data_parser.h"
 #include "components/password_manager/core/browser/form_parsing/password_field_prediction.h"
+#include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_digest.h"
 #include "components/password_manager/core/browser/password_form_manager_for_ui.h"
 #include "components/password_manager/core/browser/password_form_metrics_recorder.h"
@@ -288,9 +289,10 @@ class PasswordFormManager : public PasswordFormManagerForUI,
 
   // Helper function for calling form parsing and logging results if logging is
   // active.
-  std::unique_ptr<PasswordForm> ParseFormAndMakeLogging(
-      const autofill::FormData& form,
-      FormDataParser::Mode mode);
+  std::tuple<std::unique_ptr<PasswordForm>,
+             FormDataParser::UsernameDetectionMethod>
+  ParseFormAndMakeLogging(const autofill::FormData& form,
+                          FormDataParser::Mode mode);
 
   void PresaveGeneratedPasswordInternal(
       const autofill::FormData& form,
@@ -331,6 +333,14 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   bool IsPossibleSingleUsernameAvailable(
       const PossibleUsernameData& possible_username) const;
 
+  // Finds best username candidate that is outside of the form. This is done
+  // according to priorities listed in `UsernameFoundOutsideOfFormType`.
+  // If there are more than one field in the same category, pick the one that is
+  // more recently modified by the user.
+  std::optional<UsernameFoundOutsideOfForm> FindBestPossibleUsernameCandidate(
+      const base::LRUCache<PossibleUsernameFieldIdentifier,
+                           PossibleUsernameData>& possible_usernames);
+
   // Updates the predictions stored in `parser_` with predictions relevant for
   // `observed_form_or_digest_`.
   void UpdatePredictionsForObservedForm(
@@ -348,15 +358,28 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   // credentials available to use.
   bool WebAuthnCredentialsAvailable() const;
 
-  // Sets voting data and update |parsed_submitted_form_| with the correct
+  // Checks if `best_candidate` has better signal than the username
+  // found inside the password form.
+  bool ShouldPreferUsernameFoundOutsideOfForm(
+      const std::optional<UsernameFoundOutsideOfForm>& best_candidate,
+      FormDataParser::UsernameDetectionMethod
+          in_form_username_detection_method);
+
+  // Sets voting data and update `parsed_submitted_form_` with the correct
   // username value for a password form without a username field.
-  void HandleUsernameFirstFlow(const PossibleUsernameData& possible_username,
-                               bool password_form_had_matching_username);
+  void HandleUsernameFirstFlow(
+      const base::LRUCache<PossibleUsernameFieldIdentifier,
+                           PossibleUsernameData>& possible_usernames,
+      FormDataParser::UsernameDetectionMethod
+          in_form_username_detection_method);
 
   // Sets voting data for a password form that is likely a forgot password form
   // (a form, into which the user inputs their username to start the
   // password recovery process).
   void HandleForgotPasswordFormData();
+
+  // Returns non-empty, lower case stored usernames based on `GetBestMatches()`.
+  base::flat_set<std::u16string> GetStoredUsernames() const;
 
   // The client which implements embedder-specific PasswordManager operations.
   const raw_ptr<PasswordManagerClient> client_;

@@ -37,8 +37,10 @@ struct SpellcheckTestCase {
 
 base::FilePath GetHunspellDirectory() {
   base::FilePath hunspell_directory;
-  if (!base::PathService::Get(base::DIR_SOURCE_ROOT, &hunspell_directory))
+  if (!base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT,
+                              &hunspell_directory)) {
     return base::FilePath();
+  }
 
   hunspell_directory = hunspell_directory.AppendASCII("third_party");
   hunspell_directory = hunspell_directory.AppendASCII("hunspell_dictionaries");
@@ -118,7 +120,7 @@ class MultilingualSpellCheckTest : public testing::Test {
   spellcheck::EmptyLocalInterfaceProvider embedder_provider_;
 
   // Owned by |provider_|.
-  raw_ptr<SpellCheck, ExperimentalRenderer> spellcheck_;
+  raw_ptr<SpellCheck, DanglingUntriaged> spellcheck_;
   std::unique_ptr<TestingSpellCheckProvider> provider_;
 };
 

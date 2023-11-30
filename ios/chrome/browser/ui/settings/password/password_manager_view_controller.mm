@@ -17,7 +17,6 @@
 #import "base/strings/sys_string_conversions.h"
 #import "components/google/core/common/google_util.h"
 #import "components/keyed_service/core/service_access_type.h"
-#import "components/password_manager/core/browser/password_list_sorter.h"
 #import "components/password_manager/core/browser/password_manager_constants.h"
 #import "components/password_manager/core/browser/password_manager_metrics_util.h"
 #import "components/password_manager/core/browser/password_ui_utils.h"
@@ -32,7 +31,7 @@
 #import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/net/crurl.h"
-#import "ios/chrome/browser/passwords/password_checkup_metrics.h"
+#import "ios/chrome/browser/passwords/model/password_checkup_metrics.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
@@ -404,8 +403,6 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   if (!_didReceivePasswords) {
     [self showLoadingSpinnerBackground];
   }
-
-  base::RecordAction(base::UserMetricsAction("MobilePasswordManagerOpen"));
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -435,7 +432,7 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   // viewWillDisappear is also called if you drag the sheet down then release
   // without actually closing.
   if (!_faviconMetricLogged) {
-    [self logMetricsForFavicons];
+    [self logPercentageMetricForFavicons];
     _faviconMetricLogged = YES;
   }
 }
@@ -468,7 +465,13 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   [self updatePasswordCheckStatusLabelWithState:self.passwordCheckState];
   [self reconfigurePasswordCheckSectionCellsWithState:self.passwordCheckState];
   [self setAddPasswordButtonEnabled:!editing];
-  [self updateUIForEditState];
+
+  //  We want to update the toolbar only if the current view is the Password
+  //  Manager.
+  if ([self.navigationController.topViewController
+          isKindOfClass:[PasswordManagerViewController class]]) {
+    [self updateUIForEditState];
+  }
 }
 
 - (BOOL)hasPasswords {
@@ -953,8 +956,14 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
     }
     // If section doesn't exist but it should - add it.
     else if (needsSection && !hasSection) {
-      // This is very rare condition, in this case just reload all data.
-      [self updateUIForEditState];
+      // This is very rare condition, in this case just reload all data and
+      // update the toolbar UI.
+      //  We want to update the toolbar only if the current view is the Password
+      //  Manager.
+      if ([self.navigationController.topViewController
+              isKindOfClass:[PasswordManagerViewController class]]) {
+        [self updateUIForEditState];
+      }
       [self reloadData];
       return;
     }
@@ -1148,6 +1157,7 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
   if (!_searchPasswordsUserActionWasRecorded) {
     base::RecordAction(
         base::UserMetricsAction("MobilePasswordManagerSearchPasswords"));
+    _searchPasswordsUserActionWasRecorded = YES;
   }
 }
 
@@ -1787,8 +1797,8 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
               IDS_IOS_PASSWORD_CHECKUP_SAFE_STATE_ACCESSIBILITY_LABEL)];
 }
 
-// Logs metrics related to favicons for the Password Manager.
-- (void)logMetricsForFavicons {
+// Logs favicon percentage metric for the Password Manager.
+- (void)logPercentageMetricForFavicons {
   DCHECK(!_faviconMetricLogged);
 
   int n_monograms = 0;
@@ -1825,12 +1835,7 @@ bool AreIssuesEqual(const std::vector<password_manager::AffiliatedGroup>& lhs,
     }
   }
 
-  base::UmaHistogramCounts10000(
-      "IOS.PasswordManager.PasswordsWithFavicons.Count",
-      n_images + n_monograms);
   if (n_images + n_monograms > 0) {
-    base::UmaHistogramCounts10000("IOS.PasswordManager.Favicons.Count",
-                                  n_images);
     base::UmaHistogramPercentage("IOS.PasswordManager.Favicons.Percentage",
                                  100.0f * n_images / (n_images + n_monograms));
   }

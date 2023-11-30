@@ -20,6 +20,7 @@
 #include "base/types/optional_util.h"
 #include "build/branding_buildflags.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "components/browsing_topics/browsing_topics_service.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
@@ -92,7 +93,7 @@ bool IsRegularProfile(profile_metrics::BrowserProfileType profile_type) {
 #if BUILDFLAG(IS_CHROMEOS)
   // Any Device Local account, which is a CrOS concept powering things like
   // Kiosks and Managed Guest Sessions, is not considered regular.
-  return !profiles::IsManagedGuestSession() && !chromeos::IsKioskSession() &&
+  return !chromeos::IsManagedGuestSession() && !chromeos::IsKioskSession() &&
          !profiles::IsChromeAppKioskSession();
 #else
   return true;
@@ -188,6 +189,11 @@ bool IsChromeBuild() {
 #else
   return false;
 #endif
+}
+
+void RecordProtectedAudienceJoiningTopFrameDisplayedHistogram(bool value) {
+  base::UmaHistogramBoolean(
+      "PrivacySandbox.ProtectedAudience.JoiningTopFrameDisplayed", value);
 }
 
 }  // namespace
@@ -1005,6 +1011,7 @@ void PrivacySandboxServiceImpl::ConvertInterestGroupDataKeysForDisplay(
         origin, net::registry_controlled_domains::INCLUDE_PRIVATE_REGISTRIES);
     if (etld_plus_one.length() > 0) {
       display_entries.emplace(std::move(etld_plus_one));
+      RecordProtectedAudienceJoiningTopFrameDisplayedHistogram(true);
       continue;
     }
 
@@ -1012,11 +1019,18 @@ void PrivacySandboxServiceImpl::ConvertInterestGroupDataKeysForDisplay(
     // itself (e.g. github.io).
     if (origin.host().length() > 0) {
       display_entries.emplace(origin.host());
+      RecordProtectedAudienceJoiningTopFrameDisplayedHistogram(true);
       continue;
     }
 
-    // Other types of top-frame origins (file, opaque) do not support FLEDGE.
-    NOTREACHED();
+    // By design, each interest group should have a joining site or host, and
+    // so this could ideally be a NOTREACHED(). However, following
+    // crbug.com/1487191, it is apparent that this is not always true.
+    // A host or site is expected in other parts of the UI, so we cannot simply
+    // display the origin directly (it may also be empty). Instead, we elide it
+    // but record a metric to understand how widespread this is.
+    // TODO(crbug.com/1489306) - Investigate how much of an issue this is.
+    RecordProtectedAudienceJoiningTopFrameDisplayedHistogram(false);
   }
 
   // Entries should be displayed alphabetically, as |display_entries| is a

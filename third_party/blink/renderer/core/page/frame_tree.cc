@@ -264,7 +264,7 @@ Frame* FrameTree::FindFrameForNavigationInternal(
 
   if (EqualIgnoringASCIICase(name, "_self") ||
       EqualIgnoringASCIICase(name, "_current") || name.empty()) {
-    return this_frame_;
+    return this_frame_.Get();
   }
 
   if (EqualIgnoringASCIICase(name, "_top")) {
@@ -286,7 +286,7 @@ Frame* FrameTree::FindFrameForNavigationInternal(
             blink::FencedFrame::DeprecatedFencedFrameMode::kOpaqueAds &&
         request != nullptr) {
       request->SetIsUnfencedTopNavigation(true);
-      return this_frame_;
+      return this_frame_.Get();
     }
   }
 

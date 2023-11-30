@@ -18,7 +18,7 @@
 #import "components/sync_sessions/open_tabs_ui_delegate.h"
 #import "components/sync_sessions/session_sync_service.h"
 #import "components/sync_sessions/synced_session.h"
-#import "ios/chrome/browser/default_browser/utils.h"
+#import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/favicon/favicon_loader.h"
 #import "ios/chrome/browser/favicon/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/net/crurl.h"
@@ -33,6 +33,8 @@
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_consumer.h"
 #import "ios/chrome/browser/ui/recent_tabs/sessions_sync_user_state.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/grid/grid_toolbars_mutator.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_action_wrangler.h"
+#import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_buttons_delegate.h"
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/toolbars/tab_grid_toolbars_configuration.h"
 #import "ios/chrome/common/ui/favicon/favicon_constants.h"
 #import "url/gurl.h"
@@ -88,8 +90,9 @@ bool UserActionIsRequiredToHaveTabSyncWork(syncer::SyncService* sync_service) {
 
 }  // namespace
 
-@interface RecentTabsMediator () <SyncedSessionsObserver,
-                                  IdentityManagerObserverBridgeDelegate,
+@interface RecentTabsMediator () <IdentityManagerObserverBridgeDelegate,
+                                  SyncedSessionsObserver,
+                                  TabGridToolbarsButtonsDelegate,
                                   WebStateListObserving> {
   std::unique_ptr<AllWebStateListObservationRegistrar> _registrar;
   std::unique_ptr<synced_sessions::SyncedSessionsObserverBridge>
@@ -313,6 +316,10 @@ bool UserActionIsRequiredToHaveTabSyncWork(syncer::SyncService* sync_service) {
 // Creates and send a tab grid toolbar configuration with button that should be
 // displayed when recent grid is selected.
 - (void)configureToolbarsButtons {
+  // Start to configure the delegate, so configured buttons will depend on the
+  // correct delegate.
+  [self.toolbarsMutator setToolbarsButtonsDelegate:self];
+
   TabGridToolbarsConfiguration* toolbarsConfiguration =
       [[TabGridToolbarsConfiguration alloc] init];
   toolbarsConfiguration.doneButton = YES;
@@ -343,6 +350,44 @@ bool UserActionIsRequiredToHaveTabSyncWork(syncer::SyncService* sync_service) {
     [self configureToolbarsButtons];
   }
   // TODO(crbug.com/1457146): Implement.
+}
+
+#pragma mark - TabGridToolbarsButtonsDelegate
+
+- (void)closeAllButtonTapped:(id)sender {
+  NOTREACHED_NORETURN() << "Should not be called in remote tabs.";
+}
+
+- (void)doneButtonTapped:(id)sender {
+  [self.toolbarActionWrangler doneButtonTapped:sender];
+}
+
+- (void)newTabButtonTapped:(id)sender {
+  NOTREACHED_NORETURN() << "Should not be called in remote tabs.";
+}
+
+- (void)selectAllButtonTapped:(id)sender {
+  NOTREACHED_NORETURN() << "Should not be called in remote tabs.";
+}
+
+- (void)searchButtonTapped:(id)sender {
+  [self.toolbarActionWrangler searchButtonTapped:sender];
+}
+
+- (void)cancelSearchButtonTapped:(id)sender {
+  [self.toolbarActionWrangler cancelSearchButtonTapped:sender];
+}
+
+- (void)closeSelectedTabs:(id)sender {
+  NOTREACHED_NORETURN() << "Should not be called in remote tabs.";
+}
+
+- (void)shareSelectedTabs:(id)sender {
+  NOTREACHED_NORETURN() << "Should not be called in remote tabs.";
+}
+
+- (void)selectTabsButtonTapped:(id)sender {
+  NOTREACHED_NORETURN() << "Should not be called in remote tabs.";
 }
 
 @end

@@ -16,6 +16,7 @@ import "mojo/public/mojom/base/file_path.mojom";
 import "mojo/public/mojom/base/time.mojom";
 import "mojo/public/mojom/base/unguessable_token.mojom";
 import "skia/public/mojom/skcolor.mojom";
+import "services/network/public/mojom/attribution.mojom";
 import "services/network/public/mojom/content_security_policy.mojom";
 import "services/network/public/mojom/url_loader.mojom";
 import "services/network/public/mojom/url_loader_completion_status.mojom";
@@ -164,6 +165,10 @@ struct CreateViewParams {
   // Indicates which browsing context group the page in this view belongs to.
   blink.mojom.BrowsingContextGroupInfo browsing_context_group_info;
 
+  // Indicates whether web or OS-level Attribution Reporting is supported. See
+  // https://github.com/WICG/attribution-reporting-api/blob/main/app_to_web.md
+  network.mojom.AttributionSupport attribution_support;
+
   bool skip_blocking_parser;
 };
 
@@ -241,6 +246,10 @@ struct CreateFrameWidgetParams {
 
   // The initial visual properties of the widget.
   blink.mojom.VisualProperties visual_properties;
+
+  // If set, this widget should take the compositor from this frame instead of
+  // creating a new instance.
+  blink.mojom.FrameToken? previous_frame_token_for_compositor_reuse;
 };
 
 // Used for recreating child frames after a crash (does this still happen?) and

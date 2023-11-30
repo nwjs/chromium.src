@@ -5,8 +5,8 @@
 package org.chromium.net;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
-import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import static org.chromium.net.truth.UrlResponseInfoSubject.assertThat;
@@ -122,31 +122,46 @@ public class CronetTestRule implements TestRule {
     private void runBase(Statement base, Description desc) throws Throwable {
         setImplementationUnderTest(CronetImplementation.STATICALLY_LINKED);
         String packageName = desc.getTestClass().getPackage().getName();
+        String testName = desc.getTestClass().getName() + "#" + desc.getMethodName();
 
         EnumSet<CronetImplementation> excludedImplementations =
                 EnumSet.noneOf(CronetImplementation.class);
-        IgnoreFor ignoreAnnotation = getTestAnnotation(desc, IgnoreFor.class);
-        if (ignoreAnnotation != null) {
-            excludedImplementations =
-                    EnumSet.copyOf(Arrays.asList(ignoreAnnotation.implementations()));
+        IgnoreFor ignoreDueToClassAnnotation = getTestClassAnnotation(desc, IgnoreFor.class);
+        if (ignoreDueToClassAnnotation != null) {
+            excludedImplementations.addAll(
+                    Arrays.asList(ignoreDueToClassAnnotation.implementations()));
+        }
+        IgnoreFor ignoreDueToMethodAnnotation = getTestMethodAnnotation(desc, IgnoreFor.class);
+        if (ignoreDueToMethodAnnotation != null) {
+            excludedImplementations.addAll(
+                    Arrays.asList(ignoreDueToMethodAnnotation.implementations()));
         }
         Log.i(TAG, "Excluded implementations: %s", excludedImplementations);
 
         Set<CronetImplementation> implementationsUnderTest =
                 EnumSet.complementOf(excludedImplementations);
-        assumeFalse("Test skipped because all implementations were excluded. Provided reason: "
-                        + safeGetIgnoreReason(ignoreAnnotation),
-                implementationsUnderTest.isEmpty());
+        assertWithMessage(
+                        "Test should not be skipped via IgnoreFor annotation. "
+                                + "Use DisabledTest instead")
+                .that(implementationsUnderTest)
+                .isNotEmpty();
 
         // Find the API version required by the test.
         int requiredApiVersion = getMaximumAvailableApiLevel();
         int requiredAndroidApiVersion = Build.VERSION_CODES.LOLLIPOP;
+        boolean netLogEnabled = true;
         for (Annotation a : desc.getTestClass().getAnnotations()) {
             if (a instanceof RequiresMinApi) {
                 requiredApiVersion = ((RequiresMinApi) a).value();
             }
             if (a instanceof RequiresMinAndroidApi) {
                 requiredAndroidApiVersion = ((RequiresMinAndroidApi) a).value();
+            }
+            if (a instanceof DisableAutomaticNetLog) {
+                netLogEnabled = false;
+                Log.i(TAG,
+                        "Disabling automatic NetLog collection due to: "
+                                + ((DisableAutomaticNetLog) a).reason());
             }
         }
         for (Annotation a : desc.getAnnotations()) {
@@ -157,6 +172,12 @@ public class CronetTestRule implements TestRule {
             }
             if (a instanceof RequiresMinAndroidApi) {
                 requiredAndroidApiVersion = ((RequiresMinAndroidApi) a).value();
+            }
+            if (a instanceof DisableAutomaticNetLog) {
+                netLogEnabled = false;
+                Log.i(TAG,
+                        "Disabling automatic NetLog collection due to: "
+                                + ((DisableAutomaticNetLog) a).reason());
             }
         }
 
@@ -177,23 +198,24 @@ public class CronetTestRule implements TestRule {
                 }
                 Log.i(TAG, "Running test against " + implementation + " implementation.");
                 setImplementationUnderTest(implementation);
-                evaluateWithFramework(base);
+                evaluateWithFramework(base, testName, netLogEnabled);
             }
         } else {
-            evaluateWithFramework(base);
+            evaluateWithFramework(base, testName, netLogEnabled);
         }
     }
 
-    private void evaluateWithFramework(Statement statement) throws Throwable {
-        try (CronetTestFramework framework = createCronetTestFramework()) {
+    private void evaluateWithFramework(Statement statement, String testName, boolean netLogEnabled)
+            throws Throwable {
+        try (CronetTestFramework framework = createCronetTestFramework(testName, netLogEnabled)) {
             statement.evaluate();
         } finally {
             mCronetTestFramework = null;
         }
     }
 
-    private CronetTestFramework createCronetTestFramework() {
-        mCronetTestFramework = new CronetTestFramework(mImplementation);
+    private CronetTestFramework createCronetTestFramework(String testName, boolean netLogEnabled) {
+        mCronetTestFramework = new CronetTestFramework(mImplementation, testName, netLogEnabled);
         if (mEngineStartupMode.equals(EngineStartupMode.AUTOMATIC)) {
             mCronetTestFramework.startEngine();
         }
@@ -210,9 +232,11 @@ public class CronetTestRule implements TestRule {
     }
 
     /**
-     * Annotation for test methods in org.chromium.net package that disables running the test
-     * against some of the implementations. When this annotation is present the test is only run
-     * against the {@link CronetImplementation} cases not specified in the annotation.
+     * Annotation allowing classes or individual tests to be skipped based on the implementation
+     * being currently tested. When this annotation is present the test is only run against the
+     * {@link CronetImplementation} cases not specified in the annotation. If the annotation is
+     * specified both at the class and method levels, the union of IgnoreFor#implementations() will
+     * be skipped.
      */
     @Target({ElementType.TYPE, ElementType.METHOD})
     @Retention(RetentionPolicy.RUNTIME)
@@ -245,6 +269,15 @@ public class CronetTestRule implements TestRule {
     @Retention(RetentionPolicy.RUNTIME)
     public @interface RequiresMinAndroidApi {
         int value();
+    }
+
+    /**
+     * Annotation allowing classes or individual tests to disable automatic NetLog collection.
+     */
+    @Target({ElementType.TYPE, ElementType.METHOD})
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface DisableAutomaticNetLog {
+        String reason();
     }
 
     /**
@@ -334,21 +367,26 @@ public class CronetTestRule implements TestRule {
         private final MutableContextWrapper mContextWrapperWithoutFlags;
         private final MutableContextWrapper mContextWrapper;
         private final StrictMode.VmPolicy mOldVmPolicy;
+        private final String mTestName;
+        private final boolean mNetLogEnabled;
 
         private HttpFlagsInterceptor mHttpFlagsInterceptor;
         private ExperimentalCronetEngine mCronetEngine;
         private boolean mClosed;
 
-        private CronetTestFramework(CronetImplementation implementation) {
-            this.mContextWrapperWithoutFlags =
+        private CronetTestFramework(
+                CronetImplementation implementation, String testName, boolean netLogEnabled) {
+            mContextWrapperWithoutFlags =
                     new MutableContextWrapper(ApplicationProvider.getApplicationContext());
-            this.mContextWrapper = new MutableContextWrapper(mContextWrapperWithoutFlags);
+            mContextWrapper = new MutableContextWrapper(mContextWrapperWithoutFlags);
             assert sContextWrapper.getBaseContext() == ApplicationProvider.getApplicationContext();
             sContextWrapper.setBaseContext(mContextWrapper);
-            this.mBuilder = implementation.createBuilder(sContextWrapper)
-                                    .setUserAgent(UserAgent.from(sContextWrapper))
-                                    .enableQuic(true);
-            this.mImplementation = implementation;
+            mBuilder = implementation.createBuilder(sContextWrapper)
+                               .setUserAgent(UserAgent.from(sContextWrapper))
+                               .enableQuic(true);
+            mImplementation = implementation;
+            mTestName = testName;
+            mNetLogEnabled = netLogEnabled;
 
             System.loadLibrary("cronet_tests");
             ContextUtils.initApplicationContext(sContextWrapper);
@@ -450,6 +488,17 @@ public class CronetTestRule implements TestRule {
             // Start collecting metrics.
             mCronetEngine.getGlobalMetricsDeltas();
 
+            if (mNetLogEnabled) {
+                File dataDir = new File(PathUtils.getDataDirectory());
+                File netLogDir = new File(dataDir, "NetLog");
+                netLogDir.mkdir();
+                String netLogFileName =
+                        mTestName + "-" + String.valueOf(System.currentTimeMillis());
+                File netLogFile = new File(netLogDir, netLogFileName + ".json");
+                Log.i(TAG, "Enabling netlog to: " + netLogFile.getPath());
+                mCronetEngine.startNetLogToFile(netLogFile.getPath(), /*logAll=*/true);
+            }
+
             return mCronetEngine;
         }
 
@@ -525,6 +574,7 @@ public class CronetTestRule implements TestRule {
                 return;
             }
             try {
+                mCronetEngine.stopNetLog();
                 mCronetEngine.shutdown();
             } catch (IllegalStateException e) {
                 if (e.getMessage().contains("Engine is shut down")) {
@@ -609,19 +659,15 @@ public class CronetTestRule implements TestRule {
         }
     }
 
-    /**
-     * Returns the most specific annotation of a given type applicable to the test case described by
-     * {@code description}. Returns {@code null} if no such annotation is found.
-     */
     @Nullable
-    private static <T extends Annotation> T getTestAnnotation(
+    private static <T extends Annotation> T getTestMethodAnnotation(
             Description description, Class<T> clazz) {
-        T annotation = description.getAnnotation(clazz);
+        return description.getAnnotation(clazz);
+    }
 
-        if (annotation != null) {
-            return annotation;
-        }
-
+    @Nullable
+    private static <T extends Annotation> T getTestClassAnnotation(
+            Description description, Class<T> clazz) {
         return description.getTestClass().getAnnotation(clazz);
     }
 

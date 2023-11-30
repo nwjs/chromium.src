@@ -17,8 +17,7 @@ bool IsFedCmAuthzEnabled() {
 }
 
 bool IsFedCmIdpSignoutEnabled() {
-  return GetFieldTrialParamByFeatureAsBool(
-      features::kFedCm, features::kFedCmIdpSignoutFieldTrialParamName, false);
+  return base::FeatureList::IsEnabled(features::kFedCmLogoutRps);
 }
 
 bool IsFedCmMultipleIdentityProvidersEnabled() {
@@ -53,20 +52,24 @@ bool IsFedCmWithoutWellKnownEnforcementEnabled() {
       features::kFedCmWithoutWellKnownEnforcement);
 }
 
-bool IsWebIdentityMDocsEnabled() {
-  return base::FeatureList::IsEnabled(features::kWebIdentityMDocs);
+bool IsWebIdentityDigitalCredentialsEnabled() {
+  return base::FeatureList::IsEnabled(features::kWebIdentityDigitalCredentials);
 }
 
-bool IsFedCmAccountAutoSelectedFlagEnabled() {
-  return base::FeatureList::IsEnabled(features::kFedCmAccountAutoSelectedFlag);
+bool IsFedCmAutoSelectedFlagEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmAutoSelectedFlag);
 }
 
-bool IsFedCmHostedDomainEnabled() {
-  return base::FeatureList::IsEnabled(features::kFedCmHostedDomain);
+bool IsFedCmDomainHintEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmDomainHint);
 }
 
 bool IsFedCmErrorEnabled() {
   return base::FeatureList::IsEnabled(features::kFedCmError);
+}
+
+bool IsFedCmRevokeEnabled() {
+  return base::FeatureList::IsEnabled(features::kFedCmRevoke);
 }
 
 }  // namespace content

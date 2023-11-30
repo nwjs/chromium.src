@@ -21,30 +21,49 @@ PlusAddressCreationViewAndroid::PlusAddressCreationViewAndroid(
     content::WebContents* web_contents)
     : controller_(controller), web_contents_(web_contents) {}
 
-PlusAddressCreationViewAndroid::~PlusAddressCreationViewAndroid() = default;
+PlusAddressCreationViewAndroid::~PlusAddressCreationViewAndroid() {
+  if (java_object_) {
+    Java_PlusAddressCreationViewBridge_destroy(
+        base::android::AttachCurrentThread(), java_object_);
+  }
+}
 
 void PlusAddressCreationViewAndroid::Show(
-    const std::string& primary_email_address) {
+    const std::string& primary_email_address,
+    const std::string& plus_address) {
   JNIEnv* env = base::android::AttachCurrentThread();
   java_object_.Reset(Java_PlusAddressCreationViewBridge_create(
-      env, reinterpret_cast<intptr_t>(this)));
+      env, reinterpret_cast<intptr_t>(this),
+      web_contents_->GetTopLevelNativeWindow()->GetJavaObject()));
 
-  base::android::ScopedJavaLocalRef<jstring> j_formatted_email =
-      base::android::ConvertUTF8ToJavaString(
-          env, l10n_util::GetStringFUTF8(
-                   IDS_PLUS_ADDRESS_MODAL_REGULAR_ADDRESS_LABEL,
-                   base::UTF8ToUTF16(primary_email_address)));
-
-  // TODO(b/303054310): Validate that this works as expected, and convert other
-  // strings in the view XML if so.
+  // TODO(b/303054310): Once project exigencies allow for it, convert all of
+  // these back to the android view XML.
   base::android::ScopedJavaLocalRef<jstring> j_title =
       base::android::ConvertUTF16ToJavaString(
           env, l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_MODAL_TITLE));
 
+  base::android::ScopedJavaLocalRef<jstring> j_formatted_description =
+      base::android::ConvertUTF8ToJavaString(
+          env, l10n_util::GetStringFUTF8(
+                   IDS_PLUS_ADDRESS_MODAL_PLUS_ADDRESS_DESCRIPTION_V2,
+                   base::UTF8ToUTF16(primary_email_address)));
+
+  base::android::ScopedJavaLocalRef<jstring>
+      j_proposed_plus_address_placeholder =
+          base::android::ConvertUTF8ToJavaString(env, plus_address);
+
+  base::android::ScopedJavaLocalRef<jstring> j_plus_address_modal_ok =
+      base::android::ConvertUTF16ToJavaString(
+          env, l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_MODAL_OK_TEXT));
+
+  base::android::ScopedJavaLocalRef<jstring> j_plus_address_modal_cancel =
+      base::android::ConvertUTF16ToJavaString(
+          env, l10n_util::GetStringUTF16(IDS_PLUS_ADDRESS_MODAL_CANCEL_TEXT));
+
   Java_PlusAddressCreationViewBridge_show(
-      env, java_object_,
-      web_contents_->GetTopLevelNativeWindow()->GetJavaObject(),
-      j_formatted_email, j_title);
+      env, java_object_, j_title, j_formatted_description,
+      j_proposed_plus_address_placeholder, j_plus_address_modal_ok,
+      j_plus_address_modal_cancel);
 }
 
 void PlusAddressCreationViewAndroid::OnConfirmed(

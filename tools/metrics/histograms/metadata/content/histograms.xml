@@ -48,6 +48,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".QueryWebFeed" summary="QueryWebFeed"/>
   <variant name=".SingleWebFeedListContents"
       summary="SingleWebFeedListContents"/>
+  <variant name=".SupervisedFeed" summary="SupervisedFeed"/>
   <variant name=".UnfollowWebFeed" summary="UnfollowWebFeed"/>
   <variant name=".UploadActions" summary="UploadActions"/>
   <variant name=".WebFeedListContents" summary="WebFeedListContents"/>
@@ -128,6 +129,17 @@ chromium-metrics-reviews@google.com.
     pattern is specified. Exactly one of this or
     ContentSettings.ExtensionEmbeddedSettingSet will be emitted per call to
     contentSettings.set(), if the arguments to the call are valid.
+  </summary>
+</histogram>
+
+<histogram name="ContentSettings.GetCookieSettingInternal.Duration"
+    units="microseconds" expires_after="2024-04-30">
+  <owner>dullweber@chromium.org</owner>
+  <owner>wanderview@chromium.org</owner>
+  <summary>
+    Measures how long a call to CookieSettingBase::GetCookieSettingInternal
+    takes. Logged each time a call is made. Note that histogram samples for
+    clients without high-resolution clocks are dropped.
   </summary>
 </histogram>
 
@@ -791,7 +803,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.CanBeShown" enum="BooleanAllowed"
-    expires_after="2024-01-28">
+    expires_after="2024-03-31">
   <owner>harringtond@chromium.org</owner>
   <owner>thegreenfrog@chromium.org</owner>
   <owner>feed@chromium.org</owner>
@@ -929,7 +941,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.ContentLifetime.StaleAge" units="ms"
-    expires_after="2023-11-19">
+    expires_after="2024-01-21">
   <owner>birnie@google.com</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1718,7 +1730,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.Feed.WebFeed.SortType" enum="FeedSortType"
-    expires_after="2023-12-23">
+    expires_after="2024-03-31">
   <owner>adamta@google.com</owner>
   <owner>sczs@chromium.org</owner>
   <owner>feed@chromium.org</owner>
@@ -1804,7 +1816,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="ContentSuggestions.{FeedType}.Activity"
-    enum="FeedActivityBucket" expires_after="2023-11-24">
+    enum="FeedActivityBucket" expires_after="2024-05-24">
   <owner>guiperez@google.com</owner>
   <owner>feed@chromium.org</owner>
   <summary>
@@ -1973,6 +1985,7 @@ chromium-metrics-reviews@google.com.
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
     <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
+    <variant name="Feed.SupervisedFeed" summary="Supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
 </histogram>
@@ -1988,6 +2001,7 @@ chromium-metrics-reviews@google.com.
   <token key="FeedType">
     <variant name="Feed" summary="For-You Feed"/>
     <variant name="Feed.SingleWebFeed" summary="Single Web Feed"/>
+    <variant name="Feed.SupervisedFeed" summary="Supervised Feed"/>
     <variant name="Feed.WebFeed" summary="Web Feed"/>
   </token>
 </histogram>

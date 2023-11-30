@@ -39,6 +39,7 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/ash/accessibility/accessibility_feature_browsertest.h"
 #include "chrome/browser/ash/accessibility/accessibility_manager.h"
 #include "chrome/browser/ash/accessibility/automation_test_utils.h"
 #include "chrome/browser/ash/crosapi/browser_manager.h"
@@ -96,20 +97,14 @@ LoggedInSpokenFeedbackTest::~LoggedInSpokenFeedbackTest() = default;
 
 void LoggedInSpokenFeedbackTest::SetUpInProcessBrowserTestFixture() {
   AccessibilityManager::SetBrailleControllerForTest(&braille_controller_);
-  ash_starter_ = std::make_unique<::test::AshBrowserTestStarter>();
-  if (ash_starter_->HasLacrosArgument()) {
-    ASSERT_TRUE(ash_starter_->PrepareEnvironmentForLacros());
-  }
+  AccessibilityFeatureBrowserTest::SetUpInProcessBrowserTestFixture();
 }
 
 void LoggedInSpokenFeedbackTest::SetUpOnMainThread() {
   InProcessBrowserTest::SetUpOnMainThread();
   event_generator_ = std::make_unique<ui::test::EventGenerator>(
       Shell::Get()->GetPrimaryRootWindow());
-  CHECK(ash_starter_);
-  if (ash_starter_->HasLacrosArgument()) {
-    ash_starter_->StartLacros(this);
-  }
+  AccessibilityFeatureBrowserTest::SetUpOnMainThread();
 }
 
 void LoggedInSpokenFeedbackTest::TearDownOnMainThread() {
@@ -207,8 +202,7 @@ bool LoggedInSpokenFeedbackTest::PerformAcceleratorAction(
 
 void LoggedInSpokenFeedbackTest::RunJSForChromeVox(const std::string& script) {
   extensions::BackgroundScriptExecutor::ExecuteScriptAsync(
-      AccessibilityManager::Get()->profile(),
-      extension_misc::kChromeVoxExtensionId, script,
+      GetProfile(), extension_misc::kChromeVoxExtensionId, script,
       extensions::browsertest_util::ScriptUserActivation::kDontActivate);
 }
 
@@ -218,16 +212,14 @@ void LoggedInSpokenFeedbackTest::DisableEarcons() {
   // (http://crbug.com/396507). Work around this by just telling
   // ChromeVox to not ever play earcons (prerecorded sound effects).
   extensions::browsertest_util::ExecuteScriptInBackgroundPageNoWait(
-      AccessibilityManager::Get()->profile(),
-      extension_misc::kChromeVoxExtensionId,
+      GetProfile(), extension_misc::kChromeVoxExtensionId,
       "ChromeVox.earcons.playEarcon = function() {};");
 }
 
 void LoggedInSpokenFeedbackTest::ImportJSModuleForChromeVox(std::string name,
                                                             std::string path) {
   extensions::browsertest_util::ExecuteScriptInBackgroundPageDeprecated(
-      AccessibilityManager::Get()->profile(),
-      extension_misc::kChromeVoxExtensionId,
+      GetProfile(), extension_misc::kChromeVoxExtensionId,
       "import('" + path +
           "').then(mod => {"
           "globalThis." +
@@ -267,26 +259,9 @@ void LoggedInSpokenFeedbackTest::ExecuteCommandHandlerCommand(
     std::string command) {
   ImportJSModuleForChromeVox(
       "CommandHandlerInterface",
-      "/chromevox/background/command_handler_interface.js");
+      "/chromevox/background/input/command_handler_interface.js");
   RunJSForChromeVox("CommandHandlerInterface.instance.onCommand('" + command +
                     "');");
-}
-
-void LoggedInSpokenFeedbackTest::NavigateToUrl(const GURL& url) {
-  CHECK(ash_starter_);
-  if (ash_starter_->HasLacrosArgument()) {
-    crosapi::BrowserManager::Get()->OpenUrl(
-        url, crosapi::mojom::OpenUrlFrom::kUnspecified,
-        crosapi::mojom::OpenUrlParams::WindowOpenDisposition::
-            kNewForegroundTab);
-  } else {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-  }
-}
-
-bool LoggedInSpokenFeedbackTest::IsLacrosRunning() const {
-  CHECK(ash_starter_);
-  return ash_starter_->HasLacrosArgument();
 }
 
 // Flaky test, crbug.com/1081563
@@ -406,17 +381,10 @@ IN_PROC_BROWSER_TEST_F(LoggedInSpokenFeedbackTest, LearnModeEscapeWithGesture) {
   sm_.Replay();
 }
 
-class NotificationCenterSpokenFeedbackTest
-    : public LoggedInSpokenFeedbackTest,
-      public ::testing::WithParamInterface<bool> {
+class NotificationCenterSpokenFeedbackTest : public LoggedInSpokenFeedbackTest {
  protected:
-  NotificationCenterSpokenFeedbackTest() {
-    feature_list_.InitWithFeatureState(features::kQsRevamp,
-                                       IsQsRevampEnabled());
-  }
+  NotificationCenterSpokenFeedbackTest() = default;
   ~NotificationCenterSpokenFeedbackTest() override = default;
-
-  bool IsQsRevampEnabled() const { return GetParam(); }
 
   NotificationCenterTestApi* test_api() {
     if (!test_api_) {
@@ -428,65 +396,33 @@ class NotificationCenterSpokenFeedbackTest
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<NotificationCenterTestApi> test_api_;
 };
 
-INSTANTIATE_TEST_SUITE_P(QsRevampEnabled,
-                         NotificationCenterSpokenFeedbackTest,
-                         ::testing::Bool());
-
 // Tests the spoken feedback text when using the notification center accelerator
 // to navigate to the notification center.
-IN_PROC_BROWSER_TEST_P(NotificationCenterSpokenFeedbackTest,
+IN_PROC_BROWSER_TEST_F(NotificationCenterSpokenFeedbackTest,
                        NavigateNotificationCenter) {
   EnableChromeVox();
 
-  if (IsQsRevampEnabled()) {
-    // Add a notification so that the notification center tray is visible.
-    test_api()->AddNotification();
-    ASSERT_TRUE(test_api()->IsTrayShown());
+  // Add a notification so that the notification center tray is visible.
+  test_api()->AddNotification();
+  ASSERT_TRUE(test_api()->IsTrayShown());
 
-    // Press the accelerator that toggles the notification center.
-    sm_.Call([this]() {
-      EXPECT_TRUE(PerformAcceleratorAction(
-          AcceleratorAction::kToggleMessageCenterBubble));
-    });
-
-    // Verify the spoken feedback text.
-    sm_.ExpectSpeech("Notification Center");
-    sm_.Replay();
-    return;
-  }
-
+  // Press the accelerator that toggles the notification center.
   sm_.Call([this]() {
     EXPECT_TRUE(PerformAcceleratorAction(
         AcceleratorAction::kToggleMessageCenterBubble));
   });
-  sm_.ExpectSpeech(
-      "Quick Settings, Press search plus left to access the notification "
-      "center.");
 
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
-  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_LEFT); });
-
-  // If you are hitting this in the course of changing the UI, please fix. This
-  // item needs a label.
-  sm_.ExpectSpeech("List item");
-
-  // Furthermore, navigation is generally broken using Search+Left.
-
+  // Verify the spoken feedback text.
+  sm_.ExpectSpeech("Notification Center");
   sm_.Replay();
 }
 
 // Tests that clicking the notification center tray does not crash when spoken
 // feedback is enabled.
-IN_PROC_BROWSER_TEST_P(NotificationCenterSpokenFeedbackTest, OpenBubble) {
-  // This test only makes sense in the context of the QS revamp.
-  if (!IsQsRevampEnabled()) {
-    return;
-  }
-
+IN_PROC_BROWSER_TEST_F(NotificationCenterSpokenFeedbackTest, OpenBubble) {
   // Enable spoken feedback and add a notification to ensure the tray is
   // visible.
   EnableChromeVox();
@@ -620,10 +556,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, ShelfIconFocusForward) {
   // pinned apps in user preference will be removed.
   EnableChromeVox();
   sm_.Call([controller, title]() {
-    controller->InsertAppItem(
+    controller->CreateAppItem(
         std::make_unique<AppShortcutShelfItemController>(ShelfID("FakeApp")),
-        STATUS_CLOSED, controller->shelf_model()->item_count(), TYPE_PINNED_APP,
-        base::ASCIIToUTF16(title));
+        STATUS_CLOSED, /*pinned=*/true, base::ASCIIToUTF16(title));
   });
 
   // Focus on the shelf.
@@ -718,17 +653,15 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, SpeakingTextUnderMouseForShelfItem) {
   sm_.Call([this]() {
     // Add three Shelf buttons. Wait for the change on ShelfModel to reach ash.
     ChromeShelfController* controller = ChromeShelfController::instance();
-    const int base_index = controller->shelf_model()->item_count();
     const std::string title("MockApp");
     const std::string id("FakeApp");
     const int insert_app_num = 3;
     for (int i = 0; i < insert_app_num; i++) {
       std::string app_title = title + base::NumberToString(i);
       std::string app_id = id + base::NumberToString(i);
-      controller->InsertAppItem(
+      controller->CreateAppItem(
           std::make_unique<AppShortcutShelfItemController>(ShelfID(app_id)),
-          STATUS_CLOSED, base_index + i, TYPE_PINNED_APP,
-          base::ASCIIToUTF16(app_title));
+          STATUS_CLOSED, /*pinned=*/true, base::ASCIIToUTF16(app_title));
     }
 
     // Enable the function of speaking text under mouse.
@@ -813,11 +746,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest,
 
   std::vector<apps::AppPtr> apps;
   apps.push_back(std::move(app));
-  apps::AppServiceProxyFactory::GetForProfile(
-      AccessibilityManager::Get()->profile())
-      ->AppRegistryCache()
-      .OnApps(std::move(apps), apps::AppType::kBuiltIn,
-              false /* should_notify_initialized */);
+  apps::AppServiceProxyFactory::GetForProfile(GetProfile())
+      ->OnApps(std::move(apps), apps::AppType::kBuiltIn,
+               false /* should_notify_initialized */);
 
   // Create and add a test app to the shelf model.
   ShelfItem item;
@@ -875,12 +806,19 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, ShowHeadingList) {
   sm_.ExpectSpeechPattern("Sub-category Heading 3 Menu item 3 of *");
   sm_.Call([this]() { SendKeyPress(ui::VKEY_SPACE); });
   sm_.ExpectSpeech("Sub-category");
-  sm_.Call([this]() {
-    SendKeyPressWithSearch(ui::VKEY_DOWN);
-    SendKeyPressWithSearch(ui::VKEY_DOWN);
-    SendKeyPressWithSearch(ui::VKEY_DOWN);
-    SendKeyPressWithSearch(ui::VKEY_DOWN);
-  });
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_DOWN); });
+  sm_.ExpectSpeech("Sub-category");
+  if (IsLacrosRunning()) {
+    // With Lacros, it takes one more search+down to get out of the sub-category
+    // after having been in the heading menu.
+    sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_DOWN); });
+    sm_.ExpectSpeech("Sub-category");
+  }
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_DOWN); });
+  sm_.ExpectSpeech("Text");
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_DOWN); });
+  sm_.ExpectSpeech("Second sub-category");
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_DOWN); });
   sm_.ExpectSpeech("Next page Button");
 
   sm_.Replay();
@@ -900,11 +838,9 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest,
   app->readiness = apps::Readiness::kDisabledByPolicy;
   std::vector<apps::AppPtr> apps;
   apps.push_back(std::move(app));
-  apps::AppServiceProxyFactory::GetForProfile(
-      AccessibilityManager::Get()->profile())
-      ->AppRegistryCache()
-      .OnApps(std::move(apps), apps::AppType::kBuiltIn,
-              false /* should_notify_initialized */);
+  apps::AppServiceProxyFactory::GetForProfile(GetProfile())
+      ->OnApps(std::move(apps), apps::AppType::kBuiltIn,
+               false /* should_notify_initialized */);
 
   // Create and add a test app to the shelf model.
   ShelfItem item;
@@ -1131,10 +1067,7 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, LandmarkNavigation) {
 
   sm_.Call([this]() { SendKeyPress(ui::VKEY_SPACE); });
   sm_.ExpectSpeech("Navigation");
-  sm_.Call([this]() {
-    SendKeyPressWithSearch(ui::VKEY_UP);
-    SendKeyPressWithSearch(ui::VKEY_UP);
-  });
+  sm_.Call([this]() { SendKeyPressWithSearch(ui::VKEY_UP); });
   sm_.ExpectSpeech("after main");
 
   sm_.Replay();
@@ -1154,7 +1087,7 @@ IN_PROC_BROWSER_TEST_P(SpokenFeedbackTest, OverviewMode) {
 
   sm_.Call([this]() { SendKeyPress(ui::VKEY_TAB); });
   sm_.ExpectSpeechPattern(
-      "Chrom* - data:text slash html;charset equal utf-8, percent 0A less than "
+      "*window*data:text slash html;charset equal utf-8, percent 0A less than "
       "button autofocus greater than Click me less than slash button greater "
       "than");
   sm_.ExpectSpeechPattern("Press Ctrl plus W to close.");

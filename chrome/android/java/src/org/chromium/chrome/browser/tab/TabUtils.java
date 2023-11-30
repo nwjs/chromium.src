@@ -21,9 +21,10 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import org.jni_zero.CalledByNative;
+
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ContextUtils;
-import org.chromium.base.annotations.CalledByNative;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.ChromeActivity;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
@@ -166,8 +167,7 @@ public class TabUtils {
         if (forcedByUser) {
             @TabUserAgent
             int tabUserAgent = switchToDesktop ? TabUserAgent.DESKTOP : TabUserAgent.MOBILE;
-            if (isDesktopSiteGlobalEnabled(Profile.fromWebContents(tab.getWebContents()))
-                    == switchToDesktop) {
+            if (isDesktopSiteGlobalEnabled(tab.getProfile()) == switchToDesktop) {
                 tabUserAgent = TabUserAgent.DEFAULT;
             }
             tab.setUserAgent(tabUserAgent);

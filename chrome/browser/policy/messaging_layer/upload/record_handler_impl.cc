@@ -24,6 +24,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/thread_annotations.h"
 #include "base/token.h"
+#include "base/types/expected.h"
 #include "base/uuid.h"
 #include "base/values.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
@@ -82,6 +83,7 @@ static absl::optional<Priority> GetPriorityProtoFromSequenceInformationValue(
 static bool IsMissingGenerationGuid(const std::string* generation_guid) {
   // Generation guid is only required for devices that aren't ChromeOS managed
   // devices.
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (policy::ManagementServiceFactory::GetForPlatform()
           ->HasManagementAuthority(
               policy::EnterpriseManagementAuthority::CLOUD_DOMAIN)) {
@@ -111,6 +113,7 @@ static bool IsMissingSequenceInformation(
 // `generation_guid` does not need to be parsed based on the type of device.
 // Returns false otherwise.
 static bool GenerationGuidIsValid(const std::string& generation_guid) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (generation_guid.empty() &&
       policy::ManagementServiceFactory::GetForPlatform()
           ->HasManagementAuthority(
@@ -163,16 +166,16 @@ void ProcessFileUpload(base::WeakPtr<FileUploadJob::Delegate> delegate,
               [](ScopedReservation scoped_reservation,
                  base::OnceCallback<void(Status)> done_cb,
                  StatusOr<FileUploadJob*> job_or_error) {
-                if (!job_or_error.ok()) {
+                if (!job_or_error.has_value()) {
                   LOG(WARNING) << "Failed to locate/create upload job, status="
-                               << job_or_error.status();
+                               << job_or_error.error();
                   // Upload the event as is.
                   std::move(done_cb).Run(Status::StatusOK());
                   return;
                 }
                 // Job has been located or created.
-                job_or_error.ValueOrDie()->event_helper()->Run(
-                    scoped_reservation, std::move(done_cb));
+                job_or_error.value()->event_helper()->Run(scoped_reservation,
+                                                          std::move(done_cb));
               },
               ScopedReservation(0uL, scoped_reservation), std::move(done_cb)));
       break;
@@ -204,8 +207,9 @@ StatusOr<std::tuple<int64_t, int64_t>> ParseSequencingIdAndGenerationId(
     if (!base::StringToUint64(*sequencing_id, &unsigned_seq_id) ||
         !base::StringToUint64(*generation_id, &unsigned_gen_id) ||
         unsigned_gen_id == 0) {
-      return Status(error::INVALID_ARGUMENT,
-                    "Could not parse sequencing id and generation id.");
+      return base::unexpected(
+          Status(error::INVALID_ARGUMENT,
+                 "Could not parse sequencing id and generation id."));
     }
     seq_id = static_cast<int64_t>(unsigned_seq_id);
     gen_id = static_cast<int64_t>(unsigned_gen_id);
@@ -218,19 +222,21 @@ StatusOr<std::tuple<int64_t, int64_t>> ParseSequencingIdAndGenerationId(
 StatusOr<Destination> GetDestinationProto(
     const std::string& destination_string) {
   if (destination_string == "") {
-    return Status(error::NOT_FOUND,
-                  "Field destination is missing from ConfigFile");
+    return base::unexpected(Status(
+        error::NOT_FOUND, "Field destination is missing from ConfigFile"));
   }
 
   Destination destination;
   if (!Destination_Parse(destination_string, &destination)) {
-    return Status(error::INVALID_ARGUMENT,
-                  "Unable to parse destination from ConfigFile");
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT,
+               "Unable to parse destination from ConfigFile"));
   }
 
   // Reject undefined destination.
   if (destination == UNDEFINED_DESTINATION) {
-    return Status(error::INVALID_ARGUMENT, "Received UNDEFINED_DESTINATION");
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT, "Received UNDEFINED_DESTINATION"));
   }
 
   return destination;
@@ -243,26 +249,32 @@ StatusOr<ConfigFile> GetConfigurationProtoFromDict(
   // Handle the version.
   const auto config_file_version = file.FindInt("version");
   if (!config_file_version.has_value()) {
-    return Status(error::INVALID_ARGUMENT,
-                  "Field version is missing from configurationFile");
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT,
+               "Field version is missing from configurationFile"));
   }
   config_file.set_version(config_file_version.value());
 
   // Handle the signature.
-  const std::string* config_file_signature =
+  const std::string* config_file_signature_str =
       file.FindString("configFileSignature");
-  if (config_file_signature->empty()) {
-    return Status(
-        error::INVALID_ARGUMENT,
-        "Field configFileSignature is missing from configurationFile");
+  if (!config_file_signature_str || config_file_signature_str->empty()) {
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT,
+               "Field configFileSignature is missing from configurationFile"));
   }
-  config_file.set_config_file_signature(*config_file_signature);
+  std::string config_file_signature;
+  if (!base::Base64Decode(*config_file_signature_str, &config_file_signature)) {
+    return base::unexpected(Status(error::INVALID_ARGUMENT,
+                                   "Unable to decode configFileSignature"));
+  }
+  config_file.set_config_file_signature(config_file_signature);
 
   auto* const event_config_result = file.FindList("blockedEventConfigs");
   if (!event_config_result) {
-    return Status(
-        error::INVALID_ARGUMENT,
-        "Field blockedEventConfigs is missing from configurationFile");
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT,
+               "Field blockedEventConfigs is missing from configurationFile"));
   }
 
   // Parse the list of event configs.
@@ -270,8 +282,8 @@ StatusOr<ConfigFile> GetConfigurationProtoFromDict(
     auto* const current_config = config_file.add_blocked_event_configs();
     auto* const dict = entry.GetIfDict();
     if (dict->empty()) {
-      return Status(error::INVALID_ARGUMENT,
-                    "Empty event config in configurationFile");
+      return base::unexpected(Status(
+          error::INVALID_ARGUMENT, "Empty event config in configurationFile"));
     }
 
     // Find destination and turn it into a proto.
@@ -315,22 +327,24 @@ RecordHandlerImpl::SequenceInformationValueToProto(
   // may not have it.
   if (IsMissingSequenceInformation(sequencing_id, generation_id,
                                    priority_result, generation_guid)) {
-    return Status(error::INVALID_ARGUMENT,
-                  base::StrCat({"Provided value lacks some fields required by "
-                                "SequenceInformation proto: ",
-                                value.DebugString()}));
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT,
+               base::StrCat({"Provided value lacks some fields required by "
+                             "SequenceInformation proto: ",
+                             value.DebugString()})));
   }
 
   const auto parse_seq_id_gen_id_result =
       ParseSequencingIdAndGenerationId(sequencing_id, generation_id);
-  if (!parse_seq_id_gen_id_result.ok()) {
-    return Status(error::INVALID_ARGUMENT,
-                  base::StrCat({"Provided value did not conform to a valid "
-                                "SequenceInformation proto. Invalid sequencing "
-                                "id or generation id : ",
-                                value.DebugString()}));
+  if (!parse_seq_id_gen_id_result.has_value()) {
+    return base::unexpected(
+        Status(error::INVALID_ARGUMENT,
+               base::StrCat({"Provided value did not conform to a valid "
+                             "SequenceInformation proto. Invalid sequencing "
+                             "id or generation id : ",
+                             value.DebugString()})));
   }
-  const auto [seq_id, gen_id] = parse_seq_id_gen_id_result.ValueOrDie();
+  const auto [seq_id, gen_id] = parse_seq_id_gen_id_result.value();
 
   SequenceInformation proto;
   proto.set_sequencing_id(seq_id);
@@ -341,11 +355,11 @@ RecordHandlerImpl::SequenceInformationValueToProto(
   // If `generation_guid` does not exist, set it to be an empty string.
   const std::string gen_guid = generation_guid ? *generation_guid : "";
   if (!GenerationGuidIsValid(gen_guid)) {
-    return Status(
+    return base::unexpected(Status(
         error::INVALID_ARGUMENT,
         base::StrCat({"Provided value did not conform to a valid "
                       "SequenceInformation proto. Invalid generation guid : ",
-                      value.DebugString()}));
+                      value.DebugString()})));
   }
   proto.set_generation_guid(gen_guid);
 #endif  // BUILDFLAG(IS_CHROMEOS)
@@ -444,7 +458,7 @@ void RecordHandlerImpl::ReportUploader::OnStart() {
     Status empty_records =
         Status(error::INVALID_ARGUMENT, "records_ was empty");
     LOG(ERROR) << empty_records;
-    Complete(empty_records);
+    Complete(base::unexpected(empty_records));
     return;
   }
 
@@ -478,6 +492,7 @@ void RecordHandlerImpl::ReportUploader::LogNumRecordsInUpload(
     size_t num_records) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 #if BUILDFLAG(IS_CHROMEOS)
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (policy::ManagementServiceFactory::GetForPlatform()
           ->HasManagementAuthority(
               policy::EnterpriseManagementAuthority::CLOUD_DOMAIN)) {
@@ -488,7 +503,9 @@ void RecordHandlerImpl::ReportUploader::LogNumRecordsInUpload(
     base::UmaHistogramCounts1000(
         "Browser.ERP.RecordsPerUploadFromUnmanagedDevice", num_records);
   }
-// TODO(b/304623373): Add separate UMA for non-ChromeOS devices.
+#else
+  base::UmaHistogramCounts1000(
+      "Browser.ERP.RecordsPerUploadFromNonChromeosDevice", num_records);
 #endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
@@ -575,12 +592,12 @@ void RecordHandlerImpl::ReportUploader::OnUploadComplete(
   // `base::Value::Dict request` it was referring to.
   scoped_reservation_.Reduce(0uL);
 
-  if (!response.ok()) {
-    HandleFailedUpload(response.status());
+  if (!response.has_value()) {
+    HandleFailedUpload(response.error());
     return;
   }
 
-  HandleSuccessfulUpload(std::move(response.ValueOrDie()));
+  HandleSuccessfulUpload(std::move(response.value()));
 }
 
 void RecordHandlerImpl::ReportUploader::HandleFailedUpload(Status status) {
@@ -593,7 +610,7 @@ void RecordHandlerImpl::ReportUploader::HandleFailedUpload(Status status) {
     return;
   }
 
-  Complete(status);
+  Complete(base::unexpected(status));
 }
 
 void RecordHandlerImpl::ReportUploader::HandleSuccessfulUpload(
@@ -620,13 +637,13 @@ void RecordHandlerImpl::ReportUploader::HandleSuccessfulUpload(
   if (last_succeed_uploaded_record != nullptr) {
     auto seq_info_result =
         SequenceInformationValueToProto(*last_succeed_uploaded_record);
-    if (seq_info_result.ok()) {
-      highest_sequence_information_ = std::move(seq_info_result.ValueOrDie());
+    if (seq_info_result.has_value()) {
+      highest_sequence_information_ = std::move(seq_info_result.value());
     } else {
       LOG(ERROR) << "Server responded with an invalid SequenceInformation "
                     "for lastSucceedUploadedRecord"
                  << "\n"
-                 << "error status = " << seq_info_result.status() << "\n"
+                 << "error status = " << seq_info_result.error() << "\n"
                  << "last_succeed_uploaded_record = "
                  << *last_succeed_uploaded_record;
     }
@@ -685,11 +702,11 @@ void RecordHandlerImpl::ReportUploader::HandleSuccessfulUpload(
       base::FeatureList::IsEnabled(kShouldRequestConfigurationFile)) {
     auto seq_info_result =
         GetConfigurationProtoFromDict(*signed_configuration_file_record);
-    if (seq_info_result.ok()) {
+    if (seq_info_result.has_value()) {
       // TODO(b/289117140): Call the callback when it is in place.
     } else {
       base::UmaHistogramEnumeration("Browser.ERP.ConfigFileParsingError",
-                                    seq_info_result.status().code(),
+                                    seq_info_result.error().code(),
                                     error::Code::MAX_VALUE);
     }
   }
@@ -732,7 +749,8 @@ void RecordHandlerImpl::ReportUploader::HandleSuccessfulUpload(
     return;
   }
 
-  Complete(Status(error::INTERNAL, "Unable to upload any records"));
+  Complete(base::unexpected(
+      Status(error::INTERNAL, "Unable to upload any records")));
 }
 
 absl::optional<EncryptedRecord>
@@ -745,14 +763,14 @@ RecordHandlerImpl::ReportUploader::HandleFailedUploadedSequenceInformation(
   }
 
   auto seq_info_result = SequenceInformationValueToProto(sequence_information);
-  if (!seq_info_result.ok()) {
+  if (!seq_info_result.has_value()) {
     LOG(ERROR) << "Server responded with an invalid SequenceInformation for "
                   "firstFailedUploadedRecord.failedUploadedRecord:"
                << sequence_information;
     return absl::nullopt;
   }
 
-  SequenceInformation& seq_info = seq_info_result.ValueOrDie();
+  SequenceInformation& seq_info = seq_info_result.value();
 
   // |seq_info| should be of the same generation, generation guid, and
   // priority as highest_sequence_information_, and have the next

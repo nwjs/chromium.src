@@ -13,6 +13,7 @@
 #include "components/content_settings/core/common/features.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/views/controls/button/toggle_button.h"
 #include "ui/views/controls/image_view.h"
@@ -104,7 +105,7 @@ void CookieControlsContentView::AddContentLabels() {
 }
 
 void CookieControlsContentView::SetToggleIsOn(bool is_on) {
-  toggle_button_->AnimateIsOn(is_on);
+  toggle_button_->SetIsOn(is_on);
 }
 
 void CookieControlsContentView::SetToggleIcon(const gfx::VectorIcon& icon) {
@@ -269,3 +270,6 @@ void CookieControlsContentView::NotifyToggleButtonPressedCallback() {
 void CookieControlsContentView::NotifyFeedbackButtonPressedCallback() {
   feedback_button_callback_list_.Notify();
 }
+
+BEGIN_METADATA(CookieControlsContentView, views::View)
+END_METADATA

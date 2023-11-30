@@ -277,6 +277,22 @@ class WebContents : public PageNavigator,
         picture_in_picture_options;
   };
 
+  // Token that causes input to be blocked on this WebContents for at least as
+  // long as it exists.
+  class CONTENT_EXPORT ScopedIgnoreInputEvents {
+   public:
+    ~ScopedIgnoreInputEvents();
+
+    ScopedIgnoreInputEvents(ScopedIgnoreInputEvents&&);
+    ScopedIgnoreInputEvents& operator=(ScopedIgnoreInputEvents&&);
+
+   private:
+    friend class WebContentsImpl;
+    explicit ScopedIgnoreInputEvents(base::OnceClosure on_destruction_cb);
+
+    base::ScopedClosureRunner on_destruction_cb_;
+  };
+
   // Creates a new WebContents.
   //
   // The caller is responsible for ensuring that the returned WebContents is
@@ -1341,8 +1357,10 @@ class WebContents : public PageNavigator,
   // user activation work: crbug.com/848778
   virtual bool HasRecentInteraction() = 0;
 
-  // Sets a flag that causes the WebContents to ignore input events.
-  virtual void SetIgnoreInputEvents(bool ignore_input_events) = 0;
+  // Causes the WebContents to ignore input events for at least as long as the
+  // token exists.  In the event of multiple calls, input events will be ignored
+  // until all tokens have been destroyed.
+  [[nodiscard]] virtual ScopedIgnoreInputEvents IgnoreInputEvents() = 0;
 
   // Returns the group id for all audio streams that correspond to a single
   // WebContents. This can be used to determine if a AudioOutputStream was
@@ -1358,10 +1376,6 @@ class WebContents : public PageNavigator,
   // Intended for desktop PWAs with manifest entry of window-controls-overlay,
   // This sends the available title bar area bounds to the renderer process.
   virtual void UpdateWindowControlsOverlay(const gfx::Rect& bounding_rect) = 0;
-
-  // Intermediate function sending widget's `can_resize` to blink to update
-  // `resizable` CSS @media feature.
-  virtual void UpdateResizable(bool resizable) = 0;
 
   // Returns the Window Control Overlay rectangle. Only applies to an
   // outermost main frame's widget. Other widgets always returns an empty rect.
@@ -1404,6 +1418,13 @@ class WebContents : public PageNavigator,
   virtual void SetTabSwitchStartTime(base::TimeTicks start_time,
                                      bool destination_is_loaded) = 0;
 
+  // Activates the primary page that is shown in preview mode. This will relax
+  // capability restriction in the browser process, and notify the renderer to
+  // process the prerendering activation algorithm.
+  // Should be called while WebContentsDelegate::IsInPreviewMode returns true.
+  virtual void ActivatePreviewPage(base::TimeTicks activation_start,
+                                   base::OnceClosure completion_callback) = 0;
+
   // Starts an embedder triggered (browser-initiated) prerendering page and
   // returns the unique_ptr<PrerenderHandle>, which cancels prerendering on its
   // destruction. If the prerendering failed to start (e.g. if prerendering is
@@ -1416,6 +1437,9 @@ class WebContents : public PageNavigator,
   // ignore some parameter mismatches. Note that if the mismatched prerender URL
   // will be activated due to the predicate returning true, the last committed
   // URL in the prerendered RenderFrameHost will be activated.
+  // `prerender_navigation_handle_callback` allows embedders to attach their own
+  // NavigationHandleUserData when prerender starts, and the user data can be
+  // used for identifying the types of embedder for metrics logging.
   virtual std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
       PrerenderTriggerType trigger_type,
@@ -1424,7 +1448,9 @@ class WebContents : public PageNavigator,
       PreloadingHoldbackStatus holdback_status_override,
       PreloadingAttempt* preloading_attempt,
       absl::optional<base::RepeatingCallback<bool(const GURL&)>>
-          url_match_predicate = absl::nullopt) = 0;
+          url_match_predicate = absl::nullopt,
+      absl::optional<base::RepeatingCallback<void(NavigationHandle&)>>
+          prerender_navigation_handle_callback = absl::nullopt) = 0;
 
   // May be called when the embedder believes that it is likely that the user
   // will perform a back navigation due to the trigger indicated by `predictor`
@@ -1449,6 +1475,10 @@ class WebContents : public PageNavigator,
   // TODO(crbug.com/1407197): Remove after bug is fixed.
   virtual void SetOwnerLocationForDebug(
       absl::optional<base::Location> owner_location) = 0;
+
+  // Sends the attribution support state to all renderer processes for the
+  // current page.
+  virtual void UpdateAttributionSupportRenderer() = 0;
 
  private:
   // This interface should only be implemented inside content.

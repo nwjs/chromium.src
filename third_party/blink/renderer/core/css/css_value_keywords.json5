@@ -439,6 +439,15 @@
     "xor",
     // highlight
     "plus-lighter",
+
+    //
+    // mask-composite
+    //
+    // "add",
+    "subtract",
+    "intersect",
+    "exclude",
+
     //
     // vertical-align
     //
@@ -706,6 +715,7 @@
     // last baseline,
     // first baseline,
     // stretch
+    "anchor-center",
 
     // justify-content
     // start
@@ -880,6 +890,9 @@
 
     // CSS 3 SHAPES
     "margin-box",
+
+    // https://drafts.fxtf.org/css-masking/#valdef-mask-clip-no-clip
+    "no-clip",
 
     //
     // background-size
@@ -1175,6 +1188,11 @@
     "alpha",
     "luminance",
 
+    // mask-mode
+    // alpha
+    // luminance
+    "match-source",
+
     // color-interpolation / color-interpolation-filters
     // auto
     "srgb",
@@ -1256,6 +1274,7 @@
     // right
     // unsafe
     // safe
+    // anchor-center
     "legacy",
 
     // scroll-behavior
@@ -1649,20 +1668,6 @@
     // Layered @import rule
     "layer",
 
-    // toggle-root
-    "group",
-    "self",
-    "cycle",
-    "cycle-on",
-
-    // toggle-trigger
-    "prev",
-    "next",
-    "set",
-
-    // toggle-visibility
-    "toggle",
-
     // color-contrast()
     "color-contrast",
     "vs",
@@ -1717,6 +1722,7 @@
     // scroll()
     "root",
     "nearest",
+    "self",
 
     // transition-behavior
     "allow-discrete",

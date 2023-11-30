@@ -176,8 +176,8 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   void WorkerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) override;
   bool AllowScriptExtensionForServiceWorker(
       const blink::WebSecurityOrigin& script_origin) override;
-  blink::ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel()
-      override;
+  blink::ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel(
+      const blink::WebSecurityOrigin& origin) override;
   bool OriginCanAccessServiceWorkers(const blink::WebURL& url) override;
   std::tuple<blink::CrossVariantMojoRemote<
                  blink::mojom::ServiceWorkerContainerHostInterfaceBase>,
@@ -214,7 +214,6 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
       const blink::WebURL& url,
       blink::WebVector<blink::WebContentSecurityPolicyHeader>* csp) override;
   base::PlatformThreadId GetIOThreadId() const override;
-  network::mojom::AttributionSupport GetAttributionReportingSupport() override;
   scoped_refptr<base::SingleThreadTaskRunner> VideoFrameCompositorTaskRunner()
       override;
 #if BUILDFLAG(IS_ANDROID)

@@ -314,7 +314,7 @@ void InternalPopupMenu::WriteDocument(SharedBuffer* data) {
   if (box && box->GetScrollableArea()) {
     if (ScrollableArea* scrollable = box->GetScrollableArea()) {
       temp_scrollbar = MakeGarbageCollected<CustomScrollbar>(
-          scrollable, kVerticalScrollbar, &owner_element.InnerElement());
+          scrollable, kVerticalScrollbar, box);
     }
   }
   for (auto target : targets) {
@@ -645,7 +645,7 @@ void InternalPopupMenu::UpdateFromElement(UpdateReason) {
 }
 
 AXObject* InternalPopupMenu::PopupRootAXObject() const {
-  return popup_ ? popup_->RootAXObject() : nullptr;
+  return popup_ ? popup_->RootAXObject(owner_element_) : nullptr;
 }
 
 void InternalPopupMenu::Update(bool force_update) {

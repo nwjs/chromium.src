@@ -95,6 +95,10 @@ NET_EXPORT extern const base::FeatureParam<int>
     kAlternativePortForGloballyReachableCheck;
 NET_EXPORT BASE_DECLARE_FEATURE(kUseAlternativePortForGloballyReachableCheck);
 
+// If enabled, overrides IPv6 reachability probe results based on the system's
+// IP addresses.
+NET_EXPORT BASE_DECLARE_FEATURE(kEnableIPv6ReachabilityOverride);
+
 // If enabled allows the use of SHA-1 by the server for signatures
 // in the TLS handshake.
 NET_EXPORT BASE_DECLARE_FEATURE(kSHA1ServerSignature);
@@ -413,6 +417,10 @@ NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
 // connections that _would_ have been proxied, but were not.
 NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyDirectOnly;
 
+// Controls whether the BlindSignAuth library used by IP Protection should use
+// the privacy pass token format.
+NET_EXPORT extern const base::FeatureParam<bool> kIpPrivacyBsaEnablePrivacyPass;
+
 // Whether QuicParams::migrate_sessions_on_network_change_v2 defaults to true or
 // false. This is needed as a workaround to set this value to true on Android
 // but not on WebView (until crbug.com/1430082 has been fixed).
@@ -448,9 +456,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kEnableWebTransportDraft07);
 // Enables Zstandard Content-Encoding support.
 NET_EXPORT BASE_DECLARE_FEATURE(kZstdContentEncoding);
 
-// Enables SHA-256 and username hashing support for HTTP Digest auth.
-NET_EXPORT BASE_DECLARE_FEATURE(kDigestAuthEnableSecureAlgorithms);
-
 NET_EXPORT BASE_DECLARE_FEATURE(kThirdPartyPartitionedStorageAllowedByDefault);
 
 // Enables the HTTP extensible priorities "priority" header.
@@ -460,12 +465,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kPriorityHeader);
 // Enables a more efficient implementation of SpdyHeadersToHttpResponse().
 NET_EXPORT BASE_DECLARE_FEATURE(kSpdyHeadersToHttpResponseUseBuilder);
 
-// Enables comparison of old and new implementations of
-// SpdyHeadersToHttpResponse at runtime and calls DumpWithoutCrashing() if they
-// differ. This is slow, so should never be enabled in Beta or Stable channels.
-// TODO(https://crbug.com/1485670): Remove this once we have run an experiment
-// for two weeks on Dev.
-NET_EXPORT BASE_DECLARE_FEATURE(kSpdyHeadersToHttpResponseVerifyCorrectness);
+// Enables receiving ECN bit by sockets in Chrome.
+NET_EXPORT BASE_DECLARE_FEATURE(kReceiveEcn);
+
+NET_EXPORT BASE_DECLARE_FEATURE(kNewCertPathBuilderIterationLimit);
 
 }  // namespace net::features
 

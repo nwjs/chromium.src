@@ -54,7 +54,7 @@ class CC_EXPORT ScrollbarLayerImplBase : public LayerImpl {
   // Thumb quad rect in layer space.
   virtual gfx::Rect ComputeThumbQuadRect() const;
   virtual gfx::Rect ComputeHitTestableThumbQuadRect() const;
-  gfx::Rect ComputeExpandedThumbQuadRect() const;
+  virtual gfx::Rect ComputeHitTestableExpandedThumbQuadRect() const;
 
   float thumb_thickness_scale_factor() {
     return thumb_thickness_scale_factor_;
@@ -93,6 +93,7 @@ class CC_EXPORT ScrollbarLayerImplBase : public LayerImpl {
 
   bool IsFluentScrollbarEnabled() const;
   bool IsFluentOverlayScrollbarEnabled() const;
+  float GetIdleThicknessScale() const;
 
  protected:
   ScrollbarLayerImplBase(LayerTreeImpl* tree_impl,

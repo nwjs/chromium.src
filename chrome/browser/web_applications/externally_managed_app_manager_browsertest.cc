@@ -216,7 +216,7 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
 
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
-  absl::optional<AppId> app_id = registrar().LookupExternalAppId(url);
+  absl::optional<webapps::AppId> app_id = registrar().LookupExternalAppId(url);
   ASSERT_TRUE(app_id.has_value());
   EXPECT_TRUE(
       registrar().IsPlaceholderApp(app_id.value(), WebAppManagement::kPolicy));
@@ -226,7 +226,8 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
 
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
-  absl::optional<AppId> final_app_id = registrar().LookupExternalAppId(url);
+  absl::optional<webapps::AppId> final_app_id =
+      registrar().LookupExternalAppId(url);
   ASSERT_TRUE(final_app_id.has_value());
   EXPECT_FALSE(registrar().IsPlaceholderApp(final_app_id.value(),
                                             WebAppManagement::kPolicy));
@@ -254,12 +255,14 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
   options.add_to_desktop = true;
   InstallApp(options);
 
-  const AppId placeholder_app_id = GenerateAppId(absl::nullopt, install_url);
+  const webapps::AppId placeholder_app_id =
+      GenerateAppId(absl::nullopt, install_url);
   apps::AppReadinessWaiter(profile(), placeholder_app_id).Await();
 
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
-  absl::optional<AppId> app_id = registrar().LookupExternalAppId(install_url);
+  absl::optional<webapps::AppId> app_id =
+      registrar().LookupExternalAppId(install_url);
   ASSERT_TRUE(app_id.has_value());
   EXPECT_EQ(placeholder_app_id, *app_id);
   EXPECT_TRUE(registrar().IsPlaceholderApp(*app_id, WebAppManagement::kPolicy));
@@ -272,7 +275,7 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
 
-  const AppId new_app_id = GenerateAppId(absl::nullopt, start_url);
+  const webapps::AppId new_app_id = GenerateAppId(absl::nullopt, start_url);
 
   EXPECT_NE(new_app_id, placeholder_app_id);
   EXPECT_FALSE(registrar().IsInstalled(placeholder_app_id));
@@ -303,12 +306,14 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
   options.add_to_desktop = true;
   InstallApp(options);
 
-  const AppId placeholder_app_id = GenerateAppId(absl::nullopt, install_url);
+  const webapps::AppId placeholder_app_id =
+      GenerateAppId(absl::nullopt, install_url);
   apps::AppReadinessWaiter(profile(), placeholder_app_id).Await();
 
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
-  absl::optional<AppId> app_id = registrar().LookupExternalAppId(install_url);
+  absl::optional<webapps::AppId> app_id =
+      registrar().LookupExternalAppId(install_url);
   ASSERT_TRUE(app_id.has_value());
   EXPECT_EQ(placeholder_app_id, *app_id);
   EXPECT_TRUE(registrar().IsPlaceholderApp(*app_id, WebAppManagement::kPolicy));
@@ -320,7 +325,7 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
 
-  const AppId new_app_id = GenerateAppId("some_id", start_url);
+  const webapps::AppId new_app_id = GenerateAppId("some_id", start_url);
 
   base::RunLoop().RunUntilIdle();
 
@@ -495,35 +500,6 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
   // installation.
 }
 
-IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
-                       BypassServiceWorkerCheck) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url(embedded_test_server()->GetURL(
-      "/banners/manifest_no_service_worker.html"));
-
-  ExternalInstallOptions install_options = CreateInstallOptions(url);
-  install_options.bypass_service_worker_check = true;
-  InstallApp(std::move(install_options));
-  absl::optional<webapps::AppId> app_id =
-      registrar().FindAppWithUrlInScope(url);
-  EXPECT_TRUE(app_id.has_value());
-  EXPECT_TRUE(registrar().GetAppScopeInternal(*app_id).has_value());
-  EXPECT_EQ("Manifest test app", registrar().GetAppShortName(*app_id));
-}
-
-IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
-                       PerformServiceWorkerCheck) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url(embedded_test_server()->GetURL(
-      "/banners/manifest_no_service_worker.html"));
-  ExternalInstallOptions install_options = CreateInstallOptions(url);
-  InstallApp(std::move(install_options));
-  absl::optional<webapps::AppId> app_id =
-      registrar().FindAppWithUrlInScope(url);
-  EXPECT_TRUE(app_id.has_value());
-  EXPECT_TRUE(registrar().GetAppScopeInternal(app_id.value()).has_value());
-}
-
 IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest, ForceReinstall) {
   ASSERT_TRUE(embedded_test_server()->Start());
   absl::optional<webapps::AppId> app_id;
@@ -631,7 +607,6 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
       "/web_apps/service_worker_on_second_load.html"));
 
   ExternalInstallOptions install_options = CreateInstallOptions(install_url);
-  install_options.bypass_service_worker_check = true;
   InstallApp(std::move(install_options));
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
             result_code_.value());
@@ -652,7 +627,6 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
       embedded_test_server()->GetURL("/web_apps/basic.html");
 
   ExternalInstallOptions install_options = CreateInstallOptions(install_url);
-  install_options.bypass_service_worker_check = true;
   install_options.service_worker_registration_url = registration_url;
   InstallApp(std::move(install_options));
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
@@ -675,7 +649,6 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
       "/web_apps/service_worker_on_second_load.html"));
 
   ExternalInstallOptions install_options = CreateInstallOptions(install_url);
-  install_options.bypass_service_worker_check = true;
   install_options.load_and_await_service_worker_registration = false;
   ExternalAppRegistrationWaiter waiter(&externally_managed_app_manager());
   InstallApp(std::move(install_options));
@@ -716,7 +689,6 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
         embedded_test_server()->GetURL("/web_apps/no_service_worker.html"));
     ExternalInstallOptions install_options = CreateInstallOptions(install_url);
     install_options.force_reinstall = true;
-    install_options.bypass_service_worker_check = true;
     InstallApp(std::move(install_options));
     EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,
               result_code_.value());
@@ -784,7 +756,6 @@ IN_PROC_BROWSER_TEST_F(ExternallyManagedAppManagerBrowserTest,
                            content::ServiceWorkerCapability::NO_SERVICE_WORKER);
 
   ExternalInstallOptions install_options = CreateInstallOptions(url);
-  install_options.bypass_service_worker_check = true;
   install_options.service_worker_registration_timeout = base::Seconds(0);
   InstallApp(std::move(install_options));
   EXPECT_EQ(webapps::InstallResultCode::kSuccessNewInstall,

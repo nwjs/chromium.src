@@ -26,6 +26,10 @@
 #include "printing/buildflags/buildflags.h"
 #include "third_party/blink/public/common/features.h"
 
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/common/companion/visual_search/features.h"
+#endif  // !BUILDFLAG(IS_ANDROID)
+
 namespace {
 
 // Creates a Profile and its underlying OTR Profile for testing.
@@ -160,6 +164,7 @@ class ProfileKeyedServiceBrowserTest : public InProcessBrowserTest {
         {
 #if !BUILDFLAG(IS_ANDROID)
           features::kTrustSafetySentimentSurvey,
+          companion::visual_search::features::kVisualSearchSuggestions,
 #endif  // !BUILDFLAG(IS_ANDROID)
           blink::features::kBrowsingTopics,
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
@@ -345,7 +350,6 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "BookmarkExpandedStateTracker",
 #endif
     "BookmarkModel",
-    "BookmarkSyncServiceFactory",
     "BookmarkUndoService",
     "BookmarksAPI",
     "BrailleDisplayPrivateAPI",
@@ -414,6 +418,7 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
     "ListFamilyMembersService",
 #endif  // BUILDFLAG(ENABLE_SUPERVISED_USERS)
+    "LocalOrSyncableBookmarkSyncServiceFactory",
     "LoginUIServiceFactory",
     "MDnsAPI",
     "ManagedBookmarkService",
@@ -513,12 +518,16 @@ IN_PROC_BROWSER_TEST_F(ProfileKeyedServiceBrowserTest,
     "UsbDeviceResourceManager",
     "UserCloudPolicyInvalidator",
     "UserPolicySigninService",
+#if !BUILDFLAG(IS_ANDROID)
+    "VisualSearchSuggestionsService",
+#endif  // !BUILDFLAG(IS_ANDROID)
     "WarningBadgeService",
     "WarningService",
     "WebAuthenticationProxyAPI",
     "WebDataService",
     "WebNavigationAPI",
     "WebRequestAPI",
+    "WebRequestEventRouter",
     "WebRtcEventLogManagerKeyedService",
     "WebrtcAudioPrivateEventService",
     "feedback::FeedbackUploaderChrome",

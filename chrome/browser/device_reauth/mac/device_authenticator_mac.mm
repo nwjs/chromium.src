@@ -14,7 +14,6 @@
 #include "chrome/grit/branded_strings.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/core/browser/features/password_features.h"
-#include "components/password_manager/core/browser/reauth_purpose.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "device/fido/mac/touch_id_context.h"
@@ -24,8 +23,9 @@ DeviceAuthenticatorMac::DeviceAuthenticatorMac(
     std::unique_ptr<AuthenticatorMacInterface> authenticator,
     DeviceAuthenticatorProxy* proxy,
     const device_reauth::DeviceAuthParams& params)
-    : ChromeDeviceAuthenticatorCommon(proxy,
-                                      params.GetAuthenticationValidityPeriod()),
+    : DeviceAuthenticatorCommon(proxy,
+                                params.GetAuthenticationValidityPeriod(),
+                                params.GetAuthResultHistogram()),
       authenticator_(std::move(authenticator)) {}
 
 DeviceAuthenticatorMac::~DeviceAuthenticatorMac() = default;
@@ -74,6 +74,7 @@ void DeviceAuthenticatorMac::AuthenticateWithMessage(
   // Callers must ensure that previous authentication is canceled.
   DCHECK(!callback_);
   if (!NeedsToAuthenticate()) {
+    RecordAuthResultSkipped();
     // No code should be run after the callback as the callback could already be
     // destroying "this".
     std::move(callback).Run(/*success=*/true);

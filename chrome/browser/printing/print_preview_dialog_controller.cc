@@ -87,8 +87,6 @@ class PrintPreviewDialogDelegate : public ui::WebDialogDelegate {
   std::u16string GetDialogTitle() const override;
   std::u16string GetAccessibleDialogTitle() const override;
   GURL GetDialogContentURL() const override;
-  void GetWebUIMessageHandlers(
-      std::vector<WebUIMessageHandler*>* handlers) const override;
   void GetDialogSize(gfx::Size* size) const override;
   std::string GetDialogArgs() const override;
   void OnDialogClosingFromKeyEvent() override;
@@ -127,11 +125,6 @@ GURL PrintPreviewDialogDelegate::GetDialogContentURL() const {
   return GURL(chrome::kChromeUIPrintURL);
 }
 
-void PrintPreviewDialogDelegate::GetWebUIMessageHandlers(
-    std::vector<WebUIMessageHandler*>* /* handlers */) const {
-  // PrintPreviewUI adds its own message handlers.
-}
-
 void PrintPreviewDialogDelegate::GetDialogSize(gfx::Size* size) const {
   DCHECK(size);
   const gfx::Size kMinDialogSize(800, 480);
@@ -144,7 +137,7 @@ void PrintPreviewDialogDelegate::GetDialogSize(gfx::Size* size) const {
   if (!outermost_web_contents)
     return;
 
-  Browser* browser = chrome::FindBrowserWithWebContents(outermost_web_contents);
+  Browser* browser = chrome::FindBrowserWithTab(outermost_web_contents);
   if (browser)
     host = browser->window()->GetWebContentsModalDialogHost();
 

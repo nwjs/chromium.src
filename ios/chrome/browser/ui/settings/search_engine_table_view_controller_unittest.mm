@@ -21,7 +21,6 @@
 #import "components/policy/core/common/schema_registry.h"
 #import "components/policy/policy_constants.h"
 #import "components/prefs/pref_registry_simple.h"
-#import "components/prefs/testing_pref_service.h"
 #import "components/search_engines/search_engines_pref_names.h"
 #import "components/search_engines/search_engines_switches.h"
 #import "components/search_engines/template_url_data_util.h"
@@ -35,7 +34,7 @@
 #import "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/history/history_service_factory.h"
 #import "ios/chrome/browser/policy/browser_state_policy_connector_mock.h"
-#import "ios/chrome/browser/search_engines/template_url_service_factory.h"
+#import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_controller_test.h"
 #import "ios/chrome/browser/ui/settings/cells/search_engine_item.h"
@@ -90,8 +89,8 @@ class SearchEngineTableViewControllerTest
 
   void SetupForChoiceScreenDisplay() {
     feature_list_.InitAndEnableFeature(switches::kSearchEngineChoice);
-    country_codes::RegisterProfilePrefs(pref_service_.registry());
-    pref_service_.registry()->RegisterInt64Pref(
+    pref_service_ = chrome_browser_state_->GetTestingPrefService();
+    pref_service_->registry()->RegisterInt64Pref(
         prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp, 0);
 
     // Override the country checks to simulate being in Belgium.
@@ -237,7 +236,7 @@ class SearchEngineTableViewControllerTest
   std::unique_ptr<TestChromeBrowserState> chrome_browser_state_;
   base::HistogramTester histogram_tester_;
   TemplateURLService* template_url_service_;  // weak
-  TestingPrefServiceSimple pref_service_;
+  sync_preferences::TestingPrefServiceSyncable* pref_service_;
   base::test::ScopedFeatureList feature_list_;
 };
 
@@ -354,11 +353,29 @@ TEST_F(SearchEngineTableViewControllerTest,
   // There are twelve required prepopulated search egines plus the previously
   // added default one.
   ASSERT_EQ(13, NumberOfItemsInSection(0));
-  // TODO(b/303006727): Once we figure out how to keep a constant seed for each
-  // profile, check the actual list of prepopulated items.
+  CheckRealItem(default_search_engine, true, 0, 0);
+  for (size_t i = 1; i < prepopulated_engines.size(); i++) {
+    CheckRealItem(prepopulated_engines[i].get(), false, 0, i);
+  }
   ASSERT_EQ(2, NumberOfItemsInSection(1));
   CheckCustomItem(kEngineC1Name, kEngineC1Url, false, 1, 0);
   CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 1);
+
+  // Select another default engine by user interaction.
+  [controller() tableView:controller().tableView
+      didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:1 inSection:0]];
+  SInt64 written_pref = pref_service_->GetInt64(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp);
+  // We don't care about the specific value, we just need to check that
+  // something was written.
+  ASSERT_FALSE(written_pref == 0);
+  // Select another default engine by user interaction.
+  [controller() tableView:controller().tableView
+      didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:2 inSection:0]];
+  // This time make sure that the pref was not re-written.
+  ASSERT_EQ(written_pref,
+            pref_service_->GetInt64(
+                prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
 }
 
 // Tests that items are displayed correctly when TemplateURLService is filled
@@ -435,10 +452,20 @@ TEST_F(SearchEngineTableViewControllerTest,
   // custom one, which should be the first in the list.
   ASSERT_EQ(13, NumberOfItemsInSection(0));
   CheckCustomItem(kEngineC1Name, kEngineC1Url, true, 0, 0);
-  // TODO(b/303006727): Once we figure out how to keep a constant seed for each
-  // profile, check the actual list of prepopulated items.
+  for (size_t i = 1; i < prepopulated_engines.size(); i++) {
+    CheckRealItem(prepopulated_engines[i].get(), false, 0, i);
+  }
   ASSERT_EQ(1, NumberOfItemsInSection(1));
   CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 0);
+
+  // Select another default engine by user interaction.
+  [controller() tableView:controller().tableView
+      didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:1]];
+  // We don't care about the value, we just need to check that something was
+  // written.
+  ASSERT_FALSE(
+      pref_service_->GetInt64(
+          prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp) == 0);
 }
 
 // Tests that when TemplateURLService add or remove TemplateURLs, or update
@@ -669,6 +696,56 @@ TEST_F(SearchEngineTableViewControllerTest, EditingMode) {
   CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 1);
 }
 
+// Tests that prepopulated engines are correctly displayed when enabling and
+// disabling edit mode for users who are eligible for the search engine choice
+// screen.
+TEST_F(SearchEngineTableViewControllerTest,
+       EditingModeForChoiceScreenSettings) {
+  SetupForChoiceScreenDisplay();
+
+  const std::string kEngineC1Name = "custom-1";
+  const GURL kEngineC1Url = GURL("https://c1.com?q={searchTerms}");
+  const std::string kEngineC2Name = "custom-2";
+  const GURL kEngineC2Url = GURL("https://c2.com?q={searchTerms}");
+  AddCustomSearchEngine(kEngineC2Name, kEngineC2Url,
+                        base::Time::Now() - base::Minutes(10), true);
+  AddCustomSearchEngine(kEngineC1Name, kEngineC1Url,
+                        base::Time::Now() - base::Seconds(10), false);
+
+  SearchEngineTableViewController* searchEngineController =
+      static_cast<SearchEngineTableViewController*>(controller());
+  EXPECT_TRUE([searchEngineController editButtonEnabled]);
+
+  // Set the first prepopulated engine as default engine using
+  // `template_url_service_`. This will reload the table and move C2 to the
+  // second list.
+  std::vector<std::unique_ptr<TemplateURL>> urls_for_choice_screen =
+      template_url_service_->GetTemplateURLsForChoiceScreen();
+  // The first engine in the list is C2.
+  template_url_service_->SetUserSelectedDefaultSearchProvider(
+      urls_for_choice_screen[1].get());
+  CheckRealItem(urls_for_choice_screen[1].get(), true, 0, 0);
+
+  // Enable editing mode
+  [searchEngineController setEditing:YES animated:NO];
+  // Prepopulated engines should be disabled with checkmark removed.
+  for (size_t i = 1; i < urls_for_choice_screen.size(); i++) {
+    CheckRealItem(urls_for_choice_screen[i].get(), false, 0, i - 1, false);
+  }
+  CheckCustomItem(kEngineC1Name, kEngineC1Url, false, 1, 0);
+  CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 1);
+
+  // Disable editing mode
+  [searchEngineController setEditing:NO animated:NO];
+  // Prepopulated engines should be re-enabled and the checkmark should be back.
+  CheckRealItem(urls_for_choice_screen[1].get(), true, 0, 0);
+  for (size_t i = 2; i < urls_for_choice_screen.size(); i++) {
+    CheckRealItem(urls_for_choice_screen[i].get(), false, 0, i - 1);
+  }
+  CheckCustomItem(kEngineC1Name, kEngineC1Url, false, 1, 0);
+  CheckCustomItem(kEngineC2Name, kEngineC2Url, false, 1, 1);
+}
+
 // Tests that custom search engines can be deleted, and if default engine is
 // deleted it will be reset to the first prepopulated engine.
 TEST_F(SearchEngineTableViewControllerTest, DeleteItems) {
@@ -752,6 +829,78 @@ TEST_F(SearchEngineTableViewControllerTest, DeleteItems) {
   CheckPrepopulatedItem(kEngineP3Name, kEngineP3Url, true, 0, 0);
   CheckPrepopulatedItem(kEngineP1Name, kEngineP1Url, false, 0, 1);
   CheckPrepopulatedItem(kEngineP2Name, kEngineP2Url, false, 0, 2);
+}
+
+// Tests that custom search engines can be deleted, and if default engine is
+// deleted it will be reset to the first prepopulated engine.
+TEST_F(SearchEngineTableViewControllerTest,
+       DeleteItemsForChoiceScreenSettings) {
+  SetupForChoiceScreenDisplay();
+
+  const std::string kEngineC1Name = "custom-1";
+  const GURL kEngineC1Url = GURL("https://c1.com?q={searchTerms}");
+  const std::string kEngineC2Name = "custom-2";
+  const GURL kEngineC2Url = GURL("https://c2.com?q={searchTerms}");
+  const std::string kEngineC3Name = "custom-3";
+  const GURL kEngineC3Url = GURL("https://c3.com?q={searchTerms}");
+  const std::string kEngineC4Name = "custom-4";
+  const GURL kEngineC4Url = GURL("https://c4.com?q={searchTerms}");
+  AddCustomSearchEngine(kEngineC1Name, kEngineC1Url,
+                        base::Time::Now() - base::Seconds(10), false);
+  AddCustomSearchEngine(kEngineC2Name, kEngineC2Url,
+                        base::Time::Now() - base::Minutes(10), false);
+  AddCustomSearchEngine(kEngineC3Name, kEngineC3Url,
+                        base::Time::Now() - base::Hours(10), true);
+  AddCustomSearchEngine(kEngineC4Name, kEngineC4Url,
+                        base::Time::Now() - base::Days(1), false);
+
+  CreateController();
+  CheckController();
+
+  // This method returns the list of prepopulated items and the custom search
+  // engine that was set as default.
+  int number_of_prepopulated_items =
+      static_cast<int>(
+          template_url_service_->GetTemplateURLsForChoiceScreen().size()) -
+      1;
+  ASSERT_EQ(2, NumberOfSections());
+  ASSERT_EQ(number_of_prepopulated_items + 1, NumberOfItemsInSection(0));
+  ASSERT_EQ(3, NumberOfItemsInSection(1));
+
+  // Remove C3 from first list and C1 from second list.
+  ASSERT_TRUE(DeleteItemsAndWait(
+      @[
+        [NSIndexPath indexPathForRow:0 inSection:0],
+        [NSIndexPath indexPathForRow:0 inSection:1]
+      ],
+      ^{
+        return NumberOfItemsInSection(0) == number_of_prepopulated_items;
+      }));
+  ASSERT_TRUE(NumberOfItemsInSection(1) == 2);
+
+  // Select C4 as default engine by user interaction.
+  [controller() tableView:controller().tableView
+      didSelectRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:1]];
+  // We don't care about the value, we just need to check that something was
+  // written.
+  ASSERT_FALSE(
+      pref_service_->GetInt64(
+          prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp) == 0);
+
+  ASSERT_EQ(number_of_prepopulated_items + 1, NumberOfItemsInSection(0));
+  ASSERT_EQ(2, NumberOfItemsInSection(1));
+
+  // Remove all custom search engines.
+  ASSERT_TRUE(DeleteItemsAndWait(
+      @[
+        [NSIndexPath indexPathForRow:0 inSection:0],
+        [NSIndexPath indexPathForRow:0 inSection:1],
+        [NSIndexPath indexPathForRow:1 inSection:1]
+      ],
+      ^{
+        return NumberOfSections() == 1;
+      }));
+  ASSERT_TRUE(NumberOfItemsInSection(0) == number_of_prepopulated_items);
 }
 
 }  // namespace

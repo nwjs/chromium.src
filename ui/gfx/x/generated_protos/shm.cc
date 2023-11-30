@@ -7,36 +7,19 @@
 //    ../../third_party/xcbproto/src \
 //    gen/ui/gfx/x \
 //    bigreq \
-//    composite \
-//    damage \
-//    dpms \
-//    dri2 \
 //    dri3 \
-//    ge \
 //    glx \
-//    present \
 //    randr \
-//    record \
 //    render \
-//    res \
 //    screensaver \
 //    shape \
 //    shm \
 //    sync \
-//    xc_misc \
-//    xevie \
-//    xf86dri \
-//    xf86vidmode \
 //    xfixes \
-//    xinerama \
 //    xinput \
 //    xkb \
-//    xprint \
 //    xproto \
-//    xselinux \
-//    xtest \
-//    xv \
-//    xvmc
+//    xtest
 
 #include "shm.h"
 
@@ -142,6 +125,7 @@ void ReadError<Shm::BadSegError>(Shm::BadSegError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 Future<Shm::QueryVersionReply> Shm::QueryVersion(
     const Shm::QueryVersionRequest& request) {
   if (!connection_->Ready() || !present())

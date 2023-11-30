@@ -16,7 +16,6 @@
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
 #include "ash/style/typography.h"
-#include "ash/utility/haptics_util.h"
 #include "ash/wm/desks/desk_action_view.h"
 #include "ash/wm/desks/desk_mini_view_animations.h"
 #include "ash/wm/desks/desk_name_view.h"
@@ -32,14 +31,17 @@
 #include "ash/wm/overview/overview_session.h"
 #include "ash/wm/overview/overview_utils.h"
 #include "ash/wm/window_positioning_utils.h"
+#include "ash/wm/window_properties.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notreached.h"
+#include "base/trace_event/trace_event.h"
 #include "base/uuid.h"
 #include "chromeos/constants/chromeos_features.h"
+#include "chromeos/utils/haptics_util.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
@@ -822,7 +824,7 @@ std::unique_ptr<views::Widget> DeskBarViewBase::CreateDeskWidget(
     // Even though this widget exists on the active desk container, it should
     // not show up in the MRU list, and it should not be mirrored in the desks
     // mini_views.
-    params.init_properties_container.SetProperty(kExcludeInMruKey, true);
+    params.init_properties_container.SetProperty(kOverviewUiKey, true);
     params.init_properties_container.SetProperty(kHideInDeskMiniViewKey, true);
   } else {
     // Desk button desk bar should live under the shelf bubble container on
@@ -836,7 +838,7 @@ std::unique_ptr<views::Widget> DeskBarViewBase::CreateDeskWidget(
 
   auto* window = widget->GetNativeWindow();
   window->SetId(kShellWindowId_DesksBarWindow);
-  ::wm::SetWindowVisibilityAnimationTransition(window, ::wm::ANIMATE_NONE);
+  wm::SetWindowVisibilityAnimationTransition(window, wm::ANIMATE_NONE);
 
   return widget;
 }
@@ -1403,7 +1405,7 @@ void DeskBarViewBase::StartDragDesk(DeskMiniView* mini_view,
 
   // Fire a haptic event if necessary.
   if (is_mouse_dragging) {
-    haptics_util::PlayHapticTouchpadEffect(
+    chromeos::haptics_util::PlayHapticTouchpadEffect(
         ui::HapticTouchpadEffect::kTick,
         ui::HapticTouchpadEffectStrength::kMedium);
   }

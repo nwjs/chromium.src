@@ -557,12 +557,12 @@ class SkiaRenderer::ScopedSkImageBuilder {
 
   ~ScopedSkImageBuilder() = default;
 
-  const SkImage* sk_image() const { return sk_image_; }
+  const SkImage* sk_image() const { return sk_image_.get(); }
   const cc::PaintOpBuffer* paint_op_buffer() const { return paint_op_buffer_; }
   const absl::optional<SkColor4f>& clear_color() const { return clear_color_; }
 
  private:
-  raw_ptr<const SkImage, DanglingUntriaged> sk_image_ = nullptr;
+  sk_sp<SkImage> sk_image_;
   raw_ptr<const cc::PaintOpBuffer> paint_op_buffer_ = nullptr;
   absl::optional<SkColor4f> clear_color_;
 };
@@ -581,8 +581,7 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
   DCHECK(IsTextureResource(resource_provider, resource_id));
 
   auto* image_context = skia_renderer->lock_set_for_external_use_->LockResource(
-      resource_id, maybe_concurrent_reads, /*is_video_plane=*/false,
-      override_color_space, raw_draw_if_possible);
+      resource_id, maybe_concurrent_reads, raw_draw_if_possible);
 
   // |ImageContext::image| provides thread safety: (a) this ImageContext is
   // only accessed by GPU thread after |image| is set and (b) the fields of
@@ -599,9 +598,13 @@ SkiaRenderer::ScopedSkImageBuilder::ScopedSkImageBuilder(
       image_context, resource_provider->GetOverlayColorSpace(resource_id));
   paint_op_buffer_ = image_context->paint_op_buffer();
   clear_color_ = image_context->clear_color();
-  sk_image_ = image_context->image().get();
+  sk_image_ = image_context->image();
   LOG_IF(ERROR, !image_context->has_image() && !paint_op_buffer_)
       << "Failed to create the promise sk image or get paint ops.";
+
+  if (sk_image_ && override_color_space) {
+    sk_image_ = sk_image_->reinterpretColorSpace(override_color_space);
+  }
 }
 
 class SkiaRenderer::ScopedYUVSkImageBuilder {
@@ -639,25 +642,21 @@ class SkiaRenderer::ScopedYUVSkImageBuilder {
     // Skia API ignores the color space information on the individual planes.
     // Dropping them here avoids some LOG spam.
     auto* y_context = skia_renderer->lock_set_for_external_use_->LockResource(
-        quad->y_plane_resource_id(), /*maybe_concurrent_reads=*/true,
-        /*is_video_plane=*/true);
+        quad->y_plane_resource_id(), /*maybe_concurrent_reads=*/true);
     contexts.push_back(std::move(y_context));
     auto* u_context = skia_renderer->lock_set_for_external_use_->LockResource(
-        quad->u_plane_resource_id(), /*maybe_concurrent_reads=*/true,
-        /*is_video_plane=*/true);
+        quad->u_plane_resource_id(), /*maybe_concurrent_reads=*/true);
     contexts.push_back(std::move(u_context));
     if (plane_config == SkYUVAInfo::PlaneConfig::kY_U_V ||
         plane_config == SkYUVAInfo::PlaneConfig::kY_U_V_A) {
       auto* v_context = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->v_plane_resource_id(), /*maybe_concurrent_reads=*/true,
-          /*is_video_plane=*/true);
+          quad->v_plane_resource_id(), /*maybe_concurrent_reads=*/true);
       contexts.push_back(std::move(v_context));
     }
 
     if (SkYUVAInfo::HasAlpha(plane_config)) {
       auto* a_context = skia_renderer->lock_set_for_external_use_->LockResource(
-          quad->a_plane_resource_id(), /*maybe_concurrent_reads=*/true,
-          /*is_video_plane=*/true);
+          quad->a_plane_resource_id(), /*maybe_concurrent_reads=*/true);
       contexts.push_back(std::move(a_context));
     }
 
@@ -996,6 +995,7 @@ void SkiaRenderer::SwapBuffers(SwapFrameData swap_frame_data) {
   output_frame.choreographer_vsync_id = swap_frame_data.choreographer_vsync_id;
   output_frame.size = viewport_size_for_swap_buffers();
   output_frame.data.seq = swap_frame_data.seq;
+  output_frame.data.swap_trace_id = swap_frame_data.swap_trace_id;
   if (use_partial_swap_) {
     swap_buffer_rect_.Intersect(gfx::Rect(surface_size_for_swap_buffers()));
     output_frame.sub_buffer_rect = swap_buffer_rect_;
@@ -3761,11 +3761,26 @@ void SkiaRenderer::PrepareRenderPassOverlay(
 #else   // BUILDFLAG(IS_OZONE)
   // TODO(fangzhoug): Merge Ozone and Apple code paths of delegated compositing.
 
-  // |display_rect| already accounts for expanded filter bounds.
-
-  // Set |uv_rect| to reflect rounding from |display_rect| to |buffer_size|.
-  overlay->uv_rect = gfx::RectF(overlay->display_rect.size());
+  // Set |uv_rect| to reflect rounding up from |filter_bounds| to |buffer_size|.
+  overlay->uv_rect = gfx::RectF(filter_bounds.size());
   overlay->uv_rect.InvScale(buffer_size.width(), buffer_size.height());
+
+  if (absl::holds_alternative<gfx::OverlayTransform>(overlay->transform)) {
+    // When using an OverlayTransform, the transform should be baked into the
+    // display_rect.
+    overlay->display_rect =
+        quad->shared_quad_state->quad_to_target_transform.MapRect(
+            gfx::RectF(filter_bounds));
+    // Apply all clipping because we can't always delegate quads that extend
+    // beyond window bounds in Lacros.
+    gfx::Rect apply_clip = gfx::Rect(current_frame()->device_viewport_size);
+    if (overlay->clip_rect.has_value()) {
+      apply_clip.Intersect(overlay->clip_rect.value());
+    }
+    OverlayCandidate::ApplyClip(*overlay, gfx::RectF(apply_clip));
+    overlay->clip_rect = absl::nullopt;
+  }
+
   // Fill in |format| and |color_space| information based on selected backing.
   overlay->color_space = color_space;
   overlay->format = SinglePlaneSharedImageFormatToBufferFormat(buffer_format);

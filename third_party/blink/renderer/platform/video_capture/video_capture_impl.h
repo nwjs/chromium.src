@@ -79,8 +79,8 @@ class PLATFORM_EXPORT VideoCaptureImpl
   // used later to stop receiving video frames.
   // |state_update_cb| will be called when state changes.
   // |deliver_frame_cb| will be called when a frame is ready.
-  // |crop_version_cb| will be called when it is guaranteed that all
-  // subsequent frames |deliver_frame_cb| is called for, have a crop version
+  // |sub_capture_target_version_cb| will be called when it is guaranteed that
+  // all subsequent frames |deliver_frame_cb| is called for, have a crop version
   // that is equal-to-or-greater-than the given crop version.
   // |frame_dropped_cb| will be called when a frame was dropped prior to
   // delivery (i.e. |deliver_frame_cb| was not called for this frame).
@@ -88,7 +88,8 @@ class PLATFORM_EXPORT VideoCaptureImpl
                     const media::VideoCaptureParams& params,
                     const VideoCaptureStateUpdateCB& state_update_cb,
                     const VideoCaptureDeliverFrameCB& deliver_frame_cb,
-                    const VideoCaptureCropVersionCB& crop_version_cb,
+                    const VideoCaptureSubCaptureTargetVersionCB&
+                        sub_capture_target_version_cb,
                     const VideoCaptureNotifyFrameDroppedCB& frame_dropped_cb);
 
   // Stop capturing. |client_id| is the identifier used to call StartCapture.
@@ -126,12 +127,11 @@ class PLATFORM_EXPORT VideoCaptureImpl
   void OnNewBuffer(
       int32_t buffer_id,
       media::mojom::blink::VideoBufferHandlePtr buffer_handle) override;
-  void OnBufferReady(
-      media::mojom::blink::ReadyBufferPtr buffer,
-      Vector<media::mojom::blink::ReadyBufferPtr> scaled_buffers) override;
+  void OnBufferReady(media::mojom::blink::ReadyBufferPtr buffer) override;
   void OnBufferDestroyed(int32_t buffer_id) override;
   void OnFrameDropped(media::VideoCaptureFrameDropReason reason) override;
-  void OnNewCropVersion(uint32_t crop_version) override;
+  void OnNewSubCaptureTargetVersion(
+      uint32_t sub_capture_target_version) override;
 
   void ProcessFeedback(const media::VideoCaptureFeedback& feedback);
 
@@ -195,21 +195,15 @@ class PLATFORM_EXPORT VideoCaptureImpl
 
   using BufferFinishedCallback = base::OnceClosure;
 
-  static void BindVideoFramesOnMediaThread(
+  static void BindVideoFrameOnMediaThread(
       media::GpuVideoAcceleratorFactories* gpu_factories,
       std::unique_ptr<VideoFrameBufferPreparer> frame_preparer,
-      std::vector<std::unique_ptr<VideoFrameBufferPreparer>>
-          scaled_frame_preparers,
-      base::OnceCallback<
-          void(std::unique_ptr<VideoFrameBufferPreparer>,
-               std::vector<std::unique_ptr<VideoFrameBufferPreparer>>)>
+      base::OnceCallback<void(std::unique_ptr<VideoFrameBufferPreparer>)>
           on_frame_ready_callback,
       base::OnceCallback<void()> on_gpu_context_lost);
   void OnVideoFrameReady(
       base::TimeTicks reference_time,
-      std::unique_ptr<VideoFrameBufferPreparer> frame_preparer,
-      std::vector<std::unique_ptr<VideoFrameBufferPreparer>>
-          scaled_frame_preparers);
+      std::unique_ptr<VideoFrameBufferPreparer> frame_preparer);
 
   void OnAllClientsFinishedConsumingFrame(
       int buffer_id,

@@ -16,7 +16,7 @@
 #include "chrome/browser/apps/app_service/app_registry_cache_waiter.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
-#include "chrome/browser/apps/intent_helper/intent_picker_features.h"
+#include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/intent_picker_tab_helper.h"
@@ -44,19 +44,13 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/apps/intent_helper/preferred_apps_test_util.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
-#include "components/infobars/content/content_infobar_manager.h"
-#include "components/infobars/core/infobar.h"
-#include "components/infobars/core/infobar_delegate.h"
-#include "components/services/app_service/public/cpp/features.h"
 #endif
 
 class IntentChipButtonBrowserTest
     : public web_app::WebAppNavigationBrowserTest {
  public:
   IntentChipButtonBrowserTest() {
-    scoped_feature_list_.InitWithFeatures(
-        /*enabled_features=*/{apps::features::kLinkCapturingUiUpdate},
-        /*disabled_features=*/{apps::features::kLinkCapturingInfoBar});
+    apps::EnableLinkCapturingUXForTesting(scoped_feature_list_);
   }
 
   void SetUpOnMainThread() override {
@@ -159,12 +153,21 @@ IN_PROC_BROWSER_TEST_F(IntentChipButtonBrowserTest,
 
   EXPECT_TRUE(GetIntentChip()->GetVisible());
 
+// If a single app is installed, then clicking on the intent chip button
+// opens the intent picker view on ChromeOS, and directly launches the
+// app on other desktop platforms.
+#if BUILDFLAG(IS_CHROMEOS)
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                        "IntentPickerBubbleView");
   ClickIntentChip(/*wait_for_browser=*/false);
 
   waiter.WaitIfNeededAndGet();
   ASSERT_TRUE(IntentPickerBubbleView::intent_picker_bubble());
+#else
+  Browser* app_browser = ClickIntentChip(/*wait_for_browser=*/true);
+  ASSERT_TRUE(app_browser);
+  ASSERT_TRUE(app_browser->is_type_app());
+#endif  // BUILDFLAG(IS_CHROMEOS)
 }
 
 IN_PROC_BROWSER_TEST_F(IntentChipButtonBrowserTest,
@@ -300,183 +303,49 @@ IN_PROC_BROWSER_TEST_F(IntentChipButtonBrowserTest, ShowsAppIconInChip) {
                   .IsEmpty());
 }
 
-#if BUILDFLAG(IS_CHROMEOS)
-// Test fixture class which shows the supported links infobar when opening an
-// app through the intent picker.
-class IntentChipWithInfoBarBrowserTest : public IntentChipButtonBrowserTest {
- public:
-  IntentChipWithInfoBarBrowserTest() {
-    feature_list_.InitWithFeatures(
-        /*enabled_features=*/{apps::features::kLinkCapturingInfoBar},
-        /*disabled_features=*/{});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(IntentChipWithInfoBarBrowserTest,
-                       ShowsInfoBarOnAppOpen) {
-  const GURL in_scope_url =
-      https_server().GetURL(GetAppUrlHost(), GetInScopeUrlPath());
-
-  DoAndWaitForIntentPickerIconUpdate([this, in_scope_url] {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), in_scope_url));
-  });
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-
-  Browser* app_browser = ClickIntentChip(/*wait_for_browser=*/true);
-
-  // Clicking the chip should open the app without showing the intent picker
-  // bubble.
-  EXPECT_TRUE(web_app::AppBrowserController::IsForWebApp(app_browser,
-                                                         test_web_app_id()));
-  auto* infobar_manager = infobars::ContentInfoBarManager::FromWebContents(
-      app_browser->tab_strip_model()->GetActiveWebContents());
-  ASSERT_EQ(infobar_manager->infobar_count(), 1u);
-  ASSERT_EQ(
-      infobar_manager->infobar_at(0)->delegate()->GetIdentifier(),
-      infobars::InfoBarDelegate::SUPPORTED_LINKS_INFOBAR_DELEGATE_CHROMEOS);
-}
-
-// TODO(crbug.com/1313274): Fix test flakiness on Lacros.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-#define MAYBE_ShowsIntentPickerWhenMultipleApps \
-  DISABLED_ShowsIntentPickerWhenMultipleApps
-#else
-#define MAYBE_ShowsIntentPickerWhenMultipleApps \
-  ShowsIntentPickerWhenMultipleApps
-#endif
-IN_PROC_BROWSER_TEST_F(IntentChipWithInfoBarBrowserTest,
-                       MAYBE_ShowsIntentPickerWhenMultipleApps) {
-  InstallOverlappingApp();
-
-  const GURL in_scope_url =
-      https_server().GetURL(GetAppUrlHost(), GetInScopeUrlPath());
-  DoAndWaitForIntentPickerIconUpdate([this, in_scope_url] {
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), in_scope_url));
-  });
-
-  // The Intent Chip should appear, but the intent picker bubble should not
-  // appear automatically.
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-  EXPECT_FALSE(IntentPickerBubbleView::intent_picker_bubble());
-
-  views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
-                                       "IntentPickerBubbleView");
-  ClickIntentChip(/*wait_for_browser=*/false);
-
-  waiter.WaitIfNeededAndGet();
-  ASSERT_TRUE(IntentPickerBubbleView::intent_picker_bubble());
-}
-
-// TODO(crbug.com/1427908): Flaky on many platforms.
-IN_PROC_BROWSER_TEST_F(IntentChipWithInfoBarBrowserTest,
-                       DISABLED_ShowsIntentChipCollapsed) {
-  const GURL in_scope_url =
-      https_server().GetURL(GetAppUrlHost(), GetInScopeUrlPath());
-  const GURL out_of_scope_url =
-      https_server().GetURL(GetAppUrlHost(), GetOutOfScopeUrlPath());
-  const GURL separate_host_url =
-      https_server().GetURL(GetLaunchingPageHost(), GetLaunchingPagePath());
-
-  NavigateToLaunchingPage(browser());
-  content::WebContents* web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-
-  // 1st appearance: Expanded.
-  ClickLinkAndWaitForIconUpdate(web_contents, in_scope_url);
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-  EXPECT_FALSE(GetIntentChip()->is_fully_collapsed());
-
-  ClickLinkAndWaitForIconUpdate(web_contents, separate_host_url);
-  EXPECT_FALSE(GetIntentChip()->GetVisible());
-
-  // 2nd appearance: Expanded.
-  ClickLinkAndWaitForIconUpdate(web_contents, in_scope_url);
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-  EXPECT_FALSE(GetIntentChip()->is_fully_collapsed());
-
-  ClickLinkAndWaitForIconUpdate(web_contents, out_of_scope_url);
-  EXPECT_FALSE(GetIntentChip()->GetVisible());
-
-  // 3rd appearance: Expanded.
-  ClickLinkAndWaitForIconUpdate(web_contents, in_scope_url);
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-  EXPECT_FALSE(GetIntentChip()->is_fully_collapsed());
-
-  ClickLinkAndWaitForIconUpdate(web_contents, out_of_scope_url);
-  EXPECT_FALSE(GetIntentChip()->GetVisible());
-
-  // 4th appearance: Collapsed.
-  ClickLinkAndWaitForIconUpdate(web_contents, in_scope_url);
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-  EXPECT_TRUE(GetIntentChip()->is_fully_collapsed());
-
-  // Click to open app and reset the counter.
-  ClickIntentChip(/*wait_for_browser=*/true);
-
-  // Open another browser- we should be able to see the expanded chip again.
-  DoAndWaitForIntentPickerIconUpdate(
-      [this] { NavigateToLaunchingPage(browser()); });
-
-  // 1st appearance since intent chip counter reset: Expanded.
-  web_contents = browser()->tab_strip_model()->GetActiveWebContents();
-  ClickLinkAndWaitForIconUpdate(web_contents, in_scope_url);
-  EXPECT_TRUE(GetIntentChip()->GetVisible());
-  EXPECT_FALSE(GetIntentChip()->is_fully_collapsed());
-}
-
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 class IntentChipButtonBrowserUiTest : public UiBrowserTest {
  public:
-  IntentChipButtonBrowserUiTest();
+  IntentChipButtonBrowserUiTest() {
+    apps::EnableLinkCapturingUXForTesting(scoped_feature_list_);
+  }
 
   // UiBrowserTest:
-  void ShowUi(const std::string& name) override;
-  bool VerifyUi() override;
-  void WaitForUserDismissal() override;
+  void ShowUi(const std::string& name) override {
+    auto* const web_contents =
+        browser()->tab_strip_model()->GetActiveWebContents();
+    auto* const tab_helper =
+        IntentPickerTabHelper::FromWebContents(web_contents);
+    base::RunLoop run_loop;
+    tab_helper->SetIconUpdateCallbackForTesting(run_loop.QuitClosure());
+    tab_helper->MaybeShowIconForApps(
+        {{apps::PickerEntryType::kWeb, ui::ImageModel(), "app_id",
+          "Test app"}});
+    run_loop.Run();
+  }
+
+  bool VerifyUi() override {
+    auto* const location_bar =
+        BrowserView::GetBrowserViewForBrowser(browser())->GetLocationBarView();
+    const auto* const intent_chip = location_bar->intent_chip();
+    if (!intent_chip || !intent_chip->GetVisible() ||
+        intent_chip->is_fully_collapsed()) {
+      return false;
+    }
+
+    const auto* const test_info =
+        testing::UnitTest::GetInstance()->current_test_info();
+    return VerifyPixelUi(location_bar, test_info->test_case_name(),
+                         test_info->name()) != ui::test::ActionResult::kFailed;
+  }
+
+  void WaitForUserDismissal() override {
+    // Consider closing the browser to be dismissal.
+    ui_test_utils::WaitForBrowserToClose();
+  }
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
-
-IntentChipButtonBrowserUiTest::IntentChipButtonBrowserUiTest() {
-  scoped_feature_list_.InitAndEnableFeature(
-      apps::features::kLinkCapturingUiUpdate);
-}
-
-void IntentChipButtonBrowserUiTest::ShowUi(const std::string& name) {
-  auto* const web_contents =
-      browser()->tab_strip_model()->GetActiveWebContents();
-  auto* const tab_helper = IntentPickerTabHelper::FromWebContents(web_contents);
-  base::RunLoop run_loop;
-  tab_helper->SetIconUpdateCallbackForTesting(run_loop.QuitClosure());
-  tab_helper->MaybeShowIconForApps(
-      {{apps::PickerEntryType::kWeb, ui::ImageModel(), "app_id", "Test app"}});
-  run_loop.Run();
-}
-
-bool IntentChipButtonBrowserUiTest::VerifyUi() {
-  auto* const location_bar =
-      BrowserView::GetBrowserViewForBrowser(browser())->GetLocationBarView();
-  const auto* const intent_chip = location_bar->intent_chip();
-  if (!intent_chip || !intent_chip->GetVisible() ||
-      intent_chip->is_fully_collapsed()) {
-    return false;
-  }
-
-  const auto* const test_info =
-      testing::UnitTest::GetInstance()->current_test_info();
-  return VerifyPixelUi(location_bar, test_info->test_case_name(),
-                       test_info->name()) != ui::test::ActionResult::kFailed;
-}
-
-void IntentChipButtonBrowserUiTest::WaitForUserDismissal() {
-  // Consider closing the browser to be dismissal.
-  ui_test_utils::WaitForBrowserToClose();
-}
 
 IN_PROC_BROWSER_TEST_F(IntentChipButtonBrowserUiTest, InvokeUi_default) {
   ShowAndVerifyUi();

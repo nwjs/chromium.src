@@ -26,15 +26,6 @@ BASE_DECLARE_FEATURE(kStructuredMetrics);
 BASE_DECLARE_FEATURE(kMergeSubprocessMetricsOnBgAndFg);
 #endif  // BUILDFLAG(IS_ANDROID)
 
-// When this feature is enabled, use the client ID stored in the system profile
-// of the PMA files when creating independent logs from them. This is to address
-// the issue of a client resetting their client ID, and then creating an
-// independent log from a previous session that used a different client ID.
-// Without this feature, this independent log would be using the new client ID,
-// although the metrics are associated with the old client ID. This is notably
-// the case in cloned installs.
-BASE_DECLARE_FEATURE(kRestoreUmaClientIdIndependentLogs);
-
 // Determines whether to allow merging subprocess metrics asynchronously. By
 // itself, the feature does nothing. But the different params below allow
 // toggling specific async behaviours.
@@ -50,10 +41,6 @@ extern const base::FeatureParam<bool> kDeregisterAsync;
 // is true.
 extern const base::FeatureParam<bool> kDeregisterSequenced;
 
-// Determines whether the metrics service should finalize certain independent
-// logs asynchronously.
-BASE_DECLARE_FEATURE(kMetricsServiceAsyncIndependentLogs);
-
 // Determines whether to schedule a flush of persistent histogram memory
 // immediately after writing a system profile to it.
 BASE_DECLARE_FEATURE(kFlushPersistentSystemProfileOnWrite);
@@ -62,6 +49,12 @@ BASE_DECLARE_FEATURE(kFlushPersistentSystemProfileOnWrite);
 // thread (in contrast to snapshotting unlogged samples in the background, then
 // marking them as logged on the main thread).
 BASE_DECLARE_FEATURE(kMetricsServiceDeltaSnapshotInBg);
+
+// Determines whether to always flush Local State immediately after an UMA/UKM
+// log upload. If this is disabled, Local State is only immediately flushed
+// after an upload if this is a mobile platform and the browser is in the
+// background.
+BASE_DECLARE_FEATURE(kReportingServiceAlwaysFlush);
 
 }  // namespace metrics::features
 

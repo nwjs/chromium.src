@@ -142,6 +142,10 @@ std::unique_ptr<views::ImageView> GetIconImageViewByName(
     return ImageViewFromVectorIcon(vector_icons::kEditIcon, kIconSize);
   }
 
+  if (icon_str == "codeIcon") {
+    return ImageViewFromVectorIcon(vector_icons::kCodeIcon, kIconSize);
+  }
+
   if (icon_str == "locationIcon") {
     return ImageViewFromVectorIcon(vector_icons::kLocationOnIcon, kIconSize);
   }
@@ -162,10 +166,8 @@ std::unique_ptr<views::ImageView> GetIconImageViewByName(
     return ImageViewFromVectorIcon(kGlobeIcon, kIconSize);
   }
 
-  // TODO(crbug.com/1459990): Use proper icon. The magic_button icon does not
-  // exist yet, I will introduce it in a follow up cl.
   if (icon_str == "magicIcon") {
-    return ImageViewFromVectorIcon(kGlobeIcon, kIconSize);
+    return ImageViewFromVectorIcon(vector_icons::kMagicButtonIcon, kIconSize);
   }
 
   if (icon_str == "accountIcon") {
@@ -188,6 +190,14 @@ std::unique_ptr<views::ImageView> GetIconImageViewByName(
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
     return ImageViewFromImageSkia(gfx::CreateVectorIcon(
         vector_icons::kGoogleGLogoIcon, kIconSize, gfx::kPlaceholderColor));
+#else
+    return nullptr;
+#endif
+  }
+
+  if (icon_str == "penSparkIcon") {
+#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
+    return ImageViewFromVectorIcon(vector_icons::kPenSparkIcon, kIconSize);
 #else
     return nullptr;
 #endif
@@ -506,15 +516,14 @@ std::unique_ptr<views::Label> CreateDescriptionLabel(
 std::vector<std::unique_ptr<views::View>> CreateAndTrackSubtextViews(
     PopupCellView& content_view,
     base::WeakPtr<AutofillPopupController> controller,
-    int line_number) {
+    int line_number,
+    int text_style) {
   std::vector<std::unique_ptr<views::View>> result;
   const int kHorizontalSpacing = ChromeLayoutProvider::Get()->GetDistanceMetric(
       DISTANCE_RELATED_LABEL_HORIZONTAL_LIST);
 
   for (const std::vector<Suggestion::Text>& label_row :
        controller->GetSuggestionAt(line_number).labels) {
-    DCHECK_LE(label_row.size(), 2u);
-    DCHECK(!label_row.empty());
     if (base::ranges::all_of(label_row, &std::u16string::empty,
                              &Suggestion::Text::value)) {
       // If a row is empty, do not include any further rows.
@@ -534,8 +543,7 @@ std::vector<std::unique_ptr<views::View>> CreateAndTrackSubtextViews(
       auto* label =
           label_row_container_view->AddChildView(std::make_unique<views::Label>(
               label_text.value,
-              ChromeTextContext::CONTEXT_DIALOG_BODY_TEXT_SMALL,
-              views::style::STYLE_SECONDARY));
+              ChromeTextContext::CONTEXT_DIALOG_BODY_TEXT_SMALL, text_style));
       content_view.TrackLabel(label);
       FormatLabel(*label, label_text, controller);
     }
@@ -543,19 +551,6 @@ std::vector<std::unique_ptr<views::View>> CreateAndTrackSubtextViews(
   }
 
   return result;
-}
-
-// Adds the callbacks for the content area to `content_view`.
-void AddCallbacksToContentView(
-    base::WeakPtr<AutofillPopupController> controller,
-    int line_number,
-    PopupCellView& content_view) {
-  content_view.SetOnSelectedCallback(base::BindRepeating(
-      &AutofillPopupController::SelectSuggestion, controller, line_number));
-  content_view.SetOnUnselectedCallback(base::BindRepeating(
-      &AutofillPopupController::SelectSuggestion, controller, absl::nullopt));
-  content_view.SetOnAcceptedCallback(base::BindRepeating(
-      &AutofillPopupController::AcceptSuggestion, controller, line_number));
 }
 
 void AddSuggestionStrategyContentCellChildren(
@@ -573,9 +568,6 @@ void AddSuggestionStrategyContentCellChildren(
       CreateMinorTextLabel(kSuggestion.minor_text),
       /*description_label=*/nullptr,
       CreateAndTrackSubtextViews(*view, controller, line_number), *view);
-
-  // Prepare the callbacks to the controller.
-  AddCallbacksToContentView(controller, line_number, *view);
 }
 
 std::unique_ptr<views::ImageView> ImageViewFromVectorIcon(

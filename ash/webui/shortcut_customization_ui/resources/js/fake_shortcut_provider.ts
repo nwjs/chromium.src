@@ -4,11 +4,11 @@
 
 import {FakeMethodResolver} from 'chrome://resources/ash/common/fake_method_resolver.js';
 import {FakeObservables} from 'chrome://resources/ash/common/fake_observables.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.js';
 
-import {AcceleratorResultData, AcceleratorsUpdatedObserverRemote, PolicyUpdatedObserverRemote, UserAction} from '../mojom-webui/ash/webui/shortcut_customization_ui/mojom/shortcut_customization.mojom-webui.js';
+import {AcceleratorResultData, AcceleratorsUpdatedObserverRemote, EditDialogCompletedActions, PolicyUpdatedObserverRemote, Subactions, UserAction} from '../mojom-webui/ash/webui/shortcut_customization_ui/mojom/shortcut_customization.mojom-webui.js';
 
-import {Accelerator, AcceleratorConfigResult, AcceleratorSource, MojoAcceleratorConfig, MojoLayoutInfo, ShortcutProviderInterface} from './shortcut_types.js';
+import {Accelerator, AcceleratorCategory, AcceleratorConfigResult, AcceleratorSource, MojoAcceleratorConfig, MojoLayoutInfo, ShortcutProviderInterface} from './shortcut_types.js';
 
 
 /**
@@ -34,6 +34,10 @@ export class FakeShortcutProvider implements ShortcutProviderInterface {
   private addAcceleratorCallCount: number = 0;
   private removeAcceleratorCallCount: number = 0;
   private lastRecordedUserAction: UserAction;
+  private lastRecordedMainCategory: AcceleratorCategory;
+  private lastRecoredEditDialogActions: EditDialogCompletedActions;
+  private lastRecordedIsAdd: boolean = false;
+  private lastRecorededSubactions: Subactions;
 
   constructor() {
     this.methods = new FakeMethodResolver();
@@ -42,6 +46,7 @@ export class FakeShortcutProvider implements ShortcutProviderInterface {
     this.methods.register('getAccelerators');
     this.methods.register('getAcceleratorLayoutInfos');
     this.methods.register('isMutable');
+    this.methods.register('isCustomizationAllowedByPolicy');
     this.methods.register('hasLauncherButton');
     this.methods.register('addAccelerator');
     this.methods.register('replaceAccelerator');
@@ -54,6 +59,9 @@ export class FakeShortcutProvider implements ShortcutProviderInterface {
     this.methods.register('getConflictAccelerator');
     this.methods.register('getDefaultAcceleratorsForId');
     this.methods.register('recordUserAction');
+    this.methods.register('recordMainCategoryNavigation');
+    this.methods.register('recordEditDialogCompetedActions');
+    this.methods.register('recordAddOrEditSubactions');
     this.registerObservables();
   }
 
@@ -88,6 +96,11 @@ export class FakeShortcutProvider implements ShortcutProviderInterface {
     this.methods.setResult(
         'isMutable', {isMutable: source !== AcceleratorSource.kBrowser});
     return this.methods.resolveMethod('isMutable');
+  }
+
+  isCustomizationAllowedByPolicy():
+      Promise<{isCustomizationAllowedByPolicy: boolean}> {
+    return this.methods.resolveMethod('isCustomizationAllowedByPolicy');
   }
 
   hasLauncherButton(): Promise<{hasLauncherButton: boolean}> {
@@ -169,8 +182,38 @@ export class FakeShortcutProvider implements ShortcutProviderInterface {
     this.lastRecordedUserAction = userAction;
   }
 
+  recordEditDialogCompletedActions(completed_actions:
+                                       EditDialogCompletedActions): void {
+    this.lastRecoredEditDialogActions = completed_actions;
+  }
+
+  getLastEditDialogCompletedActions(): EditDialogCompletedActions {
+    return this.lastRecoredEditDialogActions;
+  }
+
   getLatestRecordedAction(): UserAction {
     return this.lastRecordedUserAction;
+  }
+
+  recordMainCategoryNavigation(category: AcceleratorCategory): void {
+    this.lastRecordedMainCategory = category;
+  }
+
+  getLatestMainCategoryNavigated(): AcceleratorCategory {
+    return this.lastRecordedMainCategory;
+  }
+
+  recordAddOrEditSubactions(isAdd: boolean, subactions: Subactions): void {
+    this.lastRecordedIsAdd = isAdd;
+    this.lastRecorededSubactions = subactions;
+  }
+
+  getLastRecordedIsAdd(): boolean {
+    return this.lastRecordedIsAdd;
+  }
+
+  getLastRecordedSubactions(): Subactions {
+    return this.lastRecorededSubactions;
   }
 
   preventProcessingAccelerators(_preventProcessingAccelerators: boolean):
@@ -257,6 +300,12 @@ export class FakeShortcutProvider implements ShortcutProviderInterface {
 
   setFakeRemoveAcceleratorResult(result: AcceleratorResultData): void {
     this.methods.setResult('removeAccelerator', {result});
+  }
+
+  setFakeIsCustomizationAllowedByPolicy(isCustomizationAllowedByPolicy:
+                                            boolean): void {
+    this.methods.setResult(
+        'isCustomizationAllowedByPolicy', {isCustomizationAllowedByPolicy});
   }
 
   // Sets up an observer for methodName.

@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "extensions/common/draggable_region.h"
+#include "chrome/common/draggable_regions.mojom.h"
 
 #include "base/feature_list.h"
 #include "base/functional/callback_forward.h"
@@ -17,7 +17,7 @@
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/apps/intent_helper/apps_navigation_types.h"
+#include "chrome/browser/apps/link_capturing/intent_picker_info.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
 #include "chrome/browser/share/share_attempt.h"
 #include "chrome/browser/signin/chrome_signin_helper.h"
@@ -162,7 +162,7 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void SetMinimumSize(gfx::Size) = 0;
   virtual void SetMaximumSize(gfx::Size) = 0;
   virtual void UpdateDraggableRegions(
-                                      const std::vector<extensions::DraggableRegion>& regions) = 0;
+                                      const std::vector<chrome::mojom::DraggableRegionPtr>& regions) = 0;
   virtual SkRegion* GetDraggableRegion() = 0;
   virtual void NativeWindowChanged() = 0;
 
@@ -678,6 +678,12 @@ class BrowserWindow : public ui::BaseWindow {
   // Returns true when the borderless mode should be displayed instead
   // of a full titlebar. This is only supported for desktop web apps.
   virtual bool IsBorderlessModeEnabled() const = 0;
+
+  // Sends the resizable boolean set via `window.setResizable(bool)` API to
+  // `BrowserView`. Passing std::nullopt will reset the resizable state to the
+  // default.
+  virtual void SetCanResizeFromWebAPI(absl::optional<bool> can_resize) = 0;
+  virtual bool GetCanResize() = 0;
 
   // Shows the Chrome Labs bubble if enabled.
   virtual void ShowChromeLabs() = 0;

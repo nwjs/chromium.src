@@ -5,7 +5,6 @@
 #ifndef CHROME_BROWSER_WEB_APPLICATIONS_TEST_FAKE_WEB_APP_UI_MANAGER_H_
 #define CHROME_BROWSER_WEB_APPLICATIONS_TEST_FAKE_WEB_APP_UI_MANAGER_H_
 
-#include <map>
 #include <vector>
 
 #include "base/containers/flat_map.h"
@@ -13,6 +12,10 @@
 #include "base/functional/callback_helpers.h"
 #include "chrome/browser/web_applications/web_app_ui_manager.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+
+namespace base {
+class FilePath;
+}  // namespace base
 
 namespace web_app {
 
@@ -47,8 +50,9 @@ class FakeWebAppUiManager : public WebAppUiManager {
   bool CanAddAppToQuickLaunchBar() const override;
   void AddAppToQuickLaunchBar(const webapps::AppId& app_id) override;
   bool IsAppInQuickLaunchBar(const webapps::AppId& app_id) const override;
-  bool IsInAppWindow(content::WebContents* web_contents,
-                     const webapps::AppId* app_id) const override;
+  bool IsInAppWindow(content::WebContents* web_contents) const override;
+  const webapps::AppId* GetAppIdForWindow(
+      content::WebContents* web_contents) const override;
   void NotifyOnAssociatedAppChanged(
       content::WebContents* web_contents,
       const absl::optional<webapps::AppId>& previous_app_id,
@@ -74,11 +78,11 @@ class FakeWebAppUiManager : public WebAppUiManager {
       AppIdentityDialogCallback callback) override;
   void ShowWebAppSettings(const webapps::AppId& app_id) override {}
 
-  base::Value LaunchWebApp(apps::AppLaunchParams params,
-                           LaunchWebAppWindowSetting launch_setting,
-                           Profile& profile,
-                           LaunchWebAppCallback callback,
-                           AppLock& lock) override;
+  void WaitForFirstRunAndLaunchWebApp(apps::AppLaunchParams params,
+                                      LaunchWebAppWindowSetting launch_setting,
+                                      Profile& profile,
+                                      LaunchWebAppCallback callback,
+                                      AppLock& lock) override;
 #if BUILDFLAG(IS_CHROMEOS)
   void MigrateLauncherState(const webapps::AppId& from_app_id,
                             const webapps::AppId& to_app_id,
@@ -90,7 +94,7 @@ class FakeWebAppUiManager : public WebAppUiManager {
 #endif
   content::WebContents* CreateNewTab() override;
   bool IsWebContentsActiveTabInBrowser(
-       content::WebContents* web_contents) override;
+      content::WebContents* web_contents) override;
   void TriggerInstallDialog(content::WebContents* web_contents) override;
 
   void PresentUserUninstallDialog(
@@ -111,6 +115,13 @@ class FakeWebAppUiManager : public WebAppUiManager {
       gfx::NativeWindow parent_window,
       UninstallCompleteCallback callback,
       UninstallScheduledCallback scheduled_callback) override;
+
+  void LaunchIsolatedWebAppInstaller(
+      const base::FilePath& bundle_path) override;
+
+  void MaybeCreateEnableSupportedLinksInfobar(
+      content::WebContents* web_contents,
+      const std::string& launch_name) override;
 
  private:
   base::flat_map<webapps::AppId, size_t> app_id_to_num_windows_map_;

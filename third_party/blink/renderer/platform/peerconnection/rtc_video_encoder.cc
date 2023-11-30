@@ -34,6 +34,7 @@
 #include "media/base/bitstream_buffer.h"
 #include "media/base/media_switches.h"
 #include "media/base/media_util.h"
+#include "media/base/platform_features.h"
 #include "media/base/video_bitrate_allocation.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_util.h"
@@ -343,7 +344,7 @@ bool CreateSpatialLayersConfig(
 
   if (codec_settings.codecType == webrtc::kVideoCodecVP9 &&
       codec_settings.VP9().numberOfSpatialLayers > 1 &&
-      !RTCVideoEncoder::Vp9HwSupportForSpatialLayers()) {
+      !media::IsVp9kSVCHWEncodingEnabled()) {
     DVLOG(1)
         << "VP9 SVC not yet supported by HW codecs, falling back to software.";
     return false;
@@ -526,11 +527,6 @@ void RecordEncoderStatusUMA(const media::EncoderStatus& status,
       break;
   }
   base::UmaHistogramEnumeration(histogram_name, status.code());
-}
-
-bool SupportGpuMemoryBufferEncoding() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      switches::kVideoCaptureUseGpuMemoryBuffer);
 }
 
 bool IsZeroCopyEnabled(webrtc::VideoContentType content_type) {
@@ -1933,8 +1929,7 @@ int32_t RTCVideoEncoder::Encode(
     return WEBRTC_VIDEO_CODEC_FALLBACK_SOFTWARE;
 
   if (IsCodecInitializationPending()) {
-    if (IsNV12GpuMemoryBufferVideoFrame(input_image) &&
-        SupportGpuMemoryBufferEncoding()) {
+    if (IsNV12GpuMemoryBufferVideoFrame(input_image)) {
       vea_config_->input_format = media::PIXEL_FORMAT_NV12;
       vea_config_->storage_type =
           media::VideoEncodeAccelerator::Config::StorageType::kGpuMemoryBuffer;
@@ -2132,16 +2127,6 @@ void RTCVideoEncoder::SetError() {
 
   if (error_callback_for_testing_)
     std::move(error_callback_for_testing_).Run();
-}
-
-// static
-bool RTCVideoEncoder::Vp9HwSupportForSpatialLayers() {
-#if defined(ARCH_CPU_X86_FAMILY) && BUILDFLAG(IS_CHROMEOS)
-  return base::FeatureList::IsEnabled(media::kVaapiVp9kSVCHWEncoding);
-#else
-  // Spatial layers are not supported by hardware encoders.
-  return false;
-#endif
 }
 
 }  // namespace blink

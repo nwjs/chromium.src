@@ -348,14 +348,18 @@ void FrameFetchContext::PrepareRequest(
         attribution_src_loader->GetRuntimeFeatures());
   }
 
-  if (request.GetSharedStorageWritable()) {
+  // If the original request included the attribute to opt-in to shared storage,
+  // then update eligibility for the current (possibly redirected) request. Note
+  // that if the original request didn't opt-in, then the original request and
+  // any subsequent redirects are ineligible for shared storage writing by
+  // response header.
+  if (request.GetSharedStorageWritableOptedIn()) {
     auto* policy = GetPermissionsPolicy();
-    if (!policy ||
-        !request.IsFeatureEnabledForSubresourceRequestAssumingOptIn(
+    request.SetSharedStorageWritableEligible(
+        policy &&
+        request.IsFeatureEnabledForSubresourceRequestAssumingOptIn(
             policy, mojom::blink::PermissionsPolicyFeature::kSharedStorage,
-            SecurityOrigin::Create(request.Url())->ToUrlOrigin())) {
-      request.SetSharedStorageWritable(false);
-    }
+            SecurityOrigin::Create(request.Url())->ToUrlOrigin()));
   }
 
   request.SetSharedDictionaryWriterEnabled(
@@ -602,7 +606,7 @@ void FrameFetchContext::DispatchDidBlockRequest(
 ContentSecurityPolicy* FrameFetchContext::GetContentSecurityPolicyForWorld(
     const DOMWrapperWorld* world) const {
   if (GetResourceFetcherProperties().IsDetached())
-    return frozen_state_->content_security_policy;
+    return frozen_state_->content_security_policy.Get();
 
   return document_->GetExecutionContext()->GetContentSecurityPolicyForWorld(
       world);
@@ -656,7 +660,7 @@ bool FrameFetchContext::ShouldBlockFetchByMixedContentCheck(
     base::optional_ref<const ResourceRequest::RedirectInfo> redirect_info,
     const KURL& url,
     ReportingDisposition reporting_disposition,
-    base::optional_ref<const String> devtools_id) const {
+    const String& devtools_id) const {
   if (GetResourceFetcherProperties().IsDetached()) {
     // TODO(yhirano): Implement the detached case.
     return false;
@@ -709,7 +713,7 @@ const KURL& FrameFetchContext::Url() const {
 
 ContentSecurityPolicy* FrameFetchContext::GetContentSecurityPolicy() const {
   if (GetResourceFetcherProperties().IsDetached())
-    return frozen_state_->content_security_policy;
+    return frozen_state_->content_security_policy.Get();
   return document_->domWindow()->GetContentSecurityPolicy();
 }
 

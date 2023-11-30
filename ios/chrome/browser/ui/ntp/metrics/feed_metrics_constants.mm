@@ -10,27 +10,25 @@ const int kNonShortClickSeconds = 10;
 const int kMinutesBetweenSessions = 5;
 const int kMaxCardsInFeed = 50;
 
-NSString* const kArticleVisitTimestampKey = @"ShortClickInteractionTimestamp";
-NSString* const kLongFeedVisitTimeAggregateKey =
-    @"LongFeedInteractionTimeDelta";
-NSString* const kLongDiscoverFeedVisitTimeAggregateKey =
-    @"LongDiscoverFeedInteractionTimeDelta";
-NSString* const kLongFollowingFeedVisitTimeAggregateKey =
-    @"LongFollowingFeedInteractionTimeDelta";
-NSString* const kLastUsedFeedForGoodVisitsKey = @"LastUsedFeedForGoodVisits";
-NSString* const kLastInteractionTimeForGoodVisits =
-    @"LastInteractionTimeForGoodVisits";
-NSString* const kLastInteractionTimeForDiscoverGoodVisits =
-    @"LastInteractionTimeForGoodVisitsDiscover";
-NSString* const kLastInteractionTimeForFollowingGoodVisits =
-    @"LastInteractionTimeForGoodVisitsFollowing";
-NSString* const kLastDayTimeInFeedReportedKey = @"LastDayTimeInFeedReported";
-NSString* const kTimeSpentInFeedAggregateKey = @"TimeSpentInFeedAggregate";
+const char kArticleVisitTimestampKey[] = "ShortClickInteractionTimestamp";
+const char kLongFeedVisitTimeAggregateKey[] = "LongFeedInteractionTimeDelta";
+const char kLongDiscoverFeedVisitTimeAggregateKey[] =
+    "LongDiscoverFeedInteractionTimeDelta";
+const char kLongFollowingFeedVisitTimeAggregateKey[] =
+    "LongFollowingFeedInteractionTimeDelta";
+const char kLastUsedFeedForGoodVisitsKey[] = "LastUsedFeedForGoodVisits";
+const char kLastInteractionTimeForGoodVisits[] =
+    "LastInteractionTimeForGoodVisits";
+const char kLastInteractionTimeForDiscoverGoodVisits[] =
+    "LastInteractionTimeForGoodVisitsDiscover";
+const char kLastInteractionTimeForFollowingGoodVisits[] =
+    "LastInteractionTimeForGoodVisitsFollowing";
+const char kLastDayTimeInFeedReportedKey[] = "LastDayTimeInFeedReported";
+const char kTimeSpentInFeedAggregateKey[] = "TimeSpentInFeedAggregate";
 const char kActivityBucketLastReportedDateKey[] =
     "ActivityBucketLastReportedDate";
-NSString* const kActivityBucketLastReportedDateArrayKey =
-    @"ActivityBucketLastReportedDateArray";
-NSString* const kActivityBucketKey = @"FeedActivityBucket";
+const char kActivityBucketLastReportedDateArrayKey[] =
+    "ActivityBucketLastReportedDateArray";
 
 #pragma mark - Histograms
 

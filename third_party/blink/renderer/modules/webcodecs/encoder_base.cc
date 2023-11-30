@@ -288,12 +288,7 @@ void EncoderBase<Traits>::HandleError(DOMException* ex) {
 
   ScriptState::Scope scope(script_state_);
 
-  // Per spec, this is a queued task.
-  callback_runner_->PostTask(
-      FROM_HERE,
-      WTF::BindOnce(&V8WebCodecsErrorCallback::InvokeAndReportException,
-                    WrapPersistent(error_callback), nullptr,
-                    WrapPersistent(ex)));
+  error_callback->InvokeAndReportException(nullptr, ex);
 }
 
 template <typename Traits>
@@ -425,10 +420,6 @@ void EncoderBase<Traits>::DispatchDequeueEvent(Event* event) {
 template <typename Traits>
 void EncoderBase<Traits>::ScheduleDequeueEvent() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-
-  if (!RuntimeEnabledFeatures::WebCodecsDequeueEventEnabled())
-    return;
-
   if (dequeue_event_pending_)
     return;
   dequeue_event_pending_ = true;

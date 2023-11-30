@@ -35,8 +35,11 @@ enum class WarningType;
 // TODO(crbug.com/779791) : Do not pass baseViewController through dispatcher.
 // Shows the accounts settings UI, presenting from `baseViewController`. If
 // `baseViewController` is nil BVC will be used as presenterViewController.
+// `skipIfUINotAvailable` if YES, this command will be ignored when the tab
+// is already presenting any view controllers.
 - (void)showAccountsSettingsFromViewController:
-    (UIViewController*)baseViewController;
+            (UIViewController*)baseViewController
+                          skipIfUINotAvailable:(BOOL)skipIfUINotAvailable;
 
 // TODO(crbug.com/779791) : Do not pass baseViewController through dispatcher.
 // Shows the Google services settings UI, presenting from `baseViewController`.
@@ -107,9 +110,6 @@ enum class WarningType;
 
 // Shows the Password Manager's search page.
 - (void)showPasswordSearchPage;
-
-// Shows the Tab Pickup Settings screen.
-- (void)showTabPickupSettings;
 
 // Shows the Content Settings page in the settings on top of baseViewController.
 - (void)showContentsSettingsFromViewController:
@@ -191,10 +191,6 @@ enum class WarningType;
 - (void)displayRegularTabSwitcherInGridLayout;
 
 // TODO(crbug.com/779791) : Do not pass baseViewController through dispatcher.
-// Shows the Autofill Settings UI, presenting from `baseViewController`.
-- (void)showAutofillSettingsFromViewController:
-    (UIViewController*)baseViewController;
-
 // Shows the settings Privacy UI.
 - (void)showPrivacySettingsFromViewController:
     (UIViewController*)baseViewController;

@@ -7,36 +7,19 @@
 //    ../../third_party/xcbproto/src \
 //    gen/ui/gfx/x \
 //    bigreq \
-//    composite \
-//    damage \
-//    dpms \
-//    dri2 \
 //    dri3 \
-//    ge \
 //    glx \
-//    present \
 //    randr \
-//    record \
 //    render \
-//    res \
 //    screensaver \
 //    shape \
 //    shm \
 //    sync \
-//    xc_misc \
-//    xevie \
-//    xf86dri \
-//    xf86vidmode \
 //    xfixes \
-//    xinerama \
 //    xinput \
 //    xkb \
-//    xprint \
 //    xproto \
-//    xselinux \
-//    xtest \
-//    xv \
-//    xvmc
+//    xtest
 
 #include "randr.h"
 
@@ -96,6 +79,7 @@ void ReadError<RandR::BadOutputError>(RandR::BadOutputError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string RandR::BadCrtcError::ToString() const {
   std::stringstream ss_;
   ss_ << "RandR::BadCrtcError{";
@@ -139,6 +123,7 @@ void ReadError<RandR::BadCrtcError>(RandR::BadCrtcError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string RandR::BadModeError::ToString() const {
   std::stringstream ss_;
   ss_ << "RandR::BadModeError{";
@@ -182,6 +167,7 @@ void ReadError<RandR::BadModeError>(RandR::BadModeError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string RandR::BadProviderError::ToString() const {
   std::stringstream ss_;
   ss_ << "RandR::BadProviderError{";
@@ -225,6 +211,7 @@ void ReadError<RandR::BadProviderError>(RandR::BadProviderError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 template <>
 COMPONENT_EXPORT(X11)
 void ReadEvent<RandR::ScreenChangeNotifyEvent>(

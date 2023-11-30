@@ -24,6 +24,7 @@
 #include "media/capture/mojom/video_capture_types.mojom.h"
 #include "media/capture/video/video_frame_receiver.h"
 #include "media/capture/video_capture_types.h"
+#include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/common/media/video_capture.h"
 #include "third_party/blink/public/common/mediastream/media_stream_request.h"
 
@@ -111,13 +112,12 @@ class CONTENT_EXPORT VideoCaptureController
   void OnCaptureConfigurationChanged() override;
   void OnNewBuffer(int32_t buffer_id,
                    media::mojom::VideoBufferHandlePtr buffer_handle) override;
-  void OnFrameReadyInBuffer(
-      media::ReadyFrameInBuffer frame,
-      std::vector<media::ReadyFrameInBuffer> scaled_frames) override;
+  void OnFrameReadyInBuffer(media::ReadyFrameInBuffer frame) override;
   void OnBufferRetired(int buffer_id) override;
   void OnError(media::VideoCaptureError error) override;
   void OnFrameDropped(media::VideoCaptureFrameDropReason reason) override;
-  void OnNewCropVersion(uint32_t crop_version) override;
+  void OnNewSubCaptureTargetVersion(
+      uint32_t sub_capture_target_version) override;
   void OnFrameWithEmptyRegionCapture() override;
   void OnLog(const std::string& message) override;
   void OnStarted() override;
@@ -132,9 +132,12 @@ class CONTENT_EXPORT VideoCaptureController
 
   void OnDeviceConnectionLost();
 
-  void CreateAndStartDeviceAsync(const media::VideoCaptureParams& params,
-                                 VideoCaptureDeviceLaunchObserver* callbacks,
-                                 base::OnceClosure done_cb);
+  void CreateAndStartDeviceAsync(
+      const media::VideoCaptureParams& params,
+      VideoCaptureDeviceLaunchObserver* callbacks,
+      base::OnceClosure done_cb,
+      mojo::PendingRemote<video_capture::mojom::VideoEffectsManager>
+          video_effects_manager);
   void ReleaseDeviceAsync(base::OnceClosure done_cb);
   bool IsDeviceAlive() const;
   void GetPhotoState(
@@ -146,8 +149,9 @@ class CONTENT_EXPORT VideoCaptureController
   void MaybeSuspend();
   void Resume();
   void Crop(const base::Token& crop_id,
-            uint32_t crop_version,
-            base::OnceCallback<void(media::mojom::CropRequestResult)> callback);
+            uint32_t sub_capture_target_version,
+            base::OnceCallback<void(media::mojom::ApplySubCaptureTargetResult)>
+                callback);
   void RequestRefreshFrame();
   void SetDesktopCaptureWindowIdAsync(gfx::NativeViewId window_id,
                                       base::OnceClosure done_cb);
@@ -281,8 +285,9 @@ class CONTENT_EXPORT VideoCaptureController
   // As a work-around to technical limitations, we don't allow multiple
   // captures of the same tab, by the same capturer, if the first capturer
   // invoked cropping. (Any capturer but the first one would have been
-  // blocked earlier in the pipeline.) That is because the `crop_version`
-  // would otherwise not line up between the various ControllerClients.
+  // blocked earlier in the pipeline.) That is because the
+  // `sub_capture_target_version` would otherwise not line up between the
+  // various ControllerClients.
   bool was_crop_ever_called_ = false;
 
   base::WeakPtrFactory<VideoCaptureController> weak_ptr_factory_{this};

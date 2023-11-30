@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import './lit/components/record-time-chip.js';
+import './lit/components/svg-wrapper.js';
+
 import {
   ColorChangeUpdater,
 } from
@@ -24,7 +27,6 @@ import {ModeConstraints} from './device/type.js';
 import * as dom from './dom.js';
 import {reportError} from './error.js';
 import * as expert from './expert.js';
-import {Flag} from './flag.js';
 import {GalleryButton} from './gallerybutton.js';
 import {Intent} from './intent.js';
 import * as Comlink from './lib/comlink.js';
@@ -40,6 +42,7 @@ import {WindowInstance} from './multi_window_manager.js';
 import * as nav from './nav.js';
 import {PerfLogger} from './perf.js';
 import {preloadImagesList} from './preload_images.js';
+import {preloadSounds} from './sound.js';
 import * as state from './state.js';
 import * as toast from './toast.js';
 import * as tooltip from './tooltip.js';
@@ -195,13 +198,6 @@ function setupEffect() {
   });
 }
 
-function setupExperimentalFeatures() {
-  if (loadTimeData.getChromeFlag(Flag.TIME_LAPSE)) {
-    const modeButton = dom.get('#time-lapse-mode', HTMLDivElement);
-    modeButton.classList.remove('hidden');
-  }
-}
-
 /**
  * Handles pressed keys.
  */
@@ -275,31 +271,15 @@ async function setupDynamicColor(): Promise<void> {
       document.head.appendChild(link);
     });
   }
-  if (loadTimeData.getChromeFlag(Flag.JELLY)) {
-    ColorChangeUpdater.forDocument().start();
-    await loadCSS('chrome://theme/colors.css?sets=ref,sys');
-  } else {
-    await loadCSS(util.expandPath('/css/colors_default.css'));
-  }
-}
-
-function setupNewFeatureToast(
-    cameraManager: CameraManager, cameraView: Camera) {
-  // TODO(b/236800499): Remove the toast around 3 milestones after the feature
-  // is launched.
-  if (loadTimeData.getChromeFlag(Flag.TIME_LAPSE)) {
-    cameraManager.registerCameraUI({
-      onUpdateConfig: () => {
-        if (localStorage.getBool(LocalStorageKey.TIME_LAPSE_DIALOG_SHOWN) ||
-            state.get(Mode.VIDEO)) {
-          return;
-        }
-        customEffect.showTimeLapseIntroToast(cameraView.root);
-        // Do not show the toast to users who has already seen it.
-        localStorage.set(LocalStorageKey.TIME_LAPSE_DIALOG_SHOWN, true);
-      },
-    });
-  }
+  ColorChangeUpdater.forDocument().start();
+  // Note that this has to be loaded after
+  // ColorChangeUpdater.forDocument.start() is called, since we override the
+  // force dark theme on the color_change_listener BindInterface in
+  // camera_app_ui.cc
+  // TODO(pihsun): Check if there's way to override color scheme earlier before
+  // HTML load, so the CSS can be put into .html file instead of being injected
+  // by JS.
+  await loadCSS('chrome://theme/colors.css?sets=ref,sys');
 }
 
 async function setupMultiWindowHandling(
@@ -527,9 +507,8 @@ async function main() {
   setupToggles();
   localStorage.cleanup();
   setupEffect();
-  setupNewFeatureToast(cameraManager, cameraView);
-  setupExperimentalFeatures();
   preloadImages();
+  preloadSounds();
   setupSvgs();
 
   const launchType = openFrom === 'assistant' ? metrics.LaunchType.ASSISTANT :

@@ -130,11 +130,6 @@ std::string GetSwitchOrDefault(const base::StringPiece& switch_string,
   return default_value;
 }
 
-std::string GetHighlightsAppId() {
-  return GetSwitchOrDefault(switches::kDemoModeHighlightsApp,
-                            extension_misc::kHighlightsAppId);
-}
-
 // If the current locale is not the default one, ensure it is reverted to the
 // default when demo session restarts (i.e. user-selected locale is only allowed
 // to be used for a single session).
@@ -404,6 +399,8 @@ void DemoSession::RegisterLocalStatePrefs(PrefRegistrySimple* registry) {
   registry->RegisterStringPref(prefs::kDemoModeCountry, kSupportedCountries[0]);
   registry->RegisterStringPref(prefs::kDemoModeRetailerId, std::string());
   registry->RegisterStringPref(prefs::kDemoModeStoreId, std::string());
+  registry->RegisterStringPref(prefs::kDemoModeAppVersion, std::string());
+  registry->RegisterStringPref(prefs::kDemoModeResourcesVersion, std::string());
 }
 
 void DemoSession::EnsureResourcesLoaded(base::OnceClosure load_callback) {
@@ -638,8 +635,11 @@ void LaunchDemoSystemWebApp() {
 }
 
 void DemoSession::OnDemoAppComponentLoaded() {
-  SYSLOG(INFO) << "Demo mode app component version"
-               << components_->app_component_version().value_or("");
+  const auto& app_component_version = components_->app_component_version();
+  SYSLOG(INFO) << "Demo mode app component version: "
+               << (app_component_version.has_value()
+                       ? app_component_version.value().GetString()
+                       : "");
   auto error = components_->app_component_error().value_or(
       component_updater::CrOSComponentManager::Error::NOT_FOUND);
 
@@ -678,9 +678,9 @@ void DemoSession::ConfigureAndStartSplashScreen() {
   base::FilePath fallback_path = components_->resources_component_path()
                                      .Append(kSplashScreensPath)
                                      .Append("en-US.jpg");
-
-  SYSLOG(INFO) << "Demo mode resources version"
-               << components_->resources_component_version().value_or("");
+  const auto& version = components_->resources_component_version();
+  SYSLOG(INFO) << "Demo mode resources version: "
+               << (version.has_value() ? version.value().GetString() : "");
 
   base::ThreadPool::PostTaskAndReplyWithResult(
       FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},

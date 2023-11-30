@@ -27,6 +27,7 @@
 #include "components/viz/common/resources/shared_image_format.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/GLES2/gl2extchromium.h"
+#include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/gpu_memory_buffer_manager.h"
 #include "gpu/command_buffer/client/raster_interface.h"
@@ -44,12 +45,8 @@ namespace {
 // default batch size for copy operations.
 const int kMaxBytesPerCopyOperation = 1024 * 1024 * 4;
 
-// When enabled, OneCopyRasterBufferProvider::RasterBufferImpl::Playback() runs
-// at normal thread priority.
-// TODO(crbug.com/1072756): Cleanup the feature when the Stable experiment is
-// complete, on November 25, 2020.
-BASE_FEATURE(kOneCopyRasterBufferPlaybackNormalThreadPriority,
-             "OneCopyRasterBufferPlaybackNormalThreadPriority",
+BASE_FEATURE(kAlwaysUseMappableSIForOneCopyRaster,
+             "AlwaysUseMappableSIForOneCopyRaster",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace
@@ -141,8 +138,7 @@ bool OneCopyRasterBufferProvider::RasterBufferImpl::
   // the GpuChannelHost lock, which is acquired at normal thread priority by
   // other code. Acquiring it at background thread priority can cause a priority
   // inversion. https://crbug.com/1072756
-  return !base::FeatureList::IsEnabled(
-      kOneCopyRasterBufferPlaybackNormalThreadPriority);
+  return false;
 }
 
 OneCopyRasterBufferProvider::OneCopyRasterBufferProvider(
@@ -337,6 +333,11 @@ bool OneCopyRasterBufferProvider::PlaybackToStagingBuffer(
     const RasterSource::PlaybackSettings& playback_settings,
     uint64_t previous_content_id,
     uint64_t new_content_id) {
+  std::unique_ptr<gpu::SharedImageInterface::ScopedMapping> mapping;
+  gfx::GpuMemoryBuffer* buffer = nullptr;
+  void* memory = nullptr;
+  size_t stride = 0;
+
   gfx::Rect playback_rect = raster_full_rect;
   if (use_partial_raster_ && previous_content_id) {
     // Reduce playback rect to dirty region if the content id of the staging
@@ -348,46 +349,82 @@ bool OneCopyRasterBufferProvider::PlaybackToStagingBuffer(
 
   float full_rect_size = raster_full_rect.size().GetArea();
 
-  // Allocate GpuMemoryBuffer if necessary.
-  if (!staging_buffer->gpu_memory_buffer) {
-    staging_buffer->gpu_memory_buffer =
-        gpu_memory_buffer_manager_->CreateGpuMemoryBuffer(
-            staging_buffer->size,
-            viz::SinglePlaneSharedImageFormatToBufferFormat(format),
-            gfx::BufferUsage::GPU_READ_CPU_READ_WRITE, gpu::kNullSurfaceHandle,
-            shutdown_event_);
+  if (base::FeatureList::IsEnabled(kAlwaysUseMappableSIForOneCopyRaster)) {
+    CHECK(!staging_buffer->gpu_memory_buffer);
+
+    auto* sii = worker_context_provider_->SharedImageInterface();
+
+    // Allocate MappableSharedImage if necessary.
+    if (staging_buffer->mailbox.IsZero()) {
+      auto client_shared_image = sii->CreateSharedImage(
+          format, staging_buffer->size, dst_color_space,
+          kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
+          gpu::SHARED_IMAGE_USAGE_CPU_WRITE, "OneCopyRasterStaging",
+          gpu::kNullSurfaceHandle, gfx::BufferUsage::GPU_READ_CPU_READ_WRITE);
+      if (!client_shared_image) {
+        LOG(ERROR) << "Creation of MappableSharedImage failed.";
+        return false;
+      }
+      staging_buffer->mailbox = client_shared_image->mailbox();
+    }
+
+    mapping = sii->MapSharedImage(staging_buffer->mailbox);
+    if (!mapping) {
+      LOG(ERROR) << "MapSharedImage Failed.";
+      return false;
+    }
+    memory = mapping->Memory(0);
+    stride = mapping->Stride(0);
+    staging_buffer->is_shared_memory = mapping->IsSharedMemory();
+  } else {
+    // Allocate GpuMemoryBuffer if necessary.
+    if (!staging_buffer->gpu_memory_buffer) {
+      staging_buffer->gpu_memory_buffer =
+          gpu_memory_buffer_manager_->CreateGpuMemoryBuffer(
+              staging_buffer->size,
+              viz::SinglePlaneSharedImageFormatToBufferFormat(format),
+              gfx::BufferUsage::GPU_READ_CPU_READ_WRITE,
+              gpu::kNullSurfaceHandle, shutdown_event_);
+    }
+
+    buffer = staging_buffer->gpu_memory_buffer.get();
+    if (!buffer) {
+      return false;
+    }
+
+    CHECK_EQ(1u, gfx::NumberOfPlanesForLinearBufferFormat(buffer->GetFormat()));
+    bool rv = buffer->Map();
+    CHECK(rv);
+    CHECK(buffer->memory(0));
+    // RasterBufferProvider::PlaybackToMemory only supports unsigned strides.
+    CHECK_GE(buffer->stride(0), 0);
+
+    // TODO(https://crbug.com/870663): Temporary diagnostics.
+    base::debug::Alias(&playback_rect);
+    base::debug::Alias(&full_rect_size);
+    base::debug::Alias(&rv);
+    void* buffer_memory = buffer->memory(0);
+    base::debug::Alias(&buffer_memory);
+    gfx::Size staging_buffer_size = staging_buffer->size;
+    base::debug::Alias(&staging_buffer_size);
+    gfx::Size buffer_size = buffer->GetSize();
+    base::debug::Alias(&buffer_size);
+
+    memory = buffer->memory(0);
+    stride = buffer->stride(0);
+    staging_buffer->is_shared_memory =
+        buffer->GetType() == gfx::GpuMemoryBufferType::SHARED_MEMORY_BUFFER;
   }
-
-  if (!staging_buffer->gpu_memory_buffer) {
-    return false;
-  }
-
-  gfx::GpuMemoryBuffer* buffer = staging_buffer->gpu_memory_buffer.get();
-  CHECK_EQ(1u, gfx::NumberOfPlanesForLinearBufferFormat(buffer->GetFormat()));
-  bool rv = buffer->Map();
-  CHECK(rv);
-  CHECK(buffer->memory(0));
-  // RasterBufferProvider::PlaybackToMemory only supports unsigned strides.
-  CHECK_GE(buffer->stride(0), 0);
-
-  // TODO(https://crbug.com/870663): Temporary diagnostics.
-  base::debug::Alias(&playback_rect);
-  base::debug::Alias(&full_rect_size);
-  base::debug::Alias(&rv);
-  void* buffer_memory = buffer->memory(0);
-  base::debug::Alias(&buffer_memory);
-  gfx::Size staging_buffer_size = staging_buffer->size;
-  base::debug::Alias(&staging_buffer_size);
-  gfx::Size buffer_size = buffer->GetSize();
-  base::debug::Alias(&buffer_size);
 
   DCHECK(!playback_rect.IsEmpty())
       << "Why are we rastering a tile that's not dirty?";
   RasterBufferProvider::PlaybackToMemory(
-      buffer->memory(0), format, staging_buffer->size, buffer->stride(0),
-      raster_source, raster_full_rect, playback_rect, transform,
-      dst_color_space, /*gpu_compositing=*/true, playback_settings);
-  buffer->Unmap();
+      memory, format, staging_buffer->size, stride, raster_source,
+      raster_full_rect, playback_rect, transform, dst_color_space,
+      /*gpu_compositing=*/true, playback_settings);
+  base::FeatureList::IsEnabled(kAlwaysUseMappableSIForOneCopyRaster)
+      ? mapping.reset()
+      : buffer->Unmap();
   staging_buffer->content_id = new_content_id;
 
   return true;
@@ -407,7 +444,11 @@ gpu::SyncToken OneCopyRasterBufferProvider::CopyOnWorkerThread(
   auto* sii = worker_context_provider_->SharedImageInterface();
   DCHECK(sii);
 
-  CHECK(staging_buffer->gpu_memory_buffer.get());
+  if (base::FeatureList::IsEnabled(kAlwaysUseMappableSIForOneCopyRaster)) {
+    CHECK(!staging_buffer->mailbox.IsZero());
+  } else {
+    CHECK(staging_buffer->gpu_memory_buffer.get());
+  }
 
   bool needs_clear = false;
 
@@ -428,10 +469,12 @@ gpu::SyncToken OneCopyRasterBufferProvider::CopyOnWorkerThread(
   // Create staging shared image.
   if (staging_buffer->mailbox.IsZero()) {
     const uint32_t usage = gpu::SHARED_IMAGE_USAGE_CPU_WRITE;
-    staging_buffer->mailbox = sii->CreateSharedImage(
+    auto client_shared_image = sii->CreateSharedImage(
         format, resource_size, color_space, kTopLeft_GrSurfaceOrigin,
         kPremul_SkAlphaType, usage, "OneCopyRasterStaging",
         staging_buffer->gpu_memory_buffer.get()->CloneHandle());
+    CHECK(client_shared_image);
+    staging_buffer->mailbox = client_shared_image->mailbox();
   } else {
     sii->UpdateSharedImage(staging_buffer->sync_token, staging_buffer->mailbox);
   }
@@ -460,10 +503,8 @@ gpu::SyncToken OneCopyRasterBufferProvider::CopyOnWorkerThread(
   query_target = GL_COMMANDS_ISSUED_CHROMIUM;
 #endif
 
-  // COMMANDS_ISSUED is sufficient for shared memory GpuMemoryBuffers.
-  const auto* buffer = staging_buffer->gpu_memory_buffer.get();
-  if (buffer &&
-      buffer->GetType() == gfx::GpuMemoryBufferType::SHARED_MEMORY_BUFFER) {
+  // COMMANDS_ISSUED is sufficient for shared memory resources.
+  if (staging_buffer->is_shared_memory) {
     query_target = GL_COMMANDS_ISSUED_CHROMIUM;
   }
 

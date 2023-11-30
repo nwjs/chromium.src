@@ -64,7 +64,7 @@ gin::ObjectTemplateBuilder APIBindingJSUtil::GetObjectTemplateBuilder(
 void APIBindingJSUtil::SendRequestSync(
     gin::Arguments* arguments,
     const std::string& name,
-    const std::vector<v8::Local<v8::Value>>& request_args,
+    const v8::LocalVector<v8::Value>& request_args,
     v8::Local<v8::Value> options) {
   v8::Isolate* isolate = arguments->isolate();
   v8::HandleScope handle_scope(isolate);
@@ -88,7 +88,7 @@ void APIBindingJSUtil::SendRequestSync(
 void APIBindingJSUtil::SendRequest(
     gin::Arguments* arguments,
     const std::string& name,
-    const std::vector<v8::Local<v8::Value>>& request_args,
+    const v8::LocalVector<v8::Value>& request_args,
     v8::Local<v8::Value> options) {
   SendRequestHelper(arguments, name, request_args, options);
 }
@@ -96,7 +96,7 @@ void APIBindingJSUtil::SendRequest(
 void APIBindingJSUtil::SendRequestHelper(
     gin::Arguments* arguments,
     const std::string& name,
-    const std::vector<v8::Local<v8::Value>>& request_args,
+    const v8::LocalVector<v8::Value>& request_args,
     v8::Local<v8::Value> options,
     bool sync, bool* success, base::Value::List* response, std::string* error) {
   v8::Isolate* isolate = arguments->isolate();
@@ -374,7 +374,7 @@ void APIBindingJSUtil::ValidateCustomSignature(
     NOTREACHED();
   }
 
-  std::vector<v8::Local<v8::Value>> vector_arguments;
+  v8::LocalVector<v8::Value> vector_arguments(isolate);
   if (!gin::ConvertFromV8(isolate, arguments_to_validate, &vector_arguments)) {
     NOTREACHED();
     return;

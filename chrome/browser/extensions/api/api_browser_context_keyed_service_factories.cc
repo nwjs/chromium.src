@@ -51,6 +51,7 @@
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/chromeos/extensions/wm/wm_desks_private_events.h"
+#include "chrome/browser/extensions/api/document_scan/document_scan_api_handler.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -83,6 +84,9 @@ void EnsureApiBrowserContextKeyedServiceFactoriesBuilt() {
   extensions::CommandService::GetFactoryInstance();
   extensions::CookiesAPI::GetFactoryInstance();
   extensions::DeveloperPrivateAPI::GetFactoryInstance();
+#if BUILDFLAG(IS_CHROMEOS)
+  extensions::DocumentScanAPIHandler::GetFactoryInstance();
+#endif
   extensions::ExtensionActionAPI::GetFactoryInstance();
   extensions::FontSettingsAPI::GetFactoryInstance();
   extensions::HistoryAPI::GetFactoryInstance();

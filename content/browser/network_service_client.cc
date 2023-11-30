@@ -271,7 +271,7 @@ void NetworkServiceClient::OnSSLCertificateError(
     const net::SSLInfo& ssl_info,
     bool fatal,
     OnSSLCertificateErrorCallback response) {
-  std::move(response).Run(net::ERR_INSECURE_RESPONSE);
+  std::move(response).Run(net_error);
 }
 
 void NetworkServiceClient::OnCertificateRequested(
@@ -307,8 +307,8 @@ void NetworkServiceClient::OnAuthRequired(
 void NetworkServiceClient::OnPrivateNetworkAccessPermissionRequired(
     const GURL& url,
     const net::IPAddress& ip_address,
-    const std::string& private_network_device_id,
-    const std::string& private_network_device_name,
+    const absl::optional<std::string>& private_network_device_id,
+    const absl::optional<std::string>& private_network_device_name,
     OnPrivateNetworkAccessPermissionRequiredCallback callback) {
   std::move(callback).Run(false);
 }

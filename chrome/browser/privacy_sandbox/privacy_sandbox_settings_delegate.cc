@@ -16,25 +16,34 @@
 #include "build/buildflag.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/cookie_settings_factory.h"
+#include "chrome/browser/privacy_sandbox/tracking_protection_onboarding_factory.h"
+#include "chrome/browser/privacy_sandbox/tracking_protection_settings_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/tpcd/experiment/experiment_manager.h"
 #include "chrome/browser/tpcd/experiment/tpcd_experiment_features.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/content_settings.h"
+#include "components/content_settings/core/common/pref_names.h"
 #include "components/metrics/metrics_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/privacy_sandbox/privacy_sandbox_prefs.h"
+#include "components/privacy_sandbox/tpcd_experiment_eligibility.h"
+#include "components/privacy_sandbox/tracking_protection_onboarding.h"
+#include "components/privacy_sandbox/tracking_protection_settings.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/tribool.h"
 #include "content/public/common/content_features.h"
+#include "net/cookies/cookie_util.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/webapps/webapp_registry.h"
 #endif
 
 namespace {
+
+using TpcdExperimentEligibility = privacy_sandbox::TpcdExperimentEligibility;
 
 signin::Tribool GetPrivacySandboxRestrictedByAccountCapability(
     signin::IdentityManager* identity_manager) {
@@ -185,7 +194,7 @@ bool PrivacySandboxSettingsDelegate::IsCookieDeprecationExperimentEligible()
     // The 3PCD experiment eligibility persists for the browser session.
     if (!is_cookie_deprecation_experiment_eligible_.has_value()) {
       is_cookie_deprecation_experiment_eligible_ =
-          IsCookieDeprecationExperimentCurrentlyEligible();
+          GetCookieDeprecationExperimentCurrentEligibility().is_eligible();
     }
 
     return *is_cookie_deprecation_experiment_eligible_;
@@ -198,33 +207,30 @@ bool PrivacySandboxSettingsDelegate::IsCookieDeprecationExperimentEligible()
   return false;
 }
 
-bool PrivacySandboxSettingsDelegate::
-    IsCookieDeprecationExperimentCurrentlyEligible() const {
+TpcdExperimentEligibility PrivacySandboxSettingsDelegate::
+    GetCookieDeprecationExperimentCurrentEligibility() const {
   if (tpcd::experiment::kForceEligibleForTesting.Get()) {
-    return true;
+    return TpcdExperimentEligibility(
+        TpcdExperimentEligibility::Reason::kForcedEligible);
   }
 
-  TpcdExperimentEligibility eligibility =
-      GetCookieDeprecationExperimentCurrentEligibility();
-  base::UmaHistogramEnumeration(
-      "PrivacySandbox.CookieDeprecationFacilitatedTesting.ProfileEligibility",
-      eligibility);
-
-  return eligibility == TpcdExperimentEligibility::kEligible;
-}
-
-PrivacySandboxSettingsDelegate::TpcdExperimentEligibility
-PrivacySandboxSettingsDelegate::
-    GetCookieDeprecationExperimentCurrentEligibility() const {
   // Whether third-party cookies are blocked.
   if (tpcd::experiment::kExclude3PCBlocked.Get()) {
+    const auto cookie_controls_mode =
+        static_cast<content_settings::CookieControlsMode>(
+            profile_->GetPrefs()->GetInteger(prefs::kCookieControlsMode));
+    if (cookie_controls_mode ==
+        content_settings::CookieControlsMode::kBlockThirdParty) {
+      return TpcdExperimentEligibility(
+          TpcdExperimentEligibility::Reason::k3pCookiesBlocked);
+    }
     scoped_refptr<content_settings::CookieSettings> cookie_settings =
         CookieSettingsFactory::GetForProfile(profile_);
     DCHECK(cookie_settings);
-    if (cookie_settings->ShouldBlockThirdPartyCookies() ||
-        cookie_settings->GetDefaultCookieSetting() ==
-            ContentSetting::CONTENT_SETTING_BLOCK) {
-      return TpcdExperimentEligibility::k3pCookiesBlocked;
+    if (cookie_settings->GetDefaultCookieSetting() ==
+        ContentSetting::CONTENT_SETTING_BLOCK) {
+      return TpcdExperimentEligibility(
+          TpcdExperimentEligibility::Reason::k3pCookiesBlocked);
     }
   }
 
@@ -239,14 +245,16 @@ PrivacySandboxSettingsDelegate::
     const bool eaa_notice_acknowledged = profile_->GetPrefs()->GetBoolean(
         prefs::kPrivacySandboxM1EEANoticeAcknowledged);
     if (!row_notice_acknowledged && !eaa_notice_acknowledged) {
-      return TpcdExperimentEligibility::kHasNotSeenNotice;
+      return TpcdExperimentEligibility(
+          TpcdExperimentEligibility::Reason::kHasNotSeenNotice);
     }
   }
 
   // Whether it's a dasher account.
   if (tpcd::experiment::kExcludeDasherAccount.Get() &&
       IsSubjectToEnterprisePolicies()) {
-    return TpcdExperimentEligibility::kEnterpriseUser;
+    return TpcdExperimentEligibility(
+        TpcdExperimentEligibility::Reason::kEnterpriseUser);
   }
 
   // TODO(linnan): Consider moving the following client-level filtering to
@@ -260,7 +268,8 @@ PrivacySandboxSettingsDelegate::
     if (install_date.is_null() ||
         base::Time::Now() - install_date <
             tpcd::experiment::kInstallTimeForNewUser.Get()) {
-      return TpcdExperimentEligibility::kNewUser;
+      return TpcdExperimentEligibility(
+          TpcdExperimentEligibility::Reason::kNewUser);
     }
   }
 
@@ -268,11 +277,13 @@ PrivacySandboxSettingsDelegate::
 #if BUILDFLAG(IS_ANDROID)
   if (tpcd::experiment::kExcludePwaOrTwaInstalled.Get() &&
       !webapp_registry_->GetOriginsWithInstalledApp().empty()) {
-    return TpcdExperimentEligibility::kPwaOrTwaInstalled;
+    return TpcdExperimentEligibility(
+        TpcdExperimentEligibility::Reason::kPwaOrTwaInstalled);
   }
 #endif
 
-  return TpcdExperimentEligibility::kEligible;
+  return TpcdExperimentEligibility(
+      TpcdExperimentEligibility::Reason::kEligible);
 }
 
 bool PrivacySandboxSettingsDelegate::IsSubjectToEnterprisePolicies() const {
@@ -299,3 +310,90 @@ void PrivacySandboxSettingsDelegate::OverrideWebappRegistryForTesting(
   webapp_registry_ = std::move(webapp_registry);
 }
 #endif
+
+bool PrivacySandboxSettingsDelegate::IsCookieDeprecationLabelAllowed() const {
+  if (!IsCookieDeprecationExperimentEligible()) {
+    return false;
+  }
+
+  if (!tpcd::experiment::kDisable3PCookies.Get()) {
+    return true;
+  }
+
+  auto* tracking_protection_onboarding =
+      TrackingProtectionOnboardingFactory::GetForProfile(profile_);
+  if (!tracking_protection_onboarding) {
+    return false;
+  }
+
+  switch (tracking_protection_onboarding->GetOnboardingStatus()) {
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kIneligible:
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kEligible:
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kOffboarded:
+      return false;
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kOnboarded:
+      return true;
+  }
+}
+
+bool PrivacySandboxSettingsDelegate::
+    AreThirdPartyCookiesBlockedByCookieDeprecationExperiment() const {
+  if (net::cookie_util::IsForceThirdPartyCookieBlockingEnabled()) {
+    return false;
+  }
+
+  if (!IsCookieDeprecationExperimentEligible()) {
+    return false;
+  }
+
+  if (!tpcd::experiment::kDisable3PCookies.Get()) {
+    return false;
+  }
+
+  auto* tracking_protection_onboarding =
+      TrackingProtectionOnboardingFactory::GetForProfile(profile_);
+  if (!tracking_protection_onboarding) {
+    return false;
+  }
+
+  // Third-party cookies are not disabled until the profile gets onboarded.
+  switch (tracking_protection_onboarding->GetOnboardingStatus()) {
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kIneligible:
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kEligible:
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kOffboarded:
+      return false;
+    case privacy_sandbox::TrackingProtectionOnboarding::OnboardingStatus::
+        kOnboarded:
+      break;
+  }
+
+  // Respect user preferences.
+
+  auto* tracking_protection_settings =
+      TrackingProtectionSettingsFactory::GetForProfile(profile_);
+  if (tracking_protection_settings &&
+      tracking_protection_settings->AreAllThirdPartyCookiesBlocked()) {
+    return false;
+  }
+
+  const auto cookie_controls_mode =
+      static_cast<content_settings::CookieControlsMode>(
+          profile_->GetPrefs()->GetInteger(prefs::kCookieControlsMode));
+
+  switch (cookie_controls_mode) {
+    case content_settings::CookieControlsMode::kBlockThirdParty:
+      return false;
+    case content_settings::CookieControlsMode::kIncognitoOnly:
+    case content_settings::CookieControlsMode::kOff:
+      break;
+  }
+
+  return true;
+}

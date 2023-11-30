@@ -81,6 +81,10 @@ namespace mojo {
 class BinderMap;
 }
 
+namespace url {
+class Origin;
+}
+
 namespace content {
 class RenderFrame;
 class RenderView;
@@ -228,7 +232,8 @@ class CONTENT_EXPORT ContentRendererClient {
       v8::Local<v8::Context> context);
 
   // Returns the security level to use for Navigator.RegisterProtocolHandler().
-  virtual blink::ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel();
+  virtual blink::ProtocolHandlerSecurityLevel GetProtocolHandlerSecurityLevel(
+      const url::Origin& origin);
 
 #if BUILDFLAG(IS_ANDROID)
   // TODO(sgurun) This callback is deprecated and will be removed as soon

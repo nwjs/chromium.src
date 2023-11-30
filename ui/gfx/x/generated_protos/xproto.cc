@@ -7,36 +7,19 @@
 //    ../../third_party/xcbproto/src \
 //    gen/ui/gfx/x \
 //    bigreq \
-//    composite \
-//    damage \
-//    dpms \
-//    dri2 \
 //    dri3 \
-//    ge \
 //    glx \
-//    present \
 //    randr \
-//    record \
 //    render \
-//    res \
 //    screensaver \
 //    shape \
 //    shm \
 //    sync \
-//    xc_misc \
-//    xevie \
-//    xf86dri \
-//    xf86vidmode \
 //    xfixes \
-//    xinerama \
 //    xinput \
 //    xkb \
-//    xprint \
 //    xproto \
-//    xselinux \
-//    xtest \
-//    xv \
-//    xvmc
+//    xtest
 
 #include "xproto.h"
 
@@ -2035,6 +2018,7 @@ void ReadError<RequestError>(RequestError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string ValueError::ToString() const {
   std::stringstream ss_;
   ss_ << "ValueError{";
@@ -2080,6 +2064,7 @@ void ReadError<ValueError>(ValueError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string WindowError::ToString() const {
   std::stringstream ss_;
   ss_ << "WindowError{";
@@ -2125,6 +2110,7 @@ void ReadError<WindowError>(WindowError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string PixmapError::ToString() const {
   std::stringstream ss_;
   ss_ << "PixmapError{";
@@ -2170,6 +2156,7 @@ void ReadError<PixmapError>(PixmapError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string AtomError::ToString() const {
   std::stringstream ss_;
   ss_ << "AtomError{";
@@ -2215,6 +2202,7 @@ void ReadError<AtomError>(AtomError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string CursorError::ToString() const {
   std::stringstream ss_;
   ss_ << "CursorError{";
@@ -2260,6 +2248,7 @@ void ReadError<CursorError>(CursorError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string FontError::ToString() const {
   std::stringstream ss_;
   ss_ << "FontError{";
@@ -2305,6 +2294,7 @@ void ReadError<FontError>(FontError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string MatchError::ToString() const {
   std::stringstream ss_;
   ss_ << "MatchError{";
@@ -2350,6 +2340,7 @@ void ReadError<MatchError>(MatchError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string DrawableError::ToString() const {
   std::stringstream ss_;
   ss_ << "DrawableError{";
@@ -2395,6 +2386,7 @@ void ReadError<DrawableError>(DrawableError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string AccessError::ToString() const {
   std::stringstream ss_;
   ss_ << "AccessError{";
@@ -2440,6 +2432,7 @@ void ReadError<AccessError>(AccessError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string AllocError::ToString() const {
   std::stringstream ss_;
   ss_ << "AllocError{";
@@ -2485,6 +2478,7 @@ void ReadError<AllocError>(AllocError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string ColormapError::ToString() const {
   std::stringstream ss_;
   ss_ << "ColormapError{";
@@ -2530,6 +2524,7 @@ void ReadError<ColormapError>(ColormapError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string GContextError::ToString() const {
   std::stringstream ss_;
   ss_ << "GContextError{";
@@ -2575,6 +2570,7 @@ void ReadError<GContextError>(GContextError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string IDChoiceError::ToString() const {
   std::stringstream ss_;
   ss_ << "IDChoiceError{";
@@ -2620,6 +2616,7 @@ void ReadError<IDChoiceError>(IDChoiceError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string NameError::ToString() const {
   std::stringstream ss_;
   ss_ << "NameError{";
@@ -2665,6 +2662,7 @@ void ReadError<NameError>(NameError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string LengthError::ToString() const {
   std::stringstream ss_;
   ss_ << "LengthError{";
@@ -2710,6 +2708,7 @@ void ReadError<LengthError>(LengthError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string ImplementationError::ToString() const {
   std::stringstream ss_;
   ss_ << "ImplementationError{";
@@ -2756,6 +2755,7 @@ void ReadError<ImplementationError>(ImplementationError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 Future<void> XProto::CreateWindow(const CreateWindowRequest& request) {
   if (!connection_->Ready())
     return {};

@@ -129,16 +129,17 @@ class CONTENT_EXPORT WebContentsFrameTracker final
   // Non-empty |crop_id| sets (or changes) the crop-target.
   // Empty |crop_id| reverts the capture to its original, uncropped state.
   //
-  // |crop_version| must be incremented by at least one for each call.
-  // By including it in frame's metadata, Viz informs Blink what was the
+  // |sub_capture_target_version| must be incremented by at least one for each
+  // call. By including it in frame's metadata, Viz informs Blink what was the
   // latest invocation of cropTo() before a given frame was produced.
   //
   // The callback reports success/failure. The callback may be called on an
   // arbitrary sequence, so the caller is responsible for re-posting it
   // to the desired target sequence as necessary.
   void Crop(const base::Token& crop_id,
-            uint32_t crop_version,
-            base::OnceCallback<void(media::mojom::CropRequestResult)> callback);
+            uint32_t sub_capture_target_version,
+            base::OnceCallback<void(media::mojom::ApplySubCaptureTargetResult)>
+                callback);
 
   // WebContents are retrieved on the UI thread normally, from the render IDs,
   // so this method is provided for tests to set the web contents directly.
@@ -173,13 +174,12 @@ class CONTENT_EXPORT WebContentsFrameTracker final
   // The task runner to be used for device callbacks.
   const scoped_refptr<base::SequencedTaskRunner> device_task_runner_;
 
-  // Owned by FrameSinkVideoCaptureDevice. This will be valid for the life of
-  // WebContentsFrameTracker because the WebContentsFrameTracker deleter task
-  // will be posted to the UI thread before the MouseCursorOverlayController
-  // deleter task.
+  // Owned by FrameSinkVideoCaptureDevice.  This may only be accessed on the
+  // UI thread. This is not guaranteed to be valid and must be checked before
+  // use.
+  // https://crbug.com/1480152
 #if !BUILDFLAG(IS_ANDROID)
-  raw_ptr<MouseCursorOverlayController, AcrossTasksDanglingUntriaged>
-      cursor_controller_ = nullptr;
+  const base::WeakPtr<MouseCursorOverlayController> cursor_controller_;
 #endif
 
   // We may not have a frame sink ID target at all times.
@@ -192,15 +192,15 @@ class CONTENT_EXPORT WebContentsFrameTracker final
   // decremented.
   bool is_capturing_ = false;
 
-  // Whenever the crop-target of a stream changes, the associated crop-version
-  // is incremented. This value is used in frames' metadata so as to allow
-  // other modules (mostly Blink) to see which frames are cropped to the
-  // old/new specified crop-target.
+  // Whenever the crop-target of a stream changes, the associated
+  // sub-capture-target-version is incremented. This value is used in frames'
+  // metadata so as to allow other modules (mostly Blink) to see which frames
+  // are cropped to the old/new specified crop-target.
   //
   // The value 0 is used before any crop-target is assigned. (Note that by
   // cropping and then uncropping, values other than 0 can also be associated
   // with an uncropped track.)
-  uint32_t crop_version_ = 0;
+  uint32_t sub_capture_target_version_ = 0;
 
   // Scale multiplier used for the captured content when HiDPI capture mode is
   // active. A value of 1.0 means no override, using the original unmodified

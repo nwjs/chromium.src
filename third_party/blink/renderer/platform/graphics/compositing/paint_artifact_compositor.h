@@ -240,6 +240,10 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
   // found by `element_id`.
   bool SetScrollbarNeedsDisplay(CompositorElementId element_id);
 
+  // Sets color for solid color scrollbar layer. Returns true if the scrollbar
+  // layer is found by `element_id`.
+  bool SetScrollbarSolidColor(CompositorElementId element_id, SkColor4f color);
+
   bool ShouldAlwaysUpdateOnScroll() const {
     return should_always_update_on_scroll_;
   }
@@ -332,7 +336,7 @@ class PLATFORM_EXPORT PaintArtifactCompositor final
 
   scoped_refptr<cc::Layer> root_layer_;
   struct SynthesizedClipEntry {
-    raw_ptr<const ClipPaintPropertyNode, ExperimentalRenderer> key;
+    raw_ptr<const ClipPaintPropertyNode, DanglingUntriaged> key;
     std::unique_ptr<SynthesizedClip> synthesized_clip;
     bool in_use;
   };

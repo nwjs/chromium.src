@@ -405,7 +405,7 @@ void FrameLoader::DispatchUnloadEventAndFillOldDocumentInfoIfNeeded(
 }
 
 void FrameLoader::DidExplicitOpen() {
-  probe::DidOpenDocument(frame_, GetDocumentLoader());
+  probe::DidOpenDocument(frame_.Get(), GetDocumentLoader());
   if (initial_empty_document_status_ ==
       InitialEmptyDocumentStatus::kInitialOrSynchronousAboutBlank) {
     initial_empty_document_status_ = InitialEmptyDocumentStatus::
@@ -639,7 +639,7 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
                static_cast<int>(frame_load_type));
 
   resource_request.SetHasUserGesture(
-      LocalFrame::HasTransientUserActivation(frame_));
+      LocalFrame::HasTransientUserActivation(frame_.Get()));
 
   if (!AllowRequestForThisFrame(request))
     return;
@@ -841,7 +841,7 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
   }
 
   if (request.ClientRedirectReason() != ClientNavigationReason::kNone) {
-    probe::FrameRequestedNavigation(frame_, frame_, url,
+    probe::FrameRequestedNavigation(frame_.Get(), frame_.Get(), url,
                                     request.ClientRedirectReason(),
                                     request.GetNavigationPolicy());
   }
@@ -1043,8 +1043,8 @@ void FrameLoader::CommitNavigation(
   if (!response.TextEncodingName().empty() ||
       !IsA<LocalFrame>(frame_->Tree().Parent())) {
     DocumentLoader::MaybeStartLoadingBodyInBackground(
-        navigation_params->body_loader.get(), frame_, navigation_params->url,
-        response);
+        navigation_params->body_loader.get(), frame_.Get(),
+        navigation_params->url, response);
   }
 
   // TODO(dgozman): figure out the better place for this check
@@ -1070,7 +1070,7 @@ void FrameLoader::CommitNavigation(
   // when the navigation is going to do a LocalFrame <-> LocalFrame swap, the
   // event should be dispatched on the previous LocalFrame's document, instead
   // of the new provisional LocalFrame's initial empty document.
-  LocalFrame* frame_for_navigate_event = frame_;
+  LocalFrame* frame_for_navigate_event = frame_.Get();
   if (frame_->IsProvisional() && frame_->GetPreviousLocalFrameForLocalSwap()) {
     frame_for_navigate_event = frame_->GetPreviousLocalFrameForLocalSwap();
   }
@@ -1122,7 +1122,7 @@ void FrameLoader::CommitNavigation(
     // start/commit message pairs.
     if (commit_reason == CommitReason::kRegular) {
       frame_->GetFrameScheduler()->DidStartProvisionalLoad();
-      probe::DidStartProvisionalLoad(frame_);
+      probe::DidStartProvisionalLoad(frame_.Get());
     }
 
     DCHECK(Client()->HasWebView());
@@ -1203,7 +1203,7 @@ void FrameLoader::CommitNavigation(
 
   CommitDocumentLoader(
       new_document_loader,
-      ScopedOldDocumentInfoForCommitCapturer::CurrentInfo()->history_item,
+      ScopedOldDocumentInfoForCommitCapturer::CurrentInfo()->history_item.Get(),
       commit_reason);
 
   RestoreScrollPositionAndViewState();
@@ -1219,7 +1219,7 @@ bool FrameLoader::WillStartNavigation(const WebNavigationInfo& info) {
   client_navigation_ = std::make_unique<ClientNavigationState>();
   client_navigation_->url = info.url_request.Url();
   frame_->GetFrameScheduler()->DidStartProvisionalLoad();
-  probe::DidStartProvisionalLoad(frame_);
+  probe::DidStartProvisionalLoad(frame_.Get());
   virtual_time_pauser_.PauseVirtualTime();
   TakeObjectSnapshot();
   return true;
@@ -1539,7 +1539,7 @@ bool FrameLoader::ShouldClose(bool is_reload) {
 
   HeapVector<Member<LocalFrame>> descendant_frames;
   for (Frame* child = frame_->Tree().FirstChild(); child;
-       child = child->Tree().TraverseNext(frame_)) {
+       child = child->Tree().TraverseNext(frame_.Get())) {
     // FIXME: There is not yet any way to dispatch events to out-of-process
     // frames.
     if (auto* child_local_frame = DynamicTo<LocalFrame>(child))
@@ -1563,8 +1563,9 @@ bool FrameLoader::ShouldClose(bool is_reload) {
 
     // Then deal with descendent frames.
     for (Member<LocalFrame>& descendant_frame : descendant_frames) {
-      if (!descendant_frame->Tree().IsDescendantOf(frame_))
+      if (!descendant_frame->Tree().IsDescendantOf(frame_.Get())) {
         continue;
+      }
 
       // There is some confusion in the spec around what counters should be
       // incremented for a descendant browsing context:
@@ -1590,8 +1591,9 @@ bool FrameLoader::ShouldClose(bool is_reload) {
   // of them so they can advance to the appropriate load state.
   frame_->GetDocument()->BeforeUnloadDoneWillUnload();
   for (Member<LocalFrame>& descendant_frame : descendant_frames) {
-    if (!descendant_frame->Tree().IsDescendantOf(frame_))
+    if (!descendant_frame->Tree().IsDescendantOf(frame_.Get())) {
       continue;
+    }
     descendant_frame->GetDocument()->BeforeUnloadDoneWillUnload();
   }
 
@@ -1659,7 +1661,7 @@ void FrameLoader::ClearClientNavigation() {
   if (!client_navigation_)
     return;
   client_navigation_.reset();
-  probe::DidFailProvisionalLoad(frame_);
+  probe::DidFailProvisionalLoad(frame_.Get());
   virtual_time_pauser_.UnpauseVirtualTime();
 }
 
@@ -1706,7 +1708,7 @@ void FrameLoader::DispatchDidClearDocumentOfWindowObject() {
     // Forcibly instantiate WindowProxy, even if script is disabled.
     window->GetScriptController().WindowProxy(DOMWrapperWorld::MainWorld());
   }
-  probe::DidClearDocumentOfWindowObject(frame_);
+  probe::DidClearDocumentOfWindowObject(frame_.Get());
   if (!window->CanExecuteScripts(kNotAboutToExecuteScript))
     return;
 

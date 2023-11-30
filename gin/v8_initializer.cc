@@ -13,8 +13,8 @@
 #include <utility>
 #include <vector>
 
-#include "base/allocator/partition_allocator/page_allocator.h"
-#include "base/allocator/partition_allocator/partition_address_space.h"
+#include "base/allocator/partition_allocator/src/partition_alloc/page_allocator.h"
+#include "base/allocator/partition_allocator/src/partition_alloc/partition_address_space.h"
 #include "base/bits.h"
 #include "base/check.h"
 #include "base/check_op.h"
@@ -301,6 +301,9 @@ void SetFlags(IsolateHolder::ScriptMode mode,
   SetV8FlagsIfOverridden(features::kV8Turbofan, "--turbofan", "--no-turbofan");
   SetV8FlagsIfOverridden(features::kV8Turboshaft, "--turboshaft",
                          "--no-turboshaft");
+  SetV8FlagsIfOverridden(features::kV8TurboshaftInstructionSelection,
+                         "--turboshaft-instruction-selection",
+                         "--no-turboshaft-instruction-selection");
   SetV8FlagsIfOverridden(features::kV8ConcurrentSparkplug,
                          "--concurrent-sparkplug", "--no-concurrent-sparkplug");
   SetV8FlagsIfOverridden(features::kV8SparkplugNeedsShortBuiltinCalls,
@@ -373,9 +376,6 @@ void SetFlags(IsolateHolder::ScriptMode mode,
   } else {
     SetV8Flags("--no-harmony-rab-gsab");
   }
-  SetV8FlagsIfOverridden(features::kJavaScriptStringIsWellFormed,
-                         "--harmony-string-is-well-formed",
-                         "--no-harmony-string-is-well-formed");
   SetV8FlagsIfOverridden(features::kJavaScriptRegExpUnicodeSets,
                          "--harmony-regexp-unicode-sets",
                          "--no-harmony-regexp-unicode-sets");
@@ -411,6 +411,14 @@ void SetFlags(IsolateHolder::ScriptMode mode,
   SetV8FlagsIfOverridden(features::kWebAssemblyInlining,
                          "--experimental-wasm-inlining",
                          "--no-experimental-wasm-inlining");
+  SetV8FlagsIfOverridden(features::kWebAssemblyGenericWrapper,
+                         "--wasm-to-js-generic-wrapper",
+                         "--no-wasm-to-js-generic-wrapper");
+  SetV8FlagsIfOverridden(features::kWebAssemblyMultipleMemories,
+                         "--experimental-wasm-multi-memory",
+                         "--no-experimental-wasm-multi-memory");
+  SetV8FlagsIfOverridden(features::kWebAssemblyTurboshaft, "--turboshaft-wasm",
+                         "--no-turboshaft-wasm");
 
   if (js_command_line_flags.empty())
     return;

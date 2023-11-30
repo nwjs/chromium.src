@@ -19,19 +19,7 @@ bool ServiceWorkerRouterOrCondition::operator==(
 
 bool ServiceWorkerRouterCondition::operator==(
     const ServiceWorkerRouterCondition& other) const {
-  if (type != other.type) {
-    return false;
-  }
-  switch (type) {
-    case Type::kUrlPattern:
-      return url_pattern == other.url_pattern;
-    case Type::kRequest:
-      return request == other.request;
-    case Type::kRunningStatus:
-      return running_status == other.running_status;
-    case Type::kOr:
-      return or_condition == other.or_condition;
-  }
+  return get() == other.get();
 }
 
 bool ServiceWorkerRouterCacheSource::operator==(

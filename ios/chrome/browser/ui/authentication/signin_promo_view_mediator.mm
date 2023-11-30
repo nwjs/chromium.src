@@ -109,6 +109,10 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::
         ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_SAVE_TO_PHOTOS_IOS:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return false;
   }
@@ -186,6 +190,10 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::
         ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_SAVE_TO_PHOTOS_IOS:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -265,6 +273,10 @@ void RecordImpressionsTilDismissHistogramForAccessPoint(
     case signin_metrics::AccessPoint::
         ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_SAVE_TO_PHOTOS_IOS:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -344,6 +356,10 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::
         ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_SAVE_TO_PHOTOS_IOS:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
@@ -412,6 +428,10 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::
         ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_SAVE_TO_PHOTOS_IOS:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return nullptr;
   }
@@ -478,6 +498,10 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::
         ACCESS_POINT_PASSWORD_MIGRATION_WARNING_ANDROID:
     case signin_metrics::AccessPoint::ACCESS_POINT_SAVE_TO_PHOTOS_IOS:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_CHROME_SIGNIN_INTERCEPT_BUBBLE:
+    case signin_metrics::AccessPoint::
+        ACCESS_POINT_RESTORE_PRIMARY_ACCOUNT_ON_PROFILE_LOAD:
     case signin_metrics::AccessPoint::ACCESS_POINT_MAX:
       return nullptr;
   }
@@ -539,8 +563,6 @@ id<SystemIdentity> GetDisplayedIdentity(
 @implementation SigninPromoViewMediator {
   std::unique_ptr<ChromeAccountManagerServiceObserverBridge>
       _accountManagerServiceObserver;
-  // View used to present sign-in UI.
-  UIViewController* _baseViewController;
   // Sync service.
   syncer::SyncService* _syncService;
   // Observer for changes to the sync state.
@@ -631,8 +653,7 @@ id<SystemIdentity> GetDisplayedIdentity(
                       prefService:(PrefService*)prefService
                       syncService:(syncer::SyncService*)syncService
                       accessPoint:(signin_metrics::AccessPoint)accessPoint
-                        presenter:(id<SigninPresenter>)presenter
-               baseViewController:(UIViewController*)baseViewController {
+                        presenter:(id<SigninPresenter>)presenter {
   self = [super init];
   if (self) {
     DCHECK(accountManagerService);
@@ -644,7 +665,6 @@ id<SystemIdentity> GetDisplayedIdentity(
     _accessPoint = accessPoint;
     _dataTypeToWaitForInitialSync = syncer::ModelType::UNSPECIFIED;
     _presenter = presenter;
-    _baseViewController = baseViewController;
     _accountManagerServiceObserver =
         std::make_unique<ChromeAccountManagerServiceObserverBridge>(
             self, _accountManagerService);
@@ -1113,6 +1133,7 @@ id<SystemIdentity> GetDisplayedIdentity(
          self.accessPoint ==
              signin_metrics::AccessPoint::ACCESS_POINT_NTP_FEED_TOP_PROMO)
       << base::SysNSStringToUTF8([self description]);
+  base::RecordAction(base::UserMetricsAction("Signin_Promo_Close"));
   self.signinPromoViewState = SigninPromoViewState::kClosed;
   const char* alreadySeenSigninViewPreferenceKey =
       AlreadySeenSigninViewPreferenceKey(self.accessPoint);

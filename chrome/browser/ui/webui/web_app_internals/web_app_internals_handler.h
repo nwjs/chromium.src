@@ -48,6 +48,13 @@ class WebAppInternalsHandler : public mojom::WebAppInternalsHandler {
   void ClearExperimentalWebAppIsolationData(
       ClearExperimentalWebAppIsolationDataCallback callback) override;
 #endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
+  void SearchForIsolatedWebAppUpdates(
+      SearchForIsolatedWebAppUpdatesCallback callback) override;
+  void GetIsolatedWebAppDevModeProxyAppInfo(
+      GetIsolatedWebAppDevModeProxyAppInfoCallback callback) override;
+  void UpdateDevProxyIsolatedWebApp(
+      const webapps::AppId& app_id,
+      UpdateDevProxyIsolatedWebAppCallback callback) override;
 
  private:
   class IsolatedWebAppDevBundleSelectListener;

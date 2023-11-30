@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/core/css/css_function_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_auto_repeat_value.h"
 #include "third_party/blink/renderer/core/css/css_grid_integer_repeat_value.h"
+#include "third_party/blink/renderer/core/css/css_grid_template_areas_value.h"
 #include "third_party/blink/renderer/core/css/css_initial_value.h"
 #include "third_party/blink/renderer/core/css/css_math_function_value.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
@@ -51,9 +52,9 @@
 #include "third_party/blink/renderer/core/css/properties/shorthands.h"
 #include "third_party/blink/renderer/core/css/style_color.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
+#include "third_party/blink/renderer/core/layout/grid/layout_grid.h"
 #include "third_party/blink/renderer/core/layout/layout_block.h"
 #include "third_party/blink/renderer/core/layout/layout_box.h"
-#include "third_party/blink/renderer/core/layout/ng/grid/layout_ng_grid.h"
 #include "third_party/blink/renderer/core/layout/svg/transform_helper.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
 #include "third_party/blink/renderer/core/style/style_intrinsic_length.h"
@@ -324,6 +325,7 @@ const CSSValueList* ComputedStyleUtils::CreatePositionListForLayer(
   CSSValueList* position_list = CSSValueList::CreateSpaceSeparated();
   if (layer.IsBackgroundXOriginSet()) {
     DCHECK(property.IDEquals(CSSPropertyID::kBackgroundPosition) ||
+           property.IDEquals(CSSPropertyID::kMaskPosition) ||
            property.IDEquals(CSSPropertyID::kWebkitMaskPosition));
     position_list->Append(
         *CSSIdentifierValue::Create(layer.BackgroundXOrigin()));
@@ -332,6 +334,7 @@ const CSSValueList* ComputedStyleUtils::CreatePositionListForLayer(
       *ZoomAdjustedPixelValueForLength(layer.PositionX(), style));
   if (layer.IsBackgroundYOriginSet()) {
     DCHECK(property.IDEquals(CSSPropertyID::kBackgroundPosition) ||
+           property.IDEquals(CSSPropertyID::kMaskPosition) ||
            property.IDEquals(CSSPropertyID::kWebkitMaskPosition));
     position_list->Append(
         *CSSIdentifierValue::Create(layer.BackgroundYOrigin()));
@@ -341,26 +344,30 @@ const CSSValueList* ComputedStyleUtils::CreatePositionListForLayer(
   return position_list;
 }
 
-const CSSValue* ComputedStyleUtils::ValueForFillRepeat(EFillRepeat x_repeat,
-                                                       EFillRepeat y_repeat) {
-  // For backwards compatibility, if both values are equal, just return one of
-  // them. And if the two values are equivalent to repeat-x or repeat-y, just
-  // return the shorthand.
-  if (x_repeat == y_repeat) {
-    return CSSIdentifierValue::Create(x_repeat);
-  }
-  if (x_repeat == EFillRepeat::kRepeatFill &&
-      y_repeat == EFillRepeat::kNoRepeatFill) {
-    return CSSIdentifierValue::Create(CSSValueID::kRepeatX);
-  }
-  if (x_repeat == EFillRepeat::kNoRepeatFill &&
-      y_repeat == EFillRepeat::kRepeatFill) {
-    return CSSIdentifierValue::Create(CSSValueID::kRepeatY);
+const CSSValue* ComputedStyleUtils::ValueForFillRepeat(
+    const FillLayer* curr_layer) {
+  const auto& fill_repeat = curr_layer->Repeat();
+
+  return MakeGarbageCollected<CSSRepeatStyleValue>(
+      CSSIdentifierValue::Create(fill_repeat.x),
+      CSSIdentifierValue::Create(fill_repeat.y));
+}
+
+const CSSValue* ComputedStyleUtils::RepeatStyle(const FillLayer* curr_layer) {
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+
+  for (; curr_layer; curr_layer = curr_layer->Next()) {
+    list->Append(*ValueForFillRepeat(curr_layer));
   }
 
-  CSSValueList* list = CSSValueList::CreateSpaceSeparated();
-  list->Append(*CSSIdentifierValue::Create(x_repeat));
-  list->Append(*CSSIdentifierValue::Create(y_repeat));
+  return list;
+}
+
+const CSSValue* ComputedStyleUtils::MaskMode(const FillLayer* curr_layer) {
+  CSSValueList* list = CSSValueList::CreateCommaSeparated();
+  for (; curr_layer; curr_layer = curr_layer->Next()) {
+    list->Append(*CSSIdentifierValue::Create(curr_layer->MaskMode()));
+  }
   return list;
 }
 
@@ -384,8 +391,7 @@ const CSSValueList* ComputedStyleUtils::ValuesForBackgroundShorthand(
                              ? *curr_layer->GetImage()->ComputedCSSValue(
                                    style, allow_visited_style)
                              : *CSSIdentifierValue::Create(CSSValueID::kNone));
-    before_slash->Append(
-        *ValueForFillRepeat(curr_layer->RepeatX(), curr_layer->RepeatY()));
+    before_slash->Append(*ValueForFillRepeat(curr_layer));
     before_slash->Append(*CSSIdentifierValue::Create(curr_layer->Attachment()));
     before_slash->Append(*CreatePositionListForLayer(
         GetCSSPropertyBackgroundPosition(), *curr_layer, style));
@@ -400,14 +406,108 @@ const CSSValueList* ComputedStyleUtils::ValuesForBackgroundShorthand(
   return result;
 }
 
-const CSSValue* ComputedStyleUtils::BackgroundRepeatOrWebkitMaskRepeat(
-    const FillLayer* curr_layer) {
-  CSSValueList* list = CSSValueList::CreateCommaSeparated();
-  for (; curr_layer; curr_layer = curr_layer->Next()) {
-    list->Append(
-        *ValueForFillRepeat(curr_layer->RepeatX(), curr_layer->RepeatY()));
+namespace {
+
+// Append clip and origin vals (https://drafts.fxtf.org/css-masking/#the-mask):
+// * If one <geometry-box> value and the no-clip keyword are present then
+//   <geometry-box> sets mask-origin and no-clip sets mask-clip to that value.
+// * If one <geometry-box> value and no no-clip keyword are present then
+//   <geometry-box> sets both mask-origin and mask-clip to that value.
+// * If two <geometry-box> values are present, then the first sets mask-origin
+//   and the second mask-clip.
+// Additionally, simplifies when possible.
+void AppendValuesForMaskClipAndOrigin(CSSValueList* result_list,
+                                      EFillBox origin,
+                                      EFillBox clip) {
+  if (origin == clip) {
+    // If both values are border-box, omit everything as it is the default.
+    if (origin == EFillBox::kBorder) {
+      return;
+    }
+    // If the values are the same, only emit one value. Note that mask-origin
+    // does not support no-clip, so there is no need to consider no-clip
+    // special cases.
+    result_list->Append(*CSSIdentifierValue::Create(origin));
+  } else if (origin == EFillBox::kBorder && clip == EFillBox::kNoClip) {
+    // Mask-origin does not support no-clip, so mask-origin can be omitted if it
+    // is the default.
+    result_list->Append(*CSSIdentifierValue::Create(clip));
+  } else {
+    result_list->Append(*CSSIdentifierValue::Create(origin));
+    result_list->Append(*CSSIdentifierValue::Create(clip));
   }
-  return list;
+}
+
+}  // namespace
+
+const CSSValueList* ComputedStyleUtils::ValuesForMaskShorthand(
+    const StylePropertyShorthand&,
+    const ComputedStyle& style,
+    const LayoutObject* layout_object,
+    bool allow_visited_style) {
+  CHECK(RuntimeEnabledFeatures::CSSMaskingInteropEnabled());
+  // Canonical order (https://drafts.fxtf.org/css-masking/#typedef-mask-layer):
+  //   <mask-reference>              ||
+  //   <position> [ / <bg-size> ]?   ||
+  //   <repeat-style>                ||
+  //   <geometry-box>                ||
+  //   [ <geometry-box> | no-clip ]  ||
+  //   <compositing-operator>        ||
+  //   <masking-mode>
+  // The logic below omits initial values due to the following spec:
+  // https://drafts.csswg.org/cssom/#serialize-a-css-value
+  // "If component values can be omitted or replaced with a shorter
+  // representation without changing the meaning of the value, omit/replace
+  // them".
+  CSSValueList* result = CSSValueList::CreateCommaSeparated();
+  const FillLayer* layer = &style.MaskLayers();
+  for (; layer; layer = layer->Next()) {
+    CSSValueList* list = CSSValueList::CreateSpaceSeparated();
+    // <mask-reference>
+    if (layer->GetImage()) {
+      list->Append(
+          *layer->GetImage()->ComputedCSSValue(style, allow_visited_style));
+    }
+    // <position> [ / <bg-size> ]?
+    if (layer->PositionX() !=
+            FillLayer::InitialFillPositionX(EFillLayerType::kMask) ||
+        layer->PositionY() !=
+            FillLayer::InitialFillPositionY(EFillLayerType::kMask) ||
+        layer->Size() != FillLayer::InitialFillSize(EFillLayerType::kMask)) {
+      CSSValueList* position_size_list = CSSValueList::CreateSlashSeparated();
+      position_size_list->Append(*CreatePositionListForLayer(
+          GetCSSPropertyWebkitMaskPosition(), *layer, style));
+      if (layer->Size() != FillLayer::InitialFillSize(EFillLayerType::kMask)) {
+        position_size_list->Append(*ValueForFillSize(layer->Size(), style));
+      }
+      list->Append(*position_size_list);
+    }
+    // <repeat-style>
+    if (layer->Repeat() !=
+        FillLayer::InitialFillRepeat(EFillLayerType::kMask)) {
+      list->Append(*ValueForFillRepeat(layer));
+    }
+    // <geometry-box>
+    // [ <geometry-box> | no-clip ]
+    AppendValuesForMaskClipAndOrigin(list, layer->Origin(), layer->Clip());
+    // <compositing-operator>
+    if (layer->CompositingOperator() !=
+        FillLayer::InitialFillCompositingOperator(EFillLayerType::kMask)) {
+      list->Append(*CSSIdentifierValue::Create(layer->CompositingOperator()));
+    }
+    // <masking-mode>
+    if (layer->MaskMode() !=
+        FillLayer::InitialFillMaskMode(EFillLayerType::kMask)) {
+      list->Append(*CSSIdentifierValue::Create(layer->MaskMode()));
+    }
+
+    if (list->length()) {
+      result->Append(*list);
+    } else {
+      result->Append(*CSSIdentifierValue::Create(CSSValueID::kNone));
+    }
+  }
+  return result;
 }
 
 const CSSValue* ComputedStyleUtils::BackgroundPositionOrWebkitMaskPosition(
@@ -697,7 +797,7 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
   const auto* box = DynamicTo<LayoutBox>(layout_object);
 
   // In this case, the used value is the computed value, so we resolve directly.
-  if (offset.IsFixed() && (!box || !box->UsesPositionFallbackStyle())) {
+  if (offset.IsFixed() && !style.MayHavePositionFallbackList()) {
     return ZoomAdjustedPixelValueForLength(offset, style);
   }
 
@@ -705,7 +805,7 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
       box && box->IsOutOfFlowPositioned()) {
     // LayoutBox::OutOfFlowInsetsForGetComputedStyle() are relative to the
     // container's writing direction. Convert it to physical.
-    const NGPhysicalBoxStrut& insets =
+    const PhysicalBoxStrut& insets =
         box->OutOfFlowInsetsForGetComputedStyle().ConvertToPhysical(
             box->ContainingBlock()->StyleRef().GetWritingDirection());
     LayoutUnit inset;
@@ -803,13 +903,8 @@ CSSValue* ComputedStyleUtils::ValueForPositionOffset(
       // container's padding edge. Thus it includes margins which we subtract
       // below.
       const PhysicalOffset client_offset =
-          RuntimeEnabledFeatures::LayoutNGNoLocationEnabled()
-              ? box->PhysicalLocation() -
-                    PhysicalOffset(container->ClientLeft(),
-                                   container->ClientTop())
-              : PhysicalOffset(box->LocationOffset() -
-                               DeprecatedLayoutSize(container->ClientLeft(),
-                                                    container->ClientTop()));
+          box->PhysicalLocation() -
+          PhysicalOffset(container->ClientLeft(), container->ClientTop());
 
       LayoutUnit position;
 
@@ -1012,24 +1107,16 @@ CSSValue* ComputedStyleUtils::ValueForFontSizeAdjust(
     return CSSIdentifierValue::Create(CSSValueID::kNone);
   }
 
+  // A resolved value is to be returned. Compare CSS WG discussion.
+  // https://github.com/w3c/csswg-drafts/issues/9050
   FontSizeAdjust font_size_adjust = style.FontSizeAdjust();
   if (font_size_adjust.GetMetric() == FontSizeAdjust::Metric::kExHeight) {
-    if (font_size_adjust.IsFromFont()) {
-      return CSSIdentifierValue::Create(CSSValueID::kFromFont);
-    }
     return CSSNumericLiteralValue::Create(style.FontSizeAdjust().Value(),
                                           CSSPrimitiveValue::UnitType::kNumber);
   }
 
-  CSSIdentifierValue* metric =
-      CSSIdentifierValue::Create(font_size_adjust.GetMetric());
-  if (font_size_adjust.IsFromFont()) {
-    return MakeGarbageCollected<CSSValuePair>(
-        metric, CSSIdentifierValue::Create(CSSValueID::kFromFont),
-        CSSValuePair::kKeepIdenticalValues);
-  }
   return MakeGarbageCollected<CSSValuePair>(
-      metric,
+      CSSIdentifierValue::Create(font_size_adjust.GetMetric()),
       CSSNumericLiteralValue::Create(style.FontSizeAdjust().Value(),
                                      CSSPrimitiveValue::UnitType::kNumber),
       CSSValuePair::kKeepIdenticalValues);
@@ -1804,14 +1891,14 @@ CSSValue* ComputedStyleUtils::ValueForGridAutoTrackList(
   return list;
 }
 
-void PopulateGridTrackList(CSSValueList* list,
-                           OrderedNamedLinesCollector& collector,
-                           const Vector<LayoutUnit, 1>& tracks,
-                           const ComputedStyle& style,
-                           wtf_size_t start,
-                           wtf_size_t end,
-                           int offset,
-                           bool discard_line_names) {
+void PopulateGridTrackListUsedValues(CSSValueList* list,
+                                     OrderedNamedLinesCollector& collector,
+                                     const Vector<LayoutUnit, 1>& tracks,
+                                     const ComputedStyle& style,
+                                     wtf_size_t start,
+                                     wtf_size_t end,
+                                     int offset,
+                                     bool discard_line_names) {
   DCHECK_LE(start, end);
   if (collector.HasCollapsedAutoRepeatNamedLines()) {
     // If the collector has a collapsed auto-repeat track, we need to adjust
@@ -1966,10 +2053,11 @@ wtf_size_t PopulateIntegerRepeater(CSSValueList* list,
   return repeat_size * number_of_repetitions;
 }
 
-void PopulateGridTrackListForNonGrid(CSSValueList* list,
-                                     OrderedNamedLinesCollector& collector,
-                                     const blink::NGGridTrackList& track_list,
-                                     const ComputedStyle& style) {
+void PopulateGridTrackListComputedValues(
+    CSSValueList* list,
+    OrderedNamedLinesCollector& collector,
+    const blink::NGGridTrackList& track_list,
+    const ComputedStyle& style) {
   const bool is_subgrid = collector.IsSubgriddedAxis();
   wtf_size_t track_index = 0;
 
@@ -2024,11 +2112,12 @@ void PopulateGridTrackListForNonGrid(CSSValueList* list,
 CSSValue* ComputedStyleUtils::ValueForGridTrackList(
     GridTrackSizingDirection direction,
     const LayoutObject* layout_object,
-    const ComputedStyle& style) {
+    const ComputedStyle& style,
+    bool force_computed_value) {
   const bool is_for_columns = direction == kForColumns;
   const ComputedGridTrackList& computed_grid_track_list =
       is_for_columns ? style.GridTemplateColumns() : style.GridTemplateRows();
-  const auto* grid = DynamicTo<LayoutNGGrid>(layout_object);
+  const auto* grid = DynamicTo<LayoutGrid>(layout_object);
 
   // Handle the 'none' case.
   bool is_track_list_empty =
@@ -2043,9 +2132,10 @@ CSSValue* ComputedStyleUtils::ValueForGridTrackList(
 
   const bool is_subgrid_specified = computed_grid_track_list.IsSubgriddedAxis();
   const bool is_subgrid_valid =
-      grid ? grid->CachedPlacementData().line_resolver.SubgridSpanSize(
-                 direction) != kNotFound
-           : false;
+      (grid && grid->HasCachedPlacementData())
+          ? grid->CachedPlacementData().line_resolver.SubgridSpanSize(
+                direction) != kNotFound
+          : false;
   const bool is_subgrid = is_subgrid_specified && is_subgrid_valid;
 
   // Standalone grids with empty track lists should compute to `none`, but
@@ -2068,7 +2158,17 @@ CSSValue* ComputedStyleUtils::ValueForGridTrackList(
       computed_grid_track_list.auto_repeat_insertion_point;
   const NGGridTrackList& ng_track_list = computed_grid_track_list.track_list;
 
-  if (grid) {
+  // "Note: In general, resolved values are the computed values, except for a
+  // small list of legacy 2.1 properties. However, compatibility with early
+  // implementations of this module requires us to define grid-template-rows and
+  // grid-template-columns as returning used values."
+  //
+  // https://www.w3.org/TR/css-grid-2/#resolved-track-list-standalone
+  //
+  // Default to the used value if it's a layout grid, unless
+  // `force_computed_value` is set (which is used for `grid-template`). Non
+  // layout-grids will always report the computed value.
+  if (grid && !force_computed_value) {
     // The number of auto repeat tracks. For 'repeat(auto-fill, [x][y])' this
     // will be 2, regardless of what auto-fill computes to. For subgrids, use
     // the number of grid line names specified on the track definition. For
@@ -2112,17 +2212,17 @@ CSSValue* ComputedStyleUtils::ValueForGridTrackList(
     // https://github.com/w3c/csswg-drafts/issues/9015.
     const bool discard_line_names =
         grid && is_subgrid_specified && !is_subgrid_valid;
-    PopulateGridTrackList(list, collector, track_sizes, style, start_index,
-                          end_index, offset, discard_line_names);
+    PopulateGridTrackListUsedValues(list, collector, track_sizes, style,
+                                    start_index, end_index, offset,
+                                    discard_line_names);
     return list;
   }
 
-  // Otherwise, the resolved value is the computed value, preserving repeat().
   OrderedNamedLinesCollector collector(
       computed_grid_track_list.ordered_named_grid_lines,
       computed_grid_track_list.auto_repeat_ordered_named_grid_lines,
       is_subgrid_specified, !!grid);
-  PopulateGridTrackListForNonGrid(list, collector, ng_track_list, style);
+  PopulateGridTrackListComputedValues(list, collector, ng_track_list, style);
   return list;
 }
 
@@ -2940,6 +3040,13 @@ CSSValue* ComputedStyleUtils::ValueForTransformList(
   return components;
 }
 
+CSSValue* ComputedStyleUtils::ValueForTransformFunction(
+    const TransformOperations& transform_list) {
+  CHECK_EQ(transform_list.Operations().size(), 1u);
+  return ValueForTransformOperation(*transform_list.Operations()[0], 1,
+                                    gfx::SizeF());
+}
+
 gfx::RectF ComputedStyleUtils::ReferenceBoxForTransform(
     const LayoutObject& layout_object,
     UsePixelSnappedBox pixel_snap_box) {
@@ -3289,8 +3396,8 @@ CSSValue* ComputedStyleUtils::ValueForSVGPaint(const SVGPaint& paint,
     case SVGPaintType::kUriNone:
     case SVGPaintType::kUriColor: {
       CSSValueList* values = CSSValueList::CreateSpaceSeparated();
-      values->Append(
-          *MakeGarbageCollected<cssvalue::CSSURIValue>(paint.GetUrl()));
+      values->Append(*MakeGarbageCollected<cssvalue::CSSURIValue>(
+          CSSUrlData(paint.GetUrl())));
       values->Append(
           paint.type == SVGPaintType::kUriNone
               ? *CSSIdentifierValue::Create(CSSValueID::kNone)
@@ -3299,14 +3406,16 @@ CSSValue* ComputedStyleUtils::ValueForSVGPaint(const SVGPaint& paint,
       return values;
     }
     case SVGPaintType::kUri:
-      return MakeGarbageCollected<cssvalue::CSSURIValue>(paint.GetUrl());
+      return MakeGarbageCollected<cssvalue::CSSURIValue>(
+          CSSUrlData(paint.GetUrl()));
   }
 }
 
 CSSValue* ComputedStyleUtils::ValueForSVGResource(
     const StyleSVGResource* resource) {
   if (resource) {
-    return MakeGarbageCollected<cssvalue::CSSURIValue>(resource->Url());
+    return MakeGarbageCollected<cssvalue::CSSURIValue>(
+        CSSUrlData(resource->Url()));
   }
   return CSSIdentifierValue::Create(CSSValueID::kNone);
 }
@@ -3362,8 +3471,9 @@ CSSValue* ComputedStyleUtils::ValueForFilter(
     FilterOperation* filter_operation = operation.Get();
     switch (filter_operation->GetType()) {
       case FilterOperation::OperationType::kReference:
-        list->Append(*MakeGarbageCollected<cssvalue::CSSURIValue>(AtomicString(
-            To<ReferenceFilterOperation>(filter_operation)->Url())));
+        list->Append(*MakeGarbageCollected<cssvalue::CSSURIValue>(
+            CSSUrlData(AtomicString(
+                To<ReferenceFilterOperation>(filter_operation)->Url()))));
         continue;
       case FilterOperation::OperationType::kGrayscale:
         filter_value =
@@ -3712,6 +3822,56 @@ CSSValueList* ComputedStyleUtils::ValuesForGridLineShorthand(
   return list;
 }
 
+CSSValueList* ComputedStyleUtils::ValuesForGridTemplateShorthand(
+    const StylePropertyShorthand& shorthand,
+    const ComputedStyle& style,
+    const LayoutObject* layout_object,
+    bool allow_visited_style) {
+  DCHECK_EQ(shorthand.length(), 3u);
+
+  // "Note: In general, resolved values are the computed values, except for a
+  // small list of legacy 2.1 properties. However, compatibility with early
+  // implementations of this module requires us to define grid-template-rows and
+  // grid-template-columns as returning used values."
+  //
+  // https://www.w3.org/TR/css-grid-2/#resolved-track-list-standalone
+  //
+  // For `grid-template`, this doesn't apply, so we shouldn't be returning used
+  // values. The following method mostly mirrors
+  // `StylePropertySerializer::GetShorthandValueForGridTemplate`, except it
+  // produces a `CSSValueList` instead of a String.
+  const CSSValue* template_rows_computed =
+      ValueForGridTrackList(kForRows, layout_object, style,
+                            /* force_computed_values */ true);
+  const CSSValue* template_columns_computed =
+      ValueForGridTrackList(kForColumns, layout_object, style,
+                            /* force_computed_values */ true);
+
+  const CSSValue* template_row_values =
+      shorthand.properties()[0]->CSSValueFromComputedStyle(style, layout_object,
+                                                           allow_visited_style);
+  const CSSValue* template_column_values =
+      shorthand.properties()[1]->CSSValueFromComputedStyle(style, layout_object,
+                                                           allow_visited_style);
+  const CSSValue* template_area_values =
+      shorthand.properties()[2]->CSSValueFromComputedStyle(style, layout_object,
+                                                           allow_visited_style);
+
+  // Implicit tracks will generate an empty list from `ValueForGridTrackList`,
+  // as they don't create repeaters. In this case, they will already be
+  // equivalent to the expected computed value (since implicit tracks don't
+  // generate repeaters and are always fixed sizes). So in that case, we can
+  // simply use the values directly from the shorthand.
+  return CSSOMUtils::ComputedValueForGridTemplateShorthand(
+      CSSOMUtils::IsEmptyValueList(template_rows_computed)
+          ? template_row_values
+          : template_rows_computed,
+      CSSOMUtils::IsEmptyValueList(template_columns_computed)
+          ? template_column_values
+          : template_columns_computed,
+      template_area_values);
+}
+
 CSSValueList* ComputedStyleUtils::ValuesForSidesShorthand(
     const StylePropertyShorthand& shorthand,
     const ComputedStyle& style,
@@ -3811,7 +3971,8 @@ CSSValue* ComputedStyleUtils::ValuesForFontVariantProperty(
   enum VariantShorthandCases {
     kAllNormal,
     kNoneLigatures,
-    kConcatenateNonNormal
+    kConcatenateNonNormal,
+    kEmptyString
   };
   StylePropertyShorthand shorthand = fontVariantShorthand();
   VariantShorthandCases shorthand_case = kAllNormal;
@@ -3828,7 +3989,8 @@ CSSValue* ComputedStyleUtils::ValuesForFontVariantProperty(
       shorthand_case = kNoneLigatures;
     } else if (!(identifier_value &&
                  identifier_value->GetValueID() == CSSValueID::kNormal)) {
-      shorthand_case = kConcatenateNonNormal;
+      shorthand_case = shorthand_case == kNoneLigatures ? kEmptyString
+                                                        : kConcatenateNonNormal;
       break;
     }
   }
@@ -3856,6 +4018,8 @@ CSSValue* ComputedStyleUtils::ValuesForFontVariantProperty(
       }
       return list;
     }
+    case kEmptyString:
+      return nullptr;
     default:
       NOTREACHED();
       return nullptr;

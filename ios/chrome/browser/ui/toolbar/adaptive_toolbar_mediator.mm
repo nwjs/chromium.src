@@ -15,7 +15,7 @@
 #import "ios/chrome/browser/overlays/public/overlay_presenter.h"
 #import "ios/chrome/browser/overlays/public/overlay_presenter_observer_bridge.h"
 #import "ios/chrome/browser/policy/policy_util.h"
-#import "ios/chrome/browser/search_engines/search_engines_util.h"
+#import "ios/chrome/browser/search_engines/model/search_engines_util.h"
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
@@ -27,9 +27,9 @@
 #import "ios/chrome/browser/ui/lens/lens_availability.h"
 #import "ios/chrome/browser/ui/menu/browser_action_factory.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_consumer.h"
-#import "ios/chrome/browser/url_loading/image_search_param_generator.h"
-#import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
-#import "ios/chrome/browser/url_loading/url_loading_params.h"
+#import "ios/chrome/browser/url_loading/model/image_search_param_generator.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/web/web_navigation_browser_agent.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -323,8 +323,13 @@
         setLoadingProgressFraction:self.webState->GetLoadingProgress()];
   }
   [self updateShareMenuForWebState:self.webState];
-  if (base::FeatureList::IsEnabled(kThemeColorInTopToolbar)) {
+  if (base::FeatureList::IsEnabled(kThemeColorInTopToolbar) ||
+      base::FeatureList::IsEnabled(kDynamicThemeColor) ||
+      base::FeatureList::IsEnabled(kDynamicBackgroundColor)) {
     [self.consumer setPageThemeColor:self.webState->GetThemeColor()];
+    [self.consumer
+        setUnderPageBackgroundColor:self.webState
+                                        ->GetUnderPageBackgroundColor()];
   }
 }
 

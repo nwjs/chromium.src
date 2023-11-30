@@ -30,7 +30,6 @@ extern const wchar_t kGlobalPrefix[];
 #define CLIENTS_KEY UPDATER_KEY L"Clients\\"
 #define CLIENT_STATE_KEY UPDATER_KEY L"ClientState\\"
 #define CLIENT_STATE_MEDIUM_KEY UPDATER_KEY L"ClientStateMedium\\"
-#define COHORT_KEY CLIENT_STATE_KEY L"cohort\\"
 
 #define COMPANY_POLICIES_KEY \
   L"Software\\Policies\\" COMPANY_SHORTNAME_STRING L"\\"
@@ -56,7 +55,8 @@ extern const wchar_t kRegValueName[];
 extern const wchar_t kRegValueUninstallCmdLine[];
 extern const wchar_t kRegValueVersion[];
 
-// Cohort values under `COHORT_KEY`.
+// Cohort registry constants.
+extern const wchar_t kRegKeyCohort[];
 extern const wchar_t kRegValueCohortName[];
 extern const wchar_t kRegValueCohortHint[];
 
@@ -96,6 +96,9 @@ extern const wchar_t kRegValueEnrollmentToken[];
 // Legacy registry for enrollment token.
 extern const wchar_t kRegKeyCompanyLegacyCloudManagement[];
 extern const wchar_t kRegValueCloudManagementEnrollmentToken[];
+
+#define UPDATER_DEV_KEY COMPANY_KEY L"UpdaterDev\\"
+extern const wchar_t kRegValueIntegrationTestMode[];
 
 // The name of the policy indicating that enrollment in cloud-based device
 // management is mandatory.

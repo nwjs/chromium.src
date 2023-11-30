@@ -25,9 +25,7 @@ import {BrailleCommandHandler} from './braille/braille_command_handler.js';
 import {ChromeVox} from './chromevox.js';
 import {ChromeVoxRange} from './chromevox_range.js';
 import {ChromeVoxState} from './chromevox_state.js';
-import {ChromeVoxBackground} from './classic_background.js';
 import {ClipboardHandler} from './clipboard_handler.js';
-import {CommandHandler} from './command_handler.js';
 import {DownloadHandler} from './download_handler.js';
 import {Earcons} from './earcons.js';
 import {DesktopAutomationHandler} from './event/desktop_automation_handler.js';
@@ -37,15 +35,17 @@ import {PageLoadSoundHandler} from './event/page_load_sound_handler.js';
 import {RangeAutomationHandler} from './event/range_automation_handler.js';
 import {EventSource} from './event_source.js';
 import {FindHandler} from './find_handler.js';
-import {GestureCommandHandler} from './gesture_command_handler.js';
-import {BackgroundKeyboardHandler} from './keyboard_handler.js';
+import {InjectedScriptLoader} from './injected_script_loader.js';
+import {CommandHandler} from './input/command_handler.js';
+import {GestureCommandHandler} from './input/gesture_command_handler.js';
+import {BackgroundKeyboardHandler} from './input/keyboard_handler.js';
+import {SmartStickyMode} from './input/smart_sticky_mode.js';
 import {LiveRegions} from './live_regions.js';
 import {EventStreamLogger} from './logging/event_stream_logger.js';
 import {LogStore} from './logging/log_store.js';
 import {LogUrlWatcher} from './logging/log_url_watcher.js';
 import {PanelBackground} from './panel/panel_background.js';
 import {ChromeVoxPrefs} from './prefs.js';
-import {SmartStickyMode} from './smart_sticky_mode.js';
 import {TtsBackground} from './tts_background.js';
 
 /**
@@ -65,9 +65,6 @@ export class Background extends ChromeVoxState {
 
     /** @private {boolean} */
     this.isReadingContinuously_ = false;
-
-    /** @private {CursorRange} */
-    this.pageSel_ = null;
 
     /** @private {boolean} */
     this.talkBackEnabled_ = false;
@@ -106,7 +103,6 @@ export class Background extends ChromeVoxState {
     ChromeVoxPrefs.init();
     ChromeVoxRange.init();
     TtsBackground.init();
-    ChromeVoxBackground.init();
 
     ChromeVoxState.instance = new Background();
 
@@ -120,6 +116,7 @@ export class Background extends ChromeVoxState {
     EventSource.init();
     FindHandler.init();
     GestureCommandHandler.init();
+    InjectedScriptLoader.injectContentScriptForGoogleDocs();
     JaPhoneticData.init(JaPhoneticMap.MAP);
     LiveRegions.init();
     LocaleOutputHelper.init();
@@ -152,11 +149,6 @@ export class Background extends ChromeVoxState {
   }
 
   /** @override */
-  get pageSel() {
-    return this.pageSel_;
-  }
-
-  /** @override */
   get talkBackEnabled() {
     return this.talkBackEnabled_;
   }
@@ -167,95 +159,8 @@ export class Background extends ChromeVoxState {
   }
 
   /** @override */
-  set pageSel(newPageSel) {
-    this.pageSel_ = newPageSel;
-  }
-
-  /** @override */
   onBrailleKeyEvent(evt, content) {
     return BrailleCommandHandler.onBrailleKeyEvent(evt, content);
-  }
-
-  /** @override */
-  restoreLastValidRangeIfNeeded() {
-    // Never restore range when TalkBack is enabled as commands such as
-    // Search+Left, go directly to TalkBack.
-    if (this.talkBackEnabled) {
-      return;
-    }
-
-    if (!ChromeVoxRange.getCurrentRangeWithoutRecovery()?.isValid()) {
-      ChromeVoxRange.set(ChromeVoxRange.previous);
-    }
-  }
-
-  /**
-   * @param {!CursorRange} range
-   * @param {CursorRange} prevRange
-   * @override
-   */
-  setFocusToRange(range, prevRange) {
-    const start = range.start.node;
-    const end = range.end.node;
-
-    // First, see if we've crossed a root. Remove once webview handles focus
-    // correctly.
-    if (prevRange && prevRange.start.node && start) {
-      const entered =
-          AutomationUtil.getUniqueAncestors(prevRange.start.node, start);
-
-      entered
-          .filter(
-              ancestor => ancestor.role === RoleType.PLUGIN_OBJECT ||
-                  ancestor.role === RoleType.IFRAME)
-          .forEach(container => {
-            if (!container.state[StateType.FOCUSED]) {
-              container.focus();
-            }
-          });
-    }
-
-    if (start.state[StateType.FOCUSED] || end.state[StateType.FOCUSED]) {
-      return;
-    }
-
-    const isFocusableLinkOrControl = node => node.state[StateType.FOCUSABLE] &&
-        AutomationPredicate.linkOrControl(node);
-
-    // Next, try to focus the start or end node.
-    if (!AutomationPredicate.structuralContainer(start) &&
-        start.state[StateType.FOCUSABLE]) {
-      if (!start.state[StateType.FOCUSED]) {
-        start.focus();
-      }
-      return;
-    } else if (
-        !AutomationPredicate.structuralContainer(end) &&
-        end.state[StateType.FOCUSABLE]) {
-      if (!end.state[StateType.FOCUSED]) {
-        end.focus();
-      }
-      return;
-    }
-
-    // If a common ancestor of |start| and |end| is a link, focus that.
-    let ancestor = AutomationUtil.getLeastCommonAncestor(start, end);
-    while (ancestor && ancestor.root === start.root) {
-      if (isFocusableLinkOrControl(ancestor)) {
-        if (!ancestor.state[StateType.FOCUSED]) {
-          ancestor.focus();
-        }
-        return;
-      }
-      ancestor = ancestor.parent;
-    }
-
-    // If nothing is focusable, set the sequential focus navigation starting
-    // point, which ensures that the next time you press Tab, you'll reach
-    // the next or previous focusable node from |start|.
-    if (!start.state[StateType.OFFSCREEN]) {
-      start.setSequentialFocusNavigationStartingPoint();
-    }
   }
 
   /**

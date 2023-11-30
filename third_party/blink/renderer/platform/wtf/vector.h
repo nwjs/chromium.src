@@ -166,9 +166,17 @@ struct VectorTypeOperations {
 
   static void Initialize(T* begin, T* end) {
     if constexpr (VectorTraits<T>::kCanInitializeWithMemset) {
-      // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation)
-      memset(begin, 0,
-             reinterpret_cast<char*>(end) - reinterpret_cast<char*>(begin));
+      size_t size =
+          reinterpret_cast<char*>(end) - reinterpret_cast<char*>(begin);
+      if constexpr (!Allocator::kIsGarbageCollected ||
+                    !IsTraceableInCollectionTrait<VectorTraits<T>>::value) {
+        if (size != 0) {
+          // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation)
+          memset(begin, 0, size);
+        }
+      } else {
+        AtomicMemzero(begin, size);
+      }
     } else {
       for (T* cur = begin; cur != end; ++cur)
         ConstructTraits::Construct(cur);
@@ -307,9 +315,11 @@ struct VectorTypeOperations {
     } else {
       static_assert(VectorTraits<T>::kCanCopyWithMemcpy);
       // NOLINTNEXTLINE(bugprone-undefined-memory-manipulation)
-      memcpy(dst, src,
-             reinterpret_cast<const char*>(src_end) -
-                 reinterpret_cast<const char*>(src));
+      if (src != src_end) {
+        memcpy(dst, src,
+               reinterpret_cast<const char*>(src_end) -
+                   reinterpret_cast<const char*>(src));
+      }
     }
   }
 

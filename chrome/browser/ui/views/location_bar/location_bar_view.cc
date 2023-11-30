@@ -21,7 +21,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/app/vector_icons/vector_icons.h"
-#include "chrome/browser/apps/intent_helper/intent_picker_features.h"
+#include "chrome/browser/apps/link_capturing/link_capturing_features.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/command_updater.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -297,7 +297,7 @@ void LocationBarView::Init() {
   selected_keyword_view_ = AddChildView(std::make_unique<SelectedKeywordView>(
       this, TemplateURLServiceFactory::GetForProfile(profile_), font_list));
 
-  if (browser_ && apps::features::LinkCapturingUiUpdateEnabled()) {
+  if (browser_ && apps::features::ShouldShowLinkCapturingUX()) {
     intent_chip_ =
         AddChildView(std::make_unique<IntentChipButton>(browser_, this));
   }
@@ -337,8 +337,9 @@ void LocationBarView::Init() {
     if (base::FeatureList::IsEnabled(kWebOTPCrossDevice))
       params.types_enabled.push_back(PageActionIconType::kSmsRemoteFetcher);
     params.types_enabled.push_back(PageActionIconType::kManagePasswords);
-    if (!apps::features::LinkCapturingUiUpdateEnabled())
+    if (!apps::features::ShouldShowLinkCapturingUX()) {
       params.types_enabled.push_back(PageActionIconType::kIntentPicker);
+    }
     params.types_enabled.push_back(PageActionIconType::kPwaInstall);
     params.types_enabled.push_back(PageActionIconType::kFind);
     params.types_enabled.push_back(PageActionIconType::kTranslate);

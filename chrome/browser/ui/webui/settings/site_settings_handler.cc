@@ -36,6 +36,7 @@
 #include "chrome/browser/content_settings/chrome_content_settings_utils.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/file_system_access/chrome_file_system_access_permission_context.h"
+#include "chrome/browser/file_system_access/file_system_access_features.h"
 #include "chrome/browser/file_system_access/file_system_access_permission_context_factory.h"
 #include "chrome/browser/hid/hid_chooser_context.h"
 #include "chrome/browser/hid/hid_chooser_context_factory.h"
@@ -1861,6 +1862,13 @@ void SiteSettingsHandler::HandleResetCategoryPermissionForPattern(
   if (content_type == ContentSettingsType::NOTIFICATIONS) {
     SendNotificationPermissionReviewList();
   }
+
+  if (content_type == ContentSettingsType::COOKIES &&
+      primary_pattern.MatchesAllHosts() &&
+      !secondary_pattern.MatchesAllHosts()) {
+    base::RecordAction(base::UserMetricsAction(
+        "ThirdPartyCookies.SettingsSiteException.Removed"));
+  }
 }
 
 void SiteSettingsHandler::HandleSetCategoryPermissionForPattern(
@@ -1932,6 +1940,13 @@ void SiteSettingsHandler::HandleSetCategoryPermissionForPattern(
 
   if (content_type == ContentSettingsType::NOTIFICATIONS) {
     SendNotificationPermissionReviewList();
+  }
+
+  if (content_type == ContentSettingsType::COOKIES &&
+      primary_pattern.MatchesAllHosts() &&
+      !secondary_pattern.MatchesAllHosts()) {
+    base::RecordAction(base::UserMetricsAction(
+        "ThirdPartyCookies.SettingsSiteException.Added"));
   }
 }
 
@@ -2695,7 +2710,7 @@ void SiteSettingsHandler::SendNotificationPermissionReviewList() {
   // HandleSetCategoryPermissionForPattern.
   FireWebUIListener(
       site_settings::kNotificationPermissionsReviewListMaybeChangedEvent,
-      service->PopulateNotificationPermissionReviewData(profile_));
+      service->PopulateNotificationPermissionReviewData());
 }
 
 }  // namespace settings

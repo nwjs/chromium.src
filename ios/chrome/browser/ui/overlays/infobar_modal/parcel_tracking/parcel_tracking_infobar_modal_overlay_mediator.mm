@@ -25,16 +25,26 @@
   return static_cast<ParcelTrackingInfobarDelegate*>(self.config->delegate());
 }
 
+#pragma mark - OverlayRequestMediator
+
++ (const OverlayRequestSupport*)requestSupport {
+  return DefaultInfobarOverlayRequestConfig::RequestSupport();
+}
+
 #pragma mark - InfobarParcelTrackingModalDelegate
 
 - (void)parcelTrackingTableViewControllerDidTapTrackAllButton {
-  [self parcelTrackingInfobarDelegate]->TrackPackages(
+  self.parcelTrackingInfobarDelegate->TrackPackages(
       /*display_infobar=*/false);
+  self.parcelTrackingInfobarDelegate->SetStep(
+      ParcelTrackingStep::kNewPackageTracked);
 }
 
 - (void)parcelTrackingTableViewControllerDidTapUntrackAllButton {
-  [self parcelTrackingInfobarDelegate]->UntrackPackages(
+  self.parcelTrackingInfobarDelegate->UntrackPackages(
       /*display_infobar=*/false);
+  self.parcelTrackingInfobarDelegate->SetStep(
+      ParcelTrackingStep::kPackageUntracked);
 }
 
 #pragma mark - Public
@@ -57,8 +67,7 @@
             withTrackingStatus:YES];
       break;
     case ParcelTrackingStep::kAskedToTrackPackage:
-      // kAskedToTrackPackage banner does not present a modal.
-      NOTREACHED();
+      [_consumer setParcelList:delegate->GetParcelList() withTrackingStatus:NO];
       break;
   }
 }

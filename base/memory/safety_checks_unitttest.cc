@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #include <new>
-#include "base/allocator/partition_allocator/partition_address_space.h"
+#include "base/allocator/partition_allocator/src/partition_alloc/partition_address_space.h"
 #include "base/memory/safety_checks.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -84,7 +84,7 @@ TEST(MemorySafetyCheckTest, AllocatorFunctions) {
   delete ptr3;
 
   // void* operator new(std::size_t, void* ptr)
-  char data[32];
+  alignas(AlignedAdvancedChecks) char data[32];
   ptr1 = new (data) DefaultChecks();
   ptr2 = new (data) AdvancedChecks();
   ptr3 = new (data) AlignedAdvancedChecks();

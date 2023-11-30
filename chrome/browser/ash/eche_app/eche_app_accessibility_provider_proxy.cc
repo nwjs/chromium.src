@@ -42,8 +42,9 @@ void EcheAppAccessibilityProviderProxy::OnAccessibilityStatusChanged(
 
   if (event_details.notification_type ==
       AccessibilityNotificationType::kToggleSpokenFeedback) {
-    // TODO(b/265817788): Enable explore by touch on the phone so apps can
-    // identify if a screen reader is being used.
+    if (explore_by_touch_state_changed_callback_.has_value()) {
+      explore_by_touch_state_changed_callback_->Run(event_details.enabled);
+    }
   }
 }
 
@@ -106,12 +107,28 @@ void EcheAppAccessibilityProviderProxy::OnViewTracked() {
             &EcheAppAccessibilityProviderProxy::OnAccessibilityStatusChanged,
             weak_ptr_factory_.GetWeakPtr()));
   }
+
+  // Send initial states.
+  if (accessibility_state_changed_callback_.has_value()) {
+    accessibility_state_changed_callback_->Run(IsAccessibilityEnabled());
+  }
+
+  if (explore_by_touch_state_changed_callback_.has_value()) {
+    explore_by_touch_state_changed_callback_->Run(
+        accessibility_manager->IsSpokenFeedbackEnabled());
+  }
 }
 
 void EcheAppAccessibilityProviderProxy::
     SetAccessibilityEnabledStateChangedCallback(
         base::RepeatingCallback<void(bool)> callback) {
   accessibility_state_changed_callback_ = callback;
+}
+
+void EcheAppAccessibilityProviderProxy::
+    SetExploreByTouchEnabledStateChangedCallback(
+        base::RepeatingCallback<void(bool)> callback) {
+  explore_by_touch_state_changed_callback_ = callback;
 }
 
 void EcheAppAccessibilityProviderProxy::UpdateEnabledFeature() {

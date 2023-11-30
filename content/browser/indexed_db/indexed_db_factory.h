@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -14,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
@@ -67,7 +67,7 @@ class CONTENT_EXPORT IndexedDBFactory
 
   void AddReceiver(
       absl::optional<storage::BucketInfo> bucket,
-      mojo::PendingAssociatedRemote<storage::mojom::IndexedDBClientStateChecker>
+      mojo::PendingRemote<storage::mojom::IndexedDBClientStateChecker>
           client_state_checker_remote,
       mojo::PendingReceiver<blink::mojom::IDBFactory> pending_receiver);
 
@@ -173,10 +173,10 @@ class CONTENT_EXPORT IndexedDBFactory
   // The data structure that stores everything bound to the receiver. This will
   // be stored together with the receiver in the `mojo::ReceiverSet`.
   struct ReceiverContext {
-    ReceiverContext(absl::optional<storage::BucketInfo> bucket,
-                    mojo::PendingAssociatedRemote<
-                        storage::mojom::IndexedDBClientStateChecker>
-                        client_state_checker_remote);
+    ReceiverContext(
+        absl::optional<storage::BucketInfo> bucket,
+        mojo::PendingRemote<storage::mojom::IndexedDBClientStateChecker>
+            client_state_checker_remote);
 
     ~ReceiverContext();
 
@@ -212,11 +212,6 @@ class CONTENT_EXPORT IndexedDBFactory
       bool is_first_attempt,
       bool create_if_missing);
 
-  void NotifyIndexedDBContentChanged(
-      const storage::BucketLocator& bucket_locator,
-      const std::u16string& database_name,
-      const std::u16string& object_store_name);
-
   void ForEachBucketContext(IndexedDBBucketContext::InstanceClosure callback);
 
   // Called when the database has been deleted on disk.
@@ -233,14 +228,14 @@ class CONTENT_EXPORT IndexedDBFactory
                     base::trace_event::ProcessMemoryDump* pmd) override;
 
   SEQUENCE_CHECKER(sequence_checker_);
-  // Raw pointer is safe because IndexedDBContextImpl owns this object.
+  // This will be set to null after `ContextDestroyed` is called.
   raw_ptr<IndexedDBContextImpl> context_;
   const raw_ptr<base::Clock> clock_;
 
   IndexedDBBucketContext::InstanceClosure for_each_bucket_context_;
 
   // TODO(crbug.com/1474996): these bucket contexts need to be `SequenceBound`.
-  base::flat_map<storage::BucketId, std::unique_ptr<IndexedDBBucketContext>>
+  std::map<storage::BucketId, std::unique_ptr<IndexedDBBucketContext>>
       bucket_contexts_;
 
   std::set<storage::BucketLocator> backends_opened_since_startup_;

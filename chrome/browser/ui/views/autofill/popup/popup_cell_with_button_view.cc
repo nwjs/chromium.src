@@ -13,6 +13,7 @@
 #include "content/public/common/input/native_web_keyboard_event.h"
 #include "ui/accessibility/ax_enums.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/canvas.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -116,8 +117,9 @@ int ButtonPlaceholder::GetHeightForWidth(int width) const {
 }  // namespace
 
 PopupCellWithButtonView::PopupCellWithButtonView(
-    bool should_ignore_mouse_observed_outside_item_bounds_check)
-    : PopupCellView(should_ignore_mouse_observed_outside_item_bounds_check) {}
+    base::WeakPtr<AutofillPopupController> controller,
+    int line_number)
+    : controller_(controller), line_number_(line_number) {}
 
 PopupCellWithButtonView::~PopupCellWithButtonView() = default;
 
@@ -260,9 +262,9 @@ void PopupCellWithButtonView::UpdateSelectedAndRunCallback(bool selected) {
   }
 
   selected_ = selected;
-  if (base::RepeatingClosure callback =
-          selected_ ? on_selected_callback_ : on_unselected_callback_) {
-    callback.Run();
+  if (controller_) {
+    controller_->SelectSuggestion(
+        selected_ ? absl::optional<size_t>(line_number_) : absl::nullopt);
   }
 }
 
@@ -274,5 +276,8 @@ bool PopupCellWithButtonView::ShouldCellButtonBeVisible() const {
       return true;
   }
 }
+
+BEGIN_METADATA(PopupCellWithButtonView, autofill::PopupCellView)
+END_METADATA
 
 }  // namespace autofill

@@ -11,6 +11,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/strings/string_piece.h"
+#include "components/autofill/core/browser/data_model/autofill_i18n_parsing_expression_components.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
@@ -234,11 +235,7 @@ class AddressComponent {
   bool UnsetValueForTypeIfSupported(ServerFieldType field_type);
 
   // Parses |value_| to assign values to the subcomponents.
-  // The method uses 3 stages:
-  //
-  // * Use |ParseValueAndAssignSubcomponentsByMethod()|. This stage exists
-  // to catch special cases and may fail. The method is virtual and can be
-  // implemented on the type level.
+  // The method uses 2 stages:
   //
   // * Use |ParseValueAndAssignSubcomponentsByRegularExpressions()|. This stage
   // uses a list of regular expressions acquired by the virtual method
@@ -395,12 +392,6 @@ class AddressComponent {
   virtual std::vector<const re2::RE2*> GetParseRegularExpressionsByRelevance()
       const;
 
-  // Method to parse |value_| into the values of |subcomponents_|. The
-  // purpose of this method is to cover special cases. This method returns true
-  // on success and is allowed to fail. On failure, the |subcomponents_| are
-  // not altered.
-  virtual bool ParseValueAndAssignSubcomponentsByMethod();
-
   // This method parses |value_| to assign values to the subcomponents.
   // The method is virtual and can be reimplemented per type.
   // It must succeed.
@@ -524,6 +515,11 @@ class AddressComponent {
   std::u16string ReplacePlaceholderTypesWithValues(
       std::u16string_view format) const;
 
+  // This method uses i18n parsing instructions used by
+  // `ParseValueByI18nRegularExpression` to parse |value_| into the values of
+  // the subcomponents. Returns true on success and is allowed to fail.
+  bool ParseValueAndAssignSubcomponentsByI18nParsingRules();
+
   // This method uses regular expressions acquired by
   // |GetParseRegularExpressionsByRelevance| to parse |value_| into the values
   // of the subcomponents. Returns true on success and is allowed to fail.
@@ -544,6 +540,18 @@ class AddressComponent {
   bool ParseValueAndAssignSubcomponentsRespectingSetValues(
       const std::u16string& value,
       const re2::RE2* parse_expression);
+
+  // Assigns parsing results to the corresponding subcomponents. Overrides
+  // previously set values if necessary.
+  void AssignParsedValuesToSubcomponents(
+      i18n_model_definition::ValueParsingResults values);
+
+  // Assigns parsing results to the corresponding subcomponents. The value
+  // assigned to each subcomponent must be compatible with the information
+  // growth invariant (i.e child information is always contained in their
+  // ancestors). Previously set values are not overridden.
+  bool AssignParsedValuesToSubcomponentsRespectingSetValues(
+      i18n_model_definition::ValueParsingResults values);
 
   // This method verifies that the `value` is token compatible with this node
   // and all the node's descendants.

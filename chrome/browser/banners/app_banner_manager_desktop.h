@@ -11,7 +11,6 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "chrome/browser/ui/web_applications/web_app_dialog_utils.h"
-#include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_manager.h"
 #include "chrome/browser/web_applications/web_app_install_manager_observer.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
@@ -62,6 +61,7 @@ class AppBannerManagerDesktop
   bool IsWebAppConsideredInstalled() const override;
   bool IsAppFullyInstalledForSiteUrl(const GURL& site_url) const override;
   bool IsAppPartiallyInstalledForSiteUrl(const GURL& site_url) const override;
+  bool IsInAppBrowsingContext() const override;
   void SaveInstallationDismissedForMl(const GURL& manifest_id) override;
   void SaveInstallationIgnoredForMl(const GURL& manifest_id) override;
   void SaveInstallationAcceptedForMl(const GURL& manifest_id) override;

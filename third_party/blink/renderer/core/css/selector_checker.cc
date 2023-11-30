@@ -38,7 +38,7 @@
 #include "third_party/blink/renderer/core/css/part_names.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
-#include "third_party/blink/renderer/core/dom/css_toggle.h"
+#include "third_party/blink/renderer/core/css/style_scope_data.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
@@ -55,6 +55,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/fullscreen/fullscreen.h"
 #include "third_party/blink/renderer/core/html/custom/element_internals.h"
+#include "third_party/blink/renderer/core/html/forms/html_button_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
@@ -1766,19 +1767,16 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
         break;
       }
 
-      if (auto* html_element = DynamicTo<HTMLElement>(element)) {
-        // Recomputing the slot assignment can update cached directionality.
-        // This should already have been done unless this an API call like
-        // Element.matches().
-        Document& document = element.GetDocument();
-        if (document.IsSlotAssignmentDirty()) {
-          CHECK_EQ(mode_, kQueryingRules);
-          document.GetSlotAssignmentEngine().RecalcSlotAssignments();
-        }
-
-        return html_element->CachedDirectionality() == direction;
+      // Recomputing the slot assignment can update cached directionality.  In
+      // most cases it's OK for this code to be run when slot assignments are
+      // dirty; however for API calls like Element.matches() we should recalc
+      // them now.
+      Document& document = element.GetDocument();
+      if (mode_ == kQueryingRules && document.IsSlotAssignmentDirty()) {
+        document.GetSlotAssignmentEngine().RecalcSlotAssignments();
       }
-      break;
+
+      return element.CachedDirectionality() == direction;
     }
     case CSSSelector::kPseudoDialogInTopLayer:
       if (auto* dialog = DynamicTo<HTMLDialogElement>(element)) {
@@ -1978,29 +1976,6 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
     case CSSSelector::kPseudoRelativeAnchor:
       DCHECK(context.relative_anchor_element);
       return context.relative_anchor_element == &element;
-    case CSSSelector::kPseudoToggle: {
-      using State = ToggleRoot::State;
-
-      const AtomicString& name = selector.Argument();
-      const State* value = selector.ToggleValue();
-
-      CSSToggle* toggle = CSSToggle::FindToggleInScope(element, name);
-      // An element matches :toggle() if the element is in scope for a toggle
-      // with the name given by <custom-ident>, and ...
-      if (!toggle) {
-        return false;
-      }
-
-      if (value) {
-        // ... either the toggle’s value matches the provided <toggle-value>,
-        // ...
-        return toggle->ValueMatches(*value);
-      } else {
-        // ... or the <toggle-value> is omitted and the toggle is in any
-        // active value.
-        return !toggle->ValueMatches(State(0));
-      }
-    }
     case CSSSelector::kPseudoUnparsed:
       // Only kept around for parsing; can never match anything
       // (because we don't know what it's supposed to mean).
@@ -2022,30 +1997,27 @@ static bool MatchesUAShadowElement(Element& element, const AtomicString& id) {
 
 bool SelectorChecker::CheckPseudoAutofill(CSSSelector::PseudoType pseudo_type,
                                           Element& element) const {
-  HTMLFormControlElement* html_form_element = nullptr;
-  HTMLSelectListElement* owner_html_select_list_element =
-      HTMLSelectListElement::OwnerSelectList(&element);
-  if (owner_html_select_list_element &&
-      owner_html_select_list_element->AssignedPartType(&element) ==
-          HTMLSelectListElement::PartType::kButton) {
-    html_form_element = owner_html_select_list_element;
-  } else {
-    html_form_element = DynamicTo<HTMLFormControlElement>(&element);
+  HTMLFormControlElement* form_control_element =
+      DynamicTo<HTMLFormControlElement>(&element);
+  if (auto* button = DynamicTo<HTMLButtonElement>(&element)) {
+    if (auto* selectlist = button->OwnerSelectList()) {
+      form_control_element = selectlist;
+    }
   }
 
-  if (!html_form_element) {
+  if (!form_control_element) {
     return false;
   }
   switch (pseudo_type) {
     case CSSSelector::kPseudoAutofill:
     case CSSSelector::kPseudoWebKitAutofill:
-      return html_form_element->IsAutofilled() ||
-             html_form_element->IsPreviewed();
+      return form_control_element->IsAutofilled() ||
+             form_control_element->IsPreviewed();
     case CSSSelector::kPseudoAutofillPreviewed:
-      return html_form_element->GetAutofillState() ==
+      return form_control_element->GetAutofillState() ==
              WebAutofillState::kPreviewed;
     case CSSSelector::kPseudoAutofillSelected:
-      return html_form_element->HighlightAutofilled();
+      return form_control_element->HighlightAutofilled();
     default:
       NOTREACHED();
   }
@@ -2083,7 +2055,7 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
     }
     case CSSSelector::kPseudoPart:
       DCHECK(part_names_);
-      for (const auto& part_name : *selector.PartNames()) {
+      for (const auto& part_name : selector.IdentList()) {
         if (!part_names_->Contains(part_name)) {
           return false;
         }
@@ -2446,6 +2418,15 @@ const Element* ActivationCeiling(const StyleScopeActivation& activation) {
   return shadow_root ? &shadow_root->host() : nullptr;
 }
 
+// True if this StyleScope has an implicit root at the specified element.
+// This is used to find the roots for prelude-less @scope rules.
+bool HasImplicitRoot(const StyleScope& style_scope, Element& element) {
+  if (const StyleScopeData* style_scope_data = element.GetStyleScopeData()) {
+    return style_scope_data->TriggersScope(style_scope);
+  }
+  return false;
+}
+
 }  // namespace
 
 const StyleScopeActivations& SelectorChecker::EnsureActivations(
@@ -2562,7 +2543,7 @@ const StyleScopeActivations* SelectorChecker::CalculateActivations(
               ? MatchesWithScope(element, *style_scope.From(),
                                  outer_activation.root, match_visited,
                                  activations->match_flags)
-              : style_scope.HasImplicitRoot(&element)) {
+              : HasImplicitRoot(style_scope, element)) {
         StyleScopeActivation activation{&element, 0};
         // It's possible for a newly created activation to be immediately
         // limited (e.g. @scope (.x) to (.x)).

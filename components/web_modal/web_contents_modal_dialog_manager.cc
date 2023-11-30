@@ -109,9 +109,15 @@ void WebContentsModalDialogManager::BlockWebContentsInteraction(bool blocked) {
     // The WebContents has already disconnected.
     return;
   }
+
   if (!blocked && contents->is_silent_printing())
     contents->set_silent_printing(false);
-  contents->SetIgnoreInputEvents(blocked);
+
+  if (blocked) {
+    scoped_ignore_input_events_ = contents->IgnoreInputEvents();
+  } else {
+    scoped_ignore_input_events_.reset();
+  }
   if (delegate_)
     delegate_->SetWebContentsBlocked(contents, blocked);
 }

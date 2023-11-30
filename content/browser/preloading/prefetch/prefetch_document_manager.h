@@ -96,9 +96,6 @@ class CONTENT_EXPORT PrefetchDocumentManager
   // page load is completed.
   void OnEligibilityCheckComplete(bool is_eligible);
 
-  // Called when the head is available in the prefetched response.
-  void OnPrefetchedHeadReceived(const GURL& url);
-
   // Updates metrics when the response for a prefetch requested by this page
   // load is received.
   void OnPrefetchSuccessful(PrefetchContainer* prefetch);
@@ -110,6 +107,7 @@ class CONTENT_EXPORT PrefetchDocumentManager
   std::vector<std::pair<GURL, base::WeakPtr<PrefetchContainer>>>
   GetAllForUrlWithoutRefAndQueryForTesting(const GURL& url) const;
   void EnableNoVarySearchSupport();
+  bool NoVarySearchSupportEnabled() const;
 
   // Returns a tuple: (can_prefetch_now, prefetch_to_evict). 'can_prefetch_now'
   // is true if we can prefetch |next_prefetch| based on the state of the
@@ -144,6 +142,8 @@ class CONTENT_EXPORT PrefetchDocumentManager
 
   // Helper function to get the |PrefetchService| associated with |this|.
   PrefetchService* GetPrefetchService() const;
+
+  blink::DocumentToken document_token_;
 
   // This map holds references to all |PrefetchContainer| associated with
   // |this|, regardless of ownership.

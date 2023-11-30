@@ -66,10 +66,6 @@ struct CONTENT_EXPORT AttributionConfig {
     // Returns true if this config is valid.
     [[nodiscard]] bool Validate() const;
 
-    // Controls the valid range of trigger data.
-    uint64_t navigation_source_trigger_data_cardinality = 8;
-    uint64_t event_source_trigger_data_cardinality = 2;
-
     // Controls randomized response rates for the API: when a source is
     // registered, this parameter is used to determine the probability that any
     // subsequent attributions for the source are handled truthfully, or whether
@@ -106,13 +102,6 @@ struct CONTENT_EXPORT AttributionConfig {
     // Controls how many reports can be in the storage per attribution
     // destination.
     int max_reports_per_destination = 1024;
-
-    // Controls the maximum sum of the contributions (values) across all buckets
-    // per source.
-    // When updating the value, the corresponding BUDGET_PER_SOURCE value in
-    // //content/browser/resources/attribution_reporting/attribution_internals.ts
-    // should also be updated.
-    int64_t aggregatable_budget_per_source = 65536;
 
     // Default constants for the report delivery time to be used when declaring
     // field trial params.
@@ -159,7 +148,7 @@ struct CONTENT_EXPORT AttributionConfig {
   [[nodiscard]] bool Validate() const;
 
   // Controls how many sources can be in the storage per source origin.
-  int max_sources_per_origin = 1024;
+  int max_sources_per_origin = 4096;
 
   // Controls the maximum number of distinct attribution destinations that can
   // be in storage at any time for sources with the same <source site, reporting

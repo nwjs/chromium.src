@@ -61,6 +61,7 @@
 #include "components/browsing_topics/mojom/browsing_topics_internals.mojom.h"
 #include "components/commerce/content/browser/commerce_internals_ui.h"
 #include "components/commerce/core/internals/mojom/commerce_internals.mojom.h"
+#include "components/compose/buildflags.h"
 #include "components/dom_distiller/content/browser/distillability_driver.h"
 #include "components/dom_distiller/content/browser/distiller_javascript_service_impl.h"
 #include "components/dom_distiller/content/common/mojom/distillability_service.mojom.h"
@@ -171,14 +172,17 @@
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
 #include "chrome/browser/ui/webui/feed/feed.mojom.h"
 #include "chrome/browser/ui/webui/feed/feed_ui.h"
+#include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals.mojom.h"
 #include "chrome/browser/ui/webui/web_app_internals/web_app_internals_ui.h"
 #include "components/omnibox/browser/omnibox.mojom.h"
+#include "services/on_device_model/public/cpp/features.h"
 #if !defined(OFFICIAL_BUILD)
 #include "chrome/browser/ui/webui/new_tab_page/foo/foo.mojom.h"  // nogncheck crbug.com/1125897
 #endif
 #include "chrome/browser/ui/side_panel/customize_chrome/customize_chrome_utils.h"
 #include "chrome/browser/ui/webui/commerce/shopping_insights_side_panel_ui.h"
+#include "chrome/browser/ui/webui/hats/hats_ui.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
 #include "chrome/browser/ui/webui/internals/user_education/user_education_internals.mojom.h"
 #include "chrome/browser/ui/webui/new_tab_page/new_tab_page.mojom.h"
@@ -191,6 +195,7 @@
 #include "chrome/browser/ui/webui/side_panel/companion/companion_side_panel_untrusted_ui.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_ui.h"
+#include "chrome/browser/ui/webui/side_panel/customize_chrome/wallpaper_search/wallpaper_search.mojom.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/performance_controls/performance_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/read_anything/read_anything_untrusted_ui.h"
@@ -204,6 +209,7 @@
 #include "chrome/browser/ui/webui/whats_new/whats_new_ui.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/commerce/core/mojom/shopping_list.mojom.h"  // nogncheck crbug.com/1125897
+#include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/page_image_service/mojom/page_image_service.mojom.h"
 #include "components/search/ntp_features.h"
 #include "ui/webui/resources/cr_components/color_change_listener/color_change_listener.mojom.h"
@@ -247,6 +253,7 @@
 #include "ash/webui/color_internals/color_internals_ui.h"
 #include "ash/webui/color_internals/mojom/color_internals.mojom.h"
 #include "ash/webui/common/mojom/accessibility_features.mojom.h"
+#include "ash/webui/common/mojom/shortcut_input_provider.mojom.h"
 #include "ash/webui/connectivity_diagnostics/connectivity_diagnostics_ui.h"
 #include "ash/webui/demo_mode_app_ui/demo_mode_app_untrusted_ui.h"
 #include "ash/webui/diagnostics_ui/diagnostics_ui.h"
@@ -336,20 +343,24 @@
 #include "chrome/browser/ui/webui/ash/sensor_info/sensor.mojom.h"
 #include "chrome/browser/ui/webui/ash/sensor_info/sensor_info_ui.h"
 #include "chrome/browser/ui/webui/ash/set_time_ui.h"
+#include "chrome/browser/ui/webui/ash/settings/os_settings_ui.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/apps/mojom/app_notification_handler.mojom.h"
+#include "chrome/browser/ui/webui/ash/settings/pages/device/display_settings/display_settings_provider.mojom.h"
+#include "chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings/input_device_settings_provider.mojom.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/files/mojom/google_drive_handler.mojom.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/files/mojom/one_drive_handler.mojom.h"
+#include "chrome/browser/ui/webui/ash/settings/pages/privacy/mojom/app_permission_handler.mojom.h"
 #include "chrome/browser/ui/webui/ash/settings/search/mojom/search.mojom.h"
 #include "chrome/browser/ui/webui/ash/settings/search/mojom/user_action_recorder.mojom.h"
 #include "chrome/browser/ui/webui/ash/smb_shares/smb_credentials_dialog.h"
 #include "chrome/browser/ui/webui/ash/smb_shares/smb_share_dialog.h"
 #include "chrome/browser/ui/webui/ash/vm/vm.mojom.h"
 #include "chrome/browser/ui/webui/ash/vm/vm_ui.h"
+#include "chrome/browser/ui/webui/ash/web_app_install/web_app_install.mojom.h"
+#include "chrome/browser/ui/webui/ash/web_app_install/web_app_install_ui.h"
 #include "chrome/browser/ui/webui/feedback/feedback_ui.h"
 #include "chrome/browser/ui/webui/nearby_share/nearby_share.mojom.h"
 #include "chrome/browser/ui/webui/nearby_share/nearby_share_dialog_ui.h"
-#include "chrome/browser/ui/webui/settings/ash/input_device_settings/input_device_settings_provider.mojom.h"
-#include "chrome/browser/ui/webui/settings/ash/os_settings_ui.h"
 #include "chromeos/ash/components/audio/public/mojom/cros_audio_config.mojom.h"
 #include "chromeos/ash/components/local_search_service/public/mojom/index.mojom.h"
 #include "chromeos/ash/services/auth_factor_config/public/mojom/auth_factor_config.mojom.h"
@@ -440,6 +451,12 @@
 #include "chrome/browser/ui/webui/ash/chromebox_for_meetings/network_settings_dialog.h"
 #endif
 
+#if BUILDFLAG(ENABLE_COMPOSE)
+#include "chrome/browser/ui/webui/compose/compose_ui.h"
+#include "chrome/common/compose/compose.mojom.h"
+#include "components/compose/core/browser/compose_features.h"  // nogncheck crbug.com/1125897
+#endif
+
 #if BUILDFLAG(IS_CHROMEOS_ASH)
 void ash::SystemExtensionsInternalsUI::BindInterface(
     mojo::PendingReceiver<ash::mojom::system_extensions_internals::PageHandler>
@@ -452,6 +469,11 @@ void ash::SystemExtensionsInternalsUI::BindInterface(
 #if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
 #include "chrome/browser/ui/webui/search_engine_choice/search_engine_choice.mojom.h"
 #include "chrome/browser/ui/webui/search_engine_choice/search_engine_choice_ui.h"
+#endif
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/webui/dlp_internals/dlp_internals.mojom.h"
+#include "chrome/browser/ui/webui/dlp_internals/dlp_internals_ui.h"
 #endif
 
 namespace chrome {
@@ -852,8 +874,7 @@ void BindVisualSuggestionsModelProvider(
                         frame_host->GetProcess()->GetBrowserContext()))
           ->BindModelReceiver(std::move(receiver));
 }
-#endif // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) ||
-//  BUILDFLAG(IS_WIN)
+#endif
 
 void PopulateChromeFrameBinders(
     mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
@@ -1084,6 +1105,11 @@ void PopulateChromeWebUIFrameBinders(
       enterprise_connectors::ConnectorsInternalsUI>(map);
 #endif
 
+#if BUILDFLAG(IS_CHROMEOS)
+  RegisterWebUIControllerInterfaceBinder<dlp_internals::mojom::PageHandler,
+                                         policy::DlpInternalsUI>(map);
+#endif
+
 #if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
   if (search_engines::IsChoiceScreenFlagEnabled(
           search_engines::ChoicePromo::kAny)) {
@@ -1124,9 +1150,13 @@ void PopulateChromeWebUIFrameBinders(
       ash::multidevice_setup::MultiDeviceSetupDialogUI, ash::ParentAccessUI,
       ash::EmojiUI,
 #endif
+#if BUILDFLAG(ENABLE_COMPOSE)
+      ComposeUI,
+#endif
       NewTabPageUI, OmniboxPopupUI, BookmarksSidePanelUI, CustomizeChromeUI,
       InternalsUI, ReadingListUI, TabSearchUI, WebuiGalleryUI,
-      HistoryClustersSidePanelUI>(map);
+      HistoryClustersSidePanelUI, PerformanceSidePanelUI,
+      ShoppingInsightsSidePanelUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
       new_tab_page::mojom::PageHandlerFactory, NewTabPageUI>(map);
@@ -1151,17 +1181,9 @@ void PopulateChromeWebUIFrameBinders(
     }
   }
 
-  if ((history_clusters_service &&
-       history_clusters_service->is_journeys_feature_flag_enabled() &&
-       history_clusters_service->IsJourneysImagesEnabled()) ||
-      base::FeatureList::IsEnabled(ntp_features::kNtpHistoryClustersModule) ||
-      base::FeatureList::IsEnabled(
-          ntp_features::kNtpHistoryClustersModuleLoad) ||
-      base::FeatureList::IsEnabled(features::kPowerBookmarksSidePanel)) {
-    RegisterWebUIControllerInterfaceBinder<
-        page_image_service::mojom::PageImageServiceHandler, HistoryUI,
-        HistoryClustersSidePanelUI, NewTabPageUI, BookmarksSidePanelUI>(map);
-  }
+  RegisterWebUIControllerInterfaceBinder<
+      page_image_service::mojom::PageImageServiceHandler, HistoryUI,
+      HistoryClustersSidePanelUI, NewTabPageUI, BookmarksSidePanelUI>(map);
 #endif
 
   RegisterWebUIControllerInterfaceBinder<
@@ -1268,6 +1290,15 @@ void PopulateChromeWebUIFrameBinders(
     RegisterWebUIControllerInterfaceBinder<
         side_panel::mojom::CustomizeChromePageHandlerFactory,
         CustomizeChromeUI>(map);
+
+    if (base::FeatureList::IsEnabled(
+            ntp_features::kCustomizeChromeWallpaperSearch) &&
+        base::FeatureList::IsEnabled(
+            optimization_guide::features::kOptimizationGuideModelExecution)) {
+      RegisterWebUIControllerInterfaceBinder<
+          side_panel::customize_chrome::mojom::WallpaperSearchHandler,
+          CustomizeChromeUI>(map);
+    }
   }
 
   if (user_notes::IsUserNotesEnabled()) {
@@ -1341,8 +1372,20 @@ void PopulateChromeWebUIFrameBinders(
       ash::settings::OSSettingsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
+      ash::settings::app_permission::mojom::AppPermissionsHandler,
+      ash::settings::OSSettingsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
       ash::settings::mojom::InputDeviceSettingsProvider,
       ash::settings::OSSettingsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      ash::settings::mojom::DisplaySettingsProvider,
+      ash::settings::OSSettingsUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
+      ash::common::mojom::ShortcutInputProvider, ash::settings::OSSettingsUI>(
+      map);
 
   RegisterWebUIControllerInterfaceBinder<
       ash::cellular_setup::mojom::CellularSetup, ash::settings::OSSettingsUI>(
@@ -1602,6 +1645,13 @@ void PopulateChromeWebUIFrameBinders(
         ash::settings::google_drive::mojom::PageHandlerFactory,
         ash::settings::OSSettingsUI>(map);
   }
+
+  if (base::FeatureList::IsEnabled(
+          chromeos::features::kCrosWebAppInstallDialog)) {
+    RegisterWebUIControllerInterfaceBinder<
+        ash::web_app_install::mojom::PageHandlerFactory,
+        ash::web_app_install::WebAppInstallDialogUI>(map);
+  }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
 #if 0
@@ -1668,6 +1718,21 @@ void PopulateChromeWebUIFrameBinders(
 
   RegisterWebUIControllerInterfaceBinder<::mojom::LocationInternalsHandler,
                                          LocationInternalsUI>(map);
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (base::FeatureList::IsEnabled(
+          on_device_model::features::kOnDeviceModelService)) {
+    RegisterWebUIControllerInterfaceBinder<::mojom::OnDeviceInternalsPage,
+                                           OnDeviceInternalsUI>(map);
+  }
+#endif
+
+#if BUILDFLAG(ENABLE_COMPOSE)
+  if (base::FeatureList::IsEnabled(compose::features::kEnableCompose)) {
+    RegisterWebUIControllerInterfaceBinder<
+        compose::mojom::ComposeDialogPageHandlerFactory, ComposeUI>(map);
+  }
+#endif  // BUILDFLAG(ENABLE_COMPOSE)
 }
 
 void PopulateChromeWebUIFrameInterfaceBrokers(
@@ -1759,6 +1824,9 @@ void PopulateChromeWebUIFrameInterfaceBrokers(
       features::IsReadAnythingWebUIToolbarEnabled()) {
     registry.ForWebUI<ReadAnythingUntrustedUI>()
         .Add<color_change_listener::mojom::PageHandler>();
+  }
+  if (base::FeatureList::IsEnabled(features::kHaTSWebUI)) {
+    registry.ForWebUI<HatsUI>().Add<hats::mojom::PageHandlerFactory>();
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
 }

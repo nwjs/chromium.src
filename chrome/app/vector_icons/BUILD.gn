@@ -152,6 +152,8 @@ aggregate_vector_icons("chrome_vector_icons") {
     "open_in_new.icon",
     "open_in_new_chrome_refresh.icon",
     "open_in_new_off_chrome_refresh.icon",
+    "overflow_button.icon",
+    "overflow_button_touch.icon",
     "overflow_chevron.icon",
     "paintbrush.icon",
     "palette.icon",
@@ -294,9 +296,6 @@ aggregate_vector_icons("chrome_vector_icons") {
     sources += [
       "back_arrow_windows.icon",
       "back_arrow_windows_touch.icon",
-      "inactive_toast_arrow.icon",
-      "inactive_toast_close.icon",
-      "inactive_toast_logo.icon",
       "navigate_stop_windows.icon",
       "navigate_stop_windows_touch.icon",
       "open_in_phone.icon",

@@ -82,7 +82,6 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/wrapper_shared_url_loader_factory.h"
-#include "services/network/public/mojom/attribution.mojom.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "storage/common/database/database_identifier.h"
@@ -112,11 +111,13 @@
 #include "ui/base/ui_base_switches.h"
 #include "ui/gl/buildflags.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "content/child/child_process_sandbox_support_impl_mac.h"
 #elif BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 #include "content/child/child_process_sandbox_support_impl_linux.h"
+#include "content/child/sandboxed_process_thread_type_handler.h"
 #endif
 
 #if BUILDFLAG(IS_POSIX)
@@ -263,9 +264,12 @@ std::string RendererBlinkPlatformImpl::GetNameForHistogram(const char* name) {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 void RendererBlinkPlatformImpl::SetThreadType(base::PlatformThreadId thread_id,
                                               base::ThreadType thread_type) {
-  if (RenderThreadImpl* render_thread = RenderThreadImpl::current()) {
-    render_thread->render_message_filter()->SetThreadType(thread_id,
-                                                          thread_type);
+  // TODO: both of the usages of this method could just be switched to use
+  // base::PlatformThread::SetCurrentThreadType().
+  if (SandboxedProcessThreadTypeHandler* sandboxed_process_thread_type_handler =
+          SandboxedProcessThreadTypeHandler::Get()) {
+    sandboxed_process_thread_type_handler->HandleThreadTypeChange(thread_id,
+                                                                  thread_type);
   }
 }
 #endif
@@ -849,8 +853,11 @@ bool RendererBlinkPlatformImpl::AllowScriptExtensionForServiceWorker(
 }
 
 blink::ProtocolHandlerSecurityLevel
-RendererBlinkPlatformImpl::GetProtocolHandlerSecurityLevel() {
-  return GetContentClient()->renderer()->GetProtocolHandlerSecurityLevel();
+RendererBlinkPlatformImpl::GetProtocolHandlerSecurityLevel(
+    const blink::WebSecurityOrigin& origin) {
+  url::Origin url_origin(origin);
+  return GetContentClient()->renderer()->GetProtocolHandlerSecurityLevel(
+      url_origin);
 }
 
 bool RendererBlinkPlatformImpl::OriginCanAccessServiceWorkers(
@@ -1013,15 +1020,6 @@ base::PlatformThreadId RendererBlinkPlatformImpl::GetIOThreadId() const {
   return io_thread_id_;
 }
 
-network::mojom::AttributionSupport
-RendererBlinkPlatformImpl::GetAttributionReportingSupport() {
-  auto* render_thread = RenderThreadImpl::current();
-  // RenderThreadImpl is null in some tests.
-  if (!render_thread)
-    return network::mojom::AttributionSupport::kWeb;
-  return render_thread->GetAttributionReportingSupport();
-}
-
 scoped_refptr<base::SingleThreadTaskRunner>
 RendererBlinkPlatformImpl::VideoFrameCompositorTaskRunner() {
   auto compositor_task_runner = CompositorThreadTaskRunner();
@@ -1051,12 +1049,18 @@ void RendererBlinkPlatformImpl::SetPrivateMemoryFootprint(
 }
 
 bool RendererBlinkPlatformImpl::IsUserLevelMemoryPressureSignalEnabled() {
-  return features::IsUserLevelMemoryPressureSignalEnabledOn4GbDevices() ||
+  return features::IsUserLevelMemoryPressureSignalEnabledOn3GbDevices() ||
+         features::IsUserLevelMemoryPressureSignalEnabledOn4GbDevices() ||
          features::IsUserLevelMemoryPressureSignalEnabledOn6GbDevices();
 }
 
 std::pair<base::TimeDelta, base::TimeDelta> RendererBlinkPlatformImpl::
     InertAndMinimumIntervalOfUserLevelMemoryPressureSignal() {
+  if (features::IsUserLevelMemoryPressureSignalEnabledOn3GbDevices()) {
+    return std::make_pair(
+        features::InertIntervalFor3GbDevices(),
+        features::MinUserMemoryPressureIntervalOn3GbDevices());
+  }
   if (features::IsUserLevelMemoryPressureSignalEnabledOn4GbDevices()) {
     return std::make_pair(
         features::InertIntervalFor4GbDevices(),

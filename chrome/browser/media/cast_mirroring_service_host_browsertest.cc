@@ -107,9 +107,7 @@ class MockVideoCaptureObserver final
     OnBufferCreatedCall(buffer_id);
   }
 
-  void OnBufferReady(
-      media::mojom::ReadyBufferPtr buffer,
-      std::vector<media::mojom::ReadyBufferPtr> scaled_buffer) override {
+  void OnBufferReady(media::mojom::ReadyBufferPtr buffer) override {
     EXPECT_TRUE(buffers_.find(buffer->buffer_id) != buffers_.end());
     EXPECT_EQ(frame_infos_.find(buffer->buffer_id), frame_infos_.end());
     frame_infos_[buffer->buffer_id] = std::move(buffer->info);
@@ -126,7 +124,8 @@ class MockVideoCaptureObserver final
     OnBufferDestroyedCall(buffer_id);
   }
 
-  void OnNewCropVersion(uint32_t crop_version) override {}
+  void OnNewSubCaptureTargetVersion(
+      uint32_t sub_capture_target_version) override {}
 
   void OnStateChanged(media::mojom::VideoCaptureResultPtr result) override {
     if (result->which() == media::mojom::VideoCaptureResult::Tag::kState)

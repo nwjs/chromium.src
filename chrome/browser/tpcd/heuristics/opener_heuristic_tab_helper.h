@@ -8,6 +8,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
 #include "chrome/browser/dips/dips_utils.h"
+#include "components/content_settings/core/browser/cookie_settings.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -50,12 +51,15 @@ class OpenerHeuristicTabHelper
 
    private:
     // Emit the OpenerHeuristic.PopupPastInteraction UKM event if we have all
-    // the necessary information.
+    // the necessary information, and create a storage access grant if
+    // supported.
     void EmitPastInteractionIfReady();
     // Emit the OpenerHeuristic.TopLevel UKM event.
     void EmitTopLevel(const GURL& tracker_url,
                       OptionalBool has_iframe,
                       bool is_current_interaction);
+    // Create a storage access grant, if eligible per experiment flags.
+    void MaybeCreateOpenerHeuristicGrant(base::TimeDelta grant_duration);
     // See if the opener page has an iframe from the same site.
     OptionalBool GetOpenerHasSameSiteIframe(const GURL& popup_url);
 
@@ -84,6 +88,13 @@ class OpenerHeuristicTabHelper
     size_t url_index_ = 0;
     bool interaction_reported_ = false;
     bool toplevel_reported_ = false;
+
+    // Whether the last committed navigation in this popup WCO is ad-tagged.
+    // Used for UKM metrics and for gating storage access grant creation (under
+    // a flag).
+    bool is_last_navigation_ad_tagged_ = false;
+
+    scoped_refptr<content_settings::CookieSettings> cookie_settings_;
   };
 
   ~OpenerHeuristicTabHelper() override;
@@ -113,6 +124,10 @@ class OpenerHeuristicTabHelper
   void EmitPostPopupCookieAccess(const ukm::SourceId& source_id,
                                  const content::CookieAccessDetails& details,
                                  absl::optional<PopupsStateValue> value);
+  // Check whether `source_render_frame_host` is a valid popup initiator frame,
+  // per the experiment flags.
+  bool PassesIframeInitiatorCheck(
+      content::RenderFrameHost* source_render_frame_host);
 
   // WebContentsObserver overrides:
   void PrimaryPageChanged(content::Page& page) override;

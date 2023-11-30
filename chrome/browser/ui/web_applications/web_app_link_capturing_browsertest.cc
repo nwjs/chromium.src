@@ -15,6 +15,7 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/intent_helper/preferred_apps_test_util.h"
+#include "chrome/browser/apps/link_capturing/link_capturing_features.h"
 #include "chrome/browser/apps/link_capturing/link_capturing_navigation_throttle.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -65,7 +66,7 @@ class WebAppLinkCapturingBrowserTest : public WebAppNavigationBrowserTest {
     std::vector<base::test::FeatureRef> features = {
         blink::features::kWebAppEnableLaunchHandler};
 #if !BUILDFLAG(IS_CHROMEOS)
-    features.push_back(features::kDesktopPWAsLinkCapturing);
+    features.push_back(apps::features::kDesktopPWAsLinkCapturing);
 #endif
     feature_list_.InitWithFeatures(
         /*enabled_features=*/
@@ -199,10 +200,10 @@ class WebAppLinkCapturingBrowserTest : public WebAppNavigationBrowserTest {
 #if BUILDFLAG(IS_CHROMEOS)
     apps_util::SetSupportedLinksPreferenceAndWait(profile(), app_id);
 #else
-    ScopedRegistryUpdate update = provider().sync_bridge_unsafe().BeginUpdate();
-    WebApp* app = update->UpdateApp(app_id);
-    CHECK(app);
-    app->SetIsUserSelectedAppForSupportedLinks(true);
+    base::test::TestFuture<void> preference_set;
+    provider().scheduler().SetAppCapturesSupportedLinksDisableOverlapping(
+        app_id, true, preference_set.GetCallback());
+    ASSERT_TRUE(preference_set.Wait());
 #endif  // BUILDFLAG(IS_CHROMEOS)
   }
 
@@ -275,8 +276,16 @@ IN_PROC_BROWSER_TEST_F(WebAppLinkCapturingBrowserTest,
 
 // JavaScript initiated link captures from about:blank cleans up the about:blank
 // page.
+// TODO(https://crbug.com/1497363): Flaky on Linux.
+#if BUILDFLAG(IS_LINUX)
+#define MAYBE_JavascriptAboutBlankNavigationCleanUp \
+  DISABLED_JavascriptAboutBlankNavigationCleanUp
+#else
+#define MAYBE_JavascriptAboutBlankNavigationCleanUp \
+  JavascriptAboutBlankNavigationCleanUp
+#endif
 IN_PROC_BROWSER_TEST_F(WebAppLinkCapturingBrowserTest,
-                       JavascriptAboutBlankNavigationCleanUp) {
+                       MAYBE_JavascriptAboutBlankNavigationCleanUp) {
   const auto [app_id, in_scope_1, _, scope] =
       InstallTestApp("/web_apps/basic.html");
   TurnOnLinkCapturing(app_id);
@@ -474,9 +483,8 @@ IN_PROC_BROWSER_TEST_F(WebAppLinkCapturingBrowserTest,
   // Links clicked within an app popup browser will also capture.
   {
     const gfx::Size size(500, 500);
-    Browser* const popup_browser =
-        OpenPopupAndWait(chrome::FindBrowserWithWebContents(parent_app),
-                         GetParentAppUrl(), size);
+    Browser* const popup_browser = OpenPopupAndWait(
+        chrome::FindBrowserWithTab(parent_app), GetParentAppUrl(), size);
 
     BrowserChangeObserver added_observer(
         nullptr, BrowserChangeObserver::ChangeType::kAdded);
@@ -497,7 +505,7 @@ class WebAppTabStripLinkCapturingBrowserTest
         blink::features::kDesktopPWAsTabStrip,
         features::kDesktopPWAsTabStripSettings};
 #if !BUILDFLAG(IS_CHROMEOS)
-    features.push_back(features::kDesktopPWAsLinkCapturing);
+    features.push_back(apps::features::kDesktopPWAsLinkCapturing);
 #endif
     features_.InitWithFeatures(
         /*enabled_features=*/features,

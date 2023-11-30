@@ -22,6 +22,7 @@
 #include "base/command_line.h"
 #include "base/dcheck_is_on.h"
 #include "base/debug/alias.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/debug/handle_hooks_win.h"
 #include "base/file_version_info.h"
 #include "base/files/file_path.h"
@@ -80,7 +81,6 @@
 #include "chrome/installer/setup/setup_singleton.h"
 #include "chrome/installer/setup/setup_util.h"
 #include "chrome/installer/setup/uninstall.h"
-#include "chrome/installer/setup/user_experiment.h"
 #include "chrome/installer/util/app_command.h"
 #include "chrome/installer/util/conditional_work_item_list.h"
 #include "chrome/installer/util/delete_after_reboot_helper.h"
@@ -274,7 +274,21 @@ LONG OverwriteDisplayVersionsAfterMsiexec(base::win::ScopedHandle startup_event,
 
     // Notify the parent process that this one is ready to go.
     if (startup_event.IsValid()) {
-      ::SetEvent(startup_event.Get());
+      if (!::SetEvent(startup_event.Get())) {
+        // Failure to signal the event likely means that the handle is invalid.
+        // Clear the ScopedHandle to prevent a crash upon close and proceed with
+        // the operation. The parent process will wait for 30s in this case (see
+        // DelayedOverwriteDisplayVersions) and will then continue on its merry
+        // way.
+        if (auto error = ::GetLastError(); error != ERROR_INVALID_HANDLE) {
+          // It is highly unexpected that this would fail for any other reason.
+          // Send diagnostics for analysis just in case.
+          // TODO(grt): Check for data and remove this in March 2024.
+          base::debug::Alias(&error);
+          base::debug::DumpWithoutCrashing();
+        }
+        (void)startup_event.release();
+      }
       startup_event.Close();
     }
 
@@ -792,8 +806,7 @@ installer::InstallStatus InstallProducts(InstallationState& original_state,
                                          const base::FilePath& setup_exe,
                                          const base::CommandLine& cmd_line,
                                          const InitialPreferences& prefs,
-                                         InstallerState* installer_state,
-                                         base::FilePath* installer_directory) {
+                                         InstallerState* installer_state) {
   DCHECK(installer_state);
   installer::InstallStatus install_status = installer::UNKNOWN_STATUS;
   installer::ArchiveType archive_type = installer::UNKNOWN_ARCHIVE_TYPE;
@@ -811,9 +824,9 @@ installer::InstallStatus InstallProducts(InstallationState& original_state,
   if (CheckPreInstallConditions(original_state, *installer_state,
                                 &install_status)) {
     VLOG(1) << "Installing to " << installer_state->target_path().value();
-    install_status = InstallProductsHelper(original_state, setup_exe, cmd_line,
-                                           prefs, *installer_state,
-                                           installer_directory, &archive_type);
+    install_status =
+        InstallProductsHelper(original_state, setup_exe, cmd_line, prefs,
+                              *installer_state, &archive_type);
   } else {
     // CheckPreInstallConditions must set the status on failure.
     DCHECK_NE(install_status, installer::UNKNOWN_STATUS);
@@ -1146,11 +1159,6 @@ bool HandleNonInstallCmdLineOptions(installer::ModifyParams& modify_params,
                   << setup_exe.value();
     }
     *exit_code = InstallUtil::GetInstallReturnCode(status);
-  } else if (cmd_line.HasSwitch(installer::switches::kUserExperiment)) {
-    installer::RunUserExperiment(cmd_line,
-                                 InitialPreferences::ForCurrentProcess(),
-                                 original_state, installer_state);
-    exit_code = 0;
   } else if (cmd_line.HasSwitch(installer::switches::kPatch)) {
     const std::string patch_type_str(
         cmd_line.GetSwitchValueASCII(installer::switches::kPatch));
@@ -1275,7 +1283,6 @@ InstallStatus InstallProductsHelper(InstallationState& original_state,
                                     const base::CommandLine& cmd_line,
                                     const InitialPreferences& prefs,
                                     InstallerState& installer_state,
-                                    base::FilePath* installer_directory,
                                     ArchiveType* archive_type) {
   DCHECK(archive_type);
   const bool system_install = installer_state.system_install();
@@ -1483,12 +1490,6 @@ InstallStatus InstallProductsHelper(InstallationState& original_state,
             app_guid, base::UTF8ToWide(installer_version->GetString()));
       }
     }
-    // Return the path to the directory containing the newly installed
-    // setup.exe and uncompressed archive if the caller requested it.
-    if (installer_directory) {
-      *installer_directory =
-          installer_state.GetInstallerDirectory(*installer_version);
-    }
   }
 
   // temp_path's dtor will take care of deleting or scheduling itself for
@@ -1624,12 +1625,6 @@ int SetupMain() {
        cmd_line.HasSwitch(installer::switches::kRegisterChromeBrowser))) {
     return installer::SXS_OPTION_NOT_SUPPORTED;
   }
-  // Some switches only apply for modes that support retention experiments.
-  if (!install_static::SupportsRetentionExperiments() &&
-      cmd_line.HasSwitch(installer::switches::kUserExperiment)) {
-    return installer::SXS_OPTION_NOT_SUPPORTED;
-  }
-
   // Some command line options are no longer supported and must error out.
   if (installer::ContainsUnsupportedSwitch(cmd_line))
     return installer::UNSUPPORTED_OPTION;
@@ -1695,7 +1690,6 @@ int SetupMain() {
     return installer::SETUP_SINGLETON_ACQUISITION_FAILED;
   }
 
-  base::FilePath installer_directory;
   installer::InstallStatus install_status = installer::UNKNOWN_STATUS;
   // If --uninstall option is given, uninstall the identified product(s)
   if (is_uninstall) {
@@ -1704,18 +1698,8 @@ int SetupMain() {
   } else {
     // If --uninstall option is not specified, we assume it is install case.
     install_status = InstallProducts(original_state, setup_exe, cmd_line, prefs,
-                                     &installer_state, &installer_directory);
+                                     &installer_state);
     DoLegacyCleanups(installer_state, install_status);
-
-    // It may be time to kick off an experiment if this was a successful update
-    // and Chrome was not in use (since the experiment only applies to inactive
-    // installs).
-    if (install_status == installer::NEW_VERSION_UPDATED &&
-        installer::ShouldRunUserExperiment(installer_state)) {
-      installer::BeginUserExperiment(
-          installer_state, installer_directory.Append(setup_exe.BaseName()),
-          !system_install);
-    }
   }
 
   UMA_HISTOGRAM_ENUMERATION("Setup.Install.Result", install_status,

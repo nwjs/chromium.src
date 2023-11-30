@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/ash/login/online_login_utils.h"
 
+#include "ash/constants/ash_features.h"
 #include "base/types/expected.h"
 #include "chrome/browser/ash/login/signin_partition_manager.h"
 #include "chrome/browser/ash/login/ui/login_display_host_webui.h"
@@ -14,6 +15,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/installer/util/google_update_settings.h"
 #include "chromeos/ash/components/login/auth/challenge_response/cert_utils.h"
+#include "chromeos/ash/components/login/auth/public/auth_types.h"
 #include "chromeos/ash/components/login/auth/public/cryptohome_key_constants.h"
 #include "chromeos/version/version_loader.h"
 #include "components/user_manager/known_user.h"
@@ -178,6 +180,14 @@ void BuildUserContextForGaiaSignIn(
     Key key(password);
     key.SetLabel(kCryptohomeGaiaKeyLabel);
     user_context->SetKey(key);
+    if (using_saml) {
+      user_context->SetSamlPassword(SamlPassword{password});
+    } else {
+      if (!features::AreLocalPasswordsEnabledForConsumers() ||
+          !password.empty()) {
+        user_context->SetGaiaPassword(GaiaPassword{password});
+      }
+    }
     user_context->SetPasswordKey(Key(password));
   }
   user_context->SetAuthFlow(using_saml

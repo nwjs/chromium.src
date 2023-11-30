@@ -4,8 +4,6 @@
 
 #include "services/on_device_model/on_device_model_service.h"
 
-#include "services/on_device_model/on_device_model.h"
-
 namespace on_device_model {
 
 OnDeviceModelService::OnDeviceModelService(
@@ -14,12 +12,24 @@ OnDeviceModelService::OnDeviceModelService(
 
 OnDeviceModelService::~OnDeviceModelService() = default;
 
-void OnDeviceModelService::LoadModel(mojom::LoadModelParamsPtr params,
+void OnDeviceModelService::LoadModel(ModelAssets assets,
                                      LoadModelCallback callback) {
+  auto model = CreateModel(std::move(assets));
+  if (!model) {
+    std::move(callback).Run(
+        mojom::LoadModelResult::NewError("Failed to create model."));
+    return;
+  }
+
   mojo::PendingRemote<mojom::OnDeviceModel> remote;
-  model_receivers_.Add(std::make_unique<OnDeviceModel>(std::move(params)),
+  model_receivers_.Add(std::move(model),
                        remote.InitWithNewPipeAndPassReceiver());
   std::move(callback).Run(mojom::LoadModelResult::NewModel(std::move(remote)));
+}
+
+void OnDeviceModelService::GetEstimatedPerformanceClass(
+    GetEstimatedPerformanceClassCallback callback) {
+  std::move(callback).Run(GetEstimatedPerformanceClass());
 }
 
 }  // namespace on_device_model

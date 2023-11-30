@@ -165,10 +165,15 @@ BASE_FEATURE(kCdmStorageDatabase,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // This guards between using the MediaLicense* code path and the CdmStorage*
-// code path for storing Cdm data. This will be disabled by default.
+// code path for storing Cdm data. This will be enabled by default as we do not
+// want the CdmStorageDatabase to be used solely, and instead when we conduct
+// our experiments, we will enable kCdmStorageDatabase to flow the migration.
+// Later when the migration is finished, we will remove this flag so that
+// kCdmStorageDatabase serves as the only flag. Refer to
+// go/cdm-storage-migration-details for more details.
 BASE_FEATURE(kCdmStorageDatabaseMigration,
              "CdmStorageDatabaseMigration",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Clear the window.name property for the top-level cross-site navigations that
 // swap BrowsingContextGroups(BrowsingInstances).
@@ -204,6 +209,9 @@ const base::FeatureParam<bool> kCookieDeprecationTestingDisableAdsAPIs{
 const char kCookieDeprecationLabelName[] = "label";
 
 const char kCookieDeprecationTestingDisableAdsAPIsName[] = "disable_ads_apis";
+
+// Adiitional FeatureParams for CookieDeprecationFacilitatedTesting are defined
+// in chrome/browser/tpcd/experiment/tpcd_experiment_features.cc.
 
 // Enables Blink cooperative scheduling.
 BASE_FEATURE(kCooperativeScheduling,
@@ -243,7 +251,7 @@ const base::FeatureParam<bool> kDIPSPersistedDatabaseEnabled{
     &kDIPS, "persist_database", true};
 
 // Set whether DIPS performs deletion.
-const base::FeatureParam<bool> kDIPSDeletionEnabled{&kDIPS, "delete", false};
+const base::FeatureParam<bool> kDIPSDeletionEnabled{&kDIPS, "delete", true};
 
 // Set the time period that Chrome will wait for before clearing storage for a
 // site after it performs some action (e.g. bouncing the user or using storage)
@@ -282,7 +290,7 @@ constexpr base::FeatureParam<content::DIPSTriggeringAction>::Option
 // Note: Maintain a matching nomenclature of the options with the feature flag
 // entries at about_flags.cc.
 const base::FeatureParam<content::DIPSTriggeringAction> kDIPSTriggeringAction{
-    &kDIPS, "triggering_action", content::DIPSTriggeringAction::kNone,
+    &kDIPS, "triggering_action", content::DIPSTriggeringAction::kStatefulBounce,
     &kDIPSTriggeringActionOptions};
 
 // Denotes the length of a time interval within which any client-side redirect
@@ -292,10 +300,21 @@ const base::FeatureParam<content::DIPSTriggeringAction> kDIPSTriggeringAction{
 const base::FeatureParam<base::TimeDelta> kDIPSClientBounceDetectionTimeout{
     &kDIPS, "client_bounce_detection_timeout", base::Seconds(10)};
 
+// Enables disconnecting the `ExtensionMessagePort` when the page using the port
+// enters BFCache.
+BASE_FEATURE(kDisconnectExtensionMessagePortWhenPageEntersBFCache,
+             "DisconnectExtensionMessagePortWhenPageEntersBFCache",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enable document policy for configuring and restricting feature behavior.
 BASE_FEATURE(kDocumentPolicy,
              "DocumentPolicy",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Enable drawing under System Bars within DisplayCutout.
+BASE_FEATURE(kDrawCutoutEdgeToEdge,
+             "DrawCutoutEdgeToEdge",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable early swapping of RenderFrameHosts during some back/forward
 // navigations. This is an experimental feature intended to support new kinds of
@@ -337,31 +356,33 @@ BASE_FEATURE(kEnableServiceWorkersForChromeScheme,
 // We enable it here by default to support use in origin trials.
 BASE_FEATURE(kFedCm, "FedCm", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Field trial boolean parameter which indicates whether FedCM IDP sign-out
-// is enabled.
-const char kFedCmIdpSignoutFieldTrialParamName[] = "IdpSignout";
-
-// Enables usage of the FedCM AccountAutoSelectedFlag feature. ChromeStatus
-// entry: https://chromestatus.com/feature/5384360374566912
-BASE_FEATURE(kFedCmAccountAutoSelectedFlag,
-             "FedCmAccountAutoSelectedFlag",
+// Enables usage of the FedCM AutoSelectedFlag feature.
+// ChromeStatus entry: https://chromestatus.com/feature/5384360374566912
+BASE_FEATURE(kFedCmAutoSelectedFlag,
+             "FedCmAutoSelectedFlag",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM Authz API.
 BASE_FEATURE(kFedCmAuthz, "FedCmAuthz", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM Error API.
-BASE_FEATURE(kFedCmError, "FedCmError", base::FEATURE_DISABLED_BY_DEFAULT);
+// ChromeStatus entry: https://chromestatus.com/feature/5384360374566912
+BASE_FEATURE(kFedCmError, "FedCmError", base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables usage of the FedCM HostedDomain feature. ChromeStatus entry:
+// Enables usage of the FedCM DomainHint feature. ChromeStatus entry:
 // https://chromestatus.com/feature/5202286040580096
-BASE_FEATURE(kFedCmHostedDomain,
-             "FedCmHostedDomain",
+BASE_FEATURE(kFedCmDomainHint,
+             "FedCmDomainHint",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM IdP Registration API.
 BASE_FEATURE(kFedCmIdPRegistration,
              "FedCmIdPregistration",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables usage of the FedCM logoutRPs method.
+BASE_FEATURE(kFedCmLogoutRps,
+             "FedCmLogoutRps",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables usage of the FedCM API with metrics endpoint at the same time.
@@ -375,6 +396,9 @@ BASE_FEATURE(kFedCmMultipleIdentityProviders,
              "FedCmMultipleIdentityProviders",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables the revoke method within the FedCM API.
+BASE_FEATURE(kFedCmRevoke, "FedCmRevoke", base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables usage of the FedCM API with the Selective Disclosure API at the same
 // time.
 BASE_FEATURE(kFedCmSelectiveDisclosure,
@@ -385,7 +409,7 @@ BASE_FEATURE(kFedCmSelectiveDisclosure,
 // network requests when not signed in and mismatch handling.
 BASE_FEATURE(kFedCmIdpSigninStatusEnabled,
              "FedCmIdpSigninStatusEnabled",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables bypassing the well-known file enforcement.
 BASE_FEATURE(kFedCmWithoutWellKnownEnforcement,
@@ -397,9 +421,9 @@ BASE_FEATURE(kFencedFramesEnforceFocus,
              "FencedFramesEnforceFocus",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables the MDocs API in the IdentityCredential.
-BASE_FEATURE(kWebIdentityMDocs,
-             "WebIdentityMDocs",
+// Enables the Digital Credential API.
+BASE_FEATURE(kWebIdentityDigitalCredentials,
+             "WebIdentityDigitalCredentials",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables usage of First Party Sets to determine cookie availability.
@@ -497,11 +521,16 @@ BASE_FEATURE(kLazyInitializeMediaControls,
              "LazyInitializeMediaControls",
              base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables reporting of Cookie Issues for Legacy Technology Report.
+BASE_FEATURE(kLegacyTechReportEnableCookieIssueReports,
+             "LegacyTechReportEnableCookieIssueReports",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Using top-level document URL when create an enterprise report for legacy
 // technologies usage
 BASE_FEATURE(kLegacyTechReportTopLevelUrl,
              "LegacyTechReportTopLevelUrl",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Configures whether Blink on Windows 8.0 and below should use out of process
 // API font fallback calls to retrieve a fallback font family name as opposed to
@@ -565,7 +594,12 @@ BASE_FEATURE(kMojoVideoCapture,
 // queue.
 BASE_FEATURE(kNavigationNetworkResponseQueue,
              "NavigationNetworkResponseQueue",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+#if BUILDFLAG(IS_CHROMEOS)
+             base::FEATURE_DISABLED_BY_DEFAULT
+#else
+             base::FEATURE_ENABLED_BY_DEFAULT
+#endif
+);
 
 // When enabled, RenderFrameHostManager::CommitPending will also update the
 // visibility of all child views, not just that of the main frame.
@@ -749,6 +783,11 @@ BASE_FEATURE(kReduceSubresourceResponseStartedIPC,
 BASE_FEATURE(kRenderDocument,
              "RenderDocument",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Reuse compositor instances with RenderDocument
+BASE_FEATURE(kRenderDocumentCompositorReuse,
+             "RenderDocumentCompositorReuse",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables retrying to obtain list of available cameras after restarting the
 // video capture service if a previous attempt failed, which could be caused
@@ -1148,9 +1187,10 @@ BASE_FEATURE(kWebAssemblyTrapHandler,
 BASE_FEATURE(kWebBluetooth, "WebBluetooth", base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Controls whether Web Bluetooth should use the new permissions backend. The
-// new permissions backend uses ChooserContextBase, which is used by other
-// device APIs, such as WebUSB. When enabled, WebBluetoothWatchAdvertisements
-// and WebBluetoothGetDevices blink features are also enabled.
+// new permissions backend uses ObjectPermissionContextBase, which is used by
+// other device APIs, such as WebUSB. When enabled,
+// WebBluetoothWatchAdvertisements and WebBluetoothGetDevices blink features are
+// also enabled.
 BASE_FEATURE(kWebBluetoothNewPermissionsBackend,
              "WebBluetoothNewPermissionsBackend",
              base::FEATURE_DISABLED_BY_DEFAULT);

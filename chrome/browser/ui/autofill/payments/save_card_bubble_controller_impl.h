@@ -57,10 +57,6 @@ class SaveCardBubbleControllerImpl
   // with respect to the offer-to-save prompt.
   // If |options.show_bubble| is true, pops up the offer-to-save bubble;
   // otherwise, only the omnibox icon is displayed.
-  // If |options.has_non_focusable_field| is true, the save is triggered by a
-  // form that has non_focusable fields.
-  // If |options.from_dynamic_change_form| is true, the save is triggered by a
-  // dynamic change form.
   // If |options.card_save_type| has value `CardSaveType::kCardSaveOnly`, the
   // offer-to-save card bubble is shown. If the value is
   // `CardSaveType::kCardSaveWithCvc`, the offer-to-save card bubble is shown,
@@ -83,10 +79,6 @@ class SaveCardBubbleControllerImpl
   // dropdowns for entering the expiration date will appear in the bubble.
   // If |options.show_prompt| is true, pops up the offer-to-save bubble;
   // Otherwise, only the omnibox icon is displayed.
-  // If |options.has_non_focusable_field| is true, the save is triggered by a
-  // form that has non-focusable fields.
-  // If |options.from_dynamic_change_form| is true, the save is triggered by a
-  // dynamic change form.
   // If |options.card_save_type| has value `CardSaveType::kCardSaveOnly`, the
   // offer-to-save card bubble is shown. If the value is
   // `CardSaveType::kCardSaveWithCvc`, the offer-to-save card bubble is shown,
@@ -134,7 +126,7 @@ class SaveCardBubbleControllerImpl
   std::u16string GetExplanatoryMessage() const override;
   std::u16string GetAcceptButtonText() const override;
   std::u16string GetDeclineButtonText() const override;
-  const AccountInfo& GetAccountInfo() override;
+  AccountInfo GetAccountInfo() override;
   Profile* GetProfile() const override;
   const CreditCard& GetCard() const override;
   bool ShouldRequestNameFromUser() const override;
@@ -178,8 +170,6 @@ class SaveCardBubbleControllerImpl
   friend class content::WebContentsUserData<SaveCardBubbleControllerImpl>;
   friend class SaveCardBubbleControllerImplTest;
   friend class SaveCardBubbleViewsFullFormBrowserTest;
-
-  void FetchAccountInfo();
 
   // Displays both the offer-to-save bubble and is associated omnibox icon.
   void ShowBubble();
@@ -244,9 +234,6 @@ class SaveCardBubbleControllerImpl
   // and the users are informed that the CVC will also be stored. If the type is
   // `CardSaveType::kCvcSaveOnly`, the offer-to-save CVC bubble is shown.
   AutofillClient::SaveCreditCardOptions options_;
-
-  // The account info of the signed-in user.
-  AccountInfo account_info_;
 
   // Contains the details of the card that will be saved if the user accepts.
   CreditCard card_;

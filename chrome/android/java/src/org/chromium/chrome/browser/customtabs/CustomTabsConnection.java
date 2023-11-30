@@ -29,6 +29,9 @@ import androidx.browser.customtabs.CustomTabsSessionToken;
 import androidx.browser.customtabs.EngagementSignalsCallback;
 import androidx.browser.customtabs.PostMessageServiceConnection;
 
+import org.jni_zero.CalledByNative;
+import org.jni_zero.JNINamespace;
+import org.jni_zero.NativeMethods;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -42,9 +45,6 @@ import org.chromium.base.StrictModeContext;
 import org.chromium.base.SysUtils;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.TraceEvent;
-import org.chromium.base.annotations.CalledByNative;
-import org.chromium.base.annotations.JNINamespace;
-import org.chromium.base.annotations.NativeMethods;
 import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.base.task.ChainedTasks;
@@ -124,8 +124,11 @@ public class CustomTabsConnection {
     @VisibleForTesting
     static final String ON_DETACHED_REQUEST_COMPLETED = "onDetachedRequestCompleted";
 
-    // For CustomTabs.SpeculationStatusOnStart, see tools/metrics/enums.xml. Append only.
+    // For SpeculationStatusOnStart status.
+    // TODO(crbug.com/1384816): remove if applicable.
+    @VisibleForTesting
     private static final int SPECULATION_STATUS_ON_START_ALLOWED = 0;
+
     // What kind of speculation was started, counted in addition to
     // SPECULATION_STATUS_ALLOWED.
     private static final int SPECULATION_STATUS_ON_START_PRERENDER = 2;
@@ -139,12 +142,15 @@ public class CustomTabsConnection {
     // Obsolete due to no longer running the experiment
     // "PredictivePrefetchingAllowedOnAllConnectionTypes".
     // private static final int SPECULATION_STATUS_ON_START_NOT_ALLOWED_NETWORK_METERED = 9;
-    private static final int SPECULATION_STATUS_ON_START_MAX = 10;
+
+    // Obsolete due to expired histogram.
+    //private static final int SPECULATION_STATUS_ON_START_MAX = 10;
 
     // For CustomTabs.SpeculationStatusOnSwap, see tools/metrics/enums.xml. Append only.
-    private static final int SPECULATION_STATUS_ON_SWAP_BACKGROUND_TAB_TAKEN = 0;
-    private static final int SPECULATION_STATUS_ON_SWAP_BACKGROUND_TAB_NOT_MATCHED = 1;
-    private static final int SPECULATION_STATUS_ON_SWAP_MAX = 4;
+    // Obsolete due to expired histogram.
+    // private static final int SPECULATION_STATUS_ON_SWAP_BACKGROUND_TAB_TAKEN = 0;
+    // private static final int SPECULATION_STATUS_ON_SWAP_BACKGROUND_TAB_NOT_MATCHED = 1;
+    // private static final int SPECULATION_STATUS_ON_SWAP_MAX = 4;
 
     // Constants for sending connection characteristics.
     public static final String DATA_REDUCTION_ENABLED = "dataReductionEnabled";
@@ -317,8 +323,8 @@ public class CustomTabsConnection {
         for (String key : bundle.keySet()) {
             Object o = bundle.get(key);
             try {
-                if (o instanceof Bundle) {
-                    json.put(key, bundleToJson((Bundle) o));
+                if (o instanceof Bundle b) {
+                    json.put(key, bundleToJson(b));
                 } else if (o instanceof Integer || o instanceof Long || o instanceof Boolean) {
                     json.put(key, o);
                 } else if (o == null) {
@@ -550,9 +556,8 @@ public class CustomTabsConnection {
         return true;
     }
 
-    @VisibleForTesting
-    public Tab getHiddenTab() {
-        return mHiddenTabHolder != null ? mHiddenTabHolder.getHiddenTab() : null;
+    public Tab getHiddenTabForTesting() {
+        return mHiddenTabHolder != null ? mHiddenTabHolder.getHiddenTabForTesting() : null;
     }
 
     private boolean preconnectUrls(List<Bundle> likelyBundles) {
@@ -1632,7 +1637,6 @@ public class CustomTabsConnection {
 
     boolean maySpeculate(CustomTabsSessionToken session) {
         int speculationResult = maySpeculateWithResult(session);
-        recordSpeculationStatusOnStart(speculationResult);
         return speculationResult == SPECULATION_STATUS_ON_START_ALLOWED;
     }
 
@@ -1656,7 +1660,6 @@ public class CustomTabsConnection {
         cancelSpeculation(null);
 
         if (useHiddenTab) {
-            recordSpeculationStatusOnStart(SPECULATION_STATUS_ON_START_BACKGROUND_TAB);
             launchUrlInHiddenTab(session, url, extras);
         } else {
             createSpareWebContents();
@@ -1703,24 +1706,6 @@ public class CustomTabsConnection {
 
     void setTrustedPublisherUrlPackageForTest(@Nullable String packageName) {
         mTrustedPublisherUrlPackage = packageName;
-    }
-
-    private static void recordSpeculationStatusOnStart(int status) {
-        RecordHistogram.recordEnumeratedHistogram(
-                "CustomTabs.SpeculationStatusOnStart", status, SPECULATION_STATUS_ON_START_MAX);
-    }
-
-    private static void recordSpeculationStatusOnSwap(int status) {
-        RecordHistogram.recordEnumeratedHistogram(
-                "CustomTabs.SpeculationStatusOnSwap", status, SPECULATION_STATUS_ON_SWAP_MAX);
-    }
-
-    static void recordSpeculationStatusSwapTabTaken() {
-        recordSpeculationStatusOnSwap(SPECULATION_STATUS_ON_SWAP_BACKGROUND_TAB_TAKEN);
-    }
-
-    static void recordSpeculationStatusSwapTabNotMatched() {
-        recordSpeculationStatusOnSwap(SPECULATION_STATUS_ON_SWAP_BACKGROUND_TAB_NOT_MATCHED);
     }
 
     public void setEngagementSignalsAvailableSupplier(
@@ -1781,10 +1766,11 @@ public class CustomTabsConnection {
                 || !isEngagementSignalsApiAvailableInternal(sessionToken)) {
             return false;
         }
-
-        mClientManager.setEngagementSignalsCallbackForSession(sessionToken, callback);
         var engagementSignalsHandler =
                 mClientManager.getEngagementSignalsHandlerForSession(sessionToken);
+        if (engagementSignalsHandler == null) return false;
+
+        mClientManager.setEngagementSignalsCallbackForSession(sessionToken, callback);
         PostTask.postTask(TaskTraits.UI_DEFAULT,
                 () -> engagementSignalsHandler.setEngagementSignalsCallback(callback));
         return true;

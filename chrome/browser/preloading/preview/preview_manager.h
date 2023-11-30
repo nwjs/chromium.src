@@ -23,12 +23,11 @@ class PreviewManager final
   ~PreviewManager() override;
 
   void InitiatePreview(const GURL& url);
+  base::WeakPtr<content::WebContents> GetWebContentsForPreviewTab();
 
  private:
   explicit PreviewManager(content::WebContents* web_contents);
   friend class content::WebContentsUserData<PreviewManager>;
-
-  void Show(PreviewTab* tab);
 
   std::unique_ptr<PreviewTab> tab_;
 

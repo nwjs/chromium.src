@@ -21,8 +21,7 @@ class InstallableEvaluator {
  public:
   InstallableEvaluator(content::WebContents* web_contents,
                        const InstallablePageData& data,
-                       InstallableCriteria criteria,
-                       bool check_display);
+                       InstallableCriteria criteria);
   ~InstallableEvaluator();
 
   // Maximum dimension size in pixels for icons.
@@ -45,7 +44,7 @@ class InstallableEvaluator {
   static bool IsOriginConsideredSecure(const GURL& url);
 
   // Check if the web content is an incognito window or insecure context.
-  std::vector<InstallableStatusCode> CheckEligiblity(
+  std::vector<InstallableStatusCode> CheckEligibility(
       content::WebContents*) const;
 
   // Check if the web site has provided all information required for install,
@@ -60,8 +59,6 @@ class InstallableEvaluator {
   base::WeakPtr<content::WebContents> web_contents_;
   const raw_ref<const InstallablePageData> page_data_;
   InstallableCriteria criteria_;
-  // TODO(eirage): merge check_display_ with the InstallableCriteria enum.
-  bool check_display_;
 };
 
 }  // namespace webapps

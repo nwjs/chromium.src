@@ -11,6 +11,7 @@
 #include "ash/ash_export.h"
 #include "ash/public/cpp/tablet_mode_observer.h"
 #include "ash/wm/overview/overview_observer.h"
+#include "ash/wm/wm_metrics.h"
 #include "base/containers/flat_map.h"
 #include "base/observer_list.h"
 
@@ -48,6 +49,12 @@ class ASH_EXPORT SnapGroupController : public OverviewObserver,
   // Convenience function to get the snap group controller instance, which is
   // created and owned by Shell.
   static SnapGroupController* Get();
+
+  // Called by `WindowState::OnWMEvent()` after a window snap event. This will
+  // decide whether to start `SplitViewOverviewSession` or snap `window` to
+  // complete the window layout.
+  void OnWindowSnapped(aura::Window* window,
+                       WindowSnapActionSource snap_action_source);
 
   // Returns true if `window1` and `window2` are in the same snap group.
   bool AreWindowsInSnapGroup(aura::Window* window1,

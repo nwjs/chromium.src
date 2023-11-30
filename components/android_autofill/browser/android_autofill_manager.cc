@@ -55,23 +55,6 @@ bool AndroidAutofillManager::ShouldClearPreviewedForm() {
   return false;
 }
 
-void AndroidAutofillManager::FillCreditCardFormImpl(
-    const FormData& form,
-    const FormFieldData& field,
-    const CreditCard& credit_card,
-    const std::u16string& cvc,
-    const AutofillTriggerDetails& trigger_details) {
-  NOTREACHED();
-}
-
-void AndroidAutofillManager::FillProfileFormImpl(
-    const FormData& form,
-    const FormFieldData& field,
-    const autofill::AutofillProfile& profile,
-    const AutofillTriggerDetails& trigger_details) {
-  NOTREACHED();
-}
-
 void AndroidAutofillManager::OnFormSubmittedImpl(
     const FormData& form,
     bool known_success,
@@ -252,13 +235,13 @@ FieldTypeGroup AndroidAutofillManager::ComputeFieldTypeGroupForField(
 }
 
 void AndroidAutofillManager::FillOrPreviewForm(
-    mojom::AutofillActionPersistence action_persistence,
+    mojom::ActionPersistence action_persistence,
     const FormData& form,
     FieldTypeGroup field_type_group,
     const url::Origin& triggered_origin) {
-  DCHECK_EQ(action_persistence, mojom::AutofillActionPersistence::kFill);
-  driver().ApplyAutofillAction(mojom::AutofillActionType::kFill,
-                               action_persistence, form, triggered_origin, {});
+  DCHECK_EQ(action_persistence, mojom::ActionPersistence::kFill);
+  driver().ApplyFormAction(mojom::ActionType::kFill, action_persistence, form,
+                           triggered_origin, {});
   // We do not call OnAutofillProfileOrCreditCardFormFilled() because WebView
   // doesn't have AutofillProfile or CreditCard.
   if (auto* logger = GetEventFormLogger(field_type_group)) {

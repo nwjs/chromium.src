@@ -18,11 +18,6 @@ class LayerTreeImpl;
 
 class CC_EXPORT PaintedScrollbarLayerImpl : public ScrollbarLayerImplBase {
  public:
-  // Note that this constant is a redefinition from
-  // SingleScrollbarAnimationControllerThinning. It was redefined to avoid
-  // plumbing/moving the constant.
-  static constexpr float kIdleThicknessScale = 0.4f;
-
   static std::unique_ptr<PaintedScrollbarLayerImpl> Create(
       LayerTreeImpl* tree_impl,
       int id,
@@ -47,6 +42,7 @@ class CC_EXPORT PaintedScrollbarLayerImpl : public ScrollbarLayerImplBase {
   gfx::Rect GetEnclosingVisibleRectInTargetSpace() const override;
   gfx::Rect ComputeThumbQuadRect() const override;
   gfx::Rect ComputeHitTestableThumbQuadRect() const override;
+  gfx::Rect ComputeHitTestableExpandedThumbQuadRect() const override;
 
   void SetJumpOnTrackClick(bool jump_on_track_click);
   void SetSupportsDragSnapBack(bool supports_drag_snap_back);
@@ -96,6 +92,11 @@ class CC_EXPORT PaintedScrollbarLayerImpl : public ScrollbarLayerImplBase {
 
  private:
   const char* LayerTypeAsString() const override;
+  // Expand the scrollbar thumb's hit testable rect to be able to capture the
+  // thumb across the entire width of the track rect.
+  gfx::Rect ExpandFluentScrollbarThumb(gfx::Rect thumb_rect) const;
+  // Position composited Fluent scrollbar thumb in the center of the track.
+  gfx::Rect CenterFluentScrollbarThumb(gfx::Rect thumb_rect) const;
 
   UIResourceId track_ui_resource_id_;
   UIResourceId thumb_ui_resource_id_;

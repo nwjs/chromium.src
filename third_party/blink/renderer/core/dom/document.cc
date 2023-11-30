@@ -127,7 +127,6 @@
 #include "third_party/blink/renderer/core/dom/beforeunload_event_listener.h"
 #include "third_party/blink/renderer/core/dom/cdata_section.h"
 #include "third_party/blink/renderer/core/dom/comment.h"
-#include "third_party/blink/renderer/core/dom/css_toggle_inference.h"
 #include "third_party/blink/renderer/core/dom/document_data.h"
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
@@ -261,7 +260,7 @@
 #include "third_party/blink/renderer/core/layout/hit_test_canvas_result.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
-#include "third_party/blink/renderer/core/layout/ng/layout_ng_view.h"
+#include "third_party/blink/renderer/core/layout/layout_view.h"
 #include "third_party/blink/renderer/core/layout/text_autosizer.h"
 #include "third_party/blink/renderer/core/loader/anchor_element_interaction_tracker.h"
 #include "third_party/blink/renderer/core/loader/cookie_jar.h"
@@ -271,6 +270,7 @@
 #include "third_party/blink/renderer/core/loader/http_refresh_scheduler.h"
 #include "third_party/blink/renderer/core/loader/idleness_detector.h"
 #include "third_party/blink/renderer/core/loader/interactive_detector.h"
+#include "third_party/blink/renderer/core/loader/lazy_image_helper.h"
 #include "third_party/blink/renderer/core/loader/no_state_prefetch_client.h"
 #include "third_party/blink/renderer/core/loader/pending_link_preload.h"
 #include "third_party/blink/renderer/core/loader/progress_tracker.h"
@@ -291,9 +291,7 @@
 #include "third_party/blink/renderer/core/page/plugin_script_forbidden_scope.h"
 #include "third_party/blink/renderer/core/page/pointer_lock_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/fragment_anchor.h"
-#include "third_party/blink/renderer/core/page/scrolling/overscroll_controller.h"
 #include "third_party/blink/renderer/core/page/scrolling/root_scroller_controller.h"
-#include "third_party/blink/renderer/core/page/scrolling/scroll_state_callback.h"
 #include "third_party/blink/renderer/core/page/scrolling/scrolling_coordinator.h"
 #include "third_party/blink/renderer/core/page/scrolling/snap_coordinator.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
@@ -380,6 +378,8 @@ static WeakDocumentSet& LiveDocumentSet();
 namespace blink {
 
 namespace {
+
+constexpr char kTextHtml[] = "text/html";
 
 // This enum must match the numbering for RequestStorageResult in
 // histograms/enums.xml. Do not reorder or remove items, only add new items
@@ -688,7 +688,7 @@ ExplicitlySetAttrElementsMap* Document::GetExplicitlySetAttrElementsMap(
     add_result.stored_value->value =
         MakeGarbageCollected<ExplicitlySetAttrElementsMap>();
   }
-  return add_result.stored_value->value;
+  return add_result.stored_value->value.Get();
 }
 
 void Document::MoveElementExplicitlySetAttrElementsMapToNewDocument(
@@ -1100,33 +1100,39 @@ Element* Document::CreateRawElement(const QualifiedName& qname,
 }
 
 // https://dom.spec.whatwg.org/#dom-document-createelement
-Element* Document::CreateElementForBinding(const AtomicString& name,
-                                           ExceptionState& exception_state) {
-  if (!IsValidElementName(this, name)) {
+// TODO(crbug.com/1304439): Move it to `tree_scope.cc` if the feature
+// `ScopedCustomElementRegistry` can stabilize.
+Element* TreeScope::CreateElementForBinding(const AtomicString& name,
+                                            ExceptionState& exception_state) {
+  Document& document = GetDocument();
+  if (!IsValidElementName(&document, name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
         "The tag name provided ('" + name + "') is not a valid name.");
     return nullptr;
   }
 
-  if (IsXHTMLDocument() || IsA<HTMLDocument>(this)) {
+  if (document.IsXHTMLDocument() || IsA<HTMLDocument>(document)) {
     // 2. If the context object is an HTML document, let localName be
     // converted to ASCII lowercase.
-    AtomicString local_name = ConvertLocalName(name);
+    AtomicString local_name = document.ConvertLocalName(name);
     if (CustomElement::ShouldCreateCustomElement(local_name)) {
       return CustomElement::CreateCustomElement(
           *this,
           QualifiedName(g_null_atom, local_name, html_names::xhtmlNamespaceURI),
-          CreateElementFlags::ByCreateElement());
+          IsA<ShadowRoot>(this)
+              ? CreateElementFlags::ByShadowRootCreateElement()
+              : CreateElementFlags::ByCreateElement());
     }
     if (auto* element = HTMLElementFactory::Create(
-            local_name, *this, CreateElementFlags::ByCreateElement()))
+            local_name, document, CreateElementFlags::ByCreateElement())) {
       return element;
+    }
     QualifiedName q_name(g_null_atom, local_name,
                          html_names::xhtmlNamespaceURI);
-    return MakeGarbageCollected<HTMLUnknownElement>(q_name, *this);
+    return MakeGarbageCollected<HTMLUnknownElement>(q_name, document);
   }
-  return MakeGarbageCollected<Element>(QualifiedName(name), this);
+  return MakeGarbageCollected<Element>(QualifiedName(name), &document);
 }
 
 AtomicString GetTypeExtension(
@@ -1153,7 +1159,9 @@ AtomicString GetTypeExtension(
 }
 
 // https://dom.spec.whatwg.org/#dom-document-createelement
-Element* Document::CreateElementForBinding(
+// TODO(crbug.com/1304439): Move it to `tree_scope.cc` if the feature
+// `ScopedCustomElementRegistry` can stabilize.
+Element* TreeScope::CreateElementForBinding(
     const AtomicString& local_name,
     const V8UnionElementCreationOptionsOrString* string_or_options,
     ExceptionState& exception_state) {
@@ -1161,8 +1169,10 @@ Element* Document::CreateElementForBinding(
     return CreateElementForBinding(local_name, exception_state);
   }
 
+  Document& document = GetDocument();
+
   // 1. If localName does not match Name production, throw InvalidCharacterError
-  if (!IsValidElementName(this, local_name)) {
+  if (!IsValidElementName(&document, local_name)) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidCharacterError,
         "The tag name provided ('" + local_name + "') is not a valid name.");
@@ -1170,14 +1180,15 @@ Element* Document::CreateElementForBinding(
   }
 
   // 2. localName converted to ASCII lowercase
-  const AtomicString& converted_local_name = ConvertLocalName(local_name);
+  const AtomicString& converted_local_name =
+      document.ConvertLocalName(local_name);
   QualifiedName q_name(g_null_atom, converted_local_name,
-                       IsXHTMLDocument() || IsA<HTMLDocument>(this)
+                       document.IsXHTMLDocument() || IsA<HTMLDocument>(document)
                            ? html_names::xhtmlNamespaceURI
                            : g_null_atom);
 
   // 3.
-  const AtomicString& is = GetTypeExtension(this, string_or_options);
+  const AtomicString& is = GetTypeExtension(&document, string_or_options);
 
   // 5. Let element be the result of creating an element given ...
   Element* element =
@@ -1208,22 +1219,30 @@ static inline QualifiedName CreateQualifiedName(
   return q_name;
 }
 
-Element* Document::createElementNS(const AtomicString& namespace_uri,
-                                   const AtomicString& qualified_name,
-                                   ExceptionState& exception_state) {
+// TODO(crbug.com/1304439): Move it to `tree_scope.cc` if the feature
+// `ScopedCustomElementRegistry` can stabilize.
+Element* TreeScope::createElementNS(const AtomicString& namespace_uri,
+                                    const AtomicString& qualified_name,
+                                    ExceptionState& exception_state) {
   QualifiedName q_name(
       CreateQualifiedName(namespace_uri, qualified_name, exception_state));
   if (q_name == QualifiedName::Null())
     return nullptr;
 
   CreateElementFlags flags = CreateElementFlags::ByCreateElement();
-  if (CustomElement::ShouldCreateCustomElement(q_name))
-    return CustomElement::CreateCustomElement(*this, q_name, flags);
-  return CreateRawElement(q_name, flags);
+  if (CustomElement::ShouldCreateCustomElement(q_name)) {
+    return CustomElement::CreateCustomElement(
+        *this, q_name,
+        IsA<ShadowRoot>(this) ? CreateElementFlags::ByShadowRootCreateElement()
+                              : CreateElementFlags::ByCreateElement());
+  }
+  return GetDocument().CreateRawElement(q_name, flags);
 }
 
 // https://dom.spec.whatwg.org/#internal-createelementns-steps
-Element* Document::createElementNS(
+// TODO(crbug.com/1304439): Move it to `tree_scope.cc` if the feature
+// `ScopedCustomElementRegistry` can stabilize.
+Element* TreeScope::createElementNS(
     const AtomicString& namespace_uri,
     const AtomicString& qualified_name,
     const V8UnionElementCreationOptionsOrString* string_or_options,
@@ -1236,10 +1255,12 @@ Element* Document::createElementNS(
   if (q_name == QualifiedName::Null())
     return nullptr;
 
-  // 2.
-  const AtomicString& is = GetTypeExtension(this, string_or_options);
+  Document& document = GetDocument();
 
-  if (!IsValidElementName(this, qualified_name)) {
+  // 2.
+  const AtomicString& is = GetTypeExtension(&document, string_or_options);
+
+  if (!IsValidElementName(&document, qualified_name)) {
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidCharacterError,
                                       "The tag name provided ('" +
                                           qualified_name +
@@ -1256,9 +1277,11 @@ Element* Document::createElementNS(
 
 // Entry point of "create an element".
 // https://dom.spec.whatwg.org/#concept-create-element
-Element* Document::CreateElement(const QualifiedName& q_name,
-                                 const CreateElementFlags flags,
-                                 const AtomicString& is) {
+// TODO(crbug.com/1304439): Move it to `tree_scope.cc` if the feature
+// `ScopedCustomElementRegistry` can stabilize.
+Element* TreeScope::CreateElement(const QualifiedName& q_name,
+                                  const CreateElementFlags flags,
+                                  const AtomicString& is) {
   CustomElementDefinition* definition = nullptr;
   if (flags.IsCustomElements() &&
       q_name.NamespaceURI() == html_names::xhtmlNamespaceURI) {
@@ -1269,10 +1292,10 @@ Element* Document::CreateElement(const QualifiedName& q_name,
   }
 
   if (definition)
-    return definition->CreateElement(*this, q_name, flags);
+    return definition->CreateElement(GetDocument(), q_name, flags);
 
-  return CustomElement::CreateUncustomizedOrUndefinedElement(*this, q_name,
-                                                             flags, is);
+  return CustomElement::CreateUncustomizedOrUndefinedElement(GetDocument(),
+                                                             q_name, flags, is);
 }
 
 DocumentFragment* Document::createDocumentFragment() {
@@ -1410,8 +1433,8 @@ Node* Document::adoptNode(Node* source, ExceptionState& exception_state) {
         // The above removeChild() can execute arbitrary JavaScript code.
         if (source->parentNode()) {
           AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-              mojom::ConsoleMessageSource::kJavaScript,
-              mojom::ConsoleMessageLevel::kWarning,
+              ConsoleMessage::Source::kJavaScript,
+              ConsoleMessage::Level::kWarning,
               ExceptionMessages::FailedToExecute("adoptNode", "Document",
                                                  "Unable to remove the "
                                                  "specified node from the "
@@ -1568,7 +1591,7 @@ String Document::SuggestedMIMEType() const {
   if (xmlStandalone())
     return "text/xml";
   if (IsA<HTMLDocument>(this))
-    return "text/html";
+    return kTextHtml;
 
   if (DocumentLoader* document_loader = Loader())
     return document_loader->MimeType();
@@ -2456,42 +2479,6 @@ void Document::UpdateStyleAndLayoutForNode(const Node* node,
   UpdateStyleAndLayout(reason);
 }
 
-void Document::AddToRecalcStyleForToggle(Element* element) {
-  elements_needing_style_recalc_for_toggle_.insert(element);
-}
-
-bool Document::SetNeedsStyleRecalcForToggles() {
-  // TODO(crbug.com/1250716): We currently call this from
-  // LocalFrameView::RunCSSToggleSteps().  This is not ideal, but it produces
-  // behavior that's basically what we want, except for making
-  // getComputedStyle() produce correct results, which is hopefully fixable
-  // with future changes to PostStyleUpdateScope).  The behavior is also not
-  // yet well-defined; see https://github.com/tabatkins/css-toggle/issues/27
-  // for making this better.
-
-  if (elements_needing_style_recalc_for_toggle_.size() == 0)
-    return false;
-
-  HeapHashSet<Member<Element>> elements;
-  std::swap(elements_needing_style_recalc_for_toggle_, elements);
-
-  const auto& reason = StyleChangeReasonForTracing::CreateWithExtraData(
-      style_change_reason::kPseudoClass, style_change_extra_data::g_toggle);
-
-  for (auto element : elements) {
-    element->SetNeedsStyleRecalc(StyleChangeType::kSubtreeStyleChange, reason);
-  }
-
-  return true;
-}
-
-CSSToggleInference& Document::EnsureCSSToggleInference() {
-  if (!css_toggle_inference_) {
-    css_toggle_inference_ = MakeGarbageCollected<CSSToggleInference>(this);
-  }
-  return *css_toggle_inference_;
-}
-
 DocumentPartRoot& Document::getPartRoot() {
   return EnsureDocumentPartRoot();
 }
@@ -2745,8 +2732,6 @@ const ComputedStyle* Document::StyleForPage(uint32_t page_index) {
 
 const ComputedStyle* Document::StyleForPage(uint32_t page_index,
                                             const AtomicString& page_name) {
-  GetStyleEngine().UpdateViewportSize();
-  GetStyleEngine().UpdateActiveStyle();
   return GetStyleEngine().GetStyleResolver().StyleForPage(page_index,
                                                           page_name);
 }
@@ -2761,12 +2746,6 @@ void Document::GetPageDescription(uint32_t page_index,
                                   WebPrintPageDescription* description) {
   View()->UpdateLifecycleToLayoutClean(DocumentUpdateReason::kUnknown);
   GetPageDescriptionNoLifecycleUpdate(*StyleForPage(page_index), description);
-}
-
-void Document::GetPageDescription(const ComputedStyle& style,
-                                  WebPrintPageDescription* description) {
-  View()->UpdateLifecycleToLayoutClean(DocumentUpdateReason::kUnknown);
-  GetPageDescriptionNoLifecycleUpdate(style, description);
 }
 
 void Document::GetPageDescriptionNoLifecycleUpdate(
@@ -2804,22 +2783,21 @@ void Document::GetPageDescriptionNoLifecycleUpdate(
   }
 
   if (!description->ignore_css_margins) {
-    // The percentage is calculated with respect to the width even for margin
-    // top and bottom.
-    // http://www.w3.org/TR/CSS2/box.html#margin-properties
-    float width = description->size.width();
     if (!style.MarginTop().IsAuto()) {
-      description->margin_top = IntValueForLength(style.MarginTop(), width);
+      description->margin_top =
+          IntValueForLength(style.MarginTop(), description->size.height());
     }
     if (!style.MarginRight().IsAuto()) {
-      description->margin_right = IntValueForLength(style.MarginRight(), width);
+      description->margin_right =
+          IntValueForLength(style.MarginRight(), description->size.width());
     }
     if (!style.MarginBottom().IsAuto()) {
       description->margin_bottom =
-          IntValueForLength(style.MarginBottom(), width);
+          IntValueForLength(style.MarginBottom(), description->size.height());
     }
     if (!style.MarginLeft().IsAuto()) {
-      description->margin_left = IntValueForLength(style.MarginLeft(), width);
+      description->margin_left =
+          IntValueForLength(style.MarginLeft(), description->size.width());
     }
   }
 
@@ -2896,7 +2874,7 @@ void Document::Initialize() {
 
   UpdateForcedColors();
   const ComputedStyle* style = GetStyleResolver().StyleForViewport();
-  layout_view_ = MakeGarbageCollected<LayoutNGView>(this);
+  layout_view_ = MakeGarbageCollected<LayoutView>(this);
   SetLayoutObject(layout_view_);
 
   layout_view_->SetStyle(style);
@@ -3281,8 +3259,7 @@ void Document::DisplayNoneChangedForFrame() {
 }
 
 bool Document::WillPrintSoon() {
-  loading_for_print_ =
-      EnsureLazyLoadImageObserver().LoadAllImagesAndBlockLoadEvent();
+  loading_for_print_ = LazyImageHelper::LoadAllImagesAndBlockLoadEvent(*this);
 
   if (auto* view = View()) {
     loading_for_print_ = loading_for_print_ || view->LoadAllLazyLoadedIframes();
@@ -3614,7 +3591,7 @@ DocumentParser* Document::ImplicitOpen(
     load_event_progress_ = kLoadEventNotRun;
   }
   DispatchHandleLoadStart();
-  return parser_;
+  return parser_.Get();
 }
 
 void Document::DispatchHandleLoadStart() {
@@ -4342,8 +4319,7 @@ void Document::write(const String& text,
   if (!has_insertion_point) {
     if (ignore_destructive_write_count_) {
       AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-          mojom::ConsoleMessageSource::kJavaScript,
-          mojom::ConsoleMessageLevel::kWarning,
+          ConsoleMessage::Source::kJavaScript, ConsoleMessage::Level::kWarning,
           ExceptionMessages::FailedToExecute(
               "write", "Document",
               "It isn't possible to write into a document "
@@ -4544,11 +4520,11 @@ KURL Document::FallbackBaseURL() const {
     }
   }
 
-  // [spec] 2. If document's URL is about:blank, and document's browsing
-  //           context's creator base URL is non-null, then return that creator
-  //           base URL.
+  // [spec] 2. If document's URL matches about:blank and document's about base
+  //           URL is non-null, then return document's about base URL.
   if (urlForBinding().IsAboutBlankURL()) {
-    if (!dom_window_ && execution_context_) {
+    if (!RuntimeEnabledFeatures::DocumentBaseURIFixEnabled() && !dom_window_ &&
+        execution_context_) {
       return execution_context_->BaseURL();
     }
 
@@ -4625,8 +4601,7 @@ void Document::ProcessBaseElement() {
         base_element_url.ProtocolIsJavaScript()) {
       UseCounter::Count(*this, WebFeature::kBaseWithDataHref);
       AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-          mojom::ConsoleMessageSource::kSecurity,
-          mojom::ConsoleMessageLevel::kError,
+          ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
           "'" + base_element_url.Protocol() +
               "' URLs may not be used as base URLs for a document."));
     }
@@ -4732,8 +4707,8 @@ void Document::MaybeHandleHttpRefresh(const String& content,
     String message =
         "Refused to refresh " + url_.ElidedString() + " to a javascript: URL";
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::ConsoleMessageSource::kSecurity,
-        mojom::ConsoleMessageLevel::kError, message));
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
+        message));
     return;
   }
 
@@ -4745,8 +4720,8 @@ void Document::MaybeHandleHttpRefresh(const String& content,
         "http-equiv='refresh' content='...'>'. The document is sandboxed, and "
         "the 'allow-scripts' keyword is not set.";
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::ConsoleMessageSource::kSecurity,
-        mojom::ConsoleMessageLevel::kError, message));
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
+        message));
     return;
   }
 
@@ -4982,11 +4957,18 @@ Node* Document::Clone(Document& factory,
   if (!execution_context_)
     return nullptr;
   Document* clone = CloneDocumentWithoutChildren();
+  DocumentPartRoot* part_root = nullptr;
+  if (data.Has(CloneOption::kPreserveDOMParts)) {
+    DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
+    part_root = &clone->getPartRoot();
+    data.PushPartRoot(*part_root);
+  }
   clone->CloneDataFromDocument(*this);
-  clone->ClonePartsFrom(*this, data);
+  PartRoot::CloneParts(*this, *clone, data);
   if (data.Has(CloneOption::kIncludeDescendants)) {
     clone->CloneChildNodesFrom(*this, data);
   }
+  DCHECK(!part_root || &data.CurrentPartRoot() == part_root);
   return clone;
 }
 
@@ -5196,11 +5178,12 @@ bool Document::SetFocusedElement(Element* new_focused_element,
   Element* old_focused_element = focused_element_;
   focused_element_ = nullptr;
 
-  Node* ancestor = (old_focused_element && old_focused_element->isConnected() &&
-                    new_focused_element)
-                       ? FlatTreeTraversal::CommonAncestor(*old_focused_element,
-                                                           *new_focused_element)
-                       : nullptr;
+  Element* ancestor =
+      (old_focused_element && old_focused_element->isConnected() &&
+       new_focused_element)
+          ? DynamicTo<Element>(FlatTreeTraversal::CommonAncestor(
+                *old_focused_element, *new_focused_element))
+          : nullptr;
 
   // Remove focus from the existing focus node (if any)
   if (old_focused_element) {
@@ -6116,8 +6099,7 @@ void Document::setDomain(const String& raw_domain,
 
   if (Agent::IsCrossOriginIsolated()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kWarning,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kWarning,
         "document.domain mutation is ignored because the surrounding agent "
         "cluster is cross-origin isolated."));
     return;
@@ -6126,8 +6108,7 @@ void Document::setDomain(const String& raw_domain,
   if (RuntimeEnabledFeatures::OriginIsolationHeaderEnabled(dom_window_) &&
       dom_window_->GetAgent()->IsOriginKeyed()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kWarning,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kWarning,
         "document.domain mutation is ignored because the surrounding agent "
         "cluster is origin-keyed."));
     return;
@@ -6252,8 +6233,19 @@ net::SiteForCookies Document::SiteForCookies() const {
   if (!origin)
     return net::SiteForCookies();
 
-  net::SiteForCookies candidate =
-      net::SiteForCookies::FromOrigin(origin->ToUrlOrigin());
+  // Fake a 1P site for cookies for top-level documents that are rendering media
+  // like images or video. We do so because when third-party cookie blocking is
+  // enabled, access-controlled media cannot be rendered. We only make this
+  // exception in this special case to minimize security/privacy risk.
+  url::Origin url_origin = origin->ToUrlOrigin();
+  if (url_origin.opaque() &&
+      !url_origin.GetTupleOrPrecursorTupleIfOpaque().host().empty() &&
+      override_site_for_cookies_for_csp_media_) {
+    return net::SiteForCookies::FromOrigin(url::Origin::Create(
+        url_origin.GetTupleOrPrecursorTupleIfOpaque().GetURL()));
+  }
+
+  net::SiteForCookies candidate = net::SiteForCookies::FromOrigin(url_origin);
 
   if (SchemeRegistry::ShouldTreatURLSchemeAsFirstPartyWhenTopLevel(
           origin->Protocol())) {
@@ -6369,8 +6361,7 @@ ScriptPromise Document::requestStorageAccessFor(ScriptState* script_state,
 
   if (!IsInOutermostMainFrame()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccessFor: Only supported in primary top-level "
         "browsing contexts."));
     FireRequestStorageAccessForHistogram(
@@ -6383,8 +6374,7 @@ ScriptPromise Document::requestStorageAccessFor(ScriptState* script_state,
 
   if (dom_window_->GetSecurityOrigin()->IsOpaque()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccessFor: Cannot be used by opaque origins."));
 
     FireRequestStorageAccessForHistogram(
@@ -6401,8 +6391,7 @@ ScriptPromise Document::requestStorageAccessFor(ScriptState* script_state,
 
   if (!dom_window_->isSecureContext()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccessFor: May not be used in an insecure "
         "context."));
     FireRequestStorageAccessForHistogram(
@@ -6419,8 +6408,7 @@ ScriptPromise Document::requestStorageAccessFor(ScriptState* script_state,
       SecurityOrigin::Create(origin_as_kurl);
   if (supplied_origin->IsOpaque()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccessFor: Invalid origin parameter."));
     FireRequestStorageAccessForHistogram(
         RequestStorageResult::REJECTED_OPAQUE_ORIGIN);
@@ -6485,8 +6473,7 @@ ScriptPromise Document::requestStorageAccess(ScriptState* script_state) {
 
   if (!dom_window_->isSecureContext()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccess: May not be used in an insecure context."));
     FireRequestStorageAccessHistogram(
         RequestStorageResult::REJECTED_INSECURE_CONTEXT);
@@ -6509,8 +6496,7 @@ ScriptPromise Document::requestStorageAccess(ScriptState* script_state) {
 
   if (dom_window_->GetSecurityOrigin()->IsOpaque()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccess: Cannot be used by opaque origins."));
     FireRequestStorageAccessHistogram(
         RequestStorageResult::REJECTED_OPAQUE_ORIGIN);
@@ -6523,8 +6509,7 @@ ScriptPromise Document::requestStorageAccess(ScriptState* script_state) {
 
   if (dom_window_->credentialless()) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccess: May not be used in a credentialless iframe"));
     FireRequestStorageAccessHistogram(
         RequestStorageResult::REJECTED_CREDENTIALLESS_IFRAME);
@@ -6538,8 +6523,7 @@ ScriptPromise Document::requestStorageAccess(ScriptState* script_state) {
   if (dom_window_->IsSandboxed(network::mojom::blink::WebSandboxFlags::
                                    kStorageAccessByUserActivation)) {
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         dom_window_->GetFrame()->IsInFencedFrameTree()
             ? "requestStorageAccess: Refused to execute request. The document "
               "is in a fenced frame tree."
@@ -6575,7 +6559,7 @@ void Document::ProcessStorageAccessPermissionState(
     ScriptPromiseResolver* resolver,
     mojom::blink::PermissionStatus status) {
   DCHECK(resolver);
-  DCHECK(GetFrame());
+
   ScriptState* script_state = resolver->GetScriptState();
   DCHECK(script_state);
   ScriptState::Scope scope(script_state);
@@ -6583,15 +6567,17 @@ void Document::ProcessStorageAccessPermissionState(
   if (status == mojom::blink::PermissionStatus::GRANTED) {
     FireRequestStorageAccessHistogram(
         RequestStorageResult::APPROVED_NEW_OR_EXISTING_GRANT);
-    dom_window_->SetHasStorageAccess();
+    // document could be no longer alive.
+    if (dom_window_) {
+      dom_window_->SetHasStorageAccess();
+    }
     resolver->Resolve();
   } else {
     LocalFrame::ConsumeTransientUserActivation(GetFrame());
     FireRequestStorageAccessHistogram(
         RequestStorageResult::REJECTED_GRANT_DENIED);
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccess: Permission denied."));
     resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
         script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
@@ -6617,8 +6603,7 @@ void Document::ProcessTopLevelStorageAccessPermissionState(
     FireRequestStorageAccessForHistogram(
         RequestStorageResult::REJECTED_GRANT_DENIED);
     AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-        mojom::blink::ConsoleMessageSource::kSecurity,
-        mojom::blink::ConsoleMessageLevel::kError,
+        ConsoleMessage::Source::kSecurity, ConsoleMessage::Level::kError,
         "requestStorageAccessFor: Permission denied."));
     resolver->Reject(V8ThrowDOMException::CreateOrEmpty(
         script_state->GetIsolate(), DOMExceptionCode::kNotAllowedError,
@@ -8812,9 +8797,6 @@ void Document::Trace(Visitor* visitor) const {
   visitor->Trace(popover_pointerdown_target_);
   visitor->Trace(popovers_waiting_to_hide_);
   visitor->Trace(all_open_popovers_);
-  visitor->Trace(elements_with_css_toggles_);
-  visitor->Trace(elements_needing_style_recalc_for_toggle_);
-  visitor->Trace(css_toggle_inference_);
   visitor->Trace(document_part_root_);
   visitor->Trace(load_event_delay_timer_);
   visitor->Trace(plugin_loading_timer_);
@@ -9280,7 +9262,10 @@ void Document::EnqueuePageRevealEvent() {
   CHECK(RuntimeEnabledFeatures::PageRevealEventEnabled());
   CHECK(dom_window_);
 
-  auto* page_reveal_event = MakeGarbageCollected<PageRevealEvent>();
+  DOMViewTransition* dom_view_transition =
+      ViewTransitionUtils::GetTransitionScriptDelegate(*this);
+  auto* page_reveal_event =
+      MakeGarbageCollected<PageRevealEvent>(dom_view_transition);
   page_reveal_event->SetTarget(dom_window_);
   page_reveal_event->SetCurrentTarget(dom_window_);
   EnqueueAnimationFrameEvent(page_reveal_event);
@@ -9294,6 +9279,30 @@ Resource* Document::GetPendingLinkPreloadForTesting(const KURL& url) {
     }
   }
   return nullptr;
+}
+
+// static
+Document* Document::parseHTMLUnsafe(ExecutionContext* context,
+                                    const String& html) {
+  CHECK(RuntimeEnabledFeatures::HTMLUnsafeMethodsEnabled());
+  Document* doc = DocumentInit::Create()
+                      .WithTypeFrom(kTextHtml)
+                      .WithExecutionContext(context)
+                      .WithAgent(*context->GetAgent())
+                      .CreateDocument();
+  doc->setAllowDeclarativeShadowRoots(true);
+  doc->SetContent(html);
+  doc->SetMimeType(AtomicString(kTextHtml));
+  return doc;
+}
+
+void Document::SetOverrideSiteForCookiesForCSPMedia(bool value) {
+  CHECK(IsMediaDocument());
+  // Only top-level documents can use this method.
+  if (!GetFrame() || !GetFrame()->IsMainFrame()) {
+    return;
+  }
+  override_site_for_cookies_for_csp_media_ = value;
 }
 
 template class CORE_TEMPLATE_EXPORT Supplement<Document>;

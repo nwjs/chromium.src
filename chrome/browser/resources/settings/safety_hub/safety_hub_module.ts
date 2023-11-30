@@ -16,7 +16,7 @@ import '../site_favicon.js';
 import '../i18n_setup.js';
 
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {sanitizeInnerHtml} from 'chrome://resources/js/parse_html_subset.js';
 import {DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -64,17 +64,27 @@ export class SettingsSafetyHubModuleElement extends
         observer: 'onSitesChanged_',
       },
 
+      // If set to true, users of this class MUST call animateShow() after
+      // adding any items added to |sites|, otherwise these will not be
+      // properly rendered. Users SHOULD also call animateHide() on any item
+      // before removing it from |sites|, to apply the reverse animation.
+      animated: {type: Boolean, value: false},
+
       // The string for the header label.
       header: String,
 
-      // The strinπg for the subheader label.
+      // The string for the subheader label.
       subheader: String,
 
       // The icon for the module.
       headerIcon: {
         String,
         value: 'cr:error',
+        observer: 'onHeaderIconChanged_',
       },
+
+      // The color of the header-icon.
+      headerIconColor: String,
 
       // The icon for the button of the list item.
       buttonIcon: String,
@@ -101,6 +111,7 @@ export class SettingsSafetyHubModuleElement extends
   header: string;
   subheader: string|TrustedHTML;
   headerIcon: string;
+  headerIconColor: string;
   buttonIcon: string;
   buttonAriaLabelId: string;
   buttonTooltipText: string;
@@ -259,6 +270,16 @@ export class SettingsSafetyHubModuleElement extends
       composed: true,
       detail: item,
     }));
+  }
+
+  private onHeaderIconChanged_() {
+    // The check icon is always green for all Safety Hub modules.
+    if (this.headerIcon === 'cr:check') {
+      this.headerIconColor = 'green';
+      // The Safety Check icon color is managed in specific Safety Hub modules.
+    } else if (this.headerIcon !== 'cr:security') {
+      this.headerIconColor = '';
+    }
   }
 
   private onShowTooltip_(e: DomRepeatEvent<SiteInfo>) {

@@ -15,8 +15,11 @@
 #include "base/check.h"
 #include "base/check_op.h"
 #include "base/containers/flat_map.h"
+#include "base/feature_list.h"
 #include "base/notreached.h"
 #include "base/numerics/clamped_math.h"
+#include "components/aggregation_service/aggregation_coordinator_utils.h"
+#include "components/aggregation_service/features.h"
 #include "content/browser/private_aggregation/private_aggregation_manager.h"
 #include "content/common/content_export.h"
 #include "content/services/auction_worklet/public/mojom/private_aggregation_request.mojom.h"
@@ -24,6 +27,7 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/abseil-cpp/absl/numeric/int128.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/private_aggregation/aggregatable_report.mojom.h"
 #include "third_party/blink/public/mojom/private_aggregation/private_aggregation_host.mojom.h"
 #include "url/origin.h"
@@ -40,8 +44,6 @@ namespace {
 // Returns the actual value of `base_value` with corresponding post auction
 // signal such as `winning_bid`. Returns absl::nullopt if corresponding signal
 // is not available.
-// TODO(crbug.com/1385549): Pass in signals for script run time and signals
-// fetch time.
 absl::optional<double> GetBaseValue(
     auction_worklet::mojom::BaseValue base_value,
     double winning_bid,
@@ -82,8 +84,6 @@ absl::optional<absl::uint128> CalculateBucket(
     const auction_worklet::mojom::SignalBucketPtr& bucket_obj,
     absl::optional<double> base) {
   if (!base.has_value()) {
-    // Once kScriptRunTime and kSignalsFetchTime are supported, this should not
-    // happen.
     return absl::nullopt;
   }
 
@@ -319,6 +319,7 @@ void SplitContributionsIntoBatchesThenSendToHost(
     std::vector<auction_worklet::mojom::PrivateAggregationRequestPtr> requests,
     PrivateAggregationManager& pa_manager,
     const url::Origin& reporting_origin,
+    absl::optional<url::Origin> aggregation_coordinator_origin,
     const url::Origin& main_frame_origin) {
   CHECK_EQ(reporting_origin.scheme(), url::kHttpsScheme);
   CHECK_EQ(main_frame_origin.scheme(), url::kHttpsScheme);
@@ -355,6 +356,22 @@ void SplitContributionsIntoBatchesThenSendToHost(
         std::move(request->contribution->get_histogram_contribution()));
   }
 
+  if (!base::FeatureList::IsEnabled(
+          blink::features::kPrivateAggregationApiMultipleCloudProviders) ||
+      !base::FeatureList::IsEnabled(
+          aggregation_service::kAggregationServiceMultipleCloudProviders)) {
+    // Override with the default if a non-default coordinator is specified when
+    // the feature is disabled.
+    aggregation_coordinator_origin = absl::nullopt;
+  }
+
+  if (aggregation_coordinator_origin &&
+      !aggregation_service::IsAggregationCoordinatorOriginAllowed(
+          aggregation_coordinator_origin.value())) {
+    // Ignore contributions that use an invalid coordinator.
+    return;
+  }
+
   for (auto& [debug_mode_details, contributions] : contributions_map) {
     mojo::Remote<blink::mojom::PrivateAggregationHost> remote_host;
 
@@ -363,10 +380,12 @@ void SplitContributionsIntoBatchesThenSendToHost(
         /*top_frame_origin=*/main_frame_origin,
         PrivateAggregationBudgetKey::Api::kProtectedAudience,
         /*context_id=*/absl::nullopt,
-        /*timeout=*/absl::nullopt, remote_host.BindNewPipeAndPassReceiver());
+        /*timeout=*/absl::nullopt, aggregation_coordinator_origin,
+        remote_host.BindNewPipeAndPassReceiver());
 
     // The worklet origin should be potentially trustworthy (and no context ID
-    // is set), so this should always succeed.
+    // is set) and we checked the coordinator origin, so this should always
+    // succeed.
     CHECK(bound);
 
     if (debug_mode_details->is_enabled) {

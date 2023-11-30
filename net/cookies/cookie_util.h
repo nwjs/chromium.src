@@ -48,14 +48,17 @@ enum class StorageAccessResult {
   ACCESS_ALLOWED_TOP_LEVEL_STORAGE_ACCESS_GRANT = 4,
   ACCESS_ALLOWED_3PCD = 5,
   ACCESS_ALLOWED_3PCD_METADATA_GRANT = 6,
-  kMaxValue = ACCESS_ALLOWED_3PCD_METADATA_GRANT,
+  ACCESS_ALLOWED_3PCD_HEURISTICS_GRANT = 7,
+  kMaxValue = ACCESS_ALLOWED_3PCD_HEURISTICS_GRANT,
 };
 // This enum must match the numbering for BreakageIndicatorType in
 // histograms/enums.xml. Do not reorder or remove items, only add new items
 // at the end.
 enum class BreakageIndicatorType {
   USER_RELOAD = 0,
-  kMaxValue = USER_RELOAD,
+  HTTP_ERROR = 1,
+  UNCAUGHT_JS_ERROR = 2,
+  kMaxValue = UNCAUGHT_JS_ERROR,
 };
 // Helper to fire telemetry indicating if a given request for storage was
 // allowed or not by the provided |result|.

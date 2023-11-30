@@ -18,7 +18,6 @@
 #include "base/values.h"
 #include "chrome/browser/web_applications/commands/web_app_command.h"
 #include "chrome/browser/web_applications/locks/web_app_lock_manager.h"
-#include "chrome/browser/web_applications/web_app_id.h"
 #include "components/webapps/common/web_app_id.h"
 
 class Profile;
@@ -73,7 +72,9 @@ class WebAppCommandManager {
   bool IsInstallingForWebContents(
       const content::WebContents* web_contents) const;
 
-  std::size_t GetCommandCountForTesting() { return commands_.size(); }
+  std::size_t GetCommandCountForTesting();
+
+  std::size_t GetCommandsInstallingForWebContentsForTesting();
 
   void AwaitAllCommandsCompleteForTesting();
 

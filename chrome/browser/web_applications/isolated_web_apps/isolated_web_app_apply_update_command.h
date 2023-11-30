@@ -5,8 +5,8 @@
 #ifndef CHROME_BROWSER_WEB_APPLICATIONS_ISOLATED_WEB_APPS_ISOLATED_WEB_APP_APPLY_UPDATE_COMMAND_H_
 #define CHROME_BROWSER_WEB_APPLICATIONS_ISOLATED_WEB_APPS_ISOLATED_WEB_APP_APPLY_UPDATE_COMMAND_H_
 
+#include <iosfwd>
 #include <memory>
-#include <ostream>
 #include <string>
 #include <type_traits>
 
@@ -23,7 +23,6 @@
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/web_app.h"
-#include "chrome/browser/web_applications/web_app_id.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_sync_bridge.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -52,15 +51,10 @@ enum class WebAppUrlLoaderResult;
 
 struct IsolatedWebAppApplyUpdateCommandError {
   std::string message;
-
-  friend std::ostream& operator<<(
-      std::ostream& os,
-      const IsolatedWebAppApplyUpdateCommandError& error) {
-    return os << "IsolatedWebAppApplyUpdateCommandError { "
-                 "message = \""
-              << error.message << "\" }.";
-  }
 };
+
+std::ostream& operator<<(std::ostream& os,
+                         const IsolatedWebAppApplyUpdateCommandError& error);
 
 // This command applies a pending update of an Isolated Web App. Information
 // about the pending update is read from

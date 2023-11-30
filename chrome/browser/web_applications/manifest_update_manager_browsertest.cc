@@ -39,13 +39,13 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
-#include "chrome/browser/ui/browser_dialogs.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_browser_controller.h"
 #include "chrome/browser/ui/web_applications/web_app_controller_browsertest.h"
+#include "chrome/browser/ui/web_applications/web_app_dialogs.h"
 #include "chrome/browser/web_applications/external_install_options.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
@@ -489,7 +489,6 @@ class ManifestUpdateManagerBrowserTest : public WebAppControllerBrowserTest {
     GetProvider().scheduler().FetchManifestAndInstall(
         webapps::WebappInstallSource::MENU_CREATE_SHORTCUT,
         browser()->tab_strip_model()->GetActiveWebContents()->GetWeakPtr(),
-        /*bypass_service_worker_check=*/false,
         base::BindOnce(test::TestAcceptDialogCallback),
         install_future.GetCallback(),
         /*use_fallback=*/true);
@@ -507,7 +506,6 @@ class ManifestUpdateManagerBrowserTest : public WebAppControllerBrowserTest {
     GetProvider().scheduler().FetchManifestAndInstall(
         webapps::WebappInstallSource::OMNIBOX_INSTALL_ICON,
         browser()->tab_strip_model()->GetActiveWebContents()->GetWeakPtr(),
-        /*bypass_service_worker_check=*/false,
         base::BindOnce(test::TestAcceptDialogCallback),
         base::BindLambdaForTesting([&](const webapps::AppId& new_app_id,
                                        webapps::InstallResultCode code) {
@@ -530,7 +528,6 @@ class ManifestUpdateManagerBrowserTest : public WebAppControllerBrowserTest {
     GetProvider().scheduler().FetchManifestAndInstall(
         webapps::WebappInstallSource::PRELOADED_OEM,
         browser()->tab_strip_model()->GetActiveWebContents()->GetWeakPtr(),
-        /*bypass_service_worker_check=*/false,
         base::BindOnce(test::TestAcceptDialogCallback),
         base::BindLambdaForTesting([&](const webapps::AppId& new_app_id,
                                        webapps::InstallResultCode code) {
@@ -1475,7 +1472,7 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   OverrideManifest(kManifestTemplate, {"Test app name2", kInstallableIconList});
 
   UpdateCheckResultAwaiter awaiter(GetAppURL());
-  ui_test_utils::NavigateToURL(browser(), GetAppURL());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetAppURL()));
 
   // Wait for the app identity update dialog to show up.
   auto* manifest_update_widget = manifest_waiter.WaitIfNeededAndGet();
@@ -1529,7 +1526,7 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerBrowserTest,
   OverrideManifest(kManifestTemplate, {"App Name 2", kInstallableIconList});
 
   UpdateCheckResultAwaiter awaiter(GetAppURL());
-  ui_test_utils::NavigateToURL(browser(), GetAppURL());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), GetAppURL()));
 
   auto* manifest_update_widget = manifest_waiter.WaitIfNeededAndGet();
   EXPECT_NE(manifest_update_widget, nullptr);
@@ -4460,16 +4457,16 @@ class ManifestUpdateManagerAppIdentityBrowserTest
       Browser* browser,
       bool open_as_window = false,
       const char* override_title = nullptr) {
-    chrome::SetAutoAcceptWebAppDialogForTesting(
+    SetAutoAcceptWebAppDialogForTesting(
         /*auto_accept=*/true,
         /*auto_open_in_window=*/open_as_window);
-    chrome::SetOverrideTitleForTesting(override_title);
+    SetOverrideTitleForTesting(override_title);
     WebAppTestInstallWithOsHooksObserver observer(browser->profile());
     observer.BeginListening();
     CHECK(chrome::ExecuteCommand(browser, IDC_CREATE_SHORTCUT));
     webapps::AppId app_id = observer.Wait();
-    chrome::SetAutoAcceptWebAppDialogForTesting(false, false);
-    chrome::SetOverrideTitleForTesting(nullptr);
+    SetAutoAcceptWebAppDialogForTesting(false, false);
+    SetOverrideTitleForTesting(nullptr);
     return app_id;
   }
 
@@ -4700,7 +4697,7 @@ IN_PROC_BROWSER_TEST_F(ManifestUpdateManagerAppIdentityBrowserTest,
 
   base::RunLoop run_loop;
 
-  chrome::ShowWebAppIdentityUpdateDialog(
+  ShowWebAppIdentityUpdateDialog(
       app_id,
       /* title_change= */ true,
       /* icon_change= */ false, u"old_title", u"new_title",

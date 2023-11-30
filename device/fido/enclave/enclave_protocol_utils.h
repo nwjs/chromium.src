@@ -38,9 +38,17 @@ const char kSessionId[] = "session_name";
 const char kSendCommandRequestData[] = "request";
 const char kSendCommandResponseData[] = "response";
 
+// The first argument is the handshake_hash, the second is the data that will
+// be signed. This is invoked asynchronously on a different thread, so there
+// must not be any thread-local dependencies in the callback.
+using EnclaveRequestSigningCallback =
+    base::RepeatingCallback<std::vector<uint8_t>(base::span<const uint8_t>,
+                                                 base::span<const uint8_t>)>;
+
 // Parses a decrypted command response from the enclave.
 std::pair<absl::optional<AuthenticatorGetAssertionResponse>, std::string>
-ParseGetAssertionResponse(const std::vector<uint8_t>& response_cbor);
+ParseGetAssertionResponse(const std::vector<uint8_t>& response_cbor,
+                          base::span<uint8_t> credential_id);
 
 // Returns a CBOR value with the provided GetAssertion request and associated
 // passkey. The return value can be serialized into a Command request according
@@ -51,7 +59,7 @@ cbor::Value BuildGetAssertionCommand(
     std::string client_data_hash,
     std::string rp_id);
 
-// Returns a CBOR serialization of the command to be sent to the enclave
+// Builds a CBOR serialization of the command to be sent to the enclave
 // service which can then be encrypted and sent over HTTPS.
 // |command_callback| is used to generate the encoded MakeCredential or
 //     GetAssertion command.
@@ -59,13 +67,13 @@ cbor::Value BuildGetAssertionCommand(
 //     command using the protected private key.
 // |device_id| is the unique identifier for this device which the server uses
 //     to look up the previously-registered public key.
-std::vector<uint8_t> BuildCommandRequestBody(
+// |complete_callback| is invoked with the finished serialized command.
+void BuildCommandRequestBody(
     base::OnceCallback<cbor::Value()> command_callback,
-    base::RepeatingCallback<std::vector<uint8_t>(base::span<const uint8_t>,
-                                                 base::span<const uint8_t>)>
-        signing_callback,
-    base::span<uint8_t> handshake_hash_,
-    const std::vector<uint8_t>& device_id);
+    EnclaveRequestSigningCallback signing_callback,
+    base::span<uint8_t> handshake_hash,
+    const std::vector<uint8_t>& device_id,
+    base::OnceCallback<void(std::vector<uint8_t>)> complete_callback);
 
 // For testing only. (Also this is obsolete, the test service code needs to
 // be updated).

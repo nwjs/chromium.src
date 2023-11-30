@@ -12,8 +12,9 @@ DeviceAuthenticatorChromeOS::DeviceAuthenticatorChromeOS(
     std::unique_ptr<AuthenticatorChromeOSInterface> authenticator,
     DeviceAuthenticatorProxy* proxy,
     const device_reauth::DeviceAuthParams& params)
-    : ChromeDeviceAuthenticatorCommon(proxy,
-                                      params.GetAuthenticationValidityPeriod()),
+    : DeviceAuthenticatorCommon(proxy,
+                                params.GetAuthenticationValidityPeriod(),
+                                params.GetAuthResultHistogram()),
       authenticator_(std::move(authenticator)) {}
 
 DeviceAuthenticatorChromeOS::~DeviceAuthenticatorChromeOS() = default;
@@ -36,6 +37,8 @@ void DeviceAuthenticatorChromeOS::AuthenticateWithMessage(
     const std::u16string& message,
     AuthenticateCallback callback) {
   if (!NeedsToAuthenticate()) {
+    RecordAuthResultSkipped();
+
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), /*success=*/true));
     return;

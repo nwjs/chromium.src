@@ -5,40 +5,54 @@
 #include "net/websockets/websocket_stream.h"
 
 #include <algorithm>
+#include <iterator>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
-#include "base/compiler_specific.h"
+#include "base/check_op.h"
 #include "base/containers/span.h"
-#include "base/memory/ptr_util.h"
-#include "base/metrics/histogram.h"
+#include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_samples.h"
-#include "base/metrics/statistics_recorder.h"
 #include "base/run_loop.h"
 #include "base/strings/string_piece.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/timer/mock_timer.h"
 #include "base/timer/timer.h"
+#include "net/base/auth.h"
 #include "net/base/features.h"
 #include "net/base/isolation_info.h"
 #include "net/base/net_errors.h"
+#include "net/base/request_priority.h"
+#include "net/base/test_completion_callback.h"
 #include "net/base/url_util.h"
+#include "net/cookies/cookie_setting_override.h"
+#include "net/cookies/site_for_cookies.h"
+#include "net/http/http_network_session.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_response_headers.h"
-#include "net/proxy_resolution/proxy_resolution_service.h"
-#include "net/socket/client_socket_handle.h"
+#include "net/log/net_log_with_source.h"
+#include "net/socket/next_proto.h"
 #include "net/socket/socket_test_util.h"
 #include "net/spdy/spdy_test_util_common.h"
+#include "net/ssl/ssl_info.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/gtest_util.h"
 #include "net/test/test_data_directory.h"
+#include "net/third_party/quiche/src/quiche/spdy/core/http2_header_block.h"
 #include "net/third_party/quiche/src/quiche/spdy/core/spdy_protocol.h"
+#include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "net/url_request/url_request.h"
+#include "net/url_request/url_request_context.h"
 #include "net/url_request/url_request_test_util.h"
-#include "net/websockets/websocket_basic_handshake_stream.h"
 #include "net/websockets/websocket_frame.h"
+#include "net/websockets/websocket_handshake_request_info.h"
+#include "net/websockets/websocket_handshake_response_info.h"
+#include "net/websockets/websocket_handshake_stream_base.h"
 #include "net/websockets/websocket_stream_create_test_base.h"
 #include "net/websockets/websocket_test_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -166,7 +180,8 @@ class WebSocketStreamCreateTest
       const std::vector<std::string>& sub_protocols,
       const WebSocketExtraHeaders& send_additional_request_headers,
       const WebSocketExtraHeaders& extra_request_headers,
-      const WebSocketExtraHeaders& extra_response_headers) {
+      const WebSocketExtraHeaders& extra_response_headers,
+      bool has_storage_access = false) {
     const GURL socket_url(url);
     const std::string socket_host = GetHostAndOptionalPort(socket_url);
     const std::string socket_path = socket_url.path();
@@ -180,7 +195,8 @@ class WebSocketStreamCreateTest
               WebSocketExtraHeadersToString(extra_response_headers)) +
               additional_data_);
       CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                             SiteForCookies(), CreateIsolationInfo(),
+                             SiteForCookies(), has_storage_access,
+                             CreateIsolationInfo(),
                              WebSocketExtraHeadersToHttpRequestHeaders(
                                  send_additional_request_headers),
                              std::move(timer_));
@@ -315,7 +331,8 @@ class WebSocketStreamCreateTest
     EXPECT_FALSE(request->is_pending());
 
     CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                           SiteForCookies(), CreateIsolationInfo(),
+                           SiteForCookies(), has_storage_access,
+                           CreateIsolationInfo(),
                            WebSocketExtraHeadersToHttpRequestHeaders(
                                send_additional_request_headers),
                            std::move(timer_));
@@ -328,7 +345,8 @@ class WebSocketStreamCreateTest
       const std::vector<std::string>& sub_protocols,
       const WebSocketExtraHeaders& send_additional_request_headers,
       const WebSocketExtraHeaders& extra_request_headers,
-      const std::string& response_body) {
+      const std::string& response_body,
+      bool has_storage_access = false) {
     ASSERT_EQ(BASIC_HANDSHAKE_STREAM, stream_type_);
 
     const GURL socket_url(url);
@@ -341,7 +359,8 @@ class WebSocketStreamCreateTest
                                  extra_request_headers),
         response_body);
     CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                           SiteForCookies(), CreateIsolationInfo(),
+                           SiteForCookies(), has_storage_access,
+                           CreateIsolationInfo(),
                            WebSocketExtraHeadersToHttpRequestHeaders(
                                send_additional_request_headers),
                            nullptr);
@@ -353,7 +372,8 @@ class WebSocketStreamCreateTest
   void CreateAndConnectStringResponse(
       base::StringPiece url,
       const std::vector<std::string>& sub_protocols,
-      const std::string& extra_response_headers) {
+      const std::string& extra_response_headers,
+      bool has_storage_access = false) {
     ASSERT_EQ(BASIC_HANDSHAKE_STREAM, stream_type_);
 
     const GURL socket_url(url);
@@ -366,8 +386,9 @@ class WebSocketStreamCreateTest
                                  /*extra_headers=*/{}),
         WebSocketStandardResponse(extra_response_headers));
     CreateAndConnectStream(socket_url, sub_protocols, Origin(),
-                           SiteForCookies(), CreateIsolationInfo(),
-                           HttpRequestHeaders(), nullptr);
+                           SiteForCookies(), has_storage_access,
+                           CreateIsolationInfo(), HttpRequestHeaders(),
+                           nullptr);
   }
 
   // Like CreateAndConnectStandard(), but take raw mock data.
@@ -375,13 +396,14 @@ class WebSocketStreamCreateTest
       base::StringPiece url,
       const std::vector<std::string>& sub_protocols,
       const HttpRequestHeaders& additional_headers,
-      std::unique_ptr<SequencedSocketData> socket_data) {
+      std::unique_ptr<SequencedSocketData> socket_data,
+      bool has_storage_access = false) {
     ASSERT_EQ(BASIC_HANDSHAKE_STREAM, stream_type_);
 
     AddRawExpectations(std::move(socket_data));
     CreateAndConnectStream(GURL(url), sub_protocols, Origin(), SiteForCookies(),
-                           CreateIsolationInfo(), additional_headers,
-                           std::move(timer_));
+                           has_storage_access, CreateIsolationInfo(),
+                           additional_headers, std::move(timer_));
   }
 
   bool PriorityHeaderEnabled() const { return std::get<bool>(GetParam()); }
@@ -511,7 +533,9 @@ class WebSocketStreamCreateBasicAuthTest : public WebSocketStreamCreateTest {
   }
 
   static std::string RequestExpectation(base::StringPiece base64_user_pass) {
-    static const char request2format[] =
+    // Copy base64_user_pass to a std::string in case it is not nul-terminated.
+    std::string base64_user_pass_string(base64_user_pass);
+    return base::StringPrintf(
         "GET / HTTP/1.1\r\n"
         "Host: www.example.org\r\n"
         "Connection: Upgrade\r\n"
@@ -527,8 +551,8 @@ class WebSocketStreamCreateBasicAuthTest : public WebSocketStreamCreateTest {
         "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n"
         "Sec-WebSocket-Extensions: permessage-deflate; "
         "client_max_window_bits\r\n"
-        "\r\n";
-    return base::StringPrintf(request2format, base64_user_pass.data());
+        "\r\n",
+        base64_user_pass_string.c_str());
   }
 
   static const char kUnauthorizedResponse[];
@@ -705,6 +729,30 @@ TEST_P(WebSocketStreamCreateTest, HandshakeOverrideHeaders) {
       RequestHeadersToVector(request_info_->headers);
   EXPECT_EQ(HeaderKeyValuePair("User-Agent", "OveRrIde"), request_headers[4]);
   EXPECT_EQ(HeaderKeyValuePair("rAnDomHeader", "foobar"), request_headers[5]);
+}
+
+TEST_P(WebSocketStreamCreateTest, OmitsHasStorageAccess) {
+  CreateAndConnectStandard("ws://www.example.org/", NoSubProtocols(), {}, {},
+                           {}, /*has_storage_access=*/false);
+  WaitUntilConnectDone();
+
+  EXPECT_THAT(
+      url_request_context_host_.network_delegate()
+          .cookie_setting_overrides_records(),
+      testing::ElementsAre(CookieSettingOverrides(), CookieSettingOverrides()));
+}
+
+TEST_P(WebSocketStreamCreateTest, PlumbsHasStorageAccess) {
+  CreateAndConnectStandard("ws://www.example.org/", NoSubProtocols(), {}, {},
+                           {}, /*has_storage_access=*/true);
+  WaitUntilConnectDone();
+
+  CookieSettingOverrides expected_overrides;
+  expected_overrides.Put(CookieSettingOverride::kStorageAccessGrantEligible);
+
+  EXPECT_THAT(url_request_context_host_.network_delegate()
+                  .cookie_setting_overrides_records(),
+              testing::ElementsAre(expected_overrides, expected_overrides));
 }
 
 // Confirm that the stream isn't established until the message loop runs.

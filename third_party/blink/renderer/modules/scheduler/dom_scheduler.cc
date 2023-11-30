@@ -54,11 +54,6 @@ DOMScheduler::DOMScheduler(ExecutionContext* context)
   CHECK(context->GetScheduler());
   CreateFixedPriorityTaskQueues(context, WebSchedulingQueueType::kTaskQueue,
                                 fixed_priority_task_queues_);
-  if (RuntimeEnabledFeatures::SchedulerYieldEnabled(context)) {
-    CreateFixedPriorityTaskQueues(context,
-                                  WebSchedulingQueueType::kContinuationQueue,
-                                  fixed_priority_continuation_queues_);
-  }
 }
 
 void DOMScheduler::ContextDestroyed() {
@@ -120,6 +115,12 @@ ScriptPromise DOMScheduler::yield(ScriptState* script_state,
     exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
                                       "Current window is detached");
     return ScriptPromise();
+  }
+
+  if (fixed_priority_continuation_queues_.empty()) {
+    CreateFixedPriorityTaskQueues(GetExecutionContext(),
+                                  WebSchedulingQueueType::kContinuationQueue,
+                                  fixed_priority_continuation_queues_);
   }
 
   // Abort and priority can be inherited together or separately. Abort
@@ -307,7 +308,7 @@ DOMTaskSignal* DOMScheduler::GetFixedPriorityTaskSignal(
     CHECK(signal->HasFixedPriority());
     fixed_priority_task_signals_[index] = signal;
   }
-  return fixed_priority_task_signals_[index];
+  return fixed_priority_task_signals_[index].Get();
 }
 
 DOMScheduler::DOMTaskQueue* DOMScheduler::GetTaskQueue(

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -81,7 +82,7 @@ class WebFileHandlersFileLaunchBrowserTest
   }
 
  protected:
-  // Install the file path as am extension that's installed by default.
+  // Install the file path as an extension that's installed by default.
   const extensions::Extension* WriteToDirAndLoadDefaultInstalledExtension(
       const std::string& manifest) {
     WriteToExtensionDir(manifest);
@@ -123,7 +124,7 @@ class WebFileHandlersFileLaunchBrowserTest
 
   // Load an extension with a few extra files for testing multiple-clients.
   const extensions::Extension* WriteCustomDirForFileHandlingExtension(
-      const std::string& manifest,
+      std::string_view manifest,
       const base::flat_map<std::string, std::string>& files) {
     extension_dir_.WriteManifest(manifest);
     for (const auto& [name, content] : files) {
@@ -234,7 +235,9 @@ class WebFileHandlersFileLaunchBrowserTest
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "WebFileHandlersFileLaunchDialogView");
     // Set the checkbox to checked.
-    extensions::file_handlers::SetDefaultRememberSelectionForTesting(true);
+    // TODO: handle return value.
+    std::ignore =
+        extensions::file_handlers::SetDefaultRememberSelectionForTesting(true);
 
     // Run the first time.
     {
@@ -285,7 +288,9 @@ class WebFileHandlersFileLaunchBrowserTest
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "WebFileHandlersFileLaunchDialogView");
     // Set the checkbox to checked.
-    extensions::file_handlers::SetDefaultRememberSelectionForTesting(true);
+    // TODO: handle return value.
+    std::ignore =
+        extensions::file_handlers::SetDefaultRememberSelectionForTesting(true);
 
     // Launch for the first time.
     {
@@ -334,7 +339,9 @@ class WebFileHandlersFileLaunchBrowserTest
     views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
                                          "WebFileHandlersFileLaunchDialogView");
     // Set the checkbox to checked.
-    extensions::file_handlers::SetDefaultRememberSelectionForTesting(true);
+    // TODO: handle return value.
+    std::ignore =
+        extensions::file_handlers::SetDefaultRememberSelectionForTesting(true);
 
     // Launch for the first time.
     {
@@ -461,18 +468,10 @@ class WebFileHandlersFileLaunchBrowserTest
     return intent;
   }
 
-  void SetChannelAndResetFeatureList(version_info::Channel channel) {
-    extensions::SetCurrentChannel(channel);
-    feature_list_.Reset();
-  }
-
  private:
   extensions::TestExtensionDir extension_dir_;
 
   base::test::ScopedFeatureList feature_list_;
-  // TODO(crbug.com/1448893): Remove channel overrides when available in stable.
-  extensions::ScopedCurrentChannel current_channel_{
-      version_info::Channel::BETA};
 
   // Basic manifest for web file handlers.
   static constexpr char const kManifest[] = R"({
@@ -549,22 +548,9 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest, CallSetConsumer) {
   LaunchExtensionAndCatchResult(*extension);
 }
 
-// Reuse `WebFileHandlersFileLaunchBrowserTest` but make the following changes:
-// * Use stable channel instead of beta.
-// * Remove all extension flags, especially `kExtensionWebFileHandlers`.
-class WebFileHandlersFileLaunchOnStableChannelBrowserTest
-    : public WebFileHandlersFileLaunchBrowserTest {
- public:
-  WebFileHandlersFileLaunchOnStableChannelBrowserTest() {
-    // Set channel and extension features.
-    SetChannelAndResetFeatureList(version_info::Channel::STABLE);
-  }
-};
-
 // Verify that the Ash component of this ChromeOS feature is on the stable
 // channel.
-IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchOnStableChannelBrowserTest,
-                       QuickOffice) {
+IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest, QuickOffice) {
   const std::string manifest =
       base::StringPrintf(R"({
     "name": "Test",
@@ -585,6 +571,8 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchOnStableChannelBrowserTest,
 
   // Web File Handlers are supported.
   ASSERT_TRUE(extensions::WebFileHandlers::SupportsWebFileHandlers(*extension));
+  ASSERT_TRUE(
+      extensions::WebFileHandlers::CanBypassPermissionDialog(*extension));
 
   // Reopen the file and ensure that it's available in `launchParams`.
   LaunchExtensionAndCatchResult(*extension);
@@ -592,8 +580,7 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchOnStableChannelBrowserTest,
 
 // Verify that the Ash component of this ChromeOS feature is on the stable
 // channel.
-IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchOnStableChannelBrowserTest,
-                       DefaultInstalled) {
+IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest, DefaultInstalled) {
   static constexpr char kManifest[] = R"({
     "name": "Test",
     "version": "0.0.1",
@@ -609,16 +596,16 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchOnStableChannelBrowserTest,
   auto* extension = WriteToDirAndLoadDefaultInstalledExtension(kManifest);
   ASSERT_TRUE(extension);
 
-  // Web File Handlers are not supported.
-  ASSERT_FALSE(
-      extensions::WebFileHandlers::SupportsWebFileHandlers(*extension));
+  ASSERT_TRUE(extensions::WebFileHandlers::SupportsWebFileHandlers(*extension));
+  ASSERT_TRUE(
+      extensions::WebFileHandlers::CanBypassPermissionDialog(*extension));
 }
 
 // Verify `{"launch_type": "multiple-clients"}`.
 IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest,
                        LaunchTypeMultipleClients) {
   // Create a manifest that includes `{"launch_type": "multiple-clients"}`.
-  std::string manifest = R"({
+  static constexpr char kManifest[] = R"({
     "name": "Test",
     "version": "0.0.1",
     "manifest_version": 3,
@@ -637,7 +624,7 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest,
     ]
   })";
 
-  const char* kScript = R"(
+  static constexpr char kScript[] = R"(
         chrome.test.assertTrue('launchQueue' in window);
         launchQueue.setConsumer((launchParams) => {
           chrome.test.assertEq(%d, launchParams.files.length);
@@ -647,18 +634,19 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest,
         });
       )";
 
-  const char* kScriptTag = R"(<script src="%s"></script><body>Test</body>)";
+  static constexpr char kScriptTag[] =
+      R"(<script src="%s"></script><body>Test</body>)";
 
-  // Create files.
+  // Create a map of one filename for each file content.
   base::flat_map<std::string, std::string> files = {
-      {"open-csv.js", base::StringPrintf(kScript, 2)},
+      {"open-csv.js", base::StringPrintf(kScript, /*expected=*/2)},
       {"open-csv.html", base::StringPrintf(kScriptTag, "/open-csv.js")},
-      {"open-txt.js", base::StringPrintf(kScript, 1)},
+      {"open-txt.js", base::StringPrintf(kScript, /*expected=*/1)},
       {"open-txt.html", base::StringPrintf(kScriptTag, "/open-txt.js")},
   };
 
   // Load extension.
-  auto* extension = WriteCustomDirForFileHandlingExtension(manifest, files);
+  auto* extension = WriteCustomDirForFileHandlingExtension(kManifest, files);
   ASSERT_TRUE(extension);
 
   auto VerifyLaunch =
@@ -695,7 +683,7 @@ IN_PROC_BROWSER_TEST_F(WebFileHandlersFileLaunchBrowserTest,
   } test_cases[] = {
       // clang-format off
 
-    // single-client [by default] opens all files in the same tab.
+    // single-client (default if unset) opens all files in the same tab.
     {
       "Verify single-client",
       "/open-csv.html",

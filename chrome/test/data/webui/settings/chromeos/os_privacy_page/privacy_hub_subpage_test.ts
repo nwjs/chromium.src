@@ -6,7 +6,7 @@ import 'chrome://os-settings/lazy_load.js';
 
 import {MediaDevicesProxy, PrivacyHubBrowserProxyImpl, SettingsPrivacyHubSubpage} from 'chrome://os-settings/lazy_load.js';
 import {CrToggleElement, MetricsConsentBrowserProxyImpl, OsSettingsPrivacyPageElement, PaperTooltipElement, Router, routes, SecureDnsMode, settingMojom, SettingsToggleButtonElement} from 'chrome://os-settings/os_settings.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getDeepActiveElement} from 'chrome://resources/js/util_ts.js';
@@ -78,6 +78,13 @@ async function parametrizedPrivacyHubSubpageTestsuite(
     privacyHubSubpage.remove();
     Router.getInstance().resetRouteForTesting();
   });
+
+  function recreateSubpage(prefs = {}): void {
+    privacyHubSubpage = document.createElement('settings-privacy-hub-subpage');
+    privacyHubSubpage.prefs = prefs;
+    document.body.appendChild(privacyHubSubpage);
+    flush();
+  }
 
   test('Deep link to camera toggle on privacy hub', async () => {
     const params = new URLSearchParams();
@@ -196,26 +203,27 @@ async function parametrizedPrivacyHubSubpageTestsuite(
     assertTrue(suggestedContent.checked);
   });
 
-  test('Deep link to Geolocation toggle on privacy hub', async () => {
+  test('Deep link to Geolocation area on privacy hub', async () => {
     const params = new URLSearchParams();
-    params.append('settingId', '1118');
+    const settingId = settingMojom.Setting.kGeolocationOnOff;
+    params.append('settingId', settingId.toString());
     Router.getInstance().navigateTo(routes.PRIVACY_HUB, params);
 
     flush();
 
-    const toggleElement =
-        privacyHubSubpage.shadowRoot!.querySelector('#geolocationToggle');
+    const linkRowElement =
+        privacyHubSubpage.shadowRoot!.querySelector('#geolocationAreaLinkRow');
     if (privacyHubVersion === PrivacyHubVersion.V0) {
-      assertEquals(null, toggleElement);
+      assertEquals(null, linkRowElement);
     } else if (privacyHubVersion === PrivacyHubVersion.V0AndLocation) {
-      assert(toggleElement);
+      assert(linkRowElement);
       const deepLinkElement =
-          toggleElement.shadowRoot!.querySelector('cr-toggle');
+          linkRowElement.shadowRoot!.querySelector('cr-icon-button');
       assert(deepLinkElement);
       await waitAfterNextRender(deepLinkElement);
       assertEquals(
           deepLinkElement, getDeepActiveElement(),
-          'Geolocation toggle should be focused for settingId=1118.');
+          `Geolocation link row should be focused for settingId=${settingId}`);
     }
   });
 
@@ -600,6 +608,57 @@ async function parametrizedPrivacyHubSubpageTestsuite(
     assertEquals(
         1, privacyHubBrowserProxy.getCallCount('sendLeftOsPrivacyPage'));
   });
+
+  test('Camera toggle initially force disabled', async () => {
+    const getCameraCrToggle = () =>
+        privacyHubSubpage.shadowRoot!.querySelector('#cameraToggle')!
+            .shadowRoot!.querySelector('cr-toggle');
+
+    privacyHubBrowserProxy.cameraSwitchIsForceDisabled = true;
+    recreateSubpage();
+    await privacyHubBrowserProxy.whenCalled(
+        'getInitialCameraSwitchForceDisabledState');
+    await waitAfterNextRender(privacyHubSubpage);
+
+    // There is no MediaDevice connected initially. Camera toggle should be
+    // disabled as no camera is connected.
+    assertTrue(getCameraCrToggle()!.disabled);
+
+    // Add a camera.
+    mediaDevices.addDevice('videoinput', 'Fake Camera');
+    await waitAfterNextRender(privacyHubSubpage);
+
+    // Camera toggle should remain disabled.
+    assertTrue(getCameraCrToggle()!.disabled);
+
+    mediaDevices.popDevice();
+  });
+
+  test('Change force-disable-camera-switch', async () => {
+    const getCameraCrToggle = () =>
+        privacyHubSubpage.shadowRoot!.querySelector('#cameraToggle')!
+            .shadowRoot!.querySelector('cr-toggle');
+
+    // Add a camera so the camera toggle is enabled.
+    mediaDevices.addDevice('videoinput', 'Fake Camera');
+    await waitAfterNextRender(privacyHubSubpage);
+    assertFalse(getCameraCrToggle()!.disabled);
+
+    // Force disable camera toggle.
+    webUIListenerCallback('force-disable-camera-switch', true);
+    await waitAfterNextRender(privacyHubSubpage);
+    assertTrue(getCameraCrToggle()!.disabled);
+
+    // Stop Force disabling camera toggle.
+    webUIListenerCallback('force-disable-camera-switch', false);
+    await waitAfterNextRender(privacyHubSubpage);
+    assertFalse(getCameraCrToggle()!.disabled);
+
+    // Remove the last camera should again disable the camera toggle.
+    mediaDevices.popDevice();
+    await waitAfterNextRender(privacyHubSubpage);
+    assertTrue(getCameraCrToggle()!.disabled);
+  });
 }
 
 suite(
@@ -798,7 +857,6 @@ async function parametrizedTestsuiteForMetricsConsentToggle(
         metricsConsentBrowserProxy);
 
     settingsPage = document.createElement(pageId);
-
   });
 
   async function setUpPage(prefName: string, isConfigurable: boolean) {

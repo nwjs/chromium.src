@@ -12,6 +12,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/heavy_ad_intervention/heavy_ad_service_factory.h"
+#include "chrome/browser/page_load_metrics/observers/bookmark_bar_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/core/amp_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/core/ukm_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/document_write_page_load_metrics_observer.h"
@@ -37,6 +38,7 @@
 #include "chrome/browser/page_load_metrics/observers/service_worker_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/signed_exchange_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/tab_strip_page_load_metrics_observer.h"
+#include "chrome/browser/page_load_metrics/observers/third_party_cookie_deprecation_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/observers/translate_page_load_metrics_observer.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_memory_tracker_factory.h"
 #include "chrome/browser/preloading/prefetch/no_state_prefetch/chrome_no_state_prefetch_contents_delegate.h"
@@ -180,6 +182,10 @@ void PageLoadMetricsEmbedder::RegisterEmbedderObservers(
     tracker->AddObserver(
         std::make_unique<TabStripPageLoadMetricsObserver>(web_contents()));
     tracker->AddObserver(std::make_unique<PreviewPageLoadMetricsObserver>());
+    tracker->AddObserver(std::make_unique<BookmarkBarMetricsObserver>());
+    tracker->AddObserver(
+        std::make_unique<ThirdPartyCookieDeprecationMetricsObserver>(
+            web_contents()->GetBrowserContext()));
   }
   tracker->AddObserver(
       std::make_unique<OmniboxSuggestionUsedMetricsObserver>());

@@ -333,7 +333,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsPrivacySandboxReportingDestinationAttested(
       content::BrowserContext* browser_context,
       const url::Origin& destination_origin,
-      content::PrivacySandboxInvokingAPI invoking_api) override;
+      content::PrivacySandboxInvokingAPI invoking_api,
+      bool post_impression_reporting) override;
   void OnAuctionComplete(content::RenderFrameHost* render_frame_host,
                          content::InterestGroupManager::InterestGroupDataKey
                              winner_data_key) override;
@@ -343,7 +344,8 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
       content::RenderFrameHost* rfh,
       const url::Origin* impression_origin,
       const url::Origin* conversion_origin,
-      const url::Origin* reporting_origin) override;
+      const url::Origin* reporting_origin,
+      bool* can_bypass) override;
   bool IsSharedStorageAllowed(content::BrowserContext* browser_context,
                               content::RenderFrameHost* rfh,
                               const url::Origin& top_frame_origin,
@@ -553,6 +555,10 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                                content::WebContents* web_contents) override;
   void RemovePresentationObserver(content::PresentationObserver* observer,
                                   content::WebContents* web_contents) override;
+  bool AddPrivacySandboxAttestationsObserver(
+      content::PrivacySandboxAttestationsObserver* observer) override;
+  void RemovePrivacySandboxAttestationsObserver(
+      content::PrivacySandboxAttestationsObserver* observer) override;
   std::vector<std::unique_ptr<content::NavigationThrottle>>
   CreateThrottlesForNavigation(content::NavigationHandle* handle) override;
   std::vector<std::unique_ptr<content::CommitDeferringCondition>>
@@ -921,6 +927,11 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool IsThirdPartyStoragePartitioningAllowed(
       content::BrowserContext* browser_context,
       const url::Origin& top_level_origin) override;
+
+  bool AreDeprecatedAutomaticBeaconCredentialsAllowed(
+      content::BrowserContext* browser_context,
+      const GURL& destination_url,
+      const url::Origin& top_frame_origin) override;
 
   bool IsTransientActivationRequiredForShowFileOrDirectoryPicker(
       content::WebContents* web_contents) override;

@@ -6,12 +6,15 @@
 
 #import <Foundation/Foundation.h>
 
+#import "base/json/values_util.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
 #import "components/feed/core/v2/public/common_enums.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
+#import "ios/chrome/browser/metrics/constants.h"
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/ui/ntp/feed_control_delegate.h"
+#import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_constants.h"
 #import "ios/chrome/browser/ui/ntp/metrics/feed_metrics_recorder+testing.h"
 #import "ios/web/public/test/web_task_environment.h"
 #import "testing/gtest/include/gtest/gtest.h"
@@ -41,8 +44,8 @@ class FeedMetricsRecorderTest : public PlatformTest {
     // Mock Delegate to change currently used feed.
     mocked_delegate_ = OCMProtocolMock(@protocol(FeedControlDelegate));
     recorder_.feedControlDelegate = mocked_delegate_;
-    histogram_tester_.reset(new base::HistogramTester());
-    actions_tester_.reset(new base::UserActionTester());
+    histogram_tester_ = std::make_unique<base::HistogramTester>();
+    actions_tester_ = std::make_unique<base::UserActionTester>();
   }
 
  protected:
@@ -632,4 +635,61 @@ TEST_F(FeedMetricsRecorderTest, Actions_ShowFeedSignInOnlyUIWithoutUserId) {
   EXPECT_ACTION(kShowFeedSignInOnlyUIWithoutUserId,
                 recordShowSignInOnlyUIWithUserId
                 : NO);
+}
+
+#pragma mark - ComputeActivityBuckets Tests
+
+// Tests that kNoActivity is correctly saved in kActivityBucketKey.
+TEST_F(FeedMetricsRecorderTest, TestComputeActivityBuckets_kNoActivity) {
+  // Make sure that the activity was not reported recently.
+  base::Time last_activity_bucket = base::Time() - base::Days(10);
+  test_pref_service_.SetTime(kActivityBucketLastReportedDateKey,
+                             last_activity_bucket);
+  // Make sure LastReportedDateArray is empty.
+  test_pref_service_.ClearPref(kActivityBucketLastReportedDateArrayKey);
+
+  [recorder_ recordNTPDidChangeVisibility:YES];
+
+  DCHECK_EQ(test_pref_service_.GetInteger(kActivityBucketKey),
+            static_cast<int>(FeedActivityBucket::kNoActivity));
+}
+
+// Tests that kLowActivity is correctly saved in kActivityBucketKey.
+TEST_F(FeedMetricsRecorderTest, TestComputeActivityBuckets_kLowActivity) {
+  // Make sure that the activity was not reported recently.
+  base::Time last_activity_bucket = base::Time() - base::Days(10);
+  test_pref_service_.SetTime(kActivityBucketLastReportedDateKey,
+                             last_activity_bucket);
+  // Make sure LastReportedDateArray is in range 1 to 7.
+  base::Value::List listOfDates;
+  for (size_t i = 0; i < 5; ++i) {
+    listOfDates.Append(TimeToValue(base::Time::Now()));
+  }
+  test_pref_service_.SetList(kActivityBucketLastReportedDateArrayKey,
+                             std::move(listOfDates));
+
+  [recorder_ recordNTPDidChangeVisibility:YES];
+
+  DCHECK_EQ(test_pref_service_.GetInteger(kActivityBucketKey),
+            static_cast<int>(FeedActivityBucket::kLowActivity));
+}
+
+// Tests that kMediumActivity is correctly saved in kActivityBucketKey.
+TEST_F(FeedMetricsRecorderTest, TestComputeActivityBuckets_kMediumActivity) {
+  // Make sure that the activity was not reported recently.
+  base::Time last_activity_bucket = base::Time() - base::Days(10);
+  test_pref_service_.SetTime(kActivityBucketLastReportedDateKey,
+                             last_activity_bucket);
+  // Make sure LastReportedDateArray is in range 8 to 15.
+  base::Value::List listOfDates;
+  for (size_t i = 0; i < 9; ++i) {
+    listOfDates.Append(TimeToValue(base::Time::Now()));
+  }
+  test_pref_service_.SetList(kActivityBucketLastReportedDateArrayKey,
+                             std::move(listOfDates));
+
+  [recorder_ recordNTPDidChangeVisibility:YES];
+
+  DCHECK_EQ(test_pref_service_.GetInteger(kActivityBucketKey),
+            static_cast<int>(FeedActivityBucket::kMediumActivity));
 }

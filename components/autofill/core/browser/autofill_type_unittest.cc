@@ -35,8 +35,8 @@ class AutofillTypeServerPredictionTest : public ::testing::Test {
 };
 
 TEST_F(AutofillTypeServerPredictionTest, PredictionFromAutofillField) {
-  AutofillField field = AutofillField(
-      test::CreateTestFormField("label", "name", "value", /*type=*/"text"));
+  AutofillField field = AutofillField(test::CreateTestFormField(
+      "label", "name", "value", /*type=*/FormControlType::kInputText));
   field.set_server_predictions(
       {test::CreateFieldPrediction(ServerFieldType::EMAIL_ADDRESS),
        test::CreateFieldPrediction(ServerFieldType::USERNAME)});
@@ -127,16 +127,11 @@ TEST_P(AutofillTypeTestForHtmlFieldTypes, GroupsOfHtmlFieldTypes) {
       UNKNOWN_TYPE) {
     return;
   }
-  // TODO(crbug.com/1476882): AutofillType(HtmlFieldType::kOneTimeCode).group()
-  // is kNoGroup, but AutofillType(ONE_TIME_CODE).group() is kUnfillable.
-  if (html_field_type() == HtmlFieldType::kOneTimeCode) {
-    return;
-  }
   AutofillType t(html_field_type());
   SCOPED_TRACE(testing::Message()
-               << "html_field_type="
-               << FieldTypeToStringPiece(html_field_type()) << " "
-               << "field_type=" << FieldTypeToStringPiece(t.GetStorableType()));
+               << "html_field_type=" << FieldTypeToStringView(html_field_type())
+               << " "
+               << "field_type=" << FieldTypeToStringView(t.GetStorableType()));
   EXPECT_EQ(t.group(), GroupTypeOfServerFieldType(t.GetStorableType()));
 }
 

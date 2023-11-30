@@ -434,6 +434,9 @@ struct AutocompleteMatch {
   // set `stripped_destination_url` to avoid repeating the computation later.
   bool IsDocumentSuggestion();
 
+  // Checks if this match is a trend suggestion based on the match subtypes.
+  bool IsTrendSuggestion() const;
+
   // Returns true if this match may attach one or more `actions`.
   // This method is used to keep actions off of matches with types that don't
   // mix well with Pedals or other actions (e.g. entities).
@@ -483,6 +486,7 @@ struct AutocompleteMatch {
   void RecordAdditionalInfo(const std::string& property,
                             const std::u16string& value);
   void RecordAdditionalInfo(const std::string& property, int value);
+  void RecordAdditionalInfo(const std::string& property, double value);
   void RecordAdditionalInfo(const std::string& property, base::Time value);
 
   // Returns the value recorded for |property| in the |additional_info|
@@ -712,6 +716,10 @@ struct AutocompleteMatch {
   // This is not meant for display, but internal use only. The actual UI display
   // is controlled by the `type` and `image_url`.
   std::string entity_id;
+
+  // Optional website URI for entity suggestions. Empty string means no website
+  // URI.
+  std::string website_uri;
 
   // Optional override to use for types that specify an icon sub-type.
   DocumentType document_type = DocumentType::NONE;

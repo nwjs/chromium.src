@@ -6,10 +6,10 @@
 #define CHROME_BROWSER_UI_VIEWS_WEB_APPS_FRAME_TOOLBAR_WEB_APP_FRAME_TOOLBAR_TEST_HELPER_H_
 
 #include <memory>
+#include <string>
 
 #include "base/memory/raw_ptr.h"
 #include "base/values.h"
-#include "chrome/browser/web_applications/web_app_id.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
 
@@ -18,6 +18,7 @@ class BrowserNonClientFrameView;
 class BrowserView;
 class GURL;
 class WebAppFrameToolbarView;
+class WebAppOriginText;
 
 namespace base {
 class ScopedTempDir;
@@ -51,6 +52,11 @@ class WebAppFrameToolbarTestHelper {
       std::unique_ptr<web_app::WebAppInstallInfo> web_app_info,
       const GURL& start_url);
 
+  GURL LoadTestPageWithDataAndGetURL(
+      net::test_server::EmbeddedTestServer* embedded_test_server,
+      base::ScopedTempDir* temp_dir,
+      base::StringPiece test_html);
+
   GURL LoadWindowControlsOverlayTestPageWithDataAndGetURL(
       net::test_server::EmbeddedTestServer* embedded_test_server,
       base::ScopedTempDir* temp_dir);
@@ -81,6 +87,10 @@ class WebAppFrameToolbarTestHelper {
   // |window_open_script| and returns the |BrowserView| it opened in.
   BrowserView* OpenPopup(const std::string& window_open_script);
 
+  static void GrantWindowManagementPermission(
+      content::WebContents* web_contents);
+  void GrantWindowManagementPermission();
+
   Browser* app_browser() { return app_browser_; }
   BrowserView* browser_view() { return browser_view_; }
   BrowserNonClientFrameView* frame_view() { return frame_view_; }
@@ -88,6 +98,7 @@ class WebAppFrameToolbarTestHelper {
   WebAppFrameToolbarView* web_app_frame_toolbar() {
     return web_app_frame_toolbar_;
   }
+  WebAppOriginText* origin_text_view();
 
  private:
   raw_ptr<Browser, AcrossTasksDanglingUntriaged> app_browser_ = nullptr;
@@ -97,11 +108,6 @@ class WebAppFrameToolbarTestHelper {
   raw_ptr<views::View, AcrossTasksDanglingUntriaged> root_view_ = nullptr;
   raw_ptr<WebAppFrameToolbarView, AcrossTasksDanglingUntriaged>
       web_app_frame_toolbar_ = nullptr;
-
-  GURL LoadTestPageWithDataAndGetURL(
-      net::test_server::EmbeddedTestServer* embedded_test_server,
-      base::ScopedTempDir* temp_dir,
-      base::StringPiece test_html);
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_WEB_APPS_FRAME_TOOLBAR_WEB_APP_FRAME_TOOLBAR_TEST_HELPER_H_

@@ -210,7 +210,7 @@ void SadTab::PerformAction(SadTab::Action action) {
                   ui_metrics::SadTabEvent::BUTTON_CLICKED);
       if (show_feedback_button_) {
         ShowFeedbackPage(
-            chrome::FindBrowserWithWebContents(web_contents_),
+            chrome::FindBrowserWithTab(web_contents_),
             chrome::kFeedbackSourceSadTabPage,
             std::string() /* description_template */,
             l10n_util::GetStringUTF8(kind_ == SAD_TAB_KIND_CRASHED
@@ -218,7 +218,7 @@ void SadTab::PerformAction(SadTab::Action action) {
                                          : IDS_KILLED_TAB_FEEDBACK_MESSAGE),
             std::string(kCategoryTagCrash), std::string());
       } else {
-        Browser* browser = chrome::FindBrowserWithWebContents(web_contents_);
+        Browser* browser = chrome::FindBrowserWithTab(web_contents_);
         if (browser) {
           chrome::CloseTab(browser);
         } else

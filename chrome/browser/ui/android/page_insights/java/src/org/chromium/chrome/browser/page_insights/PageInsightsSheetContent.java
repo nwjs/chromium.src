@@ -503,10 +503,10 @@ public class PageInsightsSheetContent implements BottomSheetContent, View.OnLayo
         // first children).
         // TODO(b/305194266): Expose scroll position API, and remove this rather horrible hack.
         for (int i = 0; i < 10; i++) {
-            if (view instanceof RecyclerView) {
-                return (RecyclerView) view;
-            } else if (view instanceof ViewGroup) {
-                view = ((ViewGroup) view).getChildAt(0);
+            if (view instanceof RecyclerView recyclerview) {
+                return recyclerview;
+            } else if (view instanceof ViewGroup viewGroup) {
+                view = viewGroup.getChildAt(0);
             } else {
                 return null;
             }

@@ -258,6 +258,11 @@ String ComputeBaseComputedStyleDiff(const ComputedStyle* base_computed_style,
     exclusions.insert(DebugField::background_);
   }
   if (!CSSPropertyEquality::PropertiesEqual(
+          PropertyHandle(CSSProperty::Get(CSSPropertyID::kMaskImage)),
+          *base_computed_style, computed_style)) {
+    exclusions.insert(DebugField::mask_);
+  }
+  if (!CSSPropertyEquality::PropertiesEqual(
           PropertyHandle(CSSProperty::Get(CSSPropertyID::kWebkitMaskImage)),
           *base_computed_style, computed_style)) {
     exclusions.insert(DebugField::mask_);
@@ -1201,14 +1206,15 @@ void StyleResolver::InitStyle(Element& element,
   state.StyleBuilder().SetStyleType(style_request.pseudo_id);
   state.StyleBuilder().SetPseudoArgument(style_request.pseudo_argument);
 
-  // For highlight inheritance, propagate link visitedness and forced-colors
-  // status.
+  // For highlight inheritance, propagate link visitedness, forced-colors
+  // status, the font and the line height from the originating element. The
+  // font and line height are necessary to correctly resolve font relative
+  // units.
   if (state.UsesHighlightPseudoInheritance()) {
     state.StyleBuilder().SetInForcedColorsMode(
         style_request.originating_element_style->InForcedColorsMode());
     state.StyleBuilder().SetForcedColorAdjust(
         style_request.originating_element_style->ForcedColorAdjust());
-    // TODO(schenney): Remove these when a better solution is found
     state.StyleBuilder().SetFont(
         style_request.originating_element_style->GetFont());
     state.StyleBuilder().SetLineHeight(
@@ -1627,6 +1633,12 @@ void StyleResolver::ApplyBaseStyle(
     // (see the function comment).
     state.SetStyle(*element->GetComputedStyle());
 
+    // This is always false when creating a new style, but is not reset
+    // when copying the style, so it needs to happen here. After us,
+    // Element::StyleForLayoutObject() will call AdjustElementStyle(),
+    // which sets it to true if applicable.
+    state.StyleBuilder().ResetSkipsContents();
+
     const CSSPropertyValueSet* inline_style = element->InlineStyle();
     if (inline_style) {
       int num_properties = inline_style->PropertyCount();
@@ -1722,20 +1734,21 @@ CompositorKeyframeValue* StyleResolver::CreateCompositorKeyframeValueSnapshot(
 const ComputedStyle* StyleResolver::StyleForPage(
     uint32_t page_index,
     const AtomicString& page_name) {
-  const ComputedStyle* initial_style = InitialStyleForElement();
-  if (!GetDocument().documentElement()) {
-    return initial_style;
+  // The page context inherits from the root element.
+  Element* root_element = GetDocument().documentElement();
+  if (!root_element) {
+    return InitialStyleForElement();
   }
-
-  const ComputedStyle* document_style = GetDocument().GetComputedStyle();
-  StyleResolverState state(GetDocument(), *GetDocument().documentElement(),
+  DCHECK(!GetDocument().NeedsLayoutTreeUpdateForNode(*root_element));
+  const ComputedStyle* parent_style = root_element->EnsureComputedStyle();
+  StyleResolverState state(GetDocument(), *root_element,
                            nullptr /* StyleRecalcContext */,
-                           StyleRequest(initial_style));
-  state.CreateNewStyle(*initial_style, *document_style);
+                           StyleRequest(parent_style));
+  state.CreateNewStyle(*parent_style, *parent_style);
 
   STACK_UNINITIALIZED StyleCascade cascade(state);
 
-  PageRuleCollector collector(document_style, page_index, page_name,
+  PageRuleCollector collector(parent_style, page_index, page_name,
                               cascade.MutableMatchResult());
 
   collector.MatchPageRules(
@@ -1813,8 +1826,8 @@ ComputedStyleBuilder StyleResolver::InitialStyleBuilderForElement() const {
 
 const ComputedStyle* StyleResolver::StyleForText(Text* text_node) {
   DCHECK(text_node);
-  if (Node* parent_node = LayoutTreeBuilderTraversal::Parent(*text_node)) {
-    const ComputedStyle* style = parent_node->GetComputedStyle();
+  if (Element* parent = LayoutTreeBuilderTraversal::ParentElement(*text_node)) {
+    const ComputedStyle* style = parent->GetComputedStyle();
     if (style && !style->IsEnsuredInDisplayNone()) {
       return style;
     }
@@ -2823,6 +2836,19 @@ void StyleResolver::PropagateStyleToViewport() {
     PROPAGATE_VALUE(overflow_anchor, OverflowAnchor, SetOverflowAnchor);
   }
 
+  // Color
+  {
+    Color color = StyleColor(CSSValueID::kCanvastext).GetColor();
+    if (document_element_style) {
+      color =
+          document_element_style->VisitedDependentColor(GetCSSPropertyColor());
+    }
+    if (viewport_style.VisitedDependentColor(GetCSSPropertyColor()) != color) {
+      changed = true;
+      new_viewport_style_builder.SetColor(StyleColor(color));
+    }
+  }
+
   // Misc
   {
     PROPAGATE_FROM(document_element_style, EffectiveTouchAction,
@@ -2835,6 +2861,10 @@ void StyleResolver::PropagateStyleToViewport() {
                    SetColorSchemeForced, false);
     PROPAGATE_FROM(document_element_style, ScrollbarGutter, SetScrollbarGutter,
                    kScrollbarGutterAuto);
+    PROPAGATE_FROM(document_element_style, ScrollbarWidth, SetScrollbarWidth,
+                   EScrollbarWidth::kAuto);
+    PROPAGATE_FROM(document_element_style, ScrollbarColor, SetScrollbarColor,
+                   absl::nullopt);
     PROPAGATE_FROM(document_element_style, ForcedColorAdjust,
                    SetForcedColorAdjust, EForcedColorAdjust::kAuto);
   }

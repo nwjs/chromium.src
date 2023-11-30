@@ -24,6 +24,7 @@
 #include "ui/base/ime/ash/ime_keyboard.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/events/ash/event_rewriter_metrics.h"
 #include "ui/events/ash/keyboard_capability.h"
 #include "ui/events/ash/keyboard_device_id_event_rewriter.h"
 #include "ui/events/ash/mojom/extended_fkeys_modifier.mojom-shared.h"
@@ -126,24 +127,6 @@ void RecordAutoRepeatUsageMetric(
                          << kAutoRepeatUsageAmountToShiftModifierFlags) +
                         auto_repeat_event->key_code()));
 }
-
-using ModifierKeyUsageMetric = EventRewriterAsh::ModifierKeyUsageMetric;
-constexpr struct ModifierKeyUsageMapping {
-  DomCode code;
-  ModifierKeyUsageMetric modifier_key_enum;
-} modifier_key_usage_mappings[] = {
-    {DomCode::CONTROL_LEFT, ModifierKeyUsageMetric::kControlLeft},
-    {DomCode::CONTROL_RIGHT, ModifierKeyUsageMetric::kControlRight},
-    {DomCode::META_LEFT, ModifierKeyUsageMetric::kMetaLeft},
-    {DomCode::META_RIGHT, ModifierKeyUsageMetric::kMetaRight},
-    {DomCode::ALT_LEFT, ModifierKeyUsageMetric::kAltLeft},
-    {DomCode::ALT_RIGHT, ModifierKeyUsageMetric::kAltRight},
-    {DomCode::SHIFT_LEFT, ModifierKeyUsageMetric::kShiftLeft},
-    {DomCode::SHIFT_RIGHT, ModifierKeyUsageMetric::kShiftRight},
-    {DomCode::BACKSPACE, ModifierKeyUsageMetric::kBackspace},
-    {DomCode::ESCAPE, ModifierKeyUsageMetric::kEscape},
-    {DomCode::CAPS_LOCK, ModifierKeyUsageMetric::kCapsLock},
-    {DomCode::LAUNCH_ASSISTANT, ModifierKeyUsageMetric::kAssistant}};
 
 // Table of properties of remappable keys and/or remapping targets (not
 // strictly limited to "modifiers").
@@ -438,6 +421,21 @@ DomCode RelocateModifier(DomCode code, DomKeyLocation location) {
       break;
   }
   return code;
+}
+
+KeyboardCode RelocateKeyboardCode(KeyboardCode key_code,
+                                  DomKeyLocation location) {
+  // Note: currently, we're using SHIFT/CONTROL, instead of
+  // LSFHIT,RSHIFT/LCONTROL,RCONTROL, so {L,R}WIN are only candidate to be
+  // replaced.
+  switch (key_code) {
+    case VKEY_LWIN:
+    case VKEY_RWIN:
+      return location == DomKeyLocation::RIGHT ? VKEY_RWIN : VKEY_LWIN;
+    default:
+      break;
+  }
+  return key_code;
 }
 
 // Returns true if |mouse_event| was generated from a touchpad device.
@@ -1167,8 +1165,9 @@ bool EventRewriterAsh::RewriteModifierKeys(const KeyEvent& key_event,
     if (remapped_key->remap_to == ui::mojom::ModifierKey::kCapsLock) {
       characteristic_flag |= EF_CAPS_LOCK_ON;
     }
-    state->code = RelocateModifier(
-        state->code, KeycodeConverter::DomCodeToLocation(incoming.code));
+    auto original_location = KeycodeConverter::DomCodeToLocation(incoming.code);
+    state->code = RelocateModifier(state->code, original_location);
+    state->key_code = RelocateKeyboardCode(state->key_code, original_location);
   }
 
   // Next, remap modifier bits.
@@ -1373,100 +1372,6 @@ bool EventRewriterAsh::ShouldRemapToRightClick(
          IsFromTouchpadDevice(mouse_event);
 }
 
-void EventRewriterAsh::RecordModifierKeyPressedAfterRemapping(
-    int device_id,
-    DomCode dom_code) {
-  const ModifierKeyUsageMapping* modifier_key_usage_mapping = nullptr;
-  for (const auto& mapping : modifier_key_usage_mappings) {
-    if (dom_code == mapping.code) {
-      modifier_key_usage_mapping = &mapping;
-      break;
-    }
-  }
-
-  if (modifier_key_usage_mapping == nullptr) {
-    return;
-  }
-
-  switch (keyboard_capability_->GetDeviceType(device_id)) {
-    case KeyboardCapability::DeviceType::kDeviceInternalKeyboard:
-    case KeyboardCapability::DeviceType::kDeviceInternalRevenKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.Internal",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceExternalAppleKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.AppleExternal",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceExternalChromeOsKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.CrOSExternal",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceExternalGenericKeyboard:
-    case KeyboardCapability::DeviceType::kDeviceExternalUnknown:
-    case KeyboardCapability::DeviceType::
-        kDeviceExternalNullTopRowChromeOsKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.RemappedModifierPressed.External",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceHotrodRemote:
-    case KeyboardCapability::DeviceType::kDeviceVirtualCoreKeyboard:
-    case KeyboardCapability::DeviceType::kDeviceUnknown:
-      break;
-  }
-}
-
-void EventRewriterAsh::RecordModifierKeyPressedBeforeRemapping(
-    int device_id,
-    DomCode dom_code) {
-  const ModifierKeyUsageMapping* modifier_key_usage_mapping = nullptr;
-  for (const auto& mapping : modifier_key_usage_mappings) {
-    if (dom_code == mapping.code) {
-      modifier_key_usage_mapping = &mapping;
-      break;
-    }
-  }
-
-  if (modifier_key_usage_mapping == nullptr) {
-    return;
-  }
-
-  switch (keyboard_capability_->GetDeviceType(device_id)) {
-    case KeyboardCapability::DeviceType::kDeviceInternalKeyboard:
-    case KeyboardCapability::DeviceType::kDeviceInternalRevenKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.ModifierPressed.Internal",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceExternalAppleKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.ModifierPressed.AppleExternal",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceExternalChromeOsKeyboard:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.ModifierPressed.CrOSExternal",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceExternalGenericKeyboard:
-    case KeyboardCapability::DeviceType::
-        kDeviceExternalNullTopRowChromeOsKeyboard:
-    case KeyboardCapability::DeviceType::kDeviceExternalUnknown:
-      UMA_HISTOGRAM_ENUMERATION(
-          "ChromeOS.Inputs.Keyboard.ModifierPressed.External",
-          modifier_key_usage_mapping->modifier_key_enum);
-      break;
-    case KeyboardCapability::DeviceType::kDeviceHotrodRemote:
-    case KeyboardCapability::DeviceType::kDeviceVirtualCoreKeyboard:
-    case KeyboardCapability::DeviceType::kDeviceUnknown:
-      break;
-  }
-}
-
 EventRewriteStatus EventRewriterAsh::RewriteKeyEvent(
     const KeyEvent& key_event,
     std::unique_ptr<Event>* rewritten_event) {
@@ -1488,7 +1393,8 @@ EventRewriteStatus EventRewriterAsh::RewriteKeyEvent(
   const bool should_record_modifier_key_press_metrics =
       !(key_event.flags() & EF_IS_REPEAT) && key_event.type() == ET_KEY_PRESSED;
   if (should_record_modifier_key_press_metrics) {
-    RecordModifierKeyPressedBeforeRemapping(device_id, key_event.code());
+    RecordModifierKeyPressedBeforeRemapping(*keyboard_capability_, device_id,
+                                            key_event.code());
   }
 
   MutableKeyState state = {key_event.flags(), key_event.code(),
@@ -1502,7 +1408,8 @@ EventRewriteStatus EventRewriterAsh::RewriteKeyEvent(
     // rewritten to ALTGR. A false return is not an error.
     if (RewriteModifierKeys(key_event, device_id, &state)) {
       if (should_record_modifier_key_press_metrics) {
-        RecordModifierKeyPressedAfterRemapping(device_id, state.code);
+        RecordModifierKeyPressedAfterRemapping(*keyboard_capability_, device_id,
+                                               state.code);
       }
       // Early exit with completed event.
       BuildRewrittenKeyEvent(key_event, state, rewritten_event);
@@ -1512,7 +1419,8 @@ EventRewriteStatus EventRewriterAsh::RewriteKeyEvent(
   }
 
   if (should_record_modifier_key_press_metrics) {
-    RecordModifierKeyPressedAfterRemapping(device_id, state.code);
+    RecordModifierKeyPressedAfterRemapping(*keyboard_capability_, device_id,
+                                           state.code);
   }
 
   if (delegate_ &&

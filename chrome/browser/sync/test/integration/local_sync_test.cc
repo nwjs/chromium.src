@@ -116,7 +116,6 @@ IN_PROC_BROWSER_TEST_F(LocalSyncTest, ShouldStart) {
       syncer::DEVICE_INFO,
       syncer::PRIORITY_PREFERENCES,
       syncer::WEB_APPS,
-      syncer::PROXY_TABS,
       syncer::NIGORI};
 
   if (base::FeatureList::IsEnabled(features::kTabGroupsSave)) {
@@ -126,6 +125,20 @@ IN_PROC_BROWSER_TEST_F(LocalSyncTest, ShouldStart) {
   if (base::FeatureList::IsEnabled(power_bookmarks::kPowerBookmarkBackend)) {
     expected_active_data_types.Put(syncer::POWER_BOOKMARK);
   }
+
+  if (base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
+    expected_active_data_types.Put(syncer::WEBAUTHN_CREDENTIAL);
+  }
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  // Apps sync is controlled by a dedicated preference on Lacros,
+  // corresponding to the Apps toggle in OS Sync settings. we remove
+  // data types related to the Apps sync toggle.
+  if (base::FeatureList::IsEnabled(syncer::kSyncChromeOSAppsToggleSharing)) {
+    expected_active_data_types.RemoveAll(
+        {syncer::APPS, syncer::APP_SETTINGS, syncer::WEB_APPS});
+  }
+#endif
 
   // The dictionary is currently only synced on Windows, Linux, and Lacros.
   // TODO(crbug.com/1052397): Reassess whether the following block needs to be
@@ -144,6 +157,20 @@ IN_PROC_BROWSER_TEST_F(LocalSyncTest, ShouldStart) {
   EXPECT_FALSE(service->GetActiveDataTypes().Has(syncer::SHARING_MESSAGE));
   EXPECT_FALSE(service->GetActiveDataTypes().Has(syncer::SEND_TAB_TO_SELF));
   EXPECT_FALSE(service->GetActiveDataTypes().Has(syncer::HISTORY));
+
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  // Apps sync is controlled by a dedicated preference on Lacros,
+  // corresponding to the Apps toggle in OS Sync settings.
+  if (base::FeatureList::IsEnabled(syncer::kSyncChromeOSAppsToggleSharing)) {
+    // Enable the Apps Toggle from OS level
+    service->GetUserSettings()->SetAppsSyncEnabledByOs(true);
+    // Wait until Sync has reconfigured itself and becomes active again.
+    ASSERT_TRUE(SyncTransportActiveChecker(service).Wait());
+    expected_active_data_types.PutAll(
+        {syncer::APPS, syncer::APP_SETTINGS, syncer::WEB_APPS});
+    EXPECT_EQ(service->GetActiveDataTypes(), expected_active_data_types);
+  }
+#endif
 }
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || (BUILDFLAG(IS_LINUX) ||
         // BUILDFLAG(IS_CHROMEOS_LACROS))

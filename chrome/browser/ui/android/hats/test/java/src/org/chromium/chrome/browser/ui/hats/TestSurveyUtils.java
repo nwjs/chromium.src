@@ -6,6 +6,7 @@ package org.chromium.chrome.browser.ui.hats;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -17,8 +18,10 @@ import org.junit.runners.model.Statement;
 import org.chromium.base.CommandLine;
 import org.chromium.base.supplier.ObservableSupplierImpl;
 import org.chromium.base.supplier.Supplier;
+import org.chromium.base.test.util.InMemorySharedPreferences;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
+import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 
 import java.util.Map;
@@ -92,16 +95,23 @@ public class TestSurveyUtils {
             return mTestSurveyFactory.getLastShownSurveyPsd();
         }
 
+        /** Return whether the given trigger ID has been attempted to show. */
+        public boolean isPromptShownForTriggerId(String triggerId) {
+            return mTestSurveyFactory
+                    .getMetadata()
+                    .contains(SurveyMetadata.KEY_PREFIX_DATE_PROMPT_DISPLAYED + triggerId);
+        }
+
         @Override
         public Statement apply(Statement base, Description description) {
             return new Statement() {
                 @Override
                 public void evaluate() throws Throwable {
                     // Append switch so throttler always passes for the survey.
-                    CommandLine.getInstance().appendSwitch(
-                            ChromeSwitches.CHROME_FORCE_ENABLE_SURVEY);
-                    CommandLine.getInstance().appendSwitch(
-                            ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE);
+                    CommandLine.getInstance()
+                            .appendSwitch(ChromeSwitches.CHROME_FORCE_ENABLE_SURVEY);
+                    CommandLine.getInstance()
+                            .appendSwitch(ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE);
 
                     try {
                         mTestSurveyFactory = setUpTestSurveyFactory();
@@ -120,12 +130,16 @@ public class TestSurveyUtils {
     static class TestSurveyFactory extends SurveyClientFactory {
         private final AlwaysSucceedSurveyController mTestController;
         private final ObservableSupplierImpl<Boolean> mCrashUploadPermissionSupplier;
+        private final SharedPreferences mMetadata;
 
         TestSurveyFactory() {
             super(null);
             mTestController = new AlwaysSucceedSurveyController();
             mCrashUploadPermissionSupplier = new ObservableSupplierImpl<>();
             mCrashUploadPermissionSupplier.set(true);
+
+            mMetadata = new InMemorySharedPreferences();
+            SurveyMetadata.initializeForTesting(mMetadata, 1);
         }
 
         /**
@@ -142,12 +156,18 @@ public class TestSurveyUtils {
             return mTestController.mLastShownSurveyPsd;
         }
 
+        SharedPreferences getMetadata() {
+            return mMetadata;
+        }
+
         @Override
         @Nullable
         public SurveyClient createClient(
-                @NonNull SurveyConfig config, @NonNull SurveyUiDelegate uiDelegate) {
+                @NonNull SurveyConfig config,
+                @NonNull SurveyUiDelegate uiDelegate,
+                Profile profile) {
             return new SurveyClientImpl(
-                    config, uiDelegate, mTestController, mCrashUploadPermissionSupplier);
+                    config, uiDelegate, mTestController, mCrashUploadPermissionSupplier, profile);
         }
 
         @Override

@@ -13,7 +13,7 @@ import './profile_card.js';
 import './profile_picker_shared.css.js';
 import './strings.m.js';
 
-import {listenOnce} from '//resources/js/util_ts.js';
+import {listenOnce} from '//resources/js/util.js';
 import {CrCheckboxElement} from 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import {CrDialogElement} from 'chrome://resources/cr_elements/cr_dialog/cr_dialog.js';
 import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener_mixin.js';
@@ -181,12 +181,6 @@ export class ProfilePickerMainViewElement extends
       this.dragDelegate_ = new DragDropReorderTileListDelegate(
           this, this, 'profilesList_', this.profilesList_.length,
           this.dragDuration_);
-
-      listenOnce(this, 'dom-change', () => {
-        afterNextRender(this, () => {
-          this.dragDelegate_!.initializeListeners();
-        });
-      });
     }
   }
 
@@ -197,7 +191,11 @@ export class ProfilePickerMainViewElement extends
     this.profilesListLoaded_ = true;
     this.profilesList_ = profilesList;
 
-    this.initializeDragDelegate_();
+    listenOnce(this, 'dom-change', () => {
+      afterNextRender(this, () => {
+        this.initializeDragDelegate_();
+      });
+    });
   }
 
   /**

@@ -13,6 +13,7 @@
 #include "ash/style/switch.h"
 #include "ash/style/system_textfield.h"
 #include "ash/system/focus_mode/focus_mode_controller.h"
+#include "ash/system/focus_mode/focus_mode_countdown_view.h"
 #include "ash/system/focus_mode/focus_mode_util.h"
 #include "ash/system/model/system_tray_model.h"
 #include "ash/system/tray/fake_detailed_view_delegate.h"
@@ -67,6 +68,12 @@ class FocusModeDetailedViewTest : public AshTestBase {
     widget_->SetContentsView(std::move(focus_mode_detailed_view));
   }
 
+  void SetInactiveSessionDuration(SystemTextfield* timer_textfield) {
+    DCHECK(!FocusModeController::Get()->in_focus_session());
+    focus_mode_detailed_view_->SetInactiveSessionDuration(base::Minutes(
+        focus_mode_util::GetTimerTextfieldInputInMinutes(timer_textfield)));
+  }
+
   views::Label* GetToggleRowLabel() {
     return focus_mode_detailed_view_->toggle_view_->text_label();
   }
@@ -81,7 +88,6 @@ class FocusModeDetailedViewTest : public AshTestBase {
   }
 
   views::BoxLayoutView* GetTimerSettingView() {
-    CHECK(!FocusModeController::Get()->in_focus_session());
     return focus_mode_detailed_view_->timer_setting_view_;
   }
 
@@ -91,80 +97,149 @@ class FocusModeDetailedViewTest : public AshTestBase {
   }
 
   IconButton* GetTimerSettingIncrementButton() {
-    return views::AsViewClass<IconButton>(GetTimerSettingView()->children()[3]);
+    return focus_mode_detailed_view_->timer_increment_button_;
   }
 
   IconButton* GetTimerSettingDecrementButton() {
-    return views::AsViewClass<IconButton>(GetTimerSettingView()->children()[2]);
+    return focus_mode_detailed_view_->timer_decrement_button_;
   }
 
   Switch* GetDoNotDisturbToggleButton() {
+    CHECK(!FocusModeController::Get()->in_focus_session());
     return focus_mode_detailed_view_->do_not_disturb_toggle_button_;
   }
+
+  FocusModeCountdownView* GetTimerCountdownView() {
+    return focus_mode_detailed_view_->timer_countdown_view_;
+  }
+
+  views::Label* GetEndTimeLabel() {
+    return focus_mode_detailed_view_->end_time_label_;
+  }
+
+  FakeDetailedViewDelegate detailed_view_delegate_;
 
  private:
   base::test::ScopedFeatureList scoped_feature_;
   std::unique_ptr<views::Widget> widget_;
-  FakeDetailedViewDelegate detailed_view_delegate_;
   raw_ptr<FocusModeDetailedView> focus_mode_detailed_view_ = nullptr;
 };
 
-TEST_F(FocusModeDetailedViewTest, DoNotDisturbToggleButtonAndQuietMode) {
+// Tests that the DND in Quick Settings is off and the toggle button is on/off
+// respectively.
+TEST_F(FocusModeDetailedViewTest, DndOffBeforeStart) {
   auto* message_center = message_center::MessageCenter::Get();
   auto* focus_mode_controller = FocusModeController::Get();
   Switch* toggle_button = GetDoNotDisturbToggleButton();
 
-  // Before turning on a focus session, the system do not disturb is off. The
+  // 1. Before turning on a focus session, the system do not disturb is off. The
   // default value for the toggle button is set to enabled.
-  bool quiet_mode_before_focus_session = message_center->IsQuietMode();
-  EXPECT_FALSE(quiet_mode_before_focus_session);
+  EXPECT_FALSE(message_center->IsQuietMode());
 
-  bool turn_on_do_not_disturb_before_focus_session =
-      focus_mode_controller->turn_on_do_not_disturb();
-  EXPECT_TRUE(turn_on_do_not_disturb_before_focus_session);
+  EXPECT_EQ(0u, detailed_view_delegate_.close_bubble_call_count());
   EXPECT_TRUE(toggle_button->GetIsOn());
 
-  // 1. Start a focus session.
+  // Start a focus session and the bubble will be closed.
   focus_mode_controller->ToggleFocusMode();
   EXPECT_TRUE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(1u, detailed_view_delegate_.close_bubble_call_count());
 
-  // Initially, the toggle button and the quiet mode are all on.
-  EXPECT_TRUE(toggle_button->GetIsOn());
+  // The quiet mode is on during the focus session.
   EXPECT_TRUE(message_center->IsQuietMode());
 
-  // Turn off the do not disturb toggle button, the system do not disturb will
-  // be off.
-  LeftClickOn(toggle_button);
-  EXPECT_FALSE(toggle_button->GetIsOn());
-  EXPECT_FALSE(message_center->IsQuietMode());
-  EXPECT_TRUE(focus_mode_controller->turn_on_do_not_disturb());
-
-  // Enable the system do not disturb, the do not disturb toggle button will be
-  // on.
-  message_center->SetQuietMode(true);
-  EXPECT_TRUE(toggle_button->GetIsOn());
-
-  // 2. End the focus session. The system do not disturb will be back to its
+  // End the focus session. The system do not disturb will be back to its
   // original state at the end of the current focus session. The toggle button's
   // state will be back to its state before the focus session.
   focus_mode_controller->ToggleFocusMode();
   EXPECT_FALSE(focus_mode_controller->in_focus_session());
-  EXPECT_EQ(quiet_mode_before_focus_session, message_center->IsQuietMode());
-  EXPECT_EQ(turn_on_do_not_disturb_before_focus_session,
-            toggle_button->GetIsOn());
-
-  // Enable and then disable the system do not disturb; the do not disturb
-  // toggle button won't be changed, which will be enabled.
-  message_center->SetQuietMode(true);
-  message_center->SetQuietMode(false);
+  EXPECT_EQ(1u, detailed_view_delegate_.close_bubble_call_count());
+  EXPECT_FALSE(message_center->IsQuietMode());
   EXPECT_TRUE(toggle_button->GetIsOn());
 
-  message_center->SetQuietMode(true);
-  // Turn on the toggle button, the system do not disturb won't be changed.
+  // 2. Before turning on a focus session, the system do not disturb is off. The
+  // default value for the toggle button is set to disabled.
   LeftClickOn(toggle_button);
   EXPECT_FALSE(toggle_button->GetIsOn());
-  EXPECT_FALSE(focus_mode_controller->turn_on_do_not_disturb());
+
+  // Start a focus session and the bubble will be closed.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_TRUE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(2u, detailed_view_delegate_.close_bubble_call_count());
+
+  // The quiet mode is off and the bubble will be closed.
+  EXPECT_FALSE(message_center->IsQuietMode());
+
+  // End the focus session. The system do not disturb will be back to its
+  // original state at the end of the current focus session. The toggle button's
+  // state will be back to its state before the focus session.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_FALSE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(2u, detailed_view_delegate_.close_bubble_call_count());
+  EXPECT_FALSE(message_center->IsQuietMode());
+  EXPECT_FALSE(toggle_button->GetIsOn());
+}
+
+// Tests that the DND in Quick Settings is on and the toggle button is on/off
+// respectively. We also test the behavior for user interactions during a focus
+// session.
+TEST_F(FocusModeDetailedViewTest, DndOnBeforeStart) {
+  auto* message_center = message_center::MessageCenter::Get();
+  auto* focus_mode_controller = FocusModeController::Get();
+  Switch* toggle_button = GetDoNotDisturbToggleButton();
+
+  // 1. Before turning on a focus session, the system do not disturb is on. The
+  // default value for the toggle button is set to enabled.
+  message_center->SetQuietMode(true);
   EXPECT_TRUE(message_center->IsQuietMode());
+
+  EXPECT_EQ(0u, detailed_view_delegate_.close_bubble_call_count());
+  EXPECT_TRUE(toggle_button->GetIsOn());
+
+  // Start a focus session and the bubble will be closed.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_TRUE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(1u, detailed_view_delegate_.close_bubble_call_count());
+
+  // The quiet mode is on.
+  EXPECT_TRUE(message_center->IsQuietMode());
+
+  // During the focus session, the user turned off the DND.
+  message_center->SetQuietMode(false);
+  EXPECT_FALSE(message_center->IsQuietMode());
+
+  // End the focus session. The system do not disturb will keep disabled at the
+  // end of the current focus session. The toggle button's state will be back to
+  // its state before the focus session.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_FALSE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(1u, detailed_view_delegate_.close_bubble_call_count());
+  EXPECT_FALSE(message_center->IsQuietMode());
+  EXPECT_TRUE(toggle_button->GetIsOn());
+
+  // 2. Before turning on a focus session, the system do not disturb is on. The
+  // default value for the toggle button is set to disabled.
+  message_center->SetQuietMode(true);
+  EXPECT_TRUE(message_center->IsQuietMode());
+
+  LeftClickOn(toggle_button);
+  EXPECT_FALSE(toggle_button->GetIsOn());
+
+  // Start a focus session and the bubble will be closed.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_TRUE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(2u, detailed_view_delegate_.close_bubble_call_count());
+
+  // The quiet mode is on.
+  EXPECT_TRUE(message_center->IsQuietMode());
+
+  // End the focus session. The system do not disturb will be back to its
+  // original state at the end of the current focus session. The toggle button's
+  // state will be back to its state before the focus session.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_FALSE(focus_mode_controller->in_focus_session());
+  EXPECT_EQ(2u, detailed_view_delegate_.close_bubble_call_count());
+  EXPECT_TRUE(message_center->IsQuietMode());
+  EXPECT_FALSE(toggle_button->GetIsOn());
 }
 
 // Tests label texts and start/stop functionalities for the toggle row.
@@ -175,19 +250,14 @@ TEST_F(FocusModeDetailedViewTest, ToggleRow) {
     EXPECT_EQ(active, focus_mode_controller->in_focus_session());
     EXPECT_EQ(active ? u"Focusing" : u"Focus", GetToggleRowLabel()->GetText());
 
-    const base::Time now = base::Time::Now();
-    const base::TimeDelta session_duration =
-        focus_mode_controller->session_duration();
-    const int remaining_minutes =
-        active ? (focus_mode_controller->end_time() - now).InMinutes()
-               : session_duration.InMinutes();
+    EXPECT_EQ(active,
+              GetToggleRowSubLabel() && GetToggleRowSubLabel()->GetVisible());
 
-    EXPECT_EQ(base::UTF8ToUTF16(base::StringPrintf(
-                  "%d min ⋅ Until %s", remaining_minutes,
-                  base::UTF16ToUTF8(focus_mode_util::GetFormattedClockString(
-                                        now + session_duration))
-                      .c_str())),
-              GetToggleRowSubLabel()->GetText());
+    if (active) {
+      EXPECT_EQ(focus_mode_util::GetFormattedEndTimeString(
+                    focus_mode_controller->end_time()),
+                GetToggleRowSubLabel()->GetText());
+    }
     EXPECT_EQ(active ? u"End" : u"Start", GetToggleRowButton()->GetText());
   };
 
@@ -198,9 +268,8 @@ TEST_F(FocusModeDetailedViewTest, ToggleRow) {
   LeftClickOn(GetToggleRowButton());
   CreateFakeFocusModeDetailedView();
 
-  // Wait a second to avoid the time remaining being either 1500 seconds or
-  // 1499.99 seconds.
-  task_environment()->FastForwardBy(base::Seconds(1));
+  // Wait a minute to test that the time remaining label updates.
+  task_environment()->FastForwardBy(base::Seconds(61));
   validate_labels(/*active=*/true);
 
   LeftClickOn(GetToggleRowButton());
@@ -268,10 +337,16 @@ TEST_F(FocusModeDetailedViewTest, TimerSettingViewTextfield) {
 // - 300, we will not increment further.
 TEST_F(FocusModeDetailedViewTest, TimerSettingViewIncrements) {
   SystemTextfield* timer_textfield = GetTimerSettingTextfield();
+  IconButton* decrement_button = GetTimerSettingDecrementButton();
   IconButton* increment_button = GetTimerSettingIncrementButton();
 
   // Check incrementing 1 through 5.
   timer_textfield->SetText(u"1");
+  SetInactiveSessionDuration(timer_textfield);
+
+  // The `decrement_button` will be disabled only when setting the duration to
+  // the minimum duration.
+  EXPECT_FALSE(decrement_button->GetEnabled());
   LeftClickOn(increment_button);
   int expected_next_value = 2;
   for (int i = 0; i < 3; i++) {
@@ -281,6 +356,7 @@ TEST_F(FocusModeDetailedViewTest, TimerSettingViewIncrements) {
     expected_next_value += 1;
     LeftClickOn(increment_button);
   }
+  EXPECT_TRUE(decrement_button->GetEnabled());
 
   // Increment 5 to 10.
   EXPECT_EQ(u"5", timer_textfield->GetText());
@@ -333,11 +409,18 @@ TEST_F(FocusModeDetailedViewTest, TimerSettingViewIncrements) {
 TEST_F(FocusModeDetailedViewTest, TimerSettingViewDecrements) {
   SystemTextfield* timer_textfield = GetTimerSettingTextfield();
   IconButton* decrement_button = GetTimerSettingDecrementButton();
+  IconButton* increment_button = GetTimerSettingIncrementButton();
 
   // Decrement 300 to 285.
   timer_textfield->SetText(u"300");
+  SetInactiveSessionDuration(timer_textfield);
+
+  // The `increment_button` will be disabled only when setting the duration to
+  // the maximum duration.
+  EXPECT_FALSE(increment_button->GetEnabled());
   LeftClickOn(decrement_button);
   EXPECT_EQ(u"285", timer_textfield->GetText());
+  EXPECT_TRUE(increment_button->GetEnabled());
 
   // Try decrementing 299 to 285, and then continue decrementing to 60.
   timer_textfield->SetText(u"299");
@@ -384,6 +467,54 @@ TEST_F(FocusModeDetailedViewTest, TimerSettingViewDecrements) {
   EXPECT_EQ(u"1", timer_textfield->GetText());
   LeftClickOn(decrement_button);
   EXPECT_EQ(u"1", timer_textfield->GetText());
+}
+
+// Tests that the timer setting view is visible outside of a focus session and
+// the countdown view is visible in a focus session.
+TEST_F(FocusModeDetailedViewTest, TimerViewVisibility) {
+  auto* focus_mode_controller = FocusModeController::Get();
+  auto* timer_setting_view = GetTimerSettingView();
+  auto* countdown_view = GetTimerCountdownView();
+
+  // Before turning on a focus session both views should exist and the setting
+  // view should be visible.
+  ASSERT_TRUE(countdown_view);
+  ASSERT_TRUE(timer_setting_view);
+  EXPECT_FALSE(countdown_view->GetVisible());
+  EXPECT_TRUE(timer_setting_view->GetVisible());
+
+  const base::TimeDelta session_duration =
+      focus_mode_controller->session_duration();
+  EXPECT_EQ(focus_mode_util::GetFormattedEndTimeString(base::Time::Now() +
+                                                       session_duration),
+            GetEndTimeLabel()->GetText());
+
+  // Wait a minute to test that the end time label updates.
+  task_environment()->FastForwardBy(base::Seconds(61));
+  EXPECT_EQ(focus_mode_util::GetFormattedEndTimeString(base::Time::Now() +
+                                                       session_duration),
+            GetEndTimeLabel()->GetText());
+
+  // In a focus session the countdown view should be visible and the timer view
+  // hidden.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_TRUE(focus_mode_controller->in_focus_session());
+  // Starting the focus session closes the bubble, so we need to recreate the
+  // detailed view.
+  CreateFakeFocusModeDetailedView();
+  timer_setting_view = GetTimerSettingView();
+  countdown_view = GetTimerCountdownView();
+  EXPECT_TRUE(countdown_view->GetVisible());
+  EXPECT_FALSE(timer_setting_view->GetVisible());
+
+  // Turning the focus session back off should swap the visibilities again.
+  focus_mode_controller->ToggleFocusMode();
+  EXPECT_FALSE(focus_mode_controller->in_focus_session());
+  EXPECT_FALSE(countdown_view->GetVisible());
+  EXPECT_TRUE(timer_setting_view->GetVisible());
+  EXPECT_EQ(focus_mode_util::GetFormattedEndTimeString(base::Time::Now() +
+                                                       session_duration),
+            GetEndTimeLabel()->GetText());
 }
 
 }  // namespace ash

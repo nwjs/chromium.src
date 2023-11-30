@@ -252,6 +252,7 @@ void AddTogglesToDawnInfoList(dawn::native::Instance* instance,
 
 void GetDawnTogglesForWebGPU(
     bool enable_unsafe_webgpu,
+    bool enable_webgpu_developer_features,
     const std::vector<std::string>& enabled_preference,
     const std::vector<std::string>& disabled_preference,
     std::vector<const char*>* force_enabled_toggles,
@@ -260,6 +261,13 @@ void GetDawnTogglesForWebGPU(
   // is secure), unless --enable-unsafe-webgpu is used.
   if (!enable_unsafe_webgpu) {
     force_enabled_toggles->push_back("disallow_spirv");
+  }
+  // Enable timestamp quantization by default for privacy, unless
+  // --enable-webgpu-developer-features is used.
+  if (!enable_webgpu_developer_features) {
+    force_enabled_toggles->push_back("timestamp_quantization");
+  } else {
+    force_disabled_toggles->push_back("timestamp_quantization");
   }
 
   for (const std::string& toggle : enabled_preference) {
@@ -303,6 +311,8 @@ void ReportWebGPUAdapterMetrics(dawn::native::Instance* instance) {
 #else
   adapter_options.backendType = WGPUBackendType_Vulkan;
 #endif
+
+  bool supports_shader_f16 = false;
   for (dawn::native::Adapter& adapter :
        instance->EnumerateAdapters(&adapter_options)) {
     adapter.SetUseTieredLimits(false);
@@ -326,6 +336,9 @@ void ReportWebGPUAdapterMetrics(dawn::native::Instance* instance) {
       max_limits = limits.limits;
       adapter_type = props.adapterType;
     }
+
+    supports_shader_f16 |=
+        wgpu::Adapter(adapter.Get()).HasFeature(wgpu::FeatureName::ShaderF16);
   }
 
   bool has_gpu_adapter = adapter_type != wgpu::AdapterType::Unknown;
@@ -340,6 +353,9 @@ void ReportWebGPUAdapterMetrics(dawn::native::Instance* instance) {
     base::UmaHistogramCounts100000(
         "GPU.WebGPU.MaxTextureDimension2D." + adapter_string,
         max_limits.maxTextureDimension2D);
+
+    base::UmaHistogramBoolean("GPU.WebGPU.Support.ShaderF16",
+                              supports_shader_f16);
   }
 }
 
@@ -847,6 +863,7 @@ void CollectDawnInfo(const gpu::GpuPreferences& gpu_preferences,
   std::vector<const char*> required_disabled_toggles_webgpu;
 
   GetDawnTogglesForWebGPU(gpu_preferences.enable_unsafe_webgpu,
+                          gpu_preferences.enable_webgpu_developer_features,
                           gpu_preferences.enabled_dawn_features_list,
                           gpu_preferences.disabled_dawn_features_list,
                           &required_enabled_toggles_webgpu,

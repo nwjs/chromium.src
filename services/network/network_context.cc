@@ -104,6 +104,7 @@
 #include "services/network/http_server_properties_pref_delegate.h"
 #include "services/network/ignore_errors_cert_verifier.h"
 #include "services/network/ip_protection_config_cache_impl.h"
+#include "services/network/ip_protection_token_cache_manager_impl.h"
 #include "services/network/is_browser_initiated.h"
 #include "services/network/net_log_exporter.h"
 #include "services/network/network_service.h"
@@ -303,6 +304,19 @@ base::RepeatingCallback<bool(const url::Origin&)> BuildOriginFilter(
                              std::move(filter_origins));
 }
 
+// Builds a generic URL-matching predicate function based on |filter|.
+// If |filter| is null, creates an always-true predicate.
+base::RepeatingCallback<bool(const GURL&)> BuildUrlFilter(
+    mojom::ClearDataFilterPtr filter) {
+  return filter ? base::BindRepeating(
+                      &DoesUrlMatchFilter, filter->type,
+                      std::set<url::Origin>(filter->origins.begin(),
+                                            filter->origins.end()),
+                      std::set<std::string>(filter->domains.begin(),
+                                            filter->domains.end()))
+                : base::NullCallback();
+}
+
 #if BUILDFLAG(IS_ANDROID)
 class NetworkContextApplicationStatusListener
     : public base::android::ApplicationStatusListener {
@@ -322,6 +336,16 @@ class NetworkContextApplicationStatusListener
  private:
   ApplicationStateChangeCallback callback_;
 };
+
+base::android::ApplicationStatusListener* ReturnAppStatusListenerIfAlive(
+    base::WeakPtr<NetworkContext> network_context,
+    base::android::ApplicationStatusListener* listener) {
+  if (!network_context) {
+    return nullptr;
+  }
+  return listener;
+}
+
 #endif  // BUILDFLAG(IS_ANDROID)
 
 struct TestVerifyCertState {
@@ -542,7 +566,9 @@ NetworkContext::NetworkContext(
           params_->shared_dictionary_cache_max_size,
           shared_dictionary::kDictionaryMaxCountPerNetworkContext,
 #if BUILDFLAG(IS_ANDROID)
-          app_status_listeners_.rbegin()->get(),
+          base::BindRepeating(&ReturnAppStatusListenerIfAlive,
+                              weak_factory_.GetWeakPtr(),
+                              app_status_listeners_.rbegin()->get()),
 #endif  // BUILDFLAG(IS_ANDROID)
           /*file_operations_factory=*/nullptr);
     } else {
@@ -679,30 +705,6 @@ NetworkContext::~NetworkContext() {
 
   // May be nullptr in tests.
   if (network_service_) {
-#if BUILDFLAG(IS_ANDROID)
-    if (params_ && params_->file_paths) {
-      base::FilePath path_to_invalidate;
-      if (GetFullDataFilePath(params_->file_paths,
-                              &network::mojom::NetworkContextFilePaths::
-                                  trust_token_database_name,
-                              path_to_invalidate)) {
-        network_service_->InvalidateNetworkContextPath(path_to_invalidate);
-      }
-      if (GetFullDataFilePath(params_->file_paths,
-                              &network::mojom::NetworkContextFilePaths::
-                                  reporting_and_nel_store_database_name,
-                              path_to_invalidate)) {
-        network_service_->InvalidateNetworkContextPath(path_to_invalidate);
-      }
-      if (GetFullDataFilePath(
-              params_->file_paths,
-              &network::mojom::NetworkContextFilePaths::cookie_database_name,
-              path_to_invalidate)) {
-        network_service_->InvalidateNetworkContextPath(path_to_invalidate);
-      }
-    }
-
-#endif
     network_service_->DeregisterNetworkContext(this);
   }
 
@@ -1170,13 +1172,14 @@ void NetworkContext::ClearHostCache(mojom::ClearDataFilterPtr filter,
 
 void NetworkContext::ClearHttpAuthCache(base::Time start_time,
                                         base::Time end_time,
+                                        mojom::ClearDataFilterPtr filter,
                                         ClearHttpAuthCacheCallback callback) {
   net::HttpNetworkSession* http_session =
       url_request_context_->http_transaction_factory()->GetSession();
   DCHECK(http_session);
 
-  http_session->http_auth_cache()->ClearEntriesAddedBetween(start_time,
-                                                            end_time);
+  http_session->http_auth_cache()->ClearEntriesAddedBetween(
+      start_time, end_time, BuildUrlFilter(std::move(filter)));
   // TODO(mmenke): Use another error code for this, as ERR_ABORTED has somewhat
   // magical handling with respect to navigations.
   http_session->CloseAllConnections(net::ERR_ABORTED, "Clearing auth cache");
@@ -1738,6 +1741,7 @@ void NetworkContext::CreateWebSocket(
     const GURL& url,
     const std::vector<std::string>& requested_protocols,
     const net::SiteForCookies& site_for_cookies,
+    bool has_storage_access,
     const net::IsolationInfo& isolation_info,
     std::vector<mojom::HttpHeaderPtr> additional_headers,
     int32_t process_id,
@@ -1757,8 +1761,9 @@ void NetworkContext::CreateWebSocket(
   DCHECK_GE(process_id, 0);
 
   websocket_factory_->CreateWebSocket(
-      url, requested_protocols, site_for_cookies, isolation_info,
-      std::move(additional_headers), process_id, origin, options,
+      url, requested_protocols, site_for_cookies, has_storage_access,
+      isolation_info, std::move(additional_headers), process_id, origin,
+      options,
       static_cast<net::NetworkTrafficAnnotationTag>(traffic_annotation),
       std::move(handshake_client), std::move(url_loader_network_observer),
       std::move(auth_handler), std::move(header_client), throttling_profile_id);
@@ -1941,13 +1946,15 @@ void NetworkContext::GetHSTSState(const std::string& domain,
         result.Set("static_sts_include_subdomains",
                    static_sts_state.include_subdomains);
         result.Set("static_sts_observed",
-                   static_sts_state.last_observed.ToDoubleT());
-        result.Set("static_sts_expiry", static_sts_state.expiry.ToDoubleT());
+                   static_sts_state.last_observed.InSecondsFSinceUnixEpoch());
+        result.Set("static_sts_expiry",
+                   static_sts_state.expiry.InSecondsFSinceUnixEpoch());
         result.Set("static_pkp_include_subdomains",
                    static_pkp_state.include_subdomains);
         result.Set("static_pkp_observed",
-                   static_pkp_state.last_observed.ToDoubleT());
-        result.Set("static_pkp_expiry", static_pkp_state.expiry.ToDoubleT());
+                   static_pkp_state.last_observed.InSecondsFSinceUnixEpoch());
+        result.Set("static_pkp_expiry",
+                   static_pkp_state.expiry.InSecondsFSinceUnixEpoch());
         result.Set("static_spki_hashes",
                    HashesToBase64String(static_pkp_state.spki_hashes));
         result.Set("static_sts_domain", static_sts_state.domain);
@@ -1967,8 +1974,9 @@ void NetworkContext::GetHSTSState(const std::string& domain,
         result.Set("dynamic_sts_include_subdomains",
                    dynamic_sts_state.include_subdomains);
         result.Set("dynamic_sts_observed",
-                   dynamic_sts_state.last_observed.ToDoubleT());
-        result.Set("dynamic_sts_expiry", dynamic_sts_state.expiry.ToDoubleT());
+                   dynamic_sts_state.last_observed.InSecondsFSinceUnixEpoch());
+        result.Set("dynamic_sts_expiry",
+                   dynamic_sts_state.expiry.InSecondsFSinceUnixEpoch());
         result.Set("dynamic_sts_domain", dynamic_sts_state.domain);
       }
 
@@ -1976,8 +1984,9 @@ void NetworkContext::GetHSTSState(const std::string& domain,
         result.Set("dynamic_pkp_include_subdomains",
                    dynamic_pkp_state.include_subdomains);
         result.Set("dynamic_pkp_observed",
-                   dynamic_pkp_state.last_observed.ToDoubleT());
-        result.Set("dynamic_pkp_expiry", dynamic_pkp_state.expiry.ToDoubleT());
+                   dynamic_pkp_state.last_observed.InSecondsFSinceUnixEpoch());
+        result.Set("dynamic_pkp_expiry",
+                   dynamic_pkp_state.expiry.InSecondsFSinceUnixEpoch());
         result.Set("dynamic_spki_hashes",
                    HashesToBase64String(dynamic_pkp_state.spki_hashes));
         result.Set("dynamic_pkp_domain", dynamic_pkp_state.domain);
@@ -2045,31 +2054,36 @@ void NetworkContext::VerifyIpProtectionConfigGetterForTesting(
   // initialized.
   CHECK(proxy_delegate_);
 
-  auto* ipp_config_cache_impl = static_cast<IpProtectionConfigCacheImpl*>(
-      proxy_delegate_->GetIpProtectionConfigCache());
-  CHECK(ipp_config_cache_impl);
+  auto* ipp_config_cache = proxy_delegate_->GetIpProtectionConfigCache();
+  CHECK(ipp_config_cache);
+  auto* ipp_token_cache_manager_impl =
+      static_cast<IpProtectionTokenCacheManagerImpl*>(
+          ipp_config_cache
+              ->GetIpProtectionTokenCacheManagerForTesting(  // IN-TEST
+                  network::mojom::IpProtectionProxyLayer::kProxyA));
+  CHECK(ipp_token_cache_manager_impl);
 
   // If active cache management is enabled (the default), disable it and do a
   // one-time reset of the state. Since the browser process will be driving this
   // test, this makes it easier to reason about the state of
-  // `ipp_config_cache_impl` (for instance, if the browser process sends less
+  // `ipp_config_cache` (for instance, if the browser process sends less
   // than the requested number of tokens, the network service won't immediately
   // request more).
-  if (ipp_config_cache_impl->IsCacheManagementEnabledForTesting()) {
-    ipp_config_cache_impl->DisableCacheManagementForTesting(  // IN-TEST
+  if (ipp_token_cache_manager_impl->IsCacheManagementEnabledForTesting()) {
+    ipp_token_cache_manager_impl->DisableCacheManagementForTesting(  // IN-TEST
         base::BindOnce(
             [](base::WeakPtr<NetworkContext> weak_ptr,
                VerifyIpProtectionConfigGetterForTestingCallback callback) {
-              // If this callback is called then `ipp_config_cache_impl` is
+              // If this callback is called then `ipp_config_cache` is
               // still alive, which means that this `NetworkContext` is alive as
               // well.
               CHECK(weak_ptr);
-              auto* ipp_config_cache_impl =
-                  static_cast<IpProtectionConfigCacheImpl*>(
-                      weak_ptr->proxy_delegate_->GetIpProtectionConfigCache());
-              ipp_config_cache_impl->InvalidateTryAgainAfterTime();
-              while (ipp_config_cache_impl->IsAuthTokenAvailable()) {
-                ipp_config_cache_impl->GetAuthToken();
+              auto* ipp_config_cache =
+                  weak_ptr->proxy_delegate_->GetIpProtectionConfigCache();
+              ipp_config_cache->InvalidateTryAgainAfterTime();
+              while (ipp_config_cache->AreAuthTokensAvailable()) {
+                ipp_config_cache->GetAuthToken(
+                    network::mojom::IpProtectionProxyLayer::kProxyA);
               }
               // Call `PostTask()` instead of invoking the Verify method again
               // directly so that if `DisableCacheManagementForTesting()` needed
@@ -2088,34 +2102,40 @@ void NetworkContext::VerifyIpProtectionConfigGetterForTesting(
 
   // If there is a cooldown in effect, then don't send any tokens and instead
   // send back the try again after time.
-  // TODO(awillia): This will actually be used in a follow-up CL.
   base::Time try_auth_tokens_after =
-      ipp_config_cache_impl
+      ipp_token_cache_manager_impl
           ->try_get_auth_tokens_after_for_testing();  // IN-TEST
   if (!try_auth_tokens_after.is_null()) {
     std::move(callback).Run(nullptr, try_auth_tokens_after);
     return;
   }
 
-  ipp_config_cache_impl->SetOnTryGetAuthTokensCompletedForTesting(  // IN-TEST
-      base::BindOnce(&NetworkContext::OnIpProtectionConfigAvailableForTesting,
-                     weak_factory_.GetWeakPtr(), std::move(callback)));
-  ipp_config_cache_impl->CallTryGetAuthTokensForTesting();  // IN-TEST
+  ipp_token_cache_manager_impl
+      ->SetOnTryGetAuthTokensCompletedForTesting(  // IN-TEST
+          base::BindOnce(
+              &NetworkContext::OnIpProtectionConfigAvailableForTesting,
+              weak_factory_.GetWeakPtr(), std::move(callback)));
+  ipp_token_cache_manager_impl->CallTryGetAuthTokensForTesting();  // IN-TEST
 }
 
 void NetworkContext::OnIpProtectionConfigAvailableForTesting(
     VerifyIpProtectionConfigGetterForTestingCallback callback) {
-  auto* ipp_config_cache_impl = static_cast<IpProtectionConfigCacheImpl*>(
-      proxy_delegate_->GetIpProtectionConfigCache());
+  auto* ipp_config_cache = proxy_delegate_->GetIpProtectionConfigCache();
+  auto* ipp_token_cache_manager_impl =
+      static_cast<IpProtectionTokenCacheManagerImpl*>(
+          ipp_config_cache
+              ->GetIpProtectionTokenCacheManagerForTesting(  // IN-TEST
+                  network::mojom::IpProtectionProxyLayer::kProxyA));
 
   absl::optional<network::mojom::BlindSignedAuthTokenPtr> result =
-      ipp_config_cache_impl->GetAuthToken();
+      ipp_config_cache->GetAuthToken(
+          network::mojom::IpProtectionProxyLayer::kProxyA);
   if (result.has_value()) {
     std::move(callback).Run(std::move(result).value(), absl::nullopt);
     return;
   }
   base::Time try_auth_tokens_after =
-      ipp_config_cache_impl
+      ipp_token_cache_manager_impl
           ->try_get_auth_tokens_after_for_testing();  // IN-TEST
   std::move(callback).Run(nullptr, try_auth_tokens_after);
 }
@@ -2467,7 +2487,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
     cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::RepeatingClosure());
     nw_cert_verifier_ = (nw::PolicyCertVerifier*)cert_verifier.get();
 #if BUILDFLAG(IS_LINUX)
-    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateBuiltinVerifyProc(cert_net_fetcher_, net::CRLSet::BuiltinCRLSet().get()));
+    nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateBuiltinWithChromeRootStore(cert_net_fetcher_, net::CRLSet::BuiltinCRLSet().get(), nullptr));
 #else
     nw_cert_verifier_->InitializeOnIOThread(net::CertVerifyProc::CreateBuiltinWithChromeRootStore(cert_net_fetcher_, net::CRLSet::BuiltinCRLSet().get(), nullptr));
 #endif
@@ -2620,7 +2640,9 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
 #if BUILDFLAG(IS_ANDROID)
     app_status_listeners_.push_back(
         std::make_unique<NetworkContextApplicationStatusListener>());
-    cache_params.app_status_listener = app_status_listeners_.rbegin()->get();
+    cache_params.app_status_listener_getter = base::BindRepeating(
+        &ReturnAppStatusListenerIfAlive, weak_factory_.GetWeakPtr(),
+        app_status_listeners_.rbegin()->get());
 #endif  // BUILDFLAG(IS_ANDROID)
     builder.EnableHttpCache(cache_params);
   }
@@ -2773,11 +2795,16 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
   builder.set_host_mapping_rules(
       command_line->GetSwitchValueASCII(switches::kHostResolverRules));
 
+#if BUILDFLAG(IS_WIN)
   if (params_->socket_broker) {
     builder.set_client_socket_factory(
         std::make_unique<BrokeredClientSocketFactory>(
             std::move(params_->socket_broker)));
   }
+#endif
+
+  require_network_anonymization_key_ =
+      params_->require_network_anonymization_key;
 
   // If `require_network_anonymization_key_` is true, but the features that can
   // trigger another URLRequest are not set to respect NetworkAnonymizationKeys,
@@ -2805,9 +2832,6 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
   }
   auto result =
       URLRequestContextOwner(std::move(pref_service), builder.Build());
-
-  require_network_anonymization_key_ =
-      params_->require_network_anonymization_key;
 
   // Subscribe the CertVerifier to configuration changes that are exposed via
   // the mojom::SSLConfig, but which are not part of the
@@ -2889,6 +2913,7 @@ URLRequestContextOwner NetworkContext::MakeURLRequestContext(
       proxy_delegate_->SetIpProtectionConfigCache(
           std::make_unique<IpProtectionConfigCacheImpl>(
               std::move(params_->ip_protection_config_getter)));
+      proxy_delegate_->GetIpProtectionConfigCache()->SetUp();
     }
   }
 
@@ -3131,16 +3156,9 @@ void NetworkContext::ClearSharedDictionaryCache(
     std::move(callback).Run();
     return;
   }
-  shared_dictionary_manager_->ClearData(
-      start_time, end_time,
-      filter
-          ? base::BindRepeating(&DoesUrlMatchFilter, filter->type,
-                                std::set<url::Origin>(filter->origins.begin(),
-                                                      filter->origins.end()),
-                                std::set<std::string>(filter->domains.begin(),
-                                                      filter->domains.end()))
-          : base::RepeatingCallback<bool(const GURL&)>(),
-      std::move(callback));
+  shared_dictionary_manager_->ClearData(start_time, end_time,
+                                        BuildUrlFilter(std::move(filter)),
+                                        std::move(callback));
 }
 
 void NetworkContext::ClearSharedDictionaryCacheForIsolationKey(

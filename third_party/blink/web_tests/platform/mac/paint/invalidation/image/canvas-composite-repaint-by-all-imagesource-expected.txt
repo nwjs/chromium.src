@@ -1,7 +1,7 @@
 {
   "layers": [
     {
-      "name": "Scrolling background of LayoutNGView #document",
+      "name": "Scrolling background of LayoutView #document",
       "bounds": [785, 928],
       "contentsOpaque": true,
       "backgroundColor": "#FFFFFF"
@@ -243,7 +243,7 @@
       "transform": 1
     },
     {
-      "name": "LayoutNGFlexibleBox DIV class='sizing-small phase-pre-ready state-no-source'",
+      "name": "LayoutFlexibleBox DIV class='sizing-small phase-pre-ready state-no-source'",
       "bounds": [150, 60],
       "drawsContent": false,
       "transform": 1

@@ -327,20 +327,22 @@ void SegmentResultProviderImpl::OnModelExecuted(
   SegmentId segment_id = request_state->options->segment_id;
   ResultState state = ResultState::kUnknown;
   proto::PredictionResult prediction_result;
-  std::unique_ptr<SegmentResult> segment_result;
 
   const auto* segment_info =
       segment_database_->GetCachedSegmentInfo(segment_id, model_source);
   if (!segment_info) {
+    state = model_source == ModelSource::SERVER_MODEL_SOURCE
+                 ? ResultState::kServerModelSegmentInfoNotAvailable
+                 : ResultState::kDefaultModelSegmentInfoNotAvailable;
     std::move(callback).Run(std::move(request_state),
-                            std::move(segment_result));
+                            std::make_unique<SegmentResult>(state));
     return;
   }
 
   bool is_default_model = model_source == ModelSource::DEFAULT_MODEL_SOURCE;
   bool success = result->status == ModelExecutionStatus::kSuccess &&
                  !result->scores.empty();
-
+  std::unique_ptr<SegmentResult> segment_result;
   if (success) {
     state = is_default_model ? ResultState::kDefaultModelExecutionScoreUsed
                              : ResultState::kServerModelExecutionScoreUsed;
@@ -352,6 +354,7 @@ void SegmentResultProviderImpl::OnModelExecuted(
         prediction_result.result(0), segment_info->model_metadata());
     segment_result =
         std::make_unique<SegmentResult>(state, prediction_result, rank);
+    segment_result->model_inputs = std::move(result->inputs);
     VLOG(1) << __func__ << ": " << (is_default_model ? "Default" : "Server")
             << " model executed successfully. Result: "
             << segmentation_platform::PredictionResultToDebugString(

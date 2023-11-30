@@ -52,6 +52,7 @@
 #include "third_party/blink/renderer/core/dom/whitespace_attacher.h"
 #include "third_party/blink/renderer/core/events/mutation_event.h"
 #include "third_party/blink/renderer/core/execution_context/agent.h"
+#include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/radio_node_list.h"
@@ -65,6 +66,7 @@
 #include "third_party/blink/renderer/core/layout/layout_text.h"
 #include "third_party/blink/renderer/core/layout/layout_text_combine.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
+#include "third_party/blink/renderer/core/timing/soft_navigation_heuristics.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/runtime_call_stats.h"
 #include "third_party/blink/renderer/platform/bindings/script_forbidden_scope.h"
@@ -152,7 +154,9 @@ static inline bool CollectChildrenAndRemoveFromOldParent(
     Node& node,
     NodeVector& nodes,
     ExceptionState& exception_state) {
-  NodeMoveScope::SetCurrentNodeBeingRemoved(node);
+  if (RuntimeEnabledFeatures::DOMPartsAPIActivePartTrackingEnabled()) {
+    NodeMoveScope::SetCurrentNodeBeingRemoved(node);
+  }
   if (auto* fragment = DynamicTo<DocumentFragment>(node)) {
     GetChildNodes(*fragment, nodes);
     fragment->RemoveChildren();
@@ -350,9 +354,11 @@ void ContainerNode::DidInsertNodeVector(
     const NodeVector& post_insertion_notification_targets) {
   Node* unchanged_previous =
       targets.size() > 0 ? targets[0]->previousSibling() : nullptr;
+  const Document& document = GetDocument();
   for (const auto& target_node : targets) {
     ChildrenChanged(ChildrenChange::ForInsertion(
         *target_node, unchanged_previous, next, ChildrenChangeSource::kAPI));
+    CheckSoftNavigationHeuristicsTracking(document, *target_node);
   }
   for (const auto& descendant : post_insertion_notification_targets) {
     if (descendant->isConnected())
@@ -1093,13 +1099,15 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
     inserted_node->ClearFlatTreeNodeDataIfHostChanged(*this);
   if (!InActiveDocument())
     return;
-  if (IsElementNode() && !GetComputedStyle()) {
-    // There is no need to mark for style recalc if the parent element does not
-    // Already have a ComputedStyle. For instance if we insert nodes into a
-    // display:none subtree. If this ContainerNode gets a ComputedStyle during
-    // the next style recalc, we will traverse into the inserted children since
-    // the ComputedStyle goes from null to non-null.
-    return;
+  if (Element* element = DynamicTo<Element>(this)) {
+    if (!element->GetComputedStyle()) {
+      // There is no need to mark for style recalc if the parent element does
+      // not already have a ComputedStyle. For instance if we insert nodes into
+      // a display:none subtree. If this ContainerNode gets a ComputedStyle
+      // during the next style recalc, we will traverse into the inserted
+      // children since the ComputedStyle goes from null to non-null.
+      return;
+    }
   }
   if (inserted_node->IsContainerNode() || inserted_node->IsTextNode())
     inserted_node->SetStyleChangeOnInsertion();
@@ -1107,30 +1115,6 @@ void ContainerNode::ChildrenChanged(const ChildrenChange& change) {
 
 bool ContainerNode::ChildrenChangedAllChildrenRemovedNeedsList() const {
   return false;
-}
-
-void ContainerNode::ClonePartsFrom(const ContainerNode& node,
-                                   NodeCloningData& data) {
-  if (!data.Has(CloneOption::kPreserveDOMParts)) {
-    return;
-  }
-  DCHECK(RuntimeEnabledFeatures::DOMPartsAPIEnabled());
-  if (auto* document = DynamicTo<Document>(const_cast<ContainerNode&>(node))) {
-    data.ConnectPartRootToClone(document->getPartRoot(),
-                                To<Document>(this)->getPartRoot());
-  } else if (auto* document_fragment = DynamicTo<DocumentFragment>(
-                 const_cast<ContainerNode&>(node))) {
-    data.ConnectPartRootToClone(document_fragment->getPartRoot(),
-                                To<DocumentFragment>(this)->getPartRoot());
-  }
-  if (auto* parts = node.GetDOMParts()) {
-    data.ConnectNodeToClone(node, *this);
-    for (Part* part : *parts) {
-      if (part->NodeToSortBy() == node) {
-        data.QueueForCloning(*part);
-      }
-    }
-  }
 }
 
 void ContainerNode::CloneChildNodesFrom(const ContainerNode& node,
@@ -1145,164 +1129,6 @@ PhysicalRect ContainerNode::BoundingBox() const {
   if (!GetLayoutObject())
     return PhysicalRect();
   return GetLayoutObject()->AbsoluteBoundingBoxRectHandlingEmptyInline();
-}
-
-// This is used by FrameSelection to denote when the active-state of the page
-// has changed independent of the focused element changing.
-void ContainerNode::FocusStateChanged() {
-  // If we're just changing the window's active state and the focused node has
-  // no layoutObject we can just ignore the state change.
-  if (!GetLayoutObject())
-    return;
-
-  StyleChangeType change_type =
-      GetComputedStyle()->HasPseudoElementStyle(kPseudoIdFirstLetter)
-          ? kSubtreeStyleChange
-          : kLocalStyleChange;
-  SetNeedsStyleRecalc(
-      change_type,
-      StyleChangeReasonForTracing::CreateWithExtraData(
-          style_change_reason::kPseudoClass, style_change_extra_data::g_focus));
-
-  if (auto* this_element = DynamicTo<Element>(this))
-    this_element->PseudoStateChanged(CSSSelector::kPseudoFocus);
-
-  InvalidateIfHasEffectiveAppearance();
-  FocusVisibleStateChanged();
-  FocusWithinStateChanged();
-}
-
-void ContainerNode::FocusVisibleStateChanged() {
-  if (!RuntimeEnabledFeatures::CSSFocusVisibleEnabled())
-    return;
-  StyleChangeType change_type =
-      GetComputedStyle()->HasPseudoElementStyle(kPseudoIdFirstLetter)
-          ? kSubtreeStyleChange
-          : kLocalStyleChange;
-  SetNeedsStyleRecalc(change_type,
-                      StyleChangeReasonForTracing::CreateWithExtraData(
-                          style_change_reason::kPseudoClass,
-                          style_change_extra_data::g_focus_visible));
-
-  if (auto* this_element = DynamicTo<Element>(this))
-    this_element->PseudoStateChanged(CSSSelector::kPseudoFocusVisible);
-}
-
-void ContainerNode::FocusWithinStateChanged() {
-  if (GetComputedStyle() && GetComputedStyle()->AffectedByFocusWithin()) {
-    StyleChangeType change_type =
-        GetComputedStyle()->HasPseudoElementStyle(kPseudoIdFirstLetter)
-            ? kSubtreeStyleChange
-            : kLocalStyleChange;
-    SetNeedsStyleRecalc(change_type,
-                        StyleChangeReasonForTracing::CreateWithExtraData(
-                            style_change_reason::kPseudoClass,
-                            style_change_extra_data::g_focus_within));
-  }
-  if (auto* this_element = DynamicTo<Element>(this))
-    this_element->PseudoStateChanged(CSSSelector::kPseudoFocusWithin);
-}
-
-void ContainerNode::SetFocused(bool received,
-                               mojom::blink::FocusType focus_type) {
-  // Recurse up author shadow trees to mark shadow hosts if it matches :focus.
-  // TODO(kochi): Handle UA shadows which marks multiple nodes as focused such
-  // as <input type="date"> the same way as author shadow.
-  if (ShadowRoot* root = ContainingShadowRoot()) {
-    if (!root->IsUserAgent())
-      OwnerShadowHost()->SetFocused(received, focus_type);
-  }
-
-  if (IsFocused() == received)
-    return;
-
-  Node::SetFocused(received, focus_type);
-
-  FocusStateChanged();
-
-  if (GetLayoutObject() || received)
-    return;
-
-  auto* this_element = DynamicTo<Element>(this);
-  // If :focus sets display: none, we lose focus but still need to recalc our
-  // style.
-  if (!this_element || !this_element->ChildrenOrSiblingsAffectedByFocus()) {
-    SetNeedsStyleRecalc(kLocalStyleChange,
-                        StyleChangeReasonForTracing::CreateWithExtraData(
-                            style_change_reason::kPseudoClass,
-                            style_change_extra_data::g_focus));
-  }
-  if (this_element)
-    this_element->PseudoStateChanged(CSSSelector::kPseudoFocus);
-
-  if (RuntimeEnabledFeatures::CSSFocusVisibleEnabled()) {
-    if (!this_element ||
-        !this_element->ChildrenOrSiblingsAffectedByFocusVisible()) {
-      SetNeedsStyleRecalc(kLocalStyleChange,
-                          StyleChangeReasonForTracing::CreateWithExtraData(
-                              style_change_reason::kPseudoClass,
-                              style_change_extra_data::g_focus_visible));
-    }
-    if (this_element)
-      this_element->PseudoStateChanged(CSSSelector::kPseudoFocusVisible);
-  }
-
-  if (!this_element ||
-      !this_element->ChildrenOrSiblingsAffectedByFocusWithin()) {
-    SetNeedsStyleRecalc(kLocalStyleChange,
-                        StyleChangeReasonForTracing::CreateWithExtraData(
-                            style_change_reason::kPseudoClass,
-                            style_change_extra_data::g_focus_within));
-  }
-  if (this_element)
-    this_element->PseudoStateChanged(CSSSelector::kPseudoFocusWithin);
-}
-
-void ContainerNode::SetHasFocusWithinUpToAncestor(bool flag, Node* ancestor) {
-  for (ContainerNode* node = this; node && node != ancestor;
-       node = FlatTreeTraversal::Parent(*node)) {
-    node->SetHasFocusWithin(flag);
-    node->FocusWithinStateChanged();
-  }
-}
-
-void ContainerNode::SetDragged(bool new_value) {
-  if (new_value == IsDragged())
-    return;
-
-  Node::SetDragged(new_value);
-
-  // If :-webkit-drag sets display: none we lose our dragging but still need
-  // to recalc our style.
-  if (!GetLayoutObject()) {
-    if (new_value)
-      return;
-    auto* this_element = DynamicTo<Element>(this);
-    if (this_element && this_element->ChildrenOrSiblingsAffectedByDrag()) {
-      this_element->PseudoStateChanged(CSSSelector::kPseudoDrag);
-
-    } else {
-      SetNeedsStyleRecalc(kLocalStyleChange,
-                          StyleChangeReasonForTracing::CreateWithExtraData(
-                              style_change_reason::kPseudoClass,
-                              style_change_extra_data::g_drag));
-    }
-    return;
-  }
-
-  if (GetComputedStyle()->AffectedByDrag()) {
-    StyleChangeType change_type =
-        GetComputedStyle()->HasPseudoElementStyle(kPseudoIdFirstLetter)
-            ? kSubtreeStyleChange
-            : kLocalStyleChange;
-    SetNeedsStyleRecalc(change_type,
-                        StyleChangeReasonForTracing::CreateWithExtraData(
-                            style_change_reason::kPseudoClass,
-                            style_change_extra_data::g_drag));
-  }
-  auto* this_element = DynamicTo<Element>(this);
-  if (this_element && this_element->ChildrenOrSiblingsAffectedByDrag())
-    this_element->PseudoStateChanged(CSSSelector::kPseudoDrag);
 }
 
 HTMLCollection* ContainerNode::children() {
@@ -1746,6 +1572,37 @@ void ContainerNode::ReplaceChildren(const VectorOf<Node>& nodes,
   }
 
   AppendChild(node, exception_state);
+}
+
+void ContainerNode::CheckSoftNavigationHeuristicsTracking(
+    const Document& document,
+    Node& inserted_node) {
+  if (!document.IsTrackingSoftNavigationHeuristics()) {
+    return;
+  }
+  LocalDOMWindow* window = document.domWindow();
+  if (!window) {
+    return;
+  }
+  LocalFrame* frame = window->GetFrame();
+  if (!frame || !frame->IsMainFrame()) {
+    return;
+  }
+  ScriptState* script_state = ToScriptStateForMainWorld(frame);
+  if (!script_state) {
+    return;
+  }
+
+  SoftNavigationHeuristics* heuristics =
+      SoftNavigationHeuristics::From(*window);
+  DCHECK(heuristics);
+  if (heuristics->ModifiedDOM(script_state)) {
+    if (inserted_node.IsHTMLElement()) {
+      inserted_node.SetIsModifiedBySoftNavigation();
+    } else {
+      SetIsModifiedBySoftNavigation();
+    }
+  }
 }
 
 }  // namespace blink

@@ -58,7 +58,7 @@ try_.builder(
 )
 
 # TODO(crbug.com/1416662): Remove the builder after the experiment.
-try_.builder(
+try_.orchestrator_builder(
     name = "android-12-x64-dual-coverage-exp-rel",
     description_html = """\
 This builder shadows android-12-x64-rel builder to experiment both jacoco and clang coverage enabled builds.
@@ -66,16 +66,25 @@ This builder shadows android-12-x64-rel builder to experiment both jacoco and cl
     mirrors = [
         "ci/android-12-x64-rel",
     ],
+    compilator = "android-12-x64-dual-coverage-exp-rel-compilator",
     coverage_test_types = ["unit", "overall"],
     main_list_view = "try",
     tryjob = try_.job(
-        experiment_percentage = 3,
+        experiment_percentage = 10,
     ),
     # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
     use_clang_coverage = True,
     use_java_coverage = True,
+)
+
+# TODO(crbug.com/1416662): Remove the builder after the experiment.
+try_.compilator_builder(
+    name = "android-12-x64-dual-coverage-exp-rel-compilator",
+    contact_team_email = "clank-engprod@google.com",
+    main_list_view = "try",
+    siso_enabled = True,
 )
 
 try_.orchestrator_builder(
@@ -86,6 +95,10 @@ try_.orchestrator_builder(
     ],
     compilator = "android-12-x64-rel-compilator",
     coverage_test_types = ["unit", "overall"],
+    experiments = {
+        # go/nplus1shardsproposal
+        "chromium.add_one_test_shard": 10,
+    },
     main_list_view = "try",
     tryjob = try_.job(),
     # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
@@ -133,6 +146,10 @@ try_.orchestrator_builder(
     ],
     compilator = "android-arm64-rel-compilator",
     coverage_test_types = ["unit", "overall"],
+    experiments = {
+        # go/nplus1shardsproposal
+        "chromium.add_one_test_shard": 10,
+    },
     main_list_view = "try",
     tryjob = try_.job(),
     # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
@@ -226,6 +243,7 @@ try_.builder(
     mirrors = [
         "ci/android-archive-rel",
     ],
+    contact_team_email = "clank-engprod@google.com",
 )
 
 try_.builder(
@@ -234,6 +252,7 @@ try_.builder(
     mirrors = [
         "ci/android-cronet-arm-dbg",
     ],
+    contact_team_email = "cronet-team@google.com",
     main_list_view = "try",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
@@ -250,30 +269,35 @@ try_.builder(
 try_.builder(
     name = "android-cronet-arm64-dbg",
     mirrors = ["ci/android-cronet-arm64-dbg"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-arm64-rel",
     mirrors = ["ci/android-cronet-arm64-rel"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-asan-arm-rel",
     mirrors = ["ci/android-cronet-asan-arm-rel"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-mainline-clang-arm64-dbg",
     mirrors = ["ci/android-cronet-mainline-clang-arm64-dbg"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-mainline-clang-arm64-rel",
     mirrors = ["ci/android-cronet-mainline-clang-arm64-rel"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -281,18 +305,21 @@ try_.builder(
     name = "android-cronet-mainline-clang-x86-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = ["ci/android-cronet-mainline-clang-x86-dbg"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-mainline-clang-x86-rel",
     mirrors = ["ci/android-cronet-mainline-clang-x86-rel"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
 try_.builder(
     name = "android-cronet-x64-rel",
     mirrors = ["ci/android-cronet-x64-rel"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -300,6 +327,7 @@ try_.builder(
     name = "android-cronet-x64-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = ["ci/android-cronet-x64-dbg"],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -309,6 +337,7 @@ try_.builder(
         "ci/android-cronet-x64-dbg",
         "ci/android-cronet-x64-dbg-12-tests",
     ],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -318,31 +347,7 @@ try_.builder(
         "ci/android-cronet-x64-dbg",
         "ci/android-cronet-x64-dbg-13-tests",
     ],
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-cronet-x86-dbg",
-    mirrors = [
-        "ci/android-cronet-x86-dbg",
-    ],
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-cronet-x86-rel",
-    mirrors = ["ci/android-cronet-x86-rel"],
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
-    name = "android-cronet-x86-dbg-10-tests",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    mirrors = [
-        "ci/android-cronet-x86-dbg",
-        "ci/android-cronet-x86-dbg-10-tests",
-    ],
-    main_list_view = "try",
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
     tryjob = try_.job(
         location_filters = [
@@ -356,11 +361,49 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-cronet-x64-dbg-14-tests",
+    description_html = "Tests Cronet against Android 14",
+    mirrors = [
+        "ci/android-cronet-x64-dbg",
+        "ci/android-cronet-x64-dbg-14-tests",
+    ],
+    contact_team_email = "cronet-team@google.com",
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-cronet-x86-dbg",
+    mirrors = ["ci/android-cronet-x86-dbg"],
+    contact_team_email = "cronet-team@google.com",
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-cronet-x86-rel",
+    mirrors = ["ci/android-cronet-x86-rel"],
+    contact_team_email = "cronet-team@google.com",
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
+    name = "android-cronet-x86-dbg-10-tests",
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    mirrors = [
+        "ci/android-cronet-x86-dbg",
+        "ci/android-cronet-x86-dbg-10-tests",
+    ],
+    contact_team_email = "cronet-team@google.com",
+    main_list_view = "try",
+    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-cronet-x86-dbg-11-tests",
     mirrors = [
         "ci/android-cronet-x86-dbg",
         "ci/android-cronet-x86-dbg-11-tests",
     ],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -370,6 +413,7 @@ try_.builder(
         "ci/android-cronet-x86-dbg",
         "ci/android-cronet-x86-dbg-oreo-tests",
     ],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -379,6 +423,7 @@ try_.builder(
         "ci/android-cronet-x86-dbg",
         "ci/android-cronet-x86-dbg-pie-tests",
     ],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -388,6 +433,7 @@ try_.builder(
         "ci/android-cronet-x86-dbg",
         "ci/android-cronet-x86-dbg-nougat-tests",
     ],
+    contact_team_email = "cronet-team@google.com",
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -444,21 +490,23 @@ try_.builder(
 )
 
 # TODO(crbug.com/1416662): Remove the builder after the experiment.
-try_.builder(
-    name = "android-nougat-x86-dual-coverage-exp-rel",
+try_.orchestrator_builder(
+    name = "android-x86-dual-coverage-exp-rel",
     description_html = """\
-This builder shadows android-nougat-x86-rel builder to experiment both jacoco and clang coverage enabled builds.
+This builder is similar to "try/android-x86-rel", but experiment both jacoco and clang coverage enabled builds.
 """,
     mirrors = [
-        "ci/android-nougat-x86-rel",
+        "ci/android-oreo-x86-rel",
     ],
+    compilator = "android-x86-dual-coverage-exp-rel-compilator",
+    contact_team_email = "clank-engprod@google.com",
     coverage_test_types = ["unit", "overall"],
     experiments = {
         "chromium.add_one_test_shard": 10,
     },
     main_list_view = "try",
     tryjob = try_.job(
-        experiment_percentage = 3,
+        experiment_percentage = 10,
     ),
     # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
@@ -467,29 +515,11 @@ This builder shadows android-nougat-x86-rel builder to experiment both jacoco an
     use_java_coverage = True,
 )
 
-try_.orchestrator_builder(
-    name = "android-nougat-x86-rel",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    mirrors = [
-        "ci/android-nougat-x86-rel",
-    ],
-    compilator = "android-nougat-x86-rel-compilator",
-    coverage_test_types = ["unit", "overall"],
-    experiments = {
-        "chromium.add_one_test_shard": 10,
-    },
-    main_list_view = "try",
-    tryjob = try_.job(),
-    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
-    # are addressed
-    # use_orchestrator_pool = True,
-    use_java_coverage = True,
-)
-
+# TODO(crbug.com/1416662): Remove the builder after the experiment.
 try_.compilator_builder(
-    name = "android-nougat-x86-rel-compilator",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    cores = 64 if settings.is_main else 32,
+    name = "android-x86-dual-coverage-exp-rel-compilator",
+    cores = 64,
+    contact_team_email = "clank-engprod@google.com",
     main_list_view = "try",
     siso_enabled = True,
 )
@@ -612,16 +642,6 @@ try_.builder(
 )
 
 try_.builder(
-    name = "android-webview-nougat-arm64-dbg",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    mirrors = [
-        "ci/Android arm64 Builder (dbg)",
-        "ci/Android WebView N (dbg)",
-    ],
-    reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
-)
-
-try_.builder(
     name = "android-webview-oreo-arm64-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = [
@@ -639,6 +659,35 @@ try_.builder(
         "ci/Android WebView P (dbg)",
     ],
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.orchestrator_builder(
+    name = "android-x86-rel",
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    mirrors = [
+        "ci/android-oreo-x86-rel",
+    ],
+    compilator = "android-x86-rel-compilator",
+    contact_team_email = "clank-engprod@google.com",
+    coverage_test_types = ["unit", "overall"],
+    experiments = {
+        "chromium.add_one_test_shard": 10,
+    },
+    main_list_view = "try",
+    tryjob = try_.job(),
+    # TODO(crbug.com/1372179): Use orchestrator pool once overloaded test pools
+    # are addressed
+    # use_orchestrator_pool = True,
+    use_java_coverage = True,
+)
+
+try_.compilator_builder(
+    name = "android-x86-rel-compilator",
+    branch_selector = branches.selector.ANDROID_BRANCHES,
+    cores = 64 if settings.is_main else 32,
+    contact_team_email = "clank-engprod@google.com",
+    main_list_view = "try",
+    siso_enabled = True,
 )
 
 try_.builder(
@@ -792,25 +841,9 @@ try_.builder(
         is_compile_only = True,
     ),
     builderless = not settings.is_main,
+    contact_team_email = "cronet-team@google.com",
     main_list_view = "try",
     tryjob = try_.job(),
-)
-
-try_.builder(
-    name = "android_unswarmed_pixel_aosp",
-    mirrors = [
-        "ci/Android arm64 Builder (dbg)",
-        "ci/Android WebView N (dbg)",
-    ],
-)
-
-try_.builder(
-    name = "try-nougat-phone-tester",
-    branch_selector = branches.selector.ANDROID_BRANCHES,
-    mirrors = [
-        "ci/Android arm64 Builder (dbg)",
-        "ci/Nougat Phone Tester",
-    ],
 )
 
 try_.gpu.optional_tests_builder(

@@ -16,7 +16,6 @@
 #include "base/json/json_writer.h"
 #include "base/lazy_instance.h"
 #include "base/time/time.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/api/cookies/cookies_api_constants.h"
 #include "chrome/browser/extensions/api/cookies/cookies_helpers.h"
 #include "chrome/browser/extensions/chrome_extension_function_details.h"
@@ -32,7 +31,6 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extensions_browser_client.h"
@@ -510,11 +508,12 @@ ExtensionFunction::ResponseAction CookiesSetFunction::Run() {
 
   base::Time expiration_time;
   if (parsed_args_->details.expiration_date) {
-    // Time::FromDoubleT converts double time 0 to empty Time object. So we need
-    // to do special handling here.
-    expiration_time = (*parsed_args_->details.expiration_date == 0) ?
-        base::Time::UnixEpoch() :
-        base::Time::FromDoubleT(*parsed_args_->details.expiration_date);
+    // Time::FromSecondsSinceUnixEpoch converts double time 0 to empty Time
+    // object. So we need to do special handling here.
+    expiration_time = (*parsed_args_->details.expiration_date == 0)
+                          ? base::Time::UnixEpoch()
+                          : base::Time::FromSecondsSinceUnixEpoch(
+                                *parsed_args_->details.expiration_date);
   }
 
   net::CookieSameSite same_site = net::CookieSameSite::UNSPECIFIED;

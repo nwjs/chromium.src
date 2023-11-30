@@ -7,36 +7,19 @@
 //    ../../third_party/xcbproto/src \
 //    gen/ui/gfx/x \
 //    bigreq \
-//    composite \
-//    damage \
-//    dpms \
-//    dri2 \
 //    dri3 \
-//    ge \
 //    glx \
-//    present \
 //    randr \
-//    record \
 //    render \
-//    res \
 //    screensaver \
 //    shape \
 //    shm \
 //    sync \
-//    xc_misc \
-//    xevie \
-//    xf86dri \
-//    xf86vidmode \
 //    xfixes \
-//    xinerama \
 //    xinput \
 //    xkb \
-//    xprint \
 //    xproto \
-//    xselinux \
-//    xtest \
-//    xv \
-//    xvmc
+//    xtest
 
 #include "xinput.h"
 
@@ -1830,6 +1813,7 @@ void ReadError<Input::DeviceError>(Input::DeviceError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Input::EventError::ToString() const {
   std::stringstream ss_;
   ss_ << "Input::EventError{";
@@ -1873,6 +1857,7 @@ void ReadError<Input::EventError>(Input::EventError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Input::ModeError::ToString() const {
   std::stringstream ss_;
   ss_ << "Input::ModeError{";
@@ -1915,6 +1900,7 @@ void ReadError<Input::ModeError>(Input::ModeError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Input::DeviceBusyError::ToString() const {
   std::stringstream ss_;
   ss_ << "Input::DeviceBusyError{";
@@ -1958,6 +1944,7 @@ void ReadError<Input::DeviceBusyError>(Input::DeviceBusyError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Input::ClassError::ToString() const {
   std::stringstream ss_;
   ss_ << "Input::ClassError{";
@@ -2001,6 +1988,7 @@ void ReadError<Input::ClassError>(Input::ClassError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 Future<Input::GetExtensionVersionReply> Input::GetExtensionVersion(
     const Input::GetExtensionVersionRequest& request) {
   if (!connection_->Ready() || !present())

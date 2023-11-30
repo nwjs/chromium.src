@@ -53,14 +53,13 @@ import org.chromium.net.test.ServerCertificate;
 
 import java.util.List;
 
-/**
- * Tests of the Switch To Tab feature.
- */
+/** Tests of the Switch To Tab feature. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
 public class SwitchToTabTest {
     @Rule
     public ChromeTabbedActivityTestRule mActivityTestRule = new ChromeTabbedActivityTestRule();
+
     private static final int INVALID_INDEX = -1;
     private static final long SEARCH_ACTIVITY_MAX_TIME_TO_POLL = 10000L;
 
@@ -85,7 +84,10 @@ public class SwitchToTabTest {
 
         mOmnibox.requestFocus();
 
-        TestThreadUtils.runOnUiThreadBlocking(() -> { urlBar.setText(text); });
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    urlBar.setText(text);
+                });
     }
 
     /**
@@ -95,36 +97,43 @@ public class SwitchToTabTest {
      * @param locationBarLayout The layout which omnibox suggestions will show in.
      * @param tab The tab will be switched to.
      */
-    private void typeAndClickMatchingTabMatchSuggestion(Activity activity,
-            LocationBarLayout locationBarLayout, Tab tab) throws InterruptedException {
+    private void typeAndClickMatchingTabMatchSuggestion(
+            Activity activity, LocationBarLayout locationBarLayout, Tab tab)
+            throws InterruptedException {
         typeInOmnibox(activity, ChromeTabUtils.getTitleOnUiThread(tab));
 
         mOmnibox.checkSuggestionsShown();
         // waitForOmniboxSuggestions only wait until one suggestion shows up, we need to wait util
         // autocomplete return more suggestions.
-        CriteriaHelper.pollUiThread(() -> {
-            AutocompleteMatch matchSuggestion =
-                    findTabMatchOmniboxSuggestion(locationBarLayout, tab);
-            Criteria.checkThat(matchSuggestion, Matchers.notNullValue());
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    AutocompleteMatch matchSuggestion =
+                            findTabMatchOmniboxSuggestion(locationBarLayout, tab);
+                    Criteria.checkThat(matchSuggestion, Matchers.notNullValue());
 
-            OmniboxSuggestionsDropdown suggestionsDropdown =
-                    locationBarLayout.getAutocompleteCoordinator().getSuggestionsDropdownForTest();
+                    OmniboxSuggestionsDropdown suggestionsDropdown =
+                            locationBarLayout
+                                    .getAutocompleteCoordinator()
+                                    .getSuggestionsDropdownForTest();
 
-            // Make sure data populated to UI
-            int index = findIndexOfTabMatchSuggestionView(suggestionsDropdown, matchSuggestion);
-            Criteria.checkThat(index, Matchers.not(INVALID_INDEX));
+                    // Make sure data populated to UI
+                    int index =
+                            findIndexOfTabMatchSuggestionView(suggestionsDropdown, matchSuggestion);
+                    Criteria.checkThat(index, Matchers.not(INVALID_INDEX));
 
-            try {
-                clickSuggestionActionAt(suggestionsDropdown, index);
-            } catch (InterruptedException e) {
-                throw new CriteriaNotSatisfiedException(e);
-            }
-        }, SEARCH_ACTIVITY_MAX_TIME_TO_POLL, DEFAULT_POLLING_INTERVAL);
+                    try {
+                        clickSuggestionActionAt(suggestionsDropdown, index);
+                    } catch (InterruptedException e) {
+                        throw new CriteriaNotSatisfiedException(e);
+                    }
+                },
+                SEARCH_ACTIVITY_MAX_TIME_TO_POLL,
+                DEFAULT_POLLING_INTERVAL);
     }
 
     /**
-     * Find the switch to tab suggestion which suggests the |tab|, and return the
-     * suggestion. This method needs to run on the UI thread.
+     * Find the switch to tab suggestion which suggests the |tab|, and return the suggestion. This
+     * method needs to run on the UI thread.
      *
      * @param locationBarLayout The layout which omnibox suggestions will show in.
      * @param tab The tab which the AutocompleteMatch should suggest.
@@ -138,7 +147,8 @@ public class SwitchToTabTest {
         // Find the first matching suggestion.
         for (int i = 0; i < coordinator.getSuggestionCount(); ++i) {
             AutocompleteMatch suggestion = coordinator.getSuggestionAt(i);
-            if (suggestion != null && suggestion.hasTabMatch()
+            if (suggestion != null
+                    && suggestion.hasTabMatch()
                     && TextUtils.equals(
                             suggestion.getDescription(), ChromeTabUtils.getTitleOnUiThread(tab))
                     && TextUtils.equals(suggestion.getUrl().getSpec(), tab.getUrl().getSpec())) {
@@ -179,16 +189,20 @@ public class SwitchToTabTest {
 
             TextView line1 = baseSuggestionView.findViewById(R.id.line_1);
             TextView line2 = baseSuggestionView.findViewById(R.id.line_2);
-            if (line1 == null || line2 == null
+            if (line1 == null
+                    || line2 == null
                     || !TextUtils.equals(suggestion.getDescription(), line1.getText())
                     || !TextUtils.equals(suggestion.getDisplayText(), line2.getText())) {
                 continue;
             }
 
             List<ImageView> buttonsList = baseSuggestionView.getActionButtons();
-            if (buttonsList != null && buttonsList.size() == 1
-                    && TextUtils.equals(baseSuggestionView.getResources().getString(
-                                                R.string.accessibility_omnibox_switch_to_tab),
+            if (buttonsList != null
+                    && buttonsList.size() == 1
+                    && TextUtils.equals(
+                            baseSuggestionView
+                                    .getResources()
+                                    .getString(R.string.accessibility_omnibox_switch_to_tab),
                             buttonsList.get(0).getContentDescription())) {
                 return i;
             }
@@ -219,9 +233,10 @@ public class SwitchToTabTest {
     @Test
     @MediumTest
     public void testSwitchToTabSuggestion() throws InterruptedException {
-        mTestServer = EmbeddedTestServer.createAndStartHTTPSServer(
-                InstrumentationRegistry.getInstrumentation().getContext(),
-                ServerCertificate.CERT_OK);
+        mTestServer =
+                EmbeddedTestServer.createAndStartHTTPSServer(
+                        InstrumentationRegistry.getInstrumentation().getContext(),
+                        ServerCertificate.CERT_OK);
         final String testHttpsUrl1 = mTestServer.getURL("/chrome/test/data/android/about.html");
         final String testHttpsUrl2 = mTestServer.getURL("/chrome/test/data/android/ok.txt");
         final String testHttpsUrl3 = mTestServer.getURL("/chrome/test/data/android/test.html");
@@ -234,12 +249,13 @@ public class SwitchToTabTest {
         typeAndClickMatchingTabMatchSuggestion(
                 mActivityTestRule.getActivity(), locationBarLayout, aboutTab);
 
-        CriteriaHelper.pollUiThread(() -> {
-            Tab tab = mActivityTestRule.getActivity().getActivityTab();
-            Criteria.checkThat(tab, Matchers.notNullValue());
-            Criteria.checkThat(tab, Matchers.is(aboutTab));
-            Criteria.checkThat(tab.getUrl().getSpec(), Matchers.is(testHttpsUrl1));
-        });
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Tab tab = mActivityTestRule.getActivity().getActivityTab();
+                    Criteria.checkThat(tab, Matchers.notNullValue());
+                    Criteria.checkThat(tab, Matchers.is(aboutTab));
+                    Criteria.checkThat(tab.getUrl().getSpec(), Matchers.is(testHttpsUrl1));
+                });
     }
 
     @Test
@@ -247,9 +263,10 @@ public class SwitchToTabTest {
     @CommandLineFlags.Add(ChromeSwitches.DISABLE_TAB_MERGING_FOR_TESTING)
     @DisabledTest(message = "https://crbug.com/1291136")
     public void testSwitchToTabSuggestionWhenIncognitoTabOnTop() throws InterruptedException {
-        mTestServer = EmbeddedTestServer.createAndStartHTTPSServer(
-                InstrumentationRegistry.getInstrumentation().getContext(),
-                ServerCertificate.CERT_OK);
+        mTestServer =
+                EmbeddedTestServer.createAndStartHTTPSServer(
+                        InstrumentationRegistry.getInstrumentation().getContext(),
+                        ServerCertificate.CERT_OK);
         final String testHttpsUrl1 = mTestServer.getURL("/chrome/test/data/android/about.html");
         final String testHttpsUrl2 = mTestServer.getURL("/chrome/test/data/android/ok.txt");
         final String testHttpsUrl3 = mTestServer.getURL("/chrome/test/data/android/test.html");
@@ -260,12 +277,17 @@ public class SwitchToTabTest {
         // Move "about.html" page to cta2 and create an incognito tab on top of "about.html".
         final ChromeTabbedActivity cta1 = mActivityTestRule.getActivity();
         MultiWindowUtils.getInstance().setIsInMultiWindowModeForTesting(true);
-        MenuUtils.invokeCustomMenuActionSync(InstrumentationRegistry.getInstrumentation(), cta1,
+        MenuUtils.invokeCustomMenuActionSync(
+                InstrumentationRegistry.getInstrumentation(),
+                cta1,
                 R.id.move_to_other_window_menu_id);
         final ChromeTabbedActivity2 cta2 = waitForSecondChromeTabbedActivity();
         ChromeActivityTestRule.waitForActivityNativeInitializationComplete(cta2);
-        ChromeTabUtils.newTabFromMenu(InstrumentationRegistry.getInstrumentation(), cta2,
-                true /*incognito*/, false /*waitForNtpLoad*/);
+        ChromeTabUtils.newTabFromMenu(
+                InstrumentationRegistry.getInstrumentation(),
+                cta2,
+                /* incognito= */ true,
+                /* waitForNtpLoad= */ false);
         moveActivityToFront(cta1);
 
         // Switch back to cta1, and try to switch to "about.html" in cta2.
@@ -273,20 +295,22 @@ public class SwitchToTabTest {
                 (LocationBarLayout) cta1.findViewById(R.id.location_bar);
         typeAndClickMatchingTabMatchSuggestion(cta1, locationBarLayout, aboutTab);
 
-        CriteriaHelper.pollUiThread(() -> {
-            Tab tab = cta2.getActivityTab();
-            Criteria.checkThat(tab, Matchers.notNullValue());
-            Criteria.checkThat(tab, Matchers.is(aboutTab));
-            Criteria.checkThat(tab.getUrl().getSpec(), Matchers.is(testHttpsUrl1));
-        });
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    Tab tab = cta2.getActivityTab();
+                    Criteria.checkThat(tab, Matchers.notNullValue());
+                    Criteria.checkThat(tab, Matchers.is(aboutTab));
+                    Criteria.checkThat(tab.getUrl().getSpec(), Matchers.is(testHttpsUrl1));
+                });
     }
 
     @Test
     @MediumTest
     public void testNoSwitchToIncognitoTabFromNormalModel() throws InterruptedException {
-        mTestServer = EmbeddedTestServer.createAndStartHTTPSServer(
-                InstrumentationRegistry.getInstrumentation().getContext(),
-                ServerCertificate.CERT_OK);
+        mTestServer =
+                EmbeddedTestServer.createAndStartHTTPSServer(
+                        InstrumentationRegistry.getInstrumentation().getContext(),
+                        ServerCertificate.CERT_OK);
         final String testHttpsUrl1 = mTestServer.getURL("/chrome/test/data/android/about.html");
         final String testHttpsUrl2 = mTestServer.getURL("/chrome/test/data/android/ok.txt");
         final String testHttpsUrl3 = mTestServer.getURL("/chrome/test/data/android/test.html");
@@ -301,10 +325,11 @@ public class SwitchToTabTest {
         mActivityTestRule.typeInOmnibox("about", false);
         mOmnibox.checkSuggestionsShown();
 
-        CriteriaHelper.pollUiThread(() -> {
-            AutocompleteMatch matchSuggestion =
-                    findTabMatchOmniboxSuggestion(locationBarLayout, aboutTab);
-            Criteria.checkThat(matchSuggestion, Matchers.nullValue());
-        });
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    AutocompleteMatch matchSuggestion =
+                            findTabMatchOmniboxSuggestion(locationBarLayout, aboutTab);
+                    Criteria.checkThat(matchSuggestion, Matchers.nullValue());
+                });
     }
 }

@@ -310,10 +310,6 @@ Style notes:
         <ph name="hotspot">$1<ex>Hotspot on, no devices connected</ex></ph>,
         <ph name="network">$2<ex>Connected to Google-A, Median signal</ex></ph>
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_PRIVACY_ACCESSIBLE_DESCRIPTION" is_accessibility_with_no_ui="true" desc="The accessible description of privacy in the status tray and the information on it.">
-        <ph name="mic">$1<ex>A virtual machine is using your microphone</ex></ph>,
-        <ph name="camera">$2<ex>A virtual machine is using your camera</ex></ph>
-      </message>
       <message name="IDS_ASH_QUICK_SETTINGS_BUBBLE_ACCESSIBLE_DESCRIPTION" desc="The accessible description of the quick settings bubble and the information in it.">
         Quick Settings, Press search + left to access the notification center.
       </message>
@@ -804,7 +800,7 @@ Style notes:
         Focusing
       </message>
       <message name="IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_TIME_SUBLABEL" translateable="false" desc="The text used for the sublabel of the toggle row in the focus mode detailed view.">
-        <ph name="TIME_REMAINING_EXPRESSION">$1<ex>30 min</ex></ph> ⋅ Until <ph name="END_TIME_EXPRESSION">$2<ex>1:00 PM</ex></ph>
+        Until <ph name="END_TIME_EXPRESSION">$1<ex>1:00 PM</ex></ph>
       </message>
       <message name="IDS_ASH_STATUS_TRAY_FOCUS_MODE_TOGGLE_START_BUTTON" translateable="false" desc="The text used for the label of the toggle button in the focus mode toggle row in the focus mode detailed view when focus mode is not active.">
         Start
@@ -1368,7 +1364,7 @@ Style notes:
         Go to a text field to use Dictation
       </message>
       <message name="IDS_ASH_ACCESSIBILITY_NUDGE_DICTATION_MIC_MUTED" desc="Displayed in a nudge when Dictation cannot start because the active microphone is muted.">
-        Can't start dictation because the microphone is muted
+        Can't start dictation. Your mic is off.
       </message>
 
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_VIRTUAL_KEYBOARD" desc="The label used in the accessibility menu of the system tray to toggle on/off the onscreen keyboard.">
@@ -1376,9 +1372,6 @@ Style notes:
       </message>
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_SWITCH_ACCESS" desc="The label used in the accessibility menu of the system tray to toggle Switch Access, a feature that allows the entire device to be controlled with as few as 1 switch or button.">
         Switch Access
-      </message>
-      <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_ADDITIONAL_SETTINGS" desc="The sub-header label for additional setting in accessibility menu of system tray.">
-        Additional settings
       </message>
       <message name="IDS_ASH_STATUS_TRAY_ACCESSIBILITY_MONO_AUDIO" desc="The label used in the additional settings of accessibility menu of the system tray to toggle on/off mono audio.">
         Mono audio
@@ -2694,32 +2687,34 @@ Style notes:
         About <ph name="time_left">$1<ex>40 minutes</ex></ph> left (<ph name="percentage">$2<ex>56%</ex></ph>%).
 Connect your device to power.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_MESSAGE_WITHOUT_TIME" translateable="false" desc="The label in the tray dialog to show the remaining battery power as a percent.">
-        About <ph name="percentage">$1<ex>56%</ex></ph>% left.
-Connect your device to power.
-      </message>
-      <message name="IDS_ASH_BATTERY_SAVER_DISABLED_TOAST_TEXT" translateable="false" desc="The toast message when battery saver mode is disabled.">
-        Battery Saver has been turned off
-      </message>
-      <message name="IDS_ASH_BATTERY_SAVER_ENABLED_TOAST_TEXT" translateable="false" desc="The toast message when battery saver mode is enabled.">
-        Battery Saver has been turned on
-      </message>
-      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_TITLE" translateable="false" desc="The title for the notification displayed when device battery level is low, and battery saver mode is enabled.">
+      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_AUTOENABLED_TITLE" desc="The title for the notification displayed when device battery level is low, and battery saver was just enabled.">
         Low battery. Battery Saver turned on.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_MESSAGE" translateable="false" desc="The label in the tray dialog to show the remaining battery power as a percent, with additional text stating battery saver mode has been enabled.">
-        About <ph name="time_left">$1<ex>40 minutes</ex></ph> left (<ph name="percentage">$2<ex>56%</ex></ph>%).
+      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_AUTOENABLED_MESSAGE" desc="The notification body text stating features are limited because of battery saver, alongside the remaining battery percentage, and the estimated time remaining.">
+        <ph name="percentage">$1<ex>20%</ex></ph>% battery left (about <ph name="time_left">$2<ex>25 minutes</ex></ph>).
 Some features are limited to increase battery life.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_MESSAGE_WITHOUT_TIME" translateable="false" desc="The notification body text stating features are limited because of battery saver, alongside the remaining battery percentage.">
-        About <ph name="percentage">$1<ex>56%</ex></ph>% left.
+      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_AUTOENABLED_MESSAGE_WITHOUT_TIME" desc="The notification body text stating features are limited because of battery saver, alongside the remaining battery percentage.">
+        <ph name="percentage">$1<ex>20%</ex></ph>% battery left.
 Some features are limited to increase battery life.
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_BUTTON_OPT_OUT" translateable="false" desc="The button text on the low power notification to disable battery saver.">
-        Turn off Battery Saver
+      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_GENERIC_MESSAGE" desc="The notification body text telling the user their battery is low using both percentage and time remaining estimates.">
+        <ph name="percentage">$1<ex>20%</ex></ph>% battery left (about <ph name="time_left">$2<ex>25 minutes</ex></ph>). Connect your device to power.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_GENERIC_MESSAGE_WITHOUT_TIME" desc="The notification body text telling the user their battery is low via percentage.">
+        <ph name="percentage">$1<ex>20%</ex></ph>% battery left. Connect your device to power.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_BUTTON_OPT_OUT" desc="The button text on the low power notification to disable battery saver.">
+        Turn off
       </message>
       <message name="IDS_ASH_STATUS_TRAY_LOW_BATTERY_BSM_BUTTON_OPT_IN" translateable="false" desc="The button text on the low power notification to enable battery saver.">
         Turn on Battery Saver
+      </message>
+      <message name="IDS_ASH_BATTERY_SAVER_DISABLED_TOAST_TEXT" desc="The toast message that appears battery saver is disabled, typically through user interaction like charger plug-in or pressing the notification disable button.">
+        Battery Saver turned off
+      </message>
+      <message name="IDS_ASH_BATTERY_SAVER_ENABLED_TOAST_TEXT" desc="The toast message when battery saver is enabled. This typically appears when there is no notification ">
+        Battery Saver turned on
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_TITLE" desc="The title displayed in a battery status notification.">Battery status</message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT" desc="The label in the tray dialog to show the remaining battery power as a percent.">
@@ -2748,6 +2743,12 @@ Some features are limited to increase battery life.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_CHARGING_ACCESSIBLE" desc="The message used by accessibility to show battery is being charged.">
         Battery at <ph name="percentage">$1<ex>56</ex></ph>% and charging.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_BSM_ON_ACCESSIBLE" desc="The message used by accessibility to show battery is discharging with battery saver enabled.">
+        Battery at <ph name="percentage">$1<ex>56</ex></ph> percent. Battery Saver is on.
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_BATTERY_PERCENT_CHARGING_BSM_ON_ACCESSIBLE" desc="The message used by accessibility to show battery is being charged with battery saver enabled.">
+        Battery at <ph name="percentage">$1<ex>56</ex></ph>% and charging. Battery Saver is on.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_BATTERY_CALCULATING_ACCESSIBLE" desc="The message used by accessibility to show battery is calculating its time in short message.">
         Calculating battery time.
@@ -2995,7 +2996,7 @@ Some features are limited to increase battery life.
         This setting is managed by your administrator
       </message>
       <message name="IDS_ASH_HOTSPOT_DETAILED_VIEW_ON_NO_CONNECTED_DEVICES" desc="The subtext in the hotspot detailed view when hotspot is on and no devices connected to it.">
-        On, no devices connected
+        No devices connected
       </message>
       <message name="IDS_ASH_HOTSPOT_DETAILED_VIEW_TITLE" desc="The label in the hotspot detailed view for the Chromebook Hotspot.">
         <ph name="DEVICE_NAME">$1<ex>Chromebook</ex></ph> hotspot
@@ -3019,7 +3020,7 @@ Some features are limited to increase battery life.
         <ph name="DEVICE_NAME">$1<ex>Chromebook</ex></ph> hotspot is on, no devices connected
       </message>
       <message name="IDS_ASH_HOTSPOT_ON_TITLE" desc="Title used for the system notification shown when the hotspot is turned on.">
-        Hotspot is on
+        With hotspot on, Wi-Fi is off
       </message>
       <message name="IDS_ASH_HOTSPOT_ON_MESSAGE_MULTIPLE_CONNECTED_DEVICES" desc="Message displayed in the notification when hotspot is turned on and multiple devices are connected.">
         <ph name="DEVICECOUNT">$1</ph> devices connected
@@ -3028,16 +3029,16 @@ Some features are limited to increase battery life.
         1 device connected
       </message>
       <message name="IDS_ASH_HOTSPOT_ON_MESSAGE_NO_CONNECTED_DEVICES_NOTIFICATION" desc="Message displayed in the notification when hotspot is turned on and no devices are connected.">
-        No devices connected. WiFi will be turned off to start using Hotspot.
+        No devices connected. While using hotspot, Wi-Fi will stay off.
       </message>
       <message name="IDS_ASH_HOTSPOT_ON_MESSAGE_MULTIPLE_CONNECTED_DEVICES_NOTIFICATION" desc="Message displayed in the notification when hotspot is turned on and multiple devices are connected.">
-        <ph name="DEVICECOUNT">$1</ph> devices connected. WiFi will be turned off to start using Hotspot.
+        <ph name="DEVICECOUNT">$1</ph> devices connected. While using hotspot, Wi-Fi will stay off.
       </message>
       <message name="IDS_ASH_HOTSPOT_ON_MESSAGE_ONE_CONNECTED_DEVICE_NOTIFICATION" desc="Message displayed in the notification when hotspot is turned on and one device is connected.">
-        1 device connected. WiFi will be turned off to start using Hotspot.
+        1 device connected. While using hotspot, Wi-Fi will stay off.
       </message>
       <message name="IDS_ASH_TURN_OFF_HOTSPOT_LABEL" desc="The label for button used to turn off hotspot.">
-        Turn off
+        Turn off hotspot
       </message>
       <message name="IDS_ASH_HOTSPOT_OFF_TITLE" desc="Title used for the system notification shown when the hotspot is turned off.">
         Hotspot is off
@@ -3318,7 +3319,7 @@ Some features are limited to increase battery life.
       <message name="IDS_ASH_STATUS_TRAY_AUDIO" desc="The label used in audio detailed page bottom header of ash tray pop up.">
         Audio settings
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_AUDIO_QS_REVAMP" desc="The label used in audio detailed page bottom header of ash tray pop up.">
+      <message name="IDS_ASH_STATUS_TRAY_AUDIO_TITLE" desc="The label used in audio detailed page bottom header of ash tray pop up.">
         Audio
       </message>
       <message name="IDS_ASH_STATUS_TRAY_AUDIO_OUTPUT" desc="The label used in audio detailed page for audio output section of ash tray pop up.">
@@ -3614,8 +3615,8 @@ Some features are limited to increase battery life.
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_WIFI" desc="The label used in the tray popup to separate Wi-Fi networks.">
         Wi-Fi
       </message>
-      <message name="IDS_ASH_STATUS_TRAY_NETWORK_TETHER" desc="The label used in the tray popup to separate Instant Tethering networks.">
-        Instant Tethering
+      <message name="IDS_ASH_STATUS_TRAY_NETWORK_TETHER_HOSTS" desc="The label used in the tray popup to separate your tether devices.">
+        Your devices
       </message>
       <message name="IDS_ASH_STATUS_TRAY_ADD_CONNECTION" desc="Title for control to add a new network connection." >
         Add connection
@@ -3743,9 +3744,6 @@ Some features are limited to increase battery life.
       <message name="IDS_SHORTCUT_TASK_MANAGER_OLD" desc="the old deprecated shortcut to open the task manager.">
         Shift+Esc
       </message>
-      <message name="IDS_SHORTCUT_TASK_MANAGER_NEW" desc="the new shortcut to open the task manager.">
-        search+esc
-      </message>
       <message name="IDS_SHORTCUT_IME_BUBBLE_OLD" desc="the old deprecated shortcut to show the input options menu bubble in the shelf.">
         Alt+Shift+K
       </message>
@@ -3754,10 +3752,6 @@ Some features are limited to increase battery life.
       </message>
       <message name="IDS_SHORTCUT_SHOW_SHORTCUT_VIEWER_NEW" desc="the new shortcut to open the shortcut viewer app.">
         ctrl+search+s
-      </message>
-      <message name="IDS_DEPRECATED_SHOW_TASK_MANAGER_MSG"
-               desc="Notification message to tell users about the deprecation of Shift+ESC shortcut to show the task manager.">
-        Open Task Manager app with "<ph name="NEW_SHORTCUT">$1<ex>Search+Esc</ex></ph>".
       </message>
       <message name="IDS_DEPRECATED_SHOW_SHORTCUT_VIEWER_MSG"
                desc="Notification message to tell users about the deprecation of Ctrl+Alt+/ shortcut to show the shortcut viewer app.">
@@ -3967,8 +3961,8 @@ Some features are limited to increase battery life.
       <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_SHOW_SHORTCUT_VIEWER" desc="Label for accelerator action - Open Keyboard shortcuts app.">
         Open Key Shortcuts app
       </message>
-      <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_SHOW_STYLUS_TOOLS" desc="Label for accelerator action - Show stylus tools.">
-        Show stylus tools
+      <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_TOGGLE_STYLUS_TOOLS" desc="Label for accelerator action - Show or hide the stylus tools.">
+        Toggle stylus tools
       </message>
       <message name="IDS_ASH_ACCELERATOR_DESCRIPTION_SHOW_TASK_MANAGER" desc="Label for accelerator action - Open task manager.">
         Open task manager
@@ -4806,6 +4800,12 @@ Some features are limited to increase battery life.
       <message name="IDS_ASH_LOGIN_PIN_REQUEST_NEXT_NUMBER_PROMPT" desc="Accessible prompt read when next access code input field has been focused. Asks user to enter next piece of the access code.">
         Next number
       </message>
+      <message name="IDS_ASH_LOGIN_LOCAL_AUTHENTICATION_REQUEST_TITLE" desc="Title of the local authentication input dialog that allows the user to login during the reauthenticate session.">
+        Finish verifying your identity
+      </message>
+      <message name="IDS_ASH_LOGIN_LOCAL_AUTHENTICATION_REQUEST_DESCRIPTION" desc="Description shown on the local authentication input dialog. Explains local authentication credentials should be used to unlock the device.">
+        Enter device password for <ph name="EMAIL">$1<ex>john.doe@example.com</ex></ph>
+      </message>
       <message name="IDS_ASH_LOGIN_SECURITY_TOKEN_REQUEST_DIALOG_TITLE" desc="Title of the PIN dialog to unlock the device with a smart card.">
         Smart card PIN
       </message>
@@ -4854,16 +4854,22 @@ Some features are limited to increase battery life.
         Settings
       </message>
       <message name="IDS_FAST_PAIR_DOWNLOAD_NOTIFICATION_APP_TITLE" desc="Notification title shown to direct users to download companion app on Fast Pair device">
-        Install the app for <ph name="NAME">$1<ex>JBLTools</ex></ph> from Google Play to see all available features
+        <ph name="NAME">$1<ex>Pixel Buds</ex></ph> connected
+      </message>
+      <message name="IDS_FAST_PAIR_DOWNLOAD_NOTIFICATION_APP_MESSAGE" desc="Notification message shown to direct users to download companion app on Fast Pair device">
+        Customize this device in app
       </message>
       <message name="IDS_FAST_PAIR_DOWNLOAD_APP_BUTTON" desc="Button title shown to direct users to app store to download companion app on Fast Pair device">
-        Install
+        Install app
       </message>
       <message name="IDS_FAST_PAIR_SETUP_APP_NOTIFICATION_TITLE" desc="Notification title shown to direct users to setup their Fast Pair device with the companion app">
-        Open <ph name="NAME">$1<ex>JBLTools</ex></ph> to set up and customize your device
+        <ph name="NAME">$1<ex>Pixel Buds</ex></ph> connected
+      </message>
+      <message name="IDS_FAST_PAIR_SETUP_APP_NOTIFICATION_MESSAGE" desc="Notification message shown to direct users to setup their Fast Pair device with the companion app">
+        Customize this device in app
       </message>
       <message name="IDS_FAST_PAIR_SETUP_APP_BUTTON" desc="Button title shown to direct users to setup their Fast Pair device with the companion app">
-        Open
+        Open app
       </message>
       <message name="IDS_FAST_PAIR_CONNECT_BUTTON" desc="Message on button to tell users to connect bluetooth device with Fast Pair.">
         Connect
@@ -5109,13 +5115,10 @@ Some features are limited to increase battery life.
 
       <!-- Notification -->
       <message name="IDS_ASH_NOTIFICATION_EXPAND_TOOLTIP" desc="The tooltip for the expand button, indicating action to expand the notification.">
-        Expand notification
+        Expand <ph name="NOTIFICATION_TITLE">$1<ex>Restore</ex></ph> notification
       </message>
       <message name="IDS_ASH_NOTIFICATION_COLLAPSE_TOOLTIP" desc="The tooltip for the expand button, indicating action to collapse the notification.">
-        Collapse notification
-      </message>
-      <message name="IDS_ASH_NOTIFICATION_EXPAND_DISABLED_TOOLTIP" desc="The tooltip for the expand button when it is disabled, indicating that user cannot expand the notification in this situation.">
-        You can't expand the notification while a panel is open. Close the panel below first.
+        Collapse <ph name="NOTIFICATION_TITLE">$1<ex>Restore</ex></ph> notification
       </message>
       <message name="IDS_ASH_NOTIFICATION_INLINE_REPLY_PLACEHOLDER" desc="The placeholder string for the textfield of an in-line reply notification.">
         Reply
@@ -5146,6 +5149,11 @@ Some features are limited to increase battery life.
       </message>
       <message name="IDS_ASH_NOTIFICATION_SNOOZE_SETTINGS_UNDO_SNOOZE_TEXT" desc="The text for undo snooze notification in snooze settings.">
         Undo
+      </message>
+
+      <!-- Nudges -->
+      <message name="IDS_ASH_SYSTEM_NUDGE_CLOSE_BUTTON_TOOLTIP" desc="The close button tooltip for system nudges.">
+        Close nudge
       </message>
 
       <message name="IDS_ASH_DIALOG_DONT_SHOW_AGAIN" desc="Label for checkbox dismissing show of a dialog.">
@@ -5262,19 +5270,12 @@ Some features are limited to increase battery life.
         Event <ph name="event_position">$1<ex>1</ex></ph> of <ph name="event_total_count">$2<ex>2</ex></ph>
       </message>
 
-      <message name="IDS_ASH_CALENDAR_EVENT_ENTRY_ACCESSIBLE_DESCRIPTION_JELLY" desc="The accessible label of a calendar event list item jelly entry.">
+      <message name="IDS_ASH_CALENDAR_EVENT_ENTRY_ACCESSIBLE_DESCRIPTION" desc="The accessible label of a calendar event list item entry.">
         <ph name="event_position">$1<ex>Event 1 of 2</ex></ph>
         <ph name="event_summary">$2<ex>Lunch break</ex></ph>,
         <ph name="start_time">$3<ex>12 PM</ex></ph> to
         <ph name="end_time">$4<ex>1 PM</ex></ph>,
         <ph name="time_zone">$5<ex>Pacific time</ex></ph>. Select for more details in Google Calendar.
-      </message>
-
-      <message name="IDS_ASH_CALENDAR_EVENT_ENTRY_ACCESSIBLE_DESCRIPTION" desc="The accessible label of a calendar event entry.">
-        <ph name="start_time">$1<ex>12 PM</ex></ph> to
-        <ph name="end_time">$2<ex>1 PM</ex></ph>,
-        <ph name="time_zone">$3<ex>Pacific time</ex></ph>,
-        <ph name="event_summary">$4<ex>Lunch break</ex></ph>. Select for more details in Google Calendar.
       </message>
 
       <message name="IDS_ASH_CALENDAR_EVENT_ENTRY_TOOL_TIP" desc="The tool tip label of a calendar event entry.">
@@ -5556,17 +5557,6 @@ Here are some things you can try to get started.
       <!-- For ScreenCaptureTrayItemView -->
       <message name="IDS_ASH_ADMIN_SCREEN_CAPTURE" desc="Tooltip message shown at the systray screen capture indicator when an administrator is capturing the screens.">
         Your system administrator is monitoring your screens
-      </message>
-
-      <!-- For CameraMicTrayItemView -->
-      <message name="IDS_ASH_CAMERA_MIC_VM_USING_CAMERA" desc="Tooltip message shown at the systray camera indicator when a VM is using the camera">
-        An application is using your camera
-      </message>
-      <message name="IDS_ASH_CAMERA_MIC_VM_USING_CAMERA_AND_MIC" desc="Tooltip message shown at the systray camera indicator when a VM is using both the camera and mic">
-        An application is using your camera and microphone
-      </message>
-      <message name="IDS_ASH_CAMERA_MIC_VM_USING_MIC" desc="Tooltip message shown at the systray microphone indicator when a VM is using the microphone">
-        An application is using your microphone
       </message>
 
       <!-- For privacy indicators notification -->
@@ -7072,6 +7062,9 @@ New install
       <message name="IDS_GLANCEABLES_CLASSROOM_FETCH_ERROR" desc="A glanceables classroom bubble displays a notification with an error message when an error occurs while fetching data. This is the text that describes the error to the user and appears on the notification.">
         Can't show items. Try reopening this panel.
       </message>
+      <message name="IDS_GLANCEABLES_OVERVIEW_REMOVE_CHIP" desc="The text shown on the removing glanceable chip panel in Overview">
+        Remove this suggestion
+      </message>
 
       <!-- Do Not Disturb notification -->
       <message name="IDS_ASH_DO_NOT_DISTURB_NOTIFICATION_TITLE" desc="Label used for the notification that shows up when the 'Do Not Disturb' feature is enabled.">
@@ -7309,6 +7302,24 @@ To shut down the device, press and hold the power button on the device again.
       </message>
       <message name="IDS_ASH_DEVICE_SETTINGS_LEARN_MORE_BUTTON" desc="Button shown for device settings notifications which opens an article with helpful information related to the notification.">
         Learn more
+      </message>
+        <message name="IDS_SETTINGS_CUSTOMIZATION_MIDDLE_BUTTON_DEFAULT_NAME" desc="The name of the middle mouse button on a mouse">
+    Middle Button
+  </message>
+  <message name="IDS_SETTINGS_CUSTOMIZATION_OTHER_BUTTON_DEFAULT_NAME" desc="The default name to give additional buttons on a mouse or graphics tablet">
+    Other Button <ph name="BUTTON_NUMBER">$1<ex>1</ex></ph>
+  </message>
+
+
+      <!-- Compat Mode Resize States-->
+      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_PHONE" desc="Item in a list of possible sizes for the app. Makes the app in a portrait, phone size.">
+        Phone
+      </message>
+      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_TABLET" desc="Item in a list of possible sizes for the app. Makes the app bigger and wider in a tablet size.">
+        Tablet
+      </message>
+      <message name="IDS_ARC_COMPAT_MODE_RESIZE_TOGGLE_MENU_RESIZABLE" desc="Item in a list of possible sizes for the app. Makes the app resizable.">
+        Resizable
       </message>
      </messages>
     </release>

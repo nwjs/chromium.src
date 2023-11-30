@@ -238,8 +238,14 @@ export class SettingsPerDeviceMouseSubsectionElement extends
   private customizationRestriction: CustomizationRestriction;
 
   private showCustomizeButtonRow(): boolean {
+    return (this.customizationRestriction !==
+            CustomizationRestriction.kDisallowCustomizations) &&
+        this.isPeripheralCustomizationEnabled_;
+  }
+
+  private showSwapToggleButton(): boolean {
     return this.customizationRestriction ===
-        CustomizationRestriction.kAllowCustomizations &&
+        CustomizationRestriction.kDisallowCustomizations &&
         this.isPeripheralCustomizationEnabled_;
   }
 

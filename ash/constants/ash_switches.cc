@@ -125,9 +125,6 @@ const char kArcUseDevCaches[] = "arc-use-dev-caches";
 // Flag that indicates ARC images are formatted with EROFS (go/arcvm-erofs).
 const char kArcErofs[] = "arc-erofs";
 
-// If set, forces ARC apk cache to be enabled for testing.
-const char kArcForceEnableApkCache[] = "arc-force-enable-apk-cache";
-
 // If set, forces post boot dexopt to run immediately without device idle
 // requirement.
 const char kArcForcePostBootDexOpt[] = "arc-force-post-boot-dex-opt";
@@ -833,6 +830,9 @@ const char kBrowserDataMigrationForUser[] = "browser-data-migration-for-user";
 const char kBrowserDataBackwardMigrationForUser[] =
     "browser-data-backward-migration-for-user";
 
+// Supply secret key for Coral feature.
+const char kCoralFeatureKey[] = "coral-feature-key";
+
 // Tells Chrome to forcefully trigger backward data migration.
 extern const char kForceBrowserDataBackwardMigration[] =
     "force-browser-data-backward-migration";
@@ -901,9 +901,6 @@ const char kOobeTimezoneOverrideForTests[] = "oobe-timezone-override-for-tests";
 const char kOobeTriggerSyncTimeoutForTests[] =
     "oobe-trigger-sync-timeout-for-tests";
 
-// Supply secret key for Orca feature
-const char kOrcaKey[] = "orca-key";
-
 // Controls how often the HiddenNetworkHandler class checks for wrongly hidden
 // networks. The interval should be provided in seconds, should follow the
 // format "--hidden-network-migration-interval=#", and should be >= 1.
@@ -947,8 +944,8 @@ const char kQsShowLocaleTile[] = "qs-show-locale-tile";
 // "/usr/share/chromeos-assets/regulatory_labels/".
 const char kRegulatoryLabelDir[] = "regulatory-label-dir";
 
-// Testing timeout for reboot command. Useful for tast tests.
-const char kRemoteRebootCommandTimeoutInSecondsForTesting[] =
+// Testing delay for reboot command. Useful for tast tests.
+const char kRemoteRebootCommandDelayInSecondsForTesting[] =
     "remote-reboot-command-timeout-in-seconds-for-testing";
 
 // Indicates that reven UI strings and features should be shown.
@@ -1096,6 +1093,15 @@ const char kCameraEffectsSupportedByHardware[] =
 // Prevent kiosk autolaunch for testing.
 const char kPreventKioskAutolaunchForTesting[] =
     "prevent-kiosk-autolaunch-for-testing";
+
+// Allows the Ash shelf to apply the default pin layout without waiting for Sync
+// to download data from the server (which many tests can't achieve).
+const char kAllowDefaultShelfPinLayoutIgnoringSync[] =
+    "ash-allow-default-shelf-pin-layout-ignoring-sync";
+
+// On devices that support refresh rate throttling, force the throttling
+// behavior to be active regardless of system state.
+const char kForceRefreshRateThrottle[] = "force-refresh-rate-throttle";
 
 bool IsAuthSessionCryptohomeEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -1259,6 +1265,11 @@ bool IsCameraEffectsSupportedByHardware() {
 bool UseFakeCrasAudioClientForDBus() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       kUseFakeCrasAudioClientForDBus);
+}
+
+bool ShouldAllowDefaultShelfPinLayoutIgnoringSync() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(
+      kAllowDefaultShelfPinLayoutIgnoringSync);
 }
 
 }  // namespace switches

@@ -25,6 +25,7 @@
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
 #include "components/password_manager/core/browser/credential_cache.h"
+#include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/form_parsing/password_field_prediction.h"
 #include "components/password_manager/core/browser/form_submission_observer.h"
 #include "components/password_manager/core/browser/leak_detection/leak_detection_check_factory.h"
@@ -57,10 +58,6 @@ class PasswordFormManager;
 class PasswordManagerMetricsRecorder;
 struct PasswordForm;
 struct PossibleUsernameData;
-
-// If |kUsernameFirstFlowWithIntermediateValues| is enabled, the size of LRU
-// cache that stores all username candidates outside the form.
-constexpr int kMaxSingleUsernameFieldsToStore = 10;
 
 // Per-tab password manager. Handles creation and management of UI elements,
 // receiving password form data from the renderer and managing the password
@@ -414,12 +411,12 @@ class PasswordManager : public PasswordManagerInterface {
 
   // Fields that can be considered for username in case of Username First Flow.
   base::LRUCache<PossibleUsernameFieldIdentifier, PossibleUsernameData>
-      possible_usernames_ = base::LRUCache<PossibleUsernameFieldIdentifier,
-                                           PossibleUsernameData>(
-          base::FeatureList::IsEnabled(
-              password_manager::features::kUsernameFirstFlowStoreSeveralValues)
-              ? kMaxSingleUsernameFieldsToStore
-              : 1);
+      possible_usernames_ =
+          base::LRUCache<PossibleUsernameFieldIdentifier, PossibleUsernameData>(
+              base::FeatureList::IsEnabled(
+                  features::kUsernameFirstFlowStoreSeveralValues)
+                  ? features::kMaxSingleUsernameFieldsToStore.Get()
+                  : 1);
 };
 
 }  // namespace password_manager

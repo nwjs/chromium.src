@@ -15,6 +15,13 @@ namespace on_device_model {
 class COMPONENT_EXPORT(ON_DEVICE_MODEL) OnDeviceModelService
     : public mojom::OnDeviceModelService {
  public:
+  // Must be called in the service's process before sandbox initialization.
+  // This is defined separately in pre_sandbox_init.cc for explicit security
+  // review coverage.
+  [[nodiscard]] static bool PreSandboxInit();
+
+  static mojom::PerformanceClass GetEstimatedPerformanceClass();
+
   explicit OnDeviceModelService(
       mojo::PendingReceiver<mojom::OnDeviceModelService> receiver);
   ~OnDeviceModelService() override;
@@ -22,10 +29,14 @@ class COMPONENT_EXPORT(ON_DEVICE_MODEL) OnDeviceModelService
   OnDeviceModelService(const OnDeviceModelService&) = delete;
   OnDeviceModelService& operator=(const OnDeviceModelService&) = delete;
 
-  void LoadModel(mojom::LoadModelParamsPtr params,
-                 LoadModelCallback callback) override;
+  // mojom::OnDeviceModelService:
+  void LoadModel(ModelAssets assets, LoadModelCallback callback) override;
+  void GetEstimatedPerformanceClass(
+      GetEstimatedPerformanceClassCallback callback) override;
 
  private:
+  static std::unique_ptr<mojom::OnDeviceModel> CreateModel(ModelAssets assets);
+
   mojo::Receiver<mojom::OnDeviceModelService> receiver_;
   mojo::UniqueReceiverSet<mojom::OnDeviceModel> model_receivers_;
 };

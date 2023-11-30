@@ -90,9 +90,13 @@ EncoderStatus SetUpVpxConfig(const VideoEncoder::Options& opts,
     config->kf_max_dist = opts.keyframe_interval.value();
   }
 
+  uint32_t default_bitrate = GetDefaultVideoEncodeBitrate(
+      opts.frame_size, opts.framerate.value_or(30));
+  config->rc_end_usage = VPX_VBR;
+  // The unit of rc_target_bitrate is kilobits per second.
+  config->rc_target_bitrate = default_bitrate / 1000;
   if (opts.bitrate.has_value()) {
-    auto& bitrate = opts.bitrate.value();
-    config->rc_target_bitrate = bitrate.target_bps() / 1000;
+    const auto& bitrate = opts.bitrate.value();
     switch (bitrate.mode()) {
       case Bitrate::Mode::kVariable:
         config->rc_end_usage = VPX_VBR;
@@ -110,9 +114,9 @@ EncoderStatus SetUpVpxConfig(const VideoEncoder::Options& opts,
         config->rc_min_quantizer = 0;
         break;
     }
-  } else {
-    config->rc_target_bitrate = GetDefaultVideoEncodeBitrate(
-        opts.frame_size, opts.framerate.value_or(30));
+    if (bitrate.target_bps() != 0) {
+      config->rc_target_bitrate = bitrate.target_bps() / 1000;
+    }
   }
 
   config->g_w = opts.frame_size.width();
@@ -267,7 +271,7 @@ void VpxVideoEncoder::Initialize(VideoCodecProfile profile,
       options.bitrate->mode() == Bitrate::Mode::kExternal && !is_vp9) {
     std::move(done_cb).Run(
         EncoderStatus(EncoderStatus::Codes::kEncoderUnsupportedConfig,
-                      "Unsupported bitrate mode"));
+                      "VP8 doesn't support per-frame quantizer"));
     return;
   }
 
@@ -282,7 +286,7 @@ void VpxVideoEncoder::Initialize(VideoCodecProfile profile,
   }
 
   vpx_img_fmt img_fmt = VPX_IMG_FMT_NONE;
-  unsigned int bits_for_storage = 8;
+  unsigned int bits_for_storage = 0;
   switch (profile) {
     case VP9PROFILE_PROFILE1:
       codec_config_.g_profile = 1;
@@ -327,8 +331,8 @@ void VpxVideoEncoder::Initialize(VideoCodecProfile profile,
 
   // For VP9 the values used for real-time encoding mode are 5, 6, 7,
   // 8, 9. Higher means faster encoding, but lower quality.
-  // For VP8 typical values used for real-time encoding are -4, -6,
-  // -8, -10. Again larger magnitude means faster encoding but lower
+  // For VP8 typical values used for real-time encoding are -4, -6, -8,
+  // -10, -12. Again larger magnitude means faster encoding but lower
   // quality.
   int cpu_used = is_vp9 ? 7 : -6;
   vpx_error = vpx_codec_control(codec.get(), VP8E_SET_CPUUSED, cpu_used);
@@ -377,9 +381,16 @@ void VpxVideoEncoder::Initialize(VideoCodecProfile profile,
       }
     }
 
-    // In CBR mode use aq-mode=3 is enabled for quality improvement
+    // In CBR mode aq-mode=3 (cyclic refresh) is enabled for quality
+    // improvement. Note: For VP8, cyclic refresh is internally done as
+    // default.
     if (codec_config_.rc_end_usage == VPX_CBR) {
       vpx_codec_control(codec.get(), VP9E_SET_AQ_MODE, 3);
+    }
+
+    if (options.content_hint == ContentHint::Screen) {
+      vpx_codec_control(codec.get(), VP9E_SET_TUNE_CONTENT,
+                        VP9E_CONTENT_SCREEN);
     }
   }
 
@@ -543,7 +554,7 @@ void VpxVideoEncoder::Encode(scoped_refptr<VideoFrame> frame,
     key_frame = true;
     UpdateEncoderColorSpace();
   }
-  auto deadline = VPX_DL_REALTIME;
+  const unsigned long deadline = VPX_DL_REALTIME;
   vpx_codec_flags_t flags = key_frame ? VPX_EFLAG_FORCE_KF : 0;
 
   int temporal_id = 0;
@@ -644,10 +655,6 @@ void VpxVideoEncoder::ChangeOptions(const Options& options,
     std::move(done_cb).Run(status);
     return;
   }
-
-  // libvpx doesn't support adjusting the number of threads
-  // midway through an encoding session. More details: crbug.com/1486441
-  new_config.g_threads = codec_config_.g_threads;
 
   status = ReallocateVpxImageIfNeeded(&vpx_image_, vpx_image_.fmt,
                                       options.frame_size.width(),

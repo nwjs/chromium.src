@@ -250,7 +250,8 @@ gfx::Rect ScrollbarLayerImplBase::ComputeThumbQuadRectWithThumbThicknessScale(
   return gfx::ToEnclosingRect(thumb_rect);
 }
 
-gfx::Rect ScrollbarLayerImplBase::ComputeExpandedThumbQuadRect() const {
+gfx::Rect ScrollbarLayerImplBase::ComputeHitTestableExpandedThumbQuadRect()
+    const {
   DCHECK(is_overlay_scrollbar());
   return ComputeThumbQuadRectWithThumbThicknessScale(1.f);
 }
@@ -287,6 +288,10 @@ void ScrollbarLayerImplBase::SetOverlayScrollbarLayerOpacityAnimated(
 LayerTreeSettings::ScrollbarAnimator
 ScrollbarLayerImplBase::GetScrollbarAnimator() const {
   return layer_tree_impl()->settings().scrollbar_animator;
+}
+
+float ScrollbarLayerImplBase::GetIdleThicknessScale() const {
+  return layer_tree_impl()->settings().idle_thickness_scale;
 }
 
 void ScrollbarLayerImplBase::SetHasFindInPageTickmarks(

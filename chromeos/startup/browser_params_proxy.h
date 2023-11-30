@@ -23,7 +23,7 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
   static void WaitForLogin();
 
   // Init and post-login parameters' accessors are listed starting from here.
-  bool DisableCrosapiForTesting() const;
+  bool IsCrosapiDisabledForTesting() const;
 
   uint32_t CrosapiVersion() const;
 
@@ -74,6 +74,8 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
   const crosapi::mojom::DeviceSettingsPtr& DeviceSettings() const;
 
   const absl::optional<std::string>& MetricsServiceClientId() const;
+
+  const crosapi::mojom::EntropySourcePtr& EntropySource() const;
 
   uint64_t UkmClientId() const;
 
@@ -140,7 +142,7 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
 
   bool EnableClipboardHistoryRefresh() const;
 
-  bool IsVariableRefreshRateEnabled() const;
+  bool IsVariableRefreshRateAlwaysOn() const;
 
   bool IsPdfOcrEnabled() const;
 
@@ -149,6 +151,12 @@ class COMPONENT_EXPORT(CHROMEOS_STARTUP) BrowserParamsProxy {
   bool IsSysUiDownloadsIntegrationV2Enabled() const;
 
   bool IsCrosBatterySaverAvailable() const;
+
+  bool IsAppInstallServiceUriEnabled() const;
+
+  bool IsDeskProfilesEnabled() const;
+
+  bool IsCrosWebAppShortcutUiUpdateEnabled() const;
 
  private:
   friend base::NoDestructor<BrowserParamsProxy>;

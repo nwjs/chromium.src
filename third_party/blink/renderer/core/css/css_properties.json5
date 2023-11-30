@@ -1462,14 +1462,14 @@
       computable: false,
     },
     {
-      name: "form-sizing",
+      name: "field-sizing",
       field_group: "visual",
       field_template: "keyword",
       property_methods: ["CSSValueFromComputedStyleInternal"],
-      keywords: ["auto", "normal"],
-      default_value: "auto",
+      keywords: ["fixed", "content"],
+      default_value: "fixed",
       typedom_types: ["Keyword"],
-      runtime_flag: "CssFormSizing",
+      runtime_flag: "CssFieldSizing",
     },
     {
       name: "-webkit-locale",
@@ -1721,7 +1721,7 @@
     {
       name: "background-clip",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      keywords: ["border-box", "padding-box", "content-box"],
+      keywords: ["border-box", "padding-box", "content-box", "text"],
       typedom_types: ["Keyword"],
       separator: " ",
       style_builder_template: "background_layer",
@@ -1827,29 +1827,15 @@
       supports_incremental_style: true,
     },
     {
-      name: "background-repeat-x",
-      property_methods: ["CSSValueFromComputedStyleInternal"],
+      name: "background-repeat",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       style_builder_template: "background_layer",
       style_builder_template_args: {
-        fill_type: "RepeatX",
+        fill_type: "Repeat",
       },
       valid_for_first_letter: true,
       valid_for_first_line: true,
       valid_for_cue: true,
-      computable: false,
-      supports_incremental_style: true,
-    },
-    {
-      name: "background-repeat-y",
-      property_methods: ["CSSValueFromComputedStyleInternal"],
-      style_builder_template: "background_layer",
-      style_builder_template_args: {
-        fill_type: "RepeatY",
-      },
-      valid_for_first_letter: true,
-      valid_for_first_line: true,
-      valid_for_cue: true,
-      computable: false,
       supports_incremental_style: true,
     },
     {
@@ -4065,7 +4051,6 @@
       default_value: "static",
       getter: "GetPosition",
       computed_style_custom_functions: ["getter"],
-      style_builder_custom_functions: ["inherit"],
       // See comment on display.
       supports_incremental_style: false,
     },
@@ -4120,10 +4105,6 @@
       default_value: "visible",
       typedom_types: ["Keyword"],
       computable: false,
-      // DisplayLockContext::AdjustElementStyle() can do SetSkipsContents(),
-      // but that value is not unset if the inline style is set incrementally
-      // back to content-visibility: visible.
-      supports_incremental_style: false,
     },
     {
       name: "resize",
@@ -4191,7 +4172,7 @@
       supports_incremental_style: true,
     },
     {
-      // TODO: This should be interpolable: true
+      interpolable: true,
       name: "scrollbar-color",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       inherited: true,
@@ -5093,6 +5074,12 @@
       typedom_types: ["Keyword", "Percentage"],
     },
     {
+      name: "text-spacing",
+      longhands: ["text-autospace", "text-spacing-trim"],
+      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      runtime_flag: "CSSTextSpacingTrim",
+    },
+    {
       name: "text-spacing-trim",
       property_methods: ["CSSValueFromComputedStyleInternal"],
       inherited: true,
@@ -5168,67 +5155,6 @@
       converter: "ConvertTimelineScope",
       separator: ",",
       runtime_flag: "TimelineScope",
-    },
-    {
-      name: "toggle-group",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSToggles",
-      field_group: "*",
-      field_template: "pointer",
-      include_paths: ["third_party/blink/renderer/core/style/toggle_group_list.h"],
-      type_name: "ToggleGroupList",
-      converter: "ConvertToggleGroup",
-      wrapper_pointer_name: "scoped_refptr",
-      default_value: "nullptr",
-      separator: ",",
-      supports_incremental_style: true,
-      keywords: ["none"],
-      typedom_types: ["Keyword"],
-    },
-    {
-      name: "toggle-root",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSToggles",
-      field_group: "*",
-      field_template: "pointer",
-      include_paths: ["third_party/blink/renderer/core/style/toggle_root_list.h"],
-      type_name: "ToggleRootList",
-      converter: "ConvertToggleRoot",
-      wrapper_pointer_name: "scoped_refptr",
-      default_value: "nullptr",
-      separator: ",",
-      supports_incremental_style: true,
-      keywords: ["none"],
-      typedom_types: ["Keyword"],
-    },
-    {
-      name: "toggle-trigger",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSToggles",
-      field_group: "*",
-      field_template: "pointer",
-      include_paths: ["third_party/blink/renderer/core/style/toggle_trigger_list.h"],
-      type_name: "ToggleTriggerList",
-      converter: "ConvertToggleTrigger",
-      wrapper_pointer_name: "scoped_refptr",
-      default_value: "nullptr",
-      separator: ",",
-      supports_incremental_style: true,
-      keywords: ["none"],
-      typedom_types: ["Keyword"],
-    },
-    {
-      name: "toggle-visibility",
-      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSToggles",
-      field_group: "*",
-      field_template: "external",
-      type_name: "AtomicString",
-      converter: "ConvertToggleVisibility",
-      default_value: "g_null_atom",
-      supports_incremental_style: true,
-      keywords: ["normal"],
-      typedom_types: ["Keyword"],
     },
     {
       name: "top",
@@ -5450,7 +5376,6 @@
       field_template: "external",
       keywords: ["none"],
       typedom_types: ["Keyword"],
-      runtime_flag: "ViewTransition",
     },
     {
       name: "visibility",
@@ -5826,6 +5751,30 @@
       },
     },
     {
+      name: "mask-clip",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_template: "mask_layer",
+      style_builder_template_args: {
+        fill_type: "Clip",
+      },
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "mask-mode",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_template: "mask_layer",
+      style_builder_template_args: {
+        fill_type: "MaskMode",
+      },
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-alternative-mask-clip",
+      alternative_of: "-webkit-mask-clip",
+      alias_for: "mask-clip",
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
       name: "-webkit-mask-clip",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       style_builder_template: "mask_layer",
@@ -5834,12 +5783,43 @@
       },
     },
     {
+      name: "mask-composite",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_template: "mask_layer",
+      style_builder_template_args: {
+        fill_type: "CompositingOperator",
+      },
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-alternative-mask-composite",
+      alternative_of: "-webkit-mask-composite",
+      alias_for: "mask-composite",
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
       name: "-webkit-mask-composite",
       property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       style_builder_template: "mask_layer",
       style_builder_template_args: {
-        fill_type: "Composite",
+        fill_type: "CompositingOperator",
       },
+    },
+    {
+      name: "mask-image",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_template: "mask_layer",
+      style_builder_template_args: {
+        fill_type: "Image",
+        fill_type_getter: "GetImage"
+      },
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-alternative-mask-image",
+      alternative_of: "-webkit-mask-image",
+      alias_for: "mask-image",
+      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-image",
@@ -5850,6 +5830,21 @@
         fill_type: "Image",
         fill_type_getter: "GetImage"
       },
+    },
+    {
+      name: "mask-origin",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      style_builder_template: "mask_layer",
+      style_builder_template_args: {
+        fill_type: "Origin",
+      },
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-alternative-mask-origin",
+      alternative_of: "-webkit-mask-origin",
+      alias_for: "mask-origin",
+      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-origin",
@@ -5880,20 +5875,43 @@
       computable: false,
     },
     {
-      name: "-webkit-mask-repeat-x",
+      name: "mask-repeat",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       style_builder_template: "mask_layer",
       style_builder_template_args: {
-        fill_type: "RepeatX",
+        fill_type: "Repeat",
       },
-      computable: false,
+      runtime_flag: "CSSMaskingInterop",
     },
     {
-      name: "-webkit-mask-repeat-y",
+      name: "-webkit-alternative-mask-repeat",
+      alternative_of: "-webkit-mask-repeat",
+      alias_for: "mask-repeat",
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-mask-repeat",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
       style_builder_template: "mask_layer",
       style_builder_template_args: {
-        fill_type: "RepeatY",
+        fill_type: "Repeat",
       },
-      computable: false,
+    },
+    {
+      name: "mask-size",
+      property_methods: ["ParseSingleValue", "CSSValueFromComputedStyleInternal"],
+      interpolable: true,
+      style_builder_template: "mask_layer",
+      style_builder_template_args: {
+        fill_type: "Size",
+      },
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-alternative-mask-size",
+      alternative_of: "-webkit-mask-size",
+      alias_for: "mask-size",
+      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-size",
@@ -6902,7 +6920,7 @@
       name: "background",
       longhands: [
         "background-image", "background-position-x", "background-position-y",
-        "background-size", "background-repeat-x", "background-repeat-y",
+        "background-size", "background-repeat",
         "background-attachment", "background-origin", "background-clip",
         "background-color"
       ],
@@ -6915,12 +6933,6 @@
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
       supports_incremental_style: true,
-    },
-    {
-      name: "background-repeat",
-      longhands: ["background-repeat-x", "background-repeat-y"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-      computable: true,
     },
     {
       name: "border",
@@ -7425,12 +7437,6 @@
       computable: true,
     },
     {
-      name: "toggle",
-      longhands: ["toggle-root", "toggle-trigger"],
-      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
-      runtime_flag: "CSSToggles",
-    },
-    {
       name: "transition",
       longhands: [
         "transition-property", "transition-duration",
@@ -7495,14 +7501,34 @@
       longhands: ["column-width", "column-count"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
     },
+    // This alternative of mask is active when CSSMaskingInterop is enabled.
+    {
+      name: "-alternative-mask",
+      alternative_of: "mask",
+      longhands: [
+        "mask-image", "-webkit-mask-position-x",
+        "-webkit-mask-position-y", "mask-size", "mask-repeat", "mask-origin",
+        "mask-clip", "mask-composite", "mask-mode"
+      ],
+      property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
+      runtime_flag: "CSSMaskingInterop",
+    },
     {
       name: "-webkit-mask",
       longhands: [
         "-webkit-mask-image", "-webkit-mask-position-x",
-        "-webkit-mask-position-y", "-webkit-mask-size", "-webkit-mask-repeat-x",
-        "-webkit-mask-repeat-y", "-webkit-mask-origin", "-webkit-mask-clip"
+        "-webkit-mask-position-y", "-webkit-mask-size", "-webkit-mask-repeat",
+        "-webkit-mask-origin", "-webkit-mask-clip"
       ],
       property_methods: ["ParseShorthand"],
+    },
+    // This alternative of -webkit-mask is active when CSSMaskingInterop is
+    // enabled.
+    {
+      name: "-webkit-alternative-mask",
+      alternative_of: "-webkit-mask",
+      alias_for: "-alternative-mask",
+      runtime_flag: "CSSMaskingInterop",
     },
     {
       name: "-webkit-mask-box-image",
@@ -7515,14 +7541,22 @@
       computable: true,
     },
     {
-      name: "-webkit-mask-position",
+      name: "mask-position",
       longhands: ["-webkit-mask-position-x", "-webkit-mask-position-y"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
+      runtime_flag: "CSSMaskingInterop",
     },
     {
-      name: "-webkit-mask-repeat",
-      longhands: ["-webkit-mask-repeat-x", "-webkit-mask-repeat-y"],
+      name: "-webkit-alternative-mask-position",
+      alternative_of: "-webkit-mask-position",
+      alias_for: "mask-position",
+      computable: false,
+      runtime_flag: "CSSMaskingInterop",
+    },
+    {
+      name: "-webkit-mask-position",
+      longhands: ["-webkit-mask-position-x", "-webkit-mask-position-y"],
       property_methods: ["ParseShorthand", "CSSValueFromComputedStyleInternal"],
       computable: true,
     },
@@ -8070,8 +8104,6 @@
       name: "-webkit-backface-visibility",
       alias_for: "backface-visibility",
     },
-    // -webkit-background-clip accepts "content", "padding", and "border" values
-    // See crbug.com/604023
     {
       name: "-webkit-background-clip",
       alias_for: "background-clip",

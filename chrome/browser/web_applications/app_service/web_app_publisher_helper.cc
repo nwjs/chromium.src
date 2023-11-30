@@ -43,7 +43,6 @@
 #include "build/buildflag.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
-#include "chrome/browser/apps/app_service/app_icon/icon_effects.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/apps/app_service/intent_util.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
@@ -80,6 +79,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/services/app_service/public/cpp/file_handler.h"
+#include "components/services/app_service/public/cpp/icon_effects.h"
 #include "components/services/app_service/public/cpp/intent_filter.h"
 #include "components/services/app_service/public/cpp/intent_filter_util.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
@@ -135,8 +135,6 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/browser_process.h"
-#include "chrome/browser/profiles/profile_manager.h"
 #include "chromeos/lacros/lacros_service.h"
 #endif
 
@@ -241,6 +239,7 @@ apps::InstallReason GetHighestPriorityInstallReason(const WebApp* web_app) {
     case WebAppManagement::kSync:
       return apps::InstallReason::kSync;
     case WebAppManagement::kDefault:
+    case WebAppManagement::kApsDefault:
       return apps::InstallReason::kDefault;
     case WebAppManagement::kCommandLine:
       return apps::InstallReason::kCommandLine;
@@ -283,6 +282,7 @@ apps::InstallSource GetInstallSource(
     case webapps::WebappInstallSource::EXTERNAL_LOCK_SCREEN:
     case webapps::WebappInstallSource::SYSTEM_DEFAULT:
     case webapps::WebappInstallSource::PRELOADED_OEM:
+    case webapps::WebappInstallSource::PRELOADED_DEFAULT:
       return apps::InstallSource::kSystem;
     case webapps::WebappInstallSource::SYNC:
       return apps::InstallSource::kSync;
@@ -1114,51 +1114,12 @@ void WebAppPublisherHelper::LaunchAppWithParams(
   full_restore::FullRestoreSaveHandler::GetInstance();
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-  auto launch_web_app_callback = base::BindOnce(
-      &WebAppPublisherHelper::OnLaunchCompleted, weak_ptr_factory_.GetWeakPtr(),
-      std::move(params_for_restore), is_system_web_app, override_url,
-      std::move(on_complete));
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  if (ResolveExperimentalWebAppIsolationFeature() ==
-      ExperimentalWebAppIsolationMode::kProfile) {
-    WebAppRegistrar& registrar = provider_->registrar_unsafe();
-    const WebApp* web_app = registrar.GetAppById(params.app_id);
-    const auto& chromeos_data = web_app->chromeos_data();
-    if (chromeos_data.has_value() &&
-        chromeos_data->app_profile_path.has_value()) {
-      // Redirect the launch to the app profile.
-      g_browser_process->profile_manager()->LoadProfileByPath(
-          chromeos_data->app_profile_path.value(),
-          /*incognito=*/false,
-          base::BindOnce(
-              [](Profile* origin_profile, apps::AppLaunchParams params,
-                 LaunchWebAppCallback on_complete, Profile* app_profile) {
-                Profile* profile = app_profile;
-                if (profile == nullptr) {
-                  // We can reach here if the user has cleared all the app
-                  // profiles from chrome://web-app-internals. In this case, we
-                  // just act as if this app is not in isolation mode.
-                  LOG(WARNING)
-                      << "unable to load app profile. Fallback to "
-                         "non-isolation mode (i.e. using default profile)";
-                  profile = origin_profile;
-                }
-                WebAppProvider::GetForWebApps(profile)
-                    ->scheduler()
-                    .LaunchAppWithCustomParams(std::move(params),
-                                               std::move(on_complete));
-              },
-              /*origin_profile=*/profile_, std::move(params),
-              std::move(launch_web_app_callback)));
-
-      return;
-    }
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_LACROS)
-
   provider_->scheduler().LaunchAppWithCustomParams(
-      std::move(params), std::move(launch_web_app_callback));
+      std::move(params),
+      base::BindOnce(&WebAppPublisherHelper::OnLaunchCompleted,
+                     weak_ptr_factory_.GetWeakPtr(),
+                     std::move(params_for_restore), is_system_web_app,
+                     override_url, std::move(on_complete)));
 }
 
 void WebAppPublisherHelper::SetPermission(const std::string& app_id,
@@ -1418,7 +1379,7 @@ void WebAppPublisherHelper::OnWebAppManifestUpdated(
 void WebAppPublisherHelper::OnWebAppUninstalled(
     const webapps::AppId& app_id,
     webapps::WebappUninstallSource uninstall_source) {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
+#if BUILDFLAG(IS_CHROMEOS)
   // If a web app has been uninstalled, we do not know if it is a shortcut from
   // web app registrar. Here we check if we have got an app registered in
   // AppRegistryCache to be uninstalled. If not, we do not publish the update.
@@ -1428,8 +1389,7 @@ void WebAppPublisherHelper::OnWebAppUninstalled(
   if (!found) {
     return;
   }
-#endif
-#if BUILDFLAG(IS_CHROMEOS)
+
   paused_apps_.MaybeRemoveApp(app_id);
 
   app_notifications_.RemoveNotificationsForApp(app_id);

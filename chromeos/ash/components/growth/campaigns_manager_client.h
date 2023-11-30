@@ -9,6 +9,10 @@
 #include "base/functional/callback.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
+namespace base {
+class Version;
+}
+
 namespace growth {
 
 using CampaignComponentLoadedCallback = base::OnceCallback<void(
@@ -34,6 +38,12 @@ class CampaignsManagerClient {
 
   // True if the device is feature aware device.
   virtual bool IsFeatureAwareDevice() const = 0;
+
+  // Returns application locale.
+  virtual const std::string& GetApplicationLocale() const = 0;
+
+  // Get demo mode app component version.
+  virtual const base::Version& GetDemoModeAppVersion() const = 0;
 };
 
 }  // namespace growth

@@ -261,7 +261,7 @@ bool ReplacedPainter::ShouldPaint(const ScopedPaintState& paint_state) const {
       layout_replaced_.StyleRef().Visibility() != EVisibility::kVisible)
     return false;
 
-  PhysicalRect local_rect = layout_replaced_.PhysicalVisualOverflowRect();
+  PhysicalRect local_rect = layout_replaced_.VisualOverflowRect();
   local_rect.Unite(layout_replaced_.LocalSelectionVisualRect());
   if (!paint_state.LocalRectIntersectsCullRect(local_rect))
     return false;
@@ -276,7 +276,7 @@ void ReplacedPainter::MeasureOverflowMetrics() const {
     return;
   }
 
-  auto overflow_size = layout_replaced_.PhysicalVisualOverflowRect().size;
+  auto overflow_size = layout_replaced_.VisualOverflowRect().size;
   auto overflow_area = overflow_size.width * overflow_size.height;
 
   auto content_size = layout_replaced_.Size();
@@ -321,7 +321,8 @@ void ReplacedPainter::PaintBoxDecorationBackground(
     // For the case where we are painting the background in the contents space,
     // we need to include the entire overflow rect.
     paint_rect = layout_replaced_.PhysicalLayoutOverflowRect();
-    contents_paint_state.emplace(paint_info, paint_offset, layout_replaced_);
+    contents_paint_state.emplace(paint_info, paint_offset, layout_replaced_,
+                                 paint_info.FragmentDataOverride());
     paint_rect.Move(contents_paint_state->PaintOffset());
 
     // The background painting code assumes that the borders are part of the
@@ -360,7 +361,8 @@ void ReplacedPainter::PaintBoxDecorationBackground(
   // if this were immediately before the non-scrolling background.
   if (!painting_background_in_contents_space) {
     BoxPainter(layout_replaced_)
-        .RecordScrollHitTestData(paint_info, *background_client);
+        .RecordScrollHitTestData(paint_info, *background_client,
+                                 paint_info.FragmentDataOverride());
   }
 }
 

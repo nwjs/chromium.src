@@ -59,6 +59,8 @@ class AutofillExternalDelegate : public AutofillPopupDelegate,
       const Suggestion& suggestion,
       int position,
       AutofillSuggestionTriggerSource trigger_source) override;
+  void DidPerformButtonActionForSuggestion(
+      const Suggestion& suggestion) override;
   bool GetDeletionConfirmationText(const std::u16string& value,
                                    PopupItemId popup_item_id,
                                    Suggestion::BackendId backend_id,
@@ -119,9 +121,7 @@ class AutofillExternalDelegate : public AutofillPopupDelegate,
   virtual void OnAutofillAvailabilityEvent(const mojom::AutofillState state);
 
   // Set the data list value associated with the current field.
-  void SetCurrentDataListValues(
-      const std::vector<std::u16string>& data_list_values,
-      const std::vector<std::u16string>& data_list_labels);
+  void SetCurrentDataListValues(std::vector<SelectOption> datalist);
 
   // Inform the delegate that the text field editing has ended. This is
   // used to help record the metrics of when a new popup is shown.
@@ -138,7 +138,7 @@ class AutofillExternalDelegate : public AutofillPopupDelegate,
 
  private:
   FRIEND_TEST_ALL_PREFIXES(AutofillExternalDelegateUnitTest,
-                           FillCreditCardFormImpl);
+                           FillCreditCardForm);
 
   base::WeakPtr<AutofillExternalDelegate> GetWeakPtr();
 
@@ -153,7 +153,7 @@ class AutofillExternalDelegate : public AutofillPopupDelegate,
   // Triggered when user closes the address editor dialog.
   void OnAddressEditorClosed(
       AutofillClient::SaveAddressProfileOfferUserDecision decision,
-      AutofillProfile profile);
+      base::optional_ref<const AutofillProfile> profile);
 
   void OnDeleteDialogClosed(const std::string& guid, bool user_accepted_delete);
 
@@ -165,10 +165,6 @@ class AutofillExternalDelegate : public AutofillPopupDelegate,
   // `field` parameters of `OnQuery(). Returns nullptr if called before
   // `OnQuery()` or if the `form` becomes outdated, see crbug.com/1117028.
   AutofillField* GetQueriedAutofillField() const;
-
-  // Fills the form field with the given plus address.
-  // Called when a plus address is created.
-  void OnPlusAddressCreated(const std::string& plus_address);
 
   // Fills the form with the Autofill data corresponding to `backend_id`.
   // If `is_preview` is true then this is just a preview to show the user what
@@ -227,8 +223,7 @@ class AutofillExternalDelegate : public AutofillPopupDelegate,
   bool should_show_cards_from_account_option_ = false;
 
   // The current data list values.
-  std::vector<std::u16string> data_list_values_;
-  std::vector<std::u16string> data_list_labels_;
+  std::vector<SelectOption> datalist_;
 
   // If not null then it will be called in destructor.
   base::OnceClosure deletion_callback_;

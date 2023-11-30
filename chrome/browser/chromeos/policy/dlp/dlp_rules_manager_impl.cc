@@ -11,7 +11,6 @@
 #include <utility>
 
 #include "base/containers/contains.h"
-#include "base/containers/fixed_flat_map.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/values.h"
@@ -19,14 +18,17 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/policy/dlp/data_transfer_dlp_controller.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_files_controller_lacros.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_histogram_helper.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_policy_constants.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_reporting_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_scoped_file_access_delegate.h"
+#include "chrome/browser/enterprise/data_controls/chrome_dlp_rules_manager.h"
+#include "chrome/browser/enterprise/data_controls/dlp_reporting_manager.h"
 #include "chrome/common/chrome_features.h"
 #include "chromeos/dbus/dlp/dlp_client.h"
 #include "chromeos/dbus/dlp/dlp_service.pb.h"
+#include "components/enterprise/data_controls/component.h"
+#include "components/enterprise/data_controls/dlp_histogram_helper.h"
+#include "components/enterprise/data_controls/rule.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
@@ -46,68 +48,6 @@ using RulesConditionsMap = std::map<RuleId, UrlConditionId>;
 
 constexpr char kDrivePattern[] = "drive.google.com";
 constexpr char kOneDrivePattern[] = "onedrive.live.com";
-
-DlpRulesManager::Restriction GetClassMapping(const std::string& restriction) {
-  static constexpr auto kRestrictionsMap =
-      base::MakeFixedFlatMap<base::StringPiece, DlpRulesManager::Restriction>(
-          {{dlp::kClipboardRestriction,
-            DlpRulesManager::Restriction::kClipboard},
-           {dlp::kScreenshotRestriction,
-            DlpRulesManager::Restriction::kScreenshot},
-           {dlp::kPrintingRestriction, DlpRulesManager::Restriction::kPrinting},
-           {dlp::kPrivacyScreenRestriction,
-            DlpRulesManager::Restriction::kPrivacyScreen},
-           {dlp::kScreenShareRestriction,
-            DlpRulesManager::Restriction::kScreenShare},
-           {dlp::kFilesRestriction, DlpRulesManager::Restriction::kFiles}});
-
-  auto* it = kRestrictionsMap.find(restriction);
-  return (it == kRestrictionsMap.end())
-             ? DlpRulesManager::Restriction::kUnknownRestriction
-             : it->second;
-}
-
-DlpRulesManager::Level GetLevelMapping(const std::string& level) {
-  static constexpr auto kLevelsMap =
-      base::MakeFixedFlatMap<base::StringPiece, DlpRulesManager::Level>(
-          {{dlp::kAllowLevel, DlpRulesManager::Level::kAllow},
-           {dlp::kBlockLevel, DlpRulesManager::Level::kBlock},
-           {dlp::kWarnLevel, DlpRulesManager::Level::kWarn},
-           {dlp::kReportLevel, DlpRulesManager::Level::kReport}});
-  auto* it = kLevelsMap.find(level);
-  return (it == kLevelsMap.end()) ? DlpRulesManager::Level::kNotSet
-                                  : it->second;
-}
-
-data_controls::Component GetComponentMapping(const std::string& component) {
-  static constexpr auto kComponentsMap =
-      base::MakeFixedFlatMap<base::StringPiece, data_controls::Component>(
-          {{dlp::kArc, data_controls::Component::kArc},
-           {dlp::kCrostini, data_controls::Component::kCrostini},
-           {dlp::kPluginVm, data_controls::Component::kPluginVm},
-           {dlp::kDrive, data_controls::Component::kDrive},
-           {dlp::kOneDrive, data_controls::Component::kOneDrive},
-           {dlp::kUsb, data_controls::Component::kUsb}});
-
-  auto* it = kComponentsMap.find(component);
-  return (it == kComponentsMap.end())
-             ? data_controls::Component::kUnknownComponent
-             : it->second;
-}
-
-::dlp::DlpComponent GetComponentProtoMapping(const std::string& component) {
-  static constexpr auto kComponentsMap =
-      base::MakeFixedFlatMap<base::StringPiece, ::dlp::DlpComponent>(
-          {{dlp::kArc, ::dlp::DlpComponent::ARC},
-           {dlp::kCrostini, ::dlp::DlpComponent::CROSTINI},
-           {dlp::kPluginVm, ::dlp::DlpComponent::PLUGIN_VM},
-           {dlp::kDrive, ::dlp::DlpComponent::GOOGLE_DRIVE},
-           {dlp::kUsb, ::dlp::DlpComponent::USB}});
-
-  auto* it = kComponentsMap.find(component);
-  return (it == kComponentsMap.end()) ? ::dlp::DlpComponent::UNKNOWN_COMPONENT
-                                      : it->second;
-}
 
 // Creates a condition set for the given `url`.
 scoped_refptr<url_matcher::URLMatcherConditionSet> CreateConditionSet(
@@ -197,8 +137,9 @@ void AddAssociatedUrlConditions(
 }
 
 void OnSetDlpFilesPolicy(const ::dlp::SetDlpFilesPolicyResponse response) {
-  DlpBooleanHistogram(dlp::kErrorsFilesPolicySetup,
-                      response.has_error_message());
+  data_controls::DlpBooleanHistogram(
+      data_controls::dlp::kErrorsFilesPolicySetup,
+      response.has_error_message());
   if (response.has_error_message()) {
     DlpScopedFileAccessDelegate::DeleteInstance();
     LOG(ERROR) << "Failed to set DLP Files policy and start DLP daemon, error: "
@@ -206,7 +147,8 @@ void OnSetDlpFilesPolicy(const ::dlp::SetDlpFilesPolicyResponse response) {
     return;
   }
   DCHECK(chromeos::DlpClient::Get()->IsAlive());
-  DlpScopedFileAccessDelegate::Initialize(chromeos::DlpClient::Get());
+  DlpScopedFileAccessDelegate::Initialize(
+      base::BindRepeating(chromeos::DlpClient::Get));
 }
 
 ::dlp::DlpRuleLevel GetLevelProtoEnum(const DlpRulesManager::Level level) {
@@ -309,16 +251,16 @@ DlpRulesManagerImpl::GetAggregatedComponents(const GURL& source,
 
 DlpRulesManagerImpl::DlpRulesManagerImpl(PrefService* local_state,
                                          Profile* profile)
-    : profile_(profile) {
+    : DlpRulesManager(profile) {
   pref_change_registrar_.Init(local_state);
   pref_change_registrar_.Add(
       policy_prefs::kDlpRulesList,
-      base::BindRepeating(&DlpRulesManagerImpl::OnPolicyUpdate,
+      base::BindRepeating(&DlpRulesManagerImpl::OnDataLeakPreventionRulesUpdate,
                           base::Unretained(this)));
-  OnPolicyUpdate();
+  OnDataLeakPreventionRulesUpdate();
 
   if (IsReportingEnabled())
-    reporting_manager_ = std::make_unique<DlpReportingManager>();
+    reporting_manager_ = std::make_unique<data_controls::DlpReportingManager>();
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   if (chromeos::DlpClient::Get()) {
@@ -332,7 +274,8 @@ bool DlpRulesManagerImpl::IsReportingEnabled() const {
       policy_prefs::kDlpReportingEnabled);
 }
 
-DlpReportingManager* DlpRulesManagerImpl::GetReportingManager() const {
+data_controls::DlpReportingManager* DlpRulesManagerImpl::GetReportingManager()
+    const {
   return reporting_manager_.get();
 }
 
@@ -355,7 +298,7 @@ bool DlpRulesManagerImpl::IsFilesPolicyEnabled() const {
 
 void DlpRulesManagerImpl::DlpDaemonRestarted() {
   // This should trigger re-notification of DLP daemon if needed.
-  OnPolicyUpdate();
+  OnDataLeakPreventionRulesUpdate();
 }
 
 void DlpRulesManagerImpl::Shutdown() {
@@ -366,7 +309,7 @@ void DlpRulesManagerImpl::Shutdown() {
   files_controller_.reset();
 }
 
-void DlpRulesManagerImpl::OnPolicyUpdate() {
+void DlpRulesManagerImpl::OnDataLeakPreventionRulesUpdate() {
   components_rules_.clear();
   restrictions_map_.clear();
   src_url_rules_mapping_.clear();
@@ -389,7 +332,8 @@ void DlpRulesManagerImpl::OnPolicyUpdate() {
   const base::Value::List& rules_list =
       g_browser_process->local_state()->GetList(policy_prefs::kDlpRulesList);
 
-  DlpBooleanHistogram(dlp::kDlpPolicyPresentUMA, !rules_list.empty());
+  data_controls::DlpBooleanHistogram(data_controls::dlp::kDlpPolicyPresentUMA,
+                                     !rules_list.empty());
   if (rules_list.empty()) {
     DataTransferDlpController::DeleteInstance();
     return;
@@ -429,7 +373,7 @@ void DlpRulesManagerImpl::OnPolicyUpdate() {
       for (const auto& component : *destinations_components) {
         DCHECK(component.is_string());
         data_controls::Component component_mapping =
-            GetComponentMapping(component.GetString());
+            data_controls::GetComponentMapping(component.GetString());
         components_rules_[component_mapping].insert(rules_counter);
         AddAssociatedUrlConditions(component_mapping, dst_url_matcher_.get(),
                                    dst_url_condition_id, dst_conditions_,
@@ -456,11 +400,12 @@ void DlpRulesManagerImpl::OnPolicyUpdate() {
       const std::string* rule_level_str = restriction.FindString("level");
       DCHECK(rule_level_str);
 
-      const Restriction rule_restriction = GetClassMapping(*rule_class_str);
+      const Restriction rule_restriction =
+          data_controls::Rule::StringToRestriction(*rule_class_str);
       if (rule_restriction == Restriction::kUnknownRestriction)
         continue;
 
-      Level rule_level = GetLevelMapping(*rule_level_str);
+      Level rule_level = data_controls::Rule::StringToLevel(*rule_level_str);
       if (rule_level == Level::kNotSet)
         continue;
 
@@ -488,9 +433,10 @@ void DlpRulesManagerImpl::OnPolicyUpdate() {
           for (const auto& component : *destinations_components) {
             DCHECK(component.is_string());
             files_rule.add_destination_components(
-                GetComponentProtoMapping(component.GetString()));
-            for (const auto& url : GetAssociatedUrlsConditions(
-                     GetComponentMapping(component.GetString()))) {
+                data_controls::GetComponentProtoMapping(component.GetString()));
+            for (const auto& url :
+                 GetAssociatedUrlsConditions(data_controls::GetComponentMapping(
+                     component.GetString()))) {
               files_rule.add_destination_urls(url);
             }
           }
@@ -526,7 +472,8 @@ void DlpRulesManagerImpl::OnPolicyUpdate() {
           features::kDataLeakPreventionFilesRestriction)) {
     if (request_to_daemon.rules_size() > 0) {
       // Start and/or activate the daemon.
-      DlpBooleanHistogram(dlp::kFilesDaemonStartedUMA, true);
+      data_controls::DlpBooleanHistogram(
+          data_controls::dlp::kFilesDaemonStartedUMA, true);
       chromeos::DlpClient::Get()->SetDlpFilesPolicy(
           request_to_daemon, base::BindOnce(&OnSetDlpFilesPolicy));
 #if BUILDFLAG(IS_CHROMEOS_ASH)

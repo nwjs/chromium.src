@@ -70,6 +70,14 @@ bool IsDeprecateAltClickEnabled() {
   return base::FeatureList::IsEnabled(kDeprecateAltClick);
 }
 
+BASE_FEATURE(kNotificationsIgnoreRequireInteraction,
+             "NotificationsIgnoreRequireInteraction",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsNotificationsIgnoreRequireInteractionEnabled() {
+  return base::FeatureList::IsEnabled(kNotificationsIgnoreRequireInteraction);
+}
+
 BASE_FEATURE(kShortcutCustomizationApp,
              "ShortcutCustomizationApp",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -104,7 +112,7 @@ BASE_FEATURE(kAlwaysConfirmComposition,
 // "Customize keyboard keys" page.
 BASE_FEATURE(kSupportF11AndF12KeyShortcuts,
              "SupportF11AndF12KeyShortcuts",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool AreF11AndF12ShortcutsEnabled() {
   // TODO(crbug/1264581): Remove this once kDeviceI18nShortcutsEnabled policy is
@@ -262,7 +270,7 @@ bool IsUsingWMPointerForTouch() {
 #endif  // BUILDFLAG(IS_WIN)
 
 #if BUILDFLAG(IS_CHROMEOS)
-// This feature supercedes kNewShortcutMapping.
+// This feature supersedes kNewShortcutMapping.
 BASE_FEATURE(kImprovedKeyboardShortcuts,
              "ImprovedKeyboardShortcuts",
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -328,7 +336,8 @@ bool IsForcedColorsEnabled() {
 // milestones.
 BASE_FEATURE(kEyeDropper,
              "EyeDropper",
-#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
+    BUILDFLAG(IS_CHROMEOS)
              base::FEATURE_ENABLED_BY_DEFAULT
 #else
              base::FEATURE_DISABLED_BY_DEFAULT
@@ -348,7 +357,10 @@ bool IsUseCommonSelectPopupEnabled() {
   return base::FeatureList::IsEnabled(features::kUseCommonSelectPopup);
 }
 
-// Enables keyboard accessible tooltip.
+// Used to enable keyboard accessible tooltips in in-page content
+// (i.e., inside Blink). See
+// ::views::features::kKeyboardAccessibleTooltipInViews for
+// keyboard-accessible tooltips in Views UI.
 BASE_FEATURE(kKeyboardAccessibleTooltip,
              "KeyboardAccessibleTooltip",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -444,12 +456,28 @@ bool IsRawDrawUsingMSAA() {
   return kIsRawDrawUsingMSAA.Get();
 }
 
+BASE_FEATURE(kVariableRefreshRateAvailable,
+             "VariableRefreshRateAvailable",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kEnableVariableRefreshRate,
              "EnableVariableRefreshRate",
              base::FEATURE_DISABLED_BY_DEFAULT);
+// This param indicates whether to ignore the VRR availability flag. It is set
+// to false by Finch for non-forced groups.
+const base::FeatureParam<bool> kVrrIgnoreAvailability{
+    &kEnableVariableRefreshRate, /*name=*/"ignore-availability",
+    /*default_value=*/true};
 bool IsVariableRefreshRateEnabled() {
-  return base::FeatureList::IsEnabled(kEnableVariableRefreshRate) ||
-         base::FeatureList::IsEnabled(kEnableVariableRefreshRateAlwaysOn);
+  if (base::FeatureList::IsEnabled(kEnableVariableRefreshRateAlwaysOn)) {
+    return true;
+  }
+
+  if (base::FeatureList::IsEnabled(kEnableVariableRefreshRate)) {
+    return kVrrIgnoreAvailability.Get() ||
+           base::FeatureList::IsEnabled(kVariableRefreshRateAvailable);
+  }
+
+  return false;
 }
 BASE_FEATURE(kEnableVariableRefreshRateAlwaysOn,
              "EnableVariableRefreshRateAlwaysOn",
@@ -603,12 +631,6 @@ ChromeRefresh2023Level GetChromeRefresh2023Level() {
 BASE_FEATURE(kBubbleMetricsApi,
              "BubbleMetricsApi",
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if !BUILDFLAG(IS_LINUX)
-BASE_FEATURE(kWebUiSystemFont,
-             "WebUiSystemFont",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 #if BUILDFLAG(IS_MAC)
 // When enabled, images will be written to the system clipboard as both a TIFF

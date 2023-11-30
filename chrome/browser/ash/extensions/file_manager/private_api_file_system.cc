@@ -1485,8 +1485,8 @@ FileManagerPrivateInternalSearchFilesFunction::Run() {
 
   size_t max_results =
       base::internal::checked_cast<size_t>(search_params.max_results);
-  base::Time modified_time =
-      base::Time::FromJsTime(search_params.modified_timestamp);
+  base::Time modified_time = base::Time::FromMillisecondsSinceUnixEpoch(
+      search_params.modified_timestamp);
 
   // Barrier that collects results from the file search by name and image
   // search by (query) terms. Explicitly waits for 2 tasks to complete.
@@ -1539,7 +1539,8 @@ void FileManagerPrivateInternalSearchFilesFunction::RunImageSearchByQuery(
     OnResultsReadyCallback callback) {
   // If the feature is not enabled or the query is too short return empty match.
   std::u16string q16 = base::UTF8ToUTF16(query);
-  if (!search_features::IsLauncherImageSearchEnabled() ||
+  if (!ash::features::IsFilesLocalImageSearchEnabled() ||
+      !search_features::IsLauncherImageSearchEnabled() ||
       app_list::IsQueryTooShort(q16)) {
     std::move(callback).Run({});
     return;
@@ -2035,7 +2036,8 @@ void FileManagerPrivateInternalParseTrashInfoFilesFunction::
     info.restore_entry.file_is_directory =
         entry_definition_list->at(i).is_directory;
     info.trash_info_file_name = trash_info_path.BaseName().value();
-    info.deletion_date = deletion_date.ToJsTimeIgnoringNull();
+    info.deletion_date =
+        deletion_date.InMillisecondsFSinceUnixEpochIgnoringNull();
 
     results.push_back(std::move(info));
   }

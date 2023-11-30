@@ -40,7 +40,6 @@
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_util.h"
 #include "chrome/browser/apps/app_service/app_icon/dip_px_util.h"
-#include "chrome/browser/apps/app_service/app_icon/icon_effects.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/publishers/arc_apps.h"
@@ -85,6 +84,7 @@
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "components/services/app_service/public/cpp/app_update.h"
 #include "components/services/app_service/public/cpp/features.h"
+#include "components/services/app_service/public/cpp/icon_effects.h"
 #include "components/services/app_service/public/cpp/icon_types.h"
 #include "components/services/app_service/public/cpp/intent.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
@@ -318,12 +318,6 @@ ArcAppIconDescriptor GetAppListIconDescriptor(
       scale_factor);
 }
 
-ArcAppIconDescriptor GetAppListIconDescriptor(
-    int dip_size,
-    ui::ResourceScaleFactor scale_factor) {
-  return ArcAppIconDescriptor(dip_size, scale_factor);
-}
-
 bool IsIconCreated(Profile* profile,
                    ArcAppListPrefs* prefs,
                    const std::string& app_id,
@@ -519,8 +513,8 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
   ArcState GetArcState() const { return GetParam(); }
 
   ChromeShelfController* CreateShelfController() {
-    shelf_controller_ = std::make_unique<ChromeShelfController>(
-        profile_.get(), model_.get(), /*shelf_item_factory=*/nullptr);
+    shelf_controller_ =
+        std::make_unique<ChromeShelfController>(profile_.get(), model_.get());
     shelf_controller_->SetProfileForTest(profile_.get());
     shelf_controller_->SetShelfControllerHelperForTest(
         std::make_unique<ShelfControllerHelper>(profile_.get()));
@@ -665,6 +659,8 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
       EXPECT_EQ(package->sync, package_info->should_sync);
       EXPECT_EQ(package->vpn_provider, package_info->vpn_provider);
       EXPECT_EQ(package->preinstalled, package_info->preinstalled);
+      EXPECT_EQ(package->game_controls_opt_out,
+                package_info->game_controls_opt_out);
       EXPECT_EQ(package->permission_states, package_info->permissions);
       EXPECT_EQ(package->web_app_info.is_null(),
                 package_info->web_app_info.is_null());
@@ -682,6 +678,15 @@ class ArcAppModelBuilderTest : public extensions::ExtensionServiceTestBase,
                   package_info->web_app_info->is_web_only_twa);
         EXPECT_EQ(package->web_app_info->certificate_sha256_fingerprint,
                   package_info->web_app_info->certificate_sha256_fingerprint);
+      }
+      EXPECT_EQ(package->locale_info.is_null(),
+                package_info->locale_info.is_null());
+      if (!package->locale_info.is_null() &&
+          !package_info->locale_info.is_null()) {
+        EXPECT_EQ(package->locale_info->supported_locales,
+                  package_info->locale_info->supported_locales);
+        EXPECT_EQ(package->locale_info->selected_locale,
+                  package_info->locale_info->selected_locale);
       }
     }
   }
@@ -1419,6 +1424,7 @@ TEST_P(ArcAppModelBuilderTest, ArcPackagePref) {
   package->last_backup_android_id = 2;
   package->last_backup_time = 2;
   package->preinstalled = true;
+  package->game_controls_opt_out = true;
   AddPackage(package);
   ValidateHavePackages(fake_packages());
 
@@ -2169,6 +2175,10 @@ TEST_P(ArcAppModelBuilderTest, AppLifeCycleEventsOnPackageListRefresh) {
                             &arc::mojom::ArcPackageInfo::package_name,
                             fake_packages()[3]->package_name)))
       .Times(1);
+  EXPECT_CALL(observer, OnPackageInstalled(testing::Field(
+                            &arc::mojom::ArcPackageInfo::package_name,
+                            fake_packages()[4]->package_name)))
+      .Times(1);
   app_instance()->SendRefreshPackageList(
       ArcAppTest::ClonePackages(fake_packages()));
 
@@ -2185,6 +2195,9 @@ TEST_P(ArcAppModelBuilderTest, AppLifeCycleEventsOnPackageListRefresh) {
       .Times(1);
   EXPECT_CALL(observer,
               OnPackageRemoved(fake_packages()[3]->package_name, false))
+      .Times(1);
+  EXPECT_CALL(observer,
+              OnPackageRemoved(fake_packages()[4]->package_name, false))
       .Times(1);
 
   std::vector<arc::mojom::ArcPackageInfoPtr> packages;

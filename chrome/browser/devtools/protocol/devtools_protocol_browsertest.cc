@@ -657,8 +657,10 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, VisibleSecurityStateSecureState) {
   if (entry->GetSSL().certificate) {
     page_subject_name = entry->GetSSL().certificate->subject().common_name;
     page_issuer_name = entry->GetSSL().certificate->issuer().common_name;
-    page_valid_from = entry->GetSSL().certificate->valid_start().ToDoubleT();
-    page_valid_to = entry->GetSSL().certificate->valid_expiry().ToDoubleT();
+    page_valid_from =
+        entry->GetSSL().certificate->valid_start().InSecondsFSinceUnixEpoch();
+    page_valid_to =
+        entry->GetSSL().certificate->valid_expiry().InSecondsFSinceUnixEpoch();
   }
 
   std::string page_certificate_network_error;
@@ -819,13 +821,13 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
     params.Set("enabled", true);
     SendCommandSync("Emulation.setAutomationOverride", std::move(params));
   }
-  EXPECT_EQ(static_cast<int>(manager->infobar_count()), 1);
+  EXPECT_EQ(manager->infobars().size(), 1u);
   {
     base::Value::Dict params;
     params.Set("enabled", false);
     SendCommandSync("Emulation.setAutomationOverride", std::move(params));
   }
-  EXPECT_EQ(static_cast<int>(manager->infobar_count()), 0);
+  EXPECT_EQ(manager->infobars().size(), 0u);
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
@@ -838,13 +840,13 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,
     params.Set("enabled", true);
     SendCommandSync("Emulation.setAutomationOverride", std::move(params));
   }
-  EXPECT_EQ(static_cast<int>(manager->infobar_count()), 1);
+  EXPECT_EQ(manager->infobars().size(), 1u);
   {
     base::Value::Dict params;
     params.Set("enabled", true);
     SendCommandSync("Emulation.setAutomationOverride", std::move(params));
   }
-  EXPECT_EQ(static_cast<int>(manager->infobar_count()), 1);
+  EXPECT_EQ(manager->infobars().size(), 1u);
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest, UntrustedClient) {

@@ -70,6 +70,7 @@
   X("compositor")                                                        \
   X("content")                                                           \
   X("content_capture")                                                   \
+  X("interactions")                                                      \
   X("delegated_ink_trails")                                              \
   X("device")                                                            \
   X("devtools")                                                          \
@@ -282,6 +283,7 @@
   X(TRACE_DISABLED_BY_DEFAULT("v8.wasm.detailed"))                       \
   X(TRACE_DISABLED_BY_DEFAULT("v8.wasm.turbofan"))                       \
   X(TRACE_DISABLED_BY_DEFAULT("video_and_image_capture"))                \
+  X(TRACE_DISABLED_BY_DEFAULT("display.framedisplayed"))                 \
   X(TRACE_DISABLED_BY_DEFAULT("viz.gpu_composite_time"))                 \
   X(TRACE_DISABLED_BY_DEFAULT("viz.debug.overlay_planes"))               \
   X(TRACE_DISABLED_BY_DEFAULT("viz.hit_testing_flow"))                   \
@@ -308,6 +310,7 @@
   X("benchmark,rail")                                                         \
   X("benchmark,uma")                                                          \
   X("benchmark,viz")                                                          \
+  X("benchmark,viz," TRACE_DISABLED_BY_DEFAULT("display.framedisplayed"))     \
   X("blink,benchmark")                                                        \
   X("blink,benchmark,rail," TRACE_DISABLED_BY_DEFAULT("blink.debug.layout"))  \
   X("blink,blink.resource")                                                   \
@@ -354,6 +357,7 @@
   X("ipc,security")                                                           \
   X("ipc,toplevel")                                                           \
   X("Java,devtools," TRACE_DISABLED_BY_DEFAULT("devtools.timeline"))          \
+  X("loading,interactions")                                                   \
   X("loading,rail")                                                           \
   X("loading,rail,devtools.timeline")                                         \
   X("media,gpu")                                                              \

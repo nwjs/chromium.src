@@ -35,11 +35,8 @@
 #include "components/password_manager/core/browser/affiliation/affiliation_utils.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/insecure_credentials_table.h"
-#include "components/password_manager/core/browser/password_bubble_experiment.h"
 #include "components/password_manager/core/browser/password_form.h"
-#include "components/password_manager/core/browser/password_manager_client.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
-#include "components/password_manager/core/browser/password_manager_util.h"
 #include "components/password_manager/core/browser/password_notes_table.h"
 #include "components/password_manager/core/browser/password_store_change.h"
 #include "components/password_manager/core/browser/psl_matching_helper.h"
@@ -71,7 +68,7 @@ using metrics_util::MigrationToOSCrypt;
 #endif
 
 // The current version number of the login database schema.
-constexpr int kCurrentVersionNumber = 40;
+constexpr int kCurrentVersionNumber = 41;
 // The oldest version of the schema such that a legacy Chrome client using that
 // version can still read/write the current database.
 constexpr int kCompatibleVersionNumber = 40;
@@ -179,6 +176,7 @@ enum LoginDatabaseTableColumns {
   COLUMN_DATE_RECEIVED,
   COLUMN_SHARING_NOTIFICATION_DISPLAYED,
   COLUMN_KEYCHAIN_IDENTIFIER,
+  COLUMN_SENDER_PROFILE_IMAGE_URL,
   COLUMN_NUM  // Keep this last.
 };
 
@@ -274,6 +272,10 @@ void BindAddStatement(const PasswordForm& form,
   s->BindTime(COLUMN_DATE_PASSWORD_MODIFIED, form.date_password_modified);
   s->BindString16(COLUMN_SENDER_EMAIL, form.sender_email);
   s->BindString16(COLUMN_SENDER_NAME, form.sender_name);
+  s->BindString(COLUMN_SENDER_PROFILE_IMAGE_URL,
+                form.sender_profile_image_url.is_valid()
+                    ? form.sender_profile_image_url.spec()
+                    : "");
   s->BindTime(COLUMN_DATE_RECEIVED, form.date_received);
   s->BindBool(COLUMN_SHARING_NOTIFICATION_DISPLAYED,
               form.sharing_notification_displayed);
@@ -577,7 +579,13 @@ void InitializeBuilders(SQLTableBuilders builders) {
   // Migrate password notes encryption to OSCrypt.
   SealVersion(builders, /*expected_version=*/40u);
 
-  static_assert(kCurrentVersionNumber == 40, "Seal the recent version");
+  // Version 41.
+  // Add sender profile image url as part of the shared passwords metadata
+  // similar to changes in version 37.
+  builders.logins->AddColumn("sender_profile_image_url", "VARCHAR");
+  SealVersion(builders, /*expected_version=*/41u);
+
+  static_assert(kCurrentVersionNumber == 41, "Seal the recent version");
   CHECK_EQ(static_cast<size_t>(COLUMN_NUM), builders.logins->NumberOfColumns())
       << "Adjust LoginDatabaseTableColumns if you change column definitions "
          "here.";
@@ -797,60 +805,6 @@ MigrationToOSCrypt MigrateToOSCryptTheOldWay(IsAccountStore is_account_store,
   return MigrationToOSCrypt::kSuccess;
 }
 
-MigrationToOSCrypt MigrateToOSCryptWithSingleQuery(
-    IsAccountStore is_account_store,
-    sql::Database* db) {
-  // Obtain all passwords from the keychain.
-  std::unordered_map<std::string, std::u16string> key_password_pairs;
-  OSStatus retrieval_status = GetAllPasswordsFromKeychain(&key_password_pairs);
-  if (retrieval_status != errSecSuccess) {
-    LogKeychainError(is_account_store, retrieval_status);
-    return MigrationToOSCrypt::kFailedToDecryptFromKeychain;
-  }
-
-  sql::Statement get_passwords_statement(
-      db->GetUniqueStatement("SELECT id, password_value FROM logins"));
-
-  int deleted_passwords = 0, migrated_passwords = 0;
-  // Update each password_value with the new BLOB.
-  while (get_passwords_statement.Step()) {
-    int id = get_passwords_statement.ColumnInt(0);
-    std::string keychain_identifier = get_passwords_statement.ColumnString(1);
-    // If keychain_identifier is empty it means blocked or federated form.
-    // Simply skip this entry.
-    if (keychain_identifier.empty()) {
-      continue;
-    }
-
-    auto password_iterator = key_password_pairs.find(keychain_identifier);
-    // Password no longer exists in the keychain, meaning it's lost forever.
-    // In this case delete the entry from the database and continue with
-    // migration.
-    if (password_iterator == key_password_pairs.end()) {
-      if (!DeletePassword(db, id)) {
-        return MigrationToOSCrypt::kFailedToDelete;
-      }
-      deleted_passwords++;
-      continue;
-    }
-
-    // Encrypt password using OSCrypt.
-    std::string encrypted_password;
-    if (LoginDatabase::EncryptedString(password_iterator->second,
-                                       &encrypted_password) !=
-        LoginDatabase::ENCRYPTION_RESULT_SUCCESS) {
-      return MigrationToOSCrypt::kFailedToEncrypt;
-    }
-    // Updated password_value in the database.
-    if (!UpdatePassword(db, id, encrypted_password)) {
-      return MigrationToOSCrypt::kFailedToUpdate;
-    }
-    migrated_passwords++;
-  }
-  LogMigratedDeletedStats(is_account_store, deleted_passwords,
-                          migrated_passwords);
-  return MigrationToOSCrypt::kSuccess;
-}
 #endif
 
 // Call this after having called InitializeBuilders(), to migrate the database
@@ -981,13 +935,7 @@ bool MigrateDatabase(unsigned current_version,
       return false;
     }
 
-    MigrationToOSCrypt status;
-    if (base::FeatureList::IsEnabled(
-            features::kOneReadLoginDatabaseMigration)) {
-      status = MigrateToOSCryptWithSingleQuery(is_account_store, db);
-    } else {
-      status = MigrateToOSCryptTheOldWay(is_account_store, db);
-    }
+    MigrationToOSCrypt status = MigrateToOSCryptTheOldWay(is_account_store, db);
     std::move(record_completion_metrics).Run(status);
 
     if (status != MigrationToOSCrypt::kSuccess) {
@@ -1534,6 +1482,9 @@ PasswordStoreChangeList LoginDatabase::UpdateLogin(
   s.BindTime(next_param++, form.date_received);
   s.BindBool(next_param++, form.sharing_notification_displayed);
   s.BindBlob(next_param++, new_keychain_identifier);
+  s.BindString(next_param++, form.sender_profile_image_url.is_valid()
+                                 ? form.sender_profile_image_url.spec()
+                                 : "");
   // NOTE: Add new fields here unless the field is a part of the unique key.
   // If so, add new field below.
 
@@ -1784,6 +1735,8 @@ PasswordForm LoginDatabase::GetFormWithoutPasswordFromStatement(
   form.date_password_modified = s.ColumnTime(COLUMN_DATE_PASSWORD_MODIFIED);
   form.sender_email = s.ColumnString16(COLUMN_SENDER_EMAIL);
   form.sender_name = s.ColumnString16(COLUMN_SENDER_NAME);
+  form.sender_profile_image_url =
+      GURL(s.ColumnString(COLUMN_SENDER_PROFILE_IMAGE_URL));
   form.date_received = s.ColumnTime(COLUMN_DATE_RECEIVED);
   form.sharing_notification_displayed =
       s.ColumnBool(COLUMN_SHARING_NOTIFICATION_DISPLAYED);

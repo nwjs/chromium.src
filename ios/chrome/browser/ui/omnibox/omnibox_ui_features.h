@@ -17,9 +17,6 @@ BASE_DECLARE_FEATURE(kEnablePopoutOmniboxIpad);
 // Feature flag to enable paste button on the omnibox keyboard accessories.
 BASE_DECLARE_FEATURE(kOmniboxKeyboardPasteButton);
 
-// Feature flag to enable multiple lines for search suggestions in omnibox.
-BASE_DECLARE_FEATURE(kOmniboxMultilineSearchSuggest);
-
 // Feature flag to enable tail suggestions in the omnibox.
 BASE_DECLARE_FEATURE(kOmniboxTailSuggest);
 
@@ -33,9 +30,5 @@ BASE_DECLARE_FEATURE(kOmniboxSuggestionsRTLImprovements);
 // enabled, the lock icon is shown in the omnibox for secure pages. When
 // disabled, no icon is shown for secure pages.
 BASE_DECLARE_FEATURE(kOmniboxLockIconEnabled);
-
-// Feature flag to enable storing successful query/match in the shortcut
-// database.
-BASE_DECLARE_FEATURE(kOmniboxPopulateShortcutsDatabase);
 
 #endif  // IOS_CHROME_BROWSER_UI_OMNIBOX_OMNIBOX_UI_FEATURES_H_

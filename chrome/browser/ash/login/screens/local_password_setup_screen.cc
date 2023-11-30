@@ -11,8 +11,10 @@
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_storage.h"
 #include "chrome/browser/ash/login/screens/base_screen.h"
 #include "chrome/browser/ash/login/wizard_context.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/webui/ash/login/local_password_setup_handler.h"
+#include "chromeos/ash/components/login/auth/public/cryptohome_key_constants.h"
 #include "chromeos/ash/services/auth_factor_config/auth_factor_config.h"
 #include "chromeos/ash/services/auth_factor_config/in_process_instances.h"
 #include "chromeos/ash/services/auth_factor_config/public/mojom/auth_factor_config.mojom-forward.h"
@@ -24,6 +26,7 @@ namespace {
 
 constexpr const char kUserActionInputPassword[] = "inputPassword";
 constexpr const char kUserActionBack[] = "back";
+constexpr const char kUserActionDone[] = "done";
 
 }  // namespace
 
@@ -50,10 +53,14 @@ LocalPasswordSetupScreen::LocalPasswordSetupScreen(
 LocalPasswordSetupScreen::~LocalPasswordSetupScreen() = default;
 
 void LocalPasswordSetupScreen::ShowImpl() {
+  CHECK(!context()->skip_post_login_screens_for_tests);
+
   if (!view_) {
     return;
   }
-  view_->Show();
+  bool can_go_back = !context()->knowledge_factor_setup.local_password_forced;
+  view_->Show(can_go_back, context()->knowledge_factor_setup.auth_setup_flow ==
+                               WizardContext::AuthChangeFlow::kRecovery);
 }
 
 void LocalPasswordSetupScreen::HideImpl() {}
@@ -65,7 +72,17 @@ void LocalPasswordSetupScreen::OnUserAction(const base::Value::List& args) {
     const std::string& password = args[1].GetString();
     auth::mojom::PasswordFactorEditor& password_factor_editor =
         auth::GetPasswordFactorEditor(
-            quick_unlock::QuickUnlockFactory::GetDelegate());
+            quick_unlock::QuickUnlockFactory::GetDelegate(),
+            g_browser_process->local_state());
+
+    if (context()->knowledge_factor_setup.auth_setup_flow ==
+        WizardContext::AuthChangeFlow::kRecovery) {
+      password_factor_editor.UpdateLocalPassword(
+          GetToken(), password,
+          base::BindOnce(&LocalPasswordSetupScreen::OnSetLocalPassword,
+                         weak_factory_.GetWeakPtr()));
+      return;
+    }
 
     password_factor_editor.SetLocalPassword(
         GetToken(), password,
@@ -76,22 +93,37 @@ void LocalPasswordSetupScreen::OnUserAction(const base::Value::List& args) {
   } else if (action_id == kUserActionBack) {
     exit_callback_.Run(Result::kBack);
     return;
+  } else if (action_id == kUserActionDone) {
+    exit_callback_.Run(Result::kDone);
+    return;
   }
   BaseScreen::OnUserAction(args);
+}
+
+void LocalPasswordSetupScreen::OnUpdateLocalPassword(
+    auth::mojom::ConfigureResult result) {
+  if (result != auth::mojom::ConfigureResult::kSuccess) {
+    view_->ShowLocalPasswordSetupFailure();
+    LOG(ERROR) << "Failed to update local password, error id= "
+               << static_cast<int>(result);
+    exit_callback_.Run(Result::kDone);
+    crash_reporter::DumpWithoutCrashing();
+    return;
+  }
+  view_->ShowLocalPasswordSetupSuccess();
 }
 
 void LocalPasswordSetupScreen::OnSetLocalPassword(
     auth::mojom::ConfigureResult result) {
   if (result != auth::mojom::ConfigureResult::kSuccess) {
+    view_->ShowLocalPasswordSetupFailure();
     LOG(ERROR) << "Failed to set local password, error id= "
                << static_cast<int>(result);
     exit_callback_.Run(Result::kDone);
     crash_reporter::DumpWithoutCrashing();
-    // TODO(b/291808449): Show setup failed message, likely allowing user to
-    // retry.
     return;
   }
-  exit_callback_.Run(Result::kDone);
+  view_->ShowLocalPasswordSetupSuccess();
 }
 
 std::string LocalPasswordSetupScreen::GetToken() const {

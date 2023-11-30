@@ -598,6 +598,17 @@ void FrameTreeNode::TakeNavigationRequest(
   // initiated previously.
   CancelRestartingBackForwardCacheNavigation();
 
+  // If `navigation_request` is a BFCache navigation, the RFH for BFCache
+  // restore should not be evicted before.
+  // This CHECK is added with the fix of https://crbug.com/1468984. See
+  // `BackForwardCacheBrowserTest.TwoBackNavigationsToTheSameEntry` for how
+  // BFCache entry could be evicted before the BFCache `NavigationRequest`
+  // is moved to the FrameTreeNode without the fix.
+  if (navigation_request->IsServedFromBackForwardCache()) {
+    CHECK(!navigation_request->GetRenderFrameHostRestoredFromBackForwardCache()
+               ->is_evicted_from_back_forward_cache());
+  }
+
   navigation_request_ = std::move(navigation_request);
   if (was_discarded_) {
     navigation_request_->set_was_discarded();
@@ -933,7 +944,8 @@ FrameTreeNode::GetFencedFramePropertiesForEditing(
   return fenced_frame_properties_;
 }
 
-void FrameTreeNode::MaybeResetFencedFrameAutomaticBeaconReportEventData() {
+void FrameTreeNode::MaybeResetFencedFrameAutomaticBeaconReportEventData(
+    blink::mojom::AutomaticBeaconType event_type) {
   absl::optional<FencedFrameProperties>& properties =
       GetFencedFramePropertiesForEditing();
   // `properties` will exist for both fenced frames as well as iframes loaded
@@ -941,10 +953,11 @@ void FrameTreeNode::MaybeResetFencedFrameAutomaticBeaconReportEventData() {
   if (!properties) {
     return;
   }
-  properties->MaybeResetAutomaticBeaconData();
+  properties->MaybeResetAutomaticBeaconData(event_type);
 }
 
 void FrameTreeNode::SetFencedFrameAutomaticBeaconReportEventData(
+    blink::mojom::AutomaticBeaconType event_type,
     const std::string& event_data,
     const std::vector<blink::FencedFrame::ReportingDestination>& destinations,
     network::AttributionReportingRuntimeFeatures
@@ -971,8 +984,9 @@ void FrameTreeNode::SetFencedFrameAutomaticBeaconReportEventData(
         "origin to the mapped url from the fenced frame config.");
     return;
   }
-  properties->UpdateAutomaticBeaconData(
-      event_data, destinations, attribution_reporting_runtime_features, once);
+  properties->UpdateAutomaticBeaconData(event_type, event_data, destinations,
+                                        attribution_reporting_runtime_features,
+                                        once);
 }
 
 size_t FrameTreeNode::GetFencedFrameDepth(

@@ -66,6 +66,12 @@ class PasswordStoreBackend
   // status). Callback is called on the main sequence.
   virtual void GetAllLoginsAsync(LoginsOrErrorReply callback) = 0;
 
+  // Returns the complete list of PasswordForms and fills in affiliation and
+  // branding information for Android credentials. Callback is called on the
+  // main sequence.
+  virtual void GetAllLoginsWithAffiliationAndBrandingAsync(
+      LoginsOrErrorReply callback) = 0;
+
   // Returns the complete list of non-blocklist PasswordForms. Callback is
   // called on the main sequence.
   virtual void GetAutofillableLoginsAsync(LoginsOrErrorReply callback) = 0;
@@ -149,10 +155,10 @@ class PasswordStoreBackend
   virtual void OnSyncServiceInitialized(syncer::SyncService* sync_service) = 0;
 
   // Factory function for creating the backend. The Local backend requires the
-  // provided `login_db_path` for storage and Android backend for migration
+  // provided `login_db_directory` for storage and Android backend for migration
   // purposes.
   static std::unique_ptr<PasswordStoreBackend> Create(
-      const base::FilePath& login_db_path,
+      const base::FilePath& login_db_directory,
       PrefService* prefs);
 };
 

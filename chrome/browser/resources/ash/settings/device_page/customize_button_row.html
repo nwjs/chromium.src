@@ -51,9 +51,9 @@
   }
 
   .edit-button {
-    --cr-icon-button-icon-start-offset: 3px;
+    --cr-icon-button-icon-start-offset: 4px;
+    --cr-icon-button-margin-start: 0;
     opacity: 0;
-    padding-top: 3px;
     transition: opacity 300ms, transform 100ms;
   }
 
@@ -75,10 +75,6 @@
     padding-inline-start: 0;
   }
 
-  :host([remove-top-border]) .settings-box {
-    border-top: none;
-  }
-
   select {
     padding-inline-end: 12px;
     padding-inline-start: 16px;
@@ -87,25 +83,25 @@
   .edit-icon-container {
     align-items: center;
     flex: auto;
-    margin-inline-start: 6px;
-    size: 48px;
-  }
-
-  .move-icon-container {
-    align-items: center;
-    margin-inline-end: 24px;
     size: 48px;
   }
 
   #buttonLabelContainer {
     padding-inline-end: 6px;
+    margin-inline-end: 6px;
+    max-width: 292px;
   }
 
   #keyCombination {
     display: none;
   }
+
+  cr-icon-button {
+    margin-inline-end: 24px;
+    margin-inline-start: 0;
+  }
 </style>
-<div id="container" class="settings-box first"
+<div id="container" class="settings-box"
     on-mousedown="onContainerMouseDown_"
     on-dragstart="onDragStart_" on-dragend="onDragEnd_" draggable="true">
   <div class="move-icon-container">
@@ -125,10 +121,8 @@
   <div id="dropdownContainer" class="text-field-container">
     <select id="remappingActionDropdown" class="md-select"
         on-change="onSelectChange_"
-        disabled="[[isDropdownDisabled_(isBeingDragged_)]]">
-      <option id="noRemappingOption" value="[[noRemappingOptionValue_]]">
-        $i18n{noRemappingOptionLabel}
-      </option>
+        disabled="[[isDropdownDisabled_(isBeingDragged_)]]"
+        aria-label="[[getDropdownAriaLabel_(buttonRemappingName_, fakePref_.*)]]">
       <template is="dom-repeat" items="[[buttonMapTargets_]]"
           as="buttonMapping">
         <option value$="[[buttonMapping.value]]">
@@ -137,9 +131,6 @@
       </template>
       <option id="keyCombination" value="[[keyCombinationOptionValue_]]">
         [[keyCombinationLabel_]]
-      </option>
-      <option id="openDialogOption" value="[[openDialogOptionValue_]]">
-        $i18n{keyCombinationOptionLabel}
       </option>
     </select>
   </div>

@@ -110,14 +110,6 @@ bool AttributionConfig::RateLimitConfig::Validate() const {
 }
 
 bool AttributionConfig::EventLevelLimit::Validate() const {
-  if (navigation_source_trigger_data_cardinality == 0u) {
-    return false;
-  }
-
-  if (event_source_trigger_data_cardinality == 0u) {
-    return false;
-  }
-
   if (max_reports_per_destination <= 0) {
     return false;
   }
@@ -132,10 +124,6 @@ bool AttributionConfig::EventLevelLimit::Validate() const {
 
 bool AttributionConfig::AggregateLimit::Validate() const {
   if (max_reports_per_destination <= 0) {
-    return false;
-  }
-
-  if (aggregatable_budget_per_source <= 0) {
     return false;
   }
 

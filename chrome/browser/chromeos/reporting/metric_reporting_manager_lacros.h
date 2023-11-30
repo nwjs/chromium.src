@@ -16,6 +16,7 @@
 #include "chrome/browser/chromeos/reporting/device_reporting_settings_lacros.h"
 #include "chrome/browser/chromeos/reporting/metric_reporting_manager_delegate_base.h"
 #include "chrome/browser/chromeos/reporting/user_reporting_settings.h"
+#include "chrome/browser/chromeos/reporting/websites/website_usage_observer.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/crosapi/mojom/device_settings_service.mojom.h"
 #include "components/keyed_service/core/keyed_service.h"
@@ -30,7 +31,8 @@ static_assert(BUILDFLAG(IS_CHROMEOS_LACROS), "For Lacros only");
 namespace reporting::metrics {
 
 // Manages the initialization, collection and reporting of certain user event,
-// info and telemetry metrics in Lacros.
+// info and telemetry metrics in Lacros. Normally instantiated via the
+// `MetricReportingManagerLacrosFactory` unless needed for testing purposes.
 class MetricReportingManagerLacros : public KeyedService,
                                      public DeviceSettingsLacros::Observer {
  public:
@@ -61,10 +63,6 @@ class MetricReportingManagerLacros : public KeyedService,
         MetricReportingManagerLacros* const instance);
   };
 
-  // Retrieves the `MetricReportingManagerLacros` for the given
-  // profile.
-  static MetricReportingManagerLacros* GetForProfile(Profile* profile);
-
   MetricReportingManagerLacros(
       Profile* profile,
       std::unique_ptr<MetricReportingManagerLacros::Delegate> delegate);
@@ -76,8 +74,6 @@ class MetricReportingManagerLacros : public KeyedService,
 
   // DeviceSettingsLacros::Observer:
   void OnDeviceSettingsUpdated() override;
-
-  static void EnsureFactoryBuilt();
 
  private:
   void Shutdown() override;
@@ -131,6 +127,11 @@ class MetricReportingManagerLacros : public KeyedService,
   std::unique_ptr<MetricReportQueue> telemetry_report_queue_
       GUARDED_BY_CONTEXT(sequence_checker_);
   std::unique_ptr<MetricReportQueue> event_report_queue_
+      GUARDED_BY_CONTEXT(sequence_checker_);
+
+  // Website usage observer used to observe and collect website usage reports
+  // from the `WebsiteMetrics` component.
+  std::unique_ptr<WebsiteUsageObserver> website_usage_observer_
       GUARDED_BY_CONTEXT(sequence_checker_);
 
   // Cache device deprovisioned state so we minimize crosapi calls. Updated on

@@ -556,8 +556,8 @@ class PrintRenderFrameHelperTestBase : public content::RenderViewTest {
   }
 
   void OnPrintPagesInFrame(base::StringPiece frame_name) {
-    blink::WebFrame* frame = GetMainFrame()->FindFrameByName(
-        blink::WebString::FromUTF8(frame_name.data(), frame_name.size()));
+    blink::WebFrame* frame =
+        GetMainFrame()->FindFrameByName(blink::WebString::FromUTF8(frame_name));
     ASSERT_TRUE(frame);
     content::RenderFrame* render_frame =
         content::RenderFrame::FromWebFrame(frame->ToWebLocalFrame());
@@ -2191,7 +2191,8 @@ TEST_F(PrintRenderFrameHelperPreviewTest, PrintPreviewForSelectedText) {
   LoadHTML(kMultipageHTML);
   GetMainFrame()->SelectRange(blink::WebRange(1, 3),
                               blink::WebLocalFrame::kHideSelectionHandle,
-                              blink::mojom::SelectionMenuBehavior::kHide);
+                              blink::mojom::SelectionMenuBehavior::kHide,
+                              blink::WebLocalFrame::kSelectionSetFocus);
 
   print_settings().Set(kSettingShouldPrintSelectionOnly, true);
 
@@ -2213,7 +2214,8 @@ TEST_F(PrintRenderFrameHelperPreviewTest, PrintPreviewForSelectedText2) {
   LoadHTML(kMultipageHTML);
   GetMainFrame()->SelectRange(blink::WebRange(1, 8),
                               blink::WebLocalFrame::kHideSelectionHandle,
-                              blink::mojom::SelectionMenuBehavior::kHide);
+                              blink::mojom::SelectionMenuBehavior::kHide,
+                              blink::WebLocalFrame::kSelectionSetFocus);
 
   print_settings().Set(kSettingShouldPrintSelectionOnly, true);
 

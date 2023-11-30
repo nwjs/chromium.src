@@ -4,11 +4,9 @@
 # found in the LICENSE file.
 '''Update in-tree checkout of Rust toolchain
 
-!!! DO NOT USE IN PRODUCTION
-Some functionality can be used outside of a chromium checkout. For example,
-running with `--print-rust-revision` will succeed. Other functionality requires
-a Chromium checkout to access functions from other scripts.
-
+When run without arguments, it fetches and unzips the Rust toolchain package
+specieid by the `RUST_REVISION` and `RUST_SUB_REVISION` along with the clang
+version specified in //tools/clang/scripts/update.py.
 '''
 
 import argparse
@@ -36,7 +34,7 @@ sys.path.append(
 # In the case that a Rust roll fails and you want to roll Clang alone, reset
 # this back to its previous value _AND_ set `OVERRIDE_CLANG_REVISION` below
 # to the `CLANG_REVISION` that was in place before the roll.
-RUST_REVISION = 'c0583a0221c28f01a7bdbc01464baf22f7c6d4a8'
+RUST_REVISION = '2e4e2a8f288f642cafcc41fff211955ceddc453d'
 RUST_SUB_REVISION = 1
 
 # If not None, this overrides the `CLANG_REVISION` in
@@ -58,7 +56,7 @@ CRUBIT_SUB_REVISION = 1
 # Hash of src/stage0.json, which itself contains the stage0 toolchain hashes.
 # We trust the Rust build system checks, but to ensure it is not tampered with
 # itself check the hash.
-STAGE0_JSON_SHA256 = 'b73b52f5101b92743987d8ddf1c736610310a0a3dce913b6dea4d898e28fd32c'
+STAGE0_JSON_SHA256 = '0bad56c08e3fc22901944ceb5a2bc9c51ec1f9df57be981f70dac53288f55411'
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 CHROMIUM_DIR = os.path.abspath(os.path.join(THIS_DIR, '..', '..'))

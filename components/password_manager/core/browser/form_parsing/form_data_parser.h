@@ -144,9 +144,22 @@ class FormDataParser {
   ReadonlyPasswordFields readonly_status() { return readonly_status_; }
 
   // Parse DOM information |form_data| into Password Manager's form
-  // representation PasswordForm. Return nullptr when parsing is unsuccessful.
-  std::unique_ptr<PasswordForm> Parse(const autofill::FormData& form_data,
-                                      Mode mode);
+  // representation `PasswordForm` and how the username was found. Return
+  // {nullptr, UsernameDetectionMethod::kNoUsernameDetected} when parsing is
+  // unsuccessful.
+  std::tuple<std::unique_ptr<PasswordForm>, UsernameDetectionMethod>
+  ParseAndReturnUsernameDetection(
+      const autofill::FormData& form_data,
+      Mode mode,
+      const base::flat_set<std::u16string>& stored_usernames);
+
+  // Parse DOM information `form_data` into Password Manager's form
+  // representation `PasswordForm`. Return nullptr when parsing is unsuccessful.
+  // Wrapper around `ParseAndReturnUsernameDetection()`.
+  std::unique_ptr<PasswordForm> Parse(
+      const autofill::FormData& form_data,
+      Mode mode,
+      const base::flat_set<std::u16string>& stored_usernames);
 
  private:
   // Predictions are an optional source of server-side information about field

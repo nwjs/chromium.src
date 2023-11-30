@@ -902,6 +902,15 @@ gfx::Rect DirectRenderer::ComputeScissorRectForRenderPass(
               gfx::Rect expanded_rect =
                   GetExpandedRectWithPixelMovingForegroundFilter(
                       *rpdq, *foreground_filters);
+
+              // Expanding damage outside of the 'clip_rect' can cause parts of
+              // the root to be rendered that may never have been included due
+              // to 'aggregate_only_damaged_' in SurfaceAggregator. See
+              // crbug.com/1492891
+              if (rpdq->shared_quad_state->clip_rect) {
+                expanded_rect.Intersect(*rpdq->shared_quad_state->clip_rect);
+              }
+
               if (root_damage_rect.Intersects(expanded_rect))
                 root_damage_rect.Union(expanded_rect);
             }
@@ -1110,17 +1119,9 @@ SharedImageFormat DirectRenderer::GetColorSpaceSharedImageFormat(
     gfx::ColorSpace color_space) const {
   gpu::Capabilities caps;
   caps.texture_format_bgra8888 = SupportsBGRA();
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-  // TODO(crbug.com/1317015): add support RGBA_F16 in LaCrOS.
-  auto format = color_space.IsHDR()
-                    ? SinglePlaneFormat::kRGBA_1010102
-                    : PlatformColor::BestSupportedTextureFormat(caps);
-#else
   auto format = color_space.IsHDR()
                     ? SinglePlaneFormat::kRGBA_F16
                     : PlatformColor::BestSupportedTextureFormat(caps);
-#endif
   return format;
 }
 

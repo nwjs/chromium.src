@@ -340,7 +340,8 @@ def _swarming(
 def _skylab(
         *,
         cros_board,
-        cros_img,
+        cros_img = "",
+        use_lkgm = False,
         cros_model = None,
         autotest_name = None,
         bucket = None,
@@ -348,9 +349,34 @@ def _skylab(
         public_builder = None,
         public_builder_bucket = None,
         shards = None):
+    """Define a Skylab test target.
+
+    Args:
+        cros_board: The CrOS build target name, e.g. "eve", "kevin".
+        cros_img: ChromeOS image version to be deployed to DUT.
+            Must be empty when use_lkgm is true.
+            For example, "brya-release/R118-15604.42.0"
+        use_lkgm: If True, use a ChromeOS image version derived from
+            chromeos/CHROMEOS_LKGM file.
+        cros_model: Optional ChromeOS DUT model.
+        autotest_name: The name of the autotest to be executed in
+            Skylab.
+        bucket: Optional Google Storage bucket where the specified
+            image(s) are stored.
+        dut_pool: The skylab device pool to run the test. By default the
+            quota pool, shared by all CrOS tests.
+        public_builder: Optional Public CTP Builder.
+            The public_builder and public_builder_bucket fields can be
+            used when default CTP builder is not sufficient/advised
+            (ex: chromium cq, satlab for partners).
+        public_builder_bucket: Optional luci bucket. See public_builder
+            above.
+        shards: The number of shards used to run the test.
+    """
     return struct(
         cros_board = cros_board,
         cros_img = cros_img,
+        use_lkgm = use_lkgm,
         cros_model = cros_model,
         autotest_name = autotest_name,
         bucket = bucket,
@@ -927,7 +953,10 @@ def _generate_mixin_values(formatter, mixin, generate_skylab_container = False):
         formatter.add_line("'cros_board': '{}',".format(skylab.cros_board))
         if skylab.cros_model:
             formatter.add_line("'cros_model': '{}',".format(skylab.cros_model))
-        formatter.add_line("'cros_img': '{}',".format(skylab.cros_img))
+        if skylab.cros_img:
+            formatter.add_line("'cros_img': '{}',".format(skylab.cros_img))
+        if skylab.use_lkgm:
+            formatter.add_line("'use_lkgm': True,")
         if skylab.autotest_name:
             formatter.add_line("'autotest_name': '{}',".format(skylab.autotest_name))
         if skylab.bucket:

@@ -64,9 +64,15 @@ chromium-metrics-reviews@google.com.
 
 <variants name="Autofill.CreditCardIssuerId">
   <variant name="Amex" summary="card issued by American Express"/>
+  <variant name="Anz" summary="card issued by ANZ"/>
   <variant name="CapitalOne" summary="card issued by Capital One"/>
+  <variant name="Chase" summary="card issued by JP Morgan Chase"/>
+  <variant name="Citi" summary="card issued by Citibank"/>
   <variant name="Discover" summary="card issued by Discover"/>
+  <variant name="Lloyds" summary="card issued by American Express"/>
   <variant name="Marqeta" summary="card issued by Marqeta"/>
+  <variant name="Nab" summary="card issued by National Australia Bank"/>
+  <variant name="Natwest" summary="card issued by Natwest"/>
 </variants>
 
 <variants name="Autofill.DialogError">
@@ -102,6 +108,9 @@ chromium-metrics-reviews@google.com.
       summary="Feature is trying to be updated from full server card checkout"/>
   <variant name="CheckoutLocalCard"
       summary="Feature is trying to be updated from local card checkout"/>
+  <variant name="CheckoutMaskedServerCard"
+      summary="Feature is trying to be updated from masked server card
+               checkout"/>
   <variant name="CheckoutVirtualCard"
       summary="Feature is trying to be updated from virtual card checkout"/>
   <variant name="SettingsPage"
@@ -426,7 +435,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.AddressesSuppressedForDisuse" units="addresses"
-    expires_after="2023-12-12">
+    expires_after="2024-03-31">
   <owner>battre@chromium.org</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -664,7 +673,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram name="Autofill.Autocomplete.SingleEntryRemovalMethod"
     enum="AutofillAutocompleteSingleEntryRemovalMethod"
-    expires_after="2024-01-31">
+    expires_after="2024-03-31">
   <owner>jkeitel@google.com</owner>
   <owner>chrome-autofill-team@google.com</owner>
   <summary>
@@ -1392,10 +1401,6 @@ chromium-metrics-reviews@google.com.
   </token>
   <token key="SaveSituation">
     <variant name="" summary="aggregated across all situations"/>
-    <variant name=".FromDynamicChangeForm"
-        summary="shown dynamic change forms"/>
-    <variant name=".FromNonFocusableForm"
-        summary="shown from non-focusable forms"/>
     <variant name=".RequestingCardholderName"
         summary="explicitly requesting cardholder name"/>
     <variant name=".RequestingExpirationDate"
@@ -1634,6 +1639,25 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Autofill.EmailHeuristicOnlyAcceptance"
+    enum="BooleanAutofillFillingAcceptance" expires_after="2024-07-01">
+  <owner>battre@chromium.org</owner>
+  <owner>mreichhoff@chromium.org</owner>
+  <owner>src/components/autofill/OWNERS</owner>
+  <summary>
+    This metric is intended to mimic the Autofill.KeyMetrics.FillingAcceptance
+    metric, but is recorded when the
+    kAutofillEnableEmailHeuristicOnlyAddressForms feature is enabled and an
+    email heuristic only form is observed. Counts for submitted forms whether
+    users accepted the suggestion to fill values. This is counted as 'yes' if
+    the user accepted such a suggestion at any time, regardless of whether other
+    suggestions were ignored or whether the accepted suggestion was reverted
+    afterwards.
+
+    This metric is experimental and may be removed in the future.
+  </summary>
+</histogram>
+
 <histogram name="Autofill.ErrorDialogShown" enum="AutofillErrorDialogType"
     expires_after="2024-07-01">
   <owner>siyua@chromium.org</owner>
@@ -1696,6 +1720,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Autofill.ExtendedMenu.EditAddress"
+    enum="BooleanAutofillExtendedMenuEditAddress" expires_after="2024-10-01">
+  <owner>tchudakov@google.com</owner>
+  <owner>chrome-autofill-alerts@google.com</owner>
+  <summary>
+    This metric measures how many users Clicked on the Edit Address option in
+    the extended Autofill menu and the next action. The metric is logged when
+    the user closes the edit address profile dialog.
+  </summary>
+</histogram>
+
 <histogram
     name="Autofill.ExtractNewForms.ShallowEqualityDiffersFromDeepEquality"
     enum="FormDataEquality" expires_after="M108">
@@ -1726,7 +1761,7 @@ chromium-metrics-reviews@google.com.
 <histogram
     name="Autofill.FastCheckout.CapabilitiesFetcher.CacheStateForIsTriggerFormSupported"
     enum="FastCheckoutCacheStateForIsTriggerFormSupported"
-    expires_after="2024-02-20">
+    expires_after="2024-11-15">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
@@ -1738,7 +1773,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.FastCheckout.CapabilitiesFetcher.HttpResponseAndNetErrorCode"
-    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2024-02-20">
+    enum="CombinedHttpResponseAndNetErrorCode" expires_after="2024-11-15">
   <owner>vizcay@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -1747,7 +1782,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.FastCheckout.CapabilitiesFetcher.ParsingResult"
-    enum="FastCheckoutCapabilitiesParsingResult" expires_after="2024-02-20">
+    enum="FastCheckoutCapabilitiesParsingResult" expires_after="2024-11-15">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
@@ -1757,7 +1792,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.FastCheckout.CapabilitiesFetcher.ResponseTime"
-    units="ms" expires_after="2024-02-20">
+    units="ms" expires_after="2024-11-15">
   <owner>vizcay@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
   <summary>
@@ -1767,7 +1802,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.FastCheckout.RunOutcome"
-    enum="FastCheckoutRunOutcome" expires_after="2023-11-15">
+    enum="FastCheckoutRunOutcome" expires_after="2024-11-15">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
@@ -1779,7 +1814,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.FastCheckout.TriggerOutcome"
-    enum="FastCheckoutTriggerOutcome" expires_after="2024-02-11">
+    enum="FastCheckoutTriggerOutcome" expires_after="2024-11-15">
   <owner>bwolfgang@google.com</owner>
   <owner>jkeitel@google.com</owner>
   <owner>vizcay@google.com</owner>
@@ -2022,41 +2057,6 @@ chromium-metrics-reviews@google.com.
     Note that histogram samples for clients without high-resolution clocks are
     dropped.
   </summary>
-</histogram>
-
-<histogram
-    name="Autofill.FormAffectedByLaxLocalHeuristicRule.FillingAcceptance{AutofillFormType}"
-    enum="BooleanAutofillFillingAcceptance" expires_after="M120">
-  <owner>battre@google.com</owner>
-  <owner>chrome-autofill-alerts@google.com</owner>
-  <summary>
-    Records for each submitted form that is affected by our &quot;lax local
-    heuristic rule&quot; whether the user accepted filling an autofill
-    suggestion. The &quot;lax local heuristic rule&quot; is that we require at
-    least 3 fields to be classified by the local heuristic to propagate that
-    classification - but we don't require 3 distinct field types, which would be
-    the &quot;stricter local heuristic rule&quot;. A form is affected if any
-    field type would be different if we applied the stricter rule.
-    {AutofillFormType}
-  </summary>
-  <token key="AutofillFormType" variants="AutofillFormType"/>
-</histogram>
-
-<histogram
-    name="Autofill.FormAffectedByLaxLocalHeuristicRule.FillingCorrectness{AutofillFormType}"
-    enum="BooleanAutofillFillingCorrectness" expires_after="2024-02-20">
-  <owner>battre@google.com</owner>
-  <owner>chrome-autofill-alerts@google.com</owner>
-  <summary>
-    Records for each submitted form that is affected by our &quot;lax local
-    heuristic rule&quot; whether the user edited an autofilled field. The
-    &quot;lax local heuristic rule&quot; is that we require at least 3 fields to
-    be classified by the local heuristic to propagate that classification - but
-    we don't require 3 distinct field types, which would be the &quot;stricter
-    local heuristic rule&quot;. A form is affected if any field type would be
-    different if we applied the stricter rule. {AutofillFormType}
-  </summary>
-  <token key="AutofillFormType" variants="AutofillFormType"/>
 </histogram>
 
 <histogram name="Autofill.FormCacheSize" units="forms" expires_after="M108">
@@ -2581,7 +2581,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Autofill.IsValueNotAutofilledOverExistingValueSameAsSubmittedValue2"
-    enum="Boolean" expires_after="2023-11-12">
+    enum="Boolean" expires_after="2024-04-12">
   <owner>vidhanj@google.com</owner>
   <owner>koerber@google.com</owner>
   <owner>chrome-autofill-alerts@google.com</owner>
@@ -2690,7 +2690,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Autofill.LabelInference.InferredLabelSource.AtSubmission2"
-    enum="InferredLabelSource" expires_after="2024-01-28">
+    enum="InferredLabelSource" expires_after="2024-03-31">
   <owner>fleimgruber@google.com</owner>
   <owner>chrome-autofill-team@google.com</owner>
   <summary>
@@ -3666,10 +3666,7 @@ chromium-metrics-reviews@google.com.
     PlusAddressClient records this whenever it gets a response for the network
     requests it makes.
   </summary>
-  <token key="Type">
-    <variant name="AutofillPlusAddressNetworkRequestType"
-        summary="The relevant network request."/>
-  </token>
+  <token key="Type" variants="AutofillPlusAddressNetworkRequestType"/>
 </histogram>
 
 <histogram name="Autofill.PlusAddresses.NetworkRequest.{Type}.ResponseByteSize"
@@ -3681,10 +3678,7 @@ chromium-metrics-reviews@google.com.
     plus addresses feature. The PlusAddressClient records this whenever it gets
     a response for the network requests it makes.
   </summary>
-  <token key="Type">
-    <variant name="AutofillPlusAddressNetworkRequestType"
-        summary="The relevant network request."/>
-  </token>
+  <token key="Type" variants="AutofillPlusAddressNetworkRequestType"/>
 </histogram>
 
 <histogram name="Autofill.PlusAddresses.NetworkRequest.{Type}.ResponseCode"
@@ -3696,10 +3690,7 @@ chromium-metrics-reviews@google.com.
     plus addresses feature. The PlusAddressClient records this whenever it gets
     a response for the network requests it makes.
   </summary>
-  <token key="Type">
-    <variant name="AutofillPlusAddressNetworkRequestType"
-        summary="The relevant network request."/>
-  </token>
+  <token key="Type" variants="AutofillPlusAddressNetworkRequestType"/>
 </histogram>
 
 <histogram name="Autofill.PlusAddresses.Suggestion.Events"
@@ -5664,16 +5655,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Autofill.WalletAddressConversionType"
-    enum="AutofillWalletAddressConversionType" expires_after="2023-12-12">
-  <owner>battre@chromium.org</owner>
-  <owner>chrome-autofill-alerts@google.com</owner>
-  <summary>
-    Tracks how the different wallet addresses are converted to local autofill
-    profiles.
-  </summary>
-</histogram>
-
 <histogram name="Autofill.WebOTP.OneTimeCode.FillDuration.FromInteraction"
     units="ms" expires_after="2024-02-11">
   <owner>yigu@chromium.org</owner>
@@ -5774,7 +5755,7 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Autofill.Webview.Events" units="Bitmask"
+<histogram name="Autofill.WebView.Events" units="Bitmask"
     expires_after="2024-08-31">
   <owner>jkeitel@google.com</owner>
   <owner>battre@chromium.org</owner>

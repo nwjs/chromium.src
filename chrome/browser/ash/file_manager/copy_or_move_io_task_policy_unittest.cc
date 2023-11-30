@@ -18,7 +18,6 @@
 #include "chrome/browser/ash/policy/dlp/dialogs/files_policy_dialog.h"
 #include "chrome/browser/ash/policy/dlp/files_policy_notification_manager.h"
 #include "chrome/browser/ash/policy/dlp/files_policy_notification_manager_factory.h"
-#include "chrome/browser/ash/policy/dlp/files_policy_warn_settings.h"
 #include "chrome/browser/ash/policy/dlp/test/mock_dlp_files_controller_ash.h"
 #include "chrome/browser/ash/policy/dlp/test/mock_files_policy_notification_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/dialogs/policy_dialog_base.h"
@@ -564,32 +563,36 @@ class CopyOrMoveIOTaskWithScansTest
       blocked_files.push_back(file.source_url.path());
     }
 
-    EXPECT_CALL(*fpnm_, AddConnectorsBlockedFiles(
+    EXPECT_CALL(*fpnm_, SetConnectorsBlockedFiles(
                             /*task_id=*/{kTaskId},
-                            UnorderedElementsAreArray(blocked_files),
                             GetOperationType() == OperationType::kCopy
                                 ? policy::dlp::FileAction::kCopy
                                 : policy::dlp::FileAction::kMove,
-                            reason));
+                            reason,
+                            policy::FilesPolicyDialog::Info::Error(
+                                reason, blocked_files)));
   }
 
-  void ExpectFPNMFilesWarningDialogAndProceed(
-      CopyOrMoveIOTask& task,
-      policy::FilesPolicyWarnSettings warn_settings =
-          policy::FilesPolicyWarnSettings()) {
+  void ExpectFPNMFilesWarningDialogAndProceed(CopyOrMoveIOTask& task) {
     std::vector<base::FilePath> warned_files;
     for (auto&& file : warned_files_) {
       warned_files.push_back(file.path());
     }
 
+    // Enterprise connectors file transfer currently only considers warning mode
+    // for sensitive data.
+    auto dialog_info = policy::FilesPolicyDialog::Info::Warn(
+        policy::FilesPolicyDialog::BlockReason::
+            kEnterpriseConnectorsSensitiveData,
+        warned_files);
+
     EXPECT_CALL(*fpnm_, ShowConnectorsWarning(
                             /*callback=*/_,
                             /*task_id=*/{kTaskId},
-                            UnorderedElementsAreArray(warned_files),
                             GetOperationType() == OperationType::kCopy
                                 ? policy::dlp::FileAction::kCopy
                                 : policy::dlp::FileAction::kMove,
-                            warn_settings))
+                            std::move(dialog_info)))
         .WillOnce([&](auto&&... args) {
           warning_callback_ = std::move(std::get<0>(std::tie(args...)));
 
@@ -608,14 +611,20 @@ class CopyOrMoveIOTaskWithScansTest
       warned_files.push_back(file.path());
     }
 
+    // Enterprise connectors file transfer currently only considers warning mode
+    // for sensitive data.
+    auto dialog_settings = policy::FilesPolicyDialog::Info::Warn(
+        policy::FilesPolicyDialog::BlockReason::
+            kEnterpriseConnectorsSensitiveData,
+        warned_files);
+
     EXPECT_CALL(*fpnm_, ShowConnectorsWarning(
                             /*callback=*/_,
                             /*task_id=*/{kTaskId},
-                            UnorderedElementsAreArray(warned_files),
                             GetOperationType() == OperationType::kCopy
                                 ? policy::dlp::FileAction::kCopy
                                 : policy::dlp::FileAction::kMove,
-                            policy::FilesPolicyWarnSettings()))
+                            std::move(dialog_settings)))
         .WillOnce([&, cancelCallback](auto&&... args) {
           warning_callback_ = std::move(std::get<0>(std::tie(args...)));
 
@@ -705,7 +714,7 @@ class CopyOrMoveIOTaskWithScansTest
   raw_ptr<policy::MockFilesPolicyNotificationManager,
           DanglingUntriaged | ExperimentalAsh>
       fpnm_;
-  policy::OnDlpRestrictionCheckedWithJustificationCallback warning_callback_;
+  policy::WarningWithJustificationCallback warning_callback_;
 };
 
 INSTANTIATE_TEST_SUITE_P(
@@ -803,9 +812,8 @@ TEST_P(CopyOrMoveIOTaskWithScansTest, BlockSingleFileUsingResultUnknown) {
            : absl::nullopt});
 
   if (UseNewPolicyUI() && UseNewConnectorsUI()) {
-    ExpectFPNMBlockedFiles(
-        {file},
-        policy::FilesPolicyDialog::BlockReason::kEnterpriseConnectorsUnknown);
+    ExpectFPNMBlockedFiles({file}, policy::FilesPolicyDialog::BlockReason::
+                                       kEnterpriseConnectorsUnknownScanResult);
   }
 
   // Start the copy/move.
@@ -1461,15 +1469,13 @@ class CopyOrMoveIOTaskWithDLPTest : public testing::Test {
   ~CopyOrMoveIOTaskWithDLPTest() override = default;
 
  protected:
-  CopyOrMoveIOTaskWithDLPTest()
-      : profile_(std::make_unique<TestingProfile>()),
-        user_manager_(new ash::FakeChromeUserManager()),
-        scoped_user_manager_(base::WrapUnique(user_manager_.get())) {}
+  CopyOrMoveIOTaskWithDLPTest() = default;
 
   std::unique_ptr<KeyedService> SetDlpRulesManager(
       content::BrowserContext* context) {
     auto dlp_rules_manager =
-        std::make_unique<testing::NiceMock<policy::MockDlpRulesManager>>();
+        std::make_unique<testing::NiceMock<policy::MockDlpRulesManager>>(
+            Profile::FromBrowserContext(context));
     mock_rules_manager_ = dlp_rules_manager.get();
     ON_CALL(*mock_rules_manager_, IsFilesPolicyEnabled)
         .WillByDefault(testing::Return(true));
@@ -1490,13 +1496,13 @@ class CopyOrMoveIOTaskWithDLPTest : public testing::Test {
     AccountId account_id = AccountId::FromUserEmailGaiaId(kEmailId, kGaiaId);
     profile_->SetIsNewProfile(true);
     user_manager::User* user =
-        user_manager_->AddUserWithAffiliationAndTypeAndProfile(
+        fake_user_manager_->AddUserWithAffiliationAndTypeAndProfile(
             account_id, /*is_affiliated=*/false,
             user_manager::USER_TYPE_REGULAR, profile_.get());
-    user_manager_->UserLoggedIn(account_id, user->username_hash(),
-                                /*browser_restart=*/false,
-                                /*is_child=*/false);
-    user_manager_->SimulateUserProfileLoad(account_id);
+    fake_user_manager_->UserLoggedIn(account_id, user->username_hash(),
+                                     /*browser_restart=*/false,
+                                     /*is_child=*/false);
+    fake_user_manager_->SimulateUserProfileLoad(account_id);
 
     // DLP Setup.
     policy::DlpRulesManagerFactory::GetInstance()->SetTestingFactory(
@@ -1530,15 +1536,15 @@ class CopyOrMoveIOTaskWithDLPTest : public testing::Test {
   base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_;
   ash::disks::FakeDiskMountManager disk_mount_manager_;
-  const std::unique_ptr<TestingProfile> profile_;
+  user_manager::TypedScopedUserManager<ash::FakeChromeUserManager>
+      fake_user_manager_{std::make_unique<ash::FakeChromeUserManager>()};
+  const std::unique_ptr<TestingProfile> profile_{
+      std::make_unique<TestingProfile>()};
   raw_ptr<policy::MockDlpRulesManager, DanglingUntriaged | ExperimentalAsh>
       mock_rules_manager_ = nullptr;
   std::unique_ptr<policy::MockDlpFilesControllerAsh> files_controller_;
   base::ScopedTempDir temp_dir_;
   scoped_refptr<storage::FileSystemContext> file_system_context_;
-  raw_ptr<ash::FakeChromeUserManager, DanglingUntriaged | ExperimentalAsh>
-      user_manager_;
-  user_manager::ScopedUserManager scoped_user_manager_;
   const blink::StorageKey kTestStorageKey =
       blink::StorageKey::CreateFromStringForTesting("chrome-extension://abc");
 };

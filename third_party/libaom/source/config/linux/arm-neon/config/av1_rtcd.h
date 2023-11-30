@@ -193,6 +193,30 @@ void av1_convolve_2d_sr_c(const uint8_t *src, int src_stride, uint8_t *dst, int 
 void av1_convolve_2d_sr_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const InterpFilterParams *filter_params_y, const int subpel_x_qn, const int subpel_y_qn, ConvolveParams *conv_params);
 #define av1_convolve_2d_sr av1_convolve_2d_sr_neon
 
+void av1_convolve_2d_sr_intrabc_c(const uint8_t* src,
+                                  int src_stride,
+                                  uint8_t* dst,
+                                  int dst_stride,
+                                  int w,
+                                  int h,
+                                  const InterpFilterParams* filter_params_x,
+                                  const InterpFilterParams* filter_params_y,
+                                  const int subpel_x_qn,
+                                  const int subpel_y_qn,
+                                  ConvolveParams* conv_params);
+void av1_convolve_2d_sr_intrabc_neon(const uint8_t* src,
+                                     int src_stride,
+                                     uint8_t* dst,
+                                     int dst_stride,
+                                     int w,
+                                     int h,
+                                     const InterpFilterParams* filter_params_x,
+                                     const InterpFilterParams* filter_params_y,
+                                     const int subpel_x_qn,
+                                     const int subpel_y_qn,
+                                     ConvolveParams* conv_params);
+#define av1_convolve_2d_sr_intrabc av1_convolve_2d_sr_intrabc_neon
+
 void av1_convolve_horiz_rs_c(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const int16_t *x_filters, int x0_qn, int x_step_qn);
 #define av1_convolve_horiz_rs av1_convolve_horiz_rs_c
 
@@ -200,9 +224,47 @@ void av1_convolve_x_sr_c(const uint8_t *src, int src_stride, uint8_t *dst, int d
 void av1_convolve_x_sr_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_x, const int subpel_x_qn, ConvolveParams *conv_params);
 #define av1_convolve_x_sr av1_convolve_x_sr_neon
 
+void av1_convolve_x_sr_intrabc_c(const uint8_t* src,
+                                 int src_stride,
+                                 uint8_t* dst,
+                                 int dst_stride,
+                                 int w,
+                                 int h,
+                                 const InterpFilterParams* filter_params_x,
+                                 const int subpel_x_qn,
+                                 ConvolveParams* conv_params);
+void av1_convolve_x_sr_intrabc_neon(const uint8_t* src,
+                                    int src_stride,
+                                    uint8_t* dst,
+                                    int dst_stride,
+                                    int w,
+                                    int h,
+                                    const InterpFilterParams* filter_params_x,
+                                    const int subpel_x_qn,
+                                    ConvolveParams* conv_params);
+#define av1_convolve_x_sr_intrabc av1_convolve_x_sr_intrabc_neon
+
 void av1_convolve_y_sr_c(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn);
 void av1_convolve_y_sr_neon(const uint8_t *src, int src_stride, uint8_t *dst, int dst_stride, int w, int h, const InterpFilterParams *filter_params_y, const int subpel_y_qn);
 #define av1_convolve_y_sr av1_convolve_y_sr_neon
+
+void av1_convolve_y_sr_intrabc_c(const uint8_t* src,
+                                 int src_stride,
+                                 uint8_t* dst,
+                                 int dst_stride,
+                                 int w,
+                                 int h,
+                                 const InterpFilterParams* filter_params_y,
+                                 const int subpel_y_qn);
+void av1_convolve_y_sr_intrabc_neon(const uint8_t* src,
+                                    int src_stride,
+                                    uint8_t* dst,
+                                    int dst_stride,
+                                    int w,
+                                    int h,
+                                    const InterpFilterParams* filter_params_y,
+                                    const int subpel_y_qn);
+#define av1_convolve_y_sr_intrabc av1_convolve_y_sr_intrabc_neon
 
 int av1_denoiser_filter_c(const uint8_t *sig, int sig_stride, const uint8_t *mc_avg, int mc_avg_stride, uint8_t *avg, int avg_stride, int increase_denoising, BLOCK_SIZE bs, int motion_magnitude);
 int av1_denoiser_filter_neon(const uint8_t *sig, int sig_stride, const uint8_t *mc_avg, int mc_avg_stride, uint8_t *avg, int avg_stride, int increase_denoising, BLOCK_SIZE bs, int motion_magnitude);
@@ -531,10 +593,18 @@ void av1_warp_affine_neon(const int32_t *mat, const uint8_t *ref, int width, int
 #define av1_warp_affine av1_warp_affine_neon
 
 void av1_wedge_compute_delta_squares_c(int16_t *d, const int16_t *a, const int16_t *b, int N);
-#define av1_wedge_compute_delta_squares av1_wedge_compute_delta_squares_c
+void av1_wedge_compute_delta_squares_neon(int16_t* d,
+                                          const int16_t* a,
+                                          const int16_t* b,
+                                          int N);
+#define av1_wedge_compute_delta_squares av1_wedge_compute_delta_squares_neon
 
 int8_t av1_wedge_sign_from_residuals_c(const int16_t *ds, const uint8_t *m, int N, int64_t limit);
-#define av1_wedge_sign_from_residuals av1_wedge_sign_from_residuals_c
+int8_t av1_wedge_sign_from_residuals_neon(const int16_t* ds,
+                                          const uint8_t* m,
+                                          int N,
+                                          int64_t limit);
+#define av1_wedge_sign_from_residuals av1_wedge_sign_from_residuals_neon
 
 uint64_t av1_wedge_sse_from_residuals_c(const int16_t *r1, const int16_t *d, const uint8_t *m, int N);
 uint64_t av1_wedge_sse_from_residuals_neon(const int16_t *r1, const int16_t *d, const uint8_t *m, int N);

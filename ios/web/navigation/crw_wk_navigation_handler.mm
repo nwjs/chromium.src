@@ -428,12 +428,8 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
     return;
   }
 
-  BOOL hasTappedRecently =
-      self.userInteractionState->HasUserTappedRecently(webView);
-  BOOL userInteractedWithRequestMainFrame =
-      hasTappedRecently &&
-      net::GURLWithNSURL(action.request.mainDocumentURL) ==
-          self.userInteractionState->LastUserInteraction()->main_document_url;
+  BOOL isUserInitiated = [self.delegate isUserInitiatedAction:action];
+
   BOOL isCrossOriginTargetFrame = NO;
   if (action.sourceFrame && action.targetFrame &&
       action.sourceFrame.webView == action.targetFrame.webView &&
@@ -447,14 +443,14 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
   if (base::FeatureList::IsEnabled(
           web::features::kPreventNavigationWithoutUserInteraction) &&
       isMainFrameNavigationAction && isCrossOriginTargetFrame &&
-      !hasTappedRecently) {
+      !isUserInitiated) {
     decisionHandler(WKNavigationActionPolicyCancel);
     return;
   }
 
   const web::WebStatePolicyDecider::RequestInfo requestInfo(
       transition, isMainFrameNavigationAction, isCrossOriginTargetFrame,
-      userInteractedWithRequestMainFrame);
+      isUserInitiated);
 
   self.webStateImpl->ShouldAllowRequest(action.request, requestInfo,
                                         std::move(callback));
@@ -1019,6 +1015,19 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
   if (self.navigationState == web::WKNavigationState::FINISHED &&
       error.code == NSURLErrorCancelled &&
       [error.domain isEqualToString:NSURLErrorDomain]) {
+    _certVerificationErrors->Clear();
+    return;
+  }
+
+  // `webView:didFailNavigation:withError:` may be called when rendering an
+  // office document which should be ignored because the `webView` will already
+  // be displaying its own error. Additionally, in these cases, JavaScript can
+  // not be run on these pages (in order to display our own error message). See
+  // crbug.com/1489167 for more details.
+  if ([error.domain isEqualToString:@"OfficeImportErrorDomain"]) {
+    [self.navigationStates setState:web::WKNavigationState::FINISHED
+                      forNavigation:navigation];
+    self.webStateImpl->RemoveAllWebFrames();
     _certVerificationErrors->Clear();
     return;
   }

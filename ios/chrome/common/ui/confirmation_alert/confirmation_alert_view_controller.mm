@@ -57,7 +57,6 @@ const CGFloat kFaviconBadgeSideLength = 24;
 
 // References to the UI properties that need to be updated when the trait
 // collection changes.
-@property(nonatomic, strong) UIButton* primaryActionButton;
 @property(nonatomic, strong) UIButton* secondaryActionButton;
 @property(nonatomic, strong) UIButton* tertiaryActionButton;
 @property(nonatomic, strong) UINavigationBar* navigationBar;
@@ -116,6 +115,10 @@ const CGFloat kFaviconBadgeSideLength = 24;
       self.imageContainerView = self.imageView;
     }
     [stackSubviews addObject:self.imageContainerView];
+  }
+
+  if (self.aboveTitleView) {
+    [stackSubviews addObject:self.aboveTitleView];
   }
 
   if (self.titleString.length) {
@@ -578,6 +581,10 @@ const CGFloat kFaviconBadgeSideLength = 24;
 - (UIImageView*)createImageView {
   UIImageView* imageView = [[UIImageView alloc] initWithImage:self.image];
   imageView.contentMode = UIViewContentModeScaleAspectFit;
+  if (self.imageViewAccessibilityLabel) {
+    imageView.isAccessibilityElement = YES;
+    imageView.accessibilityLabel = self.imageViewAccessibilityLabel;
+  }
 
   imageView.translatesAutoresizingMaskIntoConstraints = NO;
   return imageView;
@@ -778,7 +785,7 @@ const CGFloat kFaviconBadgeSideLength = 24;
   actionStackView.translatesAutoresizingMaskIntoConstraints = NO;
 
   if (self.primaryActionString) {
-    self.primaryActionButton = [self createPrimaryActionButton];
+    _primaryActionButton = [self createPrimaryActionButton];
     [actionStackView addArrangedSubview:self.primaryActionButton];
   }
 

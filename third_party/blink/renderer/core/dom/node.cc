@@ -77,6 +77,7 @@
 #include "third_party/blink/renderer/core/dom/static_node_list.h"
 #include "third_party/blink/renderer/core/dom/template_content_document_fragment.h"
 #include "third_party/blink/renderer/core/dom/text.h"
+#include "third_party/blink/renderer/core/dom/text_visitor.h"
 #include "third_party/blink/renderer/core/dom/tree_scope_adopter.h"
 #include "third_party/blink/renderer/core/dom/user_action_element_set.h"
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
@@ -117,9 +118,6 @@
 #include "third_party/blink/renderer/core/mathml_names.h"
 #include "third_party/blink/renderer/core/page/context_menu_controller.h"
 #include "third_party/blink/renderer/core/page/page.h"
-#include "third_party/blink/renderer/core/page/scrolling/scroll_customization_callbacks.h"
-#include "third_party/blink/renderer/core/page/scrolling/scroll_state.h"
-#include "third_party/blink/renderer/core/page/scrolling/scroll_state_callback.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/paint/paint_layer.h"
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
@@ -150,24 +148,6 @@
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
-
-namespace {
-
-// We need to retain the scroll customization callbacks until the element
-// they're associated with is destroyed. It would be simplest if the callbacks
-// could be stored in ElementRareData, but we can't afford the space increase.
-// Instead, keep the scroll customization callbacks here. The other option would
-// be to store these callbacks on the Page or document, but that necessitates a
-// bunch more logic for transferring the callbacks between Pages when elements
-// are moved around.
-ScrollCustomizationCallbacks& GetScrollCustomizationCallbacks() {
-  DEFINE_STATIC_LOCAL(Persistent<ScrollCustomizationCallbacks>,
-                      scroll_customization_callbacks,
-                      (MakeGarbageCollected<ScrollCustomizationCallbacks>()));
-  return *scroll_customization_callbacks;
-}
-
-}  // namespace
 
 using ReattachHookScope = LayoutShiftTracker::ReattachHookScope;
 
@@ -478,180 +458,6 @@ Node* Node::getRootNode(const GetRootNodeOptions* options) const {
              : &TreeRoot();
 }
 
-void Node::SetApplyScroll(ScrollStateCallback* scroll_state_callback) {
-  GetScrollCustomizationCallbacks().SetApplyScroll(this, scroll_state_callback);
-}
-
-void Node::RemoveApplyScroll() {
-  GetScrollCustomizationCallbacks().RemoveApplyScroll(this);
-}
-
-ScrollStateCallback* Node::GetApplyScroll() {
-  return GetScrollCustomizationCallbacks().GetApplyScroll(this);
-}
-
-void Node::NativeDistributeScroll(ScrollState& scroll_state) {
-  if (scroll_state.FullyConsumed())
-    return;
-
-  scroll_state.distributeToScrollChainDescendant();
-
-  // The scroll doesn't propagate, and we're currently scrolling an element
-  // other than this one, prevent the scroll from propagating to this element.
-  if (scroll_state.DeltaConsumedForScrollSequence() &&
-      scroll_state.CurrentNativeScrollingNode() != this) {
-    return;
-  }
-
-  const double delta_x = scroll_state.deltaX();
-  const double delta_y = scroll_state.deltaY();
-
-  CallApplyScroll(scroll_state);
-
-  if (delta_x != scroll_state.deltaX() || delta_y != scroll_state.deltaY())
-    scroll_state.SetCurrentNativeScrollingNode(this);
-}
-
-void Node::NativeApplyScroll(ScrollState& scroll_state) {
-  if (!GetLayoutObject())
-    return;
-
-  // All elements in the scroll chain should be boxes. However, in a scroll
-  // gesture sequence, the scroll chain is only computed on GestureScrollBegin.
-  // The type of layout object of the nodes in the scroll chain can change
-  // between GestureScrollUpdate and GestureScrollBegin (e.g. from script
-  // setting one of the nodes to display:inline). If there is no box there will
-  // not be a scrollable area to scroll, so just return.
-  if (!GetLayoutObject()->IsBox())
-    return;
-
-  if (scroll_state.FullyConsumed())
-    return;
-
-  ScrollOffset delta(scroll_state.deltaX(), scroll_state.deltaY());
-
-  if (delta.IsZero())
-    return;
-
-  // TODO: This should use updateStyleAndLayoutForNode.
-  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kScroll);
-
-  ScrollableArea* scrollable_area =
-      ScrollableArea::GetForScrolling(To<LayoutBox>(GetLayoutObject()));
-  if (!scrollable_area)
-    return;
-  LayoutBox* box_to_scroll = scrollable_area->GetLayoutBox();
-
-  auto& visual_viewport = GetDocument().GetPage()->GetVisualViewport();
-
-  // TODO(bokan): This is a hack to fix https://crbug.com/977954. If we have a
-  // non-default root scroller, scrolling from one of its siblings or a fixed
-  // element will chain up to the root node without passing through the root
-  // scroller. This should scroll the visual viewport (so we can still pan
-  // while zoomed) but not by using the RootFrameViewport, which would cause
-  // scrolling in the root scroller element. Implementing this on the main
-  // thread is awkward since we assume only Nodes are scrollable but the
-  // VisualViewport isn't a Node. See LTHI::ApplyScroll for the equivalent
-  // behavior in CC.
-  bool also_scroll_visual_viewport = GetDocument().IsInMainFrame() &&
-                                     visual_viewport.IsActiveViewport() &&
-                                     IsA<LayoutView>(box_to_scroll);
-  DCHECK(!also_scroll_visual_viewport ||
-         !box_to_scroll->IsGlobalRootScroller());
-
-  ScrollResult result =
-      scrollable_area->UserScroll(scroll_state.delta_granularity(), delta,
-                                  ScrollableArea::ScrollCallback());
-
-  // Also try scrolling the visual viewport if we're at the end of the scroll
-  // chain.
-  if (!result.DidScroll() && also_scroll_visual_viewport) {
-    result = visual_viewport.UserScroll(scroll_state.delta_granularity(), delta,
-                                        ScrollableArea::ScrollCallback());
-  }
-
-  if (!result.DidScroll())
-    return;
-
-  // FIXME: Native scrollers should only consume the scroll they
-  // apply. See crbug.com/457765.
-  scroll_state.ConsumeDeltaNative(delta.x(), delta.y());
-
-  // We need to setCurrentNativeScrollingElement in both the
-  // distributeScroll and applyScroll default implementations so
-  // that if JS overrides one of these methods, but not the
-  // other, this bookkeeping remains accurate.
-  scroll_state.SetCurrentNativeScrollingNode(this);
-}
-
-void Node::CallDistributeScroll(ScrollState& scroll_state) {
-  TRACE_EVENT0("input", "Node::CallDistributeScroll");
-  ScrollStateCallback* callback =
-      GetScrollCustomizationCallbacks().GetDistributeScroll(this);
-
-  // TODO(bokan): Need to add tests before we allow calling custom callbacks
-  // for non-touch modalities. For now, just call into the native callback but
-  // allow the viewport scroll callback so we don't disable overscroll.
-  // crbug.com/623079.
-  bool disable_custom_callbacks = !scroll_state.isDirectManipulation() &&
-                                  !GetDocument()
-                                       .GetPage()
-                                       ->GlobalRootScrollerController()
-                                       .IsViewportScrollCallback(callback);
-
-  if (!callback || disable_custom_callbacks) {
-    NativeDistributeScroll(scroll_state);
-    return;
-  }
-  if (callback->GetNativeScrollBehavior() !=
-      NativeScrollBehavior::kPerformAfterNativeScroll)
-    callback->Invoke(&scroll_state);
-  if (callback->GetNativeScrollBehavior() !=
-      NativeScrollBehavior::kDisableNativeScroll)
-    NativeDistributeScroll(scroll_state);
-  if (callback->GetNativeScrollBehavior() ==
-      NativeScrollBehavior::kPerformAfterNativeScroll)
-    callback->Invoke(&scroll_state);
-}
-
-void Node::CallApplyScroll(ScrollState& scroll_state) {
-  TRACE_EVENT0("input", "Node::CallApplyScroll");
-
-  if (!GetDocument().GetPage()) {
-    // We should always have a Page if we're scrolling. See
-    // crbug.com/689074 for details.
-    NOTREACHED();
-    return;
-  }
-
-  ScrollStateCallback* callback =
-      GetScrollCustomizationCallbacks().GetApplyScroll(this);
-
-  // TODO(bokan): Need to add tests before we allow calling custom callbacks
-  // for non-touch modalities. For now, just call into the native callback but
-  // allow the viewport scroll callback so we don't disable overscroll.
-  // crbug.com/623079.
-  bool disable_custom_callbacks = !scroll_state.isDirectManipulation() &&
-                                  !GetDocument()
-                                       .GetPage()
-                                       ->GlobalRootScrollerController()
-                                       .IsViewportScrollCallback(callback);
-
-  if (!callback || disable_custom_callbacks) {
-    NativeApplyScroll(scroll_state);
-    return;
-  }
-  if (callback->GetNativeScrollBehavior() !=
-      NativeScrollBehavior::kPerformAfterNativeScroll)
-    callback->Invoke(&scroll_state);
-  if (callback->GetNativeScrollBehavior() !=
-      NativeScrollBehavior::kDisableNativeScroll)
-    NativeApplyScroll(scroll_state);
-  if (callback->GetNativeScrollBehavior() ==
-      NativeScrollBehavior::kPerformAfterNativeScroll)
-    callback->Invoke(&scroll_state);
-}
-
 Node* Node::insertBefore(Node* new_child,
                          Node* ref_child,
                          ExceptionState& exception_state) {
@@ -797,7 +603,7 @@ Node* Node::ConvertNodesIntoNode(const Node* parent,
                                  Document& document,
                                  ExceptionState& exception_state) {
   if (nodes.size() == 1) {
-    return nodes[0];
+    return nodes[0].Get();
   }
 
   Node* fragment = DocumentFragment::Create(document);
@@ -817,7 +623,7 @@ namespace {
 // Returns nullptr if an exception was thrown.
 VectorOf<Node> ConvertNodeUnionsIntoNodes(
     const Node* parent,
-    const VectorOf<V8UnionNodeOrStringOrTrustedScript>& node_unions,
+    const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
     Document& document,
     ExceptionState& exception_state) {
   bool needs_check = IsA<HTMLScriptElement>(parent) &&
@@ -838,10 +644,13 @@ VectorOf<Node> ConvertNodeUnionsIntoNodes(
   return nodes;
 }
 
+}  // namespace
+
+// static
 // Returns nullptr if an exception was thrown.
-Node* ConvertNodeUnionsIntoNode(
+Node* Node::ConvertNodeUnionsIntoNode(
     const Node* parent,
-    const VectorOf<V8UnionNodeOrStringOrTrustedScript>& node_unions,
+    const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& node_unions,
     Document& document,
     ExceptionState& exception_state) {
   VectorOf<Node> nodes = ConvertNodeUnionsIntoNodes(parent, node_unions,
@@ -851,8 +660,6 @@ Node* ConvertNodeUnionsIntoNode(
   }
   return Node::ConvertNodesIntoNode(parent, nodes, document, exception_state);
 }
-
-}  // namespace
 
 void Node::prepend(
     const HeapVector<Member<V8UnionNodeOrStringOrTrustedScript>>& nodes,
@@ -1157,8 +964,8 @@ void Node::MarkSubtreeNeedsStyleRecalcForFontUpdates() {
   if (GetStyleChangeType() == kSubtreeStyleChange)
     return;
 
-  if (IsElementNode()) {
-    const ComputedStyle* style = GetComputedStyle();
+  if (auto* element = DynamicTo<Element>(this)) {
+    const ComputedStyle* style = element->GetComputedStyle();
     if (!style)
       return;
 
@@ -1167,7 +974,7 @@ void Node::MarkSubtreeNeedsStyleRecalcForFontUpdates() {
     // other style computations are unaffected by font loading.
     if (!NeedsStyleRecalc()) {
       if (style->DependsOnFontMetrics() ||
-          To<Element>(this)->PseudoElementStylesDependOnFontMetrics()) {
+          element->PseudoElementStylesDependOnFontMetrics()) {
         SetNeedsStyleRecalc(
             kLocalStyleChange,
             StyleChangeReasonForTracing::Create(style_change_reason::kFonts));
@@ -1183,19 +990,17 @@ void Node::MarkSubtreeNeedsStyleRecalcForFontUpdates() {
 }
 
 bool Node::ShouldSkipMarkingStyleDirty() const {
-  if (GetComputedStyle())
-    return false;
-
-  // If we don't have a computed style, and our parent element does not have a
-  // computed style it's not necessary to mark this node for style recalc.
-  if (Element* parent = GetStyleRecalcParent())
-    return !parent || !parent->GetComputedStyle();
+  // If our parent element does not have a computed style, it's not necessary to
+  // mark this node for style recalc.
+  if (Element* parent = GetStyleRecalcParent()) {
+    return !parent->GetComputedStyle();
+  }
   // If this is the root element, and it does not have a computed style, we
   // still need to mark it for style recalc since it may change from
   // display:none. Otherwise, the node is not in the flat tree, and we can
   // skip marking it dirty.
-  auto* root_element = GetDocument().documentElement();
-  return root_element && root_element != this;
+  return !GetComputedStyle() && GetDocument().documentElement() &&
+         this != GetDocument().documentElement();
 }
 
 void Node::MarkAncestorsWithChildNeedsStyleRecalc() {
@@ -1606,7 +1411,8 @@ void Node::DetachLayoutTree(bool performing_reattach) {
     // this Node as a StyleRecalcRoot if this detach is because the node is
     // removed from the flat tree. That is necessary because we are not allowed
     // to have a style recalc root outside the flat tree when traversing the
-    // flat tree for style recalc (see StyleRecalcRoot::RemovedFromFlatTree()).
+    // flat tree for style recalc
+    // (see StyleRecalcRoot::FlatTreePositionChanged()).
     ClearNeedsStyleRecalc();
     ClearChildNeedsStyleRecalc();
   }
@@ -1619,8 +1425,8 @@ void Node::SetForceReattachLayoutTree() {
     return;
   if (!InActiveDocument())
     return;
-  if (IsElementNode()) {
-    if (!GetComputedStyle()) {
+  if (Element* element = DynamicTo<Element>(this)) {
+    if (!element->GetComputedStyle()) {
       DCHECK(!GetLayoutObject());
       return;
     }
@@ -1980,7 +1786,8 @@ const AtomicString& Node::lookupNamespaceURI(
   }
 }
 
-String Node::textContent(bool convert_brs_to_newlines) const {
+String Node::textContent(bool convert_brs_to_newlines,
+                         TextVisitor* visitor) const {
   // This covers ProcessingInstruction and Comment that should return their
   // value when .textContent is accessed on them, but should be ignored when
   // iterated over as a descendant of a ContainerNode.
@@ -1998,6 +1805,9 @@ String Node::textContent(bool convert_brs_to_newlines) const {
 
   StringBuilder content;
   for (const Node& node : NodeTraversal::InclusiveDescendantsOf(*this)) {
+    if (visitor) {
+      visitor->WillVisit(node, content.length());
+    }
     if (IsA<HTMLBRElement>(node) && convert_brs_to_newlines) {
       content.Append('\n');
     } else if (auto* text_node = DynamicTo<Text>(node)) {
@@ -3019,9 +2829,10 @@ void Node::UpdateHadKeyboardEvent(const Event& event) {
   if (GetLayoutObject()) {
     InvalidateIfHasEffectiveAppearance();
 
-    auto* this_node = DynamicTo<ContainerNode>(this);
-    if (RuntimeEnabledFeatures::CSSFocusVisibleEnabled() && this_node)
-      this_node->FocusVisibleStateChanged();
+    auto* this_element = DynamicTo<Element>(this);
+    if (RuntimeEnabledFeatures::CSSFocusVisibleEnabled() && this_element) {
+      this_element->FocusVisibleStateChanged();
+    }
   }
 }
 
@@ -3124,12 +2935,6 @@ HTMLSlotElement* Node::assignedSlotForBinding() {
       return AssignedSlot();
   }
   return nullptr;
-}
-
-void Node::SetFocused(bool flag, mojom::blink::FocusType focus_type) {
-  if (focus_type == mojom::blink::FocusType::kMouse)
-    GetDocument().SetHadKeyboardEvent(false);
-  GetDocument().UserActionElements().SetFocused(this, flag);
 }
 
 void Node::SetHasFocusWithin(bool flag) {
@@ -3295,47 +3100,48 @@ void Node::FlatTreeParentChanged() {
   if (!isConnected())
     return;
   DCHECK(IsSlotable());
-  if (const ComputedStyle* style = GetComputedStyle()) {
+
+  const ComputedStyle* style = GetComputedStyle();
+  bool detach = false;
+  if (ShouldSkipMarkingStyleDirty()) {
+    // If we should not mark the node dirty in the new flat tree position,
+    // detach to make sure all computes styles, layout objects, and dirty
+    // flags are cleared.
+    detach = IsDirtyForStyleRecalc() || ChildNeedsStyleRecalc() || style;
+  }
+  if (!detach) {
     // We are moving a node with ensured computed style into the flat tree.
     // Clear ensured styles so that we can use IsEnsuredOutsideFlatTree() to
     // determine that we are outside the flat tree before updating the style
     // recalc root in MarkAncestorsWithChildNeedsStyleRecalc().
-    bool detach = style->IsEnsuredOutsideFlatTree();
-    if (!detach) {
-      // If the recalc parent does not have a computed style, we are either in
-      // a display:none subtree or outside the flat tree. Detach to make sure
-      // we don't unnecessarily mark for recalc or hold on to ComputedStyle or
-      // LayoutObjects in such subtrees.
-      if (Element* recalc_parent = GetStyleRecalcParent())
-        detach = !recalc_parent->GetComputedStyle();
-    }
-    if (detach)
-      DetachLayoutTree();
+    detach = style && style->IsEnsuredOutsideFlatTree();
   }
+  if (detach) {
+    StyleEngine& engine = GetDocument().GetStyleEngine();
+    StyleEngine::DetachLayoutTreeScope detach_scope(engine);
+    DetachLayoutTree();
+    engine.FlatTreePositionChanged(*this);
+  }
+
   // The node changed the flat tree position by being slotted to a new slot or
   // slotted for the first time. We need to recalc style since the inheritance
   // parent may have changed.
-  if (NeedsStyleRecalc()) {
-    // The ancestor chain may have changed. We need to make sure that the
-    // child-dirty flags are updated, but the SetNeedsStyleRecalc() call below
-    // will skip MarkAncestorsWithChildNeedsStyleRecalc() if the node was
-    // already dirty.
-    if (ShouldSkipMarkingStyleDirty()) {
-      // If set, the dirty bits should have been cleared by DetachLayoutTree
-      // above.
-      DCHECK(!ChildNeedsStyleRecalc());
-      DCHECK(!NeedsStyleRecalc());
-    } else {
+  if (!ShouldSkipMarkingStyleDirty()) {
+    if (NeedsStyleRecalc()) {
+      // The ancestor chain may have changed. We need to make sure that the
+      // child-dirty flags are updated, but the SetNeedsStyleRecalc() call below
+      // will skip MarkAncestorsWithChildNeedsStyleRecalc() if the node was
+      // already dirty.
       MarkAncestorsWithChildNeedsStyleRecalc();
+    } else {
+      SetNeedsStyleRecalc(kLocalStyleChange,
+                          StyleChangeReasonForTracing::Create(
+                              style_change_reason::kFlatTreeChange));
     }
+    // We also need to force a layout tree re-attach since the layout tree
+    // parent box may have changed.
+    SetForceReattachLayoutTree();
   }
-  SetNeedsStyleRecalc(kLocalStyleChange,
-                      StyleChangeReasonForTracing::Create(
-                          style_change_reason::kFlatTreeChange));
-  // We also need to force a layout tree re-attach since the layout tree parent
-  // box may have changed.
-  SetForceReattachLayoutTree();
-
   AddCandidateDirectionalityForSlot();
 }
 
@@ -3371,7 +3177,7 @@ void Node::RemovedFromFlatTree() {
     StyleEngine::DOMRemovalScope style_scope(engine);
     DetachLayoutTree();
   }
-  GetDocument().GetStyleEngine().RemovedFromFlatTree(*this);
+  GetDocument().GetStyleEngine().FlatTreePositionChanged(*this);
 
   // Ensure removal from accessibility cache even if it doesn't have layout.
   if (auto* cache = GetDocument().ExistingAXObjectCache()) {

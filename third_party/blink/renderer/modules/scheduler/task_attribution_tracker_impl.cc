@@ -62,8 +62,10 @@ TaskAttributionInfo* TaskAttributionTrackerImpl::RunningTask(
 
 template <typename F>
 TaskAttributionTracker::AncestorStatus
-TaskAttributionTrackerImpl::IsAncestorInternal(ScriptState* script_state,
-                                               F is_ancestor) {
+TaskAttributionTrackerImpl::IsAncestorInternal(
+    ScriptState* script_state,
+    F is_ancestor,
+    const TaskAttributionInfo* task) {
   DCHECK(script_state);
   if (!script_state->World().IsMainWorld()) {
     // As RunningTask will not return a TaskAttributionInfo for
@@ -71,10 +73,11 @@ TaskAttributionTrackerImpl::IsAncestorInternal(ScriptState* script_state,
     return AncestorStatus::kNotAncestor;
   }
 
-  TaskAttributionInfo* current_task = RunningTask(script_state);
+  const TaskAttributionInfo* current_task =
+      task ? task : RunningTask(script_state);
 
   while (current_task) {
-    TaskAttributionInfo* parent_task = current_task->Parent();
+    const TaskAttributionInfo* parent_task = current_task->Parent();
     if (is_ancestor(current_task->Id())) {
       return AncestorStatus::kAncestor;
     }
@@ -88,17 +91,21 @@ TaskAttributionTracker::AncestorStatus TaskAttributionTrackerImpl::IsAncestor(
     TaskAttributionId ancestor_id) {
   return IsAncestorInternal(
       script_state,
-      [&](const TaskAttributionId& task_id) { return task_id == ancestor_id; });
+      [&](const TaskAttributionId& task_id) { return task_id == ancestor_id; },
+      /*task=*/nullptr);
 }
 
 TaskAttributionTracker::AncestorStatus
 TaskAttributionTrackerImpl::HasAncestorInSet(
     ScriptState* script_state,
-    const WTF::HashSet<scheduler::TaskAttributionIdType>& set) {
-  return IsAncestorInternal(script_state,
-                            [&](const TaskAttributionId& task_id) {
-                              return set.Contains(task_id.value());
-                            });
+    const WTF::HashSet<scheduler::TaskAttributionIdType>& set,
+    const TaskAttributionInfo& task) {
+  return IsAncestorInternal(
+      script_state,
+      [&](const TaskAttributionId& task_id) {
+        return set.Contains(task_id.value());
+      },
+      &task);
 }
 
 std::unique_ptr<TaskAttributionTracker::TaskScope>
@@ -119,14 +126,20 @@ TaskAttributionTrackerImpl::CreateTaskScope(ScriptState* script_state,
   ScriptWrappableTaskState* continuation_task_state_to_be_restored =
       GetCurrentTaskContinuationData(script_state);
 
-  next_task_id_ = next_task_id_.NextId();
-  running_task_ =
-      MakeGarbageCollected<TaskAttributionInfo>(next_task_id_, parent_task);
+  // This compresses the task graph when encountering long task chains.
+  // TODO(crbug.com/1501999): Consider compressing the task graph further.
+  if (!parent_task || !parent_task->MaxChainLengthReached()) {
+    next_task_id_ = next_task_id_.NextId();
+    running_task_ =
+        MakeGarbageCollected<TaskAttributionInfo>(next_task_id_, parent_task);
+  } else {
+    running_task_ = parent_task;
+  }
 
   ExecutionContext* execution_context = ExecutionContext::From(script_state);
   for (Observer* observer : observers_) {
     if (observer->GetExecutionContext() == execution_context) {
-      observer->OnCreateTaskScope(next_task_id_);
+      observer->OnCreateTaskScope(*running_task_);
     }
   }
 
@@ -135,10 +148,11 @@ TaskAttributionTrackerImpl::CreateTaskScope(ScriptState* script_state,
                         running_task_.Get(), abort_source, priority_source));
 
   return std::make_unique<TaskScopeImpl>(
-      script_state, this, next_task_id_, running_task_to_be_restored,
+      script_state, this, running_task_->Id(), running_task_to_be_restored,
       continuation_task_state_to_be_restored, type,
-      parent_task ? absl::optional<TaskAttributionId>(parent_task->Id())
-                  : absl::nullopt);
+      running_task_->Parent()
+          ? absl::optional<TaskAttributionId>(running_task_->Parent()->Id())
+          : absl::nullopt);
 }
 
 void TaskAttributionTrackerImpl::TaskScopeCompleted(
@@ -172,7 +186,7 @@ TaskAttributionInfo* TaskAttributionTrackerImpl::CommitSameDocumentNavigation(
     auto task = same_document_navigation_tasks_.front();
     same_document_navigation_tasks_.pop_front();
     // TODO(https://crbug.com/1486774) - Investigate when |task| can be nullptr.
-    if (task && (task->Id() == task_id)) {
+    if (task && task->Id() == task_id) {
       return task;
     }
   }
@@ -189,6 +203,23 @@ ScriptWrappableTaskState*
 TaskAttributionTrackerImpl::GetCurrentTaskContinuationData(
     ScriptState* script_state) const {
   return ScriptWrappableTaskState::GetCurrent(script_state);
+}
+
+TaskAttributionTracker::Observer*
+TaskAttributionTrackerImpl::GetObserverForTaskDisposal(TaskAttributionId id) {
+  auto it = task_id_observers_.find(id.value());
+  if (it == task_id_observers_.end()) {
+    return nullptr;
+  }
+  auto* observer = it->value.Get();
+  task_id_observers_.erase(it);
+  return observer;
+}
+
+void TaskAttributionTrackerImpl::SetObserverForTaskDisposal(
+    TaskAttributionId id,
+    Observer* observer) {
+  task_id_observers_.insert(id.value(), observer);
 }
 
 // TaskScope's implementation

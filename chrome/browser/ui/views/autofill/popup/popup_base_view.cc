@@ -21,6 +21,7 @@
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/ui/browser_finder.h"
+#include "chrome/browser/ui/views/autofill/popup/custom_cursor_suppressor.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -168,6 +169,7 @@ class PopupBaseView::Widget : public views::Widget {
     // transparent parts (e.g. shadow) overlap parent (assuming that
     // the contents are not x`overlapped).
     if (event->type() == ui::EventType::ET_MOUSE_MOVED &&
+        !GetContentsView()->IsMouseHovered() &&
         parent_content_view->IsMouseHovered()) {
       parent()->SynthesizeMouseMoveEvent();
       // Save the synthesized event position to use it for the exit event
@@ -220,7 +222,7 @@ PopupBaseView::~PopupBaseView() {
 
 Browser* PopupBaseView::GetBrowser() {
   if (content::WebContents* web_contents = GetWebContents()) {
-    return chrome::FindBrowserWithWebContents(web_contents);
+    return chrome::FindBrowserWithTab(web_contents);
   }
   return nullptr;
 }
@@ -249,8 +251,14 @@ bool PopupBaseView::DoShow() {
   }
 
   if (content::WebContents* web_contents = GetWebContents()) {
-    custom_cursor_blocker_ = web_contents->CreateDisallowCustomCursorScope(
-        /*max_dimension_dips=*/kMaximumAllowedCustomCursorDimension + 1);
+    if (base::FeatureList::IsEnabled(
+            features::kAutofillPopupMultiWindowCursorSuppression)) {
+      custom_cursor_suppressor_.Start(
+          /*max_dimension_dips=*/kMaximumAllowedCustomCursorDimension + 1);
+    } else {
+      custom_cursor_blocker_ = web_contents->CreateDisallowCustomCursorScope(
+          /*max_dimension_dips=*/kMaximumAllowedCustomCursorDimension + 1);
+    }
   } else {
     // `delegate_` is already gone and `WebContents` is destroying itself.
     return false;
@@ -325,13 +333,13 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
       {"PopupSuggestionView", "PopupPasswordSuggestionView", "PopupFooterView",
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox",
-       "PopupCellView"});
+       "PopupCellView", "PopupCellWithButtonView"});
   DCHECK(kDerivedClasses.contains(selected_view.GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "
          "chrome/browser/resources/chromeos/accessibility/chromevox/background/"
-         "desktop_automation_handler.js to ensure that ChromeVox announces "
-         "the item when selected. Missing class: "
+         "event/desktop_automation_handler.js to ensure that ChromeVox "
+         "announces the item when selected. Missing class: "
       << selected_view.GetClassName();
 #endif
   selected_view.NotifyAccessibilityEvent(ax::mojom::Event::kSelection, true);

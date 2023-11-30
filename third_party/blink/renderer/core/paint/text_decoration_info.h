@@ -10,6 +10,7 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/physical_offset.h"
+#include "third_party/blink/renderer/core/paint/line_relative_rect.h"
 #include "third_party/blink/renderer/core/paint/text_paint_style.h"
 #include "third_party/blink/renderer/core/style/applied_text_decoration.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -46,7 +47,7 @@ class CORE_EXPORT TextDecorationInfo {
 
  public:
   TextDecorationInfo(
-      PhysicalOffset local_origin,
+      LineRelativeOffset local_origin,
       LayoutUnit width,
       const ComputedStyle& target_style,
       const NGInlinePaintContext* inline_context,
@@ -110,11 +111,11 @@ class CORE_EXPORT TextDecorationInfo {
   const ComputedStyle& TargetStyle() const { return target_style_; }
   float TargetAscent() const { return target_ascent_; }
   // Returns the scaling factor for the decoration.
-  // It can be different from NGFragmentItem::SvgScalingFactor() if the
+  // It can be different from FragmentItem::SvgScalingFactor() if the
   // text works as a resource.
   float ScalingFactor() const { return scaling_factor_; }
   float InkSkipClipUpper(float bounds_upper) const {
-    return -TargetAscent() + bounds_upper - local_origin_.top.ToFloat();
+    return -TargetAscent() + bounds_upper - local_origin_.line_over.ToFloat();
   }
 
   // |SetDecorationIndex| may change the results of these methods.
@@ -192,7 +193,7 @@ class CORE_EXPORT TextDecorationInfo {
   const Font* const font_override_ = nullptr;
 
   // Geometry of the target text/box.
-  const PhysicalOffset local_origin_;
+  const LineRelativeOffset local_origin_;
   const LayoutUnit width_;
 
   // Cached properties for the current |decoration_index_|.

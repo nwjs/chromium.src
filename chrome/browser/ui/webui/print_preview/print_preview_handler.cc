@@ -22,6 +22,7 @@
 #include "base/i18n/number_formatting.h"
 #include "base/json/json_reader.h"
 #include "base/lazy_instance.h"
+#include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -649,7 +650,8 @@ void PrintPreviewHandler::HandleGetPrinters(const base::Value::List& args) {
       base::BindRepeating(&PrintPreviewHandler::OnAddedPrinters,
                           weak_factory_.GetWeakPtr(), printer_type),
       base::BindOnce(&PrintPreviewHandler::OnGetPrintersDone,
-                     weak_factory_.GetWeakPtr(), callback_id));
+                     weak_factory_.GetWeakPtr(), callback_id, printer_type,
+                     base::TimeTicks::Now()));
 }
 
 void PrintPreviewHandler::HandleGetPrinterCapabilities(
@@ -1324,7 +1326,10 @@ void PrintPreviewHandler::OnAddedPrinters(mojom::PrinterType printer_type,
   }
 }
 
-void PrintPreviewHandler::OnGetPrintersDone(const std::string& callback_id) {
+void PrintPreviewHandler::OnGetPrintersDone(const std::string& callback_id,
+                                            mojom::PrinterType printer_type,
+                                            const base::TimeTicks& start_time) {
+  RecordGetPrintersTimeHistogram(printer_type, start_time);
   ResolveJavascriptCallback(base::Value(callback_id), base::Value());
 }
 

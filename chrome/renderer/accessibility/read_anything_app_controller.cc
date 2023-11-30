@@ -290,7 +290,7 @@ ui::AXTreeUpdate GetSnapshotFromV8SnapshotLite(
 
   v8::Local<v8::Value> v8_nodes;
   v8_snapshot_dict.Get("nodes", &v8_nodes);
-  std::vector<v8::Local<v8::Value>> v8_nodes_vector;
+  v8::LocalVector<v8::Value> v8_nodes_vector(isolate);
   if (!gin::ConvertFromV8(isolate, v8_nodes, &v8_nodes_vector)) {
     return snapshot;
   }
@@ -395,7 +395,24 @@ void ReadAnythingAppController::AccessibilityEventReceived(
   // the `requires_distillation()` state below.
   model_.AccessibilityEventReceived(tree_id, updates, events);
 
-  if (tree_id != model_.active_tree_id()) {
+  if (model_.is_pdf()) {
+    // Asumptions made about how the PDF contents are stored are incorrect.
+    // Display "RM can't show this page" screen.
+    if (!model_.IsPDFFormatted()) {
+      model_.SetActiveTreeSelectable(false);
+      ExecuteJavaScript("chrome.readingMode.showEmpty();");
+      return;
+    }
+    // PDFs are stored in a different web content than the main web contents.
+    // Enable a11y on it to get tree information from the PDF.
+    ui::AXTreeID pdf_web_contents = model_.GetPDFWebContents();
+    if (pdf_web_contents != ui::AXTreeIDUnknown() &&
+        !model_.ContainsTree(pdf_web_contents)) {
+      page_handler_->EnablePDFContentAccessibility(pdf_web_contents);
+    }
+  }
+
+  if (tree_id != model_.GetActiveTreeId()) {
     return;
   }
 
@@ -424,13 +441,15 @@ void ReadAnythingAppController::ExecuteJavaScript(std::string script) {
 void ReadAnythingAppController::OnActiveAXTreeIDChanged(
     const ui::AXTreeID& tree_id,
     ukm::SourceId ukm_source_id,
-    const GURL& url) {
-  if (tree_id == model_.active_tree_id()) {
+    const GURL& url,
+    bool force_update_state) {
+  if (tree_id == model_.GetActiveTreeId() && !force_update_state) {
     return;
   }
   model_.SetActiveTreeId(tree_id);
   model_.SetActiveUkmSourceId(ukm_source_id);
   model_.SetActiveTreeSelectable(GetSelectable(url));
+  model_.SetIsPdf(url);
   // Delete all pending updates on the formerly active AXTree.
   // TODO(crbug.com/1266555): If distillation is in progress, cancel the
   // distillation request.
@@ -442,8 +461,8 @@ void ReadAnythingAppController::OnActiveAXTreeIDChanged(
   // When the UI first constructs, this function may be called before tree_id
   // has been added to the tree list in AccessibilityEventReceived. In that
   // case, do not distill.
-  if (model_.active_tree_id() != ui::AXTreeIDUnknown() &&
-      model_.ContainsTree(model_.active_tree_id())) {
+  if (model_.GetActiveTreeId() != ui::AXTreeIDUnknown() &&
+      model_.ContainsTree(model_.GetActiveTreeId())) {
     Distill();
   }
 }
@@ -472,8 +491,7 @@ void ReadAnythingAppController::Distill() {
 
   model_.set_requires_distillation(false);
 
-  ui::AXSerializableTree* tree =
-      model_.GetTreeFromId(model_.active_tree_id()).get();
+  ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.GetActiveTreeId());
   std::unique_ptr<ui::AXTreeSource<const ui::AXNode*>> tree_source(
       tree->CreateTreeSource());
   ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>>
@@ -496,15 +514,15 @@ void ReadAnythingAppController::OnAXTreeDistilled(
 
   // Return early if any of the following scenarios occurred while waiting for
   // distillation to complete:
-  // 1. tree_id != model_.active_tree_id(): The active tree was changed.
-  // 2. model_.active_tree_id() == ui::AXTreeIDUnknown(): The active tree was
+  // 1. tree_id != model_.GetActiveTreeId(): The active tree was changed.
+  // 2. model_.GetActiveTreeId()== ui::AXTreeIDUnknown(): The active tree was
   // change to
   //    an unknown tree id.
   // 3. !model_.ContainsTree(tree_id): The distilled tree was destroyed.
   // 4. tree_id == ui::AXTreeIDUnknown(): The distiller sent back an unknown
   //    tree id which occurs when there was an error.
-  if (tree_id != model_.active_tree_id() ||
-      model_.active_tree_id() == ui::AXTreeIDUnknown() ||
+  if (tree_id != model_.GetActiveTreeId() ||
+      model_.GetActiveTreeId() == ui::AXTreeIDUnknown() ||
       !model_.ContainsTree(tree_id) || tree_id == ui::AXTreeIDUnknown()) {
     return;
   }
@@ -528,10 +546,8 @@ void ReadAnythingAppController::OnAXTreeDistilled(
 
   // AXNode's language code is BCP 47. Only the base language is needed to
   // record the metric.
-  std::string language = model_.GetTreeFromId(model_.active_tree_id())
-                             .get()
-                             ->root()
-                             ->GetLanguage();
+  std::string language =
+      model_.GetTreeFromId(model_.GetActiveTreeId())->root()->GetLanguage();
   if (!language.empty()) {
     base::UmaHistogramSparse(
         string_constants::kLanguageHistogramName,
@@ -583,9 +599,10 @@ void ReadAnythingAppController::OnSettingsRestoredFromPrefs(
     double font_size,
     read_anything::mojom::Colors color,
     double speech_rate,
+    base::Value::Dict voices,
     read_anything::mojom::HighlightGranularity granularity) {
   model_.OnSettingsRestoredFromPrefs(line_spacing, letter_spacing, font,
-                                     font_size, color, speech_rate,
+                                     font_size, color, speech_rate, &voices,
                                      granularity);
   ExecuteJavaScript("chrome.readingMode.restoreSettingsFromPrefs();");
 }
@@ -678,6 +695,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("onFontChange", &ReadAnythingAppController::OnFontChange)
       .SetMethod("onSpeechRateChange",
                  &ReadAnythingAppController::OnSpeechRateChange)
+      .SetMethod("getStoredVoice", &ReadAnythingAppController::GetStoredVoice)
+      .SetMethod("onVoiceChange", &ReadAnythingAppController::OnVoiceChange)
       .SetMethod("turnedHighlightOn",
                  &ReadAnythingAppController::TurnedHighlightOn)
       .SetMethod("turnedHighlightOff",
@@ -703,8 +722,7 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
 }
 
 ui::AXNodeID ReadAnythingAppController::RootId() const {
-  ui::AXSerializableTree* tree =
-      model_.GetTreeFromId(model_.active_tree_id()).get();
+  ui::AXSerializableTree* tree = model_.GetTreeFromId(model_.GetActiveTreeId());
   DCHECK(tree->root());
   return tree->root()->id();
 }
@@ -755,6 +773,15 @@ int ReadAnythingAppController::ColorTheme() const {
 
 float ReadAnythingAppController::SpeechRate() const {
   return model_.speech_rate();
+}
+
+std::string ReadAnythingAppController::GetStoredVoice(
+    const std::string& lang) const {
+  if (model_.voices().contains(lang)) {
+    return *model_.voices().FindString(lang);
+  }
+
+  return string_constants::kReadAnythingPlaceholderVoiceName;
 }
 
 int ReadAnythingAppController::HighlightGranularity() const {
@@ -843,6 +870,11 @@ std::string ReadAnythingAppController::GetHtmlTag(
     if (!aria_level.empty()) {
       return "h" + aria_level;
     }
+  }
+
+  // Replace embedded objects with div to display PDF content.
+  if (ax_node->GetRole() == ax::mojom::Role::kEmbeddedObject) {
+    return "div";
   }
 
   // Replace mark element with bold element for readability
@@ -976,7 +1008,7 @@ void ReadAnythingAppController::OnScroll(bool on_selection) const {
 }
 
 void ReadAnythingAppController::OnLinkClicked(ui::AXNodeID ax_node_id) const {
-  DCHECK_NE(model_.active_tree_id(), ui::AXTreeIDUnknown());
+  DCHECK_NE(model_.GetActiveTreeId(), ui::AXTreeIDUnknown());
   // Prevent link clicks while distillation is in progress, as it means that the
   // tree may have changed in an unexpected way.
   // TODO(crbug.com/1266555): Consider how to show this in a more user-friendly
@@ -984,7 +1016,7 @@ void ReadAnythingAppController::OnLinkClicked(ui::AXNodeID ax_node_id) const {
   if (model_.distillation_in_progress()) {
     return;
   }
-  page_handler_->OnLinkClicked(model_.active_tree_id(), ax_node_id);
+  page_handler_->OnLinkClicked(model_.GetActiveTreeId(), ax_node_id);
 }
 
 void ReadAnythingAppController::OnStandardLineSpacing() {
@@ -1044,6 +1076,11 @@ void ReadAnythingAppController::OnSpeechRateChange(double rate) {
   page_handler_->OnSpeechRateChange(rate);
 }
 
+void ReadAnythingAppController::OnVoiceChange(const std::string& voice,
+                                              const std::string& lang) {
+  page_handler_->OnVoiceChange(voice, lang);
+}
+
 void ReadAnythingAppController::TurnedHighlightOn() {
   page_handler_->OnHighlightGranularityChanged(
       read_anything::mojom::HighlightGranularity::kOn);
@@ -1081,7 +1118,7 @@ void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
                                                   int anchor_offset,
                                                   ui::AXNodeID focus_node_id,
                                                   int focus_offset) const {
-  DCHECK_NE(model_.active_tree_id(), ui::AXTreeIDUnknown());
+  DCHECK_NE(model_.GetActiveTreeId(), ui::AXTreeIDUnknown());
   // Prevent link clicks while distillation is in progress, as it means that the
   // tree may have changed in an unexpected way.
   // TODO(crbug.com/1266555): Consider how to show this in a more user-friendly
@@ -1129,7 +1166,7 @@ void ReadAnythingAppController::OnSelectionChange(ui::AXNodeID anchor_node_id,
     return;
   }
 
-  page_handler_->OnSelectionChange(model_.active_tree_id(), anchor_node_id,
+  page_handler_->OnSelectionChange(model_.GetActiveTreeId(), anchor_node_id,
                                    anchor_offset, focus_node_id, focus_offset);
 }
 
@@ -1219,7 +1256,7 @@ void ReadAnythingAppController::SetContentForTesting(
   selectionEvent.event_from = ax::mojom::EventFrom::kUser;
   AccessibilityEventReceived(snapshot.tree_data.tree_id, {snapshot}, {});
   OnActiveAXTreeIDChanged(snapshot.tree_data.tree_id, ukm::kInvalidSourceId,
-                          GURL::EmptyGURL());
+                          GURL::EmptyGURL(), false);
   OnAXTreeDistilled(snapshot.tree_data.tree_id, content_node_ids);
 
   // Trigger a selection event (for testing selections).

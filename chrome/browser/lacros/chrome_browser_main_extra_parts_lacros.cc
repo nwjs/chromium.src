@@ -12,7 +12,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/browser_process_platform_part.h"
-#include "chrome/browser/chromeos/reporting/metric_reporting_manager_lacros.h"
+#include "chrome/browser/chromeos/reporting/metric_reporting_manager_lacros_factory.h"
 #include "chrome/browser/chromeos/smart_reader/smart_reader_client_impl.h"
 #include "chrome/browser/chromeos/tablet_mode/tablet_mode_page_behavior.h"
 #include "chrome/browser/chromeos/video_conference/video_conference_manager_client.h"
@@ -33,6 +33,7 @@
 #include "chrome/browser/lacros/force_installed_tracker_lacros.h"
 #include "chrome/browser/lacros/fullscreen_controller_client_lacros.h"
 #include "chrome/browser/lacros/geolocation/system_geolocation_source_lacros.h"
+#include "chrome/browser/lacros/guest_os/vm_sk_forwarding_service.h"
 #include "chrome/browser/lacros/lacros_apps_publisher.h"
 #include "chrome/browser/lacros/lacros_extension_apps_controller.h"
 #include "chrome/browser/lacros/lacros_extension_apps_publisher.h"
@@ -42,7 +43,6 @@
 #include "chrome/browser/lacros/multitask_menu_nudge_delegate_lacros.h"
 #include "chrome/browser/lacros/net/network_change_manager_bridge.h"
 #include "chrome/browser/lacros/screen_orientation_delegate_lacros.h"
-#include "chrome/browser/lacros/standalone_browser_test_controller.h"
 #include "chrome/browser/lacros/sync/sync_crosapi_manager_lacros.h"
 #include "chrome/browser/lacros/task_manager_lacros.h"
 #include "chrome/browser/lacros/ui_metric_recorder_lacros.h"
@@ -184,6 +184,8 @@ void ChromeBrowserMainExtraPartsLacros::PostBrowserStart() {
   if (chromeos::features::IsClipboardHistoryRefreshEnabled()) {
     clipboard_history_lacros_ = CreateClipboardHistoryLacros();
   }
+  vm_sk_forwarding_service_ =
+      std::make_unique<guest_os::VmSkForwardingService>();
 
   memory_pressure::MultiSourceMemoryPressureMonitor* monitor =
       static_cast<memory_pressure::MultiSourceMemoryPressureMonitor*>(
@@ -216,25 +218,6 @@ void ChromeBrowserMainExtraPartsLacros::PostBrowserStart() {
   }
 
   EmbeddedA11yManagerLacros::GetInstance()->Init();
-
-#if !BUILDFLAG(IS_CHROMEOS_DEVICE)
-  // The test controller is only created in test builds AND when Ash's test
-  // controller service is available.
-  auto* lacros_service = chromeos::LacrosService::Get();
-  if (lacros_service->IsAvailable<crosapi::mojom::TestController>()) {
-    int remote_version =
-        lacros_service->GetInterfaceVersion<crosapi::mojom::TestController>();
-    if (static_cast<uint32_t>(remote_version) >=
-        crosapi::mojom::TestController::
-            kRegisterStandaloneBrowserTestControllerMinVersion) {
-      auto& ash_test_controller =
-          lacros_service->GetRemote<crosapi::mojom::TestController>();
-      standalone_browser_test_controller_ =
-          std::make_unique<StandaloneBrowserTestController>(
-              ash_test_controller);
-    }
-  }
-#endif
 
   // Construct ArcIconCache and set it to provider.
   arc_icon_cache_ = std::make_unique<ArcIconCache>();
@@ -280,10 +263,8 @@ void ChromeBrowserMainExtraPartsLacros::PostBrowserStart() {
   smart_reader_client_ =
       std::make_unique<smart_reader::SmartReaderClientImpl>();
 
-  if (chromeos::BrowserParamsProxy::Get()->IsWindowLayoutMenuEnabled()) {
-    multitask_menu_nudge_delegate_ =
-        std::make_unique<MultitaskMenuNudgeDelegateLacros>();
-  }
+  multitask_menu_nudge_delegate_ =
+      std::make_unique<MultitaskMenuNudgeDelegateLacros>();
 }
 
 void ChromeBrowserMainExtraPartsLacros::PostProfileInit(
@@ -303,7 +284,8 @@ void ChromeBrowserMainExtraPartsLacros::PostProfileInit(
   // telemetry metrics and events on managed devices. The reporting manager
   // checks for profile affiliation, so we do not need any additional checks
   // here.
-  ::reporting::metrics::MetricReportingManagerLacros::GetForProfile(profile);
+  ::reporting::metrics::MetricReportingManagerLacrosFactory::GetForProfile(
+      profile);
 
   if (chromeos::BrowserParamsProxy::Get()->SessionType() ==
       crosapi::mojom::SessionType::kAppKioskSession) {

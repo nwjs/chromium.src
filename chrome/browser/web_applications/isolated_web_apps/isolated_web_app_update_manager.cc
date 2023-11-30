@@ -8,21 +8,25 @@
 #include <type_traits>
 
 #include "base/callback_list.h"
+#include "base/cancelable_callback.h"
 #include "base/check.h"
 #include "base/containers/circular_deque.h"
 #include "base/containers/cxx20_erase_map.h"
 #include "base/containers/unique_ptr_adapters.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
+#include "base/functional/callback_forward.h"
 #include "base/location.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
+#include "base/rand_util.h"
 #include "base/ranges/algorithm.h"
 #include "base/scoped_observation.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "base/types/expected.h"
+#include "base/types/expected_macros.h"
 #include "base/values.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
@@ -49,9 +53,70 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/isolated_web_apps_policy.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/abseil-cpp/absl/types/variant.h"
 #include "url/gurl.h"
 
 namespace web_app {
+
+// This helper class acts similarly to `IsolatedWebAppUpdateDiscoveryTask`, the
+// difference being that this class is for discovering local updates for
+// dev-mode installed IWAs.
+class IsolatedWebAppUpdateManager::LocalDevModeUpdateDiscoverer {
+ public:
+  using Callback =
+      base::OnceCallback<void(base::expected<base::Version, std::string>)>;
+
+  LocalDevModeUpdateDiscoverer(Profile& profile, WebAppProvider& provider)
+      : profile_(profile), provider_(provider) {}
+
+  void DiscoverLocalUpdate(const IsolatedWebAppLocation& location,
+                           const IsolatedWebAppUrlInfo& url_info,
+                           Callback callback) {
+    if (!absl::holds_alternative<DevModeProxy>(location) &&
+        !absl::holds_alternative<DevModeBundle>(location)) {
+      std::move(callback).Run(
+          base::unexpected("Discovering a local update is only supported for "
+                           "dev mode-installed apps."));
+      return;
+    }
+
+    auto keep_alive = std::make_unique<ScopedKeepAlive>(
+        KeepAliveOrigin::ISOLATED_WEB_APP_UPDATE,
+        KeepAliveRestartOption::DISABLED);
+    auto profile_keep_alive =
+        profile_->IsOffTheRecord()
+            ? nullptr
+            : std::make_unique<ScopedProfileKeepAlive>(
+                  &*profile_, ProfileKeepAliveOrigin::kIsolatedWebAppUpdate);
+
+    provider_->scheduler().PrepareAndStoreIsolatedWebAppUpdate(
+        IsolatedWebAppUpdatePrepareAndStoreCommand::UpdateInfo(
+            location, /*expected_version=*/absl::nullopt),
+        url_info, /*optional_keep_alive=*/nullptr,
+        /*optional_profile_keep_alive=*/nullptr,
+        base::BindOnce(&LocalDevModeUpdateDiscoverer::OnUpdatePrepared,
+                       weak_factory_.GetWeakPtr(), std::move(keep_alive),
+                       std::move(profile_keep_alive), std::move(callback)));
+  }
+
+ private:
+  void OnUpdatePrepared(
+      std::unique_ptr<ScopedKeepAlive> keep_alive,
+      std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive,
+      Callback callback,
+      IsolatedWebAppUpdatePrepareAndStoreCommandResult result) {
+    std::move(callback).Run(
+        result
+            .transform(
+                [](const auto& success) { return success.update_version; })
+            .transform_error([](const auto& error) { return error.message; }));
+  }
+
+  raw_ref<Profile> profile_;
+  raw_ref<WebAppProvider> provider_;
+  base::WeakPtrFactory<LocalDevModeUpdateDiscoverer> weak_factory_{this};
+};
 
 IsolatedWebAppUpdateManager::IsolatedWebAppUpdateManager(
     Profile& profile,
@@ -59,32 +124,37 @@ IsolatedWebAppUpdateManager::IsolatedWebAppUpdateManager(
     : profile_(profile),
       automatic_updates_enabled_(
           content::IsolatedWebAppsPolicy::AreIsolatedWebAppsEnabled(&profile) &&
-          base::FeatureList::IsEnabled(
-              features::kIsolatedWebAppAutomaticUpdates) &&
           // Similar to extensions, we don't do any automatic updates in guest
           // sessions.
           !profile.IsGuestSession() &&
           // Web Apps are not a thing in off the record profiles, but have this
-          // here just in case - we also wouldn't want to update IWAs in
-          // incognito windows.
-          !profile.IsOffTheRecord()),
+          // here just in case - we also wouldn't want to automatically update
+          // IWAs in incognito windows.
+          !profile.IsOffTheRecord() &&
+#if BUILDFLAG(IS_CHROMEOS)
+          base::FeatureList::IsEnabled(
+              features::kIsolatedWebAppAutomaticUpdates)
+#else
+          false
+#endif
+              ),
       update_discovery_frequency_(std::move(update_discovery_frequency)),
-      task_queue_{*this} {}
+      task_queue_{*this} {
+}
 
 IsolatedWebAppUpdateManager::~IsolatedWebAppUpdateManager() = default;
 
 void IsolatedWebAppUpdateManager::SetProvider(base::PassKey<WebAppProvider>,
                                               WebAppProvider& provider) {
   provider_ = &provider;
+  local_dev_mode_update_discoverer_ =
+      std::make_unique<LocalDevModeUpdateDiscoverer>(*profile_, provider);
 }
 
 void IsolatedWebAppUpdateManager::Start() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   has_started_ = true;
-  if (!automatic_updates_enabled_) {
-    return;
-  }
   install_manager_observation_.Observe(&provider_->install_manager());
 
   if (!IsAnyIwaInstalled()) {
@@ -147,7 +217,6 @@ void IsolatedWebAppUpdateManager::DelayedStart() {
   task_queue_.MaybeStartNextTask();
 
   QueueUpdateDiscoveryTasks();
-  MaybeStartUpdateDiscoveryTimer();
 }
 
 void IsolatedWebAppUpdateManager::Shutdown() {
@@ -155,17 +224,12 @@ void IsolatedWebAppUpdateManager::Shutdown() {
 
   // Stop all potentially ongoing tasks and avoid scheduling new tasks.
   install_manager_observation_.Reset();
-  update_discovery_timer_.Stop();
+  next_update_discovery_check_.Reset();
   task_queue_.Clear();
   update_apply_waiters_.clear();
 }
 
 base::Value IsolatedWebAppUpdateManager::AsDebugValue() const {
-  base::TimeDelta next_update_check =
-      update_discovery_timer_.desired_run_time() - base::TimeTicks::Now();
-  double next_update_check_in_minutes =
-      next_update_check.InSecondsF() / base::Time::kSecondsPerMinute;
-
   base::Value::List update_apply_waiters;
   for (const auto& [app_id, waiter] : update_apply_waiters_) {
     update_apply_waiters.Append(waiter->AsDebugValue());
@@ -177,11 +241,8 @@ base::Value IsolatedWebAppUpdateManager::AsDebugValue() const {
           .Set("update_discovery_frequency_in_minutes",
                update_discovery_frequency_.InSecondsF() /
                    base::Time::kSecondsPerMinute)
-          .Set("update_discovery_timer",
-               base::Value::Dict()
-                   .Set("running", update_discovery_timer_.IsRunning())
-                   .Set("next_update_check_in_minutes",
-                        next_update_check_in_minutes))
+          .Set("next_update_discovery_check",
+               next_update_discovery_check_.AsDebugValue())
           .Set("task_queue", task_queue_.AsDebugValue())
           .Set("update_apply_waiters", std::move(update_apply_waiters)));
 }
@@ -195,16 +256,30 @@ bool IsolatedWebAppUpdateManager::IsUpdateBeingApplied(
 void IsolatedWebAppUpdateManager::PrioritizeUpdateAndWait(
     base::PassKey<IsolatedWebAppURLLoaderFactory>,
     const webapps::AppId& app_id,
-    base::OnceClosure callback) {
+    base::OnceCallback<void(IsolatedWebAppUpdateApplyTask::CompletionStatus)>
+        callback) {
+  PrioritizeUpdateAndWaitImpl(app_id, std::move(callback));
+}
+
+void IsolatedWebAppUpdateManager::PrioritizeUpdateAndWaitImpl(
+    const webapps::AppId& app_id,
+    base::OnceCallback<void(IsolatedWebAppUpdateApplyTask::CompletionStatus)>
+        callback) {
   bool task_has_started =
       task_queue_.EnsureQueuedUpdateApplyTaskHasStarted(app_id);
   if (task_has_started) {
     on_update_finished_callbacks_
-        .try_emplace(app_id, std::make_unique<base::OnceCallbackList<void()>>())
+        .try_emplace(app_id,
+                     std::make_unique<base::OnceCallbackList<void(
+                         IsolatedWebAppUpdateApplyTask::CompletionStatus)>>())
         .first->second->AddUnsafe(std::move(callback));
   } else {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, std::move(callback));
+        FROM_HERE,
+        base::BindOnce(
+            std::move(callback),
+            base::unexpected(IsolatedWebAppApplyUpdateCommandError{
+                .message = "Update is not currently being applied."})));
   }
 }
 
@@ -216,7 +291,7 @@ void IsolatedWebAppUpdateManager::SetEnableAutomaticUpdatesForTesting(
 
 void IsolatedWebAppUpdateManager::OnWebAppInstalled(
     const webapps::AppId& app_id) {
-  MaybeStartUpdateDiscoveryTimer();
+  MaybeScheduleUpdateDiscoveryCheck();
 }
 
 void IsolatedWebAppUpdateManager::OnWebAppUninstalled(
@@ -224,11 +299,27 @@ void IsolatedWebAppUpdateManager::OnWebAppUninstalled(
     webapps::WebappUninstallSource uninstall_source) {
   update_apply_waiters_.erase(app_id);
   task_queue_.ClearNonStartedTasksOfApp(app_id);
-  MaybeStopUpdateDiscoveryTimer();
+  MaybeResetScheduledUpdateDiscoveryCheck();
 }
 
-void IsolatedWebAppUpdateManager::DiscoverUpdatesNowForTesting() {
-  QueueUpdateDiscoveryTasks();
+size_t IsolatedWebAppUpdateManager::DiscoverUpdatesNow() {
+  // If an update discovery check is already scheduled, reset it, so that the
+  // next update discovery happens based on `update_discovery_frequency_` time
+  // after `QueueUpdateDiscoveryTasks` is called.
+  next_update_discovery_check_.Reset();
+  return QueueUpdateDiscoveryTasks();
+}
+
+void IsolatedWebAppUpdateManager::DiscoverApplyAndPrioritizeLocalDevModeUpdate(
+    const IsolatedWebAppLocation& location,
+    const IsolatedWebAppUrlInfo& url_info,
+    base::OnceCallback<void(base::expected<base::Version, std::string>)>
+        callback) {
+  local_dev_mode_update_discoverer_->DiscoverLocalUpdate(
+      location, url_info,
+      base::BindOnce(&IsolatedWebAppUpdateManager::OnLocalUpdateDiscovered,
+                     weak_factory_.GetWeakPtr(), url_info,
+                     std::move(callback)));
 }
 
 bool IsolatedWebAppUpdateManager::IsAnyIwaInstalled() {
@@ -245,6 +336,8 @@ IsolatedWebAppUpdateManager::GetForceInstalledBundleIdToUpdateManifestUrlMap() {
   base::flat_map<web_package::SignedWebBundleId, GURL>
       id_to_update_manifest_map;
 
+// TODO(crbug.com/1458725): Enable automatic updates on other platforms.
+#if BUILDFLAG(IS_CHROMEOS)
   const base::Value::List& iwa_force_install_list =
       profile_->GetPrefs()->GetList(prefs::kIsolatedWebAppInstallForceList);
   for (const base::Value& policy_entry : iwa_force_install_list) {
@@ -260,11 +353,12 @@ IsolatedWebAppUpdateManager::GetForceInstalledBundleIdToUpdateManifestUrlMap() {
     id_to_update_manifest_map.emplace(options->web_bundle_id(),
                                       options->update_manifest_url());
   }
+#endif
 
   return id_to_update_manifest_map;
 }
 
-void IsolatedWebAppUpdateManager::QueueUpdateDiscoveryTasks() {
+size_t IsolatedWebAppUpdateManager::QueueUpdateDiscoveryTasks() {
   // Clear the log of previously finished update discovery tasks when queueing
   // new tasks so that it doesn't grow forever.
   task_queue_.ClearUpdateDiscoveryLog();
@@ -275,6 +369,7 @@ void IsolatedWebAppUpdateManager::QueueUpdateDiscoveryTasks() {
 
   // TODO(crbug.com/1459160): In the future, we also need to automatically
   // update IWAs not installed via policy.
+  size_t num_new_tasks = 0;
   for (const auto& [web_bundle_id, update_manifest_url] :
        id_to_update_manifest_map) {
     auto url_info =
@@ -299,27 +394,39 @@ void IsolatedWebAppUpdateManager::QueueUpdateDiscoveryTasks() {
     task_queue_.Push(std::make_unique<IsolatedWebAppUpdateDiscoveryTask>(
         update_manifest_url, url_info, provider_->scheduler(),
         provider_->registrar_unsafe(), profile_->GetURLLoaderFactory()));
+    ++num_new_tasks;
   }
 
   task_queue_.MaybeStartNextTask();
+
+  MaybeScheduleUpdateDiscoveryCheck();
+
+  return num_new_tasks;
 }
 
-void IsolatedWebAppUpdateManager::MaybeStartUpdateDiscoveryTimer() {
-  if (!update_discovery_timer_.IsRunning() && IsAnyIwaInstalled()) {
-    update_discovery_timer_.Start(
-        FROM_HERE, update_discovery_frequency_, this,
-        &IsolatedWebAppUpdateManager::QueueUpdateDiscoveryTasks);
+void IsolatedWebAppUpdateManager::MaybeScheduleUpdateDiscoveryCheck() {
+  if (automatic_updates_enabled_ &&
+      !next_update_discovery_check_.IsScheduled() && IsAnyIwaInstalled()) {
+    next_update_discovery_check_.ScheduleWithJitter(
+        update_discovery_frequency_,
+        base::BindOnce(
+            base::IgnoreResult(
+                &IsolatedWebAppUpdateManager::QueueUpdateDiscoveryTasks),
+            // Ok to use `base::Unretained` here because `this` owns
+            // `next_update_check_`.
+            base::Unretained(this)));
   }
 }
 
-void IsolatedWebAppUpdateManager::MaybeStopUpdateDiscoveryTimer() {
-  if (update_discovery_timer_.IsRunning() && !IsAnyIwaInstalled()) {
-    update_discovery_timer_.Stop();
+void IsolatedWebAppUpdateManager::MaybeResetScheduledUpdateDiscoveryCheck() {
+  if (next_update_discovery_check_.IsScheduled() && !IsAnyIwaInstalled()) {
+    next_update_discovery_check_.Reset();
   }
 }
 
 void IsolatedWebAppUpdateManager::CreateUpdateApplyWaiter(
-    const IsolatedWebAppUrlInfo& url_info) {
+    const IsolatedWebAppUrlInfo& url_info,
+    base::OnceClosure on_update_apply_task_created) {
   const webapps::AppId& app_id = url_info.app_id();
   if (update_apply_waiters_.contains(app_id)) {
     return;
@@ -331,7 +438,8 @@ void IsolatedWebAppUpdateManager::CreateUpdateApplyWaiter(
   it->second->Wait(
       &*profile_,
       base::BindOnce(&IsolatedWebAppUpdateManager::OnUpdateApplyWaiterFinished,
-                     weak_factory_.GetWeakPtr(), url_info));
+                     weak_factory_.GetWeakPtr(), url_info,
+                     std::move(on_update_apply_task_created)));
 }
 
 void IsolatedWebAppUpdateManager::OnUpdateDiscoveryTaskCompleted(
@@ -348,6 +456,7 @@ void IsolatedWebAppUpdateManager::OnUpdateDiscoveryTaskCompleted(
 
 void IsolatedWebAppUpdateManager::OnUpdateApplyWaiterFinished(
     IsolatedWebAppUrlInfo url_info,
+    base::OnceClosure on_update_apply_task_created,
     std::unique_ptr<ScopedKeepAlive> keep_alive,
     std::unique_ptr<ScopedProfileKeepAlive> profile_keep_alive) {
   update_apply_waiters_.erase(url_info.app_id());
@@ -355,6 +464,7 @@ void IsolatedWebAppUpdateManager::OnUpdateApplyWaiterFinished(
   task_queue_.Push(std::make_unique<IsolatedWebAppUpdateApplyTask>(
       url_info, std::move(keep_alive), std::move(profile_keep_alive),
       provider_->scheduler()));
+  std::move(on_update_apply_task_created).Run();
 
   task_queue_.MaybeStartNextTask();
 }
@@ -365,13 +475,113 @@ void IsolatedWebAppUpdateManager::OnUpdateApplyTaskCompleted(
   auto callbacks_it =
       on_update_finished_callbacks_.find(task->url_info().app_id());
   if (callbacks_it != on_update_finished_callbacks_.end()) {
-    callbacks_it->second->Notify();
+    callbacks_it->second->Notify(status);
     if (callbacks_it->second->empty()) {
       on_update_finished_callbacks_.erase(callbacks_it);
     }
   }
 
   task_queue_.MaybeStartNextTask();
+}
+
+void IsolatedWebAppUpdateManager::OnLocalUpdateDiscovered(
+    IsolatedWebAppUrlInfo url_info,
+    base::OnceCallback<void(base::expected<base::Version, std::string>)>
+        callback,
+    base::expected<base::Version, std::string> update_discovery_result) {
+  ASSIGN_OR_RETURN(auto update_version, update_discovery_result,
+                   [&](const auto& error) {
+                     std::move(callback).Run(base::unexpected(error));
+                   });
+
+  CreateUpdateApplyWaiter(
+      url_info,
+      /*on_update_apply_task_created=*/base::BindOnce(
+          &IsolatedWebAppUpdateManager::OnLocalUpdateApplyTaskCreated,
+          weak_factory_.GetWeakPtr(), url_info, std::move(update_version),
+          std::move(callback)));
+}
+
+void IsolatedWebAppUpdateManager::OnLocalUpdateApplyTaskCreated(
+    IsolatedWebAppUrlInfo url_info,
+    base::Version update_version,
+    base::OnceCallback<void(base::expected<base::Version, std::string>)>
+        callback) {
+  auto transform_status =
+      [](base::Version update_version,
+         IsolatedWebAppUpdateApplyTask::CompletionStatus status) {
+        return status.transform([&]() { return update_version; })
+            .transform_error(
+                [](const IsolatedWebAppApplyUpdateCommandError& error) {
+                  return error.message;
+                });
+      };
+
+  PrioritizeUpdateAndWaitImpl(
+      url_info.app_id(),
+      base::BindOnce(std::move(transform_status), std::move(update_version))
+          .Then(std::move(callback)));
+}
+
+IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::
+    NextUpdateDiscoveryCheck() = default;
+
+IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::
+    ~NextUpdateDiscoveryCheck() = default;
+
+void IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::ScheduleWithJitter(
+    const base::TimeDelta& base_delay,
+    base::OnceClosure callback) {
+  // 20% jitter (between 0.8 and 1.2)
+  double jitter_factor = base::RandDouble() * 0.4 + 0.8;
+  base::TimeDelta delay = base_delay * jitter_factor;
+
+  auto cancelable_callback = std::make_unique<base::CancelableOnceClosure>(
+      base::BindOnce(&NextUpdateDiscoveryCheck::Reset,
+                     // Okay to use `base::Unretained` here, since `this`
+                     // owns `next_check_`.
+                     base::Unretained(this))
+          .Then(std::move(callback)));
+
+  next_check_ = {
+      {base::TimeTicks::Now() + delay, std::move(cancelable_callback)}};
+  base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
+      FROM_HERE, next_check_->second->callback(), delay);
+}
+
+absl::optional<base::TimeTicks>
+IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::GetScheduledTime()
+    const {
+  if (next_check_.has_value()) {
+    return next_check_->first;
+  }
+  return absl::nullopt;
+}
+
+bool IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::IsScheduled()
+    const {
+  return next_check_.has_value();
+}
+
+void IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::Reset() {
+  // This will cancel any scheduled callbacks, because it deletes the
+  // `base::CancelableOnceCallback`.
+  next_check_.reset();
+}
+
+base::Value
+IsolatedWebAppUpdateManager::NextUpdateDiscoveryCheck::AsDebugValue() const {
+  if (!next_check_.has_value()) {
+    return base::Value("not scheduled");
+  }
+
+  base::TimeDelta next_update_check =
+      next_check_->first - base::TimeTicks::Now();
+  double next_update_check_in_minutes =
+      next_update_check.InSecondsF() / base::Time::kSecondsPerMinute;
+
+  return base::Value(base::Value::Dict().Set("next_update_check_in_minutes",
+                                             next_update_check_in_minutes));
 }
 
 IsolatedWebAppUpdateManager::TaskQueue::TaskQueue(

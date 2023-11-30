@@ -33,7 +33,6 @@
 #include "chrome/browser/chrome_browser_main.h"
 #include "chrome/browser/chrome_browser_main_extra_parts.h"
 #include "chrome/browser/chrome_content_browser_client.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
@@ -61,6 +60,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/toolbar_controller_util.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -393,7 +393,7 @@ void InProcessBrowserTest::Initialize() {
   g_current_test = this;
   CreateTestServer(GetChromeTestDataDir());
   base::FilePath src_dir;
-  CHECK(base::PathService::Get(base::DIR_SOURCE_ROOT, &src_dir));
+  CHECK(base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &src_dir));
 
   // chrome::DIR_TEST_DATA isn't going to be setup until after we call
   // ContentMain. However that is after tests' constructors or SetUp methods,
@@ -404,6 +404,9 @@ void InProcessBrowserTest::Initialize() {
 #if BUILDFLAG(IS_MAC)
   bundle_swizzler_ = std::make_unique<ScopedBundleSwizzlerMac>();
 #endif
+
+  // Force all buttons not overflow to prevent test flakiness.
+  ToolbarControllerUtil::SetPreventOverflowForTesting(true);
 
   std::vector<base::test::FeatureRef> disabled_features;
 

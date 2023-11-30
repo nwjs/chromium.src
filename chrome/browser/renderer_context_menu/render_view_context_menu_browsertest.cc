@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/base64.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
@@ -31,7 +32,6 @@
 #include "chrome/browser/apps/app_service/app_launch_params.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chrome_content_browser_client.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/pdf/pdf_extension_test_util.h"
 #include "chrome/browser/pdf/pdf_frame_util.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
@@ -63,6 +63,7 @@
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/base/search_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/compose/buildflags.h"
 #include "components/guest_view/browser/guest_view_manager_delegate.h"
 #include "components/guest_view/browser/test_guest_view_manager.h"
 #include "components/lens/buildflags.h"
@@ -85,7 +86,6 @@
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -134,6 +134,10 @@
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/png_codec.h"
 
+#if BUILDFLAG(ENABLE_COMPOSE)
+#include "chrome/browser/compose/mock_chrome_compose_client.h"
+#endif
+
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/test/supervised_user/embedded_test_server_setup_mixin.h"
@@ -170,6 +174,10 @@ using extensions::TestMimeHandlerViewGuest;
 using web_app::WebAppProvider;
 using webapps::AppId;
 
+using ::testing::_;
+using ::testing::Return;
+using ::testing::TestWithParam;
+
 namespace {
 
 const char kAppUrl1[] = "https://www.google.com/";
@@ -195,6 +203,11 @@ class AllowPreCommitInputFlagMixin : public InProcessBrowserTestMixin {
 
 class ContextMenuBrowserTest : public MixinBasedInProcessBrowserTest {
  protected:
+  ContextMenuBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {features::kReadAnything, media::kContextMenuSaveVideoFrameAs}, {});
+  }
+
   std::unique_ptr<TestRenderViewContextMenu> CreateContextMenuMediaTypeNone(
       const GURL& unfiltered_url,
       const GURL& url) {
@@ -408,7 +421,7 @@ class ContextMenuBrowserTest : public MixinBasedInProcessBrowserTest {
 
  private:
   web_app::OsIntegrationManager::ScopedSuppressForTesting os_hooks_suppress_;
-  base::test::ScopedFeatureList scoped_feature_list_{features::kReadAnything};
+  base::test::ScopedFeatureList scoped_feature_list_;
   AllowPreCommitInputFlagMixin allow_pre_commit_input_flag_mixin_{mixin_host_};
 };
 
@@ -1148,6 +1161,67 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 }
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
+#if BUILDFLAG(ENABLE_COMPOSE)
+struct ContextMenuForComposeTestCase {
+  std::string test_name;
+  bool is_editable;
+  std::optional<blink::mojom::FormControlType> form_control_type;
+  uint64_t form_renderer_id;
+  uint64_t field_renderer_id;
+  bool should_trigger_compose_context_menu;
+  bool expected;
+};
+
+class ContextMenuForComposeBrowserTest
+    : public ContextMenuBrowserTest,
+      public ::testing::WithParamInterface<ContextMenuForComposeTestCase> {};
+
+IN_PROC_BROWSER_TEST_P(ContextMenuForComposeBrowserTest,
+                       TestComposeItemPresent) {
+  const ContextMenuForComposeTestCase& test_case = GetParam();
+
+  content::ContextMenuParams params;
+  params.is_editable = test_case.is_editable;
+  MockChromeComposeClient compose_client(
+      browser()->tab_strip_model()->GetActiveWebContents());
+  ON_CALL(compose_client, ShouldTriggerContextMenu(_, _))
+      .WillByDefault(Return(test_case.should_trigger_compose_context_menu));
+
+  auto menu =
+      std::make_unique<TestRenderViewContextMenu>(*browser()
+                                                       ->tab_strip_model()
+                                                       ->GetActiveWebContents()
+                                                       ->GetPrimaryMainFrame(),
+                                                  params);
+  menu->SetChromeComposeClient(&compose_client);
+  menu->Init();
+
+  ASSERT_EQ(menu->IsItemPresent(IDC_CONTEXT_COMPOSE), test_case.expected);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ContextMenuBrowserTests,
+    ContextMenuForComposeBrowserTest,
+    ::testing::ValuesIn<ContextMenuForComposeTestCase>({
+        {.test_name = "Enabled",
+         .is_editable = true,
+         .should_trigger_compose_context_menu = true,
+         .expected = true},
+        {.test_name = "NotEditable",
+         .is_editable = false,
+         .should_trigger_compose_context_menu = true,
+         .expected = false},
+        {.test_name = "ShouldNotOffer",
+         .is_editable = true,
+         .should_trigger_compose_context_menu = false,
+         .expected = false},
+    }),
+    [](const testing::TestParamInfo<
+        ContextMenuForComposeBrowserTest::ParamType>& info) {
+      return info.param.test_name;
+    });
+#endif  // BUILDFLAG(ENABLE_COMPOSE)
+
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, CopyLinkTextMouse) {
   std::unique_ptr<TestRenderViewContextMenu> menu = CreateContextMenu(
       GURL("http://www.google.com/"), GURL("http://www.google.com/"), u"Google",
@@ -1268,7 +1342,7 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   EXPECT_EQ(title2, tab->GetLastCommittedURL());
   EXPECT_EQ(tab_strip_model->count(), 2);
   EXPECT_EQ(app_tab_strip_model->count(), 1);
-  EXPECT_TRUE(chrome::FindBrowserWithWebContents(tab)->is_type_normal());
+  EXPECT_TRUE(chrome::FindBrowserWithTab(tab)->is_type_normal());
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
@@ -1309,10 +1383,10 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 
   EXPECT_EQ(title1, tab->GetLastCommittedURL());
   EXPECT_EQ(chrome::GetTotalBrowserCount(), 2u);
-  EXPECT_TRUE(chrome::FindBrowserWithWebContents(tab)->is_type_normal());
+  EXPECT_TRUE(chrome::FindBrowserWithTab(tab)->is_type_normal());
 
   TabStripModel* tab_strip_model =
-      chrome::FindBrowserWithWebContents(tab)->tab_strip_model();
+      chrome::FindBrowserWithTab(tab)->tab_strip_model();
   EXPECT_EQ(app_tab_strip_model->count(), 1);
   EXPECT_EQ(tab_strip_model->count(), 1);
 }
@@ -2095,9 +2169,19 @@ IN_PROC_BROWSER_TEST_F(ContextMenuFencedFrameTest,
                              IDC_CONTENT_CONTEXT_INSPECTELEMENT}));
 }
 
+// TODO(crbug.com/1491942): This fails with the field trial testing config.
+class ContextMenuFencedFrameTestNoTestingConfig
+    : public ContextMenuFencedFrameTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ContextMenuFencedFrameTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch("disable-field-trial-config");
+  }
+};
+
 // Test that automatic beacons are sent after clicking "Open Link in New Tab"
 // from a contextual menu inside of a fenced frame.
-IN_PROC_BROWSER_TEST_F(ContextMenuFencedFrameTest,
+IN_PROC_BROWSER_TEST_F(ContextMenuFencedFrameTestNoTestingConfig,
                        AutomaticBeaconSentAfterContextMenuNavigation) {
   privacy_sandbox::ScopedPrivacySandboxAttestations scoped_attestations(
       privacy_sandbox::PrivacySandboxAttestations::CreateForTesting());
@@ -2136,16 +2220,16 @@ IN_PROC_BROWSER_TEST_F(ContextMenuFencedFrameTest,
   observer.Wait();
 
   // Set the automatic beacon
-  EXPECT_TRUE(
-      ExecJs(fenced_frame_node,
-             content::JsReplace(R"(
+  EXPECT_TRUE(ExecJs(
+      fenced_frame_node,
+      content::JsReplace(R"(
       window.fence.setReportEventDataForAutomaticBeacons({
         eventType: $1,
         eventData: $2,
         destination: ['seller', 'buyer']
       });
     )",
-                                "reserved.top_navigation", kBeaconMessage)));
+                         "reserved.top_navigation_commit", kBeaconMessage)));
 
   // This simulates the conditions when right clicking on a link.
   content::ContextMenuParams params;
@@ -2879,6 +2963,9 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 
   auto menu = CreateContextMenuFromParams(params);
 
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
+  EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
 }
 
@@ -2889,6 +2976,8 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 
   auto menu = CreateContextMenuFromParams(params);
 
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
+  EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
   EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
 }
@@ -3088,11 +3177,11 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenReadingMode) {
-  // Open in reading mode is not an option when text is unselected.
+  // Open in reading mode is an option when text is unselected.
   std::unique_ptr<TestRenderViewContextMenu> menu1 =
       CreateContextMenuMediaTypeNone(GURL("http://www.google.com/"),
                                      GURL("http://www.google.com/"));
-  ASSERT_FALSE(menu1->IsItemPresent(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
+  ASSERT_TRUE(menu1->IsItemPresent(IDC_CONTENT_CONTEXT_OPEN_IN_READING_MODE));
 
   // Open in reading mode is an option when non-editable text is selected.
   std::unique_ptr<TestRenderViewContextMenu> menu2 =
@@ -3141,6 +3230,127 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, BackAfterBackEntryRemoved) {
                                 blink::WebMouseEvent::Button::kRight,
                                 gfx::Point(15, 15));
   menu_observer.WaitForMenuOpenAndClose();
+}
+
+// Given a URL, produces an HTML document which contains a cross-origin child
+// iframe which contains a link to that URL. Both the cross-origin child iframe
+// and the link inside that iframe fill the entire size of the parent frame so
+// they are easy to target with clicks.
+static std::string BuildCrossOriginChildFrameHTML(const GURL& link) {
+  constexpr char kMainFrameSource[] = R"(
+      <html>
+        <!-- This document looks like:
+          -
+          - outer frame (origin localhost:whatever)
+          -   inner frame (opaque origin, base origin localhost:whatever)
+          -     link to "/danger"
+          -
+          - where the inner frame fills 100% of the outer frame, and the link
+          - fills 100% of the inner frame.
+          -->
+        <head>
+          <title>subframe opaque origin propagation test</title>
+          <style>
+            /* have the iframe fill the entire parent frame with no margin, to
+             * make it easier to hit with click events. */
+            body { margin: 0; }
+            iframe { display: block; height: 100%; width: 100%; border: 0; }
+          </style>
+        </head>
+        <body>
+        </body>
+        <script>
+          const frame = document.createElement("iframe");
+          // construct a subframe containing a link which fills 100% of the
+          // viewport, to make it easier to hit with a generated click in the
+          // test.
+          frame.src = "data:text/html;base64,$1";
+          document.body.appendChild(frame);
+        </script>
+      </html>
+  )";
+
+  constexpr char kCrossOriginChildFrameSource[] = R"(
+    <html>
+      <head>
+        <style>
+          html { height: 100%; width: 100%; }
+          body { height: 100%; width: 100%; }
+          a { display: block; height: 100%; width: 100%; }
+        </style>
+      </head>
+      <body>
+        <a href="$1">danger!</a>
+      </body>
+    </html>
+  )";
+
+  std::string encoded_payload =
+      base::Base64Encode(base::ReplaceStringPlaceholders(
+          kCrossOriginChildFrameSource, {link.spec()}, nullptr));
+  return base::ReplaceStringPlaceholders(kMainFrameSource, {encoded_payload},
+                                         nullptr);
+}
+
+IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, SubframeNewTabInitiator) {
+  // If a frame on example.com opens a subframe with a different opaque origin,
+  // the subframe origin should be passed through to a context menu on that
+  // initiator, so:
+  // 1. A request back to example.com from the subframe should be cross-origin
+  //    (which is what this test checks), and
+  // 2. The context menu on the subframe should have the initiator as an opaque
+  //    origin whose precursor origin is example.com (not tested here)
+  using BasicHttpResponse = net::test_server::BasicHttpResponse;
+  using HttpRequest = net::test_server::HttpRequest;
+  using HttpResponse = net::test_server::HttpResponse;
+  HttpRequest::HeaderMap logged_headers;
+
+  base::RunLoop danger_request_wait_loop;
+  embedded_test_server()->RegisterRequestHandler(base::BindLambdaForTesting(
+      [&](const HttpRequest& req) -> std::unique_ptr<HttpResponse> {
+        if (req.relative_url == "/danger") {
+          logged_headers = req.headers;
+          danger_request_wait_loop.Quit();
+          return nullptr;
+        } else if (req.relative_url == "/main") {
+          auto response = std::make_unique<BasicHttpResponse>();
+          response->set_code(net::HTTP_OK);
+          response->set_content_type("text/html");
+          response->set_content(BuildCrossOriginChildFrameHTML(
+              embedded_test_server()->GetURL("/danger")));
+          return response;
+        } else {
+          return nullptr;
+        }
+      }));
+
+  auto handle = embedded_test_server()->StartAndReturnHandle();
+  ASSERT_TRUE(handle);
+
+  WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  GURL url(embedded_test_server()->GetURL("/main"));
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  content::RenderFrameHost* main_frame = ConvertToRenderFrameHost(web_contents);
+  content::RenderFrameHost* child_frame = ChildFrameAt(main_frame, 0);
+
+  EXPECT_FALSE(main_frame->GetLastCommittedOrigin().IsSameOriginWith(
+      child_frame->GetLastCommittedOrigin()));
+
+  ContextMenuWaiter menu_observer(IDC_CONTENT_CONTEXT_OPENLINKNEWTAB);
+  content::SimulateMouseClickAt(web_contents, 0,
+                                blink::WebMouseEvent::Button::kRight,
+                                gfx::Point(15, 15));
+  menu_observer.WaitForMenuOpenAndClose();
+
+  // Wait for the request to "/danger" to be issued by the context menu click
+  // and handled by the EmbeddedTestServer, which logs the request headers as a
+  // side effect. Since that request is issued by a click on a link in a
+  // cross-origin iframe but is back to the same origin as "/main" was served
+  // from, it should be marked as cross-origin.
+  danger_request_wait_loop.Run();
+  EXPECT_EQ(logged_headers.at("sec-fetch-site"), "cross-site");
 }
 
 }  // namespace

@@ -108,6 +108,13 @@ void SwitchAccessHandler::RegisterMessages() {
 void SwitchAccessHandler::AddPreTargetHandler() {
   CHECK(IsJavascriptAllowed());
 
+  if (on_pre_target_handler_added_for_testing_) {
+    std::move(on_pre_target_handler_added_for_testing_).Run();
+  }
+  if (skip_pre_target_handler_for_testing_) {
+    return;
+  }
+
   gfx::NativeView native_view = web_ui()->GetWebContents()->GetNativeView();
 
   // Ensure we don't add the handler twice.
@@ -192,7 +199,9 @@ void SwitchAccessHandler::HandleNotifySwitchAccessActionAssignmentPaneActive(
 void SwitchAccessHandler::HandleNotifySwitchAccessActionAssignmentPaneInactive(
     const base::Value::List& args) {
   action_assignment_pane_active_ = false;
-  web_ui()->GetWebContents()->GetNativeView()->RemovePreTargetHandler(this);
+  if (!skip_pre_target_handler_for_testing_) {
+    web_ui()->GetWebContents()->GetNativeView()->RemovePreTargetHandler(this);
+  }
   AccessibilityController::Get()->SuspendSwitchAccessKeyHandling(false);
 }
 

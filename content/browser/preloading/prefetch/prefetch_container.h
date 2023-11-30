@@ -20,6 +20,7 @@
 #include "net/http/http_no_vary_search_data.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "url/gurl.h"
 
 namespace network {
@@ -39,6 +40,7 @@ class PrefetchServingPageMetricsContainer;
 class PrefetchStreamingURLLoader;
 class PreloadingAttempt;
 class ProxyLookupClientImpl;
+class RenderFrameHost;
 
 // Holds the relevant size information of the prefetched response. The struct is
 // installed onto `PrefetchContainer`, and gets passed into
@@ -89,6 +91,7 @@ class CONTENT_EXPORT PrefetchContainer {
  public:
   PrefetchContainer(
       const GlobalRenderFrameHostId& referring_render_frame_host_id,
+      const blink::DocumentToken& referring_document_token,
       const GURL& url,
       const PrefetchType& prefetch_type,
       const blink::mojom::Referrer& referrer,
@@ -101,9 +104,9 @@ class CONTENT_EXPORT PrefetchContainer {
   PrefetchContainer& operator=(const PrefetchContainer&) = delete;
 
   // Defines the key to uniquely identify a prefetch.
-  using Key = std::pair<GlobalRenderFrameHostId, GURL>;
+  using Key = std::pair<blink::DocumentToken, GURL>;
   Key GetPrefetchContainerKey() const {
-    return std::make_pair(referring_render_frame_host_id_, prefetch_url_);
+    return std::make_pair(referring_document_token_, prefetch_url_);
   }
 
   // The ID of the RenderFrameHost that triggered the prefetch.
@@ -132,9 +135,6 @@ class CONTENT_EXPORT PrefetchContainer {
   bool IsIsolatedNetworkContextRequiredForPreviousRedirectHop() const;
 
   base::WeakPtr<PrefetchResponseReader> GetResponseReaderForCurrentPrefetch();
-
-  // Gets the site for the previous redirect hop to the given URL.
-  net::SchemefulSite GetSiteForPreviousRedirectHop(const GURL& url) const;
 
   // Whether or not the prefetch proxy would be required to fetch the given url
   // based on |prefetch_type_|.
@@ -244,7 +244,7 @@ class CONTENT_EXPORT PrefetchContainer {
   // Returns whether or not this prefetch has been considered to serve for a
   // navigation in the past. If it has, then it shouldn't be used for any future
   // navigations.
-  bool HasPrefetchBeenConsideredToServe() const { return navigated_to_; }
+  bool HasPrefetchBeenConsideredToServe() const;
 
   // Called when |PrefetchService::OnPrefetchComplete| is called for the
   // prefetch. This happens when |loader_| fully downloads the requested
@@ -281,6 +281,9 @@ class CONTENT_EXPORT PrefetchContainer {
   void OnReceivedHead();
   void SetOnReceivedHeadCallback(base::OnceClosure on_received_head_callback);
   base::OnceClosure ReleaseOnReceivedHeadCallback();
+
+  void StartTimeoutTimer(base::TimeDelta timeout,
+                         base::OnceClosure on_timeout_callback);
 
   // Returns the head of the prefetched response. If there is no valid response,
   // then returns null.
@@ -331,9 +334,13 @@ class CONTENT_EXPORT PrefetchContainer {
   const absl::optional<net::HttpNoVarySearchData>& GetNoVarySearchData() const {
     return no_vary_search_data_;
   }
-  void SetNoVarySearchData(net::HttpNoVarySearchData no_vary_search_data) {
-    no_vary_search_data_ = std::move(no_vary_search_data);
-  }
+  // Sets `no_vary_search_data_` from `GetHead()`. Exposed for tests.
+  void SetNoVarySearchData(RenderFrameHost* rfh);
+
+  // Called when cookies changes are detected via
+  // `HaveDefaultContextCookiesChanged()`, either for `this` or other
+  // `PrefetchContainer`s under the same `PrefetchMatchResolver`.
+  void OnCookiesChanged();
 
   class SinglePrefetch;
 
@@ -438,7 +445,7 @@ class CONTENT_EXPORT PrefetchContainer {
   Reader CreateReader();
 
  protected:
-  friend class PrefetchContainerTest;
+  friend class PrefetchContainerTestBase;
 
   // Updates metrics based on the result of the prefetch request.
   void UpdatePrefetchRequestMetrics(
@@ -463,8 +470,9 @@ class CONTENT_EXPORT PrefetchContainer {
   // has redirect(s).
   const SinglePrefetch& GetPreviousSinglePrefetchToPrefetch() const;
 
-  // The ID of the RenderFrameHost that triggered the prefetch.
-  GlobalRenderFrameHostId referring_render_frame_host_id_;
+  // The ID of the RenderFrameHost/Document that triggered the prefetch.
+  const GlobalRenderFrameHostId referring_render_frame_host_id_;
+  const blink::DocumentToken referring_document_token_;
 
   // The URL that was requested to be prefetch.
   const GURL prefetch_url_;
@@ -490,6 +498,8 @@ class CONTENT_EXPORT PrefetchContainer {
 
   // The No-Vary-Search response data, parsed from the actual response header
   // (`GetHead()`).
+  // Unless this is set, `no_vary_search` helpers don't perform No-Vary-Search
+  // matching for `this`, even if `GetHead()` has No-Vary-Search headers.
   absl::optional<net::HttpNoVarySearchData> no_vary_search_data_;
 
   // The No-Vary-Search hint of the prefetch, which is specified by the
@@ -585,6 +595,8 @@ class CONTENT_EXPORT PrefetchContainer {
   // Called when `OnReceivedHead()` is called.
   base::OnceClosure on_received_head_callback_;
 
+  std::unique_ptr<base::OneShotTimer> timeout_timer_;
+
   base::WeakPtrFactory<PrefetchContainer> weak_method_factory_{this};
 };
 
@@ -592,6 +604,10 @@ class CONTENT_EXPORT PrefetchContainer {
 CONTENT_EXPORT std::ostream& operator<<(
     std::ostream& ostream,
     const PrefetchContainer& prefetch_container);
+
+CONTENT_EXPORT std::ostream& operator<<(
+    std::ostream& ostream,
+    const PrefetchContainer::Key& prefetch_key);
 
 CONTENT_EXPORT std::ostream& operator<<(
     std::ostream& ostream,

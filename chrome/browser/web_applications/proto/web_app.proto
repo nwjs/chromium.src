@@ -71,6 +71,7 @@ message SourcesProto {
   optional bool command_line = 8;
   optional bool oem = 9;
   optional bool one_drive_integration = 10;
+  optional bool aps_default = 11;
 }
 
 // Properties for integrating with Chrome OS.
@@ -81,8 +82,7 @@ message ChromeOSDataProto {
   required bool is_disabled = 4;
   optional bool oem_installed = 5;
   optional bool handles_file_open_intents = 6;
-  // See explanation on IsolationDataProto for storing path as bytes.
-  optional bytes app_profile_path = 7;
+  reserved 7;
 }
 
 message ClientDataProto {
@@ -127,6 +127,7 @@ enum WebAppManagementProto {
   COMMAND_LINE = 8;
   OEM = 9;
   ONEDRIVEINTEGRATION = 10;
+  APS_DEFAULT = 11;
 }
 
 // This stores data per-external-WebAppManagement::Type, as each installation
@@ -476,4 +477,10 @@ message WebAppProto {
   // Contains bookkeeping details about attempts to fix broken icons from sync
   // installed web apps.
   optional GeneratedIconFix generated_icon_fix = 65;
+
+  // Records the number of times the user has ignored/dismissed the offer to
+  // turn on user link capturing after launching the app via the intent picker,
+  // specifically from the `EnableLinkCapturingInfoBarDelegate`.
+  optional int32 supported_links_offer_ignore_count = 66;
+  optional int32 supported_links_offer_dismiss_count = 67;
 }

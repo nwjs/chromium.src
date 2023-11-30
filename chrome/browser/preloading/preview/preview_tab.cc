@@ -4,18 +4,17 @@
 
 #include "chrome/browser/preloading/preview/preview_tab.h"
 
-#include "base/debug/debugger.h"
+#include "base/features.h"
+#include "base/functional/callback.h"
+#include "base/time/time.h"
 #include "chrome/browser/page_load_metrics/page_load_metrics_initialize.h"
-#include "chrome/browser/preloading/chrome_preloading.h"
-#include "chrome/browser/preloading/prerender/prerender_utils.h"
 #include "chrome/browser/ssl/security_state_tab_helper.h"
 #include "components/zoom/zoom_controller.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_handle.h"
-#include "content/public/browser/preloading.h"
-#include "content/public/browser/preloading_data.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
@@ -24,46 +23,66 @@
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
+class PreviewTab::WebContentsObserver final
+    : public content::WebContentsObserver {
+ public:
+  explicit WebContentsObserver(content::WebContents* web_contents)
+      : content::WebContentsObserver(web_contents) {
+    UpdateZoomSettings();
+  }
+
+ private:
+  // content::WebContentsObserver.
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override {
+    // TODO(b:291842891): We will update zoom settings also at the preview
+    // navigation.
+    if (!navigation_handle->IsInPrimaryMainFrame() ||
+        !navigation_handle->HasCommitted()) {
+      return;
+    }
+    // Zoom settings will be reset by ZoomController::DidFinishNavigation when
+    // the primary main frame navigation happens. We need to override them
+    // again whenever the settings are reset.
+    UpdateZoomSettings();
+  }
+
+  void UpdateZoomSettings() {
+    auto* zoom_controller =
+        zoom::ZoomController::FromWebContents(web_contents());
+    zoom_controller->SetZoomMode(
+        zoom::ZoomController::ZoomMode::ZOOM_MODE_ISOLATED);
+    const double level = blink::PageZoomFactorToZoomLevel(0.5f);
+    zoom_controller->SetZoomLevel(level);
+  }
+};
+
 PreviewTab::PreviewTab(content::WebContents& parent, const GURL& url)
     : widget_(std::make_unique<views::Widget>()),
       view_(std::make_unique<views::WebView>(parent.GetBrowserContext())),
       url_(url) {
+  CHECK(base::FeatureList::IsEnabled(blink::features::kLinkPreview));
+
   // WebView setup.
   view_->GetWebContents()->SetDelegate(this);
   AttachTabHelpersForInit();
+  // Our observer should be created after ZoomController is created in
+  // AttachTabHelpersForInit() above to ensure our DidFinishNavigation is called
+  // after ZoomController::DidFinishNavigation resets zoom settings. This is
+  // because the observer invocation order depends on its registration order.
+  observer_ = std::make_unique<WebContentsObserver>(view_->GetWebContents());
 
-  // The attempt is attached to the parent WebContents that initiates the
-  // Link-Preview.
-  // TODO(b:292184832): Verify if this approach works fine with the LinkPreview
-  // use-cases later. See the review comment at https://crrev.com/c/4886428.
-  auto* preloading_data =
-      content::PreloadingData::GetOrCreateForWebContents(&parent);
-  content::PreloadingAttempt* preloading_attempt =
-      preloading_data->AddPreloadingAttempt(
-          chrome_preloading_predictor::kLinkPreview,
-          content::PreloadingType::kLinkPreview,
-          content::PreloadingData::GetSameURLMatcher(url),
-          parent.GetPrimaryMainFrame()->GetPageUkmSourceId());
-
-  // TODO(b:292184832): Need yet another API to trigger prerendering with more
-  // navigation related information, e.g. referrer, etc, to mimic anchor
-  // navigation.
-  prerender_handle_ = view_->GetWebContents()->StartPrerendering(
-      url, content::PrerenderTriggerType::kEmbedder,
-      prerender_utils::kLinkPreviewMetricsSuffix,
-      ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_TOPLEVEL),
-      content::PreloadingHoldbackStatus::kUnspecified, preloading_attempt);
+  // TODO(b:292184832): Ensure if we provide enough information to perform an
+  // equivalent navigation with a link navigation.
+  view_->LoadInitialURL(url_);
 
   InitWindow(parent);
 }
 
 PreviewTab::~PreviewTab() = default;
 
-void PreviewTab::Show() {
-  // The page should be shown on activating a prerendered page.
-  widget_->Show();
-  view_->LoadInitialURL(url_);
-  widget_->SetCapture(widget_->client_view());
+base::WeakPtr<content::WebContents> PreviewTab::GetWebContents() {
+  return view_->GetWebContents()->GetWeakPtr();
 }
 
 void PreviewTab::AttachTabHelpersForInit() {
@@ -96,9 +115,31 @@ void PreviewTab::InitWindow(content::WebContents& parent) {
       new views::ClientView(widget_.get(), view_.get()));
   widget_->non_client_view()->frame_view()->SetLayoutManager(
       std::make_unique<views::FillLayout>());
+  widget_->Show();
+  widget_->SetCapture(widget_->client_view());
 }
 
 content::PreloadingEligibility PreviewTab::IsPrerender2Supported(
     content::WebContents& web_contents) {
-  return content::PreloadingEligibility::kEligible;
+  return content::PreloadingEligibility::kPreloadingDisabled;
+}
+
+bool PreviewTab::IsInPreviewMode() const {
+  return is_in_preview_mode_ &&
+         base::FeatureList::IsEnabled(blink::features::kLinkPreviewNavigation);
+}
+
+// TODO(b:305000959): Write a browser test once the preview_test_util is landed.
+void PreviewTab::Activate(base::OnceClosure completion_callback) {
+  view_->GetWebContents()->ActivatePreviewPage(base::TimeTicks::Now(),
+                                               std::move(completion_callback));
+
+  // Reset the flag here as we run several checks whether the WebContents is
+  // actually running in preview mode in the call above.
+  is_in_preview_mode_ = false;
+}
+
+void PreviewTab::CancelPreviewByMojoBinderPolicy(
+    const std::string& interface_name) {
+  // TODO(b:299240273): Navigate to an error page.
 }

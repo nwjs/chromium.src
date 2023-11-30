@@ -27,6 +27,7 @@
 #include "media/audio/fake_audio_log_factory.h"
 #include "media/audio/fake_audio_manager.h"
 #include "media/audio/test_audio_thread.h"
+#include "media/capture/mojom/video_capture_types.mojom.h"
 #include "media/capture/video/fake_video_capture_device_factory.h"
 #include "media/capture/video/video_capture_system_impl.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -41,9 +42,10 @@
 using base::HistogramTester;
 using blink::mojom::MediaDeviceType;
 using media::mojom::DeviceEnumerationResult;
-using testing::_;
-using testing::Invoke;
-using testing::SaveArg;
+using media::mojom::SubCaptureTargetType;
+using ::testing::_;
+using ::testing::Invoke;
+using ::testing::SaveArg;
 
 namespace content {
 
@@ -270,7 +272,10 @@ class MockMediaDevicesDispatcherHost
               (::blink::mojom::CaptureHandleConfigPtr config));
 #if !BUILDFLAG(IS_ANDROID)
   MOCK_METHOD(void, CloseFocusWindowOfOpportunity, (const std::string& label));
-  MOCK_METHOD(void, ProduceCropId, (ProduceCropIdCallback callback));
+  MOCK_METHOD(void,
+              ProduceSubCaptureTargetId,
+              (SubCaptureTargetType type,
+               ProduceSubCaptureTargetIdCallback callback));
 #endif
 };
 

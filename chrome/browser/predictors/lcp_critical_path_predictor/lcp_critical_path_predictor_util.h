@@ -18,6 +18,12 @@ absl::optional<blink::mojom::LCPCriticalPathPredictorNavigationTimeHint>
 ConvertLcppDataToLCPCriticalPathPredictorNavigationTimeHint(
     const LcppData& data);
 
+// Returns possible fonts from past loads for a given `data`.
+// The returned urls are ordered by descending frequency (the most
+// frequent one comes first). If there is no data, it returns an empty
+// vector.
+std::vector<GURL> PredictFetchedFontUrls(const LcppData& data);
+
 // An input to update LcppData.
 struct LcppDataInputs {
   LcppDataInputs();
@@ -38,12 +44,21 @@ struct LcppDataInputs {
 
   // Fetched font URLs.
   // Unlike data above, the field will be updated per font fetch.
+  // The number of URLs in the vector is up to the size defined by
+  // `kLCPPFontURLPredictorMaxUrlCountPerOrigin`.
   std::vector<GURL> font_urls;
+  // This field keeps the number of font URLs without omitting due to
+  // reaching `kLCPPFontURLPredictorMaxUrlCountPerOrigin` or deduplication.
+  size_t font_url_count = 0;
 };
 
 bool UpdateLcppDataWithLcppDataInputs(const LoadingPredictorConfig& config,
                                       const LcppDataInputs& inputs,
                                       LcppData& data);
+
+// Returns true if the LcppData is valid. i.e. looks not corrupted.
+// Otherwise, data might be corrupted.
+bool IsValidLcppStat(const LcppStat& lcpp_stat);
 
 }  // namespace predictors
 

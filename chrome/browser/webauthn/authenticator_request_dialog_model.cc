@@ -27,12 +27,14 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/webauthn/authenticator_request_dialog.h"
 #include "chrome/browser/webauthn/authenticator_transport.h"
+#include "chrome/browser/webauthn/passkey_model_factory.h"
 #include "chrome/browser/webauthn/webauthn_metrics_util.h"
 #include "chrome/browser/webauthn/webauthn_pref_names.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/sync/base/features.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
@@ -156,8 +158,10 @@ password_manager::PasskeyCredential::Source ToPasswordManagerSource(
       return password_manager::PasskeyCredential::Source::kAndroidPhone;
     case device::AuthenticatorType::kICloudKeychain:
       return password_manager::PasskeyCredential::Source::kICloudKeychain;
-    case device::AuthenticatorType::kChromeOS:
     case device::AuthenticatorType::kEnclave:
+      return password_manager::PasskeyCredential::Source::
+          kGooglePasswordManager;
+    case device::AuthenticatorType::kChromeOS:
     case device::AuthenticatorType::kOther:
       return password_manager::PasskeyCredential::Source::kOther;
   }
@@ -374,6 +378,14 @@ AuthenticatorRequestDialogModel::AuthenticatorRequestDialogModel(
     content::RenderFrameHost* frame_host) {
   if (frame_host) {
     frame_host_id_ = frame_host->GetGlobalId();
+    if (base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials)) {
+      webauthn::PasskeyModel* passkey_model =
+          PasskeyModelFactory::GetInstance()->GetForProfile(
+              Profile::FromBrowserContext(frame_host->GetBrowserContext()));
+      if (passkey_model) {
+        passkey_model_observation_.Observe(passkey_model);
+      }
+    }
   }
 }
 
@@ -463,8 +475,19 @@ void AuthenticatorRequestDialogModel::
          (transport_availability_.has_empty_allow_list &&
           // iCloud Keychain has its own confirmation UI and we don't want to
           // duplicate it.
-          cred->value().source !=
-              device::AuthenticatorType::kICloudKeychain))) {
+          cred->value().source != device::AuthenticatorType::kICloudKeychain)
+#if BUILDFLAG(IS_MAC)
+         ||
+         // Never auto-trigger macOS profile credentials without either a local
+         // biometric or a UV requirement because, otherwise, there'll not be
+         // *any* UI.
+         (cred->value().source == device::AuthenticatorType::kTouchID &&
+          transport_availability_.user_verification_requirement !=
+              device::UserVerificationRequirement::kRequired &&
+          !local_biometrics_override_for_testing_.value_or(
+              device::fido::mac::DeviceHasBiometricsAvailable()))
+#endif
+             )) {
       SetCurrentStep(Step::kSelectPriorityMechanism);
     } else {
       mechanism.callback.Run();
@@ -1699,7 +1722,7 @@ void AuthenticatorRequestDialogModel::PopulateMechanisms() {
   absl::optional<std::u16string> priority_phone_name = GetPriorityPhoneName();
   bool list_phone_passkeys =
       is_new_get_assertion_ui && priority_phone_index_ &&
-      base::FeatureList::IsEnabled(device::kWebAuthnListSyncedPasskeys);
+      base::FeatureList::IsEnabled(syncer::kSyncWebauthnCredentials);
   bool specific_phones_listed = false;
   bool specific_local_passkeys_listed = false;
   if (is_new_get_assertion_ui && !use_conditional_mediation_) {
@@ -2149,6 +2172,24 @@ AuthenticatorRequestDialogModel::RecognizedCredentialsFor(
   return ret;
 }
 
+void AuthenticatorRequestDialogModel::OnPasskeysChanged() {
+  if (current_step_ != Step::kConditionalMediation) {
+    // Updating an in flight request is only supported for conditional UI.
+    return;
+  }
+
+  // If the user just opted in to sync, it is likely the hybrid discovery needs
+  // to be reconfigured for a newly synced down phone. Start the request over to
+  // give the request delegate a chance to do this.
+  for (auto& observer : observers_) {
+    observer.OnStartOver();
+  }
+}
+
+void AuthenticatorRequestDialogModel::OnPasskeyModelShuttingDown() {
+  passkey_model_observation_.Reset();
+}
+
 void AuthenticatorRequestDialogModel::
     HideDialogAndDispatchToPlatformAuthenticator(
         absl::optional<device::AuthenticatorType> type) {
@@ -2157,7 +2198,9 @@ void AuthenticatorRequestDialogModel::
 #if BUILDFLAG(IS_WIN)
   // The Windows-native UI already handles retrying so we do not offer a second
   // level of retry in that case.
-  offer_try_again_in_ui_ = false;
+  if (type != device::AuthenticatorType::kEnclave) {
+    offer_try_again_in_ui_ = false;
+  }
 #elif BUILDFLAG(IS_MAC)
   // If there are multiple platform authenticators, one of them is the default.
   if (!type.has_value() &&
@@ -2170,6 +2213,9 @@ void AuthenticatorRequestDialogModel::
       ephemeral_state_.saved_authenticators_.authenticator_list();
   auto platform_authenticator_it = base::ranges::find_if(
       authenticators, [type](const AuthenticatorReference& ref) -> bool {
+        if (type && *type == device::AuthenticatorType::kEnclave) {
+          return ref.type == *type;
+        }
         return ref.transport == device::FidoTransportProtocol::kInternal &&
                (!type || ref.type == *type ||
                 !base::FeatureList::IsEnabled(device::kWebAuthnICloudKeychain));
@@ -2185,4 +2231,21 @@ void AuthenticatorRequestDialogModel::
   }
 
   DispatchRequestAsync(&*platform_authenticator_it);
+}
+
+void AuthenticatorRequestDialogModel::OnTransportAvailabilityChanged(
+    TransportAvailabilityInfo transport_availability) {
+  if (current_step_ != Step::kConditionalMediation) {
+    // Updating an in flight request is only supported for conditional UI.
+    return;
+  }
+  transport_availability_ = std::move(transport_availability);
+  if (base::FeatureList::IsEnabled(
+          device::kWebAuthnSortRecognizedCredentials)) {
+    SortRecognizedCredentials();
+  }
+  mechanisms_.clear();
+  PopulateMechanisms();
+  ephemeral_state_.priority_mechanism_index_ = IndexOfPriorityMechanism();
+  StartConditionalMediationRequest();
 }

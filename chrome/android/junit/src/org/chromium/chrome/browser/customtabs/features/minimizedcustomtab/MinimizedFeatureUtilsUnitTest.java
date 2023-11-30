@@ -9,12 +9,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import android.app.Activity;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.os.Build;
 
 import org.junit.After;
 import org.junit.Before;
@@ -38,11 +36,11 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 
-/**
- * Unit tests for {@link MinimizedFeatureUtils}.
- */
+/** Unit tests for {@link MinimizedFeatureUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE, shadows = {ShadowSysUtils.class})
+@Config(
+        manifest = Config.NONE,
+        shadows = {ShadowSysUtils.class})
 @EnableFeatures({ChromeFeatureList.CCT_MINIMIZED})
 public class MinimizedFeatureUtilsUnitTest {
     @Implements(SysUtils.class)
@@ -59,17 +57,12 @@ public class MinimizedFeatureUtilsUnitTest {
     private static final int UID = 101;
     private static final String HISTOGRAM = "CustomTabs.MinimizedFeatureAvailability";
 
-    @Rule
-    public TestRule mProcessor = new Features.JUnitProcessor();
-    @Rule
-    public MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule public TestRule mProcessor = new Features.JUnitProcessor();
+    @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
-    @Mock
-    private Activity mActivity;
-    @Mock
-    private PackageManager mPackageManager;
-    @Mock
-    private AppOpsManager mAppOpsManager;
+    @Mock private Context mContext;
+    @Mock private PackageManager mPackageManager;
+    @Mock private AppOpsManager mAppOpsManager;
 
     private final ApplicationInfo mApplicationInfo = new ApplicationInfo();
 
@@ -77,46 +70,38 @@ public class MinimizedFeatureUtilsUnitTest {
     public void setUp() {
         ShadowSysUtils.sIsLowEndDevice = false;
         mApplicationInfo.uid = UID;
-        when(mActivity.getApplicationInfo()).thenReturn(mApplicationInfo);
-        when(mActivity.getPackageName()).thenReturn(NAME);
+        when(mContext.getApplicationInfo()).thenReturn(mApplicationInfo);
+        when(mContext.getPackageName()).thenReturn(NAME);
         when(mPackageManager.hasSystemFeature(eq(PackageManager.FEATURE_PICTURE_IN_PICTURE)))
                 .thenReturn(true);
-        when(mActivity.getPackageManager()).thenReturn(mPackageManager);
+        when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mAppOpsManager.checkOpNoThrow(
-                     eq(AppOpsManager.OPSTR_PICTURE_IN_PICTURE), eq(UID), eq(NAME)))
+                        eq(AppOpsManager.OPSTR_PICTURE_IN_PICTURE), eq(UID), eq(NAME)))
                 .thenReturn(AppOpsManager.MODE_ALLOWED);
-        when(mActivity.getSystemService(eq(Context.APP_OPS_SERVICE))).thenReturn(mAppOpsManager);
+        when(mContext.getSystemService(eq(Context.APP_OPS_SERVICE))).thenReturn(mAppOpsManager);
     }
 
     @After
     public void tearDown() {
         ShadowSysUtils.sIsLowEndDevice = false;
-        MinimizedFeatureUtils.resetResultForTesting();
-    }
-
-    @Test
-    @Config(sdk = Build.VERSION_CODES.N_MR1)
-    public void testSdkLevel_preO() {
-        try (var ignored = HistogramWatcher.newSingleRecordWatcher(
-                     HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_API_LEVEL)) {
-            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mActivity));
-        }
     }
 
     @Test
     public void testSdkLevel_OAndAbove() {
-        try (var ignored = HistogramWatcher.newSingleRecordWatcher(
-                     HISTOGRAM, MinimizedFeatureAvailability.AVAILABLE)) {
-            assertTrue(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mActivity));
+        try (var ignored =
+                HistogramWatcher.newSingleRecordWatcher(
+                        HISTOGRAM, MinimizedFeatureAvailability.AVAILABLE)) {
+            assertTrue(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mContext));
         }
     }
 
     @Test
     public void testLowEndDevice() {
         ShadowSysUtils.sIsLowEndDevice = true;
-        try (var ignored = HistogramWatcher.newSingleRecordWatcher(
-                     HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_LOW_END_DEVICE)) {
-            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mActivity));
+        try (var ignored =
+                HistogramWatcher.newSingleRecordWatcher(
+                        HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_LOW_END_DEVICE)) {
+            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mContext));
         }
     }
 
@@ -124,20 +109,22 @@ public class MinimizedFeatureUtilsUnitTest {
     public void testHasSystemFeatureFalse() {
         when(mPackageManager.hasSystemFeature(eq(PackageManager.FEATURE_PICTURE_IN_PICTURE)))
                 .thenReturn(false);
-        try (var ignored = HistogramWatcher.newSingleRecordWatcher(
-                     HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_SYSTEM_FEATURE)) {
-            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mActivity));
+        try (var ignored =
+                HistogramWatcher.newSingleRecordWatcher(
+                        HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_SYSTEM_FEATURE)) {
+            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mContext));
         }
     }
 
     @Test
     public void testPipAllowedFalse() {
         when(mAppOpsManager.checkOpNoThrow(
-                     eq(AppOpsManager.OPSTR_PICTURE_IN_PICTURE), eq(UID), eq(NAME)))
+                        eq(AppOpsManager.OPSTR_PICTURE_IN_PICTURE), eq(UID), eq(NAME)))
                 .thenReturn(AppOpsManager.MODE_IGNORED);
-        try (var ignored = HistogramWatcher.newSingleRecordWatcher(
-                     HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_PIP_PERMISSION)) {
-            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mActivity));
+        try (var ignored =
+                HistogramWatcher.newSingleRecordWatcher(
+                        HISTOGRAM, MinimizedFeatureAvailability.UNAVAILABLE_PIP_PERMISSION)) {
+            assertFalse(MinimizedFeatureUtils.isMinimizedCustomTabAvailable(mContext));
         }
     }
 }

@@ -8,7 +8,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/geometry/logical_size.h"
-#include "third_party/blink/renderer/core/layout/ng/list/ng_unpositioned_list_marker.h"
+#include "third_party/blink/renderer/core/layout/list/unpositioned_list_marker.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_block_node.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_break_appeal.h"
 #include "third_party/blink/renderer/core/layout/ng/ng_break_token.h"
@@ -25,11 +25,11 @@
 
 namespace blink {
 
+class FragmentItemsBuilder;
+class InlineBreakToken;
 class LayoutObject;
 class NGColumnSpannerPath;
 class NGEarlyBreak;
-class NGFragmentItemsBuilder;
-class NGInlineBreakToken;
 
 class CORE_EXPORT NGFragmentBuilder {
   STACK_ALLOCATED();
@@ -123,7 +123,7 @@ class CORE_EXPORT NGFragmentBuilder {
   }
   void ResetBfcBlockOffset() { bfc_block_offset_.reset(); }
 
-  void SetEndMarginStrut(const NGMarginStrut& end_margin_strut) {
+  void SetEndMarginStrut(const MarginStrut& end_margin_strut) {
     end_margin_strut_ = end_margin_strut;
   }
 
@@ -134,8 +134,8 @@ class CORE_EXPORT NGFragmentBuilder {
     may_have_descendant_above_block_start_ = b;
   }
 
-  NGExclusionSpace& ExclusionSpace() { return exclusion_space_; }
-  void SetExclusionSpace(const NGExclusionSpace& exclusion_space) {
+  ExclusionSpace& GetExclusionSpace() { return exclusion_space_; }
+  void SetExclusionSpace(const ExclusionSpace& exclusion_space) {
     exclusion_space_ = exclusion_space;
   }
 
@@ -143,15 +143,15 @@ class CORE_EXPORT NGFragmentBuilder {
     lines_until_clamp_ = value;
   }
 
-  const NGUnpositionedListMarker& UnpositionedListMarker() const {
+  const UnpositionedListMarker& GetUnpositionedListMarker() const {
     return unpositioned_list_marker_;
   }
-  void SetUnpositionedListMarker(const NGUnpositionedListMarker& marker) {
+  void SetUnpositionedListMarker(const UnpositionedListMarker& marker) {
     DCHECK(!unpositioned_list_marker_ || !marker);
     unpositioned_list_marker_ = marker;
   }
   void ClearUnpositionedListMarker() {
-    unpositioned_list_marker_ = NGUnpositionedListMarker();
+    unpositioned_list_marker_ = UnpositionedListMarker();
   }
 
   void ReplaceChild(wtf_size_t index,
@@ -160,12 +160,12 @@ class CORE_EXPORT NGFragmentBuilder {
 
   const ChildrenVector& Children() const { return children_; }
 
-  // True if |this| has |NGFragmentItemsBuilder|; i.e., if |this| is an inline
+  // True if |this| has |FragmentItemsBuilder|; i.e., if |this| is an inline
   // formatting context.
   bool HasItems() const { return items_builder_; }
-  // The |NGFragmentItemsBuilder| for the inline formatting context of this box.
-  NGFragmentItemsBuilder* ItemsBuilder() { return items_builder_; }
-  void SetItemsBuilder(NGFragmentItemsBuilder* builder) {
+  // The |FragmentItemsBuilder| for the inline formatting context of this box.
+  FragmentItemsBuilder* ItemsBuilder() { return items_builder_; }
+  void SetItemsBuilder(FragmentItemsBuilder* builder) {
     items_builder_ = builder;
   }
 
@@ -202,12 +202,11 @@ class CORE_EXPORT NGFragmentBuilder {
   // NGOutOfFlowLayoutPart(container_style, builder).Run();
   //
   // See layout part for builder interaction.
-  void AddOutOfFlowChildCandidate(NGBlockNode,
-                                  const LogicalOffset& child_offset,
-                                  NGLogicalStaticPosition::InlineEdge =
-                                      NGLogicalStaticPosition::kInlineStart,
-                                  NGLogicalStaticPosition::BlockEdge =
-                                      NGLogicalStaticPosition::kBlockStart);
+  void AddOutOfFlowChildCandidate(
+      NGBlockNode,
+      const LogicalOffset& child_offset,
+      LogicalStaticPosition::InlineEdge = LogicalStaticPosition::kInlineStart,
+      LogicalStaticPosition::BlockEdge = LogicalStaticPosition::kBlockStart);
 
   void AddOutOfFlowChildCandidate(
       const NGLogicalOutOfFlowPositionedNode& candidate);
@@ -561,20 +560,20 @@ class CORE_EXPORT NGFragmentBuilder {
   NGLogicalAnchorQuery* anchor_query_ = nullptr;
   LayoutUnit bfc_line_offset_;
   absl::optional<LayoutUnit> bfc_block_offset_;
-  NGMarginStrut end_margin_strut_;
-  NGExclusionSpace exclusion_space_;
+  MarginStrut end_margin_strut_;
+  ExclusionSpace exclusion_space_;
   absl::optional<int> lines_until_clamp_;
 
   ScrollStartTargetCandidates* scroll_start_targets_ = nullptr;
 
   ChildrenVector children_;
 
-  NGFragmentItemsBuilder* items_builder_ = nullptr;
+  FragmentItemsBuilder* items_builder_ = nullptr;
 
   // Only used by the NGBoxFragmentBuilder subclass, but defined here to avoid
   // a virtual function call.
   NGBreakTokenVector child_break_tokens_;
-  const NGInlineBreakToken* last_inline_break_token_ = nullptr;
+  const InlineBreakToken* last_inline_break_token_ = nullptr;
 
   HeapVector<NGLogicalOutOfFlowPositionedNode> oof_positioned_candidates_;
   HeapVector<NGLogicalOOFNodeForFragmentation>
@@ -582,7 +581,7 @@ class CORE_EXPORT NGFragmentBuilder {
   HeapVector<NGLogicalOutOfFlowPositionedNode> oof_positioned_descendants_;
   MulticolCollection multicols_with_pending_oofs_;
 
-  NGUnpositionedListMarker unpositioned_list_marker_;
+  UnpositionedListMarker unpositioned_list_marker_;
 
   const NGColumnSpannerPath* column_spanner_path_ = nullptr;
 
@@ -632,7 +631,7 @@ class CORE_EXPORT NGFragmentBuilder {
   bool is_may_have_descendant_above_block_start_explicitly_set_ = false;
 #endif
 
-  friend class NGInlineLayoutStateStack;
+  friend class InlineLayoutStateStack;
   friend class NGLayoutResult;
   friend class NGPhysicalFragment;
 };

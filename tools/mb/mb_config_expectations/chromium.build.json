@@ -43,6 +43,7 @@
       "target_cpu": "arm64",
       "target_os": "android",
       "use_clang_coverage": true,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -66,6 +67,7 @@
         "target_cpu": "arm64",
         "target_os": "android",
         "use_clang_coverage": true,
+        "use_dummy_lastchange": true,
         "use_remoteexec": false
       }
     },
@@ -89,6 +91,7 @@
         "target_cpu": "arm64",
         "target_os": "android",
         "use_clang_coverage": true,
+        "use_dummy_lastchange": true,
         "use_remoteexec": true
       }
     }
@@ -164,6 +167,7 @@
       "proprietary_codecs": true,
       "symbol_level": 0,
       "use_clang_coverage": true,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -182,6 +186,7 @@
         "proprietary_codecs": true,
         "symbol_level": 0,
         "use_clang_coverage": true,
+        "use_dummy_lastchange": true,
         "use_goma": false,
         "use_remoteexec": false
       }
@@ -199,6 +204,7 @@
         "proprietary_codecs": true,
         "symbol_level": 0,
         "use_clang_coverage": true,
+        "use_dummy_lastchange": true,
         "use_remoteexec": true
       }
     }
@@ -238,6 +244,7 @@
       "symbol_level": 0,
       "target_os": "chromeos",
       "use_clang_coverage": true,
+      "use_cups": true,
       "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
@@ -279,6 +286,7 @@
         "symbol_level": 0,
         "target_os": "chromeos",
         "use_clang_coverage": true,
+        "use_cups": true,
         "use_dummy_lastchange": true,
         "use_remoteexec": true
       }
@@ -298,6 +306,7 @@
       "symbol_level": 0,
       "target_cpu": "x64",
       "use_clang_coverage": true,
+      "use_dummy_lastchange": true,
       "use_remoteexec": true
     }
   },
@@ -337,6 +346,7 @@
         "symbol_level": 0,
         "target_cpu": "x64",
         "use_clang_coverage": true,
+        "use_dummy_lastchange": true,
         "use_remoteexec": false
       }
     },
@@ -354,6 +364,7 @@
         "symbol_level": 0,
         "target_cpu": "x64",
         "use_clang_coverage": true,
+        "use_dummy_lastchange": true,
         "use_remoteexec": true
       }
     }

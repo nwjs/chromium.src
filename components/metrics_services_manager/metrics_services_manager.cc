@@ -22,7 +22,6 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
-#include "components/metrics/structured/neutrino_logging.h"  // nogncheck
 #include "components/metrics/structured/structured_metrics_service.h"  // nogncheck
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
@@ -40,10 +39,6 @@ MetricsServicesManager::MetricsServicesManager(
 MetricsServicesManager::~MetricsServicesManager() {}
 
 void MetricsServicesManager::InstantiateFieldTrialList() const {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  metrics::structured::NeutrinoDevicesLog(
-      metrics::structured::NeutrinoDevicesLocation::kCreateEntropyProvider);
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   client_->GetMetricsStateManager()->InstantiateFieldTrialList();
 }
 

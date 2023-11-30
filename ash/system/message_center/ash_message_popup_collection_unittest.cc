@@ -36,10 +36,13 @@
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller_test_api.h"
 #include "base/command_line.h"
+#include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/time/time.h"
 #include "chromeos/ash/components/phonehub/fake_phone_hub_manager.h"
 #include "chromeos/ash/components/phonehub/feature_status.h"
+#include "ui/base/ui_base_features.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/screen.h"
 #include "ui/events/test/event_generator.h"
@@ -155,7 +158,8 @@ class AshMessagePopupCollectionTest
     }
   }
 
-  bool IsQsRevampEnabled() const { return std::get<0>(GetParam()); }
+  // TODO(b/305075031) clean up after the flag is removed.
+  bool IsQsRevampEnabled() const { return true; }
   bool IsNotifierCollisionEnabled() const { return std::get<1>(GetParam()); }
 
  protected:
@@ -190,10 +194,11 @@ class AshMessagePopupCollectionTest
       return OUTSIDE;
     }
 
-    if (center_point.x() < point.x())
+    if (center_point.x() < point.x()) {
       return (center_point.y() < point.y()) ? BOTTOM_RIGHT : TOP_RIGHT;
-    else
+    } else {
       return (center_point.y() < point.y()) ? BOTTOM_LEFT : TOP_LEFT;
+    }
   }
 
   gfx::Rect GetWorkArea() { return GetPrimaryPopupCollection()->work_area_; }
@@ -507,7 +512,7 @@ TEST_P(AshMessagePopupCollectionTest, BaselineInOverview) {
   const int baseline_with_hidden_shelf = popup_collection->GetBaseline();
   EXPECT_NE(baseline_with_visible_shelf, baseline_with_hidden_shelf);
 
-  auto* overview_controller = Shell::Get()->overview_controller();
+  auto* overview_controller = OverviewController::Get();
   EnterOverview();
   EXPECT_TRUE(overview_controller->InOverviewSession());
   const int baseline_in_overview = popup_collection->GetBaseline();
@@ -1681,6 +1686,60 @@ TEST_P(AshMessagePopupCollectionTest, BubbleNotCloseWhenPopupClose) {
 
   EXPECT_FALSE(popup_collection->GetPopupViewForNotificationID(id));
   EXPECT_TRUE(phone_hub_tray->GetBubbleView());
+}
+
+class AshMessagePopupCollectionMockTimeTest : public ash::AshTestBase {
+ public:
+  AshMessagePopupCollectionMockTimeTest()
+      : AshTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+  AshMessagePopupCollectionMockTimeTest(
+      const AshMessagePopupCollectionMockTimeTest&) = delete;
+  AshMessagePopupCollectionMockTimeTest& operator=(
+      const AshMessagePopupCollectionMockTimeTest&) = delete;
+  ~AshMessagePopupCollectionMockTimeTest() override = default;
+};
+
+TEST_F(AshMessagePopupCollectionMockTimeTest, PopupTimeouts) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      ::features::kNotificationsIgnoreRequireInteraction);
+
+  auto* popup_collection =
+      GetPrimaryUnifiedSystemTray()->GetMessagePopupCollection();
+  auto* message_center = message_center::MessageCenter::Get();
+  std::string id = "0";
+  auto notification_priorities = {
+      message_center::DEFAULT_PRIORITY, message_center::HIGH_PRIORITY,
+      message_center::MAX_PRIORITY, message_center::SYSTEM_PRIORITY};
+
+  // Make sure all notification popups below `SYSTEM_PRIORITY` are dismissed
+  // after `kAutocloseShortDelaySeconds` seconds. Also, make sure
+  // `SYSTEM_PRIORITY` notifications are dismissed after
+  // `kAutocloseCrosHighPriorityDelaySeconds`.
+  for (auto priority : notification_priorities) {
+    auto notification = CreateSimpleNotification(id);
+    notification->set_priority(priority);
+    if (priority == message_center::SYSTEM_PRIORITY) {
+      notification->SetSystemPriority();
+    }
+    message_center->AddNotification(std::move(notification));
+    EXPECT_TRUE(popup_collection->GetPopupViewForNotificationID(id));
+
+    int timeout = priority == message_center::SYSTEM_PRIORITY
+                      ? message_center::kAutocloseCrosHighPriorityDelaySeconds
+                      : message_center::kAutocloseShortDelaySeconds;
+    task_environment()->FastForwardBy(base::Seconds(timeout - 1));
+    base::RunLoop().RunUntilIdle();
+    EXPECT_TRUE(popup_collection->GetPopupViewForNotificationID(id));
+
+    task_environment()->FastForwardBy(base::Seconds(timeout));
+    base::RunLoop().RunUntilIdle();
+
+    EXPECT_FALSE(popup_collection->GetPopupViewForNotificationID(id));
+
+    message_center->RemoveNotification(id,
+                                       /*by_user=*/false);
+  }
 }
 
 }  // namespace ash

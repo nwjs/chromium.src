@@ -196,7 +196,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   void SetOwner(FrameOwner*);
   HTMLFrameOwnerElement* DeprecatedLocalOwner() const;
 
-  DOMWindow* DomWindow() const { return dom_window_; }
+  DOMWindow* DomWindow() const { return dom_window_.Get(); }
 
   FrameTree& Tree() const;
   ChromeClient& GetChromeClient() const;
@@ -241,7 +241,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   virtual void CheckCompleted() = 0;
 
   WindowProxyManager* GetWindowProxyManager() const {
-    return window_proxy_manager_;
+    return window_proxy_manager_.Get();
   }
   WindowProxy* GetWindowProxy(DOMWrapperWorld&);
   WindowProxy* GetWindowProxyMaybeUninitialized(DOMWrapperWorld&);
@@ -380,7 +380,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   void SetOpenerDoNotNotify(Frame* opener);
 
   // Returns the frame that opened this frame or null if there is none.
-  Frame* Opener() const { return opener_; }
+  Frame* Opener() const { return opener_.Get(); }
 
   // Returns the parent frame or null if this is the top-most frame.
   Frame* Parent() const;
@@ -389,16 +389,16 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   Frame* Top();
 
   // Returns the first child frame.
-  Frame* FirstChild() const { return first_child_; }
+  Frame* FirstChild() const { return first_child_.Get(); }
 
   // Returns the previous sibling frame.
-  Frame* PreviousSibling() const { return previous_sibling_; }
+  Frame* PreviousSibling() const { return previous_sibling_.Get(); }
 
   // Returns the next sibling frame.
-  Frame* NextSibling() const { return next_sibling_; }
+  Frame* NextSibling() const { return next_sibling_.Get(); }
 
   // Returns the last child frame.
-  Frame* LastChild() const { return last_child_; }
+  Frame* LastChild() const { return last_child_.Get(); }
 
   // TODO(dcheng): these should probably all have restricted visibility. They
   // are not intended for general usage.
@@ -426,7 +426,7 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
   // Removes the given child from this frame.
   void RemoveChild(Frame* child);
 
-  LocalFrame* ProvisionalFrame() const { return provisional_frame_; }
+  LocalFrame* ProvisionalFrame() const { return provisional_frame_.Get(); }
   void SetProvisionalFrame(LocalFrame* provisional_frame) {
     // There should only be null -> non-null or non-null -> null transitions
     // here. Anything else indicates a logic error in the code managing this
@@ -617,11 +617,11 @@ class CORE_EXPORT Frame : public GarbageCollected<Frame> {
 };
 
 inline FrameClient* Frame::Client() const {
-  return client_;
+  return client_.Get();
 }
 
 inline FrameOwner* Frame::Owner() const {
-  return owner_;
+  return owner_.Get();
 }
 
 inline FrameTree& Frame::Tree() const {

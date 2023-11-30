@@ -6,6 +6,7 @@
 
 #include "base/numerics/safe_conversions.h"
 #include "third_party/blink/public/platform/web_theme_engine.h"
+#include "third_party/blink/renderer/core/scroll/scrollable_area.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
 #include "third_party/blink/renderer/platform/theme/web_theme_engine_helper.h"
 #include "third_party/blink/renderer/platform/web_test_support.h"
@@ -41,6 +42,13 @@ ScrollbarThemeFluent::ScrollbarThemeFluent() {
   // Hit testable invisible border around the scrollbar's track.
   scrollbar_track_inset_ = theme_engine->GetPaintedScrollbarTrackInset();
   scrollbar_track_thickness_ -= 2 * scrollbar_track_inset_;
+
+  WebThemeEngineHelper::GetNativeThemeEngine()->GetOverlayScrollbarStyle(
+      &style_);
+  if (WebTestSupport::IsRunningWebTest()) {
+    style_.fade_out_delay = base::TimeDelta();
+    style_.fade_out_duration = base::TimeDelta();
+  }
 }
 
 int ScrollbarThemeFluent::ScrollbarThickness(float scale_from_dip,
@@ -118,6 +126,18 @@ bool ScrollbarThemeFluent::UsesOverlayScrollbars() const {
   return is_fluent_overlay_scrollbar_enabled_;
 }
 
+bool ScrollbarThemeFluent::UsesFluentOverlayScrollbars() const {
+  return UsesOverlayScrollbars();
+}
+
+base::TimeDelta ScrollbarThemeFluent::OverlayScrollbarFadeOutDelay() const {
+  return style_.fade_out_delay;
+}
+
+base::TimeDelta ScrollbarThemeFluent::OverlayScrollbarFadeOutDuration() const {
+  return style_.fade_out_duration;
+}
+
 void ScrollbarThemeFluent::PaintTrack(GraphicsContext& context,
                                       const Scrollbar& scrollbar,
                                       const gfx::Rect& rect) {
@@ -178,6 +198,23 @@ gfx::Rect ScrollbarThemeFluent::InsetButtonRect(const Scrollbar& scrollbar,
 
 int ScrollbarThemeFluent::ScrollbarTrackInsetPx(float scale) {
   return base::ClampRound(scale * scrollbar_track_inset_);
+}
+
+gfx::Rect ScrollbarThemeFluent::ShrinkMainThreadedMinimalModeThumbRect(
+    Scrollbar& scrollbar,
+    gfx::Rect& rect) const {
+  CHECK(UsesOverlayScrollbars());
+  const float idle_thickness_scale = style_.idle_thickness_scale;
+  if (scrollbar.Orientation() == kHorizontalScrollbar) {
+    rect.set_y(rect.y() + rect.height() * (1 - idle_thickness_scale));
+    rect.set_height(rect.height() * idle_thickness_scale);
+  } else {
+    if (!scrollbar.IsLeftSideVerticalScrollbar()) {
+      rect.set_x(rect.x() + rect.width() * (1 - idle_thickness_scale));
+    }
+    rect.set_width(rect.width() * idle_thickness_scale);
+  }
+  return rect;
 }
 
 }  // namespace blink

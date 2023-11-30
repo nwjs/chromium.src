@@ -51,9 +51,7 @@ class CounterNode : public GarbageCollected<CounterNode> {
  public:
   enum Type { kIncrementType = 1 << 0, kResetType = 1 << 1, kSetType = 1 << 2 };
 
-  CounterNode(LayoutObject&, unsigned type_mask, int value);
-  CounterNode(LayoutObject&,
-              const AtomicString& identifier,
+  CounterNode(LayoutObject& object,
               unsigned type_mask,
               int value,
               bool is_reversed = false);
@@ -69,6 +67,7 @@ class CounterNode : public GarbageCollected<CounterNode> {
   int CountInParent() const { return count_in_parent_; }
   LayoutObject& Owner() const { return *owner_; }
   Element& OwnerElement() const;
+  Element& OwnerNonPseudoElement() const;
   void AddLayoutObject(LayoutCounter*);
   void RemoveLayoutObject(LayoutCounter*);
 
@@ -77,12 +76,12 @@ class CounterNode : public GarbageCollected<CounterNode> {
 
   const AtomicString& Identifier() const { return identifier_; }
 
-  CounterNode* PreviousInParent() const { return previous_in_parent_; }
+  CounterNode* PreviousInParent() const { return previous_in_parent_.Get(); }
   void SetPreviousInParent(CounterNode* previous_in_parent) {
     previous_in_parent_ = previous_in_parent;
   }
   bool IsInScope() const { return !!scope_; }
-  CountersScope* Scope() const { return scope_; }
+  CountersScope* Scope() const { return scope_.Get(); }
   void SetScope(CountersScope* scope) { scope_ = scope; }
   int ValueAfter() const { return value_after_; }
   void CalculateValueAfter(bool should_reset_increment = false,

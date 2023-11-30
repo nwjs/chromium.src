@@ -7,36 +7,19 @@
 //    ../../third_party/xcbproto/src \
 //    gen/ui/gfx/x \
 //    bigreq \
-//    composite \
-//    damage \
-//    dpms \
-//    dri2 \
 //    dri3 \
-//    ge \
 //    glx \
-//    present \
 //    randr \
-//    record \
 //    render \
-//    res \
 //    screensaver \
 //    shape \
 //    shm \
 //    sync \
-//    xc_misc \
-//    xevie \
-//    xf86dri \
-//    xf86vidmode \
 //    xfixes \
-//    xinerama \
 //    xinput \
 //    xkb \
-//    xprint \
 //    xproto \
-//    xselinux \
-//    xtest \
-//    xv \
-//    xvmc
+//    xtest
 
 #include "render.h"
 
@@ -96,6 +79,7 @@ void ReadError<Render::PictFormatError>(Render::PictFormatError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Render::PictureError::ToString() const {
   std::stringstream ss_;
   ss_ << "Render::PictureError{";
@@ -139,6 +123,7 @@ void ReadError<Render::PictureError>(Render::PictureError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Render::PictOpError::ToString() const {
   std::stringstream ss_;
   ss_ << "Render::PictOpError{";
@@ -182,6 +167,7 @@ void ReadError<Render::PictOpError>(Render::PictOpError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Render::GlyphSetError::ToString() const {
   std::stringstream ss_;
   ss_ << "Render::GlyphSetError{";
@@ -225,6 +211,7 @@ void ReadError<Render::GlyphSetError>(Render::GlyphSetError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Render::GlyphError::ToString() const {
   std::stringstream ss_;
   ss_ << "Render::GlyphError{";
@@ -268,6 +255,7 @@ void ReadError<Render::GlyphError>(Render::GlyphError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 Future<Render::QueryVersionReply> Render::QueryVersion(
     const Render::QueryVersionRequest& request) {
   if (!connection_->Ready() || !present())

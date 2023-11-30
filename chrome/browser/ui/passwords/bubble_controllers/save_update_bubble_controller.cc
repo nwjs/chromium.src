@@ -9,7 +9,7 @@
 #include "base/metrics/field_trial_params.h"
 #include "base/ranges/algorithm.h"
 #include "base/time/default_clock.h"
-#include "chrome/browser/password_manager/password_store_factory.h"
+#include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/passwords/passwords_model_delegate.h"
@@ -23,18 +23,11 @@
 #include "components/password_manager/core/browser/password_form_metrics_recorder.h"
 #include "components/password_manager/core/browser/password_store_interface.h"
 #include "components/password_manager/core/browser/password_sync_util.h"
-#include "components/password_manager/core/browser/reauth_purpose.h"
 #include "components/password_manager/core/browser/smart_bubble_stats_store.h"
 #include "components/password_manager/core/common/password_manager_pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
-
-#if BUILDFLAG(IS_WIN)
-#include "chrome/browser/password_manager/password_manager_util_win.h"
-#elif BUILDFLAG(IS_MAC)
-#include "chrome/browser/password_manager/password_manager_util_mac.h"
-#endif
 
 namespace {
 
@@ -70,8 +63,8 @@ metrics_util::UIDisplayDisposition ComputeDisplayDisposition(
 void CleanStatisticsForSite(Profile* profile, const url::Origin& origin) {
   CHECK(profile);
   password_manager::PasswordStoreInterface* password_store =
-      PasswordStoreFactory::GetForProfile(profile,
-                                          ServiceAccessType::IMPLICIT_ACCESS)
+      ProfilePasswordStoreFactory::GetForProfile(
+          profile, ServiceAccessType::IMPLICIT_ACCESS)
           .get();
   password_manager::SmartBubbleStatsStore* stats_store =
       password_store->GetSmartBubbleStatsStore();
@@ -229,11 +222,10 @@ void SaveUpdateBubbleController::ShouldRevealPasswords(
 
   std::u16string message;
 #if BUILDFLAG(IS_MAC)
-  message = password_manager_util_mac::GetMessageForLoginPrompt(
-      password_manager::ReauthPurpose::VIEW_PASSWORD);
+  message = l10n_util::GetStringUTF16(
+      IDS_PASSWORDS_PAGE_AUTHENTICATION_PROMPT_BIOMETRIC_SUFFIX);
 #elif BUILDFLAG(IS_WIN)
-  message = password_manager_util_win::GetMessageForLoginPrompt(
-      password_manager::ReauthPurpose::VIEW_PASSWORD);
+  message = l10n_util::GetStringUTF16(IDS_PASSWORDS_PAGE_AUTHENTICATION_PROMPT);
 #endif
   // Bind OnUserAuthenticationCompleted() using a weak_ptr such that if the
   // bubble is closed (and controller is destructed) while the reauth flow is
@@ -321,7 +313,7 @@ void SaveUpdateBubbleController::ReportInteractions() {
         }
         interaction_stats_.update_time = clock_->Now();
         password_manager::PasswordStoreInterface* password_store =
-            PasswordStoreFactory::GetForProfile(
+            ProfilePasswordStoreFactory::GetForProfile(
                 profile, ServiceAccessType::IMPLICIT_ACCESS)
                 .get();
         password_manager::SmartBubbleStatsStore* stats_store =
@@ -335,8 +327,7 @@ void SaveUpdateBubbleController::ReportInteractions() {
 
   // Log UMA histograms.
   if (GetState() == password_manager::ui::PENDING_PASSWORD_UPDATE_STATE) {
-    metrics_util::LogUpdateUIDismissalReason(
-        GetDismissalReason(), GetPendingPassword().submission_event);
+    metrics_util::LogUpdateUIDismissalReason(GetDismissalReason());
   } else if (GetState() == password_manager::ui::PENDING_PASSWORD_STATE) {
     absl::optional<features_util::PasswordAccountStorageUserState> user_state =
         absl::nullopt;
@@ -346,9 +337,7 @@ void SaveUpdateBubbleController::ReportInteractions() {
           ComputePasswordAccountStorageUserState(
               profile->GetPrefs(), SyncServiceFactory::GetForProfile(profile));
     }
-    metrics_util::LogSaveUIDismissalReason(
-        GetDismissalReason(), GetPendingPassword().submission_event,
-        user_state);
+    metrics_util::LogSaveUIDismissalReason(GetDismissalReason(), user_state);
   }
 
   // Update the delegate so that it can send votes to the server.

@@ -25,7 +25,7 @@
 #include "ui/base/interaction/element_identifier.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/apps/intent_helper/apps_navigation_types.h"
+#include "chrome/browser/apps/link_capturing/intent_picker_info.h"
 #endif  //  !BUILDFLAG(IS_ANDROID)
 
 class LocationBarTesting;
@@ -66,7 +66,7 @@ class TestBrowserWindow : public BrowserWindow {
   void NativeWindowChanged() override {}
   // BrowserWindow:
   void UpdateDraggableRegions(
-         const std::vector<extensions::DraggableRegion>& regions) override;
+	      const std::vector<chrome::mojom::DraggableRegionPtr>& regions) override;
   SkRegion* GetDraggableRegion() override;
   void Show() override {}
   void ShowInactive() override {}
@@ -117,6 +117,8 @@ class TestBrowserWindow : public BrowserWindow {
   void Maximize() override {}
   void Minimize() override {}
   void Restore() override {}
+  void SetCanResizeFromWebAPI(absl::optional<bool> can_resize) override {}
+  bool GetCanResize() override;
   bool ShouldHideUIForFullscreen() const override;
   bool IsFullscreen() const override;
   bool IsFullscreenBubbleVisible() const override;

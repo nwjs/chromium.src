@@ -7,36 +7,19 @@
 //    ../../third_party/xcbproto/src \
 //    gen/ui/gfx/x \
 //    bigreq \
-//    composite \
-//    damage \
-//    dpms \
-//    dri2 \
 //    dri3 \
-//    ge \
 //    glx \
-//    present \
 //    randr \
-//    record \
 //    render \
-//    res \
 //    screensaver \
 //    shape \
 //    shm \
 //    sync \
-//    xc_misc \
-//    xevie \
-//    xf86dri \
-//    xf86vidmode \
 //    xfixes \
-//    xinerama \
 //    xinput \
 //    xkb \
-//    xprint \
 //    xproto \
-//    xselinux \
-//    xtest \
-//    xv \
-//    xvmc
+//    xtest
 
 #include "sync.h"
 
@@ -96,6 +79,7 @@ void ReadError<Sync::CounterError>(Sync::CounterError* error_,
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 std::string Sync::AlarmError::ToString() const {
   std::stringstream ss_;
   ss_ << "Sync::AlarmError{";
@@ -138,6 +122,7 @@ void ReadError<Sync::AlarmError>(Sync::AlarmError* error_, ReadBuffer* buffer) {
 
   DUMP_WILL_BE_CHECK_LE(buf.offset, 32ul);
 }
+
 template <>
 COMPONENT_EXPORT(X11)
 void ReadEvent<Sync::CounterNotifyEvent>(Sync::CounterNotifyEvent* event_,

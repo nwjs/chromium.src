@@ -422,6 +422,7 @@ ios_builder(
     mirrors = [
         "ci/ios-blink-dbg-fyi",
     ],
+    builderless = True,
     cpu = cpu.ARM64,
     execution_timeout = 4 * time.hour,
 )
@@ -540,7 +541,6 @@ ios_builder(
     mirrors = [
         "ci/ios-simulator-cronet",
     ],
-    cpu = cpu.ARM64,
     main_list_view = "try",
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CQ,
     tryjob = try_.job(
@@ -620,7 +620,7 @@ ios_builder(
     mirrors = [
         "ci/ios16-sdk-simulator",
     ],
-    os = os.MAC_13,
+    os = os.MAC_14,
     cpu = cpu.ARM64,
     xcode = xcode.x15betabots,
 )

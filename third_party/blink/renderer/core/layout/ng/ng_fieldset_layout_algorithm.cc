@@ -32,8 +32,9 @@ enum class LegendBlockAlignment {
 inline LegendBlockAlignment ComputeLegendBlockAlignment(
     const ComputedStyle& legend_style,
     const ComputedStyle& fieldset_style) {
-  bool start_auto = legend_style.MarginStartUsing(fieldset_style).IsAuto();
-  bool end_auto = legend_style.MarginEndUsing(fieldset_style).IsAuto();
+  bool start_auto =
+      legend_style.MarginInlineStartUsing(fieldset_style).IsAuto();
+  bool end_auto = legend_style.MarginInlineEndUsing(fieldset_style).IsAuto();
   if (start_auto || end_auto) {
     if (start_auto) {
       return end_auto ? LegendBlockAlignment::kCenter
@@ -240,7 +241,7 @@ void NGFieldsetLayoutAlgorithm::LayoutLegend(NGBlockNode& legend) {
   // box had the fieldset been a regular block with no weirdness.
   LogicalSize percentage_size = CalculateChildPercentageSize(
       ConstraintSpace(), Node(), ChildAvailableSize());
-  NGBoxStrut legend_margins =
+  BoxStrut legend_margins =
       ComputeMarginsFor(legend.Style(), percentage_size.inline_size,
                         ConstraintSpace().GetWritingDirection());
 
@@ -295,7 +296,7 @@ void NGFieldsetLayoutAlgorithm::LayoutLegend(NGBlockNode& legend) {
 LayoutUnit NGFieldsetLayoutAlgorithm::ComputeLegendInlineOffset(
     const ComputedStyle& legend_style,
     LayoutUnit legend_border_box_inline_size,
-    const NGBoxStrut& legend_margins,
+    const BoxStrut& legend_margins,
     const ComputedStyle& fieldset_style,
     LayoutUnit fieldset_border_padding_inline_start,
     LayoutUnit fieldset_content_inline_size) {

@@ -8,21 +8,26 @@ source_set("features") {
     "compose_features.h",
   ]
 
-  public_deps = [ "//base" ]
+  deps = [ "//base" ]
 }
 
 static_library("browser") {
   sources = [
     "compose_client.h",
+    "compose_dialog_controller.h",
     "compose_manager.h",
     "compose_manager_impl.cc",
     "compose_manager_impl.h",
+    "config.cc",
+    "config.h",
   ]
 
-  deps = [ ":features" ]
+  public_deps = [ ":features" ]
 
-  public_deps = [
+  deps = [
     "//base",
+    "//components/autofill/core/browser",
+    "//components/autofill/core/common",
     "//components/keyed_service/core",
   ]
 }

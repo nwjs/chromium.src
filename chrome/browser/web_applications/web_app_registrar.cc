@@ -19,6 +19,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/observer_list.h"
+#include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
@@ -26,6 +27,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
+#include "chrome/browser/web_applications/mojom/user_display_mode.mojom-shared.h"
 #include "chrome/browser/web_applications/mojom/user_display_mode.mojom.h"
 #include "chrome/browser/web_applications/policy/web_app_policy_manager.h"
 #include "chrome/browser/web_applications/proto/web_app_os_integration_state.pb.h"
@@ -731,6 +733,20 @@ void WebAppRegistrar::Start() {
   base::UmaHistogramCounts1000(
       "WebApp.InstalledCount.ByUserNotLocallyInstalled",
       num_non_locally_installed);
+
+#if BUILDFLAG(IS_MAC)
+  auto multi_profile_app_ids =
+      AppShimRegistry::Get()->GetAppsInstalledInMultipleProfiles();
+  int num_multi_profile_apps = 0;
+  for (const auto& app_id : multi_profile_app_ids) {
+    const WebApp* app = GetAppById(app_id);
+    if (app && app->is_locally_installed() && app->WasInstalledByUser()) {
+      num_multi_profile_apps++;
+    }
+  }
+  base::UmaHistogramCounts1000("WebApp.InstalledCount.ByUserInMultipleProfiles",
+                               num_multi_profile_apps);
+#endif
 }
 
 void WebAppRegistrar::Shutdown() {
@@ -1027,6 +1043,23 @@ absl::optional<webapps::AppId> WebAppRegistrar::FindAppThatCapturesLinksInScope(
   return absl::nullopt;
 }
 
+bool WebAppRegistrar::IsLinkCapturableByApp(const webapps::AppId& app,
+                                            const GURL& url) const {
+  CHECK(url.is_valid());
+  // TODO(dmurph): Switch to GetAppExtendedScopeScore if the
+  // kWebAppEnableScopeExtensions feature is enabled. b/294079334
+  size_t app_score = GetUrlInAppScopeScore(url.spec(), app);
+  if (app_score == 0) {
+    return false;
+  }
+  return base::ranges::none_of(GetAppIds(), [&](const webapps::AppId& app_id) {
+    // TODO(b/294079334): Switch to GetAppExtendedScopeScore if the
+    // kWebAppEnableScopeExtensions feature is enabled.
+    return IsLocallyInstalled(app_id) && !IsShortcutApp(app_id) &&
+           GetUrlInAppScopeScore(url.spec(), app_id) > app_score;
+  });
+}
+
 std::vector<webapps::AppId> WebAppRegistrar::GetOverlappingAppsMatchingScope(
     const webapps::AppId& app_id) const {
   std::vector<webapps::AppId> all_apps_with_supported_links;
@@ -1076,6 +1109,36 @@ bool WebAppRegistrar::AppScopesMatchForUserLinkCapturing(
   }
 
   return app_scope1 == app_scope2;
+}
+
+base::flat_map<webapps::AppId, std::string>
+WebAppRegistrar::GetAllAppsControllingUrl(const GURL& url) const {
+  base::flat_map<webapps::AppId, std::string> all_controlling_apps;
+  for (const webapps::AppId& app_id : GetAppIds()) {
+    if (!IsLocallyInstalled(app_id)) {
+      continue;
+    }
+
+    if (GetAppUserDisplayMode(app_id) == mojom::UserDisplayMode::kBrowser) {
+      continue;
+    }
+
+    const GURL scope = GetAppScope(app_id);
+    if (base::StartsWith(url.spec(), scope.spec(),
+                         base::CompareCase::SENSITIVE)) {
+      all_controlling_apps.insert_or_assign(app_id, GetAppShortName(app_id));
+    }
+  }
+  return all_controlling_apps;
+}
+
+bool WebAppRegistrar::IsPreferredAppForCapturingUrl(
+    const GURL& url,
+    const webapps::AppId& app_id) {
+  const GURL app_scope = GetAppScope(app_id);
+  return base::StartsWith(url.spec(), app_scope.spec(),
+                          base::CompareCase::SENSITIVE) &&
+         CapturesLinksInScope(app_id);
 }
 
 std::string WebAppRegistrar::GetAppShortName(
@@ -1254,6 +1317,13 @@ apps::UrlHandlers WebAppRegistrar::GetAppUrlHandlers(
   auto* web_app = GetAppById(app_id);
   return web_app ? web_app->url_handlers()
                  : std::vector<apps::UrlHandlerInfo>();
+}
+
+base::flat_set<ScopeExtensionInfo> WebAppRegistrar::GetScopeExtensions(
+    const webapps::AppId& app_id) const {
+  auto* web_app = GetAppById(app_id);
+  return web_app ? web_app->scope_extensions()
+                 : base::flat_set<ScopeExtensionInfo>();
 }
 
 base::flat_set<ScopeExtensionInfo> WebAppRegistrar::GetValidatedScopeExtensions(

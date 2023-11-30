@@ -282,6 +282,8 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[password_manager::prefs::kCredentialsEnableAutosignin] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
+  (*s_allowlist)[password_manager::prefs::kPasswordSharingEnabled] =
+      settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)[password_manager::prefs::kPasswordLeakDetectionEnabled] =
       settings_api::PrefType::PREF_TYPE_BOOLEAN;
   (*s_allowlist)
@@ -494,6 +496,10 @@ const PrefsUtil::TypedPrefMap& PrefsUtil::GetAllowlistedKeys() {
   (*s_allowlist)[browsing_data::prefs::kDeleteTimePeriod] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_allowlist)[browsing_data::prefs::kDeleteTimePeriodBasic] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
+  (*s_allowlist)[browsing_data::prefs::kDeleteTimePeriodV2] =
+      settings_api::PrefType::PREF_TYPE_NUMBER;
+  (*s_allowlist)[browsing_data::prefs::kDeleteTimePeriodV2Basic] =
       settings_api::PrefType::PREF_TYPE_NUMBER;
   (*s_allowlist)[browsing_data::prefs::kLastClearBrowsingDataTab] =
       settings_api::PrefType::PREF_TYPE_NUMBER;

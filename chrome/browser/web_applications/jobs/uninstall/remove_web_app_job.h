@@ -9,7 +9,6 @@
 #include "base/values.h"
 #include "chrome/browser/web_applications/jobs/uninstall/uninstall_job.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
-#include "chrome/browser/web_applications/web_app_id.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -62,7 +61,6 @@ class RemoveWebAppJob : public UninstallJob {
   bool translation_data_deleted_ = false;
   bool isolated_web_app_browsing_data_cleared_ = false;
   bool hooks_uninstalled_ = false;
-  bool pending_app_profile_deletion_ = false;
   bool errors_ = false;
   bool has_isolated_storage_ = false;
   absl::optional<webapps::UninstallResultCode> primary_removal_result_;

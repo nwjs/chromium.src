@@ -19,6 +19,7 @@
 #include "ash/capture_mode/null_capture_mode_session.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/notifier_catalogs.h"
+#include "ash/game_dashboard/game_dashboard_controller.h"
 #include "ash/public/cpp/capture_mode/recording_overlay_view.h"
 #include "ash/public/cpp/holding_space/holding_space_client.h"
 #include "ash/public/cpp/holding_space/holding_space_controller.h"
@@ -1722,12 +1723,14 @@ base::FilePath CaptureModeController::BuildImagePathForDisplay(
 base::FilePath CaptureModeController::BuildPathNoExtension(
     const char* const format_string,
     base::Time timestamp) const {
-  return GetCurrentCaptureFolder().path.AppendASCII(base::StringPrintf(
-      format_string,
-      base::UnlocalizedTimeFormatWithPattern(timestamp, "y-MM-dd").c_str(),
-      base::UnlocalizedTimeFormatWithPattern(
-          timestamp, delegate_->Uses24HourFormat() ? "HH.mm.ss" : "h.mm.ss a")
-          .c_str()));
+  return GetCurrentCaptureFolder().path.AppendASCII(
+      base::StringPrintfNonConstexpr(
+          format_string,
+          base::UnlocalizedTimeFormatWithPattern(timestamp, "y-MM-dd").c_str(),
+          base::UnlocalizedTimeFormatWithPattern(
+              timestamp,
+              delegate_->Uses24HourFormat() ? "HH.mm.ss" : "h.mm.ss a")
+              .c_str()));
 }
 
 base::FilePath CaptureModeController::GetFallbackFilePathFromFile(

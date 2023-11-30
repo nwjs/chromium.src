@@ -3,13 +3,14 @@
 // found in the LICENSE file.
 
 import '//read-anything-side-panel.top-chrome/shared/sp_empty_state.js';
+import '//read-anything-side-panel.top-chrome/shared/sp_shared_style.css.js';
 import '//resources/cr_elements/cr_hidden_style.css.js';
 import '../strings.m.js';
 import './read_anything_toolbar.js';
 
 import {ColorChangeUpdater} from '//resources/cr_components/color_change_listener/colors_css_updater.js';
 import {WebUiListenerMixin} from '//resources/cr_elements/web_ui_listener_mixin.js';
-import {assert} from '//resources/js/assert_ts.js';
+import {assert} from '//resources/js/assert.js';
 import {rgbToSkColor, skColorToRgba} from '//resources/js/color_utils.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {SkColor} from '//resources/mojo/skia/public/mojom/skcolor.mojom-webui.js';
@@ -428,14 +429,35 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   defaultVoice(): SpeechSynthesisVoice|undefined {
     // TODO(crbug.com/1474951): Additional logic to find default voice if there
     // isn't a voice marked as default
-    return this.synth.getVoices().find(
-        ({localService, default: isDefaultVoice}) =>
-            localService && isDefaultVoice);
+
+    // TODO(crbug.com/1474951): Filter by localService. Doing this now prevents
+    // voices from loading on Linux, which slows down development.
+    const languageCode = chrome.readingMode.speechSynthesisLanguageCode;
+    // TODO(crbug.com/1474951): Ensure various locales are handled such as
+    // "en-US" vs. "en-UK." This should be fixed by using page language instead
+    // of browser language.
+    const voices = this.synth.getVoices().filter(
+        voice => voice.lang.startsWith(languageCode));
+    if (!voices || (voices.length === 0)) {
+      // If no voices in the given language are found, use the default voice.
+      return this.synth.getVoices().find(
+          ({default: isDefaultVoice}) => isDefaultVoice);
+    }
+
+    // The default voice doesn't always match with the actual default voice
+    // of the device, therefore use the language code to find a voice first.
+    const voice = voices.find(({default: isDefaultVoice}) => isDefaultVoice);
+    if (!voice) {
+      return voices[0];
+    }
+
+    return voice;
   }
 
   getVoices(): VoicesByLanguage {
+    // TODO(crbug.com/1474951): Filter by localService. Doing this now prevents
+    // voices from loading on Linux, which slows down development.
     return this.synth.getVoices()
-        .filter(({localService}) => localService)
         .reduce(
             (voicesByLang: VoicesByLanguage, voice: SpeechSynthesisVoice) => {
               (voicesByLang[voice.lang] = voicesByLang[voice.lang] || [])
@@ -445,18 +467,18 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
             {});
   }
 
-  setSpeechSynthesisVoice(voice: SpeechSynthesisVoice) {
+  setSpeechSynthesisVoice(voice: SpeechSynthesisVoice|undefined) {
     this.voice = voice;
   }
 
   previewSpeechSynthesisVoice(voice: SpeechSynthesisVoice) {
     const defaultUtteranceSettings = this.defaultUtteranceSettings();
 
-    // TODO(crbug.com/1474951): Translate the utterance into the language of
-    // the voice being previewed, and remove the hard-coded string.
+    // TODO(crbug.com/1474951): Finalize the default voice preview text.
     // TODO(crbug.com/1474951): Call this.synth.cancel() to interrupt reading
     // and reset the play icon.
-    const utterance = new SpeechSynthesisUtterance('Hi. This is a preview');
+    const utterance = new SpeechSynthesisUtterance(
+        loadTimeData.getString('readingModeVoicePreviewText'));
     utterance.voice = voice;
     utterance.lang = defaultUtteranceSettings.lang;
     utterance.volume = defaultUtteranceSettings.volume;
@@ -794,6 +816,7 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
   restoreSettingsFromPrefs() {
     if (this.isReadAloudEnabled_) {
       this.onSpeechRateChange(chrome.readingMode.speechRate);
+      this.restoreVoiceFromPrefs_();
     }
     this.updateLineSpacing(chrome.readingMode.lineSpacing);
     this.updateLetterSpacing(chrome.readingMode.letterSpacing);
@@ -829,6 +852,31 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     if (toolbar instanceof ReadAnythingToolbar) {
       toolbar.restoreSettingsFromPrefs(colorSuffix);
     }
+  }
+
+  private restoreVoiceFromPrefs_() {
+    const storedLang = chrome.readingMode.speechSynthesisLanguageCode;
+    const storedVoice = chrome.readingMode.getStoredVoice(storedLang);
+    if (!storedVoice) {
+      this.setSpeechSynthesisVoice(this.defaultVoice());
+      return;
+    }
+
+    // TODO(crbug.com/1474951): Ensure various locales are handled such as
+    // "en-US" vs. "en-UK." This should be fixed by using page language instead
+    // of browser language.
+    const voices: VoicesByLanguage = this.getVoices();
+    const entry =
+        Object.entries(voices).find(([key, _]) => key.startsWith(storedLang));
+    let voice;
+    if (entry) {
+      const voicesForLang: SpeechSynthesisVoice[] = entry[1];
+      if (voicesForLang) {
+        voice = voicesForLang.find(voice => voice.name === storedVoice);
+      }
+    }
+    this.setSpeechSynthesisVoice(
+        (voice === null) ? this.defaultVoice() : voice);
   }
 
   updateLineSpacing(newLineHeight: number) {
@@ -947,6 +995,19 @@ export class ReadAnythingElement extends ReadAnythingElementBase {
     const toolbar = shadowRoot.getElementById('toolbar');
     if (toolbar instanceof ReadAnythingToolbar) {
       toolbar.updateFonts();
+    }
+  }
+
+  private onKeyDown_(e: KeyboardEvent) {
+    if (e.key === 'k') {
+      e.stopPropagation();
+      const shadowRoot = this.shadowRoot;
+      assert(shadowRoot);
+      const toolbar = shadowRoot.getElementById('toolbar');
+      assert(toolbar);
+      if (toolbar instanceof ReadAnythingToolbar) {
+        toolbar.onPlayPauseClick();
+      }
     }
   }
 }

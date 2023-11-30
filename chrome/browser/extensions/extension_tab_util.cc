@@ -127,10 +127,15 @@ Browser* CreateAndShowBrowser(Profile* profile,
 // take care of setting the id to TAB_ID_NONE if necessary (for
 // example with devtools).
 int GetTabIdForExtensions(const WebContents* web_contents) {
-  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
+  Browser* browser = chrome::FindBrowserWithTab(web_contents);
   if (browser && !ExtensionTabUtil::BrowserSupportsTabs(browser))
     return -1;
   return sessions::SessionTabHelper::IdForTab(web_contents).id();
+}
+
+bool IsFileUrl(const GURL& url) {
+  return url.SchemeIsFile() || (url.SchemeIs(content::kViewSourceScheme) &&
+                                GURL(url.GetContent()).SchemeIsFile());
 }
 
 ExtensionTabUtil::ScrubTabBehaviorType GetScrubTabBehaviorImpl(
@@ -722,10 +727,19 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
                                   int* tab_index) {
   if (tab_id == api::tabs::TAB_ID_NONE)
     return false;
+  // If `browser_context` is null, then `Profile::FromBrowserContext` below
+  // will return nullptr, and the subsequent call to `GetPrimaryOTRProfile`
+  // will crash. Since this can happen during shutdown, early-out to avoid
+  // crashing.
+  if (!browser_context) {
+    return false;
+  }
+
   Profile* profile = Profile::FromBrowserContext(browser_context);
   Profile* incognito_profile =
       include_incognito
-          ? profile->GetPrimaryOTRProfile(/*create_if_needed=*/false)
+          ? (profile ? profile->GetPrimaryOTRProfile(/*create_if_needed=*/false)
+                     : nullptr)
           : nullptr;
   extensions::AppWindowRegistry* registry = AppWindowRegistry::Get(profile);
   for (extensions::AppWindow* app_window : registry->app_windows()) {
@@ -915,7 +929,7 @@ base::expected<GURL, std::string> ExtensionTabUtil::PrepareURLForNavigation(
   // non-extension contexts (e.g. WebUI pages). In that case, we allow the
   // navigation as such contexts are trusted and do not have a concept of file
   // access.
-  if (extension && url.SchemeIsFile() &&
+  if (extension && IsFileUrl(url) &&
       // PDF viewer extension can navigate to file URLs.
       extension->id() != extension_misc::kPdfExtensionId &&
       !util::AllowFileAccess(extension->id(), browser_context) &&
@@ -981,7 +995,7 @@ void ExtensionTabUtil::ForEachTab(
 // static
 WindowController* ExtensionTabUtil::GetWindowControllerOfTab(
     const WebContents* web_contents) {
-  Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
+  Browser* browser = chrome::FindBrowserWithTab(web_contents);
   if (browser != nullptr)
     return browser->extension_window_controller();
 
@@ -1102,7 +1116,7 @@ bool ExtensionTabUtil::TabIsInSavedTabGroup(content::WebContents* contents,
   // If the tab_strip_model is empty, find the contents in one of the browsers.
   if (!tab_strip_model) {
     CHECK(contents);
-    Browser* browser = chrome::FindBrowserWithWebContents(contents);
+    Browser* browser = chrome::FindBrowserWithTab(contents);
 
     // if the webcontents isn't in any tabstrip, its not in a saved tab group.
     if (!browser) {

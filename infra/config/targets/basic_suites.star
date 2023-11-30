@@ -16,19 +16,15 @@ targets.legacy_basic_suite(
     tests = {
         "webview_trichrome_64_cts_tests_no_field_trial": targets.legacy_test_config(
             test = "webview_trichrome_64_cts_tests",
+            mixins = [
+                "webview_cts_archive",
+            ],
             args = [
                 "--disable-field-trial-config",
             ],
             ci_only = True,
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
         "webview_ui_test_app_test_apk_no_field_trial": targets.legacy_test_config(
@@ -102,29 +98,9 @@ targets.legacy_basic_suite(
                 "skia_gold_test",
                 "emulator-8-cores",  # Use 8-core to shorten test runtime.
             ],
-            # These tests launch external intent thus require playstore to be
-            # present. See crbug.com/1056330 for more details.
-            # Exclude them here since this test suite will run on emulator
-            # on images that do not have playstore.
-            # They will be ran in chrome_public_test_apk_with_playstore below.
-            args = [
-                "--gtest_filter=-org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*:org.chromium.shape_detection.*",
-            ],
             swarming = targets.swarming(
                 shards = 20,
             ),
-        ),
-        "chrome_public_test_apk_with_playstore": targets.legacy_test_config(
-            test = "chrome_public_test_apk",
-            mixins = [
-                "skia_gold_test",
-            ],
-            # These tests launch external intent thus require playstore to be
-            # present. See crbug.com/1056330 for more details.
-            # They should be ran in emulator on images that have playstore.
-            args = [
-                "--gtest_filter=org.chromium.chrome.browser.contextualsearch.ContextualSearchManagerTest.test*ExternalNavigationWithUserGesture*:org.chromium.shape_detection.*",
-            ],
         ),
         "chrome_public_unit_test_apk": targets.legacy_test_config(
             mixins = [
@@ -133,40 +109,6 @@ targets.legacy_basic_suite(
             swarming = targets.swarming(
                 shards = 4,
             ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "android_finch_smoke_tests",
-    tests = {
-        "chrome_finch_smoke_tests": targets.legacy_test_config(
-            mixins = [
-                "skia_gold_test",
-            ],
-            args = [
-                "--finch-seed-path",
-                "../../variations_seed",
-            ],
-        ),
-        "monochrome_finch_smoke_tests": targets.legacy_test_config(
-            mixins = [
-                "skia_gold_test",
-            ],
-            args = [
-                "--finch-seed-path",
-                "../../variations_seed",
-            ],
-        ),
-        "variations_smoke_tests": targets.legacy_test_config(
-            test = "variations_desktop_smoke_tests",
-            mixins = [
-                "skia_gold_test",
-                "has_native_resultdb_integration",
-            ],
-            args = [
-                "--target-platform=android",
-            ],
         ),
     },
 )
@@ -739,6 +681,7 @@ targets.legacy_basic_suite(
             # put the stub string here.
             tast_expr = "STUB_STRING_TO_RUN_TAST_TESTS",
             test_level_retries = 2,
+            ci_only = True,
             timeout_sec = 7200,
             experiment_percentage = 100,
             shards = 3,
@@ -757,6 +700,7 @@ targets.legacy_basic_suite(
             # put the stub string here.
             tast_expr = "STUB_STRING_TO_RUN_TAST_TESTS",
             test_level_retries = 1,
+            ci_only = True,
             timeout_sec = 7200,
             experiment_percentage = 100,
             shards = 2,
@@ -2571,7 +2515,6 @@ targets.legacy_basic_suite(
         "perfetto_unittests": None,
         # TODO(crbug.com/1459686): Enable this.
         # "rust_gtest_interop_unittests": None,
-        "service_manager_unittests": None,
         "services_unittests": targets.legacy_test_config(
             args = [
                 "--test-launcher-filter-file=../../testing/buildbot/filters/fuchsia.services_unittests.filter",
@@ -2626,11 +2569,7 @@ targets.legacy_basic_suite(
         "courgette_unittests": None,
         "crypto_unittests": None,
         "filesystem_service_unittests": None,
-        "web_engine_integration_tests": targets.legacy_test_config(
-            args = [
-                "--test-arg=--vmodule=test_navigation_listener=1",
-            ],
-        ),
+        "web_engine_integration_tests": None,
         "web_engine_unittests": None,
     },
 )
@@ -3134,6 +3073,30 @@ targets.legacy_basic_suite(
                 # Increase the timeout when using backend validation layers (crbug.com/1208253)
                 "--timeout-ms=30000",
             ],
+        ),
+    },
+)
+
+targets.legacy_basic_suite(
+    name = "gpu_dawn_webgpu_compat_cts",
+    tests = {
+        "webgpu_cts_compat_tests": targets.legacy_test_config(
+            telemetry_test_name = "webgpu_compat_cts",
+            mixins = [
+                "has_native_resultdb_integration",
+                "webgpu_telemetry_cts",
+            ],
+            args = [
+                "--extra-browser-args=--use-angle=gl --use-webgpu-adapter=opengles --enable-webgpu-developer-features",
+            ],
+            ci_only = True,
+            swarming = targets.swarming(
+                shards = 14,
+            ),
+            android_swarming = targets.swarming(
+                shards = 36,
+            ),
+            experiment_percentage = 100,
         ),
     },
 )
@@ -4762,9 +4725,7 @@ targets.legacy_basic_suite(
 targets.legacy_basic_suite(
     name = "lacros_device_or_vm_gtests",
     tests = {
-        "aura_unittests": None,
         "cc_unittests": None,
-        "interactive_ui_tests": None,
         "ozone_unittests": None,
         "vaapi_unittest": targets.legacy_test_config(
             args = [
@@ -4907,7 +4868,7 @@ targets.legacy_basic_suite(
             test = "browser_tests",
             args = [
                 "--test-launcher-filter-file=../../testing/buildbot/filters/linux-chromeos.browser_tests.require_lacros.filter",
-                "--lacros-chrome-path=lacros_clang_x64",
+                "--lacros-chrome-path=lacros_clang_x64/test_lacros_chrome",
             ],
             swarming = targets.swarming(
                 shards = 8,
@@ -4988,16 +4949,43 @@ targets.legacy_basic_suite(
 )
 
 targets.legacy_basic_suite(
+    name = "linux_force_accessibility_gtests",
+    tests = {
+        "browser_tests": targets.legacy_test_config(
+            args = [
+                "--force-renderer-accessibility",
+                "--test-launcher-filter-file=../../testing/buildbot/filters/accessibility-linux.browser_tests.filter",
+            ],
+            swarming = targets.swarming(
+                shards = 20,
+            ),
+        ),
+        "content_browsertests": targets.legacy_test_config(
+            args = [
+                "--force-renderer-accessibility",
+                "--test-launcher-filter-file=../../testing/buildbot/filters/accessibility-linux.content_browsertests.filter",
+            ],
+            swarming = targets.swarming(
+                shards = 8,
+            ),
+        ),
+        "interactive_ui_tests": targets.legacy_test_config(
+            args = [
+                "--force-renderer-accessibility",
+                "--test-launcher-filter-file=../../testing/buildbot/filters/accessibility-linux.interactive_ui_tests.filter",
+            ],
+            swarming = targets.swarming(
+                shards = 6,
+            ),
+        ),
+    },
+)
+
+targets.legacy_basic_suite(
     name = "linux_lacros_chrome_browsertests_non_version_skew",
     tests = {
         "lacros_chrome_browsertests": targets.legacy_test_config(
             test = "lacros_chrome_browsertests",
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter",
-            ],
-        ),
-        "lacros_chrome_browsertests_run_in_series": targets.legacy_test_config(
-            test = "lacros_chrome_browsertests_run_in_series",
             args = [
                 "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter",
             ],
@@ -5013,12 +5001,7 @@ targets.legacy_basic_suite(
     tests = {
         "lacros_chrome_browsertests": targets.legacy_test_config(
             args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
-            ],
-        ),
-        "lacros_chrome_browsertests_run_in_series": targets.legacy_test_config(
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
+                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.filter;../../testing/buildbot/filters/linux-lacros.lacros_chrome_browsertests.skew.filter",
             ],
             swarming = targets.swarming(
                 shards = 2,
@@ -5033,52 +5016,7 @@ targets.legacy_basic_suite(
         "interactive_ui_tests": targets.legacy_test_config(
             test = "interactive_ui_tests",
             args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-            ],
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "linux_lacros_chrome_interactive_ui_tests_version_skew_beta",
-    tests = {
-        "interactive_ui_tests": targets.legacy_test_config(
-            test = "interactive_ui_tests",
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-            ],
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "linux_lacros_chrome_interactive_ui_tests_version_skew_dev",
-    tests = {
-        "interactive_ui_tests": targets.legacy_test_config(
-            test = "interactive_ui_tests",
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
-            ],
-            swarming = targets.swarming(
-                shards = 3,
-            ),
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "linux_lacros_chrome_interactive_ui_tests_version_skew_stable",
-    tests = {
-        "interactive_ui_tests": targets.legacy_test_config(
-            test = "interactive_ui_tests",
-            args = [
-                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
+                "--test-launcher-filter-file=../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.filter;../../testing/buildbot/filters/linux-lacros.interactive_ui_tests.skew.filter",
             ],
             swarming = targets.swarming(
                 shards = 3,
@@ -5273,10 +5211,9 @@ targets.legacy_basic_suite(
     name = "model_validation_tests",
     tests = {
         "model_validation_tests": targets.legacy_test_config(
-            resultdb = targets.resultdb(
-                enable = True,
-                result_format = "single",
-            ),
+            mixins = [
+                "has_native_resultdb_integration",
+            ],
         ),
     },
 )
@@ -5347,6 +5284,12 @@ targets.legacy_basic_suite(
             swarming = targets.swarming(
                 shards = 10,
             ),
+        ),
+        "extensions_browsertests_network_sandbox": targets.legacy_test_config(
+            test = "extensions_browsertests",
+            args = [
+                "--enable-features=NetworkServiceSandbox",
+            ],
         ),
         "interactive_ui_tests_network_sandbox": targets.legacy_test_config(
             test = "interactive_ui_tests",
@@ -5419,7 +5362,6 @@ targets.legacy_basic_suite(
         "ppapi_unittests": None,
         "printing_unittests": None,
         "remoting_unittests": None,
-        "service_manager_unittests": None,  # https://crbug.com/843134
         "snapshot_unittests": None,
         "sync_integration_tests": targets.legacy_test_config(
             swarming = targets.swarming(
@@ -5457,7 +5399,6 @@ targets.legacy_basic_suite(
         "pdf_unittests": None,
         "printing_unittests": None,
         "remoting_unittests": None,
-        "service_manager_unittests": None,  # https://crbug.com/843134
         "snapshot_unittests": None,
         "sync_integration_tests": targets.legacy_test_config(
             swarming = targets.swarming(
@@ -5476,22 +5417,6 @@ targets.legacy_basic_suite(
             mixins = [
                 "skia_gold_test",
             ],
-        ),
-    },
-)
-
-targets.legacy_basic_suite(
-    name = "oop_network_service_tests",
-    tests = {
-        "oop_network_service_content_browsertests": targets.legacy_test_config(
-            test = "content_browsertests",
-            args = [
-                "--enable-features=NetworkServiceOutOfProcessMemoryThreshold:network_service_oop_threshold_mb/1077",
-                "--disable-features=NetworkServiceInProcess2",
-            ],
-            swarming = targets.swarming(
-                shards = 25,
-            ),
         ),
     },
 )
@@ -6212,11 +6137,7 @@ targets.legacy_basic_suite(
         "cast_runner_integration_tests": None,
         "cast_runner_unittests": None,
         "web_engine_browsertests": None,
-        "web_engine_integration_tests": targets.legacy_test_config(
-            args = [
-                "--test-arg=--vmodule=test_navigation_listener=1",
-            ],
-        ),
+        "web_engine_integration_tests": None,
         "web_engine_unittests": None,
     },
 )
@@ -6369,15 +6290,11 @@ targets.legacy_basic_suite(
     name = "webview_64_cts_tests_gtest",
     tests = {
         "webview_64_cts_tests": targets.legacy_test_config(
+            mixins = [
+                "webview_cts_archive",
+            ],
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
     },
@@ -6423,15 +6340,11 @@ targets.legacy_basic_suite(
     name = "webview_cts_tests_gtest",
     tests = {
         "webview_cts_tests": targets.legacy_test_config(
+            mixins = [
+                "webview_cts_archive",
+            ],
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
     },
@@ -6442,18 +6355,14 @@ targets.legacy_basic_suite(
     tests = {
         "webview_cts_tests_no_field_trial": targets.legacy_test_config(
             test = "webview_cts_tests",
+            mixins = [
+                "webview_cts_archive",
+            ],
             args = [
                 "--disable-field-trial-config",
             ],
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
     },
@@ -6463,18 +6372,14 @@ targets.legacy_basic_suite(
     name = "webview_trichrome_64_cts_field_trial_tests",
     tests = {
         "webview_trichrome_64_cts_tests": targets.legacy_test_config(
+            mixins = [
+                "webview_cts_archive",
+            ],
             args = [
                 "--store-data-dependencies-in-temp",
             ],
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
     },
@@ -6484,15 +6389,11 @@ targets.legacy_basic_suite(
     name = "webview_trichrome_64_cts_tests",
     tests = {
         "webview_trichrome_64_cts_tests": targets.legacy_test_config(
+            mixins = [
+                "webview_cts_archive",
+            ],
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
     },
@@ -6503,18 +6404,14 @@ targets.legacy_basic_suite(
     tests = {
         "webview_trichrome_64_cts_tests_no_field_trial": targets.legacy_test_config(
             test = "webview_trichrome_64_cts_tests",
+            mixins = [
+                "webview_cts_archive",
+            ],
             args = [
                 "--disable-field-trial-config",
             ],
             swarming = targets.swarming(
                 shards = 2,
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
             ),
         ),
     },
@@ -6524,15 +6421,9 @@ targets.legacy_basic_suite(
     name = "webview_trichrome_cts_tests",
     tests = {
         "webview_trichrome_cts_tests": targets.legacy_test_config(
-            swarming = targets.swarming(
-                cipd_packages = [
-                    targets.cipd_package(
-                        package = "chromium/android_webview/tools/cts_archive",
-                        location = "android_webview/tools/cts_archive",
-                        revision = "akIIr4yAFQwo3j5WYo2PQvy6z8XI51UiwiikPYzI4tUC",
-                    ),
-                ],
-            ),
+            mixins = [
+                "webview_cts_archive",
+            ],
         ),
     },
 )
@@ -6642,7 +6533,7 @@ targets.legacy_basic_suite(
                 "--no-wpt-internal",
             ],
             swarming = targets.swarming(
-                shards = 15,
+                shards = 4,
                 expiration_sec = 18000,
                 hard_timeout_sec = 14400,
             ),

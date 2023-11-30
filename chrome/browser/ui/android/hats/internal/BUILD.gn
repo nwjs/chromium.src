@@ -17,22 +17,28 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/ui/hats/SurveyClientBridge.java",
     "java/src/org/chromium/chrome/browser/ui/hats/SurveyClientFactory.java",
     "java/src/org/chromium/chrome/browser/ui/hats/SurveyClientImpl.java",
+    "java/src/org/chromium/chrome/browser/ui/hats/SurveyMetadata.java",
     "java/src/org/chromium/chrome/browser/ui/hats/SurveyThrottler.java",
     "java/src/org/chromium/chrome/browser/ui/hats/SurveyUiDelegateBridge.java",
   ]
   deps = [
     ":controller_java",
     "//base:base_java",
-    "//base:jni_java",
     "//chrome/browser/android/lifecycle:java",
     "//chrome/browser/first_run/android:java",
     "//chrome/browser/flags:java",
     "//chrome/browser/preferences:java",
+    "//chrome/browser/profiles/android:java",
     "//chrome/browser/tabmodel:java",
     "//chrome/browser/ui/android/hats:java",
     "//chrome/browser/ui/android/hats:message_ui_delegate_java",
+    "//components/browser_ui/util/android:java",
     "//components/messages/android:java",
+    "//components/prefs/android:java",
+    "//components/user_prefs/android:java",
+    "//content/public/android:content_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
+    "//third_party/jni_zero:jni_zero_java",
     "//ui/android:ui_no_recycler_view_java",
   ]
 }
@@ -51,11 +57,11 @@ robolectric_library("junit") {
     "//base:base_java",
     "//base:base_java_test_support",
     "//base:base_junit_test_support",
-    "//base:jni_java",
     "//chrome/browser/android/lifecycle:java",
     "//chrome/browser/first_run/android:java",
     "//chrome/browser/flags:java",
     "//chrome/browser/preferences:java",
+    "//chrome/browser/profiles/android:java",
     "//chrome/browser/tabmodel:java",
     "//chrome/browser/ui/android/hats:java",
     "//chrome/browser/ui/android/hats:message_ui_delegate_java",
@@ -63,8 +69,12 @@ robolectric_library("junit") {
     "//components/messages/android:factory_java",
     "//components/messages/android:java",
     "//components/messages/android:manager_java",
+    "//components/prefs/android:java",
+    "//components/user_prefs/android:java",
+    "//content/public/android:content_java",
     "//content/public/test/android:content_java_test_support",
     "//third_party/androidx:androidx_annotation_annotation_java",
+    "//third_party/jni_zero:jni_zero_java",
     "//third_party/junit",
     "//third_party/mockito:mockito_java",
     "//ui/android:ui_no_recycler_view_java",
@@ -80,6 +90,11 @@ android_library("controller_java") {
   deps = [
     "//base:base_java",
     "//chrome/browser/android/lifecycle:java",
+    "//chrome/browser/preferences:java",
+    "//chrome/browser/profiles/android:java",
+    "//components/prefs/android:java",
+    "//components/user_prefs/android:java",
+    "//content/public/android:content_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//ui/android:ui_java",
   ]
@@ -92,7 +107,10 @@ android_library("controller_java") {
 android_library("provider_public_impl_java") {
   sources = [ "java/src/org/chromium/chrome/browser/ui/hats/SurveyControllerProvider.java" ]
 
-  deps = [ ":controller_java" ]
+  deps = [
+    ":controller_java",
+    "//chrome/browser/profiles/android:java",
+  ]
 }
 
 generate_jni("jni_headers") {

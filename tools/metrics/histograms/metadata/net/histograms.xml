@@ -1317,7 +1317,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.DNS.HTTPSSVC.RecordHttps.{secure}.ExpectNoerror.DnsRcode"
-    enum="HttpssvcDnsRcode" expires_after="2023-10-01">
+    enum="HttpssvcDnsRcode" expires_after="2024-06-01">
   <owner>horo@chromium.org</owner>
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -1331,7 +1331,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.DNS.HTTPSSVC.RecordHttps.{secure}.ExpectNoerror.Parsable"
-    enum="BooleanValid" expires_after="2023-10-01">
+    enum="BooleanValid" expires_after="2024-06-01">
   <owner>horo@chromium.org</owner>
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -1345,7 +1345,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.HTTPSSVC.RecordHttps.{secure}.ExpectNoerror.RecordWithError"
-    enum="Boolean" expires_after="2023-10-01">
+    enum="Boolean" expires_after="2024-06-01">
   <owner>horo@chromium.org</owner>
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -1359,7 +1359,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.HTTPSSVC.RecordHttps.{secure}.ExpectNoerror.ResolveTimeAddressRecord"
-    units="ms" expires_after="2023-10-01">
+    units="ms" expires_after="2024-06-01">
   <owner>horo@chromium.org</owner>
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -1372,7 +1372,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.HTTPSSVC.RecordHttps.{secure}.ExpectNoerror.ResolveTimeExperimental"
-    units="ms" expires_after="2023-10-01">
+    units="ms" expires_after="2024-06-01">
   <owner>horo@chromium.org</owner>
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -1385,7 +1385,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Net.DNS.HTTPSSVC.RecordHttps.{secure}.ExpectNoerror.ResolveTimeRatio"
-    units="scaled ratio (% / 10)" expires_after="2023-10-01">
+    units="scaled ratio (% / 10)" expires_after="2024-06-01">
   <owner>horo@chromium.org</owner>
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
@@ -1456,7 +1456,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.DNS.ProbeSequence.ConfigChange.Success.AttemptTime"
-    units="ms" expires_after="2024-01-30">
+    units="ms" expires_after="2024-03-31">
   <owner>awillia@chromium.org</owner>
   <owner>src/net/dns/OWNERS</owner>
   <summary>
@@ -2177,6 +2177,17 @@ chromium-metrics-reviews@google.com.
     The purpose of this histogram is to measure the appropriate amount of memory
     to allocate for headers when the object is created. See
     https://crbug.com/1477132.
+  </summary>
+</histogram>
+
+<histogram name="Net.HttpRequestStsState" enum="HttpRequestStsState"
+    expires_after="2024-11-09">
+  <owner>jdeblasio@chromium.org</owner>
+  <owner>trusty-transport@chromium.org</owner>
+  <summary>
+    The HSTS status of top-frame HTTP/WS requests made by UrlRequestHttpJob.
+    Requests with kProtectedHttp are immediately internally redirected to a
+    secure request.
   </summary>
 </histogram>
 
@@ -3740,7 +3751,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.QuicSession.NumMigrations" units="units"
-    expires_after="2024-01-28">
+    expires_after="2024-03-31">
   <owner>renjietang@chromium.org</owner>
   <owner>src/net/quic/OWNERS</owner>
   <summary>The number of successful migrations for a QUIC session.</summary>
@@ -4814,6 +4825,62 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Net.RestrictedCookieManager.EstimatedCookieAccessDetailsSize"
+    units="bytes" expires_after="2024-01-01">
+  <owner>vollick@google.com</owner>
+  <owner>src/net/cookies/OWNERS</owner>
+  <summary>
+    The RestrictedCookieManager batches cookie access details and, every 100ms,
+    sends these batches to clients via the OnCookiesAccessed mojo message. It is
+    possible that these cookie access details batches contain duplicates so, to
+    reduce IPC cost, we can deduplicate these details (instead, we send a count
+    along with the details). This histogram records the estimated size of the
+    non-deduplicated size if deduplication is enabled.
+
+    The URLLoader also sends cookie access details via OnCookiesAccessed, but
+    the deduplication mentioned here only applies to the batched data maintained
+    by the RestrictedCookieManager.
+  </summary>
+</histogram>
+
+<histogram
+    name="Net.RestrictedCookieManager.EstimatedDeDupedCookieAccessDetailsSize"
+    units="bytes" expires_after="2024-01-01">
+  <owner>vollick@google.com</owner>
+  <owner>src/net/cookies/OWNERS</owner>
+  <summary>
+    The RestrictedCookieManager batches cookie access details and, every 100ms,
+    sends these batches to clients via the OnCookiesAccessed mojo message. It is
+    possible that these cookie access details batches contain duplicates so, to
+    reduce IPC cost, we can deduplicate these details (instead, we send a count
+    along with the details). This histogram records the estimated size of the
+    deduplicated size if deduplication is enabled.
+
+    The URLLoader also sends cookie access details via OnCookiesAccessed, but
+    the deduplication mentioned here only applies to the batched data maintained
+    by the RestrictedCookieManager.
+  </summary>
+</histogram>
+
+<histogram
+    name="Net.RestrictedCookieManager.EstimatedDeDupedCookieAccessDetailsSizeReduction"
+    units="bytes" expires_after="2024-01-01">
+  <owner>vollick@google.com</owner>
+  <owner>src/net/cookies/OWNERS</owner>
+  <summary>
+    The RestrictedCookieManager batches cookie access details and, every 100ms,
+    sends these batches to clients via the OnCookiesAccessed mojo message. It is
+    possible that these cookie access details batches contain duplicates so, to
+    reduce IPC cost, we can deduplicate these details (instead, we send a count
+    along with the details). This histogram records the estimated size reduction
+    due to deduplication if deduplication is enabled.
+
+    The URLLoader also sends cookie access details via OnCookiesAccessed, but
+    the deduplication mentioned here only applies to the batched data maintained
+    by the RestrictedCookieManager.
+  </summary>
+</histogram>
+
 <histogram name="Net.RestrictedCookieManager.GetCookiesString.Count30Seconds"
     units="IPCs" expires_after="2024-03-03">
   <owner>carlscab@google.com</owner>
@@ -4870,7 +4937,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.SharedDictionaryManagerOnDisk.DictionarySizeKB" units="KB"
-    expires_after="2023-12-01">
+    expires_after="2024-03-03">
   <owner>horo@chromium.org</owner>
   <owner>src/net/extras/shared_dictionary/OWNERS</owner>
   <summary>
@@ -4985,7 +5052,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.SharedDictionaryStore.DictionaryCountPerSiteWhenAdded"
-    units="count" expires_after="2023-12-01">
+    units="count" expires_after="2024-03-03">
   <owner>horo@chromium.org</owner>
   <owner>src/net/extras/shared_dictionary/OWNERS</owner>
   <summary>
@@ -5032,6 +5099,20 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="Net.SharedDictionaryTransaction.AbortedWhileReadingDictionary.{SuccessOrFailure}"
+    units="ms" expires_after="2024-02-14">
+  <owner>horo@chromium.org</owner>
+  <owner>src/net/extras/shared_dictionary/OWNERS</owner>
+  <summary>
+    The delay to read a shared dictionary from a SharedDictionaryTransaction
+    which is already aborted. Recorded when the dictionary is read, but the
+    SharedDictionaryTransaction was aborted before the read operation was
+    completed.
+  </summary>
+  <token key="SuccessOrFailure" variants="SuccessOrFailure"/>
+</histogram>
+
+<histogram
     name="Net.SharedDictionaryTransaction.DictionaryReadLatency.{SuccessOrFailure}"
     units="ms" expires_after="2024-03-03">
   <owner>horo@chromium.org</owner>
@@ -5045,7 +5126,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.SharedDictionaryWriterInMemory.DictionarySize"
-    units="bytes" expires_after="2023-12-01">
+    units="bytes" expires_after="2024-03-03">
   <owner>horo@chromium.org</owner>
   <owner>src/net/extras/shared_dictionary/OWNERS</owner>
   <summary>
@@ -5210,6 +5291,22 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Net.SpdySession.OnSettings.{StreamState}StreamCount"
+    units="count" expires_after="2024-01-24">
+  <owner>bashi@chromium.org</owner>
+  <owner>chrome-network-stack@google.com</owner>
+  <summary>
+    Records the number of {StreamState} streams when a SpdySession receives an
+    HTTP/2 SETTINGS frame.
+  </summary>
+  <token key="StreamState">
+    <variant name="Active" summary="active"/>
+    <variant name="Created" summary="created"/>
+    <variant name="CreatedAndActive" summary="created and active"/>
+    <variant name="Pending" summary="pending"/>
+  </token>
+</histogram>
+
 <histogram name="Net.SpdySession.PushedAndUnclaimedBytes" units="count"
     expires_after="2024-04-03">
   <obsolete>
@@ -5253,7 +5350,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.SpdySessionErrorDetails2" enum="SpdyProtocolErrorDetails2"
-    expires_after="2023-12-06">
+    expires_after="2024-10-24">
   <owner>dschinazi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>The type of SPDY Protocol error encountered.</summary>
@@ -5521,7 +5618,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.SSLRenegotiationInfoSupported" enum="BooleanSupported"
-    expires_after="2023-11-20">
+    expires_after="2024-11-20">
   <owner>davidben@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>
@@ -5643,7 +5740,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Net.TcpConnectAttempt.Latency.Error" units="ms"
-    expires_after="2023-12-06">
+    expires_after="2024-10-24">
   <owner>bashi@chromium.org</owner>
   <owner>src/net/OWNERS</owner>
   <summary>

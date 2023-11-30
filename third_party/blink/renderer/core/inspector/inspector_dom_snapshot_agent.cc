@@ -6,6 +6,7 @@
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_binding_for_core.h"
 #include "third_party/blink/renderer/core/css/css_computed_style_declaration.h"
+#include "third_party/blink/renderer/core/css/parser/css_property_parser.h"
 #include "third_party/blink/renderer/core/dom/attribute.h"
 #include "third_party/blink/renderer/core/dom/attribute_collection.h"
 #include "third_party/blink/renderer/core/dom/character_data.h"
@@ -47,6 +48,8 @@
 #include "v8/include/v8-inspector.h"
 
 namespace blink {
+
+using mojom::blink::FormControlType;
 using protocol::Maybe;
 
 namespace {
@@ -551,8 +554,9 @@ void InspectorDOMSnapshotAgent::VisitNode(Node* node,
 
     if (auto* input_element = DynamicTo<HTMLInputElement>(*element)) {
       SetRare(nodes->getInputValue(nullptr), index, input_element->Value());
-      if ((input_element->type() == input_type_names::kRadio) ||
-          (input_element->type() == input_type_names::kCheckbox)) {
+      if ((input_element->FormControlType() == FormControlType::kInputRadio) ||
+          (input_element->FormControlType() ==
+           FormControlType::kInputCheckbox)) {
         if (input_element->Checked()) {
           SetRare(nodes->getInputChecked(nullptr), index);
         }

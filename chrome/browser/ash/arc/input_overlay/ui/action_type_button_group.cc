@@ -8,7 +8,7 @@
 #include "chrome/app/vector_icons/vector_icons.h"
 #include "chrome/browser/ash/arc/input_overlay/actions/action.h"
 #include "chrome/browser/ash/arc/input_overlay/display_overlay_controller.h"
-#include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/box_layout.h"
 
 namespace arc::input_overlay {
 
@@ -32,9 +32,11 @@ ActionTypeButtonGroup::ActionTypeButtonGroup(
 ActionTypeButtonGroup::~ActionTypeButtonGroup() = default;
 
 void ActionTypeButtonGroup::Init() {
-  SetLayoutManager(std::make_unique<views::FlexLayout>())
-      ->SetOrientation(views::LayoutOrientation::kHorizontal)
-      .SetMainAxisAlignment(views::LayoutAlignment::kCenter);
+  SetLayoutManager(std::make_unique<views::BoxLayout>(
+                       views::BoxLayout::Orientation::kHorizontal,
+                       /*inside_border_insets=*/gfx::Insets::VH(8, 8),
+                       /*between_child_spacing=*/8))
+      ->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kCenter);
 
   auto* tap_button = AddActionTypeButton(
       base::BindRepeating(&ActionTypeButtonGroup::OnActionTapButtonPressed,
@@ -45,7 +47,7 @@ void ActionTypeButtonGroup::Init() {
       base::BindRepeating(&ActionTypeButtonGroup::OnActionMoveButtonPressed,
                           base::Unretained(this)),
       // TODO(b/274690042): Replace placeholder text with localized strings.
-      u"Dpad", kGameControlsDpadKeyboardIcon);
+      u"Joystick", kGameControlsDpadKeyboardIcon);
 
   selected_action_type_ = action_->GetType();
   switch (selected_action_type_) {
@@ -87,7 +89,7 @@ void ActionTypeButtonGroup::OnButtonSelected(ash::OptionButtonBase* button) {
       b->SetSelected(false);
     }
     auto* action_type_button = static_cast<ActionTypeButton*>(b);
-    action_type_button->RefreshTextColor();
+    action_type_button->RefreshColors();
   }
 }
 

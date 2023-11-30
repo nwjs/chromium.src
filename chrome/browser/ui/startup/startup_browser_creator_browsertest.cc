@@ -34,7 +34,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/buildflags.h"
 #include "chrome/browser/chrome_browser_main.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/first_run/first_run.h"
@@ -235,14 +234,8 @@ Browser* CloseBrowserAndOpenNew(Browser* browser, Profile* profile) {
 
 bool HasInfoBar(infobars::ContentInfoBarManager* infobar_manager,
                 const infobars::InfoBarDelegate::InfoBarIdentifier identifier) {
-  for (size_t i = 0; i < infobar_manager->infobar_count(); i++) {
-    infobars::InfoBar* infobar = infobar_manager->infobar_at(i);
-    if (infobar->delegate()->GetIdentifier() == identifier) {
-      return true;
-    }
-  }
-
-  return false;
+  return base::Contains(infobar_manager->infobars(), identifier,
+                        &infobars::InfoBar::GetIdentifier);
 }
 
 struct StartupBrowserCreatorFlagTypeValue {
@@ -341,7 +334,7 @@ class StartupBrowserCreatorTest : public extensions::ExtensionBrowserTest {
 #if BUILDFLAG(IS_MAC)
     infobars::ContentInfoBarManager* infobar_manager =
         infobars::ContentInfoBarManager::FromWebContents(web_contents);
-    EXPECT_EQ(1U, infobar_manager->infobar_count());
+    EXPECT_EQ(1U, infobar_manager->infobars().size());
 #endif  // BUILDFLAG(IS_MAC)
   }
 };
@@ -1205,7 +1198,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, ValidNotificationLaunchId) {
   base::CommandLine command_line(base::CommandLine::NO_PROGRAM);
   command_line.AppendSwitchNative(
       switches::kNotificationLaunchId,
-      L"1|1|0|Default|0|https://example.com/|notification_id");
+      L"1|1|0|Default|aumi|0|https://example.com/|notification_id");
 
   ASSERT_TRUE(StartupBrowserCreator().ProcessCmdLineImpl(
       command_line, base::FilePath(), chrome::startup::IsProcessStartup::kNo,

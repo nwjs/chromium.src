@@ -84,8 +84,15 @@ BASE_FEATURE(kAutofillConsiderPhoneNumberSeparatorsValidLabels,
              "AutofillConsiderPhoneNumberSeparatorsValidLabels",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// If enabled, contenteditables are extracted and filled.
+// TODO(crbug.com/1490372): Cleanup when launched.
+BASE_FEATURE(kAutofillContentEditables,
+             "AutofillContentEditables",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Crowdsourcing already prefers PHONE_HOME_CITY_AND_NUMBER over
 // PHONE_HOME_WHOLE_NUMBER. With this feature, local heuristics do the same.
+// TODO(crbug.com/1474308): Clean up when launched.
 BASE_FEATURE(kAutofillDefaultToCityAndNumber,
              "AutofillDefaultToCityAndNumber",
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -232,6 +239,12 @@ BASE_FEATURE(kAutofillEnableSupportForParsingWithSharedLabels,
              "AutofillEnableSupportForParsingWithSharedLabels",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls if heuristic field parsing should be performed on email-only forms.
+// TODO(crbug.com/1493145): Remove when/if launched.
+BASE_FEATURE(kAutofillEnableEmailHeuristicOnlyAddressForms,
+             "AutofillEnableEmailHeuristicOnlyAddressForms",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls if Chrome support filling and importing apartment numbers.
 // TODO(crbug.com/1153715): Remove once launched.
 BASE_FEATURE(kAutofillEnableSupportForApartmentNumbers,
@@ -319,6 +332,13 @@ BASE_FEATURE(kAutofillExtractAllDatalists,
 // Enables support to submit feedback on Autofill. Used only in Desktop.
 BASE_FEATURE(kAutofillFeedback,
              "AutofillFeedback",
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Replaces cached web elements in AutofillAgent and FormTracker by their
+// renderer ids.
+// DONOTSUMBIT: Disable.
+BASE_FEATURE(kAutofillReplaceCachedWebElementsByRendererIds,
+             "AutofillReplaceCachedWebElementsByRendererIds",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Makes AutofillProfile::IsSubsetOfForFieldSet stop ignoring street address
@@ -445,6 +465,11 @@ BASE_FEATURE(kAutofillOverridePredictions,
 const base::FeatureParam<std::string> kAutofillOverridePredictionsSpecification{
     &kAutofillOverridePredictions, "spec", "[]"};
 
+// The override specification using alternative_form_signature in string form.
+const base::FeatureParam<std::string>
+    kAutofillOverridePredictionsForAlternativeFormSignaturesSpecification{
+        &kAutofillOverridePredictions, "alternative_signature_spec", "[]"};
+
 // If enabled, Autofill will first look at field labels and then at field
 // attributes when classifying address fields in Mexico.
 BASE_FEATURE(kAutofillPreferLabelsInSomeCountries,
@@ -509,13 +534,6 @@ BASE_FEATURE(kAutofillAlwaysParsePlaceholders,
              "AutofillAlwaysParsePlaceholders",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// If the feature is enabled, browser forms for which Autofill has received
-// predictions, are split into renderer forms before passing them on to password
-// manager.
-BASE_FEATURE(kAutofillPassRendererFormsToPasswordManager,
-             "AutofillPassRendererFormsToPasswordManager",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // If the feature is enabled, paint checks over individual `PopupCellView`s (to
 // verify that a user's cursor has been outside the cell before accepting it)
 // are disabled.
@@ -527,6 +545,13 @@ BASE_FEATURE(kAutofillPopupDisablePaintChecks,
 BASE_FEATURE(kAutofillPopupDoesNotOverlapWithContextMenu,
              "AutofillPopupDoesNotOverlapWithContextMenu",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If the feature is enabled, custom cursors exceeding the (24 dips) dimension
+// limit are disallowed for all active tabs in all active windows.
+COMPONENT_EXPORT(AUTOFILL)
+BASE_FEATURE(kAutofillPopupMultiWindowCursorSuppression,
+             "AutofillPopupMultiWindowCursorSuppression",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the threshold for accepting Autofill popup suggestions
 // should take into account latency information of the user event.
@@ -599,6 +624,13 @@ BASE_FEATURE(kAutofillGranularFillingAvailable,
              "AutofillGranularFillingAvailable",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Controls whether field filling through the context menu will be available for
+// the unclassified fields.
+// TODO(crbug.com/1493361): Clean up when launched.
+BASE_FEATURE(kAutofillForUnclassifiedFieldsAvailable,
+             "AutofillForUnclassifiedFieldsAvailable",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Controls whether testing forms using devtools will be available.
 // TODO(crbug.com/1459990): Clean up when launched.
 BASE_FEATURE(kAutofillTestFormWithDevtools,
@@ -634,7 +666,7 @@ BASE_FEATURE(kAutofillUseNewSectioningMethod,
 // TODO(crbug.com/1153539): Remove the feature when the experiment is completed.
 BASE_FEATURE(kAutofillUseParameterizedSectioning,
              "AutofillUseParameterizedSectioning",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 // In the experiment, we test different combinations of these parameters.
 const base::FeatureParam<bool> kAutofillSectioningModeIgnoreAutocomplete{
     &kAutofillUseParameterizedSectioning, "ignore_autocomplete", false};

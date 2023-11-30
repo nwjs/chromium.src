@@ -43,8 +43,6 @@ BASE_DECLARE_FEATURE(kDisambiguateTabMatchingForEntitySuggestions);
 BASE_DECLARE_FEATURE(kAdjustLocalHistoryZeroSuggestRelevanceScore);
 BASE_DECLARE_FEATURE(kClobberTriggersContextualWebZeroSuggest);
 BASE_DECLARE_FEATURE(kClobberTriggersSRPZeroSuggest);
-BASE_DECLARE_FEATURE(kFocusTriggersContextualWebZeroSuggest);
-BASE_DECLARE_FEATURE(kFocusTriggersSRPZeroSuggest);
 BASE_DECLARE_FEATURE(kLocalHistoryZeroSuggestBeyondNTP);
 BASE_DECLARE_FEATURE(kNormalizeSearchSuggestions);
 BASE_DECLARE_FEATURE(kOmniboxOnClobberFocusTypeOnContent);
@@ -54,6 +52,7 @@ BASE_DECLARE_FEATURE(kZeroSuggestOnNTPForSignedOutUsers);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetching);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchingOnSRP);
 BASE_DECLARE_FEATURE(kZeroSuggestPrefetchingOnWeb);
+BASE_DECLARE_FEATURE(kOmniboxPopulateShortcutsDatabase);
 // Related, kMaxZeroSuggestMatches.
 
 // On Device Suggest.
@@ -81,17 +80,20 @@ BASE_DECLARE_FEATURE(kAdaptiveSuggestionsCount);
 BASE_DECLARE_FEATURE(kClipboardSuggestionContentHidden);
 BASE_DECLARE_FEATURE(kSuppressClipboardSuggestionAfterFirstUsed);
 BASE_DECLARE_FEATURE(kCompanyEntityIconAdjustment);
+enum class CompanyEntityIconAdjustmentGroup {
+  kLeastAggressive,
+  kModerate,
+  kMostAggressive,
+};
 BASE_DECLARE_FEATURE(kCr2023ActionChips);
 BASE_DECLARE_FEATURE(kCr2023ActionChipsIcons);
 BASE_DECLARE_FEATURE(kSuggestionAnswersColorReverse);
-BASE_DECLARE_FEATURE(kMostVisitedTiles);
 BASE_DECLARE_FEATURE(kMostVisitedTilesHorizontalRenderGroup);
 BASE_DECLARE_FEATURE(kRichAutocompletion);
 BASE_DECLARE_FEATURE(kNtpRealboxPedals);
 BASE_DECLARE_FEATURE(kOmniboxActionsUISimplification);
-BASE_DECLARE_FEATURE(kOmniboxFuzzyUrlSuggestions);
+BASE_DECLARE_FEATURE(kOmniboxKeywordModeRefresh);
 BASE_DECLARE_FEATURE(kOmniboxMatchToolbarAndStatusBarColor);
-BASE_DECLARE_FEATURE(kOmniboxMostVisitedTilesOnSrp);
 BASE_DECLARE_FEATURE(kSearchReadyOmniboxAllowQueryEdit);
 BASE_DECLARE_FEATURE(kSquareSuggestIcons);
 BASE_DECLARE_FEATURE(kUniformRowHeight);
@@ -102,6 +104,7 @@ BASE_DECLARE_FEATURE(kExpandedStateColors);
 BASE_DECLARE_FEATURE(kExpandedStateSuggestIcons);
 BASE_DECLARE_FEATURE(kExpandedLayout);
 BASE_DECLARE_FEATURE(kSuggestionHoverFillShape);
+BASE_DECLARE_FEATURE(kQueryTilesInZPSOnNTP);
 
 // Omnibox UI - these affect the UI or function of the location bar (not the
 // popup).

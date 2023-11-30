@@ -7,6 +7,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_bounds_cache.h"
+#include "chrome/browser/ui/browser_navigator_params.h"
 #include "content/public/browser/document_picture_in_picture_window_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
@@ -34,6 +35,25 @@ constexpr gfx::Size kMinWindowSize(240, 52);
 // The maximum window size for Document Picture-in-Picture windows. This does
 // not apply to video Picture-in-Picture windows.
 constexpr double kMaxWindowSizeRatio = 0.8;
+
+#if !BUILDFLAG(IS_ANDROID)
+// Returns true if a document picture-in-picture window should be focused upon
+// opening it.
+bool ShouldFocusPictureInPictureWindow(const NavigateParams& params) {
+  // All document picture-in-picture openings must have a source_contents.
+  CHECK(params.source_contents);
+
+  const auto* auto_picture_in_picture_tab_helper =
+      AutoPictureInPictureTabHelper::FromWebContents(params.source_contents);
+  if (!auto_picture_in_picture_tab_helper) {
+    return true;
+  }
+
+  // The picture-in-picture window should be focused unless it's opened by the
+  // AutoPictureInPictureTabHelper.
+  return !auto_picture_in_picture_tab_helper->IsInAutoPictureInPicture();
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace
 
@@ -147,6 +167,12 @@ bool PictureInPictureWindowManager::ExitPictureInPictureViaWindowUi(
   if (!pip_window_controller_) {
     return false;
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (auto_pip_setting_helper_) {
+    auto_pip_setting_helper_->OnUserClosedWindow();
+  }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
   switch (behavior) {
     case UiBehavior::kCloseWindowOnly:
@@ -323,6 +349,17 @@ gfx::Size PictureInPictureWindowManager::GetMaximumWindowSize(
   return gfx::ScaleToRoundedSize(display.size(), kMaxWindowSizeRatio);
 }
 
+// static
+void PictureInPictureWindowManager::SetWindowParams(NavigateParams& params) {
+#if !BUILDFLAG(IS_ANDROID)
+  // Always show document picture-in-picture in a new window. When this is
+  // not opened via the AutoPictureInPictureTabHelper, focus the window.
+  params.window_action = ShouldFocusPictureInPictureWindow(params)
+                             ? NavigateParams::SHOW_WINDOW
+                             : NavigateParams::SHOW_WINDOW_INACTIVE;
+#endif  // !BUILDFLAG(IS_ANDROID)
+}
+
 void PictureInPictureWindowManager::CreateWindowInternal(
     content::WebContents* web_contents) {
   video_web_contents_observer_ =
@@ -348,7 +385,7 @@ void PictureInPictureWindowManager::DocumentWebContentsDestroyed() {
   // contents, so we only need to forget the controller here when user closes
   // the parent web contents with the PiP window open.
   document_web_contents_observer_.reset();
-  // `setting_helper_` depends on the opener's WebContents.
+  // `auto_pip_setting_helper_` depends on the opener's WebContents.
   auto_pip_setting_helper_.reset();
   if (pip_window_controller_)
     pip_window_controller_ = nullptr;
@@ -371,25 +408,33 @@ PictureInPictureWindowManager::GetOverlayView(
     return nullptr;
   }
 
-  auto* const web_contents = pip_window_controller_->GetWebContents();
+  // It would be nice to create this in `EnterPictureInPicture*`, but detecting
+  // auto-pip while pip is in the process of opening doesn't work.
+  //
+  // Instead, defer this until after setup, when we're asked for an overlay
+  // view.  Since the helper is only destroyed when the pip window closes, this
+  // effectively means that there's still at most one helper instance per
+  // (auto-)pip window.  This is important, because we can be asked for the
+  // overlay view multiple times if the pip window frame is destroyed and
+  // recreated.  This can happen on theme change sometimes, or on linux on days
+  // that end in a Y.  If we did recreate the helper each time we're asked, then
+  // the helper might think that there were multiple instances of a dismissed
+  // permission, and update the embargo.
+  CreateAutoPipSettingHelperIfNeeded();
 
-  auto* auto_pip_tab_helper =
-      AutoPictureInPictureTabHelper::FromWebContents(web_contents);
-  if (!auto_pip_tab_helper ||
-      !auto_pip_tab_helper->IsInAutoPictureInPicture()) {
-    // This isn't auto-pip, so the content setting doesn't matter.
+  // No overlay view if we're not in auto-pip.
+  if (!auto_pip_setting_helper_) {
     return nullptr;
   }
 
-  auto auto_pip_setting_helper = AutoPipSettingHelper::CreateForWebContents(
-      web_contents,
-      base::BindOnce(&PictureInPictureWindowManager::ExitPictureInPictureSoon));
-
-  auto overlay_view = auto_pip_setting_helper->CreateOverlayViewIfNeeded(
+  auto overlay_view = auto_pip_setting_helper_->CreateOverlayViewIfNeeded(
       browser_view_overridden_bounds, anchor_view, arrow);
-  if (overlay_view) {
-    // Retain the setting helper for the overlay view, and add the overlay view.
-    auto_pip_setting_helper_ = std::move(auto_pip_setting_helper);
+  if (!overlay_view) {
+    // Clear the setting helper, since the setting is either allowed or blocked.
+    auto_pip_setting_helper_.reset();
+  } else if (auto* pip_contents = GetChildWebContents()) {
+    // For document pip, block input too.
+    auto_pip_setting_helper_->IgnoreInputEvents(pip_contents);
   }
 
   return overlay_view;
@@ -405,6 +450,38 @@ PictureInPictureWindowManager::GetActiveSessionOrigins() {
   }
   return active_origins;
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+void PictureInPictureWindowManager::CreateAutoPipSettingHelperIfNeeded() {
+  // Because we have to defer creating this until after the tab helper finds out
+  // about pip, we don't care if there's already a helper.  Just use it.
+  if (auto_pip_setting_helper_) {
+    return;
+  }
+
+  auto* const web_contents = pip_window_controller_->GetWebContents();
+  CHECK(web_contents);
+
+  auto* auto_pip_tab_helper =
+      AutoPictureInPictureTabHelper::FromWebContents(web_contents);
+  if (!auto_pip_tab_helper) {
+    return;
+  }
+
+  // Check both preconditions and "in pip", since we don't know if pip is
+  // officially ready yet or not.  This might be during the opening of the pip
+  // window, so the tab helper might not know about it yet.
+  if (!auto_pip_tab_helper->AreAutoPictureInPicturePreconditionsMet() &&
+      !auto_pip_tab_helper->IsInAutoPictureInPicture()) {
+    // This isn't auto-pip, so the content setting doesn't matter.
+    return;
+  }
+
+  auto_pip_setting_helper_ = AutoPipSettingHelper::CreateForWebContents(
+      web_contents,
+      base::BindOnce(&PictureInPictureWindowManager::ExitPictureInPictureSoon));
+}
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 PictureInPictureWindowManager::PictureInPictureWindowManager() = default;
 

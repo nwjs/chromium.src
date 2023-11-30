@@ -69,6 +69,15 @@ chromium-metrics-reviews@google.com.
   </variant>
 </variants>
 
+<variants name="VmmmsClientName">
+  <variant name="ARCVM" summary="ARCVM"/>
+  <variant name="Host" summary="Host"/>
+</variants>
+
+<variants name="VmmmsVmName">
+  <variant name="ARCVM" summary="ARCVM"/>
+</variants>
+
 <variants name="VmmSwapVmName">
   <variant name="ARCVM" summary="ARCVM"/>
 </variants>
@@ -1491,7 +1500,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.NetworkService.SharedMemoryFootprint" units="MiB"
-    expires_after="2024-01-28">
+    expires_after="2024-03-31">
   <owner>mmenke@chromium.org</owner>
   <owner>morlovich@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
@@ -1588,29 +1597,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     The number of OOM kills since last emit. The emit interval is at least 24
     hours, see metrics::DailyEvent for more details.
-  </summary>
-</histogram>
-
-<histogram base="true" name="Memory.OpenFDs" units="files" expires_after="M85">
-<!-- Name completed by histogram_suffixes name="MemoryFDsBroswerGpuAndRendererProcess" and name="MemoryFDsAllProcesses" -->
-
-  <owner>dcastagna@chromium.org</owner>
-  <owner>ssid@chromium.org</owner>
-  <summary>
-    The total number of open file descriptors opened per process. Recorded once
-    per UMA ping.
-  </summary>
-</histogram>
-
-<histogram base="true" name="Memory.OpenFDsSoftLimit" units="files"
-    expires_after="M85">
-<!-- Name completed by histogram_suffixes name="MemoryFDsBroswerGpuAndRendererProcess" -->
-
-  <owner>dcastagna@chromium.org</owner>
-  <owner>ssid@chromium.org</owner>
-  <summary>
-    The limit of open file descriptors that can be opened per process. Recorded
-    once per UMA ping.
   </summary>
 </histogram>
 
@@ -1722,15 +1708,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Memory.ParkableString.CompressedSizeKb" units="KB"
-    expires_after="M87">
-  <owner>lizeb@chromium.org</owner>
-  <summary>
-    Total size of compressed ParkableStrings, in KB. Recorded at the same time
-    as &quot;Memory.ParkableString.TotalSizeKb&quot;.
-  </summary>
-</histogram>
-
 <histogram name="Memory.ParkableString.Compression.Latency"
     units="microseconds" expires_after="2024-03-17">
   <owner>lizeb@chromium.org</owner>
@@ -1749,17 +1726,6 @@ chromium-metrics-reviews@google.com.
   <owner>thiabaud@google.com</owner>
   <summary>
     Size of a compressed ParkableString, recorded at compression time.
-  </summary>
-</histogram>
-
-<histogram name="Memory.ParkableString.CompressionRatio.5min" units="%"
-    expires_after="2023-07-02">
-  <owner>lizeb@chromium.org</owner>
-  <owner>pasko@chromium.org</owner>
-  <summary>
-    Average compression ratio, 100 * compressed_size / initial_size, for all
-    compressed ParkableStrings. Recorded at the same time as
-    &quot;Memory.ParkableString.TotalSizeKb.5min&quot;.
   </summary>
 </histogram>
 
@@ -1828,27 +1794,6 @@ chromium-metrics-reviews@google.com.
     reports on clients with low-resolution clocks, which means these reports
     will be biased against a portion of the population on Windows. See
     Windows.HasHighResolutionTimeTicks for the affected sample.
-  </summary>
-</histogram>
-
-<histogram name="Memory.ParkableString.SavingsKb" units="KB"
-    expires_after="M87">
-  <owner>lizeb@chromium.org</owner>
-  <owner>pasko@chromium.org</owner>
-  <summary>
-    Sum of memory saved by compression, in KB. Recorded at the same time as
-    &quot;Memory.ParkableString.TotalSizeKb&quot;.
-  </summary>
-</histogram>
-
-<histogram name="Memory.ParkableString.TotalSizeKb.5min" units="KB"
-    expires_after="2023-08-06">
-  <owner>lizeb@chromium.org</owner>
-  <owner>pasko@chromium.org</owner>
-  <summary>
-    Total size of ParkableStrings assuming no compression, in KB. Recorded once,
-    5 minutes after the first ParkableString is added to a renderer, at the same
-    time as &quot;Memory.ParkableString.MainThreadTime.5min&quot;.
   </summary>
 </histogram>
 
@@ -2118,7 +2063,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count.OriginAgentClusterOverhead"
-    units="processes" expires_after="2024-02-04">
+    units="processes" expires_after="2024-04-13">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -2148,7 +2093,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Percent.OriginAgentClusterOverhead"
-    units="%" expires_after="2023-10-22">
+    units="%" expires_after="2024-04-13">
   <owner>wjmaclean@chromium.org</owner>
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
@@ -2492,8 +2437,100 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Memory.VMMMS.{ClientName}.DecisionLatency" units="ms"
+    expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    The time the Virtual Machine Memory Management Service added to a kill
+    decision from a client. Logged after a client asks the VMMMS to change a
+    balloon size to avoid killing an app or discarding a tab.
+  </summary>
+  <token key="ClientName" variants="VmmmsClientName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{ClientName}.DecisionTimeout"
+    enum="VmmmsRequestPriority" expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    The priority of each kill decision request that timed out. Logged after a
+    client asks the VMMMS to change a balloon size to avoid killing an app or
+    discarding a tab.
+  </summary>
+  <token key="ClientName" variants="VmmmsClientName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{ClientName}.UnnecessaryKill"
+    enum="VmmmsRequestPriority" expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    The priority of each kill decision request that timed out leading to an
+    unnecessary app kill or tab discard. Logged after a client asks the VMMMS to
+    change a balloon size to avoid killing an app or discarding a tab.
+  </summary>
+  <token key="ClientName" variants="VmmmsClientName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{VmName}.Deflate" units="MiB"
+    expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    When the balloon for a given VM is deflated, the size of the deflation.
+  </summary>
+  <token key="VmName" variants="VmmmsVmName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{VmName}.Inflate" units="MiB"
+    expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    When the balloon for a given VM is inflated, the size of the inlfation.
+  </summary>
+  <token key="VmName" variants="VmmmsVmName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{VmName}.ResizeInterval" units="ms"
+    expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    When the balloon for a given VM resizes, the time since the previous resize.
+  </summary>
+  <token key="VmName" variants="VmmmsVmName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{VmName}.Size10Minutes" units="MiB"
+    expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>
+    The size of the balloon for a given VM. Logged every 10 minutes.
+  </summary>
+  <token key="VmName" variants="VmmmsVmName"/>
+</histogram>
+
+<histogram name="Memory.VMMMS.{VmName}.StallThroughput" units="MiB/s"
+    expires_after="2024-04-23">
+  <owner>kalutes@google.com</owner>
+  <owner>cwd@google.com</owner>
+  <owner>cros-vm-technology@google.com</owner>
+  <summary>The inflation rate of a balloon when a stall is detected.</summary>
+  <token key="VmName" variants="VmmmsVmName"/>
+</histogram>
+
 <histogram name="Memory.VmmSwap.TotalBytesWrittenInAWeek" units="MiB"
-    expires_after="2024-01-31">
+    expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>
@@ -2504,7 +2541,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VmmSwap.{VmName}.ActiveAfterEnableDuration"
-    units="Hours" expires_after="2024-01-31">
+    units="Hours" expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>
@@ -2518,7 +2555,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VmmSwap.{VmName}.AvgPagesInFile" units="Pages"
-    expires_after="2024-01-31">
+    expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>
@@ -2557,7 +2594,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VmmSwap.{VmName}.InactiveNoEnableDuration"
-    units="Hours" expires_after="2024-01-31">
+    units="Hours" expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>
@@ -2570,7 +2607,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VmmSwap.{VmName}.MinPagesInFile" units="Pages"
-    expires_after="2024-01-31">
+    expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>
@@ -2583,7 +2620,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VmmSwap.{VmName}.PageAverageDurationInFile"
-    units="Seconds" expires_after="2024-01-31">
+    units="Seconds" expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>
@@ -2610,7 +2647,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VmmSwap.{VmName}.State" enum="VmmSwapState"
-    expires_after="2024-01-31">
+    expires_after="2024-03-31">
   <owner>kawasin@google.com</owner>
   <owner>sstan@google.com</owner>
   <summary>

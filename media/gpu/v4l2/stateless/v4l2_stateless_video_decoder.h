@@ -18,6 +18,7 @@
 #include "media/base/waiting.h"
 #include "media/gpu/accelerated_video_decoder.h"
 #include "media/gpu/chromeos/video_decoder_pipeline.h"
+#include "media/gpu/v4l2/stateless/queue.h"
 #include "media/gpu/v4l2/stateless/stateless_decode_surface_handler.h"
 #include "media/gpu/v4l2/stateless/stateless_device.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -63,6 +64,10 @@ class MEDIA_GPU_EXPORT V4L2StatelessVideoDecoder
                     int32_t bitstream_id,
                     const gfx::Rect& visible_rect,
                     const VideoColorSpace& color_space) override;
+  bool SubmitFrame(void* ctrls,
+                   const uint8_t* data,
+                   size_t size,
+                   int32_t bitstream_id) override;
 
  private:
   V4L2StatelessVideoDecoder(
@@ -75,6 +80,11 @@ class MEDIA_GPU_EXPORT V4L2StatelessVideoDecoder
   // Create a codec specific decoder. When successful this decoder is stored in
   // the |decoder_| member variable.
   bool CreateDecoder(VideoCodecProfile profile, VideoColorSpace color_space);
+
+  // Create a queue of buffers for compressed frames to go into. V4L2 needs
+  // to know |profile| and |resolution| in order to know if the queue
+  // can be created.
+  bool CreateInputQueue(VideoCodecProfile profile, const gfx::Size resolution);
 
   // Process the data in the |compressed_buffer| using the |decoder_|.
   void ProcessCompressedBuffer(scoped_refptr<DecoderBuffer> compressed_buffer,
@@ -91,6 +101,8 @@ class MEDIA_GPU_EXPORT V4L2StatelessVideoDecoder
 
   // Video decoder used to parse stream headers by software.
   std::unique_ptr<AcceleratedVideoDecoder> decoder_;
+
+  std::unique_ptr<InputQueue> input_queue_;
 
   // Int32 safe ID generator, starting at 0. Generated IDs are used to uniquely
   // identify a Decode() request for stateless backends. BitstreamID is just

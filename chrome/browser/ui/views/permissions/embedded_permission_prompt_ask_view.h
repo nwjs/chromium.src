@@ -15,10 +15,8 @@ class Browser;
 class EmbeddedPermissionPromptAskView
     : public EmbeddedPermissionPromptBaseView {
  public:
-  EmbeddedPermissionPromptAskView(
-      Browser* browser,
-      base::WeakPtr<permissions::PermissionPrompt::Delegate> delegate,
-      bool is_permission_allowed);
+  EmbeddedPermissionPromptAskView(Browser* browser,
+                                  base::WeakPtr<Delegate> delegate);
   EmbeddedPermissionPromptAskView(const EmbeddedPermissionPromptAskView&) =
       delete;
   EmbeddedPermissionPromptAskView& operator=(
@@ -30,8 +28,9 @@ class EmbeddedPermissionPromptAskView
   void RunButtonCallback(int type) override;
 
  protected:
-  std::vector<RequestLineConfiguration> GetRequestLinesConfiguration() override;
-  std::vector<ButtonConfiguration> GetButtonsConfiguration() override;
+  std::vector<RequestLineConfiguration> GetRequestLinesConfiguration()
+      const override;
+  std::vector<ButtonConfiguration> GetButtonsConfiguration() const override;
 
  private:
   std::u16string GetMessageText() const;

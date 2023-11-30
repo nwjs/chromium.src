@@ -33,57 +33,32 @@ TEST(ServiceWorkerRouterRulesTest, SimpleRoundTrip) {
   {
     blink::ServiceWorkerRouterRule rule;
     {
-      blink::ServiceWorkerRouterCondition condition;
-      condition.type = blink::ServiceWorkerRouterCondition::Type::kUrlPattern;
       blink::SafeUrlPattern url_pattern;
-      auto parse_result = liburlpattern::Parse(
-          "/test/*",
-          [](base::StringPiece input) { return std::string(input); });
-      ASSERT_TRUE(parse_result.ok());
-      url_pattern.pathname = parse_result.value().PartList();
-      condition.url_pattern = url_pattern;
-      rule.conditions.push_back(condition);
-    }
-    {
-      blink::ServiceWorkerRouterCondition condition;
-      condition.type = blink::ServiceWorkerRouterCondition::Type::kRequest;
+      {
+        auto parse_result = liburlpattern::Parse(
+            "/test/*",
+            [](base::StringPiece input) { return std::string(input); });
+        ASSERT_TRUE(parse_result.ok());
+        url_pattern.pathname = parse_result.value().PartList();
+      }
       blink::ServiceWorkerRouterRequestCondition request;
-      request.method = "GET";
-      request.mode = network::mojom::RequestMode::kNavigate;
-      request.destination = network::mojom::RequestDestination::kDocument;
-      condition.request = request;
-      rule.conditions.push_back(condition);
-    }
-    {
-      blink::ServiceWorkerRouterCondition condition;
-      condition.type = blink::ServiceWorkerRouterCondition::Type::kRequest;
-      blink::ServiceWorkerRouterRequestCondition request;
-      condition.request = request;
-      rule.conditions.push_back(condition);
-    }
-    {
-      blink::ServiceWorkerRouterCondition condition;
-      condition.type =
-          blink::ServiceWorkerRouterCondition::Type::kRunningStatus;
+      {
+        request.method = "GET";
+        request.mode = network::mojom::RequestMode::kNavigate;
+        request.destination = network::mojom::RequestDestination::kDocument;
+      }
       blink::ServiceWorkerRouterRunningStatusCondition running_status;
-      running_status.status = blink::ServiceWorkerRouterRunningStatusCondition::
-          RunningStatusEnum::kRunning;
-      condition.running_status = running_status;
-      rule.conditions.push_back(condition);
-    }
-    {
-      blink::ServiceWorkerRouterCondition condition;
-      condition.type = blink::ServiceWorkerRouterCondition::Type::kOr;
+      {
+        running_status.status =
+            blink::ServiceWorkerRouterRunningStatusCondition::
+                RunningStatusEnum::kRunning;
+      }
       blink::ServiceWorkerRouterOrCondition or_condition;
-
-      blink::ServiceWorkerRouterCondition fake;
-      fake.type = blink::ServiceWorkerRouterCondition::Type::kRequest;
-      blink::ServiceWorkerRouterRequestCondition request;
-      fake.request = request;
-
-      or_condition.conditions = std::vector(3, fake);
-      condition.or_condition = or_condition;
-      rule.conditions.push_back(condition);
+      {
+        or_condition.conditions = std::vector(
+            3, blink::ServiceWorkerRouterCondition::WithRequest({}));
+      }
+      rule.condition = {url_pattern, request, running_status, or_condition};
     }
     {
       blink::ServiceWorkerRouterSource source;

@@ -17,8 +17,7 @@ namespace ash {
 class ArcWindowWatcher;
 class NetworkPortalNotificationController;
 class NewWindowDelegateProvider;
-class NightLightClient;
-class VariableRefreshRateController;
+class RefreshRateController;
 class VideoConferenceTrayController;
 }  // namespace ash
 
@@ -53,7 +52,6 @@ class LoginScreenClientImpl;
 class MediaClientImpl;
 class MobileDataNotifications;
 class NetworkConnectDelegate;
-class NightLightClient;
 class ProjectorAppClientImpl;
 class ProjectorClientImpl;
 class ScreenOrientationDelegateChromeos;
@@ -147,8 +145,7 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
   std::unique_ptr<internal::ChromeShelfControllerInitializer>
       chrome_shelf_controller_initializer_;
   std::unique_ptr<DesksClient> desks_client_;
-  std::unique_ptr<ash::VariableRefreshRateController>
-      variable_refresh_rate_controller_;
+  std::unique_ptr<ash::RefreshRateController> refresh_rate_controller_;
 
 #if BUILDFLAG(ENABLE_WAYLAND_SERVER)
   std::unique_ptr<ExoParts> exo_parts_;
@@ -164,7 +161,6 @@ class ChromeBrowserMainExtraPartsAsh : public ChromeBrowserMainExtraParts {
 
   // Initialized in PostBrowserStart in all configs:
   std::unique_ptr<MobileDataNotifications> mobile_data_notifications_;
-  std::unique_ptr<ash::NightLightClient> night_light_client_;
   std::unique_ptr<AmbientClientImpl> ambient_client_;
 
   // Boolean that is set to true after PostBrowserStart() executes.

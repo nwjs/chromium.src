@@ -27,7 +27,7 @@ import {SettingsToggleButtonElement} from '/shared/settings/controls/settings_to
 import {PrefsMixin} from 'chrome://resources/cr_components/settings_prefs/prefs_mixin.js';
 import {CrButtonElement} from 'chrome://resources/cr_elements/cr_button/cr_button.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {focusWithoutInk} from 'chrome://resources/js/focus_without_ink.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {DomRepeatEvent, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
@@ -167,6 +167,7 @@ export class OsSettingsInputPageElement extends OsSettingsInputPageElementBase {
     Setting.kAddInputMethod,
     Setting.kShowEmojiSuggestions,
     Setting.kShowInputOptionsInShelf,
+    Setting.kShowOrca,
     Setting.kSpellCheck,
   ]);
   // From RouteOriginMixin.
@@ -629,9 +630,34 @@ export class OsSettingsInputPageElement extends OsSettingsInputPageElementBase {
     }
   }
 
-  private shouldShowSpinner_(_item: chrome.languageSettingsPrivate.InputMethod):
-      boolean {
-    return this.languagePacksInSettingsEnabled_;
+  private shouldShowSpinner_(imeId: string): boolean {
+    return this.languagePacksInSettingsEnabled_ &&
+        this.languageHelper.getImeLanguagePackStatus(imeId) ===
+        chrome.inputMethodPrivate.LanguagePackStatus.IN_PROGRESS;
+  }
+
+  private shouldShowLanguagePackError_(imeId: string): boolean {
+    if (!this.languagePacksInSettingsEnabled_) {
+      return false;
+    }
+    const status = this.languageHelper.getImeLanguagePackStatus(imeId);
+    return status ===
+        chrome.inputMethodPrivate.LanguagePackStatus.ERROR_OTHER ||
+        status ===
+        chrome.inputMethodPrivate.LanguagePackStatus.ERROR_NEEDS_REBOOT;
+  }
+
+  private getLanguagePacksErrorMessage_(imeId: string): string {
+    const status = this.languageHelper.getImeLanguagePackStatus(imeId);
+    switch (status) {
+      case chrome.inputMethodPrivate.LanguagePackStatus.ERROR_NEEDS_REBOOT:
+        return this.i18n('inputMethodLanguagePacksNeedsRebootError');
+      case chrome.inputMethodPrivate.LanguagePackStatus.ERROR_OTHER:
+        return this.i18n('inputMethodLanguagePacksGeneralError');
+      default:
+        console.error('Invalid status:', status);
+        return '';
+    }
   }
 }
 

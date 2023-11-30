@@ -20,6 +20,8 @@
 
 namespace content::protocol {
 
+namespace {
+
 Preload::PrerenderFinalStatus PrerenderFinalStatusToProtocol(
     PrerenderFinalStatus feature) {
   switch (feature) {
@@ -154,8 +156,6 @@ Preload::PrerenderFinalStatus PrerenderFinalStatusToProtocol(
       return Preload::PrerenderFinalStatusEnum::MemoryPressureAfterTriggered;
     case PrerenderFinalStatus::kPrerenderingDisabledByDevTools:
       return Preload::PrerenderFinalStatusEnum::PrerenderingDisabledByDevTools;
-    case PrerenderFinalStatus::kResourceLoadBlockedByClient:
-      return Preload::PrerenderFinalStatusEnum::ResourceLoadBlockedByClient;
     case PrerenderFinalStatus::kSpeculationRuleRemoved:
       return Preload::PrerenderFinalStatusEnum::SpeculationRuleRemoved;
     case PrerenderFinalStatus::kActivatedWithAuxiliaryBrowsingContexts:
@@ -208,14 +208,14 @@ Preload::PrefetchStatus PrefetchStatusToProtocol(PrefetchStatus status) {
       return Preload::PrefetchStatusEnum::PrefetchNotUsedProbeFailed;
     case PrefetchStatus::kPrefetchNotStarted:
       return Preload::PrefetchStatusEnum::PrefetchNotStarted;
-    case PrefetchStatus::kPrefetchNotEligibleUserHasCookies:
+    case PrefetchStatus::kPrefetchIneligibleUserHasCookies:
       return Preload::PrefetchStatusEnum::PrefetchNotEligibleUserHasCookies;
-    case PrefetchStatus::kPrefetchNotEligibleUserHasServiceWorker:
+    case PrefetchStatus::kPrefetchIneligibleUserHasServiceWorker:
       return Preload::PrefetchStatusEnum::
           PrefetchNotEligibleUserHasServiceWorker;
-    case PrefetchStatus::kPrefetchNotEligibleSchemeIsNotHttps:
+    case PrefetchStatus::kPrefetchIneligibleSchemeIsNotHttps:
       return Preload::PrefetchStatusEnum::PrefetchNotEligibleSchemeIsNotHttps;
-    case PrefetchStatus::kPrefetchNotEligibleNonDefaultStoragePartition:
+    case PrefetchStatus::kPrefetchIneligibleNonDefaultStoragePartition:
       return Preload::PrefetchStatusEnum::
           PrefetchNotEligibleNonDefaultStoragePartition;
     case PrefetchStatus::kPrefetchNotFinishedInTime:
@@ -230,7 +230,7 @@ Preload::PrefetchStatus PrefetchStatusToProtocol(PrefetchStatus status) {
       return Preload::PrefetchStatusEnum::PrefetchSuccessfulButNotUsed;
     case PrefetchStatus::kPrefetchIneligibleRetryAfter:
       return Preload::PrefetchStatusEnum::PrefetchIneligibleRetryAfter;
-    case PrefetchStatus::kPrefetchProxyNotAvailable:
+    case PrefetchStatus::kPrefetchIneligiblePrefetchProxyNotAvailable:
       return Preload::PrefetchStatusEnum::PrefetchProxyNotAvailable;
     case PrefetchStatus::kPrefetchIsPrivacyDecoy:
       return Preload::PrefetchStatusEnum::PrefetchIsPrivacyDecoy;
@@ -238,18 +238,18 @@ Preload::PrefetchStatus PrefetchStatusToProtocol(PrefetchStatus status) {
       return Preload::PrefetchStatusEnum::PrefetchIsStale;
     case PrefetchStatus::kPrefetchNotUsedCookiesChanged:
       return Preload::PrefetchStatusEnum::PrefetchNotUsedCookiesChanged;
-    case PrefetchStatus::kPrefetchNotEligibleHostIsNonUnique:
+    case PrefetchStatus::kPrefetchIneligibleHostIsNonUnique:
       return Preload::PrefetchStatusEnum::PrefetchNotEligibleHostIsNonUnique;
-    case PrefetchStatus::kPrefetchNotEligibleDataSaverEnabled:
+    case PrefetchStatus::kPrefetchIneligibleDataSaverEnabled:
       return Preload::PrefetchStatusEnum::PrefetchNotEligibleDataSaverEnabled;
-    case PrefetchStatus::kPrefetchNotEligibleExistingProxy:
+    case PrefetchStatus::kPrefetchIneligibleExistingProxy:
       return Preload::PrefetchStatusEnum::PrefetchNotEligibleExistingProxy;
-    case PrefetchStatus::kPrefetchNotEligibleBrowserContextOffTheRecord:
+    case PrefetchStatus::kPrefetchIneligibleBrowserContextOffTheRecord:
       return Preload::PrefetchStatusEnum::
           PrefetchNotEligibleBrowserContextOffTheRecord;
-    case PrefetchStatus::kPrefetchNotEligiblePreloadingDisabled:
+    case PrefetchStatus::kPrefetchIneligiblePreloadingDisabled:
       return Preload::PrefetchStatusEnum::PrefetchNotEligiblePreloadingDisabled;
-    case PrefetchStatus::kPrefetchNotEligibleBatterySaverEnabled:
+    case PrefetchStatus::kPrefetchIneligibleBatterySaverEnabled:
       return Preload::PrefetchStatusEnum::
           PrefetchNotEligibleBatterySaverEnabled;
     case PrefetchStatus::kPrefetchHeldback:
@@ -265,7 +265,7 @@ Preload::PrefetchStatus PrefetchStatusToProtocol(PrefetchStatus status) {
     case PrefetchStatus::kPrefetchFailedPerPageLimitExceeded:
       return Preload::PrefetchStatusEnum::PrefetchFailedPerPageLimitExceeded;
     case PrefetchStatus::
-        kPrefetchNotEligibleSameSiteCrossOriginPrefetchRequiredProxy:
+        kPrefetchIneligibleSameSiteCrossOriginPrefetchRequiredProxy:
       return Preload::PrefetchStatusEnum::
           PrefetchNotEligibleSameSiteCrossOriginPrefetchRequiredProxy;
     case PrefetchStatus::kPrefetchEvicted:
@@ -315,6 +315,24 @@ bool PreloadingTriggeringOutcomeSupportedByPrerender(
   }
 }
 
+absl::optional<protocol::Preload::SpeculationTargetHint>
+GetProtocolSpeculationTargetHint(
+    absl::optional<blink::mojom::SpeculationTargetHint> target_hint) {
+  if (!target_hint.has_value()) {
+    return absl::nullopt;
+  }
+  switch (target_hint.value()) {
+    case blink::mojom::SpeculationTargetHint::kNoHint:
+      return absl::nullopt;
+    case blink::mojom::SpeculationTargetHint::kBlank:
+      return protocol::Preload::SpeculationTargetHintEnum::Blank;
+    case blink::mojom::SpeculationTargetHint::kSelf:
+      return protocol::Preload::SpeculationTargetHintEnum::Self;
+  }
+}
+
+}  // namespace
+
 PreloadHandler::PreloadHandler()
     : DevToolsDomainHandler(Preload::Metainfo::domainName) {}
 
@@ -336,7 +354,7 @@ void PreloadHandler::DidUpdatePrefetchStatus(
   if (!enabled_) {
     return;
   }
-  // TODO(crbug/1384419): Handle target_hint.
+
   auto preloading_attempt_key =
       protocol::Preload::PreloadingAttemptKey::Create()
           .SetLoaderId(initiator_devtools_navigation_token.ToString())
@@ -354,19 +372,25 @@ void PreloadHandler::DidUpdatePrefetchStatus(
 void PreloadHandler::DidUpdatePrerenderStatus(
     const base::UnguessableToken& initiator_devtools_navigation_token,
     const GURL& prerender_url,
+    absl::optional<blink::mojom::SpeculationTargetHint> target_hint,
     PreloadingTriggeringOutcome status,
     absl::optional<PrerenderFinalStatus> prerender_status,
     absl::optional<std::string> disallowed_mojo_interface) {
   if (!enabled_) {
     return;
   }
-  // TODO(crbug/1384419): Handle target_hint.
+
   auto preloading_attempt_key =
       protocol::Preload::PreloadingAttemptKey::Create()
           .SetLoaderId(initiator_devtools_navigation_token.ToString())
           .SetAction(Preload::SpeculationActionEnum::Prerender)
           .SetUrl(prerender_url.spec())
           .Build();
+  absl::optional<protocol::Preload::SpeculationTargetHint>
+      protocol_target_hint = GetProtocolSpeculationTargetHint(target_hint);
+  if (protocol_target_hint.has_value()) {
+    preloading_attempt_key->SetTargetHint(protocol_target_hint.value());
+  }
   Maybe<Preload::PrerenderFinalStatus> protocol_prerender_status =
       prerender_status.has_value()
           ? PrerenderFinalStatusToProtocol(prerender_status.value())

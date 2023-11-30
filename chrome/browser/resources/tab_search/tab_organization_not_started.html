@@ -1,40 +1,57 @@
-<style>
+<style include="tab-organization-shared-style">
+  :host {
+    --avatar-size: 40px;
+  }
+
   cr-button {
     align-self: flex-end;
     width: fit-content;
   }
 
-  .body {
-    color: var(--cr-secondary-text-color);
-    font-size: 13px;
-    font-weight: 400;
+  .account-email {
+    font-size: 12px;
   }
 
-  .column {
+  .account-image {
+    border-radius: var(--avatar-size);
+    height: var(--avatar-size);
+    width: var(--avatar-size);
+  }
+
+  .account-row {
+    align-items: center;
+    display: flex;
+    gap: 10px;
+  }
+
+  .account-text {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-  }
-
-  .text-container {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .title {
-    color: var(--cr-primary-text-color);
-    font-size: 14px;
-    font-weight: 500;
+    gap: 4px;
   }
 </style>
 
-<div class="column">
-  <div class="text-container">
-    <div class="title">$i18n{notStartedTitle}</div>
-    <div class="body">$i18n{notStartedBody}</div>
+<div class="tab-organization-container">
+  <div class="tab-organization-text-container">
+    <div class="tab-organization-header">[[getTitle_(showFre)]]</div>
+    <div class="tab-organization-body">
+      [[getBody_(showFre, sync_, account_)]]
+    </div>
   </div>
-  <cr-button class="action-button" on-click="onOrganizeTabsClick_">
-    $i18n{notStartedButton}
+  <template is="dom-if" if="[[shouldShowAccountInfo_(sync_, account_)]]">
+    <div class="account-row">
+      <!-- TODO(emshack): Add alt text -->
+      <img class="account-image" alt="" 
+          src="[[getAccountImageSrc_(account_.avatarImage)]]">
+      <div class="account-text">
+        <div class="tab-organization-header">[[account_.name]]</div>
+        <div class="tab-organization-body account-email">
+          [[account_.email]]
+        </div>
+      </div>
+    </div>
+  </template>
+  <cr-button class="action-button" on-click="onButtonClick_">
+    [[getButtonText_(sync_, account_)]]
   </cr-button>
 </div>

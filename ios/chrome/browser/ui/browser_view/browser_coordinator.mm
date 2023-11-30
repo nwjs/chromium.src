@@ -24,21 +24,20 @@
 #import "components/segmentation_platform/embedder/default_model/device_switcher_result_dispatcher.h"
 #import "components/signin/ios/browser/active_state_manager.h"
 #import "components/translate/core/browser/translate_manager.h"
-#import "ios/chrome/browser/app_launcher/model/app_launcher_abuse_detector.h"
-#import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper.h"
+#import "ios/chrome/browser/app_launcher/model/app_launcher_tab_helper_browser_presentation_provider.h"
 #import "ios/chrome/browser/commerce/model/push_notification/push_notification_feature.h"
 #import "ios/chrome/browser/commerce/model/shopping_service_factory.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
 #import "ios/chrome/browser/credential_provider_promo/model/features.h"
-#import "ios/chrome/browser/default_browser/utils.h"
+#import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/download/download_directory_util.h"
 #import "ios/chrome/browser/download/external_app_util.h"
 #import "ios/chrome/browser/download/pass_kit_tab_helper.h"
-#import "ios/chrome/browser/feature_engagement/tracker_factory.h"
-#import "ios/chrome/browser/feature_engagement/tracker_util.h"
-#import "ios/chrome/browser/find_in_page/find_tab_helper.h"
-#import "ios/chrome/browser/find_in_page/java_script_find_tab_helper.h"
-#import "ios/chrome/browser/find_in_page/util.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_util.h"
+#import "ios/chrome/browser/find_in_page/model/find_tab_helper.h"
+#import "ios/chrome/browser/find_in_page/model/java_script_find_tab_helper.h"
+#import "ios/chrome/browser/find_in_page/model/util.h"
 #import "ios/chrome/browser/follow/follow_browser_agent.h"
 #import "ios/chrome/browser/follow/followed_web_site.h"
 #import "ios/chrome/browser/infobars/infobar_ios.h"
@@ -48,16 +47,17 @@
 #import "ios/chrome/browser/ntp/features.h"
 #import "ios/chrome/browser/ntp/new_tab_page_state.h"
 #import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
-#import "ios/chrome/browser/overscroll_actions/overscroll_actions_tab_helper.h"
+#import "ios/chrome/browser/overscroll_actions/model/overscroll_actions_tab_helper.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_infobar_delegate.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_step.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_util.h"
-#import "ios/chrome/browser/passwords/password_controller_delegate.h"
-#import "ios/chrome/browser/prerender/preload_controller_delegate.h"
-#import "ios/chrome/browser/prerender/prerender_service.h"
-#import "ios/chrome/browser/prerender/prerender_service_factory.h"
+#import "ios/chrome/browser/parcel_tracking/tracking_source.h"
+#import "ios/chrome/browser/passwords/model/password_controller_delegate.h"
+#import "ios/chrome/browser/prerender/model/preload_controller_delegate.h"
+#import "ios/chrome/browser/prerender/model/prerender_service.h"
+#import "ios/chrome/browser/prerender/model/prerender_service_factory.h"
 #import "ios/chrome/browser/promos_manager/features.h"
-#import "ios/chrome/browser/reading_list/reading_list_browser_agent.h"
+#import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/alert/repost_form_coordinator.h"
 #import "ios/chrome/browser/shared/coordinator/alert/repost_form_coordinator_delegate.h"
@@ -109,14 +109,14 @@
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/signin/account_consistency_browser_agent.h"
 #import "ios/chrome/browser/signin/account_consistency_service_factory.h"
-#import "ios/chrome/browser/snapshots/snapshot_browser_agent.h"
-#import "ios/chrome/browser/snapshots/snapshot_tab_helper.h"
-#import "ios/chrome/browser/store_kit/store_kit_coordinator.h"
-#import "ios/chrome/browser/store_kit/store_kit_coordinator_delegate.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
+#import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
+#import "ios/chrome/browser/store_kit/model/store_kit_coordinator.h"
+#import "ios/chrome/browser/store_kit/model/store_kit_coordinator_delegate.h"
 #import "ios/chrome/browser/sync/model/sync_error_browser_agent.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
-#import "ios/chrome/browser/tabs/tab_title_util.h"
-#import "ios/chrome/browser/translate/chrome_ios_translate_client.h"
+#import "ios/chrome/browser/tabs/model/tab_title_util.h"
+#import "ios/chrome/browser/translate/model/chrome_ios_translate_client.h"
 #import "ios/chrome/browser/ui/app_store_rating/features.h"
 #import "ios/chrome/browser/ui/authentication/enterprise/enterprise_prompt/enterprise_prompt_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/enterprise/enterprise_prompt/enterprise_prompt_type.h"
@@ -208,9 +208,9 @@
 #import "ios/chrome/browser/ui/voice/text_to_speech_playback_controller_factory.h"
 #import "ios/chrome/browser/ui/webui/net_export_coordinator.h"
 #import "ios/chrome/browser/ui/whats_new/whats_new_coordinator.h"
-#import "ios/chrome/browser/url_loading/url_loading_browser_agent.h"
-#import "ios/chrome/browser/url_loading/url_loading_notifier_browser_agent.h"
-#import "ios/chrome/browser/url_loading/url_loading_params.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
+#import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/view_source/model/view_source_browser_agent.h"
 #import "ios/chrome/browser/web/font_size/font_size_tab_helper.h"
 #import "ios/chrome/browser/web/page_placeholder_browser_agent.h"
@@ -253,6 +253,7 @@ enum class ToolbarKind {
 }  // anonymous namespace
 
 @interface BrowserCoordinator () <
+    AppLauncherTabHelperBrowserPresentationProvider,
     AutofillAddCreditCardCoordinatorDelegate,
     BrowserCoordinatorCommands,
     BubblePresenterDelegate,
@@ -872,9 +873,6 @@ enum class ToolbarKind {
   _urlLoadingNotifierBrowserAgent =
       UrlLoadingNotifierBrowserAgent::FromBrowser(self.browser);
 
-  _toolbarCoordinator =
-      [[ToolbarCoordinator alloc] initWithBrowser:self.browser];
-
   feature_engagement::Tracker* engagementTracker =
       feature_engagement::TrackerFactory::GetForBrowserState(browserState);
   HostContentSettingsMap* settingsMap =
@@ -909,6 +907,7 @@ enum class ToolbarKind {
       initWithDeviceSwitcherResultDispatcher:deviceSwitcherResultDispatcher
                       hostContentSettingsMap:settingsMap
                              loadingNotifier:_urlLoadingNotifierBrowserAgent
+                                 prefService:browserState->GetPrefs()
                                   sceneState:SceneStateBrowserAgent::
                                                  FromBrowser(self.browser)
                                                      ->GetSceneState()
@@ -919,6 +918,9 @@ enum class ToolbarKind {
   _bubblePresenter.delegate = self;
   [_dispatcher startDispatchingToTarget:_bubblePresenter
                             forProtocol:@protocol(HelpCommands)];
+
+  _toolbarCoordinator =
+      [[ToolbarCoordinator alloc] initWithBrowser:self.browser];
 
   _toolbarAccessoryPresenter = [[ToolbarAccessoryPresenter alloc]
       initWithIsIncognito:browserState->IsOffTheRecord()];
@@ -1456,6 +1458,7 @@ enum class ToolbarKind {
       TabInsertionBrowserAgent::FromBrowser(browser);
   tabLifecycleMediator.snapshotGeneratorDelegate = self;
   tabLifecycleMediator.overscrollActionsDelegate = self;
+  tabLifecycleMediator.appLauncherBrowserPresentationProvider = self;
 
   self.tabLifecycleMediator = tabLifecycleMediator;
 }
@@ -1489,8 +1492,6 @@ enum class ToolbarKind {
                       originView:positioner.sourceView
                       originRect:positioner.sourceRect
                           anchor:anchor];
-  self.sharingCoordinator.activityHandler =
-      HandlerForProtocol(self.dispatcher, ActivityServiceCommands);
   [self.sharingCoordinator start];
 }
 
@@ -1694,12 +1695,8 @@ enum class ToolbarKind {
 }
 
 - (void)showSendTabToSelfUI:(const GURL&)url title:(NSString*)title {
-  // TODO(crbug.com/1347821): Make this DCHECK(!_sendTabToSelfCoordinator)
-  // once SendTabToSelfCoordinator is aware of sign-in being aborted.
-  if (_sendTabToSelfCoordinator) {
-    [_sendTabToSelfCoordinator stop];
-    _sendTabToSelfCoordinator = nil;
-  }
+  // TODO(crbug.com/1488763): Convert to CHECK.
+  DUMP_WILL_BE_CHECK(!_sendTabToSelfCoordinator);
 
   _sendTabToSelfCoordinator = [[SendTabToSelfCoordinator alloc]
       initWithBaseViewController:self.viewController
@@ -2376,6 +2373,9 @@ enum class ToolbarKind {
   commerce::ShoppingService* shoppingService =
       commerce::ShoppingServiceFactory::GetForBrowserState(
           self.browser->GetBrowserState());
+  if (!shoppingService) {
+    return;
+  }
   // Filter out parcels that are already being tracked and post
   // `showParcelTrackingUIWithNewParcels` command for the new parcel list.
   FilterParcelsAndShowParcelTrackingUI(
@@ -2388,6 +2388,9 @@ enum class ToolbarKind {
   commerce::ShoppingService* shoppingService =
       commerce::ShoppingServiceFactory::GetForBrowserState(
           self.browser->GetBrowserState());
+  if (!shoppingService) {
+    return;
+  }
   if (IsUserEligibleParcelTrackingOptInPrompt(
           self.browser->GetBrowserState()->GetPrefs(), shoppingService)) {
     [self showParcelTrackingOptInPromptWithParcels:parcels];
@@ -2401,10 +2404,15 @@ enum class ToolbarKind {
                                      forStep:(ParcelTrackingStep)step {
   web::WebState* activeWebState = self.activeWebState;
   CHECK(activeWebState);
-  if (!commerce::ShoppingServiceFactory::GetForBrowserState(
-           self.browser->GetBrowserState())
+  ChromeBrowserState* browserState = self.browser->GetBrowserState();
+  if (!commerce::ShoppingServiceFactory::GetForBrowserState(browserState)
            ->IsParcelTrackingEligible()) {
     return;
+  }
+  if (step == ParcelTrackingStep::kNewPackageTracked) {
+    feature_engagement::Tracker* engagementTracker =
+        feature_engagement::TrackerFactory::GetForBrowserState(browserState);
+    engagementTracker->NotifyEvent(feature_engagement::events::kParcelTracked);
   }
   std::unique_ptr<ParcelTrackingInfobarDelegate> delegate =
       std::make_unique<ParcelTrackingInfobarDelegate>(
@@ -2418,6 +2426,10 @@ enum class ToolbarKind {
       InfobarType::kInfobarTypeParcelTracking, std::move(delegate));
   infobar_manager->AddInfoBar(std::move(infobar),
                               /*replace_existing=*/true);
+}
+
+- (void)showParcelTrackingIPH {
+  [_bubblePresenter presentParcelTrackingTipBubble];
 }
 
 #pragma mark - ParcelTrackingOptInCommands helpers
@@ -2437,7 +2449,7 @@ enum class ToolbarKind {
       TrackParcels(
           shoppingService, parcels, std::string(),
           HandlerForProtocol(self.dispatcher, ParcelTrackingOptInCommands),
-          /*display_infobar=*/true);
+          /*display_infobar=*/true, TrackingSource::kAutoTrack);
       break;
     }
     case IOSParcelTrackingOptInStatus::kAskToTrack:
@@ -2745,7 +2757,8 @@ enum class ToolbarKind {
 
 - (void)showAccountSettings {
   [HandlerForProtocol(self.dispatcher, ApplicationCommands)
-      showAccountsSettingsFromViewController:self.viewController];
+      showAccountsSettingsFromViewController:self.viewController
+                        skipIfUINotAvailable:NO];
 }
 
 - (void)showTrustedVaultReauthForFetchKeysWithTrigger:
@@ -3206,6 +3219,12 @@ enum class ToolbarKind {
     (AutofillAddCreditCardCoordinator*)coordinator {
   CHECK_EQ(coordinator, self.addCreditCardCoordinator);
   [self stopAutofillAddCreditCardCoordinator];
+}
+
+#pragma mark - AppLauncherTabHelperBrowserPresentationProvider
+
+- (BOOL)isBrowserPresentingUI {
+  return self.viewController.presentedViewController != nil;
 }
 
 @end

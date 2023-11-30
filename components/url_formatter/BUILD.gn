@@ -54,10 +54,7 @@ static_library("url_formatter") {
   }
   if (is_android || is_robolectric) {
     sources += [ "url_formatter_android.cc" ]
-    deps += [
-      "android:jni_headers",
-      "//url:gurl_android",
-    ]
+    deps += [ "android:jni_headers" ]
   } else {
     # Used in elide_url.cc
     deps += [ "//ui/gfx" ]
@@ -84,7 +81,7 @@ source_set("unit_tests") {
     ":url_formatter",
     "//base",
     "//base/test:test_support",
-    "//components/url_formatter/spoof_checks/top_domains:generate_top_domains_test_trie",
+    "//components/url_formatter/spoof_checks/top_domains:generate_idn_top_domains_test_trie",
     "//net",
     "//net:preload_decoder",
     "//testing/gtest",

@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "base/logging.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/observer_list.h"
 #include "base/strings/string_util.h"
@@ -59,7 +60,6 @@ ExtensionHost::ExtensionHost(const Extension* extension,
       extension_host_type_(host_type) {
   DCHECK(host_type == mojom::ViewType::kExtensionBackgroundPage ||
          host_type == mojom::ViewType::kOffscreenDocument ||
-         host_type == mojom::ViewType::kExtensionDialog ||
          host_type == mojom::ViewType::kExtensionPopup ||
          host_type == mojom::ViewType::kExtensionSidePanel);
   host_contents_ = WebContents::Create(
@@ -305,19 +305,17 @@ void ExtensionHost::CloseContents(WebContents* contents) {
   Close();
 }
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_LEGACY_IPC)
 bool ExtensionHost::OnMessageReceived(const IPC::Message& message,
                                       content::RenderFrameHost* host) {
   bool handled = true;
   IPC_BEGIN_MESSAGE_MAP(ExtensionHost, message)
     IPC_MESSAGE_HANDLER(ExtensionHostMsg_EventAck, OnEventAck)
-    IPC_MESSAGE_HANDLER(ExtensionHostMsg_IncrementLazyKeepaliveCount,
-                        OnIncrementLazyKeepaliveCount)
-    IPC_MESSAGE_HANDLER(ExtensionHostMsg_DecrementLazyKeepaliveCount,
-                        OnDecrementLazyKeepaliveCount)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
 }
+#endif
 
 void ExtensionHost::OnEventAck(int event_id) {
   // This should always be true since event acks are only sent by extensions
@@ -359,12 +357,12 @@ void ExtensionHost::OnEventAck(int event_id) {
   // flow that doesn't include dispatch start and service worker start time.
   if (unacked_messages_[event_id].dispatch_source ==
       EventDispatchSource::kDispatchEventToProcess) {
-    UMA_HISTOGRAM_CUSTOM_MICROSECONDS_TIMES(
+    base::UmaHistogramCustomMicrosecondsTimes(
         "Extensions.Events.DispatchToAckTime.ExtensionEventPage2",
-        /*time=*/base::TimeTicks::Now() -
+        /*sample=*/base::TimeTicks::Now() -
             unacked_message_data.dispatch_start_time,
-        /*minimum=*/base::Microseconds(1), /*maximum=*/base::Minutes(5),
-        /*bucket_count=*/100);
+        /*min=*/base::Microseconds(1), /*max=*/base::Minutes(5),
+        /*buckets=*/100);
   }
 
   EventRouter* router = EventRouter::Get(browser_context_);
@@ -377,18 +375,6 @@ void ExtensionHost::OnEventAck(int event_id) {
 
   // Remove it.
   unacked_messages_.erase(it);
-}
-
-void ExtensionHost::OnIncrementLazyKeepaliveCount() {
-  ProcessManager::Get(browser_context_)
-      ->IncrementLazyKeepaliveCount(extension(), Activity::LIFECYCLE_MANAGEMENT,
-                                    Activity::kIPC);
-}
-
-void ExtensionHost::OnDecrementLazyKeepaliveCount() {
-  ProcessManager::Get(browser_context_)
-      ->DecrementLazyKeepaliveCount(extension(), Activity::LIFECYCLE_MANAGEMENT,
-                                    Activity::kIPC);
 }
 
 // content::WebContentsObserver

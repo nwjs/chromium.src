@@ -7,12 +7,15 @@
 #include <sstream>
 #include <vector>
 
-#include "ash/constants/ash_constants.h"
+#include "ash/capture_mode/capture_mode_test_util.h"
+#include "ash/constants/app_types.h"
 #include "ash/frame/non_client_frame_view_ash.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/public/cpp/window_properties.h"
 #include "ash/shell.h"
 #include "ash/test/test_widget_builder.h"
+#include "ash/wm/overview/overview_controller.h"
+#include "ash/wm/overview/overview_test_util.h"
 #include "ash/wm/resize_shadow.h"
 #include "ash/wm/resize_shadow_controller.h"
 #include "ash/wm/window_state.h"
@@ -1229,8 +1232,9 @@ TEST_F(ShellSurfaceTest, StartMove) {
 
   ASSERT_TRUE(shell_surface->GetWidget());
 
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
   // The interactive move should end when surface is destroyed.
-  shell_surface->StartMove();
+  ASSERT_TRUE(shell_surface->StartMove());
 
   // Test that destroying the shell surface before move ends is OK.
   shell_surface.reset();
@@ -1248,8 +1252,9 @@ TEST_F(ShellSurfaceTest, StartResize) {
   surface->Commit();
   ASSERT_TRUE(shell_surface->GetWidget());
 
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
   // The interactive resize should end when surface is destroyed.
-  shell_surface->StartResize(HTBOTTOMRIGHT);
+  ASSERT_TRUE(shell_surface->StartResize(HTBOTTOMRIGHT));
 
   // Test that destroying the surface before resize ends is OK.
   surface.reset();
@@ -1274,8 +1279,9 @@ TEST_F(ShellSurfaceTest, StartResizeAndDestroyShell) {
   surface->Commit();
   ASSERT_TRUE(shell_surface->GetWidget());
 
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
   // The interactive resize should end when surface is destroyed.
-  shell_surface->StartResize(HTBOTTOMRIGHT);
+  ASSERT_TRUE(shell_surface->StartResize(HTBOTTOMRIGHT));
 
   // Go through configure/commit stage to update the resize component.
   shell_surface->AcknowledgeConfigure(serial);
@@ -1517,7 +1523,9 @@ TEST_F(ShellSurfaceTest, ConfigureCallback) {
   EXPECT_FALSE(config_data.is_active);
 
   EXPECT_FALSE(config_data.is_resizing);
-  shell_surface->StartResize(HTBOTTOMRIGHT);
+
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
+  ASSERT_TRUE(shell_surface->StartResize(HTBOTTOMRIGHT));
   shell_surface->AcknowledgeConfigure(0);
   EXPECT_TRUE(config_data.is_resizing);
 }
@@ -2322,6 +2330,43 @@ TEST_F(ShellSurfaceTest, PopupWithInputRegion) {
   }
 }
 
+// Test that popup does not close when trying to take a screenshot.
+TEST_F(ShellSurfaceTest, PopupWithCaptureMode) {
+  // Setup popup_shell_surface.
+  constexpr gfx::Size kBufferSize(256, 256);
+  auto shell_surface =
+      test::ShellSurfaceBuilder(kBufferSize).BuildShellSurface();
+  auto popup_buffer = std::make_unique<Buffer>(
+      exo_test_helper()->CreateGpuMemoryBuffer(kBufferSize));
+  auto popup_surface = std::make_unique<Surface>();
+  popup_surface->Attach(popup_buffer.get());
+  std::unique_ptr<ShellSurface> popup_shell_surface(CreatePopupShellSurface(
+      popup_surface.get(), shell_surface.get(), gfx::Point(50, 50)));
+  popup_shell_surface->Grab();
+  popup_surface->Commit();
+
+  bool closed = false;
+  auto callback =
+      base::BindRepeating([](bool* closed) { *closed = true; }, &closed);
+  popup_shell_surface->set_close_callback(callback);
+
+  // This simulates enabling (screenshot) capture mode.
+  ash::GetTestDelegate()->OnSessionStateChanged(true);
+  popup_shell_surface->OnCaptureChanged(
+      popup_shell_surface->GetWidget()->GetNativeWindow(), nullptr);
+  // With (screenshot) capture mode on, losing capture should not close the
+  // shell surface.
+  EXPECT_FALSE(closed);
+
+  // This simulates ending (screenshot) capture mode.
+  ash::GetTestDelegate()->OnSessionStateChanged(false);
+  popup_shell_surface->OnCaptureChanged(
+      popup_shell_surface->GetWidget()->GetNativeWindow(), nullptr);
+  // With (screenshot) capture mode off, losing capture should close the shell
+  // surface.
+  EXPECT_TRUE(closed);
+}
+
 TEST_F(ShellSurfaceTest, PopupWithInvisibleParent) {
   // Invisible main window.
   std::unique_ptr<ShellSurface> root_shell_surface =
@@ -2669,7 +2714,7 @@ TEST_F(ShellSurfaceTest, UpdateBoundsWhenDraggedToAnotherDisplay) {
       base::BindLambdaForTesting(origin_change));
   event_generator->MoveMouseTo(1, 1);
   event_generator->PressLeftButton();
-  shell_surface->StartMove();
+  ASSERT_TRUE(shell_surface->StartMove());
   event_generator->MoveMouseTo(801, 1);
   event_generator->ReleaseLeftButton();
   EXPECT_EQ(last_origin, gfx::Point(800, 0));
@@ -2692,7 +2737,8 @@ TEST_F(ShellSurfaceTest, CommitShouldNotMoveDisplay) {
                     shell_surface->GetWidget()->GetNativeWindow())
                 .id());
 
-  shell_surface->StartMove();
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
+  ASSERT_TRUE(shell_surface->StartMove());
 
   constexpr gfx::Size kBufferSize(256, 256);
   auto new_buffer = std::make_unique<Buffer>(
@@ -2706,7 +2752,9 @@ TEST_F(ShellSurfaceTest, CommitShouldNotMoveDisplay) {
                     shell_surface->GetWidget()->GetNativeWindow())
                 .id());
 
-  shell_surface->EndDrag();
+  GetEventGenerator()->ReleaseLeftButton();
+
+  // shell_surface->EndDrag();
 
   // Ending drag will not move the window unless the mouse cursor enters
   // another display.
@@ -2905,7 +2953,8 @@ TEST_F(ShellSurfaceTest, ResizeShadowIndependentBounds) {
   shell_surface->set_configure_callback(configure_callback);
 
   // Resize the widget and set geometry.
-  shell_surface->StartResize(HTBOTTOMRIGHT);
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
+  ASSERT_TRUE(shell_surface->StartResize(HTBOTTOMRIGHT));
   shell_surface->SetWidgetBounds(kNewBounds, /*adjusted by server=*/false);
   shell_surface->SetGeometry(gfx::Rect(kNewBounds.size()));
 
@@ -2961,8 +3010,9 @@ TEST_F(ShellSurfaceTest, ResizeShadowIndependentBounds) {
   EXPECT_EQ(expected_shadow_on_secondary,
             resize_shadow->GetLayerForTest()->bounds());
 
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
   constexpr gfx::Rect kResizedBoundsOn2nd{950, 50, 150, 150};
-  shell_surface->StartResize(HTTOPLEFT);
+  ASSERT_TRUE(shell_surface->StartResize(HTTOPLEFT));
   shell_surface->GetWidget()->SetBounds(kResizedBoundsOn2nd);
   shell_surface->SetGeometry(gfx::Rect(kResizedBoundsOn2nd.size()));
   shell_surface->AcknowledgeConfigure(serial);
@@ -3024,9 +3074,9 @@ TEST_F(ShellSurfaceTest, ResizeShadowDependentBounds) {
 
   gfx::Size new_size(100, 100);
   gfx::Rect new_bounds(new_size);
-
+  aura::Env::GetInstance()->set_mouse_button_flags(ui::EF_LEFT_MOUSE_BUTTON);
   // Resize the widget and set geometry.
-  shell_surface->StartResize(HTBOTTOMRIGHT);
+  ASSERT_TRUE(shell_surface->StartResize(HTBOTTOMRIGHT));
   shell_surface->SetWidgetBounds(new_bounds, /*adjusted_by_server=*/false);
   shell_surface->SetGeometry(new_bounds);
   // Shadow bounds are updated as soon as the widget bounds change.
@@ -4033,6 +4083,73 @@ TEST_F(ShellSurfaceTest, SubpixelPositionOffset) {
   // 'root_surface_origin()'.
   EXPECT_EQ(gfx::Vector2dF(-0.5, -0.625),
             shell_surface->host_window()->layer()->GetSubpixelOffset());
+}
+
+// Make sure the shell surface with capture can be safely deleted
+// even if the widget is not visible.
+TEST_F(ShellSurfaceTest, DeleteWithGrab) {
+  auto shell_surface =
+      test::ShellSurfaceBuilder({200, 200}).BuildShellSurface();
+  auto popup_shell_surface = test::ShellSurfaceBuilder({100, 100})
+                                 .SetAsPopup()
+                                 .SetParent(shell_surface.get())
+                                 .SetGrab()
+                                 .BuildShellSurface();
+  popup_shell_surface->GetWidget()->GetNativeWindow()->layer()->SetVisible(
+      false);
+  popup_shell_surface.reset();
+
+  // Close with grab.
+  popup_shell_surface = test::ShellSurfaceBuilder({100, 100})
+                            .SetAsPopup()
+                            .SetParent(shell_surface.get())
+                            .SetGrab()
+                            .BuildShellSurface();
+  popup_shell_surface->GetWidget()->Close();
+  // Close is async.
+  base::RunLoop().RunUntilIdle();
+  popup_shell_surface.reset();
+
+  // CloseNow with grab.
+  popup_shell_surface = test::ShellSurfaceBuilder({100, 100})
+                            .SetAsPopup()
+                            .SetParent(shell_surface.get())
+                            .SetGrab()
+                            .BuildShellSurface();
+  popup_shell_surface->GetWidget()->CloseNow();
+  popup_shell_surface.reset();
+}
+
+TEST_F(ShellSurfaceTest, WindowPropertyChangedNotificationWithoutRootSurface) {
+  // Test OnWindowPropertyChanged() notification on a ShellSurface, whose root
+  // surface has gone.
+
+  auto* overview_controller = ash::Shell::Get()->overview_controller();
+
+  std::unique_ptr<ShellSurface> shell_surface =
+      test::ShellSurfaceBuilder({256, 256})
+          .SetAppType(ash::AppType::LACROS)
+          .BuildShellSurface();
+
+  std::unique_ptr<ShellSurface> shell_surface1 =
+      test::ShellSurfaceBuilder({256, 256})
+          .SetAppType(ash::AppType::LACROS)
+          .BuildShellSurface();
+
+  overview_controller->StartOverview(ash::OverviewStartAction::kTests);
+  ash::WaitForOverviewEnterAnimation();
+
+  test::ShellSurfaceBuilder::DestroyRootSurface(shell_surface1.get());
+
+  // Destroying `shell_surface` will close its aura window, causing update of
+  // frame throttling in the overview mode for the remaining Lacros window(s).
+  // In this case, the remaining window is associated with `shell_surface1`. It
+  // receives OnWindowPropertyChanged() notification with
+  // ash::kFrameRateThrottleKey key. The root surface of `shell_surface1` has
+  // gone at this point. Verify that it doesn't cause crash.
+  shell_surface.reset();
+
+  overview_controller->EndOverview(ash::OverviewEndAction::kTests);
 }
 
 }  // namespace exo

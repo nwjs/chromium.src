@@ -8,13 +8,14 @@
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/core/layout/ng/layout_ng_block_flow.h"
+#include "third_party/blink/renderer/core/paint/line_relative_rect.h"
 
 namespace blink {
 
 class AffineTransform;
+class FragmentItem;
+class InlineCursor;
 class LayoutText;
-class NGFragmentItem;
-class NGInlineCursor;
 
 // The layout object for the element having "text-combine-upright:all" in
 // vertical writing mode, e.g. <i style="text-upright:all"><b>12</b>34<i>.
@@ -56,18 +57,18 @@ class CORE_EXPORT LayoutTextCombine final : public LayoutNGBlockFlow {
   // Maps non-scaled |rect| to scaled rect for
   //  * |LayoutText::PhysicalLinesBoundingBox()| used by
   //    |LayoutObject::DebugRect()|, intersection observer, and scroll anchor.
-  //  * |NGFragmentItem::RecalcInkOverflow()| for line box
+  //  * |FragmentItem::RecalcInkOverflow()| for line box
   //  * |NGLayoutOverflowCalculator::AddItemsInternal()| for line box.
   //  * |NGPhysicalFragment::AddOutlineRectsForCursor()|
   //  * |NGPhysicalFragment::AddScrollableOverflowForInlineChild()|
   PhysicalRect AdjustRectForBoundingBox(const PhysicalRect& rect) const;
 
   PhysicalRect ComputeTextBoundsRectForHitTest(
-      const NGFragmentItem& text_item,
+      const FragmentItem& text_item,
       const PhysicalOffset& inline_root_offset) const;
 
   // Returns ink overflow for text decorations and emphasis mark.
-  PhysicalRect RecalcContentsInkOverflow(const NGInlineCursor&) const;
+  PhysicalRect RecalcContentsInkOverflow(const InlineCursor&) const;
 
   void ResetLayout();
   void SetScaleX(float new_scale_x);
@@ -87,7 +88,8 @@ class CORE_EXPORT LayoutTextCombine final : public LayoutNGBlockFlow {
   bool NeedsAffineTransformInPaint() const;
 
   // Returns text frame rect, in logical direction, used with text painters.
-  PhysicalRect ComputeTextFrameRect(const PhysicalOffset paint_offset) const;
+  LineRelativeRect ComputeTextFrameRect(
+      const PhysicalOffset paint_offset) const;
 
   // Returns visual rect for painting emphasis mark and text decoration for
   // |NGBoxFragmentPainter|.

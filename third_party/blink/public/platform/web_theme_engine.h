@@ -166,10 +166,16 @@ class WebThemeEngine {
     bool right_to_left = false;
   };
 
+  enum class SpinArrowsDirection : int {
+    kLeftRight,
+    kUpDown,
+  };
+
   // Extra parameters for PartInnerSpinButton
   struct InnerSpinButtonExtraParams {
     bool spin_up = false;
     bool read_only = false;
+    SpinArrowsDirection spin_arrows_direction = SpinArrowsDirection::kUpDown;
   };
 
   // Extra parameters for PartProgressBar
@@ -191,7 +197,10 @@ class WebThemeEngine {
   };
 
   struct ScrollbarButtonExtraParams {
+    // TODO(crbug.com/1493088): We should probably pass the border-radius
+    // instead.
     float zoom = 0;
+    bool needs_rounded_corner = false;
     bool right_to_left = false;
     absl::optional<SkColor> thumb_color;
     absl::optional<SkColor> track_color;
@@ -252,11 +261,10 @@ class WebThemeEngine {
   struct ScrollbarStyle {
     int thumb_thickness;
     int scrollbar_margin;
-    int thumb_thickness_thin;
-    int scrollbar_margin_thin;
-    SkColor color;
+    SkColor4f color;
     base::TimeDelta fade_out_delay;
     base::TimeDelta fade_out_duration;
+    float idle_thickness_scale;
   };
 
   // Gets the overlay scrollbar style. Not used on Mac.
@@ -289,6 +297,10 @@ class WebThemeEngine {
     return absl::nullopt;
   }
 
+  virtual absl::optional<SkColor> GetAccentColor() const {
+    return absl::nullopt;
+  }
+
   virtual ForcedColors GetForcedColors() const { return ForcedColors::kNone; }
   virtual void OverrideForcedColorsTheme(bool is_dark_theme) {}
   virtual void SetForcedColors(const blink::ForcedColors forced_colors) {}
@@ -309,9 +321,6 @@ class WebThemeEngine {
       const ui::RendererColorMap& forced_colors_map) {
     return false;
   }
-  virtual void AdjustForcedColorsProvider(
-      ui::ColorProviderKey::ForcedColors forced_colors_state,
-      ui::ColorProviderKey::ColorMode color_mode) {}
 };
 
 }  // namespace blink

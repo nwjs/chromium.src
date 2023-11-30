@@ -61,7 +61,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/app_mode/app_mode_utils.h"
 #include "chrome/browser/browser_process.h"
-#include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
@@ -117,7 +116,6 @@
 #include "chrome/browser/ui/tabs/tab_utils.h"
 #include "chrome/browser/ui/toolbar/app_menu_model.h"
 #include "chrome/browser/ui/ui_features.h"
-#include "chrome/browser/ui/user_education/browser_feature_promo_storage_service.h"
 #include "chrome/browser/ui/view_ids.h"
 #include "chrome/browser/ui/views/accelerator_table.h"
 #include "chrome/browser/ui/views/accessibility/accessibility_focus_highlight.h"
@@ -209,7 +207,7 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
-#include "chromeos/ui/wm/features.h"
+#include "chromeos/components/mgs/managed_guest_session_utils.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -244,10 +242,10 @@
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
-#include "content/public/browser/notification_service.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
+#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
@@ -311,6 +309,7 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/metrics_util.h"
 #include "chrome/browser/ash/crosapi/browser_util.h"
@@ -365,8 +364,6 @@
 #if BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
 #include "chrome/browser/ui/views/frame/webui_tab_strip_container_view.h"
 #endif  // BUILDFLAG(ENABLE_WEBUI_TAB_STRIP)
-
-using extensions::DraggableRegion;
 
 using base::UserMetricsAction;
 using content::NativeWebKeyboardEvent;
@@ -434,15 +431,13 @@ void CheckFocusListForCycles(views::View* const start_view) {
 #endif  // DCHECK_IS_ON()
 
 SkRegion* RawDraggableRegionsToSkRegion(
-    const std::vector<DraggableRegion>& regions) {
+	const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
   SkRegion* sk_region = new SkRegion;
-  for (std::vector<DraggableRegion>::const_iterator iter = regions.begin();
-       iter != regions.end(); ++iter) {
-    const DraggableRegion& region = *iter;
+  for (const chrome::mojom::DraggableRegionPtr& region : regions) {
     sk_region->op(
-                  SkIRect::MakeLTRB(region.bounds.x(), region.bounds.y(), region.bounds.right(),
-                                    region.bounds.bottom()),
-        region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
+                  SkIRect::MakeLTRB(region->bounds.x(), region->bounds.y(), region->bounds.right(),
+                                    region->bounds.bottom()),
+        region->draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
   }
   return sk_region;
 }
@@ -503,6 +498,14 @@ BrowserView::DevToolsDockedPlacement GetDevToolsDockedPlacement(
   }
 
   return BrowserView::DevToolsDockedPlacement::kUnknown;
+}
+
+bool IsManagedGuestSession() {
+#if BUILDFLAG(IS_CHROMEOS)
+  return chromeos::IsManagedGuestSession();
+#else
+  return false;
+#endif
 }
 
 // Overlay view that owns TopContainerView in some cases (such as during
@@ -839,6 +842,17 @@ class BrowserViewLayoutDelegateImpl : public BrowserViewLayoutDelegate {
     return true;
   }
 
+  int GetExtraInfobarOffset() const override {
+#if BUILDFLAG(IS_MAC)
+    if (browser_view_->UsesImmersiveFullscreenMode() &&
+        browser_view_->immersive_mode_controller()->IsEnabled()) {
+      return browser_view_->immersive_mode_controller()
+          ->GetExtraInfobarOffset();
+    }
+#endif
+    return 0;
+  }
+
  private:
   raw_ptr<BrowserView> browser_view_;
 };
@@ -891,8 +905,13 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
     : views::ClientView(nullptr, nullptr),
       browser_(std::move(browser)),
       accessibility_mode_observer_(
-          std::make_unique<AccessibilityModeObserver>(this)),
-      browser_actions_(*browser_) {
+          std::make_unique<AccessibilityModeObserver>(this)) {
+  // Store the actions so that the access is available for other classes.
+  if (base::FeatureList::IsEnabled(features::kSidePanelPinning)) {
+    browser_->SetUserData(BrowserActions::UserDataKey(),
+                          std::make_unique<BrowserActions>(*browser_));
+  }
+
   SetShowIcon(
       ::ShouldShowWindowIcon(browser_.get(), AppUsesWindowControlsOverlay()));
 
@@ -917,8 +936,15 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
 
   SetProperty(views::kElementIdentifierKey, kBrowserViewElementId);
 
-  // Create user education resources unless headless mode is in effect.
-  if (!headless::IsHeadlessMode()) {
+  // In order to do feature promos, the browser must have a UI and not be an
+  // "off-the-record" or in a demo or guest mode.
+  bool is_profile_type_without_iph =
+      GetIncognito() || GetGuestSession() || IsManagedGuestSession() ||
+      profiles::IsDemoSession() || profiles::IsChromeAppKioskSession();
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+  is_profile_type_without_iph |= profiles::IsWebKioskSession();
+#endif
+  if (!headless::IsHeadlessMode() && !is_profile_type_without_iph) {
     if (UserEducationService* const user_education_service =
             UserEducationServiceFactory::GetForBrowserContext(GetProfile())) {
       RegisterChromeHelpBubbleFactories(
@@ -926,8 +952,6 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
       MaybeRegisterChromeFeaturePromos(
           user_education_service->feature_promo_registry());
       MaybeRegisterChromeTutorials(user_education_service->tutorial_registry());
-      feature_promo_storage_service_ =
-          std::make_unique<BrowserFeaturePromoStorageService>(GetProfile());
       feature_promo_controller_ =
           std::make_unique<BrowserFeaturePromoController>(
               this,
@@ -935,7 +959,7 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
                   GetProfile()),
               &user_education_service->feature_promo_registry(),
               &user_education_service->help_bubble_factory_registry(),
-              feature_promo_storage_service_.get(),
+              &user_education_service->feature_promo_storage_service(),
               &user_education_service->tutorial_service());
     }
   }
@@ -963,7 +987,8 @@ BrowserView::BrowserView(std::unique_ptr<Browser> browser)
     UpdateBorderlessModeEnabled();
   }
 
-  UpdateResizable();
+  // Initialize Blink's 'resizable' CSS @media feature state.
+  OnWidgetSizeConstraintsChanged(GetWidget());
 
   // TabStrip takes ownership of the controller.
   auto tabstrip_controller = std::make_unique<BrowserTabStripController>(
@@ -1086,7 +1111,7 @@ bool BrowserView::NWCanClose(bool user_force) const {
 }
 
 void BrowserView::UpdateDraggableRegions(
-    const std::vector<extensions::DraggableRegion>& regions) {
+   const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
   // Draggable region is not supported for non-frameless window.
   if (!browser_->is_frameless())
     return;
@@ -1224,7 +1249,7 @@ BrowserWindow* BrowserWindow::FindBrowserWindowWithWebContents(
     return BrowserView::GetBrowserViewForNativeWindow(
         widget->GetNativeWindow());
   }
-  const auto* browser = chrome::FindBrowserWithWebContents(web_contents);
+  const auto* browser = chrome::FindBrowserWithTab(web_contents);
   return browser ? browser->window() : nullptr;
 }
 
@@ -1764,7 +1789,11 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
     old_contents->StoreFocus();
   }
 
-  UpdateResizable();
+  WebContentsObserver::Observe(new_contents);
+
+  // TODO(laurila, crbug.com/1493617): Support multi-tab apps.
+  // window.setResizable API should never be called from multi-tab browser.
+  CHECK(!GetCanResizeFromWebAPI());
 
   // If |contents_container_| already has the correct WebContents, we can save
   // some work.  This also prevents extra events from being reported by the
@@ -2021,8 +2050,8 @@ void BrowserView::UpdateExclusiveAccessExitBubbleContent(
   // Immersive mode allows the toolbar to be shown, so do not show the bubble.
   // However, do show the bubble in a managed guest session (see
   // crbug.com/741069).
-  bool immersive_not_public = ShouldUseImmersiveFullscreenForUrl(url) &&
-                              !profiles::IsManagedGuestSession();
+  bool immersive_not_public =
+      ShouldUseImmersiveFullscreenForUrl(url) && !IsManagedGuestSession();
 
   // Whether we should remove the bubble if it exists, or not show the bubble.
   // TODO(jamescook): Figure out what to do with mouse-lock.
@@ -2308,20 +2337,6 @@ bool BrowserView::AppUsesWindowControlsOverlay() const {
 
 bool BrowserView::IsWindowControlsOverlayEnabled() const {
   return window_controls_overlay_enabled_;
-}
-
-// TODO(laurila, crbug.com/1466855): Now this is only called when `BrowserView`
-// is initialized / tab changed and that's not enough. This should also be
-// called every time `WidgetDelegate::SetCanResize` is called.
-void BrowserView::UpdateResizable() {
-  // Additional windowing controls (AWC) is a desktop-only feature.
-#if !BUILDFLAG(IS_ANDROID)
-  content::WebContents* web_contents = GetActiveWebContents();
-  if (!web_contents) {
-    return;
-  }
-  web_contents->UpdateResizable(CanResize());
-#endif
 }
 
 void BrowserView::UpdateWindowControlsOverlayEnabled() {
@@ -2669,6 +2684,95 @@ void BrowserView::OnWidgetVisibilityChanged(views::Widget* widget,
   }
 }
 
+BrowserView::PageData::PageData(content::Page& page) : PageUserData(page) {}
+
+PAGE_USER_DATA_KEY_IMPL(BrowserView::PageData);
+
+absl::optional<bool> BrowserView::GetCanResizeFromWebAPI() const {
+  // TODO(laurila, crbug.com/1493617): Support multi-tab apps.
+  if (browser()->tab_strip_model()->count() > 1) {
+    return absl::nullopt;
+  }
+
+  // The value can only be set in web apps, where there currently can only be 1
+  // WebContents, the return value can be determined only by looking at the
+  // value set by the active WebContents' primary page.
+  content::WebContents* web_contents = GetActiveWebContents();
+  if (!web_contents || !web_contents->GetPrimaryMainFrame()) {
+    return absl::nullopt;
+  }
+
+  if (auto* data = PageData::GetForPage(
+          web_contents->GetPrimaryMainFrame()->GetPage())) {
+    return data->can_resize();
+  }
+  return absl::nullopt;
+}
+
+bool BrowserView::GetCanResize() {
+  return CanResize();
+}
+
+void BrowserView::SetCanResizeFromWebAPI(absl::optional<bool> can_resize) {
+  // TODO(laurila, crbug.com/1493617): Support multi-tab apps.
+  // The value can only be set in web apps, where there currently can only be 1
+  // WebContents, the return value can be determined only by looking at the
+  // value set by the active WebContents' primary page.
+  content::WebContents* web_contents = GetActiveWebContents();
+  if (!web_contents || !web_contents->GetPrimaryMainFrame() || !GetWidget()) {
+    return;
+  }
+
+  if (cached_can_resize_from_web_api_ == can_resize) {
+    return;
+  }
+
+  // Setting it to absl::nullopt should never be blocked.
+  if (can_resize.has_value() && browser()->tab_strip_model()->count() > 1) {
+    // This adds a warning to the active tab, even when another tab makes the
+    // call, which also needs to be fixed as part of the multi-apps support.
+    web_contents->GetPrimaryMainFrame()->AddMessageToConsole(
+        blink::mojom::ConsoleMessageLevel::kWarning,
+        base::StringPrintf("window.setResizable blocked due to being called "
+                           "from a multi-tab browser."));
+    return;
+  }
+
+  cached_can_resize_from_web_api_ = can_resize;
+  PageData::GetOrCreateForPage(web_contents->GetPrimaryMainFrame()->GetPage())
+      ->set_can_resize(can_resize);
+
+  GetWidget()->OnSizeConstraintsChanged();
+}
+
+void BrowserView::OnWidgetSizeConstraintsChanged(views::Widget* widget) {
+  content::WebContents* web_contents = GetActiveWebContents();
+  if (!web_contents || !web_contents->GetPrimaryMainFrame()) {
+    return;
+  }
+  // This will update `resizable` @media feature value in renderer whenever the
+  // widget's resizability has changed.
+  if (content::RenderWidgetHost* render_widget_host =
+          web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost()) {
+    render_widget_host->SynchronizeVisualProperties();
+  }
+}
+
+void BrowserView::PrimaryPageChanged(content::Page& page) {
+  auto can_resize = GetCanResizeFromWebAPI();
+  if (cached_can_resize_from_web_api_ == can_resize) {
+    return;
+  }
+  cached_can_resize_from_web_api_ = can_resize;
+
+  // Observers must be notified when there's new `Page` with a differing
+  // `can_resize` value to make sure that they know that `Widget`'s
+  // resizability has changed.
+  if (GetWidget()) {
+    GetWidget()->OnSizeConstraintsChanged();
+  }
+}
+
 void BrowserView::TouchModeChanged() {
   MaybeInitializeWebUITabStrip();
   MaybeShowWebUITabStripIPH();
@@ -2974,7 +3078,6 @@ views::Button* BrowserView::GetSharingHubIconButton() {
 }
 
 void BrowserView::ToggleMultitaskMenu() const {
-  DCHECK(chromeos::wm::features::IsWindowLayoutMenuEnabled());
   auto* frame_view =
       static_cast<BrowserNonClientFrameViewChromeOS*>(frame_->GetFrameView());
   if (!frame_view) {
@@ -3002,7 +3105,7 @@ sharing_hub::SharingHubBubbleView* BrowserView::ShowSharingHubBubble(
 
   views::BubbleDialogDelegateView::CreateBubble(bubble);
   // This is always triggered due to a user gesture, c.f. method documentation.
-  bubble->Show(sharing_hub::SharingHubBubbleViewImpl::USER_GESTURE);
+  bubble->ShowForReason(sharing_hub::SharingHubBubbleViewImpl::USER_GESTURE);
 
   return bubble;
 }
@@ -3400,8 +3503,13 @@ bool BrowserView::CanResize() const {
 #if defined(OS_MAC)
   return resizable_;
 #else
-  return true;
+  return WidgetDelegate::CanResize() && GetCanResizeFromWebAPI().value_or(true);
 #endif
+}
+
+bool BrowserView::CanFullscreen() const {
+  return WidgetDelegate::CanFullscreen() &&
+         GetCanResizeFromWebAPI().value_or(true);
 }
 
 bool BrowserView::CanMaximize() const {
@@ -3513,7 +3621,8 @@ std::u16string BrowserView::GetAccessibleWindowTitleForChannelAndProfile(
   return title;
 }
 
-std::u16string BrowserView::GetAccessibleTabLabel(int index) const {
+std::u16string BrowserView::GetAccessibleTabLabel(int index,
+                                                  bool is_for_tab) const {
   std::u16string title = browser_->GetWindowTitleForTab(index);
 
   absl::optional<tab_groups::TabGroupId> group =
@@ -3622,14 +3731,16 @@ std::u16string BrowserView::GetAccessibleTabLabel(int index) const {
              tab_data.tab_resource_usage->memory_usage_in_bytes() > 0) {
     const uint64_t memory_used =
         tab_data.tab_resource_usage->memory_usage_in_bytes();
-    const int message_id =
+    const bool is_high_memory_usage =
         memory_used > static_cast<uint64_t>(
                           performance_manager::features::
-                              kMemoryUsageInHovercardsHighThresholdBytes.Get())
-            ? IDS_TAB_AX_HIGH_MEMORY_USAGE
-            : IDS_TAB_AX_MEMORY_USAGE;
-    title = l10n_util::GetStringFUTF16(message_id, title,
-                                       ui::FormatBytes(memory_used));
+                              kMemoryUsageInHovercardsHighThresholdBytes.Get());
+    if (is_high_memory_usage || is_for_tab) {
+      const int message_id = is_high_memory_usage ? IDS_TAB_AX_HIGH_MEMORY_USAGE
+                                                  : IDS_TAB_AX_MEMORY_USAGE;
+      title = l10n_util::GetStringFUTF16(message_id, title,
+                                         ui::FormatBytes(memory_used));
+    }
   }
 
   return title;
@@ -3735,7 +3846,7 @@ ui::ImageModel BrowserView::GetWindowAppIcon() {
           devtools_window->GetInspectedWebContents();
       if (!inspected_contents)
         return ui::ImageModel();
-      Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
+      Browser* browser = chrome::FindBrowserWithTab(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return ui::ImageModel::FromImage(browser->icon_override());
       favicon::FaviconDriver* favicon_driver =
@@ -3774,7 +3885,7 @@ ui::ImageModel BrowserView::GetWindowIcon() {
     if (devtools_window) {
       WebContents* inspected_contents =
           devtools_window->GetInspectedWebContents();
-      Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
+      Browser* browser = chrome::FindBrowserWithTab(inspected_contents);
       if (browser && !browser->icon_override().IsEmpty())
         return ui::ImageModel::FromImageSkia(*browser->icon_override().ToImageSkia());
       favicon::FaviconDriver* favicon_driver = nullptr;
@@ -3806,8 +3917,12 @@ ui::ImageModel BrowserView::GetWindowIcon() {
 
 #if BUILDFLAG(IS_CHROMEOS_ASH)
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
-  if (browser_->is_type_normal())
-    return ui::ImageModel::FromImage(rb.GetImageNamed(IDR_CHROME_APP_ICON_192));
+  if (browser_->is_type_normal()) {
+    int resource_id = ash::switches::IsAshDebugBrowserEnabled()
+                          ? IDR_DEBUG_CHROME_APP_ICON_192
+                          : IDR_CHROME_APP_ICON_192;
+    return ui::ImageModel::FromImage(rb.GetImageNamed(resource_id));
+  }
   auto* window = GetNativeWindow();
   int override_window_icon_resource_id =
       window ? window->GetProperty(kOverrideWindowIconResourceIdKey) : -1;
@@ -4882,8 +4997,16 @@ void BrowserView::ProcessFullscreen(bool fullscreen,
 #if !BUILDFLAG(IS_MAC)
   // On Mac platforms, FullscreenStateChanged() is invoked from
   // BrowserFrameMac::OnWindowFullscreenTransitionComplete when the asynchronous
-  // fullscreen transition is complete. On other platforms, there is no
-  // asynchronous transition so we synchronously invoke the function.
+  // fullscreen transition is complete. On other platforms (except for Lacros,
+  // see TODO comment below for Lacros platform), there is no asynchronous
+  // transition so we synchronously invoke the function.
+  // TODO(crbug.com/1495223): On Lacros, FullscreenStateChanged() is invoked
+  // from BrowserDesktopWindowTreeHostLacros::OnFullscreenModeChanged when the
+  // fullscreen state is updated on Ash side and Lacros is notified of the
+  // updates through wayland message, so this FullscreenStateChanged() call
+  // should be skipped on Lacros as well, but there are multiple tests and
+  // features which assume the fullscreen state to be updated synchronously. We
+  // need to resolve them before removing this line on Lacros.
   FullscreenStateChanged();
 #endif
 
@@ -5243,7 +5366,7 @@ void BrowserView::ActivateAppModalDialog() const {
     return;
 
   Browser* modal_browser =
-      chrome::FindBrowserWithWebContents(active_dialog->web_contents());
+      chrome::FindBrowserWithTab(active_dialog->web_contents());
   if (modal_browser && (browser_.get() != modal_browser)) {
     modal_browser->window()->FlashFrame(true);
     modal_browser->window()->Activate();

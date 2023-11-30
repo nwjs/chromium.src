@@ -189,7 +189,7 @@ class MediaStreamVideoTrackTest
   ScopedTestingPlatformSupport<IOTaskRunnerTestingPlatformSupport> platform_;
   Persistent<MediaStreamSource> source_;
   // |mock_source_| is owned by |source_|.
-  raw_ptr<MockMediaStreamVideoSource, ExperimentalRenderer> mock_source_;
+  raw_ptr<MockMediaStreamVideoSource, DanglingUntriaged> mock_source_;
   bool source_started_;
 };
 
@@ -235,7 +235,6 @@ class CheckThreadHelper {
 void CheckThreadVideoFrameReceiver(
     CheckThreadHelper* helper,
     scoped_refptr<media::VideoFrame> frame,
-    std::vector<scoped_refptr<media::VideoFrame>> scaled_frames,
     base::TimeTicks estimated_capture_time) {
   // Do nothing.
 }
@@ -574,11 +573,6 @@ TEST_F(MediaStreamVideoTrackTest,
       "Media.VideoCapture.Track.FrameDrop.DeviceCapture",
       media::VideoCaptureFrameDropReason::kDeviceClientFrameHasInvalidFormat,
       MediaStreamVideoTrack::kMaxConsecutiveFrameDropForSameReasonCount);
-
-  histogram_tester.ExpectBucketCount(
-      "Media.VideoCapture.Track.MaxFrameDropExceeded.DeviceCapture",
-      media::VideoCaptureFrameDropReason::kDeviceClientFrameHasInvalidFormat,
-      1);
 }
 
 TEST_F(MediaStreamVideoTrackTest,
@@ -801,12 +795,13 @@ TEST_P(MediaStreamVideoTrackTest, PropagatesContentHintType) {
   sink.DisconnectFromTrack();
 }
 
-TEST_F(MediaStreamVideoTrackTest, DeliversFramesWithCurrentCropVersion) {
+TEST_F(MediaStreamVideoTrackTest,
+       DeliversFramesWithCurrentSubCaptureTargetVersion) {
   InitializeSource();
   MockMediaStreamVideoSink sink;
 
-  // Track is initialized with crop version 5.
-  EXPECT_CALL(*mock_source(), GetCropVersion).WillOnce(Return(5));
+  // Track is initialized with sub-capture-target version 5.
+  EXPECT_CALL(*mock_source(), GetSubCaptureTargetVersion).WillOnce(Return(5));
   WebMediaStreamTrack track = CreateTrack();
   sink.ConnectToTrack(track);
   MediaStreamVideoTrack::From(track)->SetSinkNotifyFrameDroppedCallback(
@@ -814,8 +809,8 @@ TEST_F(MediaStreamVideoTrackTest, DeliversFramesWithCurrentCropVersion) {
 
   scoped_refptr<media::VideoFrame> frame =
       media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
-  // Frame with current crop version should be delivered.
-  frame->metadata().crop_version = 5;
+  // Frame with current sub-capture-target version should be delivered.
+  frame->metadata().sub_capture_target_version = 5;
   EXPECT_CALL(sink, OnNotifyFrameDropped).Times(0);
   DeliverVideoFrameAndWaitForRenderer(std::move(frame), &sink);
 
@@ -823,12 +818,12 @@ TEST_F(MediaStreamVideoTrackTest, DeliversFramesWithCurrentCropVersion) {
 }
 
 TEST_F(MediaStreamVideoTrackTest,
-       DropsOldFramesWhenInitializedWithNewerCropVersion) {
+       DropsOldFramesWhenInitializedWithNewerSubCaptureTargetVersion) {
   InitializeSource();
   MockMediaStreamVideoSink sink;
 
-  // Track is initialized with crop version 5.
-  EXPECT_CALL(*mock_source(), GetCropVersion).WillOnce(Return(5));
+  // Track is initialized with sub-capture-target version 5.
+  EXPECT_CALL(*mock_source(), GetSubCaptureTargetVersion).WillOnce(Return(5));
   WebMediaStreamTrack track = CreateTrack();
   sink.ConnectToTrack(track);
   MediaStreamVideoTrack::From(track)->SetSinkNotifyFrameDroppedCallback(
@@ -836,12 +831,12 @@ TEST_F(MediaStreamVideoTrackTest,
 
   scoped_refptr<media::VideoFrame> frame =
       media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
-  // Old crop version delivered after construction.
-  frame->metadata().crop_version = 4;
+  // Old sub-capture-target version delivered after construction.
+  frame->metadata().sub_capture_target_version = 4;
   base::RunLoop run_loop;
   EXPECT_CALL(sink,
-              OnNotifyFrameDropped(
-                  media::VideoCaptureFrameDropReason::kCropVersionNotCurrent))
+              OnNotifyFrameDropped(media::VideoCaptureFrameDropReason::
+                                       kSubCaptureTargetVersionNotCurrent))
       .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
   mock_source()->DeliverVideoFrame(std::move(frame));
   run_loop.Run();
@@ -849,27 +844,29 @@ TEST_F(MediaStreamVideoTrackTest,
   sink.DisconnectFromTrack();
 }
 
-TEST_F(MediaStreamVideoTrackTest, DropsOldFramesAfterCropVersionChanges) {
+TEST_F(MediaStreamVideoTrackTest,
+       DropsOldFramesAfterSubCaptureTargetVersionChanges) {
   InitializeSource();
   MockMediaStreamVideoSink sink;
 
-  // Track is initialized with crop version 5.
-  EXPECT_CALL(*mock_source(), GetCropVersion).WillOnce(Return(5));
+  // Track is initialized with sub-capture-target version 5.
+  EXPECT_CALL(*mock_source(), GetSubCaptureTargetVersion).WillOnce(Return(5));
   WebMediaStreamTrack track = CreateTrack();
   sink.ConnectToTrack(track);
   MediaStreamVideoTrack::From(track)->SetSinkNotifyFrameDroppedCallback(
       &sink, sink.GetNotifyFrameDroppedCB());
 
   // Crop version updated to 6.
-  mock_source()->DeliverNewCropVersion(6);
+  mock_source()->DeliverNewSubCaptureTargetVersion(6);
 
   scoped_refptr<media::VideoFrame> frame =
       media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
-  frame->metadata().crop_version = 5;  // No longer current version.
+  frame->metadata().sub_capture_target_version =
+      5;  // No longer current version.
   base::RunLoop run_loop;
   EXPECT_CALL(sink,
-              OnNotifyFrameDropped(
-                  media::VideoCaptureFrameDropReason::kCropVersionNotCurrent))
+              OnNotifyFrameDropped(media::VideoCaptureFrameDropReason::
+                                       kSubCaptureTargetVersionNotCurrent))
       .WillOnce(RunOnceClosure(run_loop.QuitClosure()));
   mock_source()->DeliverVideoFrame(std::move(frame));
   run_loop.Run();
@@ -877,24 +874,25 @@ TEST_F(MediaStreamVideoTrackTest, DropsOldFramesAfterCropVersionChanges) {
   sink.DisconnectFromTrack();
 }
 
-TEST_F(MediaStreamVideoTrackTest, DeliversNewFramesAfterCropVersionChanges) {
+TEST_F(MediaStreamVideoTrackTest,
+       DeliversNewFramesAfterSubCaptureTargetVersionChanges) {
   InitializeSource();
   MockMediaStreamVideoSink sink;
 
-  // Track is initialized with crop version 5.
-  EXPECT_CALL(*mock_source(), GetCropVersion).WillOnce(Return(5));
+  // Track is initialized with sub-capture-target version 5.
+  EXPECT_CALL(*mock_source(), GetSubCaptureTargetVersion).WillOnce(Return(5));
   WebMediaStreamTrack track = CreateTrack();
   sink.ConnectToTrack(track);
   MediaStreamVideoTrack::From(track)->SetSinkNotifyFrameDroppedCallback(
       &sink, sink.GetNotifyFrameDroppedCB());
 
   // Crop version updated to 6.
-  mock_source()->DeliverNewCropVersion(6);
+  mock_source()->DeliverNewSubCaptureTargetVersion(6);
 
   scoped_refptr<media::VideoFrame> frame =
       media::VideoFrame::CreateBlackFrame(gfx::Size(600, 400));
-  // Frame with current crop version should be delivered.
-  frame->metadata().crop_version = 6;
+  // Frame with current sub-capture-target version should be delivered.
+  frame->metadata().sub_capture_target_version = 6;
   EXPECT_CALL(sink, OnNotifyFrameDropped).Times(0);
   DeliverVideoFrameAndWaitForRenderer(std::move(frame), &sink);
 

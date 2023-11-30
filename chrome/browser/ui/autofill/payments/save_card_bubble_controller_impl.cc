@@ -243,6 +243,14 @@ std::u16string SaveCardBubbleControllerImpl::GetExplanatoryMessage() const {
     return std::u16string();
 
   if (base::FeatureList::IsEnabled(
+          features::kAutofillEnableCvcStorageAndFilling) &&
+      options_.card_save_type ==
+          AutofillClient::CardSaveType::kCardSaveWithCvc) {
+    return l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_SAVE_CARD_WITH_CVC_PROMPT_EXPLANATION_UPLOAD);
+  }
+
+  if (base::FeatureList::IsEnabled(
           features::kAutofillEnableNewSaveCardBubbleUi)) {
     return l10n_util::GetStringUTF16(
         IDS_AUTOFILL_SAVE_CARD_PROMPT_UPLOAD_EXPLANATION_V4);
@@ -294,11 +302,26 @@ std::u16string SaveCardBubbleControllerImpl::GetDeclineButtonText() const {
   }
 }
 
-const AccountInfo& SaveCardBubbleControllerImpl::GetAccountInfo() {
-  if (account_info_.IsEmpty())
-    FetchAccountInfo();
+AccountInfo SaveCardBubbleControllerImpl::GetAccountInfo() {
+  // The results of this call should not be cached because the user can update
+  // their account info at any time.
+  Profile* profile = GetProfile();
+  if (!profile) {
+    return AccountInfo();
+  }
+  signin::IdentityManager* identity_manager =
+      IdentityManagerFactory::GetForProfile(profile);
+  if (!identity_manager) {
+    return AccountInfo();
+  }
+  PersonalDataManager* personal_data_manager =
+      PersonalDataManagerFactory::GetForProfile(profile);
+  if (!personal_data_manager) {
+    return AccountInfo();
+  }
 
-  return account_info_;
+  return identity_manager->FindExtendedAccountInfo(
+      personal_data_manager->GetAccountInfoForPaymentsServer());
 }
 
 Profile* SaveCardBubbleControllerImpl::GetProfile() const {
@@ -396,9 +419,8 @@ void SaveCardBubbleControllerImpl::OnManageCardsClicked() {
 }
 
 void SaveCardBubbleControllerImpl::ShowPaymentsSettingsPage() {
-  chrome::ShowSettingsSubPage(
-      chrome::FindBrowserWithWebContents(web_contents()),
-      chrome::kPaymentsSubPage);
+  chrome::ShowSettingsSubPage(chrome::FindBrowserWithTab(web_contents()),
+                              chrome::kPaymentsSubPage);
 }
 
 void SaveCardBubbleControllerImpl::OnBubbleClosed(
@@ -408,7 +430,8 @@ void SaveCardBubbleControllerImpl::OnBubbleClosed(
   // Log save card prompt result according to the closed reason.
   if (current_bubble_type_ == BubbleType::LOCAL_SAVE ||
       current_bubble_type_ == BubbleType::UPLOAD_SAVE ||
-      current_bubble_type_ == BubbleType::LOCAL_CVC_SAVE) {
+      current_bubble_type_ == BubbleType::LOCAL_CVC_SAVE ||
+      current_bubble_type_ == BubbleType::UPLOAD_CVC_SAVE) {
     autofill_metrics::SaveCardPromptResult metric;
     switch (closed_reason) {
       case PaymentsBubbleClosedReason::kAccepted:
@@ -431,7 +454,8 @@ void SaveCardBubbleControllerImpl::OnBubbleClosed(
         break;
     }
 
-    if (current_bubble_type_ == BubbleType::LOCAL_CVC_SAVE) {
+    if (current_bubble_type_ == BubbleType::LOCAL_CVC_SAVE ||
+        current_bubble_type_ == BubbleType::UPLOAD_CVC_SAVE) {
       autofill_metrics::LogSaveCvcPromptResultMetric(metric, is_upload_save_,
                                                      is_reshow_);
     } else {
@@ -576,7 +600,7 @@ PageActionIconType SaveCardBubbleControllerImpl::GetPageActionIconType() {
 }
 
 void SaveCardBubbleControllerImpl::DoShowBubble() {
-  Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
+  Browser* browser = chrome::FindBrowserWithTab(web_contents());
   set_bubble_view(
       browser->window()->GetAutofillBubbleHandler()->ShowSaveCreditCardBubble(
           web_contents(), this, is_reshow_));
@@ -590,6 +614,7 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
           is_reshow_, options_, GetSecurityLevel(),
           personal_data_manager_->GetPaymentsSigninStateForMetrics());
       break;
+    case BubbleType::UPLOAD_CVC_SAVE:
     case BubbleType::LOCAL_CVC_SAVE:
       autofill_metrics::LogSaveCvcPromptOfferMetric(
           autofill_metrics::SaveCardPromptOffer::kShown, is_upload_save_,
@@ -598,9 +623,6 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
     case BubbleType::MANAGE_CARDS:
       LogManageCardsPromptMetric(ManageCardsPromptMetric::kManageCardsShown,
                                  is_upload_save_);
-      break;
-    // TODO (crbug.com/1462821): Add metrics for upload CVC save.
-    case BubbleType::UPLOAD_CVC_SAVE:
       break;
     case BubbleType::FAILURE:
       break;
@@ -612,21 +634,6 @@ void SaveCardBubbleControllerImpl::DoShowBubble() {
   if (observer_for_testing_) {
     observer_for_testing_->OnBubbleShown();
   }
-}
-
-void SaveCardBubbleControllerImpl::FetchAccountInfo() {
-  Profile* profile = GetProfile();
-  if (!profile)
-    return;
-  auto* identity_manager = IdentityManagerFactory::GetForProfile(profile);
-  if (!identity_manager)
-    return;
-  auto* personal_data_manager =
-      PersonalDataManagerFactory::GetForProfile(profile);
-  if (!personal_data_manager)
-    return;
-  account_info_ = identity_manager->FindExtendedAccountInfo(
-      personal_data_manager->GetAccountInfoForPaymentsServer());
 }
 
 void SaveCardBubbleControllerImpl::ShowBubble() {
@@ -671,13 +678,11 @@ void SaveCardBubbleControllerImpl::ShowIconOnly() {
           is_upload_save_, is_reshow_, options_, GetSecurityLevel(),
           personal_data_manager_->GetPaymentsSigninStateForMetrics());
       break;
+    case BubbleType::UPLOAD_CVC_SAVE:
     case BubbleType::LOCAL_CVC_SAVE:
       autofill_metrics::LogSaveCvcPromptOfferMetric(
           autofill_metrics::SaveCardPromptOffer::kNotShownMaxStrikesReached,
           is_upload_save_, is_reshow_);
-      break;
-    // TODO (crbug.com/1462821): Add metrics for upload CVC save.
-    case BubbleType::UPLOAD_CVC_SAVE:
       break;
     case BubbleType::FAILURE:
       break;

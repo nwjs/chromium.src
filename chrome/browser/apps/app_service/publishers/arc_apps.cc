@@ -33,7 +33,6 @@
 #include "chrome/browser/apps/app_service/intent_util.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/apps/app_service/menu_util.h"
-#include "chrome/browser/apps/app_service/package_id.h"
 #include "chrome/browser/apps/app_service/promise_apps/promise_app.h"
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_registry_cache.h"
 #include "chrome/browser/apps/app_service/publishers/arc_apps_factory.h"
@@ -61,6 +60,7 @@
 #include "components/services/app_service/public/cpp/intent.h"
 #include "components/services/app_service/public/cpp/intent_filter.h"
 #include "components/services/app_service/public/cpp/intent_util.h"
+#include "components/services/app_service/public/cpp/package_id.h"
 #include "components/services/app_service/public/cpp/permission.h"
 #include "components/services/app_service/public/cpp/types_util.h"
 #include "extensions/grit/extensions_browser_resources.h"
@@ -897,6 +897,34 @@ void ArcApps::UnpauseApp(const std::string& app_id) {
 
 void ArcApps::StopApp(const std::string& app_id) {
   CloseTasks(app_id);
+}
+
+void ArcApps::UpdateAppSize(const std::string& app_id) {
+  arc::mojom::AppInstance* app_instance =
+      (arc::ArcServiceManager::Get()
+           ? ARC_GET_INSTANCE_FOR_METHOD(
+                 arc::ArcServiceManager::Get()->arc_bridge_service()->app(),
+                 UpdateAppDetails)
+           : nullptr);
+  if (!app_instance) {
+    return;
+  }
+  ArcAppListPrefs* prefs = ArcAppListPrefs::Get(profile_);
+  if (!prefs) {
+    return;
+  }
+  const std::unique_ptr<ArcAppListPrefs::AppInfo> app_info =
+      prefs->GetApp(app_id);
+  if (!app_info) {
+    return;
+  }
+  if (app_info->package_name.empty()) {
+    return;
+  }
+
+  // A request is made to simultaneously update all of the app's details,
+  // inclusive of the app size, for simplicity
+  app_instance->UpdateAppDetails(app_info->package_name);
 }
 
 void ArcApps::ExecuteContextMenuCommand(const std::string& app_id,

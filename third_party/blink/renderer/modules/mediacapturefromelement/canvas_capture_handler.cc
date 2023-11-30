@@ -63,7 +63,8 @@ class CanvasVideoCapturerSource : public VideoCapturerSource {
   }
   void StartCapture(const media::VideoCaptureParams& params,
                     const blink::VideoCaptureDeliverFrameCB& frame_callback,
-                    const VideoCaptureCropVersionCB& crop_version_callback,
+                    const VideoCaptureSubCaptureTargetVersionCB&
+                        sub_capture_target_version_callback,
                     // Canvas capture does not report frame drops.
                     const VideoCaptureNotifyFrameDroppedCB&,
                     const RunningCallback& running_callback) override {
@@ -120,7 +121,7 @@ class CanvasCaptureHandler::CanvasCaptureHandlerDelegate {
   void SendNewFrameOnIOThread(scoped_refptr<media::VideoFrame> video_frame,
                               base::TimeTicks current_time) {
     DCHECK_CALLED_ON_VALID_THREAD(io_thread_checker_);
-    new_frame_callback_.Run(std::move(video_frame), {}, current_time);
+    new_frame_callback_.Run(std::move(video_frame), current_time);
   }
 
   base::WeakPtr<CanvasCaptureHandlerDelegate> GetWeakPtrForIOThread() {

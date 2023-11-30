@@ -112,8 +112,11 @@ public class RecentTabsManager implements SyncService.SyncStateChangedListener, 
         mSignInManager = IdentityServicesProvider.get().getSigninManager(mProfile);
 
         mProfileDataCache = ProfileDataCache.createWithDefaultImageSizeAndNoBadge(context);
-        mSyncPromoController = new SyncPromoController(
-                SigninAccessPoint.RECENT_TABS, SyncConsentActivityLauncherImpl.get());
+        mSyncPromoController =
+                new SyncPromoController(
+                        mProfile,
+                        SigninAccessPoint.RECENT_TABS,
+                        SyncConsentActivityLauncherImpl.get());
         mSyncService = SyncServiceFactory.getForProfile(mProfile);
 
         mRecentlyClosedTabManager.setEntriesUpdatedRunnable(this::updateRecentlyClosedEntries);
@@ -239,6 +242,7 @@ public class RecentTabsManager implements SyncService.SyncStateChangedListener, 
             int windowDisposition) {
         if (mIsDestroyed) return;
         RecordUserAction.record("MobileRecentTabManagerTabFromOtherDeviceOpened");
+        RecordUserAction.record("MobileCrossDeviceTabOpenedOrSent");
         mForeignSessionHelper.openForeignSessionTab(mActiveTab, session, tab, windowDisposition);
     }
 

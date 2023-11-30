@@ -927,7 +927,7 @@
           "hard_timeout": 21600,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 28
+          "shards": 4
         },
         "test": "performance_test_suite_android_clank_trichrome_bundle",
         "trigger_script": {
@@ -1801,7 +1801,7 @@
           "hard_timeout": 21600,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 26
+          "shards": 20
         },
         "test": "performance_test_suite",
         "trigger_script": {
@@ -2242,13 +2242,14 @@
           "dimensions": {
             "gpu": "8086:1616-20.19.15.5070",
             "os": "Windows-10-18363.476",
-            "pool": "chrome.tests.perf"
+            "pool": "chrome.tests.perf",
+            "synthetic_product_name": "HP Laptop 15-bs1xx [Type1ProductConfigId] (HP)"
           },
           "expiration": 7200,
           "hard_timeout": 21600,
           "io_timeout": 21600,
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 20
+          "shards": 48
         },
         "test": "performance_test_suite",
         "trigger_script": {

@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "ash/public/cpp/ash_web_view.h"
+#include "ash/public/cpp/window_properties.h"
 #include "ash/root_window_controller.h"
 #include "ash/shell.h"
 #include "ash/system/eche/eche_tray.h"
@@ -16,9 +18,13 @@
 #include "ash/webui/eche_app_ui/mojom/eche_app.mojom.h"
 #include "base/check.h"
 #include "base/functional/bind.h"
+#include "base/logging.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "services/accessibility/android/public/mojom/accessibility_helper.mojom-shared.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "ui/accessibility/aura/aura_window_properties.h"
 #include "ui/accessibility/ax_action_data.h"
+#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #include "ui/display/screen.h"
@@ -63,6 +69,9 @@ AccessibilityProvider::AccessibilityProvider(
   proxy_->SetAccessibilityEnabledStateChangedCallback(base::BindRepeating(
       &AccessibilityProvider::OnAccessibilityEnabledStateChanged,
       weak_ptr_factory_.GetWeakPtr()));
+  proxy_->SetExploreByTouchEnabledStateChangedCallback(base::BindRepeating(
+      &AccessibilityProvider::OnExploreByTouchEnabledStateChanged,
+      weak_ptr_factory_.GetWeakPtr()));
 }
 AccessibilityProvider::~AccessibilityProvider() = default;
 
@@ -75,16 +84,18 @@ void AccessibilityProvider::TrackView(AshWebView* view) {
   tree_source_ = std::make_unique<ax::android::AXTreeSourceAndroid>(
       this, std::make_unique<SerializationDelegate>(device_bounds_),
       view->GetNativeView() /*window*/);
-  auto* child_view = view->children().at(0);
-  if (child_view) {
-    auto* webview = static_cast<views::WebView*>(child_view);
-    webview->set_lock_child_ax_tree_id_override(true);
-    webview->GetViewAccessibility().OverrideChildTreeID(
-        tree_source_->ax_tree_id());
-  } else {
-    view->GetViewAccessibility().OverrideChildTreeID(
-        tree_source_->ax_tree_id());
-  }
+  auto* child_view = view->GetViewByID(kAshWebViewChildWebViewId);
+  CHECK(child_view);
+  auto* webview = static_cast<views::WebView*>(child_view);
+  webview->set_lock_child_ax_tree_id_override(true);
+  webview->GetViewAccessibility().OverrideChildTreeID(
+      tree_source_->ax_tree_id());
+  auto* window_ptr =
+      webview->web_contents()->GetRenderWidgetHostView()->GetNativeView();
+  CHECK(window_ptr);
+  // The render host view gets hit tests, set the hit test tree id.
+  window_ptr->SetProperty(ui::kChildAXTreeID,
+                          tree_source_->ax_tree_id().ToString());
   proxy_->OnViewTracked();
 }
 
@@ -111,16 +122,17 @@ void AccessibilityProvider::HandleAccessibilityEventReceived(
       if (!converter.DeserializeProto(serialized_proto, &proto_event_data)) {
         return;
       }
-      // TODO(francisjp): hard coded to pixel 6A. Get correct bounds from proto
-      // message when available pending b/295229694.
-      UpdateDeviceBounds(1110, 2015);
+      UpdateDeviceBounds(proto_event_data.display_info());
       auto mojom_event_data =
           converter.ConvertEventDataProtoToMojom(proto_event_data);
       if (mojom_event_data) {
         // Pass into correct tree. Currently there is only one.
         // Tree source will only be initialized once TrackView has been called.
-        CHECK(tree_source_);
-        tree_source_->NotifyAccessibilityEvent(mojom_event_data.get());
+        // Sometimes an event will come it right as the window is closed, which
+        // can cause a crash with a check.
+        if (tree_source_) {
+          tree_source_->NotifyAccessibilityEvent(mojom_event_data.get());
+        }
       }
     } break;
     case ax::android::mojom::AccessibilityFilterType::FOCUS:
@@ -140,17 +152,6 @@ void AccessibilityProvider::SetAccessibilityObserver(
   observer_remote_.Bind(std::move(observer));
 }
 
-void AccessibilityProvider::OnStreamOrientationChanged(bool is_landscape) {
-  // If the orientation changed flip the device bounds.
-  if (is_landscape != is_landscape_) {
-    is_landscape_ = is_landscape;
-    auto new_width = device_bounds_.height();
-    auto new_height = device_bounds_.width();
-    device_bounds_.set_height(new_height);
-    device_bounds_.set_width(new_width);
-  }
-}
-
 void AccessibilityProvider::IsAccessibilityEnabled(
     IsAccessibilityEnabledCallback callback) {
   std::move(callback).Run(proxy_->IsAccessibilityEnabled());
@@ -165,14 +166,32 @@ AccessibilityProvider::GetFilterType() {
   return proxy_->GetFilterType();
 }
 
-void AccessibilityProvider::UpdateDeviceBounds(int width, int height) {
-  // This function assumes that the bounds provided are portrait.
-  if (is_landscape_) {
-    // Reverse the bounds for landscape mode.
-    device_bounds_.set_size({height, width});
-  } else {
-    device_bounds_.set_size({width, height});
+void AccessibilityProvider::UpdateDeviceBounds(
+    const proto::Rect& device_bounds) {
+  const int height = device_bounds.bottom() - device_bounds.top();
+  const int width = device_bounds.right() - device_bounds.left();
+  CHECK(height > 0);
+  CHECK(width > 0);
+  device_bounds_.set_size({width, height});
+}
+
+// TODO(b/296326746) The current implementation is a workaround for Select to
+// Speak, and a proper fix is pending hit test logic for android trees.
+void AccessibilityProvider::HandleHitTest(const ui::AXActionData& data) const {
+  // A hit test may come in just after a user closes the window.
+  if (!tree_source_ || !tree_source_->root_id().has_value()) {
+    return;
   }
+
+  auto* automation_router = extensions::AutomationEventRouter::GetInstance();
+  ui::AXEvent event;
+  event.action_request_id = data.request_id;
+  event.event_from_action = data.action;
+  event.event_intents = {};
+  event.id = tree_source_->root_id().value();
+  event.event_type = data.hit_test_event_to_fire;
+  automation_router->DispatchAccessibilityEvents(tree_source_->ax_tree_id(), {},
+                                                 data.target_point, {event});
 }
 
 void AccessibilityProvider::OnGetTextLocationDataResult(
@@ -225,6 +244,12 @@ void AccessibilityProvider::OnAction(const ui::AXActionData& action) const {
     OnActionResult(action, false);
     return;
   }
+
+  if (action.action == ax::mojom::Action::kHitTest) {
+    HandleHitTest(action);
+    return;
+  }
+
   AccessibilityTreeConverter converter;
   auto proto_action =
       converter.ConvertActionDataToProto(action, *tree_source_->window_id());
@@ -232,6 +257,7 @@ void AccessibilityProvider::OnAction(const ui::AXActionData& action) const {
     size_t nbytes = proto_action->ByteSizeLong();
     std::vector<uint8_t> serialized_proto(nbytes);
     proto_action->SerializeToArray(serialized_proto.data(), nbytes);
+
     if (action.action == ax::mojom::Action::kGetTextLocation) {
       mojom::AccessibilityObserver::RefreshWithExtraDataCallback cb =
           base::BindOnce(&AccessibilityProvider::OnGetTextLocationDataResult,
@@ -266,6 +292,10 @@ void AccessibilityProvider::OnActionResult(const ui::AXActionData& action,
 
 void AccessibilityProvider::OnAccessibilityEnabledStateChanged(bool enabled) {
   observer_remote_->EnableAccessibilityTreeStreaming(enabled);
+}
+
+void AccessibilityProvider::OnExploreByTouchEnabledStateChanged(bool enabled) {
+  observer_remote_->EnableExploreByTouch(enabled);
 }
 
 // Serialization Delegate implementation

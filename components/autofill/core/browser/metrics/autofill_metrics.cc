@@ -160,7 +160,7 @@ int GetFieldTypeGroupPredictionQualityMetric(
   DCHECK_LT(metric, AutofillMetrics::NUM_FIELD_TYPE_QUALITY_METRICS);
 
   FieldTypeGroupForMetrics group = GROUP_AMBIGUOUS;
-  switch (AutofillType(field_type).group()) {
+  switch (GroupTypeOfServerFieldType(field_type)) {
     case FieldTypeGroup::kNoGroup:
       group = GROUP_AMBIGUOUS;
       break;
@@ -178,7 +178,7 @@ int GetFieldTypeGroupPredictionQualityMetric(
       break;
 
     case FieldTypeGroup::kAddress:
-      switch (AutofillType(field_type).GetStorableType()) {
+      switch (field_type) {
         case ADDRESS_HOME_LINE1:
           group = GROUP_ADDRESS_LINE_1;
           break;
@@ -494,7 +494,7 @@ ServerFieldType GetActualFieldType(const ServerFieldTypeSet& possible_types,
   if (collapsed_field_types.size() == 1)
     actual_type = *collapsed_field_types.begin();
 
-  DVLOG(2) << "Inferred Type: " << FieldTypeToStringPiece(actual_type);
+  DVLOG(2) << "Inferred Type: " << FieldTypeToStringView(actual_type);
   return actual_type;
 }
 
@@ -700,8 +700,8 @@ void LogPredictionQualityMetrics(
   ServerFieldType actual_type =
       GetActualFieldType(possible_types, predicted_type);
 
-  DVLOG(2) << "Predicted: " << FieldTypeToStringPiece(predicted_type) << "; "
-           << "Actual: " << FieldTypeToStringPiece(actual_type);
+  DVLOG(2) << "Predicted: " << FieldTypeToStringView(predicted_type) << "; "
+           << "Actual: " << FieldTypeToStringView(actual_type);
 
   DCHECK_LE(predicted_type, UINT16_MAX);
   DCHECK_LE(actual_type, UINT16_MAX);
@@ -830,18 +830,6 @@ void AutofillMetrics::LogCreditCardInfoBarMetric(
     base::UmaHistogramEnumeration("Autofill.CreditCardInfoBar" + destination +
                                       ".RequestingExpirationDate",
                                   metric, NUM_INFO_BAR_METRICS);
-  }
-
-  if (options.from_dynamic_change_form) {
-    base::UmaHistogramEnumeration(
-        "Autofill.CreditCardInfoBar" + destination + ".FromDynamicChangeForm",
-        metric, NUM_INFO_BAR_METRICS);
-  }
-
-  if (options.has_non_focusable_field) {
-    base::UmaHistogramEnumeration(
-        "Autofill.CreditCardInfoBar" + destination + ".FromNonFocusableForm",
-        metric, NUM_INFO_BAR_METRICS);
   }
 
   if (options.has_multiple_legal_lines) {
@@ -2064,14 +2052,6 @@ void AutofillMetrics::LogIsQueriedCreditCardFormSecure(bool is_secure) {
 }
 
 // static
-void AutofillMetrics::LogWalletAddressConversionType(
-    WalletAddressConversionType type) {
-  DCHECK_LT(type, NUM_CONVERTED_ADDRESS_CONVERSION_TYPES);
-  UMA_HISTOGRAM_ENUMERATION("Autofill.WalletAddressConversionType", type,
-                            NUM_CONVERTED_ADDRESS_CONVERSION_TYPES);
-}
-
-// static
 void AutofillMetrics::LogShowedHttpNotSecureExplanation() {
   base::RecordAction(
       base::UserMetricsAction("Autofill_ShowedHttpNotSecureExplanation"));
@@ -2550,6 +2530,7 @@ void AutofillMetrics::FormInteractionsUkmLogger::
           AutofillMetrics::FieldGlobalIdToHash64Bit(field.global_id()))
       .SetFieldSignature(HashFieldSignature(field.GetFieldSignature()))
       .SetFormControlType(base::to_underlying(field.FormControlType()))
+      .SetFormControlType2(base::to_underlying(field.form_control_type))
       .SetAutocompleteState(base::to_underlying(autocomplete_state));
 
   SetStatusVector(AutofillStatus::kIsFocusable, field.IsFocusable());

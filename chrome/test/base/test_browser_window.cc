@@ -63,7 +63,7 @@ content::WebContents* TestBrowserWindow::TestLocationBar::GetWebContents() {
 // TestBrowserWindow ----------------------------------------------------------
 
 void TestBrowserWindow::UpdateDraggableRegions(
-                                               const std::vector<extensions::DraggableRegion>& regions) {
+    const std::vector<chrome::mojom::DraggableRegionPtr>& regions) {
 }
 SkRegion* TestBrowserWindow::GetDraggableRegion() {
   return nullptr;
@@ -158,6 +158,10 @@ bool TestBrowserWindow::IsMinimized() const {
 }
 
 bool TestBrowserWindow::ShouldHideUIForFullscreen() const {
+  return false;
+}
+
+bool TestBrowserWindow::GetCanResize() {
   return false;
 }
 

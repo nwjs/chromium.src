@@ -267,7 +267,6 @@ NetworkSandboxState IsNetworkSandboxEnabledInternal() {
   if (g_network_service_will_allow_gssapi_library_load ||
       (local_state && local_state->HasPrefPath(kGssapiDesiredPref) &&
        local_state->GetBoolean(kGssapiDesiredPref))) {
-    g_network_service_will_allow_gssapi_library_load = true;
     return NetworkSandboxState::kDisabledBecauseOfKerberos;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
@@ -594,6 +593,12 @@ SystemNetworkContextManager::SystemNetworkContextManager(
     network_process_launch_watcher_ =
         std::make_unique<NetworkProcessLaunchWatcher>();
   }
+
+  pref_change_registrar_.Add(
+      prefs::kIPv6ReachabilityOverrideEnabled,
+      base::BindRepeating(
+          &SystemNetworkContextManager::UpdateIPv6ReachabilityOverrideEnabled,
+          base::Unretained(this)));
 }
 
 SystemNetworkContextManager::~SystemNetworkContextManager() {
@@ -674,6 +679,8 @@ void SystemNetworkContextManager::RegisterPrefs(PrefRegistrySimple* registry) {
 #endif  // BUILDFLAG(IS_LINUX)
 
   registry->RegisterBooleanPref(prefs::kZstdContentEncodingEnabled, true);
+
+  registry->RegisterBooleanPref(prefs::kIPv6ReachabilityOverrideEnabled, false);
 }
 
 // static
@@ -800,6 +807,8 @@ void SystemNetworkContextManager::OnNetworkServiceCreated(
       ->ReconfigureAfterNetworkRestart();
 
   UpdateExplicitlyAllowedNetworkPorts();
+
+  UpdateIPv6ReachabilityOverrideEnabled();
 }
 
 void SystemNetworkContextManager::DisableQuic() {
@@ -907,20 +916,35 @@ bool SystemNetworkContextManager::IsNetworkSandboxEnabled() {
   base::UmaHistogramEnumeration(
       "Chrome.SystemNetworkContextManager.NetworkSandboxState", state);
 
+  bool enabled = true;
   switch (state) {
     case NetworkSandboxState::kDisabledBecauseOfKerberos:
-      return false;
+      enabled = false;
+      break;
     case NetworkSandboxState::kDisabledByPlatform:
-      return false;
+      enabled = false;
+      break;
     case NetworkSandboxState::kEnabledByPlatform:
-      return true;
+      enabled = true;
+      break;
     case NetworkSandboxState::kDisabledByPolicy:
-      return false;
+      enabled = false;
+      break;
     case NetworkSandboxState::kEnabledByPolicy:
-      return true;
+      enabled = true;
+      break;
     case NetworkSandboxState::kDisabledBecauseOfFailedLaunch:
-      return false;
+      enabled = false;
+      break;
   }
+
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+  if (!enabled) {
+    g_network_service_will_allow_gssapi_library_load = true;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
+
+  return enabled;
 }
 
 void SystemNetworkContextManager::FlushSSLConfigManagerForTesting() {
@@ -1048,6 +1072,17 @@ void SystemNetworkContextManager::UpdateEnforceLocalAnchorConstraintsEnabled() {
 
 void SystemNetworkContextManager::UpdateReferrersEnabled() {
   GetContext()->SetEnableReferrers(enable_referrers_.GetValue());
+}
+
+void SystemNetworkContextManager::UpdateIPv6ReachabilityOverrideEnabled() {
+  bool is_managed = local_state_->IsManagedPreference(
+      prefs::kIPv6ReachabilityOverrideEnabled);
+  bool pref_value =
+      local_state_->GetBoolean(prefs::kIPv6ReachabilityOverrideEnabled);
+  bool is_launched = base::FeatureList::IsEnabled(
+      net::features::kEnableIPv6ReachabilityOverride);
+  bool value = is_managed ? pref_value : is_launched;
+  content::GetNetworkService()->SetIPv6ReachabilityOverride(value);
 }
 
 // static

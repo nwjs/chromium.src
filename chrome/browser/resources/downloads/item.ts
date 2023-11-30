@@ -22,11 +22,11 @@ import {CrIconButtonElement} from 'chrome://resources/cr_elements/cr_icon_button
 import {getToastManager} from 'chrome://resources/cr_elements/cr_toast/cr_toast_manager.js';
 import {FocusRowMixin} from 'chrome://resources/cr_elements/focus_row_mixin.js';
 import {I18nMixin} from 'chrome://resources/cr_elements/i18n_mixin.js';
-import {assert} from 'chrome://resources/js/assert_ts.js';
+import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {mojoString16ToString} from 'chrome://resources/js/mojo_type_util.js';
 import {sanitizeInnerHtml} from 'chrome://resources/js/parse_html_subset.js';
-import {htmlEscape} from 'chrome://resources/js/util_ts.js';
+import {htmlEscape} from 'chrome://resources/js/util.js';
 import {String16} from 'chrome://resources/mojo/mojo/public/mojom/base/string16.mojom-webui.js';
 import {beforeNextRender, PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
@@ -105,6 +105,12 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
         computed: 'computeControlRemoveFromListAriaLabel_(data.fileName)',
       },
 
+      iconAriaLabel_: {
+        type: String,
+        computed: 'computeIconAriaLabel_(' +
+            'displayType_, improvedDownloadWarningsUx_)',
+      },
+
       isActive_: {
         computed: 'computeIsActive_(' +
             'data.state, data.fileExternallyRemoved)',
@@ -142,20 +148,13 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
       },
 
       showCancel_: {
-        computed: 'computeShowCancel_(data.state, updateDeepScanningUx_)',
+        computed: 'computeShowCancel_(data.state)',
         type: Boolean,
         value: false,
       },
 
       showProgress_: {
-        computed: 'computeShowProgress_(showCancel_, data.percent,' +
-            'updateDeepScanningUx_)',
-        type: Boolean,
-        value: false,
-      },
-
-      showOpenNow_: {
-        computed: 'computeShowOpenNow_(data.state, updateDeepScanningUx_)',
+        computed: 'computeShowProgress_(showCancel_, data.percent)',
         type: Boolean,
         value: false,
       },
@@ -178,11 +177,6 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
             'data.hasSafeBrowsingVerdict)',
         type: DisplayType,
         value: DisplayType.NORMAL,
-      },
-
-      updateDeepScanningUx_: {
-        type: Boolean,
-        value: () => loadTimeData.getBoolean('updateDeepScanningUX'),
       },
 
       improvedDownloadWarningsUx_: {
@@ -208,6 +202,7 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
   data: MojomData;
   private mojoHandler_: PageHandlerInterface|null = null;
   private controlledBy_: string;
+  private iconAriaLabel_: string;
   private isActive_: boolean;
   private isDangerous_: boolean;
   private isReviewable_: boolean;
@@ -218,7 +213,6 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
   private useFileIcon_: boolean;
   private restoreFocusAfterCancel_: boolean = false;
   private displayType_: DisplayType;
-  private updateDeepScanningUx_: boolean;
   private improvedDownloadWarningsUx_: boolean;
   private completelyOnDisk_: boolean;
   override overrideCustomEquivalent: boolean;
@@ -345,8 +339,7 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
   }
 
   private computeSecondLineVisible_(): boolean {
-    return this.updateDeepScanningUx_ && this.data &&
-        this.data.state === State.kAsyncScanning;
+    return this.data && this.data.state === State.kAsyncScanning;
   }
 
   private computeDisplayType_(): DisplayType {
@@ -426,9 +419,7 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
       case State.kComplete:
         switch (data.dangerType) {
           case DangerType.kDeepScannedSafe:
-            return this.updateDeepScanningUx_ ?
-                '' :
-                loadTimeData.getString('deepScannedSafeDesc');
+            return '';
           case DangerType.kDeepScannedOpenedDangerous:
             return loadTimeData.getString('deepScannedOpenedDangerousDesc');
           case DangerType.kDeepScannedFailed:
@@ -485,6 +476,26 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
     return '';
   }
 
+  private computeIconAriaHidden_(): string {
+    return (this.iconAriaLabel_ === '').toString();
+  }
+
+  private computeIconAriaLabel_(): string {
+    if (this.improvedDownloadWarningsUx_) {
+      switch (this.displayType_) {
+        case DisplayType.DANGEROUS:
+          return this.i18n('accessibleLabelDangerous');
+        case DisplayType.INSECURE:
+          return this.i18n('accessibleLabelInsecure');
+        case DisplayType.UNVERIFIED:
+          return this.i18n('accessibleLabelUnverified');
+        case DisplayType.SUSPICIOUS:
+          return this.i18n('accessibleLabelSuspicious');
+      }
+    }
+    return '';
+  }
+
   private iconAndDescriptionColor_(): string {
     if (this.improvedDownloadWarningsUx_) {
       switch (this.displayType_) {
@@ -536,7 +547,7 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
       }
 
       if (this.data.state === State.kAsyncScanning) {
-        return this.updateDeepScanningUx_ ? 'cr:warning' : 'cr:info';
+        return 'cr:warning';
       }
 
       if (this.data.state === State.kPromptForScanning) {
@@ -575,11 +586,8 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
         return 'red';
       }
 
-      if (this.data.state === State.kAsyncScanning) {
-        return this.updateDeepScanningUx_ ? 'yellow' : 'grey';
-      }
-
-      if (this.data.state === State.kPromptForScanning) {
+      if (this.data.state === State.kAsyncScanning ||
+          this.data.state === State.kPromptForScanning) {
         return 'yellow';
       }
     }
@@ -670,9 +678,7 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
   private computeShowCancel_(): boolean {
     return !!this.data &&
         (this.data.state === State.kInProgress ||
-         this.data.state === State.kPaused ||
-         (this.data.state === State.kAsyncScanning &&
-          !this.updateDeepScanningUx_));
+         this.data.state === State.kPaused);
   }
 
   private computeShowProgress_(): boolean {
@@ -681,12 +687,6 @@ export class DownloadsItemElement extends DownloadsItemElementBase {
     }
     return this.showCancel_ && this.data.percent >= -1 &&
         this.data.state !== State.kPromptForScanning;
-  }
-
-  private computeShowOpenNow_(): boolean {
-    const allowOpenNow = loadTimeData.getBoolean('allowOpenNow');
-    return !!this.data && this.data.state === State.kAsyncScanning &&
-        allowOpenNow && !this.updateDeepScanningUx_;
   }
 
   private computeShowDeepScan_(): boolean {

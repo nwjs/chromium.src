@@ -93,6 +93,7 @@ downloads::mojom::DangerType GetDangerType(
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
       return downloads::mojom::DangerType::kBlockedUnsupportedFileType;
     case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING:
+    case download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS:
     case download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT:
     case download::DOWNLOAD_DANGER_TYPE_USER_VALIDATED:
@@ -124,7 +125,7 @@ std::string TimeFormatLongDate(const base::Time& time) {
   std::unique_ptr<icu::DateFormat> formatter(
       icu::DateFormat::createDateInstance(icu::DateFormat::kLong));
   icu::UnicodeString date_string;
-  formatter->format(static_cast<UDate>(time.ToDoubleT() * 1000), date_string);
+  formatter->format(time.InMillisecondsFSinceUnixEpoch(), date_string);
   return base::UTF16ToUTF8(base::i18n::UnicodeStringToString16(date_string));
 }
 
@@ -395,15 +396,13 @@ downloads::mojom::DataPtr DownloadsListTracker::CreateDownloadData(
   file_value->retry = retry;
   file_value->state = *state;
 
+  // Note that the safe_browsing_state is the state of the download's profile
+  // *now* whereas the presence of a verdict was determined when the download
+  // happened, so they are not necessarily related.
   file_value->safe_browsing_state =
       GetSafeBrowsingState(download_model.profile());
   file_value->has_safe_browsing_verdict =
       WasSafeBrowsingVerdictObtained(download_item);
-  // If there is no safe browsing protection, the item should not have a safe
-  // browsing verdict.
-  CHECK(!file_value->has_safe_browsing_verdict ||
-        file_value->safe_browsing_state !=
-            downloads::mojom::SafeBrowsingState::kNoSafeBrowsing);
 
   return file_value;
 }

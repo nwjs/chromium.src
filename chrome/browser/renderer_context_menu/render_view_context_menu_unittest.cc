@@ -25,7 +25,7 @@
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service.h"
 #include "chrome/browser/navigation_predictor/navigation_predictor_keyed_service_factory.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
-#include "chrome/browser/password_manager/password_store_factory.h"
+#include "chrome/browser/password_manager/profile_password_store_factory.h"
 #include "chrome/browser/predictors/loading_predictor.h"
 #include "chrome/browser/predictors/loading_predictor_factory.h"
 #include "chrome/browser/predictors/preconnect_manager.h"
@@ -120,6 +120,7 @@ static content::ContextMenuParams CreateParams(int contexts) {
   rv.media_type = blink::mojom::ContextMenuDataMediaType::kNone;
   rv.page_url = GURL("http://test.page/");
   rv.frame_url = GURL("http://test.page/");
+  rv.frame_origin = url::Origin::Create(rv.frame_url);
 
   static constexpr char16_t selected_text[] = u"sel";
   if (contexts & MenuItem::SELECTION) {
@@ -576,7 +577,7 @@ class RenderViewContextMenuPrefsTest
     DownloadCoreServiceFactory::GetForBrowserContext(profile())
         ->SetDownloadManagerDelegateForTesting(
             std::make_unique<ChromeDownloadManagerDelegate>(profile()));
-    PasswordStoreFactory::GetInstance()->SetTestingFactory(
+    ProfilePasswordStoreFactory::GetInstance()->SetTestingFactory(
         GetBrowserContext(),
         base::BindRepeating(&password_manager::BuildPasswordStoreInterface<
                             content::BrowserContext,
@@ -744,8 +745,8 @@ class RenderViewContextMenuDlpPrefsTest
     policy::dlp_test_util::DlpRule rule("Rule #1", "Block", "testid1");
     rule.AddSrcUrl(PAGE_URL)
         .AddDstUrl(RESTRICTED_URL)
-        .AddRestriction(policy::dlp::kClipboardRestriction,
-                        policy::dlp::kBlockLevel);
+        .AddRestriction(data_controls::kRestrictionClipboard,
+                        data_controls::kLevelBlock);
 
     base::Value::List rules;
     rules.Append(rule.Create());
@@ -1064,8 +1065,7 @@ TEST_F(RenderViewContextMenuPrefsTest, ShowAllPasswords) {
 
   NavigateAndCommit(GURL("http://www.foo.com/"));
   content::ContextMenuParams params = CreateParams(MenuItem::EDITABLE);
-  params.input_field_type =
-      blink::mojom::ContextMenuDataInputFieldType::kPassword;
+  params.form_control_type = blink::mojom::FormControlType::kInputPassword;
   auto menu = std::make_unique<TestRenderViewContextMenu>(
       *web_contents()->GetPrimaryMainFrame(), params);
   menu->Init();
@@ -1089,8 +1089,7 @@ TEST_F(RenderViewContextMenuPrefsTest, ShowAllPasswordsIncognito) {
   content::WebContentsTester::For(incognito_web_contents.get())
       ->NavigateAndCommit(GURL("http://www.foo.com/"));
   content::ContextMenuParams params = CreateParams(MenuItem::EDITABLE);
-  params.input_field_type =
-      blink::mojom::ContextMenuDataInputFieldType::kPassword;
+  params.form_control_type = blink::mojom::FormControlType::kInputPassword;
   auto menu = std::make_unique<TestRenderViewContextMenu>(
       *incognito_web_contents->GetPrimaryMainFrame(), params);
   menu->Init();
@@ -1221,8 +1220,7 @@ class RenderViewContextMenuHideAutofillPopupTest
 TEST_F(RenderViewContextMenuHideAutofillPopupTest, HideAutofillPopup) {
   NavigateAndCommit(GURL("http://www.foo.com/"));
   content::ContextMenuParams params = CreateParams(MenuItem::EDITABLE);
-  params.input_field_type =
-      blink::mojom::ContextMenuDataInputFieldType::kPlainText;
+  params.form_control_type = blink::mojom::FormControlType::kInputText;
   auto menu = std::make_unique<TestRenderViewContextMenu>(
       *web_contents()->GetPrimaryMainFrame(), params);
 
@@ -1704,16 +1702,8 @@ TEST_F(RenderViewContextMenuPrefsTest, LensRegionSearchChromeUIScheme) {
 
 // Verify that the adding the companion image search option to the menu
 // issues a preconnection request to lens.google.com.
-// TODO(crbug.com/1486497): Test is flaky on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_CompanionImageSearchIssuesGoogleLensPreconnect \
-  DISABLED_CompanionImageSearchIssuesGoogleLensPreconnect
-#else
-#define MAYBE_CompanionImageSearchIssuesGoogleLensPreconnect \
-  CompanionImageSearchIssuesGoogleLensPreconnect
-#endif
 TEST_F(RenderViewContextMenuPrefsTest,
-       MAYBE_CompanionImageSearchIssuesGoogleLensPreconnect) {
+       CompanionImageSearchIssuesGoogleLensPreconnect) {
   BeginPreresolveListening();
   base::test::ScopedFeatureList features;
   features.InitWithFeaturesAndParameters(
@@ -1743,16 +1733,8 @@ TEST_F(RenderViewContextMenuPrefsTest,
 
 // Verify that the adding the companion region search option to the menu
 // issues a preconnection request to lens.google.com.
-// TODO(crbug.com/1486497): Test is flaky on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_CompanionRegionSearchIssuesGoogleLensPreconnect \
-  DISABLED_CompanionRegionSearchIssuesGoogleLensPreconnect
-#else
-#define MAYBE_CompanionRegionSearchIssuesGoogleLensPreconnect \
-  CompanionRegionSearchIssuesGoogleLensPreconnect
-#endif
 TEST_F(RenderViewContextMenuPrefsTest,
-       MAYBE_CompanionRegionSearchIssuesGoogleLensPreconnect) {
+       CompanionRegionSearchIssuesGoogleLensPreconnect) {
   BeginPreresolveListening();
   base::test::ScopedFeatureList features;
   features.InitWithFeaturesAndParameters(
@@ -1811,16 +1793,8 @@ TEST_F(RenderViewContextMenuPrefsTest,
 
 // Verify that the adding the Lens region search option to the menu
 // issues a preconnection request to lens.google.com.
-// TODO(crbug.com/1486497): Test is flaky on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_LensRegionSearchIssuesGoogleLensPreconnect \
-  DISABLED_LensRegionSearchIssuesGoogleLensPreconnect
-#else
-#define MAYBE_LensRegionSearchIssuesGoogleLensPreconnect \
-  LensRegionSearchIssuesGoogleLensPreconnect
-#endif
 TEST_F(RenderViewContextMenuPrefsTest,
-       MAYBE_LensRegionSearchIssuesGoogleLensPreconnect) {
+       LensRegionSearchIssuesGoogleLensPreconnect) {
   BeginPreresolveListening();
   base::test::ScopedFeatureList features;
   features.InitAndEnableFeature(lens::features::kLensStandalone);

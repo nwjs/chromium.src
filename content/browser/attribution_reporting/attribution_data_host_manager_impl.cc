@@ -46,6 +46,8 @@
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -413,10 +415,16 @@ struct AttributionDataHostManagerImpl::RegistrarAndHeader {
     }
 
     if (has_web) {
+      // Max header size is 256 KB, use 1M count to encapsulate.
+      base::UmaHistogramCounts1M("Conversions.HeadersSize.RegisterSource",
+                                 web_source.size());
       return RegistrarAndHeader{.registrar = Registrar::kWeb,
                                 .header = std::move(web_source)};
     }
     if (has_os) {
+      // Max header size is 256 KB, use 1M count to encapsulate.
+      base::UmaHistogramCounts1M("Conversions.HeadersSize.RegisterOsSource",
+                                 os_source.size());
       return RegistrarAndHeader{.registrar = Registrar::kOs,
                                 .header = std::move(os_source)};
     }
@@ -500,10 +508,13 @@ void AttributionDataHostManagerImpl::ParseSource(
     Registrar registrar) {
   DCHECK(it != registrations_.end());
 
+  network::mojom::AttributionSupport attribution_support =
+      AttributionManager::GetAttributionSupport(
+          content::WebContents::FromRenderFrameHost(
+              RenderFrameHost::FromID(it->render_frame_id())));
   switch (registrar) {
     case Registrar::kWeb:
-      if (!network::HasAttributionWebSupport(
-              AttributionManager::GetSupport())) {
+      if (!network::HasAttributionWebSupport(attribution_support)) {
         CHECK(it->devtools_request_id());
         LogAuditIssue(
             it->render_frame_id(),
@@ -523,7 +534,7 @@ void AttributionDataHostManagerImpl::ParseSource(
       }
       break;
     case Registrar::kOs:
-      if (!network::HasAttributionOsSupport(AttributionManager::GetSupport())) {
+      if (!network::HasAttributionOsSupport(attribution_support)) {
         CHECK(it->devtools_request_id());
         LogAuditIssue(
             it->render_frame_id(),

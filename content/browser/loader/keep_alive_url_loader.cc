@@ -16,7 +16,9 @@
 #include "content/browser/renderer_host/policy_container_host.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/url_loader_throttles.h"
+#include "content/public/common/content_client.h"
 #include "content/public/common/url_utils.h"
 #include "net/base/load_flags.h"
 #include "net/http/http_request_headers.h"
@@ -76,7 +78,8 @@ enum class FetchLaterBrowserMetricType {
   kStartedAfterInitiatorDisconnected = 1,
   kStartedByInitiator = 2,
   kCancelledAfterTimeLimit = 3,
-  kMaxValue = kCancelledAfterTimeLimit,
+  kStartedWhenShutdown = 4,
+  kMaxValue = kStartedWhenShutdown,
 };
 
 void LogFetchLaterMetric(const FetchLaterBrowserMetricType& type) {
@@ -141,10 +144,12 @@ bool IsRedirectAllowedByCSP(
 
   // When reaching here, renderer should have be gone, or at least
   // `KeepAliveURLLoader::forwarding_client_` is disconnected.
-  return KeepAliveURLLoaderCSPContext().IsAllowedByCsp(
-      policies, directive, url, url_before_redirects, has_followed_redirect,
-      /*is_response_check=*/false, empty_source_location, disposition,
-      /*is_form_submission=*/false);
+  return KeepAliveURLLoaderCSPContext()
+      .IsAllowedByCsp(
+          policies, directive, url, url_before_redirects, has_followed_redirect,
+          /*is_response_check=*/false, empty_source_location, disposition,
+          /*is_form_submission=*/false)
+      .IsAllowed();
 }
 
 }  // namespace
@@ -380,6 +385,8 @@ void KeepAliveURLLoader::Start() {
   }
   base::UmaHistogramBoolean("FetchKeepAlive.Browser.Total.Started", true);
 
+  GetContentClient()->browser()->OnKeepaliveRequestStarted(browser_context_);
+
   // Asks the network service to create a URL loader with passed in params.
   network_loader_factory_->CreateLoaderAndStart(
       loader_.BindNewPipeAndPassReceiver(), request_id_, options_,
@@ -387,9 +394,12 @@ void KeepAliveURLLoader::Start() {
       traffic_annotation_);
   loader_receiver_.set_disconnect_handler(base::BindOnce(
       &KeepAliveURLLoader::OnNetworkConnectionError, base::Unretained(this)));
-  forwarding_client_.set_disconnect_handler(
-      base::BindOnce(&KeepAliveURLLoader::OnForwardingClientDisconnected,
-                     base::Unretained(this)));
+  // For FetchLater requests, `forwarding_client_` is not bound to renderer.
+  if (forwarding_client_) {
+    forwarding_client_.set_disconnect_handler(
+        base::BindOnce(&KeepAliveURLLoader::OnForwardingClientDisconnected,
+                       base::Unretained(this)));
+  }
 
   // These throttles are also run by `blink::ThrottlingURLLoader`. However, they
   // have to be re-run here in case of handling in-browser redirects.
@@ -425,6 +435,9 @@ KeepAliveURLLoader::~KeepAliveURLLoader() {
   TRACE_EVENT_NESTABLE_ASYNC_END0("loading", "KeepAliveURLLoader", request_id_);
 
   disconnected_loader_timer_.Stop();
+  if (IsStarted()) {
+    GetContentClient()->browser()->OnKeepaliveRequestFinished();
+  }
 }
 
 void KeepAliveURLLoader::set_on_delete_callback(
@@ -937,9 +950,40 @@ void KeepAliveURLLoader::OnDisconnectedLoaderTimerFired() {
   DeleteSelf();
 }
 
+void KeepAliveURLLoader::Shutdown() {
+  if (!IsStarted()) {
+    CHECK(IsFetchLater());
+    LogFetchLaterMetric(FetchLaterBrowserMetricType::kStartedWhenShutdown);
+    // At this point, browser is shutting down, and renderer termination has not
+    // reached browser. It is the last chance to start loading the request from
+    // here.
+    Start();
+  }
+}
+
 bool KeepAliveURLLoader::IsFetchLater() const {
   return base::FeatureList::IsEnabled(blink::features::kFetchLaterAPI) &&
          resource_request_.is_fetch_later_api;
+}
+
+void KeepAliveURLLoader::SendNow() {
+  if (!IsFetchLater()) {
+    mojo::ReportBadMessage("Unexpected call to KeepAliveURLLoader::SendNow()");
+    return;
+  }
+  LogFetchLaterMetric(FetchLaterBrowserMetricType::kStartedByInitiator);
+  if (!IsStarted()) {
+    Start();
+  }
+}
+
+void KeepAliveURLLoader::Cancel() {
+  if (!IsFetchLater()) {
+    mojo::ReportBadMessage("Unexpected call to KeepAliveURLLoader::Cancel()");
+    return;
+  }
+  LogFetchLaterMetric(FetchLaterBrowserMetricType::kAbortedByInitiator);
+  DeleteSelf();
 }
 
 void KeepAliveURLLoader::DeleteSelf() {

@@ -17,12 +17,12 @@ namespace privacy_sandbox {
 
 TrackingProtectionSettings::TrackingProtectionSettings(
     PrefService* pref_service,
-    TrackingProtectionOnboarding* onboarding_service)
-    : pref_service_(pref_service), onboarding_service_(onboarding_service) {
+    TrackingProtectionOnboarding* onboarding_service,
+    bool is_incognito)
+    : pref_service_(pref_service),
+      onboarding_service_(onboarding_service),
+      is_incognito_(is_incognito) {
   CHECK(pref_service_);
-  if (onboarding_service_) {
-    onboarding_observation_.Observe(onboarding_service_);
-  }
 
   pref_change_registrar_.Init(pref_service_);
   pref_change_registrar_.Add(
@@ -52,8 +52,14 @@ TrackingProtectionSettings::TrackingProtectionSettings(
           &TrackingProtectionSettings::OnEnterpriseControlForPrefsChanged,
           base::Unretained(this)));
 
-  // It's possible enterprise status changed while profile was shut down, so
-  // check on startup.
+  if (onboarding_service_) {
+    // Onboarding status may change based on a flag before this service starts.
+    OnTrackingProtectionOnboardingUpdated(
+        onboarding_service_->GetOnboardingStatus());
+    onboarding_observation_.Observe(onboarding_service_);
+  }
+
+  // It's possible enterprise status changed while profile was shut down.
   OnEnterpriseControlForPrefsChanged();
 }
 
@@ -67,7 +73,9 @@ bool TrackingProtectionSettings::IsTrackingProtection3pcdEnabled() const {
 }
 
 bool TrackingProtectionSettings::AreAllThirdPartyCookiesBlocked() const {
-  return pref_service_->GetBoolean(prefs::kBlockAll3pcToggleEnabled);
+  return IsTrackingProtection3pcdEnabled() &&
+         (pref_service_->GetBoolean(prefs::kBlockAll3pcToggleEnabled) ||
+          is_incognito_);
 }
 
 bool TrackingProtectionSettings::IsDoNotTrackEnabled() const {
@@ -86,8 +94,18 @@ void TrackingProtectionSettings::OnEnterpriseControlForPrefsChanged() {
   }
 }
 
-void TrackingProtectionSettings::OnTrackingProtectionOnboarded() {
-  pref_service_->SetBoolean(prefs::kTrackingProtection3pcdEnabled, true);
+void TrackingProtectionSettings::OnTrackingProtectionOnboardingUpdated(
+    TrackingProtectionOnboarding::OnboardingStatus onboarding_status) {
+  switch (onboarding_status) {
+    case TrackingProtectionOnboarding::OnboardingStatus::kIneligible:
+    case TrackingProtectionOnboarding::OnboardingStatus::kEligible:
+    case TrackingProtectionOnboarding::OnboardingStatus::kOffboarded:
+      pref_service_->SetBoolean(prefs::kTrackingProtection3pcdEnabled, false);
+      return;
+    case TrackingProtectionOnboarding::OnboardingStatus::kOnboarded:
+      pref_service_->SetBoolean(prefs::kTrackingProtection3pcdEnabled, true);
+      return;
+  }
 }
 
 void TrackingProtectionSettings::OnDoNotTrackEnabledPrefChanged() {

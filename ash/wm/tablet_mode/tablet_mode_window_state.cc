@@ -29,7 +29,6 @@
 #include "ash/wm/wm_event.h"
 #include "base/notreached.h"
 #include "chromeos/ui/base/window_state_type.h"
-#include "chromeos/ui/wm/features.h"
 #include "chromeos/ui/wm/window_util.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/window.h"
@@ -223,8 +222,7 @@ gfx::Rect TabletModeWindowState::GetBoundsInTabletMode(
             state_object->snap_ratio().value_or(chromeos::kDefaultSnapRatio));
   }
 
-  if (chromeos::wm::features::IsWindowLayoutMenuEnabled() &&
-      state_object->IsFloated()) {
+  if (state_object->IsFloated()) {
     return FloatController::GetFloatWindowTabletBounds(window);
   }
 
@@ -645,7 +643,8 @@ void TabletModeWindowState::DoTabletSnap(
   window_state->RecordWindowSnapActionSource(snap_action_source);
 
   // A snap WMEvent will put the window in tablet split view.
-  split_view_controller->OnWMEvent(window, snap_event_type);
+  split_view_controller->OnSnapEvent(window, snap_event_type,
+                                     snap_action_source);
 
   // Change window state and bounds to the snapped window state and bounds.
   UpdateWindow(window_state, new_state_type, /*animate=*/false);

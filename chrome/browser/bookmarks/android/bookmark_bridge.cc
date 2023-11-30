@@ -323,6 +323,8 @@ void BookmarkBridge::GetTopLevelFolderIds(
   DCHECK(IsLoaded());
 
   std::vector<const BookmarkNode*> top_level_folders;
+  // Query the root node for:
+  // bookmarks bar, mobile node, other node, and managed node (if it exists).
   for (const auto& root_child : bookmark_model_->root_node()->children()) {
     if (!root_child->IsVisible()) {
       continue;
@@ -330,10 +332,6 @@ void BookmarkBridge::GetTopLevelFolderIds(
     top_level_folders.push_back(root_child.get());
   }
 
-  if (managed_bookmark_service_->managed_node() &&
-      !managed_bookmark_service_->managed_node()->children().empty()) {
-    top_level_folders.push_back(managed_bookmark_service_->managed_node());
-  }
   if (partner_bookmarks_shim_->HasPartnerBookmarks() &&
       IsReachable(partner_bookmarks_shim_->GetPartnerBookmarksRoot())) {
     top_level_folders.push_back(
@@ -989,8 +987,8 @@ ScopedJavaLocalRef<jobject> BookmarkBridge::CreateJavaBookmark(
       env, node->id(), type, ConvertUTF16ToJavaString(env, GetTitle(node)),
       url::GURLAndroid::FromNativeGURL(env, url), node->is_folder(), parent_id,
       GetBookmarkType(parent), IsEditable(node), IsManaged(node),
-      node->date_added().ToJavaTime(), read,
-      node->date_last_used().ToJavaTime());
+      node->date_added().InMillisecondsSinceUnixEpoch(), read,
+      node->date_last_used().InMillisecondsSinceUnixEpoch());
 }
 
 void BookmarkBridge::ExtractBookmarkNodeInformation(

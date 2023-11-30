@@ -68,6 +68,7 @@ void MaybeOverrideScanResult(DownloadCheckResultReason reason,
     case DownloadCheckResult::DEEP_SCANNED_FAILED:
     case DownloadCheckResult::SAFE:
     case DownloadCheckResult::PROMPT_FOR_SCANNING:
+    case DownloadCheckResult::PROMPT_FOR_LOCAL_PASSWORD_SCANNING:
     case DownloadCheckResult::POTENTIALLY_UNWANTED:
     case DownloadCheckResult::UNCOMMON:
       if (reason == REASON_DOWNLOAD_DANGEROUS)
@@ -110,7 +111,8 @@ CheckClientDownloadRequest::CheckClientDownloadRequest(
     CheckDownloadRepeatingCallback callback,
     DownloadProtectionService* service,
     scoped_refptr<SafeBrowsingDatabaseManager> database_manager,
-    scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor)
+    scoped_refptr<BinaryFeatureExtractor> binary_feature_extractor,
+    base::optional_ref<const std::string> password)
     : CheckClientDownloadRequestBase(
           item->GetURL(),
           item->GetTargetFilePath(),
@@ -119,8 +121,10 @@ CheckClientDownloadRequest::CheckClientDownloadRequest(
           service,
           std::move(database_manager),
           DownloadRequestMaker::CreateFromDownloadItem(binary_feature_extractor,
-                                                       item)),
+                                                       item,
+                                                       password)),
       item_(item),
+      password_(password.CopyAsOptional()),
       callback_(callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   item_->AddObserver(this);

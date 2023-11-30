@@ -61,6 +61,7 @@ import org.chromium.chrome.browser.flags.BooleanCachedFieldTrialParameter;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.StringCachedFieldTrialParameter;
 import org.chromium.chrome.browser.page_insights.PageInsightsCoordinator;
+import org.chromium.chrome.browser.share.ShareUtils;
 import org.chromium.components.browser_ui.widget.TintedDrawable;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.version_info.VersionInfo;
@@ -326,6 +327,13 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     public static final String EXTRA_SECONDARY_TOOLBAR_SWIPE_UP_ACTION =
             "androidx.browser.customtabs.extra.SECONDARY_TOOLBAR_SWIPE_UP_ACTION";
 
+    /**
+     * Allow user gestures on content area to be used not only for scrolling contents
+     * but also for resizing CCT. Used for Partial Custom Tab Bottom Sheet only.
+     */
+    public static final String EXTRA_ACTIVITY_SCROLL_CONTENT_RESIZE =
+            "androidx.browser.customtabs.extra.ACTIVITY_SCROLL_CONTENT_RESIZE";
+
     private final Intent mIntent;
     private final CustomTabsSessionToken mSession;
     private final boolean mIsTrustedIntent;
@@ -389,6 +397,7 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     private final @Px int mPartialTabToolbarCornerRadius;
 
     private final boolean mIsPartialCustomTabFixedHeight;
+    private final boolean mContentScrollMayResizeTab;
 
     /**
      * Add extras to customize menu items for opening Reader Mode UI custom tab from Chrome.
@@ -562,6 +571,8 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
 
         mEnableUrlBarHiding = IntentUtils.safeGetBooleanExtra(
                 intent, CustomTabsIntent.EXTRA_ENABLE_URLBAR_HIDING, true);
+        mContentScrollMayResizeTab = IntentUtils.safeGetBooleanExtra(
+                intent, EXTRA_ACTIVITY_SCROLL_CONTENT_RESIZE, false);
 
         Bitmap bitmap = IntentUtils.safeGetParcelableExtra(
                 intent, CustomTabsIntent.EXTRA_CLOSE_BUTTON_ICON);
@@ -580,12 +591,15 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         List<Bundle> menuItems =
                 IntentUtils.getParcelableArrayListExtra(intent, CustomTabsIntent.EXTRA_MENU_ITEMS);
         updateExtraMenuItems(menuItems);
-        addShareOption(intent, context);
+        // Disable CCT share options for automotive. See b/300292495.
+        if (ShareUtils.enableShareForAutomotive(true)) {
+            addShareOption(intent, context);
+        }
 
-        mActivityType = IntentUtils.safeGetBooleanExtra(
-                                intent, TrustedWebUtils.EXTRA_LAUNCH_AS_TRUSTED_WEB_ACTIVITY, false)
-                ? ActivityType.TRUSTED_WEB_ACTIVITY
-                : ActivityType.CUSTOM_TAB;
+        boolean isTwa = mSession != null && IntentUtils.safeGetBooleanExtra(intent,
+                TrustedWebUtils.EXTRA_LAUNCH_AS_TRUSTED_WEB_ACTIVITY, false);
+
+        mActivityType = isTwa ? ActivityType.TRUSTED_WEB_ACTIVITY : ActivityType.CUSTOM_TAB;
         mTrustedWebActivityAdditionalOrigins = IntentUtils.safeGetStringArrayListExtra(intent,
                 TrustedWebActivityIntentBuilder.EXTRA_ADDITIONAL_TRUSTED_ORIGINS);
         mTrustedWebActivityDisplayMode = resolveTwaDisplayMode();
@@ -649,6 +663,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
                 getActivitySideSheetRoundedCornersPositionFromIntent(intent);
 
         logCustomTabFeatures(intent, colorScheme, usingDynamicFeatures);
+        String packageName = getClientPackageNameFromSessionOrCallingActivity(mIntent, mSession);
+        RecordHistogram.recordBooleanHistogram(
+                "CustomTabs.HasNonSpoofablePackageName", !TextUtils.isEmpty(packageName));
     }
 
     /** Returns the toolbar corner radius in px. */
@@ -1048,6 +1065,9 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
         if (CustomTabsConnection.getInstance().shouldEnablePageInsightsForIntent(this)) {
             featureUsage.log(CustomTabsFeature.EXTRA_ENABLE_PAGE_INSIGHTS_HUB);
         }
+        if (IntentUtils.safeHasExtra(intent, EXTRA_ACTIVITY_SIDE_SHEET_POSITION)) {
+            featureUsage.log(CustomTabsFeature.EXTRA_ACTIVITY_SIDE_SHEET_POSITION);
+        }
     }
 
     @Override
@@ -1144,6 +1164,11 @@ public class CustomTabIntentDataProvider extends BrowserServicesIntentDataProvid
     @Override
     public boolean shouldEnableUrlBarHiding() {
         return mEnableUrlBarHiding;
+    }
+
+    @Override
+    public boolean contentScrollMayResizeTab() {
+        return mContentScrollMayResizeTab;
     }
 
     @Override

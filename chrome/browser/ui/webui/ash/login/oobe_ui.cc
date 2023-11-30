@@ -103,6 +103,7 @@
 #include "chrome/browser/ui/webui/ash/login/quick_start_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/recommend_apps_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/recovery_eligibility_screen_handler.h"
+#include "chrome/browser/ui/webui/ash/login/remote_activity_notification_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/reset_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/saml_confirm_password_handler.h"
 #include "chrome/browser/ui/webui/ash/login/signin_fatal_error_screen_handler.h"
@@ -151,6 +152,7 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "remoting/host/chromeos/features.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/resource/resource_bundle.h"
@@ -342,6 +344,13 @@ void CreateAndAddOobeUIDataSource(Profile* profile,
   source->AddBoolean("isOobeConsumersLocalPasswordsEnabled",
                      features::AreLocalPasswordsEnabledForConsumers());
 
+  source->AddBoolean("isPasswordlessGaiaEnabledForConsumers",
+                     features::IsPasswordlessGaiaEnabledForConsumers());
+
+  source->AddBoolean("isRemoteActivityNotificationEnabled",
+                     base::FeatureList::IsEnabled(
+                         remoting::features::kEnableCrdAdminRemoteAccessV2));
+
   // Configure shared resources
   AddProductLogoResources(source);
   if (ash::features::IsOobeSimonEnabled()) {
@@ -357,6 +366,9 @@ void CreateAndAddOobeUIDataSource(Profile* profile,
   AddDebuggerResources(source);
   AddTestAPIResources(source);
 
+  source->OverrideContentSecurityPolicy(
+      network::mojom::CSPDirectiveName::ScriptSrc,
+      "script-src chrome://resources chrome://webui-test 'self';");
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ObjectSrc, "object-src chrome:;");
 
@@ -466,6 +478,7 @@ void OobeUI::ConfigureOobeDisplay() {
   AddScreenHandler(std::make_unique<FingerprintSetupScreenHandler>());
 
   if (features::AreLocalPasswordsEnabledForConsumers()) {
+    AddScreenHandler(std::make_unique<PasswordSelectionScreenHandler>());
     AddScreenHandler(std::make_unique<LocalPasswordSetupHandler>());
   }
 
@@ -535,10 +548,6 @@ void OobeUI::ConfigureOobeDisplay() {
 
   AddScreenHandler(std::make_unique<ThemeSelectionScreenHandler>());
 
-  if (features::IsPasswordlessGaiaEnabledForConsumers()) {
-    AddScreenHandler(std::make_unique<PasswordSelectionScreenHandler>());
-  }
-
   if (features::IsOobeChoobeEnabled()) {
     AddScreenHandler(std::make_unique<ChoobeScreenHandler>());
   }
@@ -564,6 +573,12 @@ void OobeUI::ConfigureOobeDisplay() {
   AddScreenHandler(std::make_unique<LocalStateErrorScreenHandler>());
 
   AddScreenHandler(std::make_unique<CryptohomeRecoveryScreenHandler>());
+
+  if (base::FeatureList::IsEnabled(
+          remoting::features::kEnableCrdAdminRemoteAccessV2)) {
+    AddScreenHandler(
+        std::make_unique<RemoteActivityNotificationScreenHandler>());
+  }
 
   Profile* const profile = Profile::FromWebUI(web_ui());
   // Set up the chrome://theme/ source, for Chrome logo.
@@ -650,7 +665,8 @@ void OobeUI::BindInterface(
 void OobeUI::BindInterface(
     mojo::PendingReceiver<auth::mojom::AuthFactorConfig> receiver) {
   auth::BindToAuthFactorConfig(std::move(receiver),
-                               quick_unlock::QuickUnlockFactory::GetDelegate());
+                               quick_unlock::QuickUnlockFactory::GetDelegate(),
+                               g_browser_process->local_state());
 }
 
 void OobeUI::BindInterface(
@@ -659,13 +675,14 @@ void OobeUI::BindInterface(
   CHECK(pin_backend);
   auth::BindToPinFactorEditor(std::move(receiver),
                               quick_unlock::QuickUnlockFactory::GetDelegate(),
-                              *pin_backend);
+                              g_browser_process->local_state(), *pin_backend);
 }
 
 void OobeUI::BindInterface(
     mojo::PendingReceiver<auth::mojom::PasswordFactorEditor> receiver) {
   auth::BindToPasswordFactorEditor(
-      std::move(receiver), quick_unlock::QuickUnlockFactory::GetDelegate());
+      std::move(receiver), quick_unlock::QuickUnlockFactory::GetDelegate(),
+      g_browser_process->local_state());
 }
 
 OobeUI::OobeUI(content::WebUI* web_ui, const GURL& url)

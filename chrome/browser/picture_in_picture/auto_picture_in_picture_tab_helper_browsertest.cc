@@ -10,15 +10,20 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/media/webrtc/webrtc_browsertest_base.h"
 #include "chrome/browser/picture_in_picture/auto_picture_in_picture_tab_helper.h"
+#include "chrome/browser/picture_in_picture/auto_pip_setting_helper.h"
+#include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/permissions/permission_decision_auto_blocker.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/media_session_service.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/media_start_stop_observer.h"
 #include "media/base/media_switches.h"
@@ -29,6 +34,9 @@
 #include "third_party/blink/public/common/features.h"
 
 using media_session::mojom::MediaSessionAction;
+using testing::_;
+using testing::AtLeast;
+using testing::Return;
 
 namespace {
 
@@ -53,6 +61,31 @@ const base::FilePath::CharType kAutopipDelayPage[] =
 const base::FilePath::CharType kAutopipToggleRegistrationPage[] =
     FILE_PATH_LITERAL(
         "media/picture-in-picture/autopip-toggle-registration.html");
+
+class MockInputObserver : public content::RenderWidgetHost::InputEventObserver {
+ public:
+  MOCK_METHOD(void, OnInputEvent, (const blink::WebInputEvent&), (override));
+};
+
+class MockAutoBlocker : public permissions::PermissionDecisionAutoBlockerBase {
+ public:
+  MOCK_METHOD(bool,
+              IsEmbargoed,
+              (const GURL& request_origin, ContentSettingsType permission),
+              (override));
+  MOCK_METHOD(bool,
+              RecordDismissAndEmbargo,
+              (const GURL& url,
+               ContentSettingsType permission,
+               bool dismissed_prompt_was_quiet),
+              (override));
+  MOCK_METHOD(bool,
+              RecordIgnoreAndEmbargo,
+              (const GURL& url,
+               ContentSettingsType permission,
+               bool ignored_prompt_was_quiet),
+              (override));
+};
 
 class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
  public:
@@ -168,7 +201,8 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
         *content::MediaSession::Get(web_contents));
     observer.WaitForExpectedActions(
         {MediaSessionAction::kEnterPictureInPicture,
-         MediaSessionAction::kEnterAutoPictureInPicture});
+         MediaSessionAction::kEnterAutoPictureInPicture,
+         MediaSessionAction::kExitPictureInPicture});
   }
 
   void WaitForMediaSessionActionUnregistered(
@@ -203,10 +237,15 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
                                              bool should_document_pip) {
     auto* original_web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
+    auto* tab_helper =
+        AutoPictureInPictureTabHelper::FromWebContents(original_web_contents);
 
     // There should not currently be a picture-in-picture window.
     EXPECT_FALSE(original_web_contents->HasPictureInPictureVideo());
     EXPECT_FALSE(original_web_contents->HasPictureInPictureDocument());
+    // The tab helper should not report that we are, or would be, in auto-pip.
+    EXPECT_FALSE(tab_helper->AreAutoPictureInPicturePreconditionsMet());
+    EXPECT_FALSE(tab_helper->IsInAutoPictureInPicture());
 
     // Open and switch to a new tab.
     content::MediaStartStopObserver enter_pip_observer(
@@ -221,6 +260,21 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
               original_web_contents->HasPictureInPictureVideo());
     EXPECT_EQ(should_document_pip,
               original_web_contents->HasPictureInPictureDocument());
+
+    // The tab helper should indicate that we're now in pip.
+    EXPECT_TRUE(tab_helper->IsInAutoPictureInPicture());
+    // Once we're in PiP, the preconditions should not be met anymore.
+    EXPECT_FALSE(tab_helper->AreAutoPictureInPicturePreconditionsMet());
+
+    if (should_document_pip) {
+      // Document picture-in-picture windows should not receive focus when
+      // opened due to the AutoPictureInPictureTabHelper.
+      auto* window_manager = PictureInPictureWindowManager::GetInstance();
+      ASSERT_TRUE(window_manager->GetChildWebContents());
+      EXPECT_FALSE(window_manager->GetChildWebContents()
+                       ->GetRenderWidgetHostView()
+                       ->HasFocus());
+    }
 
     // Switch back to the original tab.
     content::MediaStartStopObserver exit_pip_observer(
@@ -251,6 +305,42 @@ class AutoPictureInPictureTabHelperBrowserTest : public WebRtcTestBase {
     // Lie about the URL.
     auto* web_contents = browser()->tab_strip_model()->GetActiveWebContents();
     web_contents->GetController().GetVisibleEntry()->SetVirtualURL(url);
+  }
+
+  // Send some events to `web_contents`, and see if they arrive or not.
+  // `expect_events` should be true if we expect them, and false if we should
+  // not.  The goal is to infer if the WebContents might be blocking events.
+  void CheckIfEventsAreForwarded(content::WebContents* web_contents,
+                                 bool expect_events) {
+    auto* rwh = web_contents->GetRenderWidgetHostView()->GetRenderWidgetHost();
+    MockInputObserver input_observer;
+    rwh->AddInputEventObserver(&input_observer);
+    EXPECT_CALL(input_observer, OnInputEvent(_)).Times(expect_events ? 4 : 0);
+
+    blink::WebMouseEvent mouse_event(
+        blink::WebMouseEvent::Type::kMouseDown, /*position=*/{},
+        /*global_position=*/{}, blink::WebPointerProperties::Button::kLeft,
+        /*click_count_param=*/1,
+        /*modifiers_param=*/0, base::TimeTicks::Now());
+    rwh->ForwardMouseEvent(mouse_event);
+
+    blink::WebMouseWheelEvent mouse_wheel_event(
+        blink::WebMouseWheelEvent::Type::kMouseWheel, /*modifiers=*/0,
+        base::TimeTicks::Now());
+    mouse_wheel_event.phase = blink::WebMouseWheelEvent::Phase::kPhaseBegan;
+    rwh->ForwardWheelEvent(mouse_wheel_event);
+
+    content::NativeWebKeyboardEvent keyboard_event(
+        blink::WebInputEvent::Type::kChar, /*modifiers=*/0,
+        base::TimeTicks::Now());
+    rwh->ForwardKeyboardEvent(keyboard_event);
+
+    blink::WebGestureEvent gesture_event(
+        blink::WebGestureEvent::Type::kGestureTap, /*modifiers=*/0,
+        base::TimeTicks::Now(), blink::mojom::GestureDevice::kTouchpad);
+    rwh->ForwardGestureEvent(gesture_event);
+
+    rwh->RemoveInputEventObserver(&input_observer);
   }
 
  protected:
@@ -346,6 +436,29 @@ IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
                                         /*should_document_pip=*/true);
 }
 
+IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
+                       OverlaySettingViewIsShownForDocumentPip) {
+  auto* window_manager = PictureInPictureWindowManager::GetInstance();
+
+  LoadCameraMicrophonePage(browser());
+  GetUserMediaAndAccept(browser()->tab_strip_model()->GetActiveWebContents());
+  OpenNewTab(browser());
+
+  // Use the setting helper as a proxy for "did return an overlay view", since
+  // the window manager won't keep it.
+  auto* setting_helper = window_manager->get_setting_helper_for_testing();
+  ASSERT_TRUE(setting_helper);
+
+  // Verify that input has been blocked.
+  auto* pip_contents = window_manager->GetChildWebContents();
+  CheckIfEventsAreForwarded(pip_contents, /*expect_events=*/false);
+
+  // Verify that acknowledging the helper restores it.
+  setting_helper->take_result_cb_for_testing().Run(
+      AutoPipSettingView::UiResult::kAllowOnce);
+  CheckIfEventsAreForwarded(pip_contents, /*expect_events=*/true);
+}
+
 IN_PROC_BROWSER_TEST_F(AutoPictureInPictureWithVideoPlaybackBrowserTest,
                        DoesNotAutopipWithoutPlayback) {
   // Load a page that registers for autopip but doesn't start playback.
@@ -390,6 +503,21 @@ IN_PROC_BROWSER_TEST_F(AutoPictureInPictureWithVideoPlaybackBrowserTest,
   EXPECT_FALSE(original_web_contents->HasPictureInPictureDocument());
 }
 
+IN_PROC_BROWSER_TEST_F(AutoPictureInPictureWithVideoPlaybackBrowserTest,
+                       OverlaySettingViewIsShownForVideoPip) {
+  auto* window_manager = PictureInPictureWindowManager::GetInstance();
+
+  LoadAutoVideoPipPage(browser());
+  PlayVideo(browser()->tab_strip_model()->GetActiveWebContents());
+  WaitForAudioFocusGained();
+  OpenNewTab(browser());
+
+  // Use the setting helper as a proxy for "did return an overlay view", since
+  // the window manager won't keep it.
+  auto* setting_helper = window_manager->get_setting_helper_for_testing();
+  ASSERT_TRUE(setting_helper);
+}
+
 IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
                        DoesNotCloseManuallyOpenedPip) {
   // Load a page that registers for autopip.
@@ -423,15 +551,8 @@ IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
   EXPECT_TRUE(original_web_contents->HasPictureInPictureDocument());
 }
 
-// TODO(crbug.com/1485641): Re-enable after resolving flakiness.
-#if BUILDFLAG(IS_CHROMEOS) && defined(MEMORY_SANITIZER)
-#define MAYBE_ShowsMostRecentlyHiddenTab \
-  DISABLED_ShowsMostRecentlyHiddenTab
-#else
-#define MAYBE_ShowsMostRecentlyHiddenTab ShowsMostRecentlyHiddenTab
-#endif
 IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
-                       MAYBE_ShowsMostRecentlyHiddenTab) {
+                       ShowsMostRecentlyHiddenTab) {
   // Load a page that registers for autopip.
   LoadCameraMicrophonePage(browser());
   auto* original_web_contents =
@@ -680,4 +801,35 @@ IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
   // If we navigate the tab, it should return false again.
   LoadNotRegisteredPage(browser());
   EXPECT_FALSE(tab_helper->HasAutoPictureInPictureBeenRegistered());
+}
+
+IN_PROC_BROWSER_TEST_F(AutoPictureInPictureTabHelperBrowserTest,
+                       DoesNotOpenIfEmbargoed) {
+  // Load a page that registers for autopip.
+  LoadCameraMicrophonePage(browser());
+  auto* original_web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  GetUserMediaAndAccept(original_web_contents);
+
+  // Embargo!
+  MockAutoBlocker auto_blocker;
+  EXPECT_CALL(auto_blocker,
+              IsEmbargoed(_, ContentSettingsType::AUTO_PICTURE_IN_PICTURE))
+      .Times(AtLeast(1))
+      .WillRepeatedly(Return(true));
+  auto* tab_helper =
+      AutoPictureInPictureTabHelper::FromWebContents(original_web_contents);
+  tab_helper->set_auto_blocker_for_testing(&auto_blocker);
+
+  // Open and switch to a new tab.
+  content::MediaStartStopObserver enter_pip_observer(
+      original_web_contents,
+      content::MediaStartStopObserver::Type::kEnterPictureInPicture);
+  OpenNewTab(browser());
+
+  // A picture-in-picture window should not automatically open.
+  EXPECT_FALSE(original_web_contents->HasPictureInPictureVideo());
+  EXPECT_FALSE(original_web_contents->HasPictureInPictureDocument());
+
+  tab_helper->set_auto_blocker_for_testing(nullptr);
 }

@@ -102,11 +102,11 @@
 #include "third_party/blink/renderer/core/inspector/inspector_style_resolver.h"
 #include "third_party/blink/renderer/core/inspector/protocol/css.h"
 #include "third_party/blink/renderer/core/layout/hit_test_result.h"
+#include "third_party/blink/renderer/core/layout/inline/inline_cursor.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/layout_text.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/layout/ng/inline/ng_inline_cursor.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -421,7 +421,7 @@ class InspectorCSSAgent::ModifyRuleAction final
       default:
         NOTREACHED();
     }
-    return css_rule_;
+    return css_rule_ != nullptr;
   }
 
   CSSRule* TakeRule() {
@@ -1593,7 +1593,7 @@ void InspectorCSSAgent::CollectPlatformFontsForLayoutObject(
 
   FontCachePurgePreventer preventer;
   DCHECK(layout_object->IsInLayoutNGInlineFormattingContext());
-  NGInlineCursor cursor;
+  InlineCursor cursor;
   cursor.MoveTo(*layout_object);
   for (; cursor; cursor.MoveToNextForSameLayoutObject()) {
     const ShapeResultView* shape_result = cursor.Current().TextShapeResult();

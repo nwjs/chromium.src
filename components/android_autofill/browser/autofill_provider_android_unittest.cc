@@ -35,6 +35,7 @@ namespace autofill {
 namespace {
 
 using ::testing::_;
+using ::testing::AtLeast;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::Mock;
@@ -125,9 +126,7 @@ class MockAutofillProviderAndroidBridge : public AutofillProviderAndroidBridge {
   MOCK_METHOD(void, OnServerPredictionQueryDone, (bool success), (override));
   MOCK_METHOD(void,
               ShowDatalistPopup,
-              (base::span<const std::u16string>,
-               base::span<const std::u16string>,
-               bool),
+              (base::span<const SelectOption>, bool),
               (override));
   MOCK_METHOD(void, HideDatalistPopup, (), (override));
   MOCK_METHOD(void,
@@ -530,14 +529,7 @@ TEST_F(AutofillProviderAndroidTestHidingLogic,
 
 // Tests that if the popup is shown in the *main frame*, destruction of the
 // *main frame* hides the popup.
-//
-// TODO(crbug.com/1488233): Disabled because the `sub_frame_` is destroyed
-// before `main_frame()`, which leads to a AutofillProviderAndroid::Reset() call
-// by AutofillProviderAndroid::OnManagerResetOrDestroyed(), which in turn
-// invalidates AutofillProviderAndroid::field_rfh_id_, which then makes the main
-// frame's RenderFrameDeleted() event a no-op.
-TEST_F(AutofillProviderAndroidTestHidingLogic,
-       DISABLED_HideInMainFrameOnDestruction) {
+TEST_F(AutofillProviderAndroidTestHidingLogic, HideInMainFrameOnDestruction) {
   AskForValuesToFill(main_frame());
   EXPECT_CALL(provider_bridge(), HideDatalistPopup);
   // TearDown() destructs the main frame.
@@ -545,14 +537,9 @@ TEST_F(AutofillProviderAndroidTestHidingLogic,
 
 // Tests that if the popup is shown in the *sub frame*, destruction of the
 // *sub frame* hides the popup.
-//
-// TODO(crbug.com/1488233): Disabled because AutofillProviderAndroid::Reset()
-// resets AutofillProviderAndroid::field_rfh_ before RenderFrameDeleted(), which
-// prevents OnPopupHidden().
-TEST_F(AutofillProviderAndroidTestHidingLogic,
-       DISABLED_HideInSubFrameOnDestruction) {
+TEST_F(AutofillProviderAndroidTestHidingLogic, HideInSubFrameOnDestruction) {
   AskForValuesToFill(sub_frame_);
-  EXPECT_CALL(provider_bridge(), HideDatalistPopup);
+  EXPECT_CALL(provider_bridge(), HideDatalistPopup).Times(AtLeast(1));
   NavigateAndCommitFrame(sub_frame_, GURL("https://bar.com/"));
   // Verify and clear before TearDown() closes the popup.
   Mock::VerifyAndClearExpectations(&provider_bridge());
@@ -563,7 +550,7 @@ TEST_F(AutofillProviderAndroidTestHidingLogic,
 TEST_F(AutofillProviderAndroidTestHidingLogic,
        HideInMainFrameOnMainFrameNavigation) {
   AskForValuesToFill(main_frame());
-  EXPECT_CALL(provider_bridge(), HideDatalistPopup);
+  EXPECT_CALL(provider_bridge(), HideDatalistPopup).Times(AtLeast(1));
   NavigateAndCommitFrame(main_frame(), GURL("https://bar.com/"));
 }
 
@@ -576,7 +563,7 @@ TEST_F(AutofillProviderAndroidTestHidingLogic,
 TEST_F(AutofillProviderAndroidTestHidingLogic,
        DISABLED_HideInSubFrameOnSubFrameNavigation) {
   AskForValuesToFill(sub_frame_);
-  EXPECT_CALL(provider_bridge(), HideDatalistPopup);
+  EXPECT_CALL(provider_bridge(), HideDatalistPopup).Times(AtLeast(1));
   NavigateAndCommitFrame(sub_frame_, GURL("https://bar.com/"));
 }
 
@@ -585,7 +572,7 @@ TEST_F(AutofillProviderAndroidTestHidingLogic,
 TEST_F(AutofillProviderAndroidTestHidingLogic,
        HideInSubFrameOnMainFrameNavigation) {
   AskForValuesToFill(main_frame());
-  EXPECT_CALL(provider_bridge(), HideDatalistPopup);
+  EXPECT_CALL(provider_bridge(), HideDatalistPopup).Times(AtLeast(1));
   NavigateAndCommitFrame(main_frame(), GURL("https://bar.com/"));
 }
 
@@ -595,7 +582,7 @@ TEST_F(AutofillProviderAndroidTestHidingLogic,
        FollowAskForValuesInDifferentFrames) {
   AskForValuesToFill(main_frame());
   AskForValuesToFill(sub_frame_);
-  EXPECT_CALL(provider_bridge(), HideDatalistPopup);
+  EXPECT_CALL(provider_bridge(), HideDatalistPopup).Times(AtLeast(1));
   NavigateAndCommitFrame(sub_frame_, GURL("https://bar.com/"));
 }
 

@@ -188,7 +188,9 @@ enum class NotificationCatalogName {
   kScalableIphNotification = 173,
   kUpdateNotification = 174,
   kSubAppsUninstall = 175,
-  kMaxValue = kSubAppsUninstall
+  kNetworkCarrierUnlock = 176,
+  kCoralFeature = 177,
+  kMaxValue = kCoralFeature
 };
 
 // A living catalog that registers system nudges.
@@ -243,7 +245,7 @@ enum class ToastCatalogName {
   kEncourageUnlock = 12,
   kNetworkAutoConnect = 13,
   kAssistantLoading = 14,
-  kToastManagerUnittest = 15,
+  kTestCatalogName = 15,
   kMaximumDeskLaunchTemplate = 16,
   kEnterOverviewGesture = 17,
   kExitOverviewGesture = 18,

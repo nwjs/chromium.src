@@ -7,6 +7,7 @@
 #include "base/no_destructor.h"
 #include "build/build_config.h"
 #include "components/autofill/core/browser/autofill_ablation_study.h"
+#include "components/autofill/core/browser/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/payments/credit_card_access_manager.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/virtual_card_enrollment_manager.h"
@@ -68,7 +69,7 @@ IbanManager* AutofillClient::GetIbanManager() {
   return nullptr;
 }
 
-compose::ComposeManager* AutofillClient::GetComposeManager() {
+AutofillComposeDelegate* AutofillClient::GetComposeDelegate() {
   return nullptr;
 }
 
@@ -172,6 +173,58 @@ void AutofillClient::HideVirtualCardEnrollBubbleAndIconIfVisible() {
   // This is overridden by platform subclasses. Currently only
   // ChromeAutofillClient (Chrome Desktop) implements this.
 }
+
+void AutofillClient::ShowLocalCardMigrationDialog(
+    base::OnceClosure show_migration_dialog_closure) {
+  // This is overridden by platform subclasses
+}
+
+void AutofillClient::ConfirmMigrateLocalCardToCloud(
+    const LegalMessageLines& legal_message_lines,
+    const std::string& user_email,
+    const std::vector<MigratableCreditCard>& migratable_credit_cards,
+    LocalCardMigrationCallback start_migrating_cards_callback) {
+  // This is overridden by platform subclasses
+}
+
+void AutofillClient::ShowLocalCardMigrationResults(
+    const bool has_server_error,
+    const std::u16string& tip_message,
+    const std::vector<MigratableCreditCard>& migratable_credit_cards,
+    MigrationDeleteCardCallback delete_local_card_callback) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::ShowWebauthnOfferDialog(
+    WebauthnDialogCallback offer_dialog_callback) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::ShowWebauthnVerifyPendingDialog(
+    WebauthnDialogCallback verify_pending_dialog_callback) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::UpdateWebauthnOfferDialogWithError() {
+  // This is overridden by platform subclasses.
+}
+
+bool AutofillClient::CloseWebauthnDialog() {
+  // This is overridden by platform subclasses.
+  return false;
+}
+#else
+void AutofillClient::ConfirmAccountNameFixFlow(
+    base::OnceCallback<void(const std::u16string&)> callback) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::ConfirmExpirationDateFixFlow(
+    const CreditCard& card,
+    base::OnceCallback<void(const std::u16string&, const std::u16string&)>
+        callback) {
+  // This is overridden by platform subclasses.
+}
 #endif
 
 #if !BUILDFLAG(IS_IOS)
@@ -192,6 +245,36 @@ void AutofillClient::OnUnmaskOtpVerificationResult(
     OtpUnmaskResult unmask_result) {
   // This is overridden by platform subclasses. Currently only
   // ChromeAutofillClient (Chrome Desktop and Clank) implements this.
+}
+
+void AutofillClient::ConfirmSaveCreditCardLocally(
+    const CreditCard& card,
+    AutofillClient::SaveCreditCardOptions options,
+    LocalSaveCardPromptCallback callback) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::ConfirmSaveCreditCardToCloud(
+    const CreditCard& card,
+    const LegalMessageLines& legal_message_lines,
+    SaveCreditCardOptions options,
+    UploadSaveCardPromptCallback callback) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::CreditCardUploadCompleted(bool card_saved) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::ShowUnmaskPrompt(
+    const CreditCard& card,
+    const CardUnmaskPromptOptions& card_unmask_prompt_options,
+    base::WeakPtr<CardUnmaskDelegate> delegate) {
+  // This is overridden by platform subclasses.
+}
+
+void AutofillClient::OnUnmaskVerificationResult(PaymentsRpcResult result) {
+  // This is overridden by platform subclasses.
 }
 
 void AutofillClient::UpdateOfferNotification(
@@ -245,6 +328,12 @@ const AutofillAblationStudy& AutofillClient::GetAblationStudy() const {
 std::unique_ptr<device_reauth::DeviceAuthenticator>
 AutofillClient::GetDeviceAuthenticator() {
   return nullptr;
+}
+
+std::optional<AutofillClient::PopupScreenLocation>
+AutofillClient::GetPopupScreenLocation() const {
+  NOTIMPLEMENTED();
+  return std::nullopt;
 }
 
 }  // namespace autofill

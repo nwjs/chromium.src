@@ -53,6 +53,11 @@ SANDBOX_POLICY_EXPORT BASE_DECLARE_FEATURE(
 SANDBOX_POLICY_EXPORT BASE_DECLARE_FEATURE(kCacheMacSandboxProfiles);
 #endif  // BUILDFLAG(IS_MAC)
 
+#if BUILDFLAG(IS_ANDROID)
+SANDBOX_POLICY_EXPORT BASE_DECLARE_FEATURE(kUseRendererProcessPolicy);
+SANDBOX_POLICY_EXPORT BASE_DECLARE_FEATURE(kRestrictRendererPoliciesInBaseline);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 #if BUILDFLAG(IS_WIN)
 // Returns whether the network sandbox is supported. This is different from
 // IsAppContainerSandboxSupported as the Network Service uses some newer APIs to

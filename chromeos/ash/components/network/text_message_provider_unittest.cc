@@ -18,6 +18,7 @@
 #include "chromeos/ash/components/network/mock_managed_network_configuration_handler.h"
 #include "chromeos/ash/components/network/network_handler.h"
 #include "chromeos/ash/components/network/network_sms_handler.h"
+#include "chromeos/ash/components/network/network_state_handler.h"
 #include "chromeos/ash/components/network/text_message_suppression_state.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -32,6 +33,7 @@ constexpr char kText2[] = "Fake Sms Message 2";
 constexpr char kTimestamp[] = "Thu Aug  3 13:26:04 EDT 2023";
 constexpr char kTestGUID1[] = "1";
 constexpr char kTestGUID2[] = "2";
+constexpr char kEmptyGUID[] = "";
 
 class TestObserver : public TextMessageProvider::Observer {
  public:
@@ -63,9 +65,10 @@ class TextMessageProviderTest : public testing::Test {
     // Initialize shill_client fakes as |network_sms_handler_| depends on them
     // during initialization and destruction.
     shill_clients::InitializeFakes();
+    network_state_handler_ = NetworkStateHandler::InitializeForTest();
     // Used new as constructor is private.
     network_sms_handler_.reset(new NetworkSmsHandler());
-    network_sms_handler_->Init();
+    network_sms_handler_->Init(network_state_handler_.get());
     provider_ = std::make_unique<TextMessageProvider>();
     provider_->Init(network_sms_handler_.get(),
                     &mock_managed_network_configuration_handler_);
@@ -81,6 +84,7 @@ class TextMessageProviderTest : public testing::Test {
     observation.Reset();
     provider_.reset();
     network_sms_handler_.reset();
+    network_state_handler_.reset();
     shill_clients::Shutdown();
   }
 
@@ -146,6 +150,7 @@ class TextMessageProviderTest : public testing::Test {
   FakeNetworkMetadataStore fake_network_metadata_store_;
   std::unique_ptr<NetworkSmsHandler> network_sms_handler_;
   std::unique_ptr<TextMessageProvider> provider_;
+  std::unique_ptr<NetworkStateHandler> network_state_handler_;
   std::unique_ptr<base::HistogramTester> histogram_tester_;
   base::test::SingleThreadTaskEnvironment task_environment_;
 
@@ -301,6 +306,48 @@ TEST_F(TextMessageProviderTest, PolicyChangedMetricsTest) {
   SimulatePolicyChanged();
   AssertPolicyBuckets(/*allow_count=*/1u, /*suppress_count=*/1u,
                       /*unset_count=*/1u);
+}
+
+TEST_F(TextMessageProviderTest, EmptyGuidTest) {
+  EXPECT_CALL(*mock_managed_network_configuration_handler(),
+              GetAllowTextMessages)
+      .WillOnce(
+          ::testing::Return(PolicyTextMessageSuppressionState::kSuppress));
+
+  // Policy suppression doesn't rely on GUID and should block the text message.
+  SimulatePolicyChanged();
+  SimulateMessageReceived(kEmptyGUID, {kNumber, kText1, kTimestamp});
+  AssertTestObserverValue(/*expected_count=*/0,
+                          /*expected_message=*/absl::nullopt);
+
+  EXPECT_CALL(*mock_managed_network_configuration_handler(),
+              GetAllowTextMessages)
+      .WillOnce(::testing::Return(PolicyTextMessageSuppressionState::kAllow));
+
+  // When allowed by policy the message is received.
+  SimulatePolicyChanged();
+  SimulateMessageReceived(kEmptyGUID, {kNumber, kText1, kTimestamp});
+  AssertTestObserverValue(/*expected_count=*/1,
+                          TextMessageData{kNumber, kText1, kTimestamp});
+
+  EXPECT_CALL(*mock_managed_network_configuration_handler(),
+              GetAllowTextMessages)
+      .WillOnce(::testing::Return(PolicyTextMessageSuppressionState::kUnset));
+
+  // When the policy is unset, regardless of the user suppression state, the
+  // message will be received.
+  SimulatePolicyChanged();
+  fake_network_metadata_store()->SetUserTextMessageSuppressionState(
+      kEmptyGUID, UserTextMessageSuppressionState::kSuppress);
+  SimulateMessageReceived(kEmptyGUID, {kNumber, kText1, kTimestamp});
+  AssertTestObserverValue(/*expected_count=*/2,
+                          TextMessageData{kNumber, kText1, kTimestamp});
+  fake_network_metadata_store()->SetUserTextMessageSuppressionState(
+      kEmptyGUID, UserTextMessageSuppressionState::kAllow);
+
+  SimulateMessageReceived(kEmptyGUID, {kNumber, kText1, kTimestamp});
+  AssertTestObserverValue(/*expected_count=*/3,
+                          TextMessageData{kNumber, kText1, kTimestamp});
 }
 
 }  // namespace ash

@@ -1,8 +1,8 @@
 {
-    "project": "chromium-m119",
-    "project_title": "Chromium M119",
-    "ref": "refs/branch-heads/6045",
-    "chrome_project": "chrome-m119",
+    "project": "chromium-m120",
+    "project_title": "Chromium M120",
+    "ref": "refs/branch-heads/6099",
+    "chrome_project": "chrome-m120",
     "is_main": false,
     "platforms": {
         "android": {

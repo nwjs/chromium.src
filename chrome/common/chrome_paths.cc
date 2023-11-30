@@ -47,6 +47,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chromeos/crosapi/cpp/crosapi_constants.h"  // nogncheck
 #include "chromeos/lacros/lacros_paths.h"
+#include "chromeos/startup/startup.h"  // nogncheck
 #endif
 
 namespace {
@@ -186,6 +187,12 @@ bool PathProvider(int key, base::FilePath* result) {
   base::FilePath cur;
   switch (key) {
     case chrome::DIR_USER_DATA:
+#if BUILDFLAG(IS_CHROMEOS_LACROS) && DCHECK_IS_ON()
+      // Check that the user data directory is not accessed before
+      // initialization when prelaunching at login screen.
+      DCHECK(chromeos::lacros_paths::IsInitializedUserDataDir() ||
+             !chromeos::IsLaunchedWithPostLoginParams());
+#endif
       if (!GetDefaultUserDataDirectory(&cur)) {
         return false;
       }
@@ -495,7 +502,7 @@ bool PathProvider(int key, base::FilePath* result) {
       }
       break;
     case chrome::DIR_TEST_DATA:
-      if (!base::PathService::Get(base::DIR_SOURCE_ROOT, &cur)) {
+      if (!base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &cur)) {
         return false;
       }
       cur = cur.Append(FILE_PATH_LITERAL("chrome"));
@@ -506,7 +513,7 @@ bool PathProvider(int key, base::FilePath* result) {
       }
       break;
     case chrome::DIR_TEST_TOOLS:
-      if (!base::PathService::Get(base::DIR_SOURCE_ROOT, &cur)) {
+      if (!base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &cur)) {
         return false;
       }
       cur = cur.Append(FILE_PATH_LITERAL("chrome"));

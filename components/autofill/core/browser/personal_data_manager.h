@@ -48,6 +48,7 @@
 #include "components/prefs/pref_member.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "components/sync/base/model_type.h"
 #include "components/sync/base/user_selectable_type.h"
 #include "components/sync/service/sync_service_observer.h"
 #include "components/webdata/common/web_data_service_consumer.h"
@@ -56,11 +57,9 @@
 class PaymentsSuggestionBottomSheetMediatorTest;
 class Profile;
 class PrefService;
-class RemoveAutofillTester;
 
 namespace autofill {
 class AutofillImageFetcherBase;
-class AutofillInteractiveTest;
 struct CreditCardArtImage;
 class PersonalDataManagerObserver;
 class PersonalDataManagerFactory;
@@ -77,14 +76,69 @@ class SyncService;
 
 namespace autofill {
 
-// Handles loading and saving Autofill profile information to the web database.
-// This class also stores the profiles loaded from the database for use during
-// Autofill.
-// The `PersonalDataManager` is a `KeyedService`. However, no separate instance
-// exists for incognito mode. In incognito mode the original profile's
-// `PersonalDataManager` is used. It is the responsibility of the consumers of
-// the `PersonalDataManager` to ensure that no data from an incognito session is
-// persisted unintentionally.
+// The PersonalDataManager (PDM) has two main responsibilities:
+// - Caching the data stored in `AutofillTable` for synchronous retrieval.
+// - Posting changes to `AutofillTable` via the `AutofillWebDataService`
+//   and updating its state accordingly.
+//   Some payment-related changes (e.g. adding a new server card) don't pass
+//   through the PDM. Instead, they are upstreamed to payments directly, before
+//   Sync downstreams them to Chrome, making them available in `AutofillTable`.
+//
+// Since `AutofillTable` lives on a separate sequence, changes posted to the PDM
+// are asynchronous. They only become effective in the PDM after/if the
+// corresponding database operation successfully finished.
+//
+// Sync writes to `AutofillTable` directly, since sync bridges live on the same
+// sequence. In this case, the PDM is notified via
+// `AutofillWebDataServiceObserverOnUISequence::OnAutofillChangedBySync()` and
+// it reloads all its data from `AutofillTable`. This is done via an operation
+// called `Refresh()`.
+//
+// PDM getters such as `GetProfiles()` expose pointers to the PDM's internal
+// copy of `AutofillTable`'s data. As a result, whenever the PDM reloads any
+// data, these pointer are invalidated. Do not store them as member variables,
+// since a refresh through Sync can happen anytime.
+//
+// The PDM is a `KeyedService`. However, no separate instance exists for
+// incognito mode. In incognito mode the original profile's PDM is used. It is
+// the responsibility of the consumers of the PDM to ensure that no data from an
+// incognito session is persisted unintentionally.
+//
+// Technical details on how changes are implemented:
+// The mechanism works differently for `AutofillProfile` and `CreditCard`.
+
+// CreditCards simply post a task to the DB sequence and trigger a `Refresh()`.
+// Since `Refresh()` itself simply posts several read requests on the DB
+// sequence, and because the DB sequence is a sequence, the `Refresh()` is
+// guaranteed to read the latest data. This is unnecessarily inefficient, since
+// any change causes the PDM to reload all of its data.
+//
+// AutofillProfile queues pending changes in `ongoing_profile_changes_`. For
+// each profile, they are executed in order and the next change is only posted
+// to the DB sequence once the previous change has finished.
+// After each change that finishes, the `AutofillWebDataService` notifies the
+// PDM via `PersonalDataManager::OnAutofillProfileChanged(change)` - and the PDM
+// updates its state accordingly. No `Refresh()` is performed.
+// Queuing the pending modifications is necessary, so the PDM can do consistency
+// checks against the latest state. For example, a remove should only be
+// performed if the profile exists. Without the queuing, if a remove operation
+// was posted before the add operation has finished, the remove would
+// incorrectly get rejected by the PDM.
+//
+// Notifications from the PersonalDataManagerObserver():
+// - `OnPersonalDataChanged()` is called whenever some of the exposed data from
+//   the PDM changes. In particular, a `Refresh()` triggers this multiple times,
+//   once for every read that finishes (profiles, credit cards, etc are separate
+//   reads each).
+//   Due to the way changes are implemented, changes to credit cards trigger
+//   `OnPersonalDataChanged()` multiple times. Changes to AutofillProfiles only
+//   trigger it once.
+// - `OnPersonalDataFinishedProfileTasks()` is called once all pending changes,
+//   including reads and writes, have finished.
+//   TODO(crbug.com/1420547): While "ProfileTasks" sounds like it only affects
+//   AutofillProfile operations, it applies to all data types. For example, if
+//   credit card read operations are still pending,
+//   `OnPersonalDataFinishedProfileTasks()` is not triggered. Rename this event.
 class PersonalDataManager : public KeyedService,
                             public WebDataServiceConsumer,
                             public AutofillWebDataServiceObserverOnUISequence,
@@ -147,9 +201,7 @@ class PersonalDataManager : public KeyedService,
       std::unique_ptr<WDTypedResult> result) override;
 
   // AutofillWebDataServiceObserverOnUISequence:
-  void AutofillMultipleChangedBySync() override;
-  void AutofillAddressConversionCompleted() override;
-  void SyncStarted(syncer::ModelType model_type) override;
+  void OnAutofillChangedBySync(syncer::ModelType model_type) override;
 
   // SyncServiceObserver:
   void OnStateChanged(syncer::SyncService* sync) override;
@@ -300,7 +352,7 @@ class PersonalDataManager : public KeyedService,
   void ResetFullServerCards();
 
   // Deletes all server profiles and cards (both masked and unmasked).
-  void ClearAllServerData();
+  void ClearAllServerDataForTesting();
 
   // Deletes all local profiles and cards.
   virtual void ClearAllLocalData();
@@ -380,6 +432,12 @@ class PersonalDataManager : public KeyedService,
   virtual std::vector<Iban*> GetLocalIbans() const;
   // Returns server IBANs.
   virtual std::vector<const Iban*> GetServerIbans() const;
+  // Returns all IBANs, server and local.
+  virtual std::vector<const Iban*> GetIbans() const;
+  // Returns all IBANs, server and local. All local IBANs that share the same
+  // prefix, suffix, and length as any existing server IBAN will be considered a
+  // duplicate IBAN. These duplicate IBANs will not be returned in the list.
+  virtual std::vector<const Iban*> GetIbansToSuggest() const;
 
   // Returns the Payments customer data. Returns nullptr if no data is present.
   virtual PaymentsCustomerData* GetPaymentsCustomerData() const;
@@ -532,7 +590,10 @@ class PersonalDataManager : public KeyedService,
   // Records the sync transport consent if the user is in sync transport mode.
   virtual void OnUserAcceptedUpstreamOffer();
 
-  // Notifies observers that the waiting should be stopped.
+  // Triggers `OnPersonalDataChanged()` for all `observers_`.
+  // Additionally, if all of the PDM's pending operations have finished, meaning
+  // that the data exposed through the PDM matches the database,
+  // `OnPersonalDataFinishedProfileTasks()` is triggered.
   void NotifyPersonalDataObserver();
 
   // TODO(crbug.com/1337392): Revisit the function when card upload feedback is
@@ -547,8 +608,8 @@ class PersonalDataManager : public KeyedService,
   // Returns the value of the AutofillProfileEnabled pref.
   virtual bool IsAutofillProfileEnabled() const;
 
-  // Returns the value of the AutofillCreditCardEnabled pref.
-  virtual bool IsAutofillCreditCardEnabled() const;
+  // Returns the value of the AutofillPaymentMethodsEnabled pref.
+  virtual bool IsAutofillPaymentMethodsEnabled() const;
 
   // Returns the value of the kAutofillHasSeenIban pref.
   bool IsAutofillHasSeenIbanPrefEnabled() const;
@@ -649,36 +710,20 @@ class PersonalDataManager : public KeyedService,
     return auto_accept_address_imports_for_testing_;
   }
 
+  void set_test_addresses(
+      std::vector<autofill::AutofillProfile> test_addresses) {
+    test_addresses_ = test_addresses;
+  }
+
+  const std::vector<autofill::AutofillProfile>& test_addresses() const {
+    return test_addresses_;
+  }
+
  protected:
   // Only PersonalDataManagerFactory and certain tests can create instances of
   // PersonalDataManager.
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest, AddProfile_CrazyCharacters);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest, AddProfile_Invalid);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           AddCreditCard_CrazyCharacters);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest, AddCreditCard_Invalid);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest, GetCreditCardByServerId);
   FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
                            AddAndGetCreditCardArtImage);
-  FRIEND_TEST_ALL_PREFIXES(
-      PersonalDataManagerTest,
-      ConvertWalletAddressesAndUpdateWalletCards_NewProfile);
-  FRIEND_TEST_ALL_PREFIXES(
-      PersonalDataManagerTest,
-      ConvertWalletAddressesAndUpdateWalletCards_MergedProfile);
-  FRIEND_TEST_ALL_PREFIXES(
-      PersonalDataManagerTest,
-      ConvertWalletAddressesAndUpdateWalletCards_NewCrd_AddressAlreadyConverted);  // NOLINT
-  FRIEND_TEST_ALL_PREFIXES(
-      PersonalDataManagerTest,
-      ConvertWalletAddressesAndUpdateWalletCards_AlreadyConverted);
-  FRIEND_TEST_ALL_PREFIXES(
-      PersonalDataManagerTest,
-      ConvertWalletAddressesAndUpdateWalletCards_MultipleSimilarWalletAddresses);  // NOLINT
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           DoNotConvertWalletAddressesInEphemeralStorage);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
-                           DeleteDisusedCreditCards_DoNothingWhenDisabled);
   FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
                            GetProfilesToSuggest_ProfileAutofillDisabled);
   FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest,
@@ -693,27 +738,11 @@ class PersonalDataManager : public KeyedService,
       PersonalDataManagerTest,
       GetCreditCardsToSuggest_NoCreditCardsAddedIfDisabled);
   FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerTest, LogStoredCreditCardMetrics);
-  FRIEND_TEST_ALL_PREFIXES(PersonalDataManagerCleanerTest,
-                           UpdateCardsBillingAddressReference);
 
-  friend class autofill::AutofillInteractiveTest;
   friend class autofill::PersonalDataManagerCleaner;
-  friend class autofill::PersonalDataManagerFactory;
-  friend class AutofillMetricsTest;
-  friend class FormDataImporterTestBase;
   friend class ::PaymentsSuggestionBottomSheetMediatorTest;
-  friend class PersonalDataManagerTest;
-  friend class PersonalDataManagerTestBase;
-  friend class PersonalDataManagerHelper;
-  friend class PersonalDataManagerMockTest;
   friend class VirtualCardEnrollmentManagerTest;
-  friend class ::RemoveAutofillTester;
   friend std::default_delete<PersonalDataManager>;
-  friend void autofill_helper::SetCreditCards(
-      int,
-      std::vector<autofill::CreditCard>*);
-  friend void SetTestProfiles(Profile* base_profile,
-                              std::vector<AutofillProfile>* profiles);
 
   // Used to get a pointer to the strike database for migrating existing
   // profiles. Note, the result can be a nullptr, for example, on incognito
@@ -850,7 +879,7 @@ class PersonalDataManager : public KeyedService,
   WebDataServiceBase::Handle pending_server_creditcards_query_ = 0;
   WebDataServiceBase::Handle pending_server_creditcard_cloud_token_data_query_ =
       0;
-  WebDataServiceBase::Handle pending_ibans_query_ = 0;
+  WebDataServiceBase::Handle pending_local_ibans_query_ = 0;
   WebDataServiceBase::Handle pending_server_ibans_query_ = 0;
   WebDataServiceBase::Handle pending_customer_data_query_ = 0;
   WebDataServiceBase::Handle pending_offer_data_query_ = 0;
@@ -865,6 +894,12 @@ class PersonalDataManager : public KeyedService,
       alternative_state_name_map_updater_;
 
  private:
+  // A profile change with a boolean representing if the change is ongoing or
+  // not. "Ongoing" means that the change is taking place asynchronously on the
+  // DB sequence at the moment. Ongoing changes are still part of
+  // `ongoing_profile_changes_` to prevent other changes from being scheduled.
+  using QueuedAutofillProfileChange = std::pair<AutofillProfileChange, bool>;
+
   // Sets (or resets) the Sync service, which may not have started yet
   // but its preferences can already be queried. Can also be a nullptr
   // if it is disabled by CLI.
@@ -883,49 +918,13 @@ class PersonalDataManager : public KeyedService,
   // prefs::kAutofillProfileEnabled changes.
   void EnableAutofillPrefChanged();
 
-  // Converts the Wallet addresses to local autofill profiles. This should be
-  // called after all the syncable data has been processed (local cards and
-  // profiles, Wallet data and metadata). Also updates Wallet cards' billing
-  // address id to point to the local profiles.
-  void ConvertWalletAddressesAndUpdateWalletCards();
-
-  // Converts the Wallet addresses into local profiles either by merging with an
-  // existing |local_profiles| of by adding a new one. Populates the
-  // |server_id_profiles_map| to be used when updating cards where the address
-  // was already converted. Also populates the |guids_merge_map| to keep the
-  // link between the Wallet address and the equivalent local profile (from
-  // merge or creation).
-  bool ConvertWalletAddressesToLocalProfiles(
-      std::vector<AutofillProfile>* local_profiles,
-      std::unordered_map<std::string, AutofillProfile*>* server_id_profiles_map,
-      std::unordered_map<std::string, std::string>* guids_merge_map);
-
-  // Goes through the Wallet cards to find cards where the billing address is a
-  // Wallet address which was already converted in a previous pass. Looks for a
-  // matching local profile and updates the |guids_merge_map| to make the card
-  // refer to it.
-  bool UpdateWalletCardsAlreadyConvertedBillingAddresses(
-      const std::vector<AutofillProfile>& local_profiles,
-      const std::unordered_map<std::string, AutofillProfile*>&
-          server_id_profiles_map,
-      std::unordered_map<std::string, std::string>* guids_merge_map) const;
-
-  // Removes profile from web database according to |guid| and resets credit
-  // card's billing address if that address is used by any credit cards.
-  // The method does not refresh, this allows multiple removal with one
-  // refreshing in the end.
-  void RemoveAutofillProfileByGUIDAndBlankCreditCardReference(
-      const std::string& guid);
-
   // Add/Update/Removes a profile in AutofillTable asynchronously. The changes
   // only surface in the PDM after the task on the DB sequence has finished.
-  // TODO(crbug.cm/1420547): `enforced` should not be used. Remove it.
-  void AddProfileToDB(const AutofillProfile& profile);
-  void UpdateProfileInDB(const AutofillProfile& profile, bool enforced = false);
+  void UpdateProfileInDB(const AutofillProfile& profile);
   void RemoveProfileFromDB(const std::string& guid);
 
   // Triggered when a profile is added/updated/removed on db.
-  void OnAutofillProfileChanged(const AutofillProfileDeepChange& change);
+  void OnAutofillProfileChanged(const AutofillProfileChange& change);
 
   // Triggered when all the card art image fetches have been completed,
   // regardless of whether all of them succeeded.
@@ -997,7 +996,7 @@ class PersonalDataManager : public KeyedService,
   std::unique_ptr<PersonalDataManagerCleaner> personal_data_manager_cleaner_;
 
   // A timely ordered list of ongoing changes for each profile.
-  std::unordered_map<std::string, std::deque<AutofillProfileDeepChange>>
+  std::unordered_map<std::string, std::deque<QueuedAutofillProfileChange>>
       ongoing_profile_changes_;
 
   // The identity manager that this instance uses. Must outlive this instance.
@@ -1036,6 +1035,9 @@ class PersonalDataManager : public KeyedService,
 
   // Whether sync should be considered on in a test.
   bool is_syncing_for_test_ = false;
+
+  // Test addresses used to allow developers to test their forms.
+  std::vector<autofill::AutofillProfile> test_addresses_;
 
   base::ScopedObservation<history::HistoryService, HistoryServiceObserver>
       history_service_observation_{this};

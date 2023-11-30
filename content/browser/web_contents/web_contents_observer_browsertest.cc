@@ -279,14 +279,16 @@ class CookieTracker : public WebContentsObserver {
   void OnCookiesAccessed(NavigationHandle* navigation,
                          const CookieAccessDetails& details) override {
     for (const auto& cookie : details.cookie_list) {
-      cookie_accesses_.push_back({details.type,
-                                  ContextType::kNavigation,
-                                  {},
-                                  navigation->GetNavigationId(),
-                                  details.url,
-                                  details.first_party_url,
-                                  cookie.Name(),
-                                  cookie.Value()});
+      for (size_t i = 0; i < details.count; ++i) {
+        cookie_accesses_.push_back({details.type,
+                                    ContextType::kNavigation,
+                                    {},
+                                    navigation->GetNavigationId(),
+                                    details.url,
+                                    details.first_party_url,
+                                    cookie.Name(),
+                                    cookie.Value()});
+      }
     }
 
     QuitIfReady();
@@ -295,15 +297,17 @@ class CookieTracker : public WebContentsObserver {
   void OnCookiesAccessed(RenderFrameHost* rfh,
                          const CookieAccessDetails& details) override {
     for (const auto& cookie : details.cookie_list) {
-      cookie_accesses_.push_back(
-          {details.type,
-           ContextType::kFrame,
-           {rfh->GetProcess()->GetID(), rfh->GetRoutingID()},
-           -1,
-           details.url,
-           details.first_party_url,
-           cookie.Name(),
-           cookie.Value()});
+      for (size_t i = 0; i < details.count; ++i) {
+        cookie_accesses_.push_back(
+            {details.type,
+             ContextType::kFrame,
+             {rfh->GetProcess()->GetID(), rfh->GetRoutingID()},
+             -1,
+             details.url,
+             details.first_party_url,
+             cookie.Name(),
+             cookie.Value()});
+      }
     }
 
     QuitIfReady();
@@ -381,7 +385,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsObserverBrowserTest,
                        MAYBE_CookieCallbacks_MainFrame) {
   CookieTracker cookie_tracker(web_contents());
 
-  GURL first_party_url("http://a.com/");
+  GURL first_party_url(embedded_test_server()->GetURL("a.com", "/"));
   GURL url1(
       embedded_test_server()->GetURL("a.com", "/cookies/set_cookie.html"));
   GURL url2(embedded_test_server()->GetURL("a.com", "/title1.html"));
@@ -434,7 +438,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsObserverBrowserTest,
                        MAYBE_CookieCallbacks_MainFrameRedirect) {
   CookieTracker cookie_tracker(web_contents());
 
-  GURL first_party_url("http://a.com/");
+  GURL first_party_url(embedded_test_server()->GetURL("a.com", "/"));
   GURL url1(embedded_test_server()->GetURL(
       "a.com", "/cookies/redirect_and_set_cookie.html"));
   GURL url1_after_redirect(
@@ -496,7 +500,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsObserverBrowserTest,
                        MAYBE_CookieCallbacks_Subframe) {
   CookieTracker cookie_tracker(web_contents());
 
-  GURL first_party_url("http://a.com/");
+  GURL first_party_url(embedded_test_server()->GetURL("a.com", "/"));
   GURL url1(embedded_test_server()->GetURL(
       "a.com", "/cookies/set_cookie_from_subframe.html"));
   GURL url1_subframe(
@@ -562,7 +566,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsObserverBrowserTest,
                        MAYBE_CookieCallbacks_Subresource) {
   CookieTracker cookie_tracker(web_contents());
 
-  GURL first_party_url("http://a.com/");
+  GURL first_party_url(embedded_test_server()->GetURL("a.com", "/"));
   GURL url1(embedded_test_server()->GetURL(
       "a.com", "/cookies/set_cookie_from_subresource.html"));
   GURL url1_image(embedded_test_server()->GetURL(
@@ -613,7 +617,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsObserverBrowserTest,
                        CookieCallbacks_DocumentCookie) {
   CookieTracker cookie_tracker(web_contents());
 
-  GURL first_party_url("http://a.com/");
+  GURL first_party_url(embedded_test_server()->GetURL("a.com", "/"));
   GURL url1(embedded_test_server()->GetURL("a.com", "/title1.html"));
 
   EXPECT_TRUE(NavigateToURL(web_contents(), url1));

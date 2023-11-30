@@ -42,7 +42,7 @@ MESSAGE_TIMEOUT_CONNECTION_ACK = 5
 # In most cases, this should be very fast, but the first test run after a page
 # load can be slow.
 MESSAGE_TIMEOUT_TEST_STARTED = 10
-MESSAGE_TIMEOUT_HEARTBEAT = 5
+MESSAGE_TIMEOUT_HEARTBEAT = 10
 MESSAGE_TIMEOUT_TEST_LOG = 1
 
 # Thresholds for how slow parts of the test have to be for the test to be
@@ -302,9 +302,11 @@ class WebGpuCtsIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
   def _TestWasSlow(self) -> bool:
     # Consider the test slow if it either had a relatively long time between
     # heartbeats or took up a significant chunk of the global timeout.
-    heartbeat_fraction = (self._longest_time_between_heartbeats /
-                          self._heartbeat_timeout)
-    heartbeat_was_slow = heartbeat_fraction > SLOW_HEARTBEAT_THRESHOLD
+    heartbeat_was_slow = False
+    if self._heartbeat_timeout > 0:
+      heartbeat_fraction = (self._longest_time_between_heartbeats /
+                            self._heartbeat_timeout)
+      heartbeat_was_slow = heartbeat_fraction > SLOW_HEARTBEAT_THRESHOLD
 
     global_fraction = (self._test_duration /
                        self._global_timeout_without_slow_multiplier)
@@ -340,7 +342,7 @@ class WebGpuCtsIntegrationTestBase(gpu_integration_test.GpuIntegrationTest):
         self.skipTest('WebGPU CTS JavaScript reported test skip with logs ' +
                       log_str)
       elif status == 'fail':
-        self.fail(log_str)
+        self.fail(self._query + ' failed\n' + log_str)
     except wss.ClientClosedConnectionError as e:
       raise RuntimeError(
           'Detected closed websocket - likely caused by renderer crash') from e

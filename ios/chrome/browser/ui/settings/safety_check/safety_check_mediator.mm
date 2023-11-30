@@ -25,11 +25,11 @@
 #import "components/sync/service/sync_user_settings.h"
 #import "components/version_info/version_info.h"
 #import "ios/chrome/browser/omaha/omaha_service.h"
-#import "ios/chrome/browser/passwords/ios_chrome_password_check_manager.h"
-#import "ios/chrome/browser/passwords/ios_chrome_password_check_manager_factory.h"
-#import "ios/chrome/browser/passwords/password_check_observer_bridge.h"
-#import "ios/chrome/browser/passwords/password_checkup_utils.h"
-#import "ios/chrome/browser/passwords/password_store_observer_bridge.h"
+#import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager.h"
+#import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager_factory.h"
+#import "ios/chrome/browser/passwords/model/password_check_observer_bridge.h"
+#import "ios/chrome/browser/passwords/model/password_checkup_utils.h"
+#import "ios/chrome/browser/passwords/model/password_store_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_backed_boolean.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -48,9 +48,9 @@
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_navigation_commands.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_table_view_controller.h"
 #import "ios/chrome/browser/ui/settings/safety_check/safety_check_utils.h"
-#import "ios/chrome/browser/upgrade/upgrade_constants.h"
-#import "ios/chrome/browser/upgrade/upgrade_recommended_details.h"
-#import "ios/chrome/browser/upgrade/upgrade_utils.h"
+#import "ios/chrome/browser/upgrade/model/upgrade_constants.h"
+#import "ios/chrome/browser/upgrade/model/upgrade_recommended_details.h"
+#import "ios/chrome/browser/upgrade/model/upgrade_utils.h"
 #import "ios/chrome/common/channel_info.h"
 #import "ios/chrome/common/string_util.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -894,7 +894,7 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
   } else if (self.checkDidRun && !issuesFound) {
     // Clear the timestamp if the last check found no issues.
     [[NSUserDefaults standardUserDefaults]
-        setDouble:base::Time().ToDoubleT()
+        setDouble:base::Time().InSecondsFSinceUnixEpoch()
            forKey:kTimestampOfLastIssueFoundKey];
     self.checkDidRun = NO;
 
@@ -950,8 +950,8 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
 // jittery, delay the reconfigure call, using `newRowState`.
 - (void)possiblyDelayReconfigureUpdateCheckItemWithState:
     (UpdateCheckRowStates)newRowState {
-  double secondsSinceStart =
-      base::Time::Now().ToDoubleT() - self.checkStartTime.ToDoubleT();
+  double secondsSinceStart = base::Time::Now().InSecondsFSinceUnixEpoch() -
+                             self.checkStartTime.InSecondsFSinceUnixEpoch();
   double minDelay = kUpdateRowMinDelay;
   if (secondsSinceStart < minDelay) {
     // Want to show the loading wheel for minimum time.
@@ -1319,7 +1319,7 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
 // Updates the timestamp of when safety check last found an issue.
 - (void)updateTimestampOfLastCheck {
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-  [defaults setDouble:base::Time::Now().ToDoubleT()
+  [defaults setDouble:base::Time::Now().InSecondsFSinceUnixEpoch()
                forKey:kTimestampOfLastIssueFoundKey];
 }
 
@@ -1349,7 +1349,7 @@ void ResetSettingsCheckItem(SettingsCheckItem* item) {
 // Formats the last safety check issues found timestamp for display.
 - (NSString*)formatElapsedTimeSinceLastCheck {
   NSUserDefaults* defaults = [NSUserDefaults standardUserDefaults];
-  base::Time lastCompletedCheck = base::Time::FromDoubleT(
+  base::Time lastCompletedCheck = base::Time::FromSecondsSinceUnixEpoch(
       [defaults doubleForKey:kTimestampOfLastIssueFoundKey]);
 
   base::TimeDelta elapsedTime = base::Time::Now() - lastCompletedCheck;

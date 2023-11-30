@@ -275,13 +275,13 @@
 	path = third_party/google_toolbox_for_mac/src
 	url = https://chromium.googlesource.com/external/github.com/google/google-toolbox-for-mac.git
 	gclient-condition = checkout_ios or checkout_mac
+[submodule "third_party/google-truth/src"]
+	path = third_party/google-truth/src
+	url = https://chromium.googlesource.com/external/github.com/google/truth.git
+	gclient-condition = checkout_android
 [submodule "third_party/googletest/src"]
 	path = third_party/googletest/src
 	url = https://chromium.googlesource.com/external/github.com/google/googletest.git
-[submodule "third_party/gnu_binutils"]
-	path = third_party/gnu_binutils
-	url = https://chromium.googlesource.com/native_client/deps/third_party/gnu_binutils.git
-	gclient-condition = checkout_nacl and checkout_win
 [submodule "third_party/gperf"]
 	path = third_party/gperf
 	url = https://chromium.googlesource.com/chromium/deps/gperf.git
@@ -416,18 +416,10 @@
 	path = third_party/material_design_icons/src
 	url = https://chromium.googlesource.com/external/github.com/google/material-design-icons.git
 	gclient-condition = checkout_ios
-[submodule "third_party/mingw-w64/mingw/bin"]
-	path = third_party/mingw-w64/mingw/bin
-	url = https://chromium.googlesource.com/native_client/deps/third_party/mingw-w64/mingw/bin.git
-	gclient-condition = checkout_nacl and checkout_win
 [submodule "third_party/minigbm/src"]
 	path = third_party/minigbm/src
 	url = https://chromium.googlesource.com/chromiumos/platform/minigbm.git
 	gclient-condition = checkout_linux
-[submodule "third_party/nacl_sdk_binaries"]
-	path = third_party/nacl_sdk_binaries
-	url = https://chromium.googlesource.com/chromium/deps/nacl_sdk_binaries.git
-	gclient-condition = checkout_nacl and checkout_win
 [submodule "third_party/nasm"]
 	path = third_party/nasm
 	url = https://chromium.googlesource.com/chromium/deps/nasm.git
@@ -611,6 +603,10 @@
 	path = chrome/browser/media/engagement_internal
 	url = https://chrome-internal.googlesource.com/chrome/browser/media/engagement_internal.git
 	gclient-condition = checkout_src_internal
+[submodule "chrome/browser/nearby_sharing/internal"]
+	path = chrome/browser/nearby_sharing/internal
+	url = https://chrome-internal.googlesource.com/chrome/browser/nearby_sharing/internal.git
+	gclient-condition = checkout_src_internal
 [submodule "chrome/browser/resources/chromeos/quickoffice"]
 	path = chrome/browser/resources/chromeos/quickoffice
 	url = https://chrome-internal.googlesource.com/quickoffice/crx.git
@@ -771,6 +767,10 @@
 	path = third_party/khronos_glcts
 	url = https://chrome-internal.googlesource.com/chrome/deps/khronos_glcts.git
 	gclient-condition = checkout_src_internal
+[submodule "third_party/ml"]
+	path = third_party/ml
+	url = https://chrome-internal.googlesource.com/chrome/third_party/ml.git
+	gclient-condition = checkout_third_party_ml
 [submodule "third_party/widevine/cdm/chromeos"]
 	path = third_party/widevine/cdm/chromeos
 	url = https://chrome-internal.googlesource.com/chrome/deps/widevine/cdm/chromeos.git

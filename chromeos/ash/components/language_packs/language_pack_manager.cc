@@ -21,9 +21,6 @@
 #include "chromeos/ash/components/language_packs/language_packs_util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/cros_system_api/dbus/dlcservice/dbus-constants.h"
-#include "ui/base/ime/ash/input_method_manager.h"
-
-using ::ash::input_method::InputMethodManager;
 
 namespace ash::language_packs {
 namespace {
@@ -128,22 +125,6 @@ void OnGetDlcState(GetPackStateCallback callback,
   result.language_code = locale;
 
   std::move(callback).Run(result);
-}
-
-// This functions goes through the list of locales to install and remove,
-// according to the diff. It performs the actual installation and uninstallation
-// of DLCs on the device.
-// It should be called whenever Input Methods are changed.
-void InstallOrRemoveToMatchState(const std::string& feature_id,
-                                 const StringsDiff& locale_diff) {
-  for (const auto& locale : locale_diff.remove) {
-    LanguagePackManager::GetInstance()->RemovePack(feature_id, locale,
-                                                   base::DoNothing());
-  }
-  for (const auto& locale : locale_diff.add) {
-    LanguagePackManager::GetInstance()->InstallPack(feature_id, locale,
-                                                    base::DoNothing());
-  }
 }
 
 }  // namespace
@@ -413,19 +394,6 @@ void LanguagePackManager::UpdatePacksForOobe(
   }
 }
 
-void LanguagePackManager::UpdatePacksForInputMethods(
-    base::span<const std::string> current_hwr_locales,
-    InputMethodManager* const input_method_manager) {
-  const base::flat_set<std::string> target_hwr_locales =
-      GetHandwritingLocalesFromEnabledInputMethods(input_method_manager);
-
-  const StringsDiff locale_diff = ComputeStringsDiff(
-      {current_hwr_locales.begin(), current_hwr_locales.end()},
-      target_hwr_locales);
-
-  InstallOrRemoveToMatchState(kHandwritingFeatureId, locale_diff);
-}
-
 void LanguagePackManager::AddObserver(Observer* const observer) {
   observers_.AddObserver(observer);
 }
@@ -459,12 +427,11 @@ void LanguagePackManager::OnDlcStateChanged(
   NotifyPackStateChanged(kHandwritingFeatureId, *handwriting_locale, dlc_state);
 }
 
-LanguagePackManager::LanguagePackManager() = default;
-LanguagePackManager::~LanguagePackManager() = default;
-
-void LanguagePackManager::Initialize() {
-  DlcserviceClient::Get()->AddObserver(this);
+LanguagePackManager::LanguagePackManager() {
+  obs_.Observe(DlcserviceClient::Get());
 }
+
+LanguagePackManager::~LanguagePackManager() {}
 
 void LanguagePackManager::ResetForTesting() {
   observers_.Clear();

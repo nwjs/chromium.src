@@ -17,7 +17,6 @@
 #include "base/values.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/chromeos/policy/dlp/data_transfer_dlp_controller.h"
-#include "chrome/browser/chromeos/policy/dlp/dlp_histogram_helper.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_policy_constants.h"
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager.h"
 #include "chrome/browser/chromeos/policy/dlp/test/dlp_rules_manager_test_utils.h"
@@ -26,6 +25,8 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/dbus/dlp/dlp_client.h"
+#include "components/enterprise/data_controls/component.h"
+#include "components/enterprise/data_controls/dlp_histogram_helper.h"
 #include "components/policy/core/common/policy_pref_names.h"
 #include "components/prefs/scoped_user_pref_update.h"
 #include "content/public/test/browser_task_environment.h"
@@ -199,14 +200,16 @@ TEST_F(DlpRulesManagerImplTest, EmptyPref) {
       DlpRulesManager::RuleMetadata(/*name=*/"", /*obfuscated_id=*/""));
 
   histogram_tester_->ExpectUniqueSample(
-      GetDlpHistogramPrefix() + dlp::kDlpPolicyPresentUMA, false, 1);
+      data_controls::GetDlpHistogramPrefix() +
+          data_controls::dlp::kDlpPolicyPresentUMA,
+      false, 1);
 }
 
 TEST_F(DlpRulesManagerImplTest, UnknownRestriction) {
   dlp_test_util::DlpRule rule(kRuleName1, "Unknown", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(kWrongRestriction, dlp::kBlockLevel);
+      .AddRestriction(kWrongRestriction, data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -220,7 +223,8 @@ TEST_F(DlpRulesManagerImplTest, UnknownComponent) {
   dlp_test_util::DlpRule rule(kRuleName1, "Unknown", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
       .AddDstComponent(kWrongComponent)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -239,7 +243,7 @@ TEST_F(DlpRulesManagerImplTest, UnknownLevel) {
   dlp_test_util::DlpRule rule(kRuleName1, "Unknown", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, kWrongLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard, kWrongLevel);
 
   UpdatePolicyPref({rule});
 
@@ -252,13 +256,16 @@ TEST_F(DlpRulesManagerImplTest, BlockPriority) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel)
-      .AddRestriction(dlp::kScreenshotRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock)
+      .AddRestriction(data_controls::kRestrictionScreenshot,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Exceptional allow", kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kGoogleUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kAllowLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelAllow);
 
   UpdatePolicyPref({rule1, rule2});
 
@@ -282,7 +289,9 @@ TEST_F(DlpRulesManagerImplTest, BlockPriority) {
       DlpRulesManager::RuleMetadata(kRuleName1, kRuleId1));
 
   histogram_tester_->ExpectUniqueSample(
-      GetDlpHistogramPrefix() + dlp::kDlpPolicyPresentUMA, true, 1);
+      data_controls::GetDlpHistogramPrefix() +
+          data_controls::dlp::kDlpPolicyPresentUMA,
+      true, 1);
   histogram_tester_->ExpectBucketCount("Enterprise.Dlp.RestrictionConfigured",
                                        DlpRulesManager::Restriction::kClipboard,
                                        2);
@@ -313,7 +322,8 @@ TEST_F(DlpRulesManagerImplTest, BlockPriority) {
 TEST_F(DlpRulesManagerImplTest, UpdatePref) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kScreenshotRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionScreenshot,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule1});
 
@@ -323,7 +333,8 @@ TEST_F(DlpRulesManagerImplTest, UpdatePref) {
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Exceptional allow", kRuleId2);
   rule2.AddSrcUrl(kGoogleUrl)
-      .AddRestriction(dlp::kScreenshotRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionScreenshot,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule2});
 
@@ -338,8 +349,9 @@ TEST_F(DlpRulesManagerImplTest, UpdatePref) {
 TEST_F(DlpRulesManagerImplTest, IsRestrictedComponent_Clipboard) {
   dlp_test_util::DlpRule rule(kRuleName1, "Block", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
-      .AddDstComponent(dlp::kArc)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddDstComponent(data_controls::kArc)
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -364,9 +376,10 @@ TEST_F(DlpRulesManagerImplTest,
 
   dlp_test_util::DlpRule rule(kRuleName1, "Block", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
-      .AddDstComponent(dlp::kDrive)
-      .AddDstComponent(dlp::kOneDrive)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddDstComponent(data_controls::kDrive)
+      .AddDstComponent(data_controls::kOneDrive)
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -404,7 +417,8 @@ TEST_F(DlpRulesManagerImplTest, SameSrcDst_Clipboard) {
   dlp_test_util::DlpRule rule(kRuleName1, "Block", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -419,12 +433,14 @@ TEST_F(DlpRulesManagerImplTest, EmptyUrl_Clipboard) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Block", kRuleId2);
   rule2.AddSrcUrl(kGmailUrl)
       .AddDstUrl(kGoogleUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule1, rule2});
 
@@ -450,7 +466,8 @@ TEST_F(DlpRulesManagerImplTest, IsRestricted_MultipleURLs) {
   for (const std::string& url : urls) {
     rule1.AddSrcUrl(url).AddDstUrl(url);
   }
-  rule1.AddRestriction(dlp::kClipboardRestriction, dlp::kAllowLevel);
+  rule1.AddRestriction(data_controls::kRestrictionClipboard,
+                       data_controls::kLevelAllow);
 
   dlp_test_util::DlpRule rule2(
       kRuleName2, "Disallow copy and paste for non-work purposes", kRuleId2);
@@ -458,7 +475,8 @@ TEST_F(DlpRulesManagerImplTest, IsRestricted_MultipleURLs) {
     rule2.AddSrcUrl(url);
   }
   rule2.AddDstUrl(kWildCardMatching);
-  rule2.AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+  rule2.AddRestriction(data_controls::kRestrictionClipboard,
+                       data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule1, rule2});
 
@@ -518,8 +536,10 @@ TEST_F(DlpRulesManagerImplTest, DisabledByFeature) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel)
-      .AddRestriction(dlp::kScreenshotRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock)
+      .AddRestriction(data_controls::kRestrictionScreenshot,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule1});
 
@@ -540,7 +560,8 @@ TEST_F(DlpRulesManagerImplTest, DisabledByFeature) {
   dlp_test_util::DlpRule rule2(kRuleName2, "Block", kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule2});
 
@@ -556,7 +577,8 @@ TEST_F(DlpRulesManagerImplTest, WarnPriority) {
                                kRuleId1);
   rule1.AddSrcUrl(kGooglePattern)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kWarnLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelWarn);
 
   dlp_test_util::DlpRule rule2(
       kRuleName2, "Block copy/paste from docs, drive, gmail", kRuleId2);
@@ -564,7 +586,8 @@ TEST_F(DlpRulesManagerImplTest, WarnPriority) {
       .AddSrcUrl(kDrivePattern)
       .AddSrcUrl(kMailPattern)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule3(
       kRuleName3, "Allow copy/paste inside docs, drive, gmail", kRuleId3);
@@ -574,7 +597,8 @@ TEST_F(DlpRulesManagerImplTest, WarnPriority) {
       .AddDstUrl(kDocsPattern)
       .AddDstUrl(kDrivePattern)
       .AddDstUrl(kMailPattern)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kAllowLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelAllow);
 
   UpdatePolicyPref({rule1, rule2, rule3});
 
@@ -616,7 +640,8 @@ TEST_F(DlpRulesManagerImplTest, FilesRestriction_DlpClientNotified) {
   dlp_test_util::DlpRule rule(kRuleName1, "Block Files", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kExampleUrl)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -657,7 +682,8 @@ TEST_F(DlpRulesManagerImplTest, FilesRestriction_FeatureNotEnabled) {
   dlp_test_util::DlpRule rule(kRuleName1, "Block Files", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kExampleUrl)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -676,11 +702,13 @@ TEST_F(DlpRulesManagerImplTest, GetSourceUrlPattern) {
       .AddSrcUrl(kDocsPattern)
       .AddSrcUrl(kDrivePattern)
       .AddSrcUrl(kCompanyPattern)
-      .AddRestriction(dlp::kScreenshotRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionScreenshot,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Block printing any docs", kRuleId2);
   rule2.AddSrcUrl(kWildCardMatching)
-      .AddRestriction(dlp::kPrintingRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionPrinting,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule1, rule2});
 
@@ -722,18 +750,21 @@ TEST_F(DlpRulesManagerImplTest, ReportPriority) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Report any screensharing",
                                kRuleId1);
   rule1.AddSrcUrl(kWildCardMatching)
-      .AddRestriction(dlp::kScreenShareRestriction, dlp::kReportLevel);
+      .AddRestriction(data_controls::kRestrictionScreenShare,
+                      data_controls::kLevelReport);
 
   dlp_test_util::DlpRule rule2(kRuleName2,
                                "Block screensharing of company urls", kRuleId2);
   rule2.AddSrcUrl(kDrivePattern)
       .AddSrcUrl(kDocsPattern)
-      .AddRestriction(dlp::kScreenShareRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionScreenShare,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule3(kRuleName3, "Allow screensharing for chat urls",
                                kRuleId3);
   rule3.AddSrcUrl(kChatPattern)
-      .AddRestriction(dlp::kScreenShareRestriction, dlp::kAllowLevel);
+      .AddRestriction(data_controls::kRestrictionScreenShare,
+                      data_controls::kLevelAllow);
 
   UpdatePolicyPref({rule1, rule2, rule3});
 
@@ -785,12 +816,14 @@ TEST_F(DlpRulesManagerImplTest, FilesRestriction_GetAggregatedDestinations) {
       .AddDstUrl(kGoogleUrl)  // Duplicates should be ignored.
       .AddDstUrl(kCompanyUrl)
       .AddDstUrl(kGmailUrl)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Explicit Allow Files", kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kGmailUrl)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kAllowLevel);
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelAllow);
 
   UpdatePolicyPref({rule1, rule2});
 
@@ -827,7 +860,8 @@ TEST_F(DlpRulesManagerImplTest,
       .AddDstUrl(kWildCardMatching)
       .AddDstUrl(kCompanyUrl)  // Since there is a wildcard, all specific
                                // destinations will be ignored.
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -852,19 +886,22 @@ TEST_F(DlpRulesManagerImplTest, GetAggregatedDestinations_MixedLevels) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block Clipboard", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kCompanyUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Warn Clipboard", kRuleId1);
   rule2.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kCompanyUrl)  // Ignored because of a block restriction for the
                                // same destination.
       .AddDstUrl(kGmailUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kWarnLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelWarn);
 
   dlp_test_util::DlpRule rule3(kRuleName3, "Report Clipboard", kRuleId3);
   rule3.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kGoogleUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kReportLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelReport);
 
   UpdatePolicyPref({rule1, rule2, rule3});
 
@@ -882,18 +919,21 @@ TEST_F(DlpRulesManagerImplTest, GetAggregatedDestinations_MixedWithWildcard) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block Clipboard", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kCompanyUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Warn Clipboard", kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kWarnLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelWarn);
 
   dlp_test_util::DlpRule rule3(kRuleName3, "Report Clipboard", kRuleId3);
   rule3.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kGoogleUrl)  // Ignored because of "*" at warn level.
       .AddDstUrl(kWildCardMatching)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kReportLevel);
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelReport);
 
   UpdatePolicyPref({rule1, rule2, rule3});
 
@@ -925,9 +965,10 @@ TEST_F(DlpRulesManagerImplTest, FilesRestriction_GetAggregatedComponents) {
 
   dlp_test_util::DlpRule rule(kRuleName1, "Block Files", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
-      .AddDstComponent(dlp::kArc)
-      .AddDstComponent(dlp::kCrostini)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddDstComponent(data_controls::kArc)
+      .AddDstComponent(data_controls::kCrostini)
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -969,9 +1010,10 @@ TEST_F(DlpRulesManagerImplTest, SetFilesPolicyWithOnlyComponents) {
 
   dlp_test_util::DlpRule rule(kRuleName1, "Block Files", kRuleId1);
   rule.AddSrcUrl(kExampleUrl)
-      .AddDstComponent(dlp::kArc)
-      .AddDstComponent(dlp::kCrostini)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kBlockLevel);
+      .AddDstComponent(data_controls::kArc)
+      .AddDstComponent(data_controls::kCrostini)
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule});
 
@@ -993,7 +1035,8 @@ TEST_F(DlpRulesManagerImplTest, SetFilesPolicyWithOnlyComponents) {
 TEST_F(DlpRulesManagerImplTest, EmptyMetadataReportedIfRuleidUnset) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block Printing", std::string());
   rule1.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kPrintingRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionPrinting,
+                      data_controls::kLevelBlock);
   UpdatePolicyPref({rule1});
 
   CheckGetSourceUrlPattern(
@@ -1006,12 +1049,14 @@ TEST_F(DlpRulesManagerImplTest, EmptyMetadataReportedIfRuleidUnset) {
 TEST_F(DlpRulesManagerImplTest, MetadataMapEmptiedAfterPolicyUpdate) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block Printing", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kPrintingRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionPrinting,
+                      data_controls::kLevelBlock);
   UpdatePolicyPref({rule1});
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Block Printing", kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kPrintingRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionPrinting,
+                      data_controls::kLevelBlock);
   UpdatePolicyPref({rule2});
 
   CheckGetSourceUrlPattern(kExampleUrl, DlpRulesManager::Restriction::kPrinting,
@@ -1024,23 +1069,28 @@ TEST_F(DlpRulesManagerImplTest, MetadataMapEmptiedAfterPolicyUpdate) {
 TEST_F(DlpRulesManagerImplTest, TestOrderSameLevelPrinting) {
   dlp_test_util::DlpRule rule1(kRuleName1, "Block Printing", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kPrintingRestriction, dlp::kBlockLevel);
+      .AddRestriction(data_controls::kRestrictionPrinting,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule2(kRuleName2, "Block Printing and copy paste",
                                kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddDstComponent(dlp::kCrostini)
-      .AddRestriction(dlp::kPrintingRestriction, dlp::kBlockLevel)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel);
+      .AddDstComponent(data_controls::kCrostini)
+      .AddRestriction(data_controls::kRestrictionPrinting,
+                      data_controls::kLevelBlock)
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock);
 
   dlp_test_util::DlpRule rule3(kRuleName3, "Block Screenshare and copy paste",
                                kRuleId3);
   rule3.AddSrcUrl(kExampleUrl)
       .AddDstUrl(kWildCardMatching)
-      .AddDstComponent(dlp::kCrostini)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kBlockLevel)
-      .AddRestriction(dlp::kScreenShareRestriction, dlp::kBlockLevel);
+      .AddDstComponent(data_controls::kCrostini)
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelBlock)
+      .AddRestriction(data_controls::kRestrictionScreenShare,
+                      data_controls::kLevelBlock);
 
   UpdatePolicyPref({rule1, rule2, rule3});
 
@@ -1080,7 +1130,8 @@ TEST_F(DlpRulesManagerImplTest, DataTransferDlpController) {
   // instantiated.
   dlp_test_util::DlpRule rule1(kRuleName1, "Report Clipboard", kRuleId1);
   rule1.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kClipboardRestriction, dlp::kReportLevel)
+      .AddRestriction(data_controls::kRestrictionClipboard,
+                      data_controls::kLevelReport)
       .AddDstUrl(kChatPattern);
 
   UpdatePolicyPref({rule1});
@@ -1095,7 +1146,8 @@ TEST_F(DlpRulesManagerImplTest, DataTransferDlpController) {
   // instantiated.
   dlp_test_util::DlpRule rule2(kRuleName2, "Warn Files", kRuleId2);
   rule2.AddSrcUrl(kExampleUrl)
-      .AddRestriction(dlp::kFilesRestriction, dlp::kWarnLevel)
+      .AddRestriction(data_controls::kRestrictionFiles,
+                      data_controls::kLevelWarn)
       .AddDstUrl(kChatPattern);
 
   UpdatePolicyPref({rule2});

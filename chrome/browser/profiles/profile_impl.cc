@@ -101,6 +101,7 @@
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/startup_data.h"
 #include "chrome/browser/storage/storage_notification_service_factory.h"
+#include "chrome/browser/tpcd/support/tpcd_support_service_factory.h"
 #include "chrome/browser/transition_manager/full_browser_transition_manager.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/webui/prefs_internals_source.h"
@@ -198,6 +199,7 @@
 #include "chrome/browser/signin/chrome_device_id_helper.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/standalone_browser/browser_support.h"
+#include "chromeos/ash/components/standalone_browser/migrator_util.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
 #include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user.h"
@@ -396,6 +398,9 @@ void ProfileImpl::RegisterProfilePrefs(
 #if BUILDFLAG(ENABLE_PRINTING)
   registry->RegisterBooleanPref(prefs::kPrintingEnabled, true);
 #endif  // BUILDFLAG(ENABLE_PRINTING)
+#if BUILDFLAG(ENABLE_OOP_PRINTING)
+  registry->RegisterBooleanPref(prefs::kOopPrintDriversAllowedByPolicy, true);
+#endif
   registry->RegisterBooleanPref(prefs::kPrintPreviewDisabled, false);
   registry->RegisterStringPref(
       prefs::kPrintPreviewDefaultDestinationSelectionRules, std::string());
@@ -670,7 +675,7 @@ void ProfileImpl::LoadPrefsForNormalStartup(bool async_prefs) {
       ash::ProfileHelper::IsPrimaryProfile(this)) {
     auto& map = profile_policy_connector_->policy_service()->GetPolicies(
         policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
-    ash::standalone_browser::BrowserSupport::Initialize();
+    ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(map);
     crosapi::browser_util::CacheLacrosAvailability(map);
     crosapi::browser_util::CacheLacrosDataBackwardMigrationMode(map);
     crosapi::browser_util::CacheLacrosSelection(map);
@@ -856,11 +861,9 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
   PrivacySandboxServiceFactory::GetForProfile(this);
 
 #if BUILDFLAG(IS_ANDROID)
-  if (password_manager::features::UsesUnifiedPasswordManagerUi()) {
-    // The password settings service needs to start listening to settings
-    // changes from Google Mobile Services, as early as possible.
-    PasswordManagerSettingsServiceFactory::GetForProfile(this);
-  }
+  // The password settings service needs to start listening to settings
+  // changes from Google Mobile Services, as early as possible.
+  PasswordManagerSettingsServiceFactory::GetForProfile(this);
 #endif
 
   // The announcement notification  service might not be available for some
@@ -871,7 +874,15 @@ void ProfileImpl::DoFinalInit(CreateMode create_mode) {
   }
 
   // Request an OriginTrialsControllerDelegate to ensure it is initialized.
+  // OriginTrialsControllerDelegate needs to be explicitly created here instead
+  // of using the common pattern for initializing with the profile (override
+  // OriginTrialsFactory::ServiceIsCreatedWithBrowserContext() to return true)
+  // as it depends on the default StoragePartition being initialized.
   GetOriginTrialsControllerDelegate();
+
+  // The TpcdSupportService must be created with the profile, but after the
+  // initialization of the OriginTrialsControllerDelegate, as it depends on it.
+  tpcd::support::TpcdSupportServiceFactory::GetForProfile(this);
 }
 
 base::FilePath ProfileImpl::last_selected_directory() {
@@ -1153,9 +1164,9 @@ void ProfileImpl::OnLocaleReady(CreateMode create_mode) {
     PrefService* local_state = g_browser_process->local_state();
     crosapi::browser_util::RecordDataVer(local_state, user_id_hash,
                                          version_info::GetVersion());
-    crosapi::browser_util::SetProfileMigrationCompletedForUser(
+    ash::standalone_browser::migrator_util::SetProfileMigrationCompletedForUser(
         local_state, user_id_hash,
-        crosapi::browser_util::MigrationMode::kSkipForNewUser);
+        ash::standalone_browser::migrator_util::MigrationMode::kSkipForNewUser);
   }
 #endif
 
@@ -1194,7 +1205,7 @@ void ProfileImpl::OnPrefsLoaded(CreateMode create_mode, bool success) {
     if (ash::ProfileHelper::IsPrimaryProfile(this)) {
       auto& map = profile_policy_connector_->policy_service()->GetPolicies(
           policy::PolicyNamespace(policy::POLICY_DOMAIN_CHROME, std::string()));
-      ash::standalone_browser::BrowserSupport::Initialize();
+      ash::standalone_browser::BrowserSupport::InitializeForPrimaryUser(map);
       crosapi::browser_util::CacheLacrosAvailability(map);
       crosapi::browser_util::CacheLacrosDataBackwardMigrationMode(map);
       crosapi::browser_util::CacheLacrosSelection(map);

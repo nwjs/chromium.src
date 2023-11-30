@@ -17,13 +17,16 @@
 #import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/mailto_handler/mailto_handler_service.h"
 #import "ios/chrome/browser/mailto_handler/mailto_handler_service_factory.h"
+#import "ios/chrome/browser/parcel_tracking/parcel_tracking_prefs.h"
 #import "ios/chrome/browser/parcel_tracking/parcel_tracking_util.h"
+#import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/public/commands/parcel_tracking_opt_in_commands.h"
 #import "ios/chrome/browser/text_selection/model/text_classifier_model_service.h"
 #import "ios/chrome/browser/text_selection/model/text_classifier_model_service_factory.h"
 #import "ios/public/provider/chrome/browser/context_menu/context_menu_api.h"
 #import "ios/web/common/annotations_utils.h"
+#import "ios/web/common/features.h"
 #import "ios/web/common/url_scheme_util.h"
 #import "ios/web/public/annotations/annotations_text_manager.h"
 #import "ios/web/public/browser_state.h"
@@ -63,6 +66,11 @@ void AnnotationsTabHelper::SetMiniMapCommands(
 void AnnotationsTabHelper::SetParcelTrackingOptInCommands(
     id<ParcelTrackingOptInCommands> parcel_tracking_handler) {
   parcel_tracking_handler_ = parcel_tracking_handler;
+}
+
+void AnnotationsTabHelper::SetUnitConversionCommands(
+    id<UnitConversionCommands> unit_conversion_handler) {
+  unit_conversion_handler_ = unit_conversion_handler;
 }
 
 #pragma mark - WebStateObserver methods.
@@ -112,7 +120,7 @@ void AnnotationsTabHelper::OnTextExtracted(web::WebState* web_state,
       FROM_HERE,
       {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
        base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN},
-      base::BindOnce(&ios::provider::ExtractDataElementsFromText,
+      base::BindOnce(&ios::provider::ExtractTextAnnotationFromText,
                      metadata.Clone(), text,
                      ios::provider::GetHandledIntentTypesForOneTap(web_state),
                      ukm::GetSourceIdForWebStateDocument(web_state),
@@ -139,11 +147,7 @@ void AnnotationsTabHelper::OnClick(web::WebState* web_state,
   if (match_cache_.find(data) == match_cache_.end()) {
     return;
   }
-  NSTextCheckingResult* match = web::DecodeNSTextCheckingResultData(
-      base::SysUTF8ToNSString(match_cache_.at(data)));
-  if (!match) {
-    return;
-  }
+  NSTextCheckingResult* match = match_cache_.at(data);
   auto* manager = web::AnnotationsTextManager::FromWebState(web_state_);
   if (manager) {
     manager->RemoveHighlight();
@@ -151,7 +155,8 @@ void AnnotationsTabHelper::OnClick(web::WebState* web_state,
 
   NSString* ns_text = base::SysUTF8ToNSString(text);
   const BOOL success = ios::provider::HandleIntentTypesForOneTap(
-      web_state, match, ns_text, base_view_controller_, mini_map_handler_);
+      web_state, match, ns_text, rect.origin, base_view_controller_,
+      mini_map_handler_, unit_conversion_handler_);
   DCHECK(success);
 }
 
@@ -159,7 +164,7 @@ void AnnotationsTabHelper::OnClick(web::WebState* web_state,
 
 void AnnotationsTabHelper::ApplyDeferredProcessing(
     int seq_id,
-    absl::optional<base::Value> deferred) {
+    absl::optional<std::vector<web::TextAnnotation>> deferred) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   web::ContentWorld content_world =
@@ -169,54 +174,73 @@ void AnnotationsTabHelper::ApplyDeferredProcessing(
   if (main_frame && deferred) {
     auto* manager = web::AnnotationsTextManager::FromWebState(web_state_);
     DCHECK(manager);
-    base::Value annotations(std::move(deferred.value()));
-    if (IsIOSParcelTrackingEnabled()) {
-      AnnotationsTabHelper::ProcessParcelTrackingNumbers(annotations.GetList());
+    std::vector<web::TextAnnotation> annotations(std::move(deferred.value()));
+    if ((IsIOSParcelTrackingEnabled() &&
+         !IsParcelTrackingDisabled(GetApplicationContext()->GetLocalState())) ||
+        base::FeatureList::IsEnabled(web::features::kEnableMeasurements)) {
+      AnnotationsTabHelper::ProcessAnnotations(annotations);
     }
-    BuildCache(annotations.GetList());
-    manager->DecorateAnnotations(web_state_, annotations, seq_id);
+    base::Value::List decorations_list;
+    BuildCacheAndDecorations(annotations, decorations_list);
+    base::Value decorations(std::move(decorations_list));
+    manager->DecorateAnnotations(web_state_, decorations, seq_id);
   }
 }
 
-void AnnotationsTabHelper::BuildCache(base::Value::List& annotations_list) {
-  for (size_t i = 0; i < annotations_list.size(); i++) {
-    base::Value::Dict& entity = annotations_list[i].GetDict();
-    const std::string* data = entity.FindString("data");
-    if (!data) {
-      continue;
-    }
+void AnnotationsTabHelper::BuildCacheAndDecorations(
+    std::vector<web::TextAnnotation>& annotations_list,
+    base::Value::List& decorations) {
+  for (web::TextAnnotation& data : annotations_list) {
     const std::string key = base::Uuid::GenerateRandomV4().AsLowercaseString();
-    match_cache_[key] = *data;
-    entity.Set("data", key);
+    match_cache_[key] = data.second;
+    data.first.Set("data", key);
+    decorations.Append(base::Value(std::move(data.first)));
   }
 }
 
-void AnnotationsTabHelper::ProcessParcelTrackingNumbers(
-    base::Value::List& annotations_list) {
+void AnnotationsTabHelper::ProcessAnnotations(
+    std::vector<web::TextAnnotation>& annotations_list) {
   NSMutableArray<CustomTextCheckingResult*>* unique_parcels =
       [[NSMutableArray alloc] init];
   NSMutableSet* existing_parcel_numbers = [NSMutableSet set];
-  for (size_t i = 0; i < annotations_list.size();) {
-    const base::Value::Dict& entity = annotations_list[i].GetDict();
-    NSTextCheckingResult* match = web::DecodeNSTextCheckingResultData(
-        base::SysUTF8ToNSString(entity.FindString("data")->c_str()));
-    if (!match || match.resultType != TCTextCheckingTypeParcelTracking) {
-      i++;
+  int detected_measurements = 0;
+  for (auto annotation = annotations_list.begin();
+       annotation != annotations_list.end();) {
+    NSTextCheckingResult* match = annotation->second;
+    if (!match || (match.resultType != TCTextCheckingTypeParcelTracking &&
+                   match.resultType != TCTextCheckingTypeMeasurement)) {
+      annotation++;
       continue;
     }
-    CustomTextCheckingResult* parcel =
-        base::apple::ObjCCast<CustomTextCheckingResult>(match);
-    // Avoid adding duplicates to `unique_parcels`.
-    if (![existing_parcel_numbers containsObject:[parcel carrierNumber]]) {
-      [existing_parcel_numbers addObject:[parcel carrierNumber]];
-      [unique_parcels addObject:parcel];
+    CustomTextCheckingResult* custom_match =
+        static_cast<CustomTextCheckingResult*>(match);
+
+    if (match.resultType == TCTextCheckingTypeParcelTracking) {
+      // Avoid adding duplicates to `unique_parcels`.
+      if (![existing_parcel_numbers
+              containsObject:[custom_match carrierNumber]]) {
+        [existing_parcel_numbers addObject:[custom_match carrierNumber]];
+        [unique_parcels addObject:custom_match];
+      }
+      // Remove the parcel from annotations_list to prevent decorating the
+      // tracking number.
+      annotation = annotations_list.erase(annotation);
+      continue;
+    } else if (match.resultType == TCTextCheckingTypeMeasurement) {
+      detected_measurements++;
     }
-    // Remove the parcel from annotations_list to prevent decorating the
-    // tracking number.
-    annotations_list.EraseValue(annotations_list[i]);
+    annotation++;
   }
+
+  if (base::FeatureList::IsEnabled(web::features::kEnableMeasurements)) {
+    base::UmaHistogramCounts100("IOS.UnitConversion.DetectedMeasurements",
+                                detected_measurements);
+  }
+
   // Show UI only if this is the currently active WebState.
   if ([unique_parcels count] > 0 && web_state_->IsVisible()) {
+    DCHECK(IsIOSParcelTrackingEnabled() &&
+           !IsParcelTrackingDisabled(GetApplicationContext()->GetLocalState()));
     // Call asynchronously to allow the rest of the annotations to be decorated
     // first.
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(

@@ -12,11 +12,7 @@
 #include <vector>
 
 #include "base/check.h"
-#include "base/functional/callback.h"
-#include "base/functional/callback_helpers.h"
-#include "base/run_loop.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/test/bind.h"
 #include "base/time/time.h"
 #include "components/attribution_reporting/aggregatable_dedup_key.h"
 #include "components/attribution_reporting/aggregatable_trigger_data.h"
@@ -28,13 +24,15 @@
 #include "components/attribution_reporting/source_type.mojom.h"
 #include "components/attribution_reporting/suitable_origin.h"
 #include "components/attribution_reporting/test_utils.h"
+#include "components/attribution_reporting/trigger_config.h"
 #include "components/attribution_reporting/trigger_registration.h"
-#include "content/browser/attribution_reporting/attribution_manager.h"
 #include "content/browser/attribution_reporting/attribution_observer.h"
 #include "content/browser/attribution_reporting/attribution_reporting.mojom.h"
 #include "content/browser/attribution_reporting/attribution_trigger.h"
 #include "content/browser/attribution_reporting/os_registration.h"
+#include "content/browser/attribution_reporting/privacy_math.h"
 #include "content/browser/attribution_reporting/rate_limit_result.h"
+#include "content/browser/attribution_reporting/stored_source.h"
 #include "content/public/browser/attribution_data_model.h"
 #include "net/base/net_errors.h"
 #include "net/base/schemeful_site.h"
@@ -55,10 +53,6 @@ using ::attribution_reporting::FilterPair;
 using ::attribution_reporting::SuitableOrigin;
 using ::attribution_reporting::mojom::SourceType;
 
-using ::testing::AllOf;
-using ::testing::Field;
-using ::testing::Property;
-
 const char kDefaultSourceOrigin[] = "https://impression.test/";
 const char kDefaultDestinationOrigin[] = "https://sub.conversion.test/";
 const char kDefaultReportOrigin[] = "https://report.test/";
@@ -67,15 +61,6 @@ const char kDefaultReportOrigin[] = "https://report.test/";
 
 base::Uuid DefaultExternalReportID() {
   return base::Uuid::ParseLowercase("21abd97f-73e8-4b88-9389-a9fee6abda5e");
-}
-
-absl::optional<base::Time> GetReportWindowTimeForTesting(
-    absl::optional<base::TimeDelta> declared_window,
-    base::Time source_time) {
-  if (!declared_window) {
-    return absl::nullopt;
-  }
-  return source_time + *declared_window;
 }
 
 // Builds an impression with default values. This is done as a builder because
@@ -224,8 +209,15 @@ SourceBuilder& SourceBuilder::SetMaxEventLevelReports(
   return *this;
 }
 
-CommonSourceInfo SourceBuilder::BuildCommonInfo() const {
-  return CommonSourceInfo(source_origin_, reporting_origin_, source_type_);
+SourceBuilder& SourceBuilder::SetTriggerConfig(
+    attribution_reporting::TriggerConfig config) {
+  registration_.trigger_config = std::move(config);
+  return *this;
+}
+
+SourceBuilder& SourceBuilder::SetDebugCookieSet(bool debug_cookie_set) {
+  debug_cookie_set_ = debug_cookie_set;
+  return *this;
 }
 
 StorableSource SourceBuilder::Build() const {
@@ -235,17 +227,16 @@ StorableSource SourceBuilder::Build() const {
 
 StoredSource SourceBuilder::BuildStored() const {
   base::Time expiry_time = source_time_ + registration_.expiry;
-  StoredSource source(
-      BuildCommonInfo(), registration_.source_event_id,
-      registration_.destination_set, source_time_, expiry_time,
-      registration_.event_report_windows.value_or(
-          *attribution_reporting::EventReportWindows::CreateWindows(
-              base::Milliseconds(0), {registration_.expiry})),
+  StoredSource source = *StoredSource::Create(
+      CommonSourceInfo(source_origin_, reporting_origin_, source_type_),
+      registration_.source_event_id, registration_.destination_set,
+      source_time_, expiry_time, registration_.event_report_windows,
       source_time_ + registration_.aggregatable_report_window,
       registration_.max_event_level_reports, registration_.priority,
       registration_.filter_data, registration_.debug_key,
       registration_.aggregation_keys, attribution_logic_, active_state_,
-      source_id_, aggregatable_budget_consumed_, randomized_response_rate_);
+      source_id_, aggregatable_budget_consumed_, randomized_response_rate_,
+      registration_.trigger_config, debug_cookie_set_);
   source.SetDedupKeys(dedup_keys_);
   source.SetAggregatableDedupKeys(aggregatable_dedup_keys_);
   return source;
@@ -521,18 +512,16 @@ bool operator==(const AttributionInfo& a, const AttributionInfo& b) {
   return tie(a) == tie(b);
 }
 
-bool operator==(const AttributionStorageDelegate::FakeReport& a,
-                const AttributionStorageDelegate::FakeReport& b) {
-  const auto tie = [](const AttributionStorageDelegate::FakeReport& r) {
-    return std::make_tuple(r.trigger_data, r.trigger_time, r.report_time);
+bool operator==(const FakeEventLevelReport& a, const FakeEventLevelReport& b) {
+  const auto tie = [](const FakeEventLevelReport& r) {
+    return std::make_tuple(r.trigger_data, r.window_index);
   };
   return tie(a) == tie(b);
 }
 
-bool operator<(const AttributionStorageDelegate::FakeReport& a,
-               const AttributionStorageDelegate::FakeReport& b) {
-  const auto tie = [](const AttributionStorageDelegate::FakeReport& r) {
-    return std::make_tuple(r.trigger_data, r.trigger_time, r.report_time);
+bool operator<(const FakeEventLevelReport& a, const FakeEventLevelReport& b) {
+  const auto tie = [](const FakeEventLevelReport& r) {
+    return std::make_tuple(r.trigger_data, r.window_index);
   };
   return tie(a) < tie(b);
 }
@@ -557,7 +546,8 @@ bool operator==(const StoredSource& a, const StoredSource& b) {
         source.filter_data(), source.debug_key(), source.aggregation_keys(),
         source.attribution_logic(), source.active_state(), source.dedup_keys(),
         source.aggregatable_budget_consumed(), source.aggregatable_dedup_keys(),
-        source.randomized_response_rate());
+        source.randomized_response_rate(), source.trigger_config(),
+        source.debug_cookie_set());
   };
   return tie(a) == tie(b);
 }
@@ -629,84 +619,6 @@ bool operator==(const SendResult& a, const SendResult& b) {
   return tie(a) == tie(b);
 }
 
-std::ostream& operator<<(std::ostream& out,
-                         AttributionTrigger::EventLevelResult status) {
-  switch (status) {
-    case AttributionTrigger::EventLevelResult::kSuccess:
-      return out << "success";
-    case AttributionTrigger::EventLevelResult::kSuccessDroppedLowerPriority:
-      return out << "successDroppedLowerPriority";
-    case AttributionTrigger::EventLevelResult::kInternalError:
-      return out << "internalError";
-    case AttributionTrigger::EventLevelResult::
-        kNoCapacityForConversionDestination:
-      return out << "insufficientDestinationCapacity";
-    case AttributionTrigger::EventLevelResult::kNoMatchingImpressions:
-      return out << "noMatchingSources";
-    case AttributionTrigger::EventLevelResult::kDeduplicated:
-      return out << "deduplicated";
-    case AttributionTrigger::EventLevelResult::kExcessiveAttributions:
-      return out << "excessiveAttributions";
-    case AttributionTrigger::EventLevelResult::kPriorityTooLow:
-      return out << "priorityTooLow";
-    case AttributionTrigger::EventLevelResult::kNeverAttributedSource:
-      return out << "neverAttributedSource";
-    case AttributionTrigger::EventLevelResult::kExcessiveReportingOrigins:
-      return out << "excessiveReportingOrigins";
-    case AttributionTrigger::EventLevelResult::kNoMatchingSourceFilterData:
-      return out << "noMatchingSourceFilterData";
-    case AttributionTrigger::EventLevelResult::kProhibitedByBrowserPolicy:
-      return out << "prohibitedByBrowserPolicy";
-    case AttributionTrigger::EventLevelResult::kNoMatchingConfigurations:
-      return out << "noMatchingConfigurations";
-    case AttributionTrigger::EventLevelResult::kExcessiveReports:
-      return out << "excessiveReports";
-    case AttributionTrigger::EventLevelResult::kFalselyAttributedSource:
-      return out << "falselyAttributedSource";
-    case AttributionTrigger::EventLevelResult::kReportWindowNotStarted:
-      return out << "reportWindowNotStarted";
-    case AttributionTrigger::EventLevelResult::kReportWindowPassed:
-      return out << "reportWindowPassed";
-    case AttributionTrigger::EventLevelResult::kNotRegistered:
-      return out << "notRegistered";
-  }
-}
-
-std::ostream& operator<<(std::ostream& out,
-                         AttributionTrigger::AggregatableResult status) {
-  switch (status) {
-    case AttributionTrigger::AggregatableResult::kSuccess:
-      return out << "success";
-    case AttributionTrigger::AggregatableResult::kInternalError:
-      return out << "internalError";
-    case AttributionTrigger::AggregatableResult::
-        kNoCapacityForConversionDestination:
-      return out << "insufficientDestinationCapacity";
-    case AttributionTrigger::AggregatableResult::kNoMatchingImpressions:
-      return out << "noMatchingSources";
-    case AttributionTrigger::AggregatableResult::kExcessiveAttributions:
-      return out << "excessiveAttributions";
-    case AttributionTrigger::AggregatableResult::kExcessiveReportingOrigins:
-      return out << "excessiveReportingOrigins";
-    case AttributionTrigger::AggregatableResult::kNoHistograms:
-      return out << "noHistograms";
-    case AttributionTrigger::AggregatableResult::kInsufficientBudget:
-      return out << "insufficientBudget";
-    case AttributionTrigger::AggregatableResult::kNoMatchingSourceFilterData:
-      return out << "noMatchingSourceFilterData";
-    case AttributionTrigger::AggregatableResult::kNotRegistered:
-      return out << "notRegistered";
-    case AttributionTrigger::AggregatableResult::kProhibitedByBrowserPolicy:
-      return out << "prohibitedByBrowserPolicy";
-    case AttributionTrigger::AggregatableResult::kDeduplicated:
-      return out << "deduplicated";
-    case AttributionTrigger::AggregatableResult::kReportWindowPassed:
-      return out << "reportWindowPassed";
-    case AttributionTrigger::AggregatableResult::kExcessiveReports:
-      return out << "excessiveReports";
-  }
-}
-
 std::ostream& operator<<(std::ostream& out, RateLimitResult result) {
   switch (result) {
     case RateLimitResult::kAllowed:
@@ -773,11 +685,9 @@ std::ostream& operator<<(std::ostream& out,
              << ",context_origin=" << attribution_info.context_origin << "}";
 }
 
-std::ostream& operator<<(std::ostream& out,
-                         const AttributionStorageDelegate::FakeReport& r) {
+std::ostream& operator<<(std::ostream& out, const FakeEventLevelReport& r) {
   return out << "{trigger_data=" << r.trigger_data
-             << ",trigger_time=" << r.trigger_time
-             << ",report_time=" << r.report_time << "}";
+             << ",window_index=" << r.window_index << "}";
 }
 
 std::ostream& operator<<(std::ostream& out, const StorableSource& source) {
@@ -808,7 +718,7 @@ std::ostream& operator<<(std::ostream& out, const StoredSource& source) {
       << ",aggregatable_budget_consumed="
       << source.aggregatable_budget_consumed()
       << ",randomized_response_rate=" << source.randomized_response_rate()
-      << ",dedup_keys=[";
+      << ",trigger_config=" << source.trigger_config() << ",dedup_keys=[";
 
   const char* separator = "";
   for (int64_t dedup_key : source.dedup_keys()) {
@@ -928,179 +838,6 @@ std::ostream& operator<<(std::ostream& out, const SendResult& info) {
 std::ostream& operator<<(std::ostream& out,
                          const AttributionDataModel::DataKey& key) {
   return out << "{reporting_origin=" << key.reporting_origin() << "}";
-}
-
-SourceRegistrationMatcherConfig::SourceRegistrationMatcherConfig(
-    ::testing::Matcher<uint64_t> source_event_id,
-    ::testing::Matcher<const attribution_reporting::DestinationSet&>
-        destination_set,
-    ::testing::Matcher<uint64_t> priority,
-    ::testing::Matcher<absl::optional<uint64_t>> debug_key,
-    ::testing::Matcher<const attribution_reporting::AggregationKeys&>
-        aggregation_keys,
-    ::testing::Matcher<bool> debug_reporting)
-    : source_event_id(std::move(source_event_id)),
-      destination_set(std::move(destination_set)),
-      priority(std::move(priority)),
-      debug_key(std::move(debug_key)),
-      aggregation_keys(std::move(aggregation_keys)),
-      debug_reporting(std::move(debug_reporting)) {}
-
-SourceRegistrationMatcherConfig::~SourceRegistrationMatcherConfig() = default;
-
-::testing::Matcher<const attribution_reporting::SourceRegistration&>
-SourceRegistrationMatches(const SourceRegistrationMatcherConfig& cfg) {
-  return AllOf(
-      Field("source_event_id",
-            &attribution_reporting::SourceRegistration::source_event_id,
-            cfg.source_event_id),
-      Field("destination_set",
-            &attribution_reporting::SourceRegistration::destination_set,
-            cfg.destination_set),
-      Field("priority", &attribution_reporting::SourceRegistration::priority,
-            cfg.priority),
-      Field("debug_key", &attribution_reporting::SourceRegistration::debug_key,
-            cfg.debug_key),
-      Field("aggregation_keys",
-            &attribution_reporting::SourceRegistration::aggregation_keys,
-            cfg.aggregation_keys),
-      Field("debug_reporting",
-            &attribution_reporting::SourceRegistration::debug_reporting,
-            cfg.debug_reporting));
-}
-
-EventTriggerDataMatcherConfig::EventTriggerDataMatcherConfig(
-    ::testing::Matcher<uint64_t> data,
-    ::testing::Matcher<int64_t> priority,
-    ::testing::Matcher<absl::optional<uint64_t>> dedup_key,
-    ::testing::Matcher<const FilterPair&> filters)
-    : data(std::move(data)),
-      priority(std::move(priority)),
-      dedup_key(std::move(dedup_key)),
-      filters(std::move(filters)) {}
-
-EventTriggerDataMatcherConfig::~EventTriggerDataMatcherConfig() = default;
-
-::testing::Matcher<const attribution_reporting::EventTriggerData&>
-EventTriggerDataMatches(const EventTriggerDataMatcherConfig& cfg) {
-  return ::testing::AllOf(
-      Field("data", &attribution_reporting::EventTriggerData::data, cfg.data),
-      Field("priority", &attribution_reporting::EventTriggerData::priority,
-            cfg.priority),
-      Field("dedup_key", &attribution_reporting::EventTriggerData::dedup_key,
-            cfg.dedup_key),
-      Field("filters", &attribution_reporting::EventTriggerData::filters,
-            cfg.filters));
-}
-
-TriggerRegistrationMatcherConfig::TriggerRegistrationMatcherConfig(
-    ::testing::Matcher<const FilterPair&> filters,
-    ::testing::Matcher<absl::optional<uint64_t>> debug_key,
-    ::testing::Matcher<
-        const std::vector<attribution_reporting::EventTriggerData>&>
-        event_triggers,
-    ::testing::Matcher<
-        const std::vector<attribution_reporting::AggregatableDedupKey>&>
-        aggregatable_dedup_keys,
-    ::testing::Matcher<bool> debug_reporting,
-    ::testing::Matcher<
-        const std::vector<attribution_reporting::AggregatableTriggerData>&>
-        aggregatable_trigger_data,
-    ::testing::Matcher<const attribution_reporting::AggregatableValues&>
-        aggregatable_values,
-    ::testing::Matcher<const absl::optional<SuitableOrigin>&>
-        aggregation_coordinator_origin,
-    ::testing::Matcher<
-        attribution_reporting::mojom::SourceRegistrationTimeConfig>
-        source_registration_time_config)
-    : filters(std::move(filters)),
-      debug_key(std::move(debug_key)),
-      event_triggers(std::move(event_triggers)),
-      aggregatable_dedup_keys(std::move(aggregatable_dedup_keys)),
-      debug_reporting(std::move(debug_reporting)),
-      aggregatable_trigger_data(std::move(aggregatable_trigger_data)),
-      aggregatable_values(std::move(aggregatable_values)),
-      aggregation_coordinator_origin(std::move(aggregation_coordinator_origin)),
-      source_registration_time_config(
-          std::move(source_registration_time_config)) {}
-
-TriggerRegistrationMatcherConfig::~TriggerRegistrationMatcherConfig() = default;
-
-::testing::Matcher<const attribution_reporting::TriggerRegistration&>
-TriggerRegistrationMatches(const TriggerRegistrationMatcherConfig& cfg) {
-  return AllOf(
-      Field("filters", &attribution_reporting::TriggerRegistration::filters,
-            cfg.filters),
-      Field("debug_key", &attribution_reporting::TriggerRegistration::debug_key,
-            cfg.debug_key),
-      Field("event_triggers",
-            &attribution_reporting::TriggerRegistration::event_triggers,
-            cfg.event_triggers),
-      Field(
-          "aggregatable_dedup_keys",
-          &attribution_reporting::TriggerRegistration::aggregatable_dedup_keys,
-          cfg.aggregatable_dedup_keys),
-      Field("debug_reporting",
-            &attribution_reporting::TriggerRegistration::debug_reporting,
-            cfg.debug_reporting),
-      Field("aggregatable_trigger_data",
-            &attribution_reporting::TriggerRegistration::
-                aggregatable_trigger_data,
-            cfg.aggregatable_trigger_data),
-      Field("aggregatable_values",
-            &attribution_reporting::TriggerRegistration::aggregatable_values,
-            cfg.aggregatable_values),
-      Field("aggregation_coordinator_origin",
-            &attribution_reporting::TriggerRegistration::
-                aggregation_coordinator_origin,
-            cfg.aggregation_coordinator_origin),
-      Field("source_registration_time_config",
-            &attribution_reporting::TriggerRegistration::
-                source_registration_time_config,
-            cfg.source_registration_time_config));
-}
-
-AttributionTriggerMatcherConfig::AttributionTriggerMatcherConfig(
-    ::testing::Matcher<const SuitableOrigin&> reporting_origin,
-    ::testing::Matcher<const attribution_reporting::TriggerRegistration&>
-        registration,
-    ::testing::Matcher<const SuitableOrigin&> destination_origin,
-    ::testing::Matcher<bool> is_within_fenced_frame)
-    : reporting_origin(std::move(reporting_origin)),
-      registration(std::move(registration)),
-      destination_origin(std::move(destination_origin)),
-      is_within_fenced_frame(std::move(is_within_fenced_frame)) {}
-
-AttributionTriggerMatcherConfig::~AttributionTriggerMatcherConfig() = default;
-
-::testing::Matcher<AttributionTrigger> AttributionTriggerMatches(
-    const AttributionTriggerMatcherConfig& cfg) {
-  return AllOf(
-      Property("reporting_origin", &AttributionTrigger::reporting_origin,
-               cfg.reporting_origin),
-      Property("registration", &AttributionTrigger::registration,
-               cfg.registration),
-      Property("destination_origin", &AttributionTrigger::destination_origin,
-               cfg.destination_origin),
-      Property("is_within_fenced_frame",
-               &AttributionTrigger::is_within_fenced_frame,
-               cfg.is_within_fenced_frame),
-      Property("verifications", &AttributionTrigger::verifications,
-               cfg.verifications));
-}
-
-std::vector<AttributionReport> GetAttributionReportsForTesting(
-    AttributionManager* manager) {
-  base::RunLoop run_loop;
-  std::vector<AttributionReport> attribution_reports;
-  manager->GetPendingReportsForInternalUse(
-      /*limit=*/-1,
-      base::BindLambdaForTesting([&](std::vector<AttributionReport> reports) {
-        attribution_reports = std::move(reports);
-        run_loop.Quit();
-      }));
-  run_loop.Run();
-  return attribution_reports;
 }
 
 TestAggregatableSourceProvider::TestAggregatableSourceProvider(size_t size) {

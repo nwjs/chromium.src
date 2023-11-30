@@ -13,9 +13,12 @@
 #include "base/time/clock.h"
 #include "base/time/default_clock.h"
 #include "base/time/time.h"
+#include "chrome/browser/content_settings/cookie_settings_factory.h"
 #include "chrome/browser/dips/dips_bounce_detector.h"
 #include "chrome/browser/dips/dips_service.h"
 #include "chrome/browser/dips/dips_utils.h"
+#include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/tpcd/experiment/tpcd_experiment_features.h"
 #include "chrome/browser/tpcd/heuristics/opener_heuristic_metrics.h"
 #include "chrome/browser/tpcd/heuristics/opener_heuristic_utils.h"
 #include "content/public/browser/navigation_handle.h"
@@ -27,6 +30,7 @@
 using content::NavigationHandle;
 using content::RenderFrameHost;
 using content::WebContents;
+using tpcd::experiment::EnableForIframeTypes;
 
 namespace {
 
@@ -94,18 +98,14 @@ void OpenerHeuristicTabHelper::DidOpenRequestedURL(
     ui::PageTransition transition,
     bool started_from_context_menu,
     bool renderer_initiated) {
-  if (!source_render_frame_host->IsInPrimaryMainFrame()) {
-    return;
-  }
-
-  if (source_render_frame_host != web_contents()->GetPrimaryMainFrame()) {
+  if (source_render_frame_host->GetMainFrame() !=
+      web_contents()->GetPrimaryMainFrame()) {
     // Not sure exactly when this happens, but it seems to involve devtools.
     // Cf. crbug.com/1448789
     return;
   }
 
-  if (disposition != WindowOpenDisposition::NEW_POPUP) {
-    // Ignore if not a popup.
+  if (!PassesIframeInitiatorCheck(source_render_frame_host)) {
     return;
   }
 
@@ -125,6 +125,33 @@ void OpenerHeuristicTabHelper::DidOpenRequestedURL(
       ->InitPopup(url, weak_factory_.GetWeakPtr());
 }
 
+bool OpenerHeuristicTabHelper::PassesIframeInitiatorCheck(
+    content::RenderFrameHost* source_render_frame_host) {
+  if (source_render_frame_host->IsInPrimaryMainFrame()) {
+    return true;
+  }
+
+  switch (tpcd::experiment::kTpcdPopupHeuristicEnableForIframeInitiator.Get()) {
+    case EnableForIframeTypes::kNone:
+      return false;
+    case EnableForIframeTypes::kAll:
+      return true;
+    case EnableForIframeTypes::kFirstParty: {
+      // Check that the frame tree consists of only first-party iframes.
+      std::string main_frame_site = GetSiteForDIPS(
+          source_render_frame_host->GetMainFrame()->GetLastCommittedURL());
+      RenderFrameHost* rfh_itr = source_render_frame_host;
+      while (rfh_itr->GetParent() != nullptr) {
+        if (GetSiteForDIPS(rfh_itr->GetLastCommittedURL()) != main_frame_site) {
+          return false;
+        }
+        rfh_itr = rfh_itr->GetParent();
+      }
+      return true;
+    }
+  }
+}
+
 WEB_CONTENTS_USER_DATA_KEY_IMPL(OpenerHeuristicTabHelper);
 
 OpenerHeuristicTabHelper::PopupObserver::PopupObserver(
@@ -138,9 +165,10 @@ OpenerHeuristicTabHelper::PopupObserver::PopupObserver(
       opener_page_id_(opener->page_id()),
       opener_source_id_(
           opener->web_contents()->GetPrimaryMainFrame()->GetPageUkmSourceId()),
-      opener_url_(opener->web_contents()
-                      ->GetPrimaryMainFrame()
-                      ->GetLastCommittedURL()) {}
+      opener_url_(
+          opener->web_contents()->GetPrimaryMainFrame()->GetLastCommittedURL()),
+      cookie_settings_(CookieSettingsFactory::GetForProfile(
+          Profile::FromBrowserContext(web_contents->GetBrowserContext()))) {}
 
 OpenerHeuristicTabHelper::PopupObserver::~PopupObserver() = default;
 
@@ -163,6 +191,9 @@ void OpenerHeuristicTabHelper::PopupObserver::EmitPastInteractionIfReady() {
     // Not enough information to emit event yet.
     return;
   }
+
+  MaybeCreateOpenerHeuristicGrant(
+      tpcd::experiment::kTpcdWritePopupPastInteractionHeuristicsGrants.Get());
 
   auto has_iframe = GetOpenerHasSameSiteIframe(initial_url_);
   ukm::builders::OpenerHeuristic_PopupPastInteraction(
@@ -188,23 +219,28 @@ void OpenerHeuristicTabHelper::PopupObserver::DidFinishNavigation(
 
   url_index_ += navigation_handle->GetRedirectChain().size();
 
-  if (initial_source_id_.has_value()) {
-    // Only get the source id and time for the first commit. Ignore the rest.
-    return;
+  // This is only called on the first committed navigation in the new popup.
+  // Only get the source id, time, and ad-tagged status for the first commit.
+  // Ignore the rest.
+  if (!initial_source_id_.has_value()) {
+    commit_time_ = GetClock()->Now();
+
+    if (navigation_handle->GetRedirectChain().size() > 1) {
+      // Get a source id for the URL the popup was originally opened with,
+      // even though the user was redirected elsewhere.
+      initial_source_id_ = GetInitialRedirectSourceId(navigation_handle);
+    } else {
+      // No redirect happened, get the source id for the committed page.
+      initial_source_id_ = navigation_handle->GetNextPageUkmSourceId();
+    }
+
+    is_last_navigation_ad_tagged_ =
+        navigation_handle->GetNavigationInitiatorActivationAndAdStatus() ==
+        blink::mojom::NavigationInitiatorActivationAndAdStatus::
+            kStartedWithTransientActivationFromAd;
+
+    EmitPastInteractionIfReady();
   }
-
-  commit_time_ = GetClock()->Now();
-
-  if (navigation_handle->GetRedirectChain().size() > 1) {
-    // Get a source id for the URL the popup was originally opened with,
-    // even though the user was redirected elsewhere.
-    initial_source_id_ = GetInitialRedirectSourceId(navigation_handle);
-  } else {
-    // No redirect happened, get the source id for the committed page.
-    initial_source_id_ = navigation_handle->GetNextPageUkmSourceId();
-  }
-
-  EmitPastInteractionIfReady();
 }
 
 void OpenerHeuristicTabHelper::PopupObserver::FrameReceivedUserActivation(
@@ -223,6 +259,10 @@ void OpenerHeuristicTabHelper::PopupObserver::FrameReceivedUserActivation(
     // popup loads its initial URL?
     return;
   }
+
+  MaybeCreateOpenerHeuristicGrant(
+      tpcd::experiment::kTpcdWritePopupCurrentInteractionHeuristicsGrants
+          .Get());
 
   auto time_since_committed = GetClock()->Now() - *commit_time_;
   auto has_iframe =
@@ -316,6 +356,7 @@ void OpenerHeuristicTabHelper::PopupObserver::EmitTopLevel(
       .SetHasSameSiteIframe(static_cast<int64_t>(has_iframe))
       .SetPopupProvider(static_cast<int64_t>(GetPopupProvider(initial_url_)))
       .SetPopupId(popup_id_)
+      .SetIsAdTaggedPopupClick(is_last_navigation_ad_tagged_)
       .Record(ukm::UkmRecorder::Get());
 
   toplevel_reported_ = true;
@@ -333,6 +374,21 @@ void OpenerHeuristicTabHelper::PopupObserver::EmitTopLevel(
                 access_id,
                 /*popup_time=*/GetClock()->Now(), is_current_interaction)
       .Then(base::BindOnce([](bool succeeded) { DCHECK(succeeded); }));
+}
+
+void OpenerHeuristicTabHelper::PopupObserver::MaybeCreateOpenerHeuristicGrant(
+    base::TimeDelta grant_duration) {
+  if (!grant_duration.is_positive()) {
+    return;
+  }
+
+  if (is_last_navigation_ad_tagged_ &&
+      tpcd::experiment::kTpcdPopupHeuristicDisableForAdTaggedPopups.Get()) {
+    return;
+  }
+
+  cookie_settings_->SetTemporaryCookieGrantForHeuristic(
+      initial_url_, opener_url_, grant_duration);
 }
 
 OptionalBool

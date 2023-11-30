@@ -46,7 +46,7 @@ namespace web_app {
 ExternalAppResolutionCommand::ExternalAppResolutionCommand(
     Profile& profile,
     const ExternalInstallOptions& install_options,
-    absl::optional<AppId> installed_placeholder_app_id,
+    absl::optional<webapps::AppId> installed_placeholder_app_id,
     InstalledCallback installed_callback)
     : WebAppCommandTemplate<SharedWebContentsLock>(
           "ExternalAppResolutionCommand"),
@@ -230,7 +230,6 @@ void ExternalAppResolutionCommand::OnGetWebAppInstallInfoInCommand(
   }
 
   // Write values from install_params_ to web_app_info.
-  bypass_service_worker_check_ = install_params_->bypass_service_worker_check;
   // Set start_url to fallback_start_url as web_contents may have been
   // redirected. Will be overridden by manifest values if present.
   CHECK(install_params_->fallback_start_url.is_valid());
@@ -245,7 +244,7 @@ void ExternalAppResolutionCommand::OnGetWebAppInstallInfoInCommand(
   ApplyParamsToWebAppInstallInfo(*install_params_, *web_app_info_);
 
   data_retriever_->CheckInstallabilityAndRetrieveManifest(
-      web_contents_.get(), bypass_service_worker_check_,
+      web_contents_.get(),
       base::BindOnce(
           &ExternalAppResolutionCommand::OnDidPerformInstallableCheck,
           weak_ptr_factory_.GetWeakPtr()));
@@ -397,7 +396,7 @@ void ExternalAppResolutionCommand::OnLockUpgradedFinalizeInstall(
 }
 
 void ExternalAppResolutionCommand::OnInstallFinalized(
-    const AppId& app_id,
+    const webapps::AppId& app_id,
     webapps::InstallResultCode code,
     OsHooksErrors os_hooks_errors) {
   CHECK(web_contents_ && !web_contents_->IsBeingDestroyed());
@@ -437,7 +436,7 @@ void ExternalAppResolutionCommand::OnInstallFinalized(
 
 void ExternalAppResolutionCommand::
     OnUninstallAndReplaceCompletedUninstallPlaceholder(
-        AppId app_id,
+        webapps::AppId app_id,
         webapps::InstallResultCode code,
         bool uninstall_triggered) {
   CHECK(apps_lock_);
@@ -495,7 +494,7 @@ void ExternalAppResolutionCommand::OnPlaceHolderAppLockAcquired(
 
 void ExternalAppResolutionCommand::OnPlaceHolderInstalled(
     webapps::InstallResultCode code,
-    AppId app_id) {
+    webapps::AppId app_id) {
   uninstall_and_replace_job_.emplace(
       &profile_.get(), *apps_lock_, install_options_.uninstall_and_replace,
       app_id,
@@ -566,7 +565,7 @@ void ExternalAppResolutionCommand::OnInstallFromInfoAppLockAcquired(
 }
 
 void ExternalAppResolutionCommand::OnInstallFromInfoCompleted(
-    const AppId& app_id,
+    const webapps::AppId& app_id,
     webapps::InstallResultCode code,
     OsHooksErrors os_hook_errors) {
   if (!webapps::IsSuccess(code)) {
@@ -586,7 +585,7 @@ void ExternalAppResolutionCommand::OnInstallFromInfoCompleted(
 
 void ExternalAppResolutionCommand::OnUninstallAndReplaceCompleted(
     bool is_offline_install,
-    AppId app_id,
+    webapps::AppId app_id,
     webapps::InstallResultCode code,
     bool uninstall_triggered) {
   OnInstallationJobsCompleted(

@@ -39,7 +39,7 @@
 #include "third_party/blink/renderer/core/layout/generated_children.h"
 #include "third_party/blink/renderer/core/layout/layout_object.h"
 #include "third_party/blink/renderer/core/layout/layout_quote.h"
-#include "third_party/blink/renderer/core/layout/list_marker.h"
+#include "third_party/blink/renderer/core/layout/list/list_marker.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/core/style/content_data.h"
@@ -49,6 +49,8 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 
 namespace blink {
+
+using mojom::blink::FormControlType;
 
 bool PseudoElementLayoutObjectIsNeeded(const DisplayStyle& pseudo_style,
                                        const Element* originating_element);
@@ -183,11 +185,11 @@ PseudoElement::PseudoElement(Element* parent,
     UseCounter::Count(parent->GetDocument(),
                       WebFeature::kPseudoBeforeAfterForInputElement);
     if (HTMLInputElement* input = DynamicTo<HTMLInputElement>(parent)) {
-      if (input->type() == input_type_names::kDate ||
-          input->type() == input_type_names::kDatetimeLocal ||
-          input->type() == input_type_names::kMonth ||
-          input->type() == input_type_names::kWeek ||
-          input->type() == input_type_names::kTime) {
+      if (input->FormControlType() == FormControlType::kInputDate ||
+          input->FormControlType() == FormControlType::kInputDatetimeLocal ||
+          input->FormControlType() == FormControlType::kInputMonth ||
+          input->FormControlType() == FormControlType::kInputWeek ||
+          input->FormControlType() == FormControlType::kInputTime) {
         UseCounter::Count(
             parent->GetDocument(),
             WebFeature::kPseudoBeforeAfterForDateTimeInputElement);

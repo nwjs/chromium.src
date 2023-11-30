@@ -78,7 +78,9 @@ class PlaybackCommandForwardingRendererTest : public testing::Test {
             remote_client_.InitWithNewEndpointAndPassReceiver());
   }
 
-  ~PlaybackCommandForwardingRendererTest() override = default;
+  ~PlaybackCommandForwardingRendererTest() override {
+    mock_renderer_ = nullptr;
+  }
 
  protected:
   void CallInitialize() {
@@ -110,7 +112,7 @@ class PlaybackCommandForwardingRendererTest : public testing::Test {
   mojo::Remote<media::mojom::Renderer> remote_;
   mojo::PendingAssociatedRemote<media::mojom::RendererClient> remote_client_;
 
-  raw_ptr<media::MockRenderer, ExperimentalRenderer> mock_renderer_;
+  raw_ptr<media::MockRenderer, DanglingUntriaged> mock_renderer_;
   testing::StrictMock<media::MockMediaResource> mock_media_resource_;
   testing::StrictMock<media::MockRendererClient> mock_renderer_client_;
   std::unique_ptr<PlaybackCommandForwardingRenderer> renderer_;

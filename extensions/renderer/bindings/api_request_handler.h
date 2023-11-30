@@ -113,7 +113,7 @@ class APIRequestHandler {
                        const std::string& error,
                        mojom::ExtraResponseDataPtr extra_data = nullptr);
   void CompleteRequest(int request_id,
-                       const std::vector<v8::Local<v8::Value>>& response,
+                       const v8::LocalVector<v8::Value>& response,
                        const std::string& error);
 
   // Invalidates any requests that are associated with |context|.
@@ -199,7 +199,7 @@ class APIRequestHandler {
   std::unique_ptr<APIResponseValidator> response_validator_;
 
   // Outlives |this|.
-  const raw_ptr<const InteractionProvider, ExperimentalRenderer>
+  const raw_ptr<const InteractionProvider, DanglingUntriaged>
       interaction_provider_;
 };
 

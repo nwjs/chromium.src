@@ -169,9 +169,7 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuad(
     return CandidateStatus::kFailBlending;
   }
 
-  if (!sqs->mask_filter_info.IsEmpty() &&
-      (!context_.supports_mask_filter ||
-       sqs->mask_filter_info.HasGradientMask())) {
+  if (sqs->mask_filter_info.HasGradientMask()) {
     return CandidateStatus::kFailMaskFilterNotSupported;
   }
 
@@ -218,6 +216,9 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuad(
   // FromDrawQuadResource() that covers all of delegated compositing.
   if (context_.disable_wire_size_optimization ||
       ShouldApplyRoundedCorner(candidate, sqs)) {
+    if (!context_.supports_mask_filter) {
+      return CandidateStatus::kFailMaskFilterNotSupported;
+    }
     candidate.rounded_corners = sqs->mask_filter_info.rounded_corner_bounds();
   }
 
@@ -368,8 +369,10 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuadResource(
         resource_provider_->GetOverlayColorSpace(resource_id);
     candidate.hdr_metadata = resource_provider_->GetHDRMetadata(resource_id);
 
-    if (!base::Contains(kOverlayFormats, candidate.format))
+    if (!context_.is_delegated_context &&
+        !base::Contains(kOverlayFormats, candidate.format)) {
       return CandidateStatus::kFailBufferFormat;
+    }
   }
 
   SetDisplayRect(*quad, candidate);
@@ -380,6 +383,14 @@ OverlayCandidate::CandidateStatus OverlayCandidateFactory::FromDrawQuadResource(
           ApplyTransform(sqs->quad_to_target_transform, y_flipped, candidate);
       status != CandidateStatus::kSuccess) {
     return status;
+  }
+
+  // TODO(b/1471182): Render passes with transforms are complicated because
+  // clipping combined with filters that expand their bounds mean we don't know
+  // their exact size yet. Disabling them temporarily until we fix all the bugs.
+  bool is_rpdq = !!quad->DynamicCast<AggregatedRenderPassDrawQuad>();
+  if (absl::holds_alternative<gfx::Transform>(candidate.transform) && is_rpdq) {
+    return CandidateStatus::kFailRpdqWithTransform;
   }
 
   candidate.is_opaque =
@@ -788,19 +799,6 @@ gfx::RectF OverlayCandidateFactory::GetDamageRect(
   // Invalid index.
   if (overlay_damage_index >= surface_damage_rect_list_->size()) {
     DCHECK(false);
-    return gfx::RectF();
-  }
-
-  // Assigned damage assumes that |candidate.display_rect| is already in target
-  // space, but that isn't true for transformation matrices.
-  if (absl::holds_alternative<gfx::Transform>(candidate.transform)) {
-    return gfx::RectF();
-  }
-
-  // Ash can't overlay candidates that aren't pixel-aligned so don't bother
-  // assigning damage to them. This would also be a challenge because
-  // |OverlayCandidate.damage_rect| is only a gfx::Rect.
-  if (!candidate.display_rect.IsExpressibleAsRect()) {
     return gfx::RectF();
   }
 

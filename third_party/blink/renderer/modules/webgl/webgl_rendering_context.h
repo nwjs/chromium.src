@@ -36,6 +36,7 @@ namespace blink {
 
 class ANGLEInstancedArrays;
 class CanvasContextCreationAttributesCore;
+class ExceptionState;
 class EXTBlendFuncExtended;
 class EXTBlendMinMax;
 class EXTClipControl;
@@ -64,7 +65,6 @@ class WebGLDepthTexture;
 class WebGLLoseContext;
 class WebGLMultiDraw;
 class WebGLPolygonMode;
-class WebGLVideoTexture;
 
 class WebGLRenderingContext final : public WebGLRenderingContextBase {
   DEFINE_WRAPPERTYPEINFO();
@@ -95,7 +95,7 @@ class WebGLRenderingContext final : public WebGLRenderingContextBase {
                         const Platform::GraphicsInfo&,
                         const CanvasContextCreationAttributesCore&);
 
-  ImageBitmap* TransferToImageBitmap(ScriptState*) final;
+  ImageBitmap* TransferToImageBitmap(ScriptState*, ExceptionState&) final;
   String ContextName() const override { return "WebGLRenderingContext"; }
   void RegisterContextExtensions() override;
   V8RenderingContext* AsV8RenderingContext() final;
@@ -144,7 +144,6 @@ class WebGLRenderingContext final : public WebGLRenderingContextBase {
   Member<WebGLLoseContext> webgl_lose_context_;
   Member<WebGLMultiDraw> webgl_multi_draw_;
   Member<WebGLPolygonMode> webgl_polygon_mode_;
-  Member<WebGLVideoTexture> webgl_video_texture_;
 };
 
 }  // namespace blink

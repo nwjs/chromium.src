@@ -345,7 +345,9 @@ class CORE_EXPORT HTMLMediaElement
   // ScriptWrappable functions.
   bool HasPendingActivity() const override;
 
-  AudioSourceProviderClient* AudioSourceNode() { return audio_source_node_; }
+  AudioSourceProviderClient* AudioSourceNode() {
+    return audio_source_node_.Get();
+  }
   void SetAudioSourceNode(AudioSourceProviderClient*);
 
   AudioSourceProvider& GetAudioSourceProvider() {
@@ -495,7 +497,8 @@ class CORE_EXPORT HTMLMediaElement
   bool AreAuthorShadowsAllowed() const final { return false; }
 
   bool SupportsFocus() const final;
-  bool IsFocusable() const final;
+  bool IsFocusable(
+      bool disallow_layout_updates_for_accessibility_only = false) const final;
   bool IsKeyboardFocusable() const final;
   int DefaultTabIndex() const final;
   bool LayoutObjectIsNeeded(const DisplayStyle&) const override;

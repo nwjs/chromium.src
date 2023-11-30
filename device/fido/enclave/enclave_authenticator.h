@@ -10,13 +10,17 @@
 
 #include "base/component_export.h"
 #include "base/containers/span.h"
+#include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #include "device/fido/authenticator_get_assertion_response.h"
 #include "device/fido/cable/v2_constants.h"
 #include "device/fido/ctap_get_assertion_request.h"
+#include "device/fido/enclave/enclave_protocol_utils.h"
+#include "device/fido/enclave/enclave_websocket_client.h"
 #include "device/fido/fido_authenticator.h"
 #include "device/fido/fido_types.h"
+#include "services/network/public/mojom/network_context.mojom.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "url/gurl.h"
 
@@ -29,26 +33,19 @@ class HandshakeInitiator;
 
 namespace enclave {
 
-class EnclaveHttpClient;
-
 // TODO(kenrb): Remove the export directive when it is no longer used by the
 // client stand-alone app.
 class COMPONENT_EXPORT(DEVICE_FIDO) EnclaveAuthenticator
     : public FidoAuthenticator {
  public:
-  // The first argument is the handshake_hash, the second is the data that will
-  // be signed.
-  using RequestSigningCallback =
-      base::RepeatingCallback<std::vector<uint8_t>(base::span<const uint8_t>,
-                                                   base::span<const uint8_t>)>;
-
   EnclaveAuthenticator(
       const GURL& service_url,
       base::span<const uint8_t, device::kP256X962Length> peer_identity,
       std::vector<sync_pb::WebauthnCredentialSpecifics> passkeys,
       std::vector<uint8_t> device_id,
       const std::string& username,
-      RequestSigningCallback request_signing_callback);
+      raw_ptr<network::mojom::NetworkContext> network_context,
+      EnclaveRequestSigningCallback request_signing_callback);
   ~EnclaveAuthenticator() override;
 
   EnclaveAuthenticator(const EnclaveAuthenticator&) = delete;
@@ -93,16 +90,17 @@ class COMPONENT_EXPORT(DEVICE_FIDO) EnclaveAuthenticator
   absl::optional<FidoTransportProtocol> AuthenticatorTransport() const override;
   base::WeakPtr<FidoAuthenticator> GetWeakPtr() override;
 
-  void OnResponseReceived(int status,
+  void OnResponseReceived(EnclaveWebSocketClient::SocketStatus status,
                           absl::optional<std::vector<uint8_t>> data);
-  void SendCommand();
+  void BuildCommand();
+  void SendCommand(std::vector<uint8_t> command_body);
   void CompleteGetAssertionRequest(
       CtapDeviceResponseCode status,
       std::vector<AuthenticatorGetAssertionResponse> responses);
 
   State state_ = State::kInitialized;
 
-  std::unique_ptr<EnclaveHttpClient> http_client_;
+  std::unique_ptr<EnclaveWebSocketClient> websocket_client_;
 
   // The peer's public key.
   const std::array<uint8_t, device::kP256X962Length> peer_identity_;
@@ -115,7 +113,7 @@ class COMPONENT_EXPORT(DEVICE_FIDO) EnclaveAuthenticator
   std::vector<uint8_t> device_id_;
 
   // Callback for signing requests with the device-bound key.
-  RequestSigningCallback request_signing_callback_;
+  EnclaveRequestSigningCallback request_signing_callback_;
 
   // Fields for establishing and using the encrypted channel.
   std::unique_ptr<cablev2::HandshakeInitiator> handshake_;

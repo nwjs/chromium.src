@@ -9,6 +9,8 @@
 #include <string>
 
 #include "base/containers/contains.h"
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/ref_counted.h"
@@ -79,7 +81,7 @@ GURL SubstituteSizeIntoURL(const blink::AdDescriptor& ad_descriptor) {
   substitutions.emplace_back("{%AD_WIDTH%}", width);
   substitutions.emplace_back("{%AD_HEIGHT%}", height);
   if (base::FeatureList::IsEnabled(
-          blink::features::kFencedFramesM119Features)) {
+          blink::features::kFencedFramesM120FeaturesPart1)) {
     substitutions.emplace_back("${AD_WIDTH}", width);
     substitutions.emplace_back("${AD_HEIGHT}", height);
   }
@@ -230,9 +232,12 @@ FencedFrameURLMapping::AssignFencedFrameURLAndInterestGroupInfo(
   config.deprecated_should_freeze_initial_size_.emplace(
       !ad_descriptor.size.has_value(), VisibilityToEmbedder::kTransparent,
       VisibilityToContent::kOpaque);
-  config.ad_auction_data_.emplace(std::move(ad_auction_data),
-                                  VisibilityToEmbedder::kOpaque,
-                                  VisibilityToContent::kOpaque);
+  config.ad_auction_data_.emplace(
+      (base::FeatureList::IsEnabled(
+          blink::features::kFencedFramesM120FeaturesPart2))
+          ? ad_auction_data
+          : std::move(ad_auction_data),
+      VisibilityToEmbedder::kOpaque, VisibilityToContent::kOpaque);
   config.on_navigate_callback_ = std::move(on_navigate_callback);
 
   config.effective_enabled_permissions =
@@ -265,6 +270,14 @@ FencedFrameURLMapping::AssignFencedFrameURLAndInterestGroupInfo(
           /*mapped_url=*/SubstituteSizeIntoURL(ad_component_descriptor),
           /*fenced_frame_reporter=*/fenced_frame_reporter,
           /*is_ad_component=*/true);
+    }
+    if (base::FeatureList::IsEnabled(
+            blink::features::kFencedFramesM120FeaturesPart2)) {
+      // M120 and afterwards: The ad auction data is added to the nested configs
+      // in order to enable leaveAdInterestGroup() for ad components.
+      nested_configs.back().ad_auction_data_.emplace(
+          ad_auction_data, VisibilityToEmbedder::kOpaque,
+          VisibilityToContent::kOpaque);
     }
   }
   config.nested_configs_.emplace(std::move(nested_configs),
@@ -315,11 +328,23 @@ void FencedFrameURLMapping::ConvertFencedFrameURNToURL(
 void FencedFrameURLMapping::RemoveObserverForURN(
     const GURL& urn_uuid,
     MappingResultObserver* observer) {
+  // TODO(crbug.com/1488795): Change these `DumpWithoutCrashing` to CHECK when
+  // we identify and fix the root cause. (Or just remove them if it is a
+  // harmless race condition.)
   auto it = pending_urn_uuid_to_url_map_.find(urn_uuid);
-  DCHECK(it != pending_urn_uuid_to_url_map_.end());
+  if (it == pending_urn_uuid_to_url_map_.end()) {
+    SCOPED_CRASH_KEY_STRING32("RemoveObserverForURN", "dump_location", "urn");
+    base::debug::DumpWithoutCrashing();
+    return;
+  }
 
   auto observer_it = it->second.find(observer);
-  DCHECK(observer_it != it->second.end());
+  if (observer_it == it->second.end()) {
+    SCOPED_CRASH_KEY_STRING32("RemoveObserverForURN", "dump_location",
+                              "observer");
+    base::debug::DumpWithoutCrashing();
+    return;
+  }
 
   it->second.erase(observer_it);
 }

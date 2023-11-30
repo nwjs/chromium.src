@@ -22,8 +22,6 @@ class WebContents;
 
 namespace extensions {
 
-struct DraggableRegion;
-
 // AppWindowContents class specific to app windows. It maintains a
 // WebContents instance and observes it for the purpose of passing
 // messages to the extensions system.
@@ -51,12 +49,7 @@ class AppWindowContentsImpl : public AppWindowContents,
 
  private:
   // content::WebContentsObserver
-  bool OnMessageReceived(const IPC::Message& message,
-                         content::RenderFrameHost* sender) override;
   void DidFinishNavigation(content::NavigationHandle* handle) override;
-
-  void UpdateDraggableRegions(content::RenderFrameHost* sender,
-                              const std::vector<DraggableRegion>& regions);
 
   raw_ptr<AppWindow> host_;  // This class is owned by |host_|
   GURL url_;

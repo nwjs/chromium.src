@@ -13,6 +13,8 @@
 #include "base/test/icu_test_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/app/vector_icons/vector_icons.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/toolbar/pinned_toolbar_actions_model_factory.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/test_with_browser_view.h"
@@ -26,6 +28,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_view_state_observer.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/strings/grit/components_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/views/controls/combobox/combobox.h"
@@ -1686,6 +1689,29 @@ class SidePanelPinningCoordinatorTest : public SidePanelCoordinatorTest {
   void SetUp() override {
     scoped_feature_list_.InitAndEnableFeature(features::kSidePanelPinning);
     SidePanelCoordinatorTest::SetUp();
+    content::WebContents* const web_contents =
+        browser_view()->browser()->tab_strip_model()->GetWebContentsAt(0);
+    auto* const registry = SidePanelRegistry::Get(web_contents);
+    registry->Register(std::make_unique<SidePanelEntry>(
+        SidePanelEntry::Id::kAboutThisSite, std::u16string(), ui::ImageModel(),
+        base::BindRepeating([]() { return std::make_unique<views::View>(); })));
+    contextual_registries_.push_back(registry);
+  }
+
+  TestingProfile::TestingFactories GetTestingFactories() override {
+    TestingProfile::TestingFactories factories =
+        TestWithBrowserView::GetTestingFactories();
+    factories.emplace_back(
+        PinnedToolbarActionsModelFactory::GetInstance(),
+        base::BindRepeating(
+            &SidePanelPinningCoordinatorTest::BuildPinnedToolbarActionsModel));
+    return factories;
+  }
+
+  static std::unique_ptr<KeyedService> BuildPinnedToolbarActionsModel(
+      content::BrowserContext* context) {
+    return std::make_unique<PinnedToolbarActionsModel>(
+        Profile::FromBrowserContext(context));
   }
 
  private:
@@ -1709,11 +1735,12 @@ TEST_F(SidePanelPinningCoordinatorTest, SidePanelTitleUpdates) {
             l10n_util::GetStringUTF16(IDS_READ_LATER_TITLE));
 
   // Checks that the title updates even for contextual side panels
-  coordinator_->Show(SidePanelEntry::Id::kSideSearch);
+  coordinator_->Show(SidePanelEntry::Id::kAboutThisSite);
   EXPECT_TRUE(GetLastActiveEntryKey().has_value());
   EXPECT_EQ(GetLastActiveEntryKey().value().id(),
-            SidePanelEntry::Id::kSideSearch);
-  EXPECT_EQ(coordinator_->panel_title_->GetText(), u"testing1");
+            SidePanelEntry::Id::kAboutThisSite);
+  EXPECT_EQ(coordinator_->panel_title_->GetText(),
+            l10n_util::GetStringUTF16(IDS_PAGE_INFO_ABOUT_THIS_PAGE_TITLE));
 }
 
 // Test that the SidePanelCoordinator behaves and updates corrected when dealing

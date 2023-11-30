@@ -110,9 +110,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-/**
- * Unit tests for {@link PageInsightsMediator}.
- */
+/** Unit tests for {@link PageInsightsMediator}. */
 @LooperMode(Mode.PAUSED)
 @RunWith(BaseRobolectricTestRunner.class)
 public class PageInsightsMediatorTest {
@@ -122,59 +120,34 @@ public class PageInsightsMediatorTest {
     private static final byte[] TEST_LOGGING_CGI = new byte[789];
     private static final int SHORT_TRIGGER_DELAY_MS = 2 * (int) DateUtils.SECOND_IN_MILLIS;
 
-    @Rule
-    public JniMocker jniMocker = new JniMocker();
-    @Rule
-    public Features.JUnitProcessor mFeaturesProcessor = new Features.JUnitProcessor();
+    @Rule public JniMocker jniMocker = new JniMocker();
+    @Rule public Features.JUnitProcessor mFeaturesProcessor = new Features.JUnitProcessor();
 
-    @Mock
-    protected OptimizationGuideBridge.Natives mOptimizationGuideBridgeJniMock;
-    @Mock
-    private LayoutInflater mLayoutInflater;
-    @Mock
-    private ObservableSupplier<Tab> mMockTabProvider;
-    @Mock
-    private ManagedBottomSheetController mBottomSheetController;
-    @Mock
-    private BottomSheetController mBottomUiController;
-    @Mock
-    private ExpandedSheetHelper mExpandedSheetHelper;
-    @Mock
-    private BrowserControlsStateProvider mControlsStateProvider;
-    @Mock
-    private BrowserControlsSizer mBrowserControlsSizer;
-    @Mock
-    private Tab mTab;
-    @Mock
-    private ProcessScope mProcessScope;
-    @Mock
-    private Supplier<Profile> mProfileSupplier;
-    @Mock
-    private Profile mProfile;
-    @Mock
-    private IdentityServicesProvider mIdentityServicesProvider;
-    @Mock
-    private IdentityManager mIdentityManager;
-    @Mock
-    private CoreAccountInfo mCoreAccountInfo;
-    @Mock
-    private PageInsightsSurfaceScope mSurfaceScope;
-    @Mock
-    private PageInsightsSurfaceRenderer mSurfaceRenderer;
-    @Mock
-    private Supplier<ShareDelegate> mShareDelegateSupplier;
-    @Mock
-    private ShareDelegate mShareDelegate;
-    @Mock
-    private DomDistillerUrlUtils.Natives mDistillerUrlUtilsJniMock;
-    @Mock
-    private BackPressManager mBackPressManager;
-    @Mock
-    private BackPressHandler mBackPressHandler;
-    @Mock
-    private Function<NavigationHandle, PageInsightsConfig> mPageInsightsConfigProvider;
-    @Mock
-    private NavigationHandle mNavigationHandle;
+    @Mock protected OptimizationGuideBridge.Natives mOptimizationGuideBridgeJniMock;
+    @Mock private LayoutInflater mLayoutInflater;
+    @Mock private ObservableSupplier<Tab> mMockTabProvider;
+    @Mock private ManagedBottomSheetController mBottomSheetController;
+    @Mock private BottomSheetController mBottomUiController;
+    @Mock private ExpandedSheetHelper mExpandedSheetHelper;
+    @Mock private BrowserControlsStateProvider mControlsStateProvider;
+    @Mock private BrowserControlsSizer mBrowserControlsSizer;
+    @Mock private Tab mTab;
+    @Mock private ProcessScope mProcessScope;
+    @Mock private Supplier<Profile> mProfileSupplier;
+    @Mock private Profile mProfile;
+    @Mock private IdentityServicesProvider mIdentityServicesProvider;
+    @Mock private IdentityManager mIdentityManager;
+    @Mock private CoreAccountInfo mCoreAccountInfo;
+    @Mock private PageInsightsSurfaceScope mSurfaceScope;
+    @Mock private PageInsightsSurfaceRenderer mSurfaceRenderer;
+    @Mock private Supplier<ShareDelegate> mShareDelegateSupplier;
+    @Mock private ShareDelegate mShareDelegate;
+    @Mock private DomDistillerUrlUtils.Natives mDistillerUrlUtilsJniMock;
+    @Mock private BackPressManager mBackPressManager;
+    @Mock private BackPressHandler mBackPressHandler;
+    @Mock private Function<NavigationHandle, PageInsightsConfig> mPageInsightsConfigProvider;
+    @Mock private NavigationHandle mNavigationHandle;
+    @Mock private ObservableSupplier<Boolean> mInMotionSupplier;
 
     @Captor
     private ArgumentCaptor<BrowserControlsStateProvider.Observer>
@@ -183,8 +156,8 @@ public class PageInsightsMediatorTest {
     @Captor private ArgumentCaptor<Map<String, Object>> mSurfaceRendererContextValues;
     @Captor private ArgumentCaptor<LoadUrlParams> mLoadUrlParams;
     @Captor private ArgumentCaptor<ShareParams> mShareParams;
-    @Captor private ArgumentCaptor<Callback<Tab>> mTabObserver;
     @Captor private ArgumentCaptor<PageInsightsLoggingParameters> mLoggingParameters;
+    @Captor private ArgumentCaptor<Callback<Boolean>> mInMotionCallback;
 
     private ShadowLooper mShadowLooper;
 
@@ -196,15 +169,16 @@ public class PageInsightsMediatorTest {
         mShadowLooper = ShadowLooper.shadowMainLooper();
         jniMocker.mock(DomDistillerUrlUtilsJni.TEST_HOOKS, mDistillerUrlUtilsJniMock);
         when(mDistillerUrlUtilsJniMock.getOriginalUrlFromDistillerUrl(any(String.class)))
-                .thenAnswer((invocation) -> {
-                    return new GURL((String) invocation.getArguments()[0]);
-                });
+                .thenAnswer(
+                        (invocation) -> {
+                            return new GURL((String) invocation.getArguments()[0]);
+                        });
         jniMocker.mock(OptimizationGuideBridgeJni.TEST_HOOKS, mOptimizationGuideBridgeJniMock);
         doReturn(1L).when(mOptimizationGuideBridgeJniMock).init();
         Profile.setLastUsedProfileForTesting(mProfile);
         XSurfaceProcessScopeProvider.setProcessScopeForTesting(mProcessScope);
         when(mProcessScope.obtainPageInsightsSurfaceScope(
-                     any(PageInsightsSurfaceScopeDependencyProviderImpl.class)))
+                        any(PageInsightsSurfaceScopeDependencyProviderImpl.class)))
                 .thenReturn(mSurfaceScope);
         when(mSurfaceScope.provideSurfaceRenderer()).thenReturn(mSurfaceRenderer);
         when(mMockTabProvider.get()).thenReturn(mTab);
@@ -221,6 +195,7 @@ public class PageInsightsMediatorTest {
                                 .setShouldXsurfaceLog(true)
                                 .setShouldAttachGaiaToRequest(true)
                                 .build());
+        when(mInMotionSupplier.get()).thenReturn(false);
         ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(false);
     }
 
@@ -235,8 +210,10 @@ public class PageInsightsMediatorTest {
 
     private void createMediator(int triggerDelayMs, long firstLoadTimeMs) {
         TestValues testValues = new TestValues();
-        testValues.addFieldTrialParamOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
-                PAGE_INSIGHTS_CAN_AUTOTRIGGER_AFTER_END, String.valueOf(triggerDelayMs));
+        testValues.addFieldTrialParamOverride(
+                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
+                PAGE_INSIGHTS_CAN_AUTOTRIGGER_AFTER_END,
+                String.valueOf(triggerDelayMs));
         FeatureList.setTestValues(testValues);
         Context context = ContextUtils.getApplicationContext();
         context.setTheme(org.chromium.chrome.R.style.Theme_BrowserUI);
@@ -253,9 +230,11 @@ public class PageInsightsMediatorTest {
                         mControlsStateProvider,
                         mBrowserControlsSizer,
                         mBackPressManager,
+                        mInMotionSupplier,
                         () -> true,
                         mPageInsightsConfigProvider);
         verify(mControlsStateProvider).addObserver(mBrowserControlsStateProviderObserver.capture());
+        verify(mInMotionSupplier).addObserver(mInMotionCallback.capture());
         mockOptimizationGuideResponse(getPageInsightsMetadata());
         setBackgroundDrawable();
     }
@@ -307,10 +286,12 @@ public class PageInsightsMediatorTest {
 
     @Test
     @MediumTest
-    public void testAutoTrigger_notEnoughDuration_controlsOffScreen_doesNotTrigger() {
+    public void testAutoTrigger_notEnoughDuration_doesNotTrigger() {
         createMediator(SHORT_TRIGGER_DELAY_MS);
-        mMediator.onPageLoadStarted(mTab, null);
         when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         mShadowLooper.idleFor(250, TimeUnit.MILLISECONDS);
 
         verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
@@ -318,30 +299,28 @@ public class PageInsightsMediatorTest {
 
     @Test
     @MediumTest
-    public void
-            testAutoTrigger_enoughDuration_controlsOffScreen_shouldNotAutoTrigger_doesNotTrigger() {
+    public void testAutoTrigger_noNavHandle_doesNotTrigger() {
+        createMediator(SHORT_TRIGGER_DELAY_MS);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+
+        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
+    }
+
+    @Test
+    @MediumTest
+    public void testAutoTrigger_shouldNotAutoTrigger_doesNotTrigger() {
         when(mPageInsightsConfigProvider.apply(mNavigationHandle))
                 .thenReturn(PageInsightsConfig.newBuilder().setShouldAutoTrigger(false).build());
         createMediator(SHORT_TRIGGER_DELAY_MS);
-        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         View feedView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
-        mMediator.onPageLoadStarted(mTab, null);
-
         when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
-        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
-        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
-        verifyNoMoreInteractions(mOptimizationGuideBridgeJniMock);
-    }
-
-    @Test
-    @MediumTest
-    public void testAutoTrigger_enoughDuration_controlsOnScreen_a11yDisabled_doesNotTrigger() {
-        createMediator(SHORT_TRIGGER_DELAY_MS);
         mMediator.onPageLoadStarted(mTab, null);
-
-        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(.0f);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
         verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
@@ -350,97 +329,134 @@ public class PageInsightsMediatorTest {
 
     @Test
     @MediumTest
-    public void testAutoTrigger_enoughDuration_controlsOnScreen_a11yEnabled_showsBottomSheet() {
+    public void testAutoTrigger_controlsOnScreen_a11yDisabled_doesNotTrigger() {
+        createMediator(SHORT_TRIGGER_DELAY_MS);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(.0f);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+
+        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
+    }
+
+    @Test
+    @MediumTest
+    public void testAutoTrigger_inMotion_doesNotTrigger() {
+        createMediator(SHORT_TRIGGER_DELAY_MS);
+        View feedView = new View(ContextUtils.getApplicationContext());
+        when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+        when(mInMotionSupplier.get()).thenReturn(true);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+
+        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
+    }
+
+    @Test
+    @MediumTest
+    public void testAutoTrigger_controlsOnScreen_a11yEnabled_showsBottomSheet() {
         ChromeAccessibilityUtil.get().setAccessibilityEnabledForTesting(true);
         createMediator(SHORT_TRIGGER_DELAY_MS);
         View feedView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(.0f);
 
         mMediator.onPageLoadStarted(mTab, null);
-
-        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
-
-        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(.0f);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
-        verify(mBottomSheetController, times(1)).requestShowContent(any(), anyBoolean());
-        assertEquals(View.VISIBLE,
-                mMediator.getSheetContent()
-                        .getToolbarView()
-                        .findViewById(R.id.page_insights_feed_header)
-                        .getVisibility());
-        assertEquals(View.VISIBLE,
-                mMediator.getSheetContent()
-                        .getContentView()
-                        .findViewById(R.id.page_insights_feed_content)
-                        .getVisibility());
-        assertEquals(feedView,
-                ((FrameLayout) mMediator.getSheetContent().getContentView().findViewById(
-                         R.id.page_insights_feed_content))
-                        .getChildAt(0));
-        assertNotEquals(
-                PageInsightsSheetContent.HeightMode.DISABLED,
-                mMediator.getSheetContent().getPeekHeight());
-        verify(mBottomSheetController, never()).expandSheet();
+        assertBottomSheetShownAfterAutoTrigger(feedView);
     }
 
     @Test
     @MediumTest
-    public void testAutoTrigger_enoughDuration_controlsOffScreen_showsBottomSheet() {
+    public void testAutoTrigger_navHandleProvidedAfterTimerFinishes_showsBottomSheet() {
         createMediator(SHORT_TRIGGER_DELAY_MS);
         View feedView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
 
         mMediator.onPageLoadStarted(mTab, null);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
+
+        assertBottomSheetShownAfterAutoTrigger(feedView);
+    }
+
+    @Test
+    @MediumTest
+    public void testAutoTrigger_controlsOnScreenWhenDataFetched_laterOffScreen_showsBottomSheet() {
+        createMediator(SHORT_TRIGGER_DELAY_MS);
+        View feedView = new View(ContextUtils.getApplicationContext());
+        when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(.0f);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
         verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
 
         when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
-        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+        mBrowserControlsStateProviderObserver.getValue().onControlsOffsetChanged(0, 0, 0, 0, false);
 
-        verify(mBottomSheetController, times(1)).requestShowContent(any(), anyBoolean());
-        assertEquals(
-                View.VISIBLE,
-                mMediator
-                        .getSheetContent()
-                        .getToolbarView()
-                        .findViewById(R.id.page_insights_feed_header)
-                        .getVisibility());
-        assertEquals(
-                View.VISIBLE,
-                mMediator
-                        .getSheetContent()
-                        .getContentView()
-                        .findViewById(R.id.page_insights_feed_content)
-                        .getVisibility());
-        assertEquals(
-                feedView,
-                ((FrameLayout)
-                                mMediator
-                                        .getSheetContent()
-                                        .getContentView()
-                                        .findViewById(R.id.page_insights_feed_content))
-                        .getChildAt(0));
-        assertNotEquals(
-                PageInsightsSheetContent.HeightMode.DISABLED,
-                mMediator.getSheetContent().getPeekHeight());
-        verify(mBottomSheetController, never()).expandSheet();
+        assertBottomSheetShownAfterAutoTrigger(feedView);
     }
 
     @Test
     @MediumTest
-    public void
-            testAutoTrigger_enoughDuration_controlsOffScreen_signedIn_providesBothXSurfaceLoggingParamsAndLogs()
-                    throws Exception {
+    public void testAutoTrigger_inMotionWhenDataFetched_laterNotInMotion_showsBottomSheet() {
+        createMediator(SHORT_TRIGGER_DELAY_MS);
+        View feedView = new View(ContextUtils.getApplicationContext());
+        when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+        when(mInMotionSupplier.get()).thenReturn(true);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+
+        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
+
+        when(mInMotionSupplier.get()).thenReturn(false);
+        mInMotionCallback.getValue().onResult(false);
+
+        assertBottomSheetShownAfterAutoTrigger(feedView);
+    }
+
+    @Test
+    @MediumTest
+    public void testAutoTrigger_controlsOffScreen_showsBottomSheet() {
+        createMediator(SHORT_TRIGGER_DELAY_MS);
+        View feedView = new View(ContextUtils.getApplicationContext());
+        when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+
+        mMediator.onPageLoadStarted(mTab, null);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
+        mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
+
+        assertBottomSheetShownAfterAutoTrigger(feedView);
+    }
+
+    @Test
+    @MediumTest
+    public void testAutoTrigger_signedIn_providesBothXSurfaceLoggingParamsAndLogs()
+            throws Exception {
         createMediator(SHORT_TRIGGER_DELAY_MS);
         View feedView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
         when(mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN))
                 .thenReturn(mCoreAccountInfo);
         when(mCoreAccountInfo.getEmail()).thenReturn("email@address.com");
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
 
         mMediator.onPageLoadStarted(mTab, null);
-        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
         verify(mSurfaceRenderer).onSurfaceCreated(mLoggingParameters.capture());
@@ -456,16 +472,16 @@ public class PageInsightsMediatorTest {
 
     @Test
     @MediumTest
-    public void
-            testAutoTrigger_enoughDuration_controlsOffScreen_signedOut_providesPartialXSurfaceLoggingParamsAndLogs()
-                    throws Exception {
+    public void testAutoTrigger_signedOut_providesPartialXSurfaceLoggingParamsAndLogs()
+            throws Exception {
         createMediator(SHORT_TRIGGER_DELAY_MS);
         View feedView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
         when(mIdentityManager.getPrimaryAccountInfo(ConsentLevel.SIGNIN)).thenReturn(null);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
 
         mMediator.onPageLoadStarted(mTab, null);
-        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
         verify(mSurfaceRenderer).onSurfaceCreated(mLoggingParameters.capture());
@@ -538,19 +554,27 @@ public class PageInsightsMediatorTest {
         mMediator.launch();
 
         verify(mBottomSheetController, times(1)).requestShowContent(any(), anyBoolean());
-        assertEquals(View.VISIBLE,
-                mMediator.getSheetContent()
+        assertEquals(
+                View.VISIBLE,
+                mMediator
+                        .getSheetContent()
                         .getToolbarView()
                         .findViewById(R.id.page_insights_feed_header)
                         .getVisibility());
-        assertEquals(View.VISIBLE,
-                mMediator.getSheetContent()
+        assertEquals(
+                View.VISIBLE,
+                mMediator
+                        .getSheetContent()
                         .getContentView()
                         .findViewById(R.id.page_insights_feed_content)
                         .getVisibility());
-        assertEquals(feedView,
-                ((FrameLayout) mMediator.getSheetContent().getContentView().findViewById(
-                         R.id.page_insights_feed_content))
+        assertEquals(
+                feedView,
+                ((FrameLayout)
+                                mMediator
+                                        .getSheetContent()
+                                        .getContentView()
+                                        .findViewById(R.id.page_insights_feed_content))
                         .getChildAt(0));
         assertEquals(
                 PageInsightsSheetContent.HeightMode.DISABLED,
@@ -628,17 +652,21 @@ public class PageInsightsMediatorTest {
         createMediator();
         View childView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
         when(mSurfaceRenderer.render(eq(TEST_CHILD_ELEMENTS_OUTPUT), any())).thenReturn(childView);
         mMediator.launch();
 
-        ((PageInsightsActionsHandler) mSurfaceRendererContextValues.getValue().get(
-                 PageInsightsActionsHandler.KEY))
+        ((PageInsightsActionsHandler)
+                        mSurfaceRendererContextValues
+                                .getValue()
+                                .get(PageInsightsActionsHandler.KEY))
                 .navigateToPageInsightsPage(1);
 
-        assertEquals(View.VISIBLE,
-                mMediator.getSheetContent()
+        assertEquals(
+                View.VISIBLE,
+                mMediator
+                        .getSheetContent()
                         .getToolbarView()
                         .findViewById(R.id.page_insights_child_title)
                         .getVisibility());
@@ -649,17 +677,26 @@ public class PageInsightsMediatorTest {
                         .getToolbarView()
                         .findViewById(R.id.page_insights_back_button)
                         .getVisibility());
-        assertEquals(View.VISIBLE,
-                mMediator.getSheetContent()
+        assertEquals(
+                View.VISIBLE,
+                mMediator
+                        .getSheetContent()
                         .getContentView()
                         .findViewById(R.id.page_insights_child_content)
                         .getVisibility());
-        assertEquals(childView,
-                ((FrameLayout) mMediator.getSheetContent().getContentView().findViewById(
-                         R.id.page_insights_child_content))
+        assertEquals(
+                childView,
+                ((FrameLayout)
+                                mMediator
+                                        .getSheetContent()
+                                        .getContentView()
+                                        .findViewById(R.id.page_insights_child_content))
                         .getChildAt(0));
-        TextView childPageTitle = mMediator.getSheetContent().getToolbarView().findViewById(
-                R.id.page_insights_child_title);
+        TextView childPageTitle =
+                mMediator
+                        .getSheetContent()
+                        .getToolbarView()
+                        .findViewById(R.id.page_insights_child_title);
         assertEquals(childPageTitle.getText(), TEST_CHILD_PAGE_TITLE);
     }
 
@@ -668,13 +705,15 @@ public class PageInsightsMediatorTest {
     public void actionHandler_openUrl_opensUrl() {
         createMediator();
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
         mMediator.launch();
 
         String url = "https://www.realwebsite.com/";
-        ((PageInsightsActionsHandler) mSurfaceRendererContextValues.getValue().get(
-                 PageInsightsActionsHandler.KEY))
+        ((PageInsightsActionsHandler)
+                        mSurfaceRendererContextValues
+                                .getValue()
+                                .get(PageInsightsActionsHandler.KEY))
                 .openUrl(url, /* doesRequestSpecifySameSession= */ false);
 
         verify(mTab).loadUrl(mLoadUrlParams.capture());
@@ -686,14 +725,16 @@ public class PageInsightsMediatorTest {
     public void actionHandler_share_shares() {
         createMediator();
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
         mMediator.launch();
 
         String url = "https://www.realwebsite.com/";
         String title = "Real Website TM";
-        ((PageInsightsActionsHandler) mSurfaceRendererContextValues.getValue().get(
-                 PageInsightsActionsHandler.KEY))
+        ((PageInsightsActionsHandler)
+                        mSurfaceRendererContextValues
+                                .getValue()
+                                .get(PageInsightsActionsHandler.KEY))
                 .share(url, title);
 
         verify(mShareDelegate).share(mShareParams.capture(), any(), eq(ShareOrigin.PAGE_INSIGHTS));
@@ -705,11 +746,12 @@ public class PageInsightsMediatorTest {
     @MediumTest
     public void openInExpandedState_recordsHistogram_userInvokesPih() {
         HistogramWatcher histogramWatcher =
-                HistogramWatcher.newSingleRecordWatcher("CustomTabs.PageInsights.Event",
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.PageInsights.Event",
                         PageInsightsMediator.PageInsightsEvent.USER_INVOKES_PIH);
         createMediator();
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
         mMediator.launch();
 
@@ -719,21 +761,19 @@ public class PageInsightsMediatorTest {
     @Test
     @MediumTest
     public void testAutoTrigger_recordsHistogram_autoPeekTriggered() {
-        HistogramWatcher histogramWatcher = HistogramWatcher.newSingleRecordWatcher(
-                "CustomTabs.PageInsights.Event", PageInsightsEvent.AUTO_PEEK_TRIGGERED);
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.PageInsights.Event", PageInsightsEvent.AUTO_PEEK_TRIGGERED);
 
         createMediator(SHORT_TRIGGER_DELAY_MS);
         View feedView = new View(ContextUtils.getApplicationContext());
         when(mSurfaceRenderer.render(eq(TEST_FEED_ELEMENTS_OUTPUT), any())).thenReturn(feedView);
+        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
 
         mMediator.onPageLoadStarted(mTab, null);
-
-        verify(mBottomSheetController, never()).requestShowContent(any(), anyBoolean());
-
-        when(mControlsStateProvider.getBrowserControlHiddenRatio()).thenReturn(1.0f);
+        mMediator.onDidFinishNavigationInPrimaryMainFrame(mTab, mNavigationHandle);
         mShadowLooper.idleFor(2500, TimeUnit.MILLISECONDS);
 
-        verify(mBottomSheetController, times(1)).requestShowContent(any(), anyBoolean());
         histogramWatcher.assertExpected();
     }
 
@@ -767,12 +807,14 @@ public class PageInsightsMediatorTest {
     @Test
     @MediumTest
     public void openInExpandedState_updateToPeekState_recordsHistogramInStatePeek() {
-        HistogramWatcher histogramWatcher = HistogramWatcher.newSingleRecordWatcher(
-                "CustomTabs.PageInsights.Event", PageInsightsMediator.PageInsightsEvent.STATE_PEEK);
+        HistogramWatcher histogramWatcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "CustomTabs.PageInsights.Event",
+                        PageInsightsMediator.PageInsightsEvent.STATE_PEEK);
 
         createMediator(SHORT_TRIGGER_DELAY_MS);
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
 
         // STATE_PEEK is recorded
@@ -827,13 +869,15 @@ public class PageInsightsMediatorTest {
     public void dismissFromPeekState_recordsHistogramInDismissPeek() {
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newBuilder()
-                        .expectIntRecords("CustomTabs.PageInsights.Event",
-                                PageInsightsEvent.STATE_PEEK, PageInsightsEvent.DISMISS_PEEK)
+                        .expectIntRecords(
+                                "CustomTabs.PageInsights.Event",
+                                PageInsightsEvent.STATE_PEEK,
+                                PageInsightsEvent.DISMISS_PEEK)
                         .build();
 
         createMediator(SHORT_TRIGGER_DELAY_MS);
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
 
         // STATE_PEEK is recorded
@@ -849,14 +893,15 @@ public class PageInsightsMediatorTest {
     public void dismissFromExpandedState_recordsHistogramInDismissExpanded() {
         HistogramWatcher histogramWatcher =
                 HistogramWatcher.newBuilder()
-                        .expectIntRecords("CustomTabs.PageInsights.Event",
+                        .expectIntRecords(
+                                "CustomTabs.PageInsights.Event",
                                 PageInsightsEvent.STATE_EXPANDED,
                                 PageInsightsEvent.DISMISS_EXPANDED)
                         .build();
 
         createMediator(SHORT_TRIGGER_DELAY_MS);
         when(mSurfaceRenderer.render(
-                     eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
+                        eq(TEST_FEED_ELEMENTS_OUTPUT), mSurfaceRendererContextValues.capture()))
                 .thenReturn(new View(ContextUtils.getApplicationContext()));
 
         // STATE_PEEK is recorded
@@ -1075,21 +1120,24 @@ public class PageInsightsMediatorTest {
     }
 
     private PageInsightsMetadata getPageInsightsMetadata() {
-        Page childPage = Page.newBuilder()
-                                 .setId(Page.PageID.PEOPLE_ALSO_VIEW)
-                                 .setTitle(TEST_CHILD_PAGE_TITLE)
-                                 .setElementsOutput(ByteString.copyFrom(TEST_CHILD_ELEMENTS_OUTPUT))
-                                 .build();
-        Page feedPage = Page.newBuilder()
-                                .setId(Page.PageID.SINGLE_FEED_ROOT)
-                                .setTitle("Related Insights")
-                                .setElementsOutput(ByteString.copyFrom(TEST_FEED_ELEMENTS_OUTPUT))
-                                .build();
-        AutoPeekConditions mAutoPeekConditions = AutoPeekConditions.newBuilder()
-                                                         .setConfidence(0.51f)
-                                                         .setPageScrollFraction(0.4f)
-                                                         .setMinimumSecondsOnPage(30)
-                                                         .build();
+        Page childPage =
+                Page.newBuilder()
+                        .setId(Page.PageID.PEOPLE_ALSO_VIEW)
+                        .setTitle(TEST_CHILD_PAGE_TITLE)
+                        .setElementsOutput(ByteString.copyFrom(TEST_CHILD_ELEMENTS_OUTPUT))
+                        .build();
+        Page feedPage =
+                Page.newBuilder()
+                        .setId(Page.PageID.SINGLE_FEED_ROOT)
+                        .setTitle("Related Insights")
+                        .setElementsOutput(ByteString.copyFrom(TEST_FEED_ELEMENTS_OUTPUT))
+                        .build();
+        AutoPeekConditions mAutoPeekConditions =
+                AutoPeekConditions.newBuilder()
+                        .setConfidence(0.51f)
+                        .setPageScrollFraction(0.4f)
+                        .setMinimumSecondsOnPage(30)
+                        .build();
         return PageInsightsMetadata.newBuilder()
                 .setFeedPage(feedPage)
                 .addPages(childPage)
@@ -1141,5 +1189,35 @@ public class PageInsightsMediatorTest {
         rootView.addView(backgroundView);
         backgroundView.setBackground(new GradientDrawable());
         mMediator.initView(rootView);
+    }
+
+    private void assertBottomSheetShownAfterAutoTrigger(View feedView) {
+        verify(mBottomSheetController, times(1)).requestShowContent(any(), anyBoolean());
+        assertEquals(
+                View.VISIBLE,
+                mMediator
+                        .getSheetContent()
+                        .getToolbarView()
+                        .findViewById(R.id.page_insights_feed_header)
+                        .getVisibility());
+        assertEquals(
+                View.VISIBLE,
+                mMediator
+                        .getSheetContent()
+                        .getContentView()
+                        .findViewById(R.id.page_insights_feed_content)
+                        .getVisibility());
+        assertEquals(
+                feedView,
+                ((FrameLayout)
+                                mMediator
+                                        .getSheetContent()
+                                        .getContentView()
+                                        .findViewById(R.id.page_insights_feed_content))
+                        .getChildAt(0));
+        assertNotEquals(
+                PageInsightsSheetContent.HeightMode.DISABLED,
+                mMediator.getSheetContent().getPeekHeight());
+        verify(mBottomSheetController, never()).expandSheet();
     }
 }

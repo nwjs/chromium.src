@@ -116,6 +116,7 @@ ContentSettingsType kPermissionType[] = {
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
     ContentSettingsType::PROTECTED_MEDIA_IDENTIFIER,
 #endif
+    ContentSettingsType::MIDI,
     ContentSettingsType::MIDI_SYSEX,
     ContentSettingsType::CLIPBOARD_READ_WRITE,
 #if BUILDFLAG(IS_ANDROID)
@@ -343,11 +344,14 @@ void PageInfo::OnStatefulBounceCountChanged(int bounce_count) {}
 
 void PageInfo::OnStatusChanged(CookieControlsStatus status,
                                CookieControlsEnforcement enforcement,
+                               CookieBlocking3pcdStatus blocking_status,
                                base::Time expiration) {
   if (status != status_ || enforcement != enforcement_ ||
+      blocking_status != blocking_status_ ||
       expiration != cookie_exception_expiration_) {
     status_ = status;
     enforcement_ = enforcement;
+    blocking_status_ = blocking_status;
     cookie_exception_expiration_ = expiration;
     PresentSiteData(base::DoNothing());
   }
@@ -1330,6 +1334,33 @@ bool PageInfo::ShouldShowPermission(
     return true;
   }
 
+  if (base::FeatureList::IsEnabled(
+          permissions::features::kBlockMidiByDefault)) {
+    ContentSetting midi_sysex_setting = GetContentSettings()->GetContentSetting(
+        site_url_, site_url_, ContentSettingsType::MIDI_SYSEX);
+    // At most one of MIDI and MIDI-SysEx should be displayed in the page info
+    // bubble. Show MIDI-SysEx if it's allowed since it has higher access to
+    // MIDI devices, show MIDI otherwise.
+    // Don't show MIDI if SysEx is allowed.
+    if (info.type == ContentSettingsType::MIDI &&
+        midi_sysex_setting == ContentSetting::CONTENT_SETTING_ALLOW) {
+      return false;
+    }
+    // Don't show MIDI-SysEx if it is not allowed. Technically having MIDI_SYSEX
+    // blocked and MIDI default is legal, but with the current implementation
+    // blocking either permission with block both permissions so we don't have
+    // to handle that case.
+    if (info.type == ContentSettingsType::MIDI_SYSEX &&
+        midi_sysex_setting != ContentSetting::CONTENT_SETTING_ALLOW) {
+      return false;
+    }
+  } else {
+    // Don't show MIDI.
+    if (info.type == ContentSettingsType::MIDI) {
+      return false;
+    }
+  }
+
   // Show the content setting when it has a non-default value.
   if (!PageInfo::IsPermissionFactoryDefault(info, is_incognito)) {
     return true;
@@ -1373,12 +1404,12 @@ void PageInfo::PresentSitePermissions() {
       ContentSetting setting = content_settings->GetContentSetting(
           requester.GetURL(), site_url_, permission_info.type, &info);
 
-      if (type == ContentSettingsType::STORAGE_ACCESS) {
-        if (info.metadata.session_model() ==
-            content_settings::SessionModel::NonRestorableUserSession) {
-          continue;  // Skip auto-granted settings.
-        }
+      if (IsGrantedByRelatedWebsiteSets(type, info.metadata) &&
+          !base::FeatureList::IsEnabled(
+              permissions::features::kShowRelatedWebsiteSetsPermissionGrants)) {
+        continue;
       }
+
       PopulatePermissionInfo(permission_info, content_settings, info, setting);
       if (ShouldShowPermission(permission_info)) {
         permission_info_list.push_back(permission_info);
@@ -1437,9 +1468,10 @@ std::set<net::SchemefulSite> PageInfo::GetTwoSitePermissionRequesters(
       if (setting.primary_pattern.Matches(site_url_)) {
         continue;  // Skip first-party settings.
       }
-      if (setting.metadata.session_model() ==
-          content_settings::SessionModel::NonRestorableUserSession) {
-        continue;  // Skip auto-granted settings.
+      if (IsGrantedByRelatedWebsiteSets(type, setting.metadata) &&
+          !base::FeatureList::IsEnabled(
+              permissions::features::kShowRelatedWebsiteSetsPermissionGrants)) {
+        continue;
       }
     }
     GURL requesting_url = setting.primary_pattern.ToRepresentativeUrl();
@@ -1484,8 +1516,10 @@ void PageInfo::PresentSiteDataInternal(base::OnceClosure done) {
 
   cookies_info.status = status_;
   cookies_info.enforcement = enforcement_;
+  cookies_info.blocking_status = blocking_status_;
   cookies_info.expiration = cookie_exception_expiration_;
   cookies_info.confidence = cookie_controls_confidence_;
+  cookies_info.is_otr = web_contents_->GetBrowserContext()->IsOffTheRecord();
   ui_->SetCookieInfo(cookies_info);
 
   std::move(done).Run();
@@ -1714,14 +1748,6 @@ int PageInfo::GetThirdPartySitesWithBlockedCookiesAccessCount(
   return browsing_data::GetUniqueThirdPartyCookiesHostCount(
       site_url, settings->blocked_local_shared_objects(),
       *(settings->blocked_browsing_data_model()));
-}
-
-bool PageInfo::IsTrackingProtection3pcdEnabled() const {
-  return delegate_->IsTrackingProtection3pcdEnabled();
-}
-
-bool PageInfo::AreAllThirdPartyCookiesBlocked() const {
-  return delegate_->AreAllThirdPartyCookiesBlocked();
 }
 
 int PageInfo::GetFirstPartyBlockedCookiesCount(const GURL& site_url) {

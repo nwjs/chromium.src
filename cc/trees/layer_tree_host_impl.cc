@@ -117,6 +117,7 @@
 #include "components/viz/common/traced_value.h"
 #include "components/viz/common/transition_utils.h"
 #include "gpu/GLES2/gl2extchromium.h"
+#include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/client/context_support.h"
 #include "gpu/command_buffer/client/raster_interface.h"
 #include "gpu/command_buffer/client/shared_image_interface.h"
@@ -1248,7 +1249,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
     frame->has_no_damage = true;
     DCHECK(!resourceless_software_draw_);
     consecutive_frame_with_damage_count_ = 0;
-    return DRAW_SUCCESS;
+    return DrawResult::kSuccess;
   }
 
   TRACE_EVENT_BEGIN2("cc,benchmark", "LayerTreeHostImpl::CalculateRenderPasses",
@@ -1311,7 +1312,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // still draw the frame. However when the layer being checkerboarded is moving
   // due to an impl-animation, we drop the frame to avoid flashing due to the
   // texture suddenly appearing in the future.
-  DrawResult draw_result = DRAW_SUCCESS;
+  DrawResult draw_result = DrawResult::kSuccess;
 
   const DrawMode draw_mode = GetDrawMode();
 
@@ -1419,7 +1420,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // so there's no reason to stop the draw now (and this is not supported by
   // SingleThreadProxy).
   if (have_missing_animated_tiles && !CommitToActiveTree())
-    draw_result = DRAW_ABORTED_CHECKERBOARD_ANIMATIONS;
+    draw_result = DrawResult::kAbortedCheckerboardAnimations;
 
   // When we require high res to draw, abort the draw (almost) always. This does
   // not cause the scheduler to do a main frame, instead it will continue to try
@@ -1427,7 +1428,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // TODO(weiliangc): Remove RequiresHighResToDraw. crbug.com/469175
   if (num_incomplete_tiles || num_missing_tiles) {
     if (RequiresHighResToDraw())
-      draw_result = DRAW_ABORTED_MISSING_HIGH_RES_CONTENT;
+      draw_result = DrawResult::kAbortedMissingHighResContent;
   }
 
   // Only enable frame rate estimation if it would help lower the composition
@@ -1440,7 +1441,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // complete, the previous frame has already been potentially lost, so an
   // incomplete frame is better than nothing, so this takes highest precidence.
   if (resourceless_software_draw_)
-    draw_result = DRAW_SUCCESS;
+    draw_result = DrawResult::kSuccess;
 
 #if DCHECK_IS_ON()
   for (const auto& render_pass : frame->render_passes) {
@@ -1495,7 +1496,7 @@ DrawResult LayerTreeHostImpl::CalculateRenderPasses(FrameData* frame) {
   // destroyed.
   // TODO(weiliangc): Test copy request w/ LayerTreeFrameSink recreation. Would
   // trigger this DCHECK.
-  DCHECK(!have_copy_request || draw_result == DRAW_SUCCESS);
+  DCHECK(!have_copy_request || draw_result == DrawResult::kSuccess);
 
   // TODO(crbug.com/564832): This workaround to prevent creating unnecessarily
   // persistent render passes. When a copy request is made, it may force a
@@ -1604,14 +1605,14 @@ DrawResult LayerTreeHostImpl::PrepareToDraw(FrameData* frame) {
   // Dump render passes and draw quads if VerboseLogEnabled().
   VERBOSE_LOG() << "Prepare to draw\n" << frame->ToString();
 
-  if (draw_result != DRAW_SUCCESS) {
+  if (draw_result != DrawResult::kSuccess) {
     DCHECK(!resourceless_software_draw_);
     return draw_result;
   }
 
-  // If we return DRAW_SUCCESS, then we expect DrawLayers() to be called before
-  // this function is called again.
-  return DRAW_SUCCESS;
+  // If we return DrawResult::kSuccess, then we expect DrawLayers() to be called
+  // before this function is called again.
+  return DrawResult::kSuccess;
 }
 
 void LayerTreeHostImpl::RemoveRenderPasses(FrameData* frame) {
@@ -2487,6 +2488,16 @@ absl::optional<LayerTreeHostImpl::SubmitInfo> LayerTreeHostImpl::DrawLayers(
     TRACE_EVENT_INSTANT0("cc", "EarlyOut_NoDamage", TRACE_EVENT_SCOPE_THREAD);
     active_tree()->BreakSwapPromises(SwapPromise::SWAP_FAILS);
     active_tree()->ResetAllChangeTracking();
+
+    // Drop pending event metrics for UI when the frame has no damage because
+    // it could leave the event metrics pending indefinitely and also breaks the
+    // association between input events and screen updates.
+    // See b/297940877.
+    if (settings_.is_layer_tree_for_ui) {
+      std::ignore = active_tree()->TakeEventsMetrics();
+      std::ignore = events_metrics_manager_.TakeSavedEventsMetrics();
+    }
+
     return absl::nullopt;
   }
 
@@ -2882,7 +2893,7 @@ void LayerTreeHostImpl::UpdateRasterCapabilities() {
       viz::PlatformColor::BestSupportedTextureFormat(context_caps);
 
   raster_caps_.tile_overlay_candidate =
-      settings_.resource_settings.use_gpu_memory_buffer_resources &&
+      settings_.use_gpu_memory_buffer_resources &&
       shared_image_caps.supports_scanout_shared_images;
   raster_caps_.tile_texture_target = GL_TEXTURE_2D;
 
@@ -4608,7 +4619,7 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
     const auto& shared_image_caps =
         context_provider->SharedImageInterface()->GetCapabilities();
     overlay_candidate =
-        settings_.resource_settings.use_gpu_memory_buffer_resources &&
+        settings_.use_gpu_memory_buffer_resources &&
         shared_image_caps.supports_scanout_shared_images &&
         viz::CanCreateGpuMemoryBufferForSinglePlaneSharedImageFormat(format);
     if (overlay_candidate) {
@@ -4629,10 +4640,12 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
       viz::RasterContextProvider* context_provider =
           layer_tree_frame_sink_->context_provider();
       auto* sii = context_provider->SharedImageInterface();
-      mailbox = sii->CreateSharedImage(
+      auto client_shared_image = sii->CreateSharedImage(
           format, upload_size, color_space, kTopLeft_GrSurfaceOrigin,
           kPremul_SkAlphaType, shared_image_usage, "LayerTreeHostUIResource",
           base::span<const uint8_t>(bitmap.GetPixels(), bitmap.SizeInBytes()));
+      CHECK(client_shared_image);
+      mailbox = client_shared_image->mailbox();
     } else {
       DCHECK_EQ(bitmap.GetFormat(), UIResourceBitmap::RGBA8);
       SkImageInfo src_info =
@@ -4696,12 +4709,14 @@ void LayerTreeHostImpl::CreateUIResource(UIResourceId uid,
       viz::RasterContextProvider* context_provider =
           layer_tree_frame_sink_->context_provider();
       auto* sii = context_provider->SharedImageInterface();
-      mailbox = sii->CreateSharedImage(
+      auto client_shared_image = sii->CreateSharedImage(
           format, upload_size, color_space, kTopLeft_GrSurfaceOrigin,
           kPremul_SkAlphaType, shared_image_usage, "LayerTreeHostUIResource",
           base::span<const uint8_t>(
               reinterpret_cast<const uint8_t*>(pixmap.addr()),
               pixmap.computeByteSize()));
+      CHECK(client_shared_image);
+      mailbox = client_shared_image->mailbox();
     }
   }
 

@@ -126,6 +126,9 @@ executable("character_data_generator") {
     "text/character_property.h",
     "text/character_property_data.h",
     "text/character_property_data_generator.cc",
+    "text/han_kerning_char_type.h",
+    "wtf/text/character_names.h",
+    "wtf/text/wtf_uchar.h",
   ]
   configs += [ "//third_party/blink/renderer:config" ]
   deps = [
@@ -140,7 +143,10 @@ executable("character_data_generator") {
 # but it helps to have the targets match the GYP build.
 group("make_platform_generated") {
   visibility = []  # Allow re-assignment of list.
-  visibility = [ "//third_party/blink/renderer/*" ]
+  visibility = [
+    "//third_party/blink/public:blink_headers",
+    "//third_party/blink/renderer/*",
+  ]
   public_deps = [
     ":bindings_buildflags",
     ":character_data",
@@ -149,6 +155,7 @@ group("make_platform_generated") {
     ":runtime_enabled_features",
     ":runtime_feature_state_override_context",
     "//third_party/blink/public/common:buildflags",
+    "//third_party/blink/renderer/platform/heap:blink_heap_buildflags",
     "//third_party/blink/renderer/platform/network:make_generated",
   ]
 }
@@ -195,7 +202,6 @@ group("blink_platform_public_deps") {
     "//third_party/blink/public/common:font_enumeration_table_proto",
     "//third_party/blink/public/mojom:mojom_platform_blink",
     "//third_party/blink/public/mojom:web_bluetooth_mojo_bindings_blink",
-    "//third_party/blink/renderer/platform/heap:blink_heap_buildflags",
     "//third_party/blink/renderer/platform/network:make_generated",
     "//third_party/blink/renderer/platform/wtf",
     "//third_party/boringssl",
@@ -732,6 +738,7 @@ component("platform") {
     "fonts/shaping/run_segmenter.cc",
     "fonts/shaping/run_segmenter.h",
     "fonts/shaping/shape_cache.h",
+    "fonts/shaping/shape_options.h",
     "fonts/shaping/shape_result.cc",
     "fonts/shaping/shape_result.h",
     "fonts/shaping/shape_result_bloberizer.cc",
@@ -1149,7 +1156,7 @@ component("platform") {
     "graphics/replaying_canvas.cc",
     "graphics/replaying_canvas.h",
     "graphics/resource_id_traits.h",
-    "graphics/scoped_interpolation_quality.h",
+    "graphics/scoped_image_rendering_settings.h",
     "graphics/scoped_raster_timer.cc",
     "graphics/scoped_raster_timer.h",
     "graphics/scrollbar_theme_settings.cc",
@@ -1182,6 +1189,7 @@ component("platform") {
     "graphics/video_frame_submitter.cc",
     "graphics/video_frame_submitter.h",
     "graphics/view_transition_element_id.h",
+    "graphics/visual_rect_flags.h",
     "graphics/viz_util.cc",
     "graphics/viz_util.h",
     "graphics/web_graphics_context_3d_provider_util.cc",
@@ -1400,6 +1408,7 @@ component("platform") {
     "text/date_time_format.cc",
     "text/date_time_format.h",
     "text/decode_escape_sequences.h",
+    "text/han_kerning_char_type.h",
     "text/hyphenation.cc",
     "text/hyphenation.h",
     "text/icu_error.cc",
@@ -1971,6 +1980,10 @@ static_library("test_support") {
 test("blink_platform_unittests") {
   deps = [ ":blink_platform_unittests_sources" ]
 
+  if (enable_nocompile_tests_new) {
+    deps += [ ":blink_platform_nocompile_tests" ]
+  }
+
   if (is_fuchsia) {
     additional_manifest_fragments = [
       "//build/config/fuchsia/test/test_fonts.shard.test-cml",
@@ -1990,6 +2003,17 @@ test("blink_platform_unittests") {
   }
   if (is_ios) {
     bundle_deps = [ ":blink_platform_unittests_bundle_data" ]
+  }
+}
+
+if (enable_nocompile_tests_new) {
+  nocompile_source_set("blink_platform_nocompile_tests") {
+    sources = [ "wtf/functional_nocompile.nc" ]
+
+    deps = [
+      ":platform",
+      "//base",
+    ]
   }
 }
 
@@ -2669,6 +2693,7 @@ source_set("unit_tests") {
     "graphics/canvas_color_params_test.cc",
     "graphics/canvas_hibernation_handler_test.cc",
     "graphics/canvas_resource_dispatcher_test.cc",
+    "graphics/canvas_resource_host_test.cc",
     "graphics/canvas_resource_provider_test.cc",
     "graphics/canvas_resource_test.cc",
     "graphics/color_correction_test_utils.cc",
@@ -2705,21 +2730,4 @@ source_set("unit_tests") {
     "//third_party/blink/public:test_headers",
   ]
   public_deps = [ "//gpu:raster" ]
-}
-
-if (enable_nocompile_tests) {
-  nocompile_test("blink_platform_nocompile_tests") {
-    sources = [ "wtf/functional_test.nc" ]
-
-    deps = [
-      ":platform",
-      "//base",
-      "//base/test:run_all_unittests",
-      "//testing/gtest",
-    ]
-
-    # Since the nocompile test is not able to inspect the contents of
-    # include_dirs, we need to specify the v8 include dir manually.
-    include_dirs = [ "//v8/include" ]
-  }
 }

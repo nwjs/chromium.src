@@ -29,8 +29,7 @@ import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 @Batch(Batch.UNIT_TESTS)
 @Config(manifest = Config.NONE)
 public final class BaseCustomTabRootUiCoordinatorUnitTest {
-    @Rule
-    public Features.JUnitProcessor mFeaturesProcessor = new Features.JUnitProcessor();
+    @Rule public Features.JUnitProcessor mFeaturesProcessor = new Features.JUnitProcessor();
 
     @Test
     @MediumTest

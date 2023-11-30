@@ -7,15 +7,15 @@
 #include "base/memory/raw_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
-#include "chrome/browser/apps/intent_helper/apps_navigation_types.h"
 #include "chrome/browser/apps/intent_helper/intent_chip_display_prefs.h"
-#include "chrome/browser/apps/intent_helper/intent_picker_features.h"
+#include "chrome/browser/apps/link_capturing/intent_picker_info.h"
+#include "chrome/browser/apps/link_capturing/link_capturing_feature_test_support.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/models/image_model.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/apps/intent_helper/metrics/intent_handling_metrics.h"
+#include "chrome/browser/apps/link_capturing/metrics/intent_handling_metrics.h"
 #endif  // #if BUILDFLAG(IS_CHROMEOS)
 
 class IntentPickerTabHelperTest : public ChromeRenderViewHostTestHarness {
@@ -38,7 +38,18 @@ class IntentPickerTabHelperTest : public ChromeRenderViewHostTestHarness {
   raw_ptr<IntentPickerTabHelper, DanglingUntriaged> helper_;
 };
 
-TEST_F(IntentPickerTabHelperTest, ShowOrHideIcon) {
+class IntentPickerTabHelperPlatformAgnosticTest
+    : public IntentPickerTabHelperTest {
+ public:
+  IntentPickerTabHelperPlatformAgnosticTest() {
+    apps::EnableLinkCapturingUXForTesting(scoped_feature_list_);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(IntentPickerTabHelperPlatformAgnosticTest, ShowOrHideIcon) {
   IntentPickerTabHelper::ShowOrHideIcon(web_contents(),
                                         /*should_show_icon=*/true);
 
@@ -50,19 +61,15 @@ TEST_F(IntentPickerTabHelperTest, ShowOrHideIcon) {
   ASSERT_FALSE(helper()->should_show_icon());
 }
 
-TEST_F(IntentPickerTabHelperTest, ShowIconForApps) {
-  base::test::ScopedFeatureList feature_list(
-      apps::features::kLinkCapturingUiUpdate);
-
+TEST_F(IntentPickerTabHelperPlatformAgnosticTest, ShowIconForApps) {
   NavigateAndCommit(GURL("https://www.google.com"));
   helper()->MaybeShowIconForApps(CreateTestAppList());
 
   ASSERT_TRUE(helper()->should_show_icon());
 }
 
-TEST_F(IntentPickerTabHelperTest, ShowIconForApps_ExpandedChip) {
-  base::test::ScopedFeatureList feature_list(
-      apps::features::kLinkCapturingUiUpdate);
+TEST_F(IntentPickerTabHelperPlatformAgnosticTest,
+       ShowIconForApps_ExpandedChip) {
   const GURL kTestUrl = GURL("https://www.google.com");
 
   NavigateAndCommit(kTestUrl);
@@ -71,9 +78,8 @@ TEST_F(IntentPickerTabHelperTest, ShowIconForApps_ExpandedChip) {
   ASSERT_TRUE(helper()->ShouldShowExpandedChip());
 }
 
-TEST_F(IntentPickerTabHelperTest, ShowIconForApps_CollapsedChip) {
-  base::test::ScopedFeatureList feature_list(
-      apps::features::kLinkCapturingUiUpdate);
+TEST_F(IntentPickerTabHelperPlatformAgnosticTest,
+       ShowIconForApps_CollapsedChip) {
   const GURL kTestUrl = GURL("https://www.google.com");
 
   // Simulate having seen the chip for this URL several times before, so that it
@@ -90,9 +96,8 @@ TEST_F(IntentPickerTabHelperTest, ShowIconForApps_CollapsedChip) {
   ASSERT_FALSE(helper()->ShouldShowExpandedChip());
 }
 
-TEST_F(IntentPickerTabHelperTest, ShowIntentIcon_ResetsExpandedState) {
-  base::test::ScopedFeatureList feature_list(
-      apps::features::kLinkCapturingUiUpdate);
+TEST_F(IntentPickerTabHelperPlatformAgnosticTest,
+       ShowIntentIcon_ResetsExpandedState) {
   const GURL kTestUrl = GURL("https://www.google.com");
 
   NavigateAndCommit(kTestUrl);

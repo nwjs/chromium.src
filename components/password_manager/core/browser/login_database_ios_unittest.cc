@@ -178,21 +178,21 @@ TEST_F(LoginDatabaseIOSTest, RemoveLoginsCreatedBetween) {
   forms[0].url = GURL("http://0.com");
   forms[0].signon_realm = "http://www.example.com";
   forms[0].username_element = u"login0";
-  forms[0].date_created = base::Time::FromDoubleT(100);
+  forms[0].date_created = base::Time::FromSecondsSinceUnixEpoch(100);
   forms[0].password_value = u"pass0";
   forms[0].in_store = PasswordForm::Store::kProfileStore;
 
   forms[1].url = GURL("http://1.com");
   forms[1].signon_realm = "http://www.example.com";
   forms[1].username_element = u"login1";
-  forms[1].date_created = base::Time::FromDoubleT(200);
+  forms[1].date_created = base::Time::FromSecondsSinceUnixEpoch(200);
   forms[1].password_value = u"pass1";
   forms[1].in_store = PasswordForm::Store::kProfileStore;
 
   forms[2].url = GURL("http://2.com");
   forms[2].signon_realm = "http://www.example.com";
   forms[2].username_element = u"login2";
-  forms[2].date_created = base::Time::FromDoubleT(300);
+  forms[2].date_created = base::Time::FromSecondsSinceUnixEpoch(300);
   forms[2].password_value = u"pass2";
   forms[2].in_store = PasswordForm::Store::kProfileStore;
 
@@ -213,9 +213,10 @@ TEST_F(LoginDatabaseIOSTest, RemoveLoginsCreatedBetween) {
     EXPECT_EQ(login.password_value, password_value);
   }
 
-  login_db_->RemoveLoginsCreatedBetween(base::Time::FromDoubleT(150),
-                                        base::Time::FromDoubleT(250),
-                                        /*changes=*/nullptr);
+  login_db_->RemoveLoginsCreatedBetween(
+      base::Time::FromSecondsSinceUnixEpoch(150),
+      base::Time::FromSecondsSinceUnixEpoch(250),
+      /*changes=*/nullptr);
 
   // Verify that one password is removed.
   std::vector<PasswordForm> remaining_logins;
@@ -245,21 +246,21 @@ TEST_F(LoginDatabaseIOSTest, DeleteAndRecreateDatabaseFile) {
   forms[0].url = GURL("http://0.com");
   forms[0].signon_realm = "http://www.example.com";
   forms[0].username_element = u"login0";
-  forms[0].date_created = base::Time::FromDoubleT(100);
+  forms[0].date_created = base::Time::FromSecondsSinceUnixEpoch(100);
   forms[0].password_value = u"pass0";
   forms[0].in_store = PasswordForm::Store::kProfileStore;
 
   forms[1].url = GURL("http://1.com");
   forms[1].signon_realm = "http://www.example.com";
   forms[1].username_element = u"login1";
-  forms[1].date_created = base::Time::FromDoubleT(200);
+  forms[1].date_created = base::Time::FromSecondsSinceUnixEpoch(200);
   forms[1].password_value = u"pass1";
   forms[1].in_store = PasswordForm::Store::kProfileStore;
 
   forms[2].url = GURL("http://2.com");
   forms[2].signon_realm = "http://www.example.com";
   forms[2].username_element = u"login2";
-  forms[2].date_created = base::Time::FromDoubleT(300);
+  forms[2].date_created = base::Time::FromSecondsSinceUnixEpoch(300);
   forms[2].password_value = u"pass2";
   forms[2].in_store = PasswordForm::Store::kProfileStore;
 
@@ -310,28 +311,18 @@ TEST_F(LoginDatabaseIOSTest, DeleteAndRecreateDatabaseFile) {
       BucketsInclude(Bucket(errSecSuccess, 2), Bucket(errSecItemNotFound, 1)));
 }
 
-class LoginDatabaseMigrationToOSCryptTest
-    : public LoginDatabaseIOSTest,
-      public testing::WithParamInterface<bool> {
+class LoginDatabaseMigrationToOSCryptTest : public LoginDatabaseIOSTest {
  public:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     database_path_ = temp_dir_.GetPath().AppendASCII("test.db");
-    if (GetParam()) {
-      feature_list_.InitWithFeatures(
-          /*enabled_features=*/{features::kOneReadLoginDatabaseMigration},
-          /*disabled_features=*/{});
-    } else {
-      feature_list_.InitWithFeatures(
-          /*enabled_features=*/{},
-          /*disabled_features=*/{features::kOneReadLoginDatabaseMigration});
-    }
   }
 
   // Creates the database from |sql_file|.
   void CreateDatabase(base::StringPiece sql_file) {
     base::FilePath database_dump;
-    ASSERT_TRUE(base::PathService::Get(base::DIR_SOURCE_ROOT, &database_dump));
+    ASSERT_TRUE(
+        base::PathService::Get(base::DIR_SRC_TEST_DATA_ROOT, &database_dump));
     database_dump = database_dump.AppendASCII("components")
                         .AppendASCII("test")
                         .AppendASCII("data")
@@ -413,14 +404,13 @@ class LoginDatabaseMigrationToOSCryptTest
   base::FilePath get_database_path() { return database_path_; }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   base::ScopedTempDir temp_dir_;
   base::FilePath database_path_;
 };
 
 // Tests the migration of the login database from version() to
 // kCurrentVersionNumber.
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion38ProfileStore) {
   // Keychain identifier used in the test file.
   const std::string password_keychain_identifier =
@@ -471,7 +461,7 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
   DeleteEncryptedPasswordFromKeychain(note_keychain_identifier);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion38SuccessMetricsAccountStore) {
   CreateDatabase("login_db_v38_with_keychain_id.sql");
 
@@ -516,12 +506,8 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
   DeleteEncryptedPasswordFromKeychain(note_keychain_identifier);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion38FailureMetricsProfileStore) {
-  // Error can't be easily simulated when reading all keychain at once.
-  if (GetParam()) {
-    return;
-  }
   base::HistogramTester histogram_tester;
 
   CreateDatabase("login_db_v38_with_keychain_id.sql");
@@ -554,12 +540,8 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
       "PasswordManager.MigrationToOSCrypt.ProfileStore.ErrorLatency", 1);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion38FailureMetricsAccountStore) {
-  // Error can't be easily simulated when reading all keychain at once.
-  if (GetParam()) {
-    return;
-  }
   base::HistogramTester histogram_tester;
 
   CreateDatabase("login_db_v38_with_keychain_id.sql");
@@ -592,12 +574,8 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
       "PasswordManager.MigrationToOSCrypt.AccountStore.ErrorLatency", 1);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion38WithMissingKeychainItems) {
-  // Error can't be easily simulated when reading all keychain at once.
-  if (GetParam()) {
-    return;
-  }
   CreateDatabase("login_db_v38_with_keychain_ids.sql");
 
   // Even though testing file contains two passwords add only one item to the
@@ -632,7 +610,7 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
   DeleteEncryptedPasswordFromKeychain(password_keychain_identifier);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion39ProfileStore) {
   // Keychain identifier used in the test file.
   const std::string note_keychain_identifier =
@@ -680,7 +658,7 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
   }
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion39AccountStore) {
   // The values set in the .sql file are already used by the previous test.
   // Since tests can run in parallel, the IDs nee to be different to avoid
@@ -732,7 +710,7 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
   }
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion39FailureMetricsProfileStore) {
   base::HistogramTester histogram_tester;
 
@@ -765,7 +743,7 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
       -1, 1);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion39FailureMetricsAccountStore) {
   base::HistogramTester histogram_tester;
 
@@ -798,7 +776,7 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
       -1, 1);
 }
 
-TEST_P(LoginDatabaseMigrationToOSCryptTest,
+TEST_F(LoginDatabaseMigrationToOSCryptTest,
        MigrationFromVersion39WithMissingKeychainItems) {
   // Even though the testing file contains two notes, add only one of them to
   // the keychain to simulate the `errSecItemNotFound` error.
@@ -843,9 +821,5 @@ TEST_P(LoginDatabaseMigrationToOSCryptTest,
   // Clear the note from the keychain to ensure it doesn't affect other tests.
   DeleteEncryptedPasswordFromKeychain(note_keychain_identifier);
 }
-
-INSTANTIATE_TEST_SUITE_P(,  // Empty instantiation name.
-                         LoginDatabaseMigrationToOSCryptTest,
-                         testing::Bool());
 
 }  // namespace password_manager

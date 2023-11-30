@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "ash/constants/app_types.h"
@@ -92,7 +93,6 @@
 #include "chromeos/crosapi/mojom/desk.mojom-shared.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "chromeos/ui/frame/multitask_menu/multitask_menu_nudge_controller.h"
-#include "chromeos/ui/wm/features.h"
 #include "components/account_id/account_id.h"
 #include "components/app_constants/constants.h"
 #include "components/app_restore/app_launch_info.h"
@@ -519,10 +519,10 @@ class DesksClientTest : public extensions::PlatformAppBrowserTest,
  public:
   DesksClientTest() {
     std::vector<base::test::FeatureRef> enabled_features = {
-        ash::features::kDesksTemplates,
-        chromeos::wm::features::kWindowLayoutMenu};
+        ash::features::kDesksTemplates};
     std::vector<base::test::FeatureRef> disabled_features = {
-        ash::features::kDeskTemplateSync};
+        ash::features::kDeskTemplateSync,
+        ash::features::kFasterSplitScreenSetup};
     if (GetParam()) {
       enabled_features.push_back(chromeos::features::kJelly);
     } else {
@@ -1776,7 +1776,8 @@ IN_PROC_BROWSER_TEST_P(DesksClientTest, SystemUICaptureIncognitoBrowserTest) {
       ash::GetSavedDeskDialogAcceptButton();
   ASSERT_TRUE(dialog_accept_button);
   // MaterialNext uses PillButton instead of dialog buttons.
-  if (dialog_accept_button->GetClassName() == ash::PillButton::kViewClassName) {
+  if (std::string_view(dialog_accept_button->GetClassName()) ==
+      std::string_view(ash::PillButton::kViewClassName)) {
     ClickButton(dialog_accept_button);
   } else {
     // Use a key press to accept the dialog instead of a click as
@@ -3039,7 +3040,7 @@ IN_PROC_BROWSER_TEST_P(DesksClientTest,
   // Spin in case we need to wait for the toast to appear.
   SPIN_FOR_TIMEDELTA_OR_UNTIL_TRUE(
       base::Seconds(45),
-      ash::ToastManager::Get()->IsRunning(
+      ash::ToastManager::Get()->IsToastShown(
           chrome_desks_util::kAppNotAvailableTemplateToastName));
 }
 
@@ -3062,9 +3063,7 @@ IN_PROC_BROWSER_TEST_P(DesksClientTest,
   std::vector<apps::AppPtr> deltas;
   deltas.push_back(
       std::make_unique<apps::App>(apps::AppType::kArc, kUnknownTestAppId));
-  apps::AppRegistryCacheWrapper::Get()
-      .GetAppRegistryCache(
-          multi_user_util::GetAccountIdFromProfile(browser()->profile()))
+  apps::AppServiceProxyFactory::GetForProfile(browser()->profile())
       ->OnApps(std::move(deltas), apps::AppType::kArc,
                /*should_notify_initializied=*/false);
 
@@ -3091,7 +3090,7 @@ IN_PROC_BROWSER_TEST_P(DesksClientTest,
   // Spin in case we need to wait for the toast to appear.
   SPIN_FOR_TIMEDELTA_OR_UNTIL_TRUE(
       base::Seconds(45),
-      ash::ToastManager::Get()->IsRunning(
+      ash::ToastManager::Get()->IsToastShown(
           chrome_desks_util::kAppNotAvailableTemplateToastName));
 }
 

@@ -7,6 +7,7 @@
 #include "cc/trees/layer_tree_host.h"
 #include "cc/view_transition/view_transition_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_view_transition_callback.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_view_transition_options.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -90,6 +91,7 @@ DOMViewTransition* ViewTransitionSupplement::startViewTransition(
   DCHECK(script_state);
   DCHECK(ThreadScheduler::Current());
   auto* supplement = From(document);
+
   if (callback) {
     auto* tracker = ThreadScheduler::Current()->GetTaskAttributionTracker();
     // Set the parent task ID if we're not in an extension task (as extensions
@@ -98,12 +100,30 @@ DOMViewTransition* ViewTransitionSupplement::startViewTransition(
       callback->SetParentTask(tracker->RunningTask(script_state));
     }
   }
-  return supplement->StartTransition(script_state, document, callback,
-                                     exception_state);
+  return supplement->StartTransition(document, callback, exception_state);
+}
+
+DOMViewTransition* ViewTransitionSupplement::startViewTransition(
+    ScriptState* script_state,
+    Document& document,
+    ViewTransitionOptions* options,
+    ExceptionState& exception_state) {
+  CHECK(!options || options->hasUpdate());
+  return startViewTransition(script_state, document,
+                             options ? options->update() : nullptr,
+                             exception_state);
+}
+
+DOMViewTransition* ViewTransitionSupplement::startViewTransition(
+    ScriptState* script_state,
+    Document& document,
+    ExceptionState& exception_state) {
+  return startViewTransition(script_state, document,
+                             static_cast<V8ViewTransitionCallback*>(nullptr),
+                             exception_state);
 }
 
 DOMViewTransition* ViewTransitionSupplement::StartTransition(
-    ScriptState* script_state,
     Document& document,
     V8ViewTransitionCallback* callback,
     ExceptionState& exception_state) {
@@ -124,8 +144,7 @@ DOMViewTransition* ViewTransitionSupplement::StartTransition(
     return nullptr;
   }
 
-  transition_ =
-      ViewTransition::CreateFromScript(&document, script_state, callback, this);
+  transition_ = ViewTransition::CreateFromScript(&document, callback, this);
 
   // If there is a transition in a parent frame, give that precedence over a
   // transition in a child frame.
@@ -220,13 +239,15 @@ void ViewTransitionSupplement::StartTransition(
 
 void ViewTransitionSupplement::OnTransitionFinished(
     ViewTransition* transition) {
-  // TODO(vmpstr): Do we need to explicitly reset transition state?
-  if (transition == transition_)
-    transition_ = nullptr;
+  CHECK(transition);
+  CHECK_EQ(transition, transition_);
+  // Clear the transition so it can be garbage collected if needed (and to
+  // prevent callers of GetTransition thinking there's an ongoing transition).
+  transition_ = nullptr;
 }
 
 ViewTransition* ViewTransitionSupplement::GetTransition() {
-  return transition_;
+  return transition_.Get();
 }
 
 ViewTransitionSupplement::ViewTransitionSupplement(Document& document)
@@ -273,6 +294,7 @@ void ViewTransitionSupplement::OnMetaTagChanged(
 
 void ViewTransitionSupplement::OnViewTransitionsStyleUpdated(
     bool cross_document_enabled) {
+  CHECK(RuntimeEnabledFeatures::ViewTransitionOnNavigationEnabled());
   // TODO(https://crbug.com/1463966): Remove meta tag opt-in - ignore the case
   // where both are specified for now.
 
@@ -292,7 +314,7 @@ void ViewTransitionSupplement::WillInsertBody() {
   auto* document = GetSupplementable();
   CHECK(document);
 
-  // Update actives styles will compute the @view-transitions
+  // Update active styles will compute the @view-transitions
   // navigation-trigger opt in.
   // TODO(https://crbug.com/1463966): This is probably a bit of a heavy hammer.
   // In the long term, we probably don't want to make this decision at

@@ -12,7 +12,7 @@ import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
 import {TestPasswordManagerProxy} from './test_password_manager_proxy.js';
 import {TestSyncBrowserProxy} from './test_sync_browser_proxy.js';
-import {createAffiliatedDomain, createPasswordEntry} from './test_util.js';
+import {createAffiliatedDomain, createPasswordEntry, makePasswordManagerPrefs} from './test_util.js';
 
 async function createCardElement(
     password: chrome.passwordsPrivate.PasswordUiEntry|null =
@@ -24,6 +24,7 @@ async function createCardElement(
 
   const card = document.createElement('password-details-card');
   card.password = password;
+  card.prefs = makePasswordManagerPrefs();
   document.body.appendChild(card);
   await flushTasks();
   return card;
@@ -357,16 +358,13 @@ suite('PasswordDetailsCardTest', function() {
 
     const card = await createCardElement();
 
-    const shareButton =
-        card.shadowRoot!.querySelector<HTMLElement>('#shareButton');
-    assertTrue(!!shareButton);
-    assertTrue(isVisible(shareButton));
-    assertEquals(shareButton.textContent!.trim(), card.i18n('share'));
+    assertTrue(isVisible(card.$.shareButton));
+    assertEquals(card.$.shareButton.textContent!.trim(), card.i18n('share'));
 
     assertFalse(!!card.shadowRoot!.querySelector('share-password-flow'));
 
     // Share flow should become available after the button click.
-    shareButton.click();
+    card.$.shareButton.click();
     await passwordManager.whenCalled('fetchFamilyMembers');
     await flushTasks();
 
@@ -386,11 +384,31 @@ suite('PasswordDetailsCardTest', function() {
 
     const card = await createCardElement();
 
-    const shareButton =
-        card.shadowRoot!.querySelector<HTMLElement>('#shareButton');
-    assertTrue(!!shareButton);
-    assertTrue(isVisible(shareButton));
-    assertEquals(shareButton.textContent!.trim(), card.i18n('share'));
+    assertFalse(card.$.shareButton.hidden);
+    assertTrue(isVisible(card.$.shareButton));
+    assertFalse(card.$.shareButton.disabled);
+    assertEquals(card.$.shareButton.textContent!.trim(), card.i18n('share'));
+  });
+
+  test('sharing disabled by policy', async function() {
+    loadTimeData.overrideValues({enableSendPasswords: true});
+
+    syncProxy.syncInfo = {
+      isEligibleForAccountStorage: false,
+      isSyncingPasswords: true,
+    };
+
+    const card = document.createElement('password-details-card');
+    card.password = createPasswordEntry();
+    card.prefs = makePasswordManagerPrefs();
+    card.prefs.password_manager.password_sharing_enabled.value = false;
+    card.prefs.password_manager.password_sharing_enabled.enforcement =
+        chrome.settingsPrivate.Enforcement.ENFORCED;
+    document.body.appendChild(card);
+    await flushTasks();
+
+    assertTrue(isVisible(card.$.shareButton));
+    assertTrue(card.$.shareButton.disabled);
   });
 
   test('sharing unavailable for federated credentials', async function() {
@@ -404,9 +422,7 @@ suite('PasswordDetailsCardTest', function() {
     const card =
         await createCardElement(createPasswordEntry({federationText: 'text'}));
 
-    const shareButton =
-        card.shadowRoot!.querySelector<HTMLElement>('#shareButton');
-    assertFalse(!!shareButton);
+    assertFalse(isVisible(card.$.shareButton));
 
     const sharePasswordFlow =
         card.shadowRoot!.querySelector('share-password-flow');
@@ -423,9 +439,7 @@ suite('PasswordDetailsCardTest', function() {
 
     const card = await createCardElement();
 
-    const shareButton =
-        card.shadowRoot!.querySelector<HTMLElement>('#shareButton');
-    assertFalse(!!shareButton);
+    assertFalse(isVisible(card.$.shareButton));
 
     const sharePasswordFlow =
         card.shadowRoot!.querySelector('share-password-flow');
@@ -442,9 +456,7 @@ suite('PasswordDetailsCardTest', function() {
 
     const card = await createCardElement();
 
-    const shareButton =
-        card.shadowRoot!.querySelector<HTMLElement>('#shareButton');
-    assertFalse(!!shareButton);
+    assertFalse(isVisible(card.$.shareButton));
 
     const sharePasswordFlow =
         card.shadowRoot!.querySelector('share-password-flow');

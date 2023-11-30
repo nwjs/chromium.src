@@ -240,14 +240,21 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   virtual void OnOcrDataReceived(std::vector<PdfOcrRequest> ocr_requests,
                                  std::vector<ui::AXTreeUpdate> tree_updates);
 
-  ui::AXTree& tree_for_testing() { return tree_; }
-
   const ui::AXTreeUpdate* postamble_page_tree_update_for_testing() const {
     return postamble_page_tree_update_.get();
   }
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
   bool ShowContextMenu();
+
+  ui::AXTree& tree_for_testing() { return tree_; }
+
+  // Sets the ID of a child tree which this node will be hosting. In this way,
+  // multiple trees could be stitched together. Clears any existing descendants
+  // of the hosting node in order to maintain the consistency of the tree
+  // structure, and because they would be hidden by the child tree anyway.
+  bool SetChildTree(const ui::AXNodeID& target_node_id,
+                    const ui::AXTreeID& child_tree_id);
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
  protected:
@@ -288,9 +295,6 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   // Called after the OCR data for all images in the PDF have been received.
   // Set the status node with the OCR completion message.
   void SetOcrCompleteStatus();
-
-  // Set the status node's message.
-  void SetStatusMessage(int message_id);
 #endif  // BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
 
   void AddPageContent(
@@ -310,6 +314,11 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   content::RenderAccessibility* GetRenderAccessibilityIfEnabled();
 
   std::unique_ptr<gfx::Transform> MakeTransformFromViewInfo() const;
+
+  // Set the status node's message.
+  void SetStatusMessage(int message_id);
+
+  void ResetStatusNodeAttributes();
 
   // Handles an accessibility change only if there is a valid
   // `RenderAccessibility` for the frame. `LoadAccessibility()` will be
@@ -356,6 +365,11 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   uint32_t selection_end_char_index_ = 0;
   uint32_t page_count_ = 0;
   std::unique_ptr<ui::AXNodeData> doc_node_;
+  // The banner node will have an appropriate ARIA landmark for easy navigation
+  // for screen reader users. It will contain the status node below.
+  std::unique_ptr<ui::AXNodeData> banner_node_;
+  // The status node contains a notification message for the user.
+  std::unique_ptr<ui::AXNodeData> status_node_;
   std::vector<std::unique_ptr<ui::AXNodeData>> nodes_;
 
   // Map from the id of each static text AXNode and inline text box
@@ -374,6 +388,7 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   uint32_t next_page_index_ = 0;
 
   bool did_get_a_text_run_ = false;
+  bool did_have_an_image_ = false;
   bool sent_metrics_once_ = false;
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -381,9 +396,6 @@ class PdfAccessibilityTree : public content::PluginAXTreeSource,
   // that the OCR process is ongoing. It is removed once the process is
   // complete.
   std::unique_ptr<ui::AXTreeUpdate> postamble_page_tree_update_;
-  // The status node contains a notification message for the user.
-  std::unique_ptr<ui::AXNodeData> ocr_status_node_wrapper_;
-  std::unique_ptr<ui::AXNodeData> ocr_status_node_;
   std::unique_ptr<PdfOcrService> ocr_service_;
 
   // Flag indicating if any text was converted from images by OCR.

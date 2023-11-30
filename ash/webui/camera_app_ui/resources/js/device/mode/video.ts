@@ -51,7 +51,7 @@ import {StreamManagerChrome} from '../stream_manager_chrome.js';
 
 import {ModeBase, ModeFactory} from './mode_base.js';
 import {PhotoResult} from './photo.js';
-import {GifRecordTime, RecordTime} from './record_time.js';
+import {RecordTime} from './record_time.js';
 
 /**
  * Maps from board name to its default encoding profile and bitrate multiplier.
@@ -240,12 +240,7 @@ export class Video extends ModeBase {
   /**
    * Record-time for the elapsed recording time.
    */
-  private readonly recordTime = new RecordTime();
-
-  /**
-   * Record-time for the elapsed gif recording time.
-   */
-  private readonly gifRecordTime: GifRecordTime;
+  private readonly recordTime = new RecordTime(() => this.stop());
 
   /**
    * Record type of ongoing recording.
@@ -295,9 +290,6 @@ export class Video extends ModeBase {
       const {width, height} = video.getVideoSettings();
       return new Resolution(width, height);
     })();
-
-    this.gifRecordTime = new GifRecordTime(
-        {maxTime: MAX_GIF_DURATION_MS, onMaxTimeout: () => this.stop()});
   }
 
   override async clear(): Promise<void> {
@@ -435,29 +427,25 @@ export class Video extends ModeBase {
     }
 
     const waitable = new WaitableEvent();
-    const onToggled = () => {
-      assert(this.mediaRecorder !== null);
-      this.mediaRecorder.removeEventListener(toggledEvent, onToggled);
+    function onToggled() {
       state.set(state.State.RECORDING_PAUSED, toBePaused);
       waitable.signal();
-    };
-
-    this.mediaRecorder.addEventListener(toggledEvent, onToggled);
-    if (toBePaused) {
-      // This is for playing pause effect after the toggle is done, and
-      // shouldn't be included in the returned promise.
-      // TODO(pihsun): Reconsider if we should return a Promise for audio /
-      // animation.
-      void waitable.wait().then(() => this.playPauseEffect(toBePaused));
-      this.recordTime.pause();
-      this.mediaRecorder.pause();
-    } else {
-      await this.playPauseEffect(toBePaused);
-      this.recordTime.resume();
-      this.mediaRecorder.resume();
     }
 
-    return waitable.wait();
+    this.mediaRecorder.addEventListener(toggledEvent, onToggled, {once: true});
+    // Pause: Pause Timer & Recorder -> Wait Recorder pause -> Sound/Button UI
+    // Resume: Sound/Button UI -> Update Timer -> Resume Recorder
+    if (toBePaused) {
+      this.recordTime.pause();
+      this.mediaRecorder.pause();
+      await waitable.wait();
+      await this.playPauseEffect(true);
+    } else {
+      await this.playPauseEffect(false);
+      this.recordTime.resume();
+      this.mediaRecorder.resume();
+      await waitable.wait();
+    }
   }
 
   private async togglePausedTimeLapse(): Promise<void> {
@@ -482,9 +470,7 @@ export class Video extends ModeBase {
 
   private async playPauseEffect(toBePaused: boolean): Promise<void> {
     state.set(state.State.RECORDING_UI_PAUSED, toBePaused);
-    await sound.play(dom.get(
-        toBePaused ? '#sound-rec-pause' : '#sound-rec-start',
-        HTMLAudioElement));
+    await sound.play(toBePaused ? 'recordPause' : 'recordStart').result;
   }
 
   /**
@@ -558,10 +544,9 @@ export class Video extends ModeBase {
       }
     }
 
-    const isSoundEnded =
-        await sound.play(dom.get('#sound-rec-start', HTMLAudioElement));
-    if (!isSoundEnded) {
-      throw new CanceledError('Recording sound is canceled');
+    await sound.play('recordStart').result;
+    if (this.stopped) {
+      throw new CanceledError('Recording stopped');
     }
 
     if (this.captureStream === null) {
@@ -609,7 +594,7 @@ export class Video extends ModeBase {
         this.recordingType === RecordType.GIF);
     if (this.recordingType === RecordType.GIF) {
       state.set(state.State.RECORDING, true);
-      this.gifRecordTime.start();
+      this.recordTime.start(MAX_GIF_DURATION_MS);
 
       let gifSaver = null;
       try {
@@ -622,7 +607,7 @@ export class Video extends ModeBase {
         throw e;
       } finally {
         state.set(state.State.RECORDING, false);
-        this.gifRecordTime.stop();
+        this.recordTime.stop();
       }
 
       const gifName = (new Filenamer()).newVideoName(VideoType.GIF);
@@ -632,7 +617,7 @@ export class Video extends ModeBase {
         name: gifName,
         gifSaver,
         resolution: this.captureResolution,
-        duration: this.gifRecordTime.inMilliseconds(),
+        duration: this.recordTime.inMilliseconds(),
       })];
     } else if (this.recordingType === RecordType.TIME_LAPSE) {
       // TODO(b/279865370): Don't pause when the confirm dialog is shown.
@@ -676,8 +661,7 @@ export class Video extends ModeBase {
           videoSaver = await this.captureVideo();
         } finally {
           this.recordTime.stop();
-          // TODO(pihsun): Reconsider if sound.play should return a Promise.
-          void sound.play(dom.get('#sound-rec-end', HTMLAudioElement));
+          sound.play('recordEnd');
           await this.snapshottingQueue.flush();
         }
       } catch (e) {
@@ -722,7 +706,7 @@ export class Video extends ModeBase {
       state.set(state.State.RECORDING_PAUSED, false);
       state.set(state.State.RECORDING_UI_PAUSED, false);
     } else {
-      sound.cancel(dom.get('#sound-rec-start', HTMLAudioElement));
+      sound.cancel('recordStart');
 
       if (this.mediaRecorder !== null &&
           (this.mediaRecorder.state === 'recording' ||
@@ -793,14 +777,16 @@ export class Video extends ModeBase {
    */
   private async captureTimeLapse(param: h264.EncoderParameters):
       Promise<TimeLapseSaver> {
-    const encoderConfig = getVideoEncoderConfig(param, this.captureResolution);
+    const {width, height} = getVideoTrackSettings(this.getVideoTrack());
+    const resolution = new Resolution(width, height);
+    const encoderConfig = getVideoEncoderConfig(param, resolution);
 
     // Creates a saver given the initial speed.
     const saver = await this.handler.createTimeLapseSaver(
         {
           encoderConfig,
           fps: this.frameRate,
-          resolution: this.captureResolution,
+          resolution,
         },
         TIME_LAPSE_INITIAL_SPEED);
 

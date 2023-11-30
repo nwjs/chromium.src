@@ -11,8 +11,10 @@ import {assertInstanceof, assertNotReached} from 'chrome://resources/ash/common/
 
 import {getMimeType, startIOTask} from '../../common/js/api.js';
 import {type AnnotatedTask, getDefaultTask} from '../../common/js/file_tasks.js';
+import {isJellyEnabled} from '../../common/js/flags.js';
 import {recordDirectoryListLoadWithTolerance, startInterval} from '../../common/js/metrics.js';
-import {str, strf, util} from '../../common/js/util.js';
+import {str, strf} from '../../common/js/translations.js';
+import {checkAPIError} from '../../common/js/util.js';
 import {Crostini} from '../../externs/background/crostini.js';
 import {ProgressCenter} from '../../externs/background/progress_center.js';
 import {FilesAppDirEntry, FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
@@ -207,7 +209,7 @@ export class TaskController {
     const mimeTypes =
         await Promise.all(entries.map(entry => this.getMimeType_(entry)));
     chrome.fileManagerPrivate.setDefaultTask(
-        task.descriptor, entries, mimeTypes, util.checkAPIError);
+        task.descriptor, entries, mimeTypes, checkAPIError);
     this.metadataUpdateController_.refreshCurrentDirectoryMetadata();
 
     // Update task menu button unless the task button was updated by other
@@ -301,7 +303,7 @@ export class TaskController {
     const items = [];
 
     // We don't bold default task item in refresh23 style.
-    const shouldBoldDefaultItem = !util.isJellyEnabled();
+    const shouldBoldDefaultItem = !isJellyEnabled();
 
     // Create items.
     for (const task of tasks) {
@@ -541,17 +543,17 @@ export class TaskController {
   }
 
   /**
-   * Return the tasks for the FileEntry |entry|.
+   * Return the tasks for the `entry`.
    * @param entry
    */
-  async getEntryFileTasks(entry: FileEntry): Promise<FileTasks> {
+  async getEntryFileTasks(entry: Entry): Promise<FileTasks> {
     return FileTasks.create(
         this.volumeManager_, this.metadataModel_, this.directoryModel_,
         this.ui_, this.fileTransferController_!, [entry], this.taskHistory_,
         this.crostini_, this.progressCenter_, this);
   }
 
-  async executeEntryTask(entry: FileEntry) {
+  async executeEntryTask(entry: Entry) {
     const tasks = await this.getEntryFileTasks(entry);
     tasks.executeDefault();
   }

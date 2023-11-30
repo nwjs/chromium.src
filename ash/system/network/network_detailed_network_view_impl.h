@@ -10,6 +10,7 @@
 #include "ash/system/network/network_detailed_network_view.h"
 #include "ash/system/network/network_list_mobile_header_view_impl.h"
 #include "ash/system/network/network_list_network_item_view.h"
+#include "ash/system/network/network_list_tether_hosts_header_view.h"
 #include "ash/system/network/network_list_wifi_header_view_impl.h"
 #include "base/memory/raw_ptr.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
@@ -46,6 +47,7 @@ class ASH_EXPORT NetworkDetailedNetworkViewImpl
   HoverHighlightView* AddConfigureNetworkEntry(NetworkType type) override;
   NetworkListMobileHeaderView* AddMobileSectionHeader() override;
   NetworkListWifiHeaderView* AddWifiSectionHeader() override;
+  NetworkListTetherHostsHeaderView* AddTetherHostsSectionHeader() override;
   void UpdateScanningBarVisibility(bool visible) override;
   views::View* GetNetworkList(NetworkType type) override;
   void ReorderFirstListView(size_t index) override;
@@ -68,12 +70,9 @@ class ASH_EXPORT NetworkDetailedNetworkViewImpl
 
   // Owned by the views hierarchy. These are the containers to carry the warning
   // message, the ethernet entry, the mobile header, mobile network entries,
-  // wifi header, and wifi network entries. These containers are only used and
-  // added to the `network_list_` when the `features::IsQsRevampEnabled()` is
-  // true.
+  // wifi header, and wifi network entries.
   raw_ptr<RoundedContainer, DanglingUntriaged | ExperimentalAsh>
       first_list_view_ = nullptr;
-
   raw_ptr<RoundedContainer, ExperimentalAsh> mobile_top_container_ = nullptr;
   raw_ptr<RoundedContainer, ExperimentalAsh> mobile_network_list_view_ =
       nullptr;

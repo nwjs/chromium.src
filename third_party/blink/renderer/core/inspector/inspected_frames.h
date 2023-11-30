@@ -43,7 +43,7 @@ class CORE_EXPORT InspectedFrames final
   InspectedFrames& operator=(const InspectedFrames&) = delete;
 
   LocalFrame* Root() {
-    LocalFrame* f = root_;
+    LocalFrame* f = root_.Get();
     LocalFrame* jail = (LocalFrame*)f->getDevtoolsJail();
     return jail ? jail : f;
   }

@@ -137,7 +137,7 @@ public class GoogleServicesSettings extends ChromeBaseSettingsFragment
 
         mPriceTrackingAnnotations =
                 (ChromeSwitchPreference) findPreference(PREF_PRICE_TRACKING_ANNOTATIONS);
-        if (!PriceTrackingFeatures.allowUsersToDisablePriceAnnotations()) {
+        if (!PriceTrackingFeatures.allowUsersToDisablePriceAnnotations(getProfile())) {
             removePreference(getPreferenceScreen(), mPriceTrackingAnnotations);
             mPriceTrackingAnnotations = null;
         } else {
@@ -146,7 +146,7 @@ public class GoogleServicesSettings extends ChromeBaseSettingsFragment
         }
 
         mPriceNotificationSection = findPreference(PREF_PRICE_NOTIFICATION_SECTION);
-        if (ShoppingFeatures.isShoppingListEligible()) {
+        if (ShoppingFeatures.isShoppingListEligible(getProfile())) {
             mPriceNotificationSection.setVisible(true);
         } else {
             removePreference(getPreferenceScreen(), mPriceNotificationSection);
@@ -154,12 +154,7 @@ public class GoogleServicesSettings extends ChromeBaseSettingsFragment
         }
 
         mUsageStatsReporting = findPreference(PREF_USAGE_STATS_REPORTING);
-        if (ChromeFeatureList.isEnabled(ChromeFeatureList.PRIVACY_SANDBOX_SETTINGS_4)) {
-            mUsageStatsReporting.setVisible(true);
-        } else {
-            removePreference(getPreferenceScreen(), mUsageStatsReporting);
-            mUsageStatsReporting = null;
-        }
+        mUsageStatsReporting.setVisible(true);
 
         updatePreferences();
     }
@@ -256,7 +251,7 @@ public class GoogleServicesSettings extends ChromeBaseSettingsFragment
         }
         if (mPriceTrackingAnnotations != null) {
             mPriceTrackingAnnotations.setChecked(
-                    PriceTrackingUtilities.isTrackPricesOnTabsEnabled());
+                    PriceTrackingUtilities.isTrackPricesOnTabsEnabled(getProfile()));
         }
         if (mUsageStatsReporting != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q

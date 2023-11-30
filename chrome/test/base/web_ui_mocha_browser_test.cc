@@ -48,6 +48,10 @@ void WebUIMochaBrowserTest::set_test_loader_host(const std::string& host) {
   test_loader_host_ = host;
 }
 
+content::WebContents* WebUIMochaBrowserTest::GetWebContentsForSetup() {
+  return chrome_test_utils::GetActiveWebContents(this);
+}
+
 void WebUIMochaBrowserTest::SetUpOnMainThread() {
   // Load browser_tests.pak.
   base::FilePath pak_path;
@@ -57,8 +61,7 @@ void WebUIMochaBrowserTest::SetUpOnMainThread() {
       pak_path, ui::kScaleFactorNone);
 
   // Register the chrome://webui-test data source.
-  content::WebContents* web_contents =
-      chrome_test_utils::GetActiveWebContents(this);
+  content::WebContents* web_contents = GetWebContentsForSetup();
   Profile* profile =
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   webui::CreateAndAddWebUITestDataSource(profile);
@@ -82,12 +85,6 @@ void WebUIMochaBrowserTest::OnWebContentsAvailable(
     content::WebContents* web_contents) {
   // Nothing to do here. Should be overridden by any subclasses if additional
   // setup steps are needed.
-}
-
-void WebUIMochaBrowserTest::SubstituteWebContents(
-    content::WebContents** out_new_contents) {
-  // Nothing to do here. Should be overridden by any subclasses if web contents
-  // should be substituted.
 }
 
 void WebUIMochaBrowserTest::RunTest(const std::string& file,
@@ -115,12 +112,6 @@ void WebUIMochaBrowserTest::RunTest(const std::string& file,
   if (is_error_page) {
     FAIL() << "Navigation to '" << url.spec() << "' failed.";
   }
-
-  // Hook for subclasses that want to override the WebContents used for running
-  // the mocha test (e.g., for testing the WebContents of a constrained dialog
-  // and not the tab itself).
-  SubstituteWebContents(&web_contents);
-  ASSERT_TRUE(web_contents);
 
   // Hook for subclasses that need access to the WebContents before the Mocha
   // test runs.

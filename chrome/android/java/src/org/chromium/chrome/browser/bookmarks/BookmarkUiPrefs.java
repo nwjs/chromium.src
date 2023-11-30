@@ -4,21 +4,21 @@
 
 package org.chromium.chrome.browser.bookmarks;
 
+import android.content.Context;
 import android.content.SharedPreferences;
 
 import androidx.annotation.IntDef;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.ObserverList;
+import org.chromium.base.shared_preferences.SharedPreferencesManager;
+import org.chromium.chrome.R;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.SharedPreferencesManager;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/**
- * Self-documenting preference class for bookmarks.
- */
+/** Self-documenting preference class for bookmarks. */
 public class BookmarkUiPrefs {
     private static final @BookmarkRowDisplayPref int INITIAL_BOOKMARK_ROW_DISPLAY_PREF =
             BookmarkRowDisplayPref.VISUAL;
@@ -28,8 +28,11 @@ public class BookmarkUiPrefs {
     // These values are persisted to prefs/logs. Entries should not be renumbered and numeric
     // values should never be reused. Keep up-to-date with the
     // MobileBookmarkManagerBookmarkRowDisplayPref enum in tools/metrics/histograms/enums.xml.
-    @IntDef({BookmarkRowDisplayPref.COMPACT, BookmarkRowDisplayPref.VISUAL,
-            BookmarkRowDisplayPref.COUNT})
+    @IntDef({
+        BookmarkRowDisplayPref.COMPACT,
+        BookmarkRowDisplayPref.VISUAL,
+        BookmarkRowDisplayPref.COUNT
+    })
     @Retention(RetentionPolicy.SOURCE)
     public @interface BookmarkRowDisplayPref {
         int COMPACT = 0;
@@ -40,12 +43,18 @@ public class BookmarkUiPrefs {
     // These values are persisted to prefs/logs. Entries should not be renumbered and numeric
     // values should never be reused. Keep up-to-date with the
     // MobileBookmarkManagerBookmarkRowSortOrder enum in tools/metrics/histograms/enums.xml.
-    @IntDef({BookmarkRowSortOrder.CHRONOLOGICAL, BookmarkRowSortOrder.REVERSE_CHRONOLOGICAL,
-            BookmarkRowSortOrder.ALPHABETICAL, BookmarkRowSortOrder.REVERSE_ALPHABETICAL,
-            BookmarkRowSortOrder.RECENTLY_USED, BookmarkRowSortOrder.MANUAL,
-            BookmarkRowSortOrder.COUNT})
+    @IntDef({
+        BookmarkRowSortOrder.CHRONOLOGICAL,
+        BookmarkRowSortOrder.REVERSE_CHRONOLOGICAL,
+        BookmarkRowSortOrder.ALPHABETICAL,
+        BookmarkRowSortOrder.REVERSE_ALPHABETICAL,
+        BookmarkRowSortOrder.RECENTLY_USED,
+        BookmarkRowSortOrder.MANUAL,
+        BookmarkRowSortOrder.COUNT
+    })
     @Retention(RetentionPolicy.SOURCE)
     public @interface BookmarkRowSortOrder {
+        // Oldest -> newest
         int CHRONOLOGICAL = 0;
         int REVERSE_CHRONOLOGICAL = 1;
         int ALPHABETICAL = 2;
@@ -89,8 +98,8 @@ public class BookmarkUiPrefs {
     @SuppressWarnings("UseSharedPreferencesManagerFromChromeCheck")
     public BookmarkUiPrefs(SharedPreferencesManager prefsManager) {
         mPrefsManager = prefsManager;
-        ContextUtils.getAppSharedPreferences().registerOnSharedPreferenceChangeListener(
-                mPrefsListener);
+        ContextUtils.getAppSharedPreferences()
+                .registerOnSharedPreferenceChangeListener(mPrefsListener);
     }
 
     /** Add the given observer to the list. */
@@ -117,6 +126,7 @@ public class BookmarkUiPrefs {
 
     /**
      * Sets the value for the bookmark row display pref.
+     *
      * @param displayPref The pref value to be set.
      */
     public void setBookmarkRowDisplayPref(@BookmarkRowDisplayPref int displayPref) {
@@ -138,6 +148,56 @@ public class BookmarkUiPrefs {
     public void setBookmarkRowSortOrder(@BookmarkRowSortOrder int sortOrder) {
         BookmarkMetrics.reportBookmarkManagerSortChanged(sortOrder);
         mPrefsManager.writeInt(ChromePreferenceKeys.BOOKMARKS_SORT_ORDER, sortOrder);
+    }
+
+    /**
+     * Returns the text resource which is read aloud when a sort option is selected (for talkback).
+     *
+     * @param context The android context to get strings.
+     * @param sortOrder The currently active sort order.
+     * @return The string to be read aloud when the sort order is selected.
+     */
+    public String getSortOrderAccessibilityAnnouncementText(
+            Context context, @BookmarkRowSortOrder int sortOrder) {
+        int stringRes = 0;
+        if (sortOrder == BookmarkRowSortOrder.CHRONOLOGICAL) {
+            stringRes = R.string.sort_by_oldest_announcement;
+        } else if (sortOrder == BookmarkRowSortOrder.REVERSE_CHRONOLOGICAL) {
+            stringRes = R.string.sort_by_newest_announcement;
+        } else if (sortOrder == BookmarkRowSortOrder.ALPHABETICAL) {
+            stringRes = R.string.sort_by_alpha_announcement;
+        } else if (sortOrder == BookmarkRowSortOrder.REVERSE_ALPHABETICAL) {
+            stringRes = R.string.sort_by_reverse_alpha_announcement;
+        } else if (sortOrder == BookmarkRowSortOrder.RECENTLY_USED) {
+            stringRes = R.string.sort_by_last_opened_announcement;
+        } else if (sortOrder == BookmarkRowSortOrder.MANUAL) {
+            stringRes = R.string.sort_by_manual_announcement;
+        } else {
+            assert false;
+        }
+
+        return context.getString(stringRes);
+    }
+
+    /**
+     * Returns the text resource which is read aloud when a view option is selected (for talkback).
+     *
+     * @param context The android context to get strings.
+     * @param sortOrder The currently active display pref.
+     * @return The string to be read aloud when the view option is selected.
+     */
+    public String getViewOptionsAccessibilityAnnouncementText(
+            Context context, @BookmarkRowDisplayPref int displayPref) {
+        int stringRes = 0;
+        if (displayPref == BookmarkRowDisplayPref.VISUAL) {
+            stringRes = R.string.visual_view_announcement;
+        } else if (displayPref == BookmarkRowDisplayPref.COMPACT) {
+            stringRes = R.string.compact_view_announcement;
+        } else {
+            assert false;
+        }
+
+        return context.getString(stringRes);
     }
 
     void notifyObserversForSortOrderChange(@BookmarkRowSortOrder int sortOrder) {
