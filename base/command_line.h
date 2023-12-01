@@ -340,7 +340,7 @@ class BASE_EXPORT CommandLine {
   InstanceBoundSequenceChecker sequence_checker_;
 #endif
   int argc0_;
-  raw_ptr<char*> argv0_ = nullptr;
+  raw_ptr<char*, AllowPtrArithmetic> argv0_ = nullptr;
 };
 
 class BASE_EXPORT DuplicateSwitchHandler {
