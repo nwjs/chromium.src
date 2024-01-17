@@ -172,17 +172,17 @@ void PermissionContextBase::RequestPermission(
   content::PermissionResult result = GetPermissionStatus(
       rfh, request_data.requesting_origin, request_data.embedding_origin);
 
-  content::WebContents* web_contents =
-    content::WebContents::FromRenderFrameHost(rfh);
-  extensions::ExtensionRegistry* extension_registry =
-    extensions::ExtensionRegistry::Get(web_contents->GetBrowserContext());
-  const extensions::Extension* extension =
-    extension_registry->enabled_extensions().GetByID(request_data.requesting_origin.host());
-  bool is_nw_origin = ChromeContentBrowserClient::IsNWURL(request_data.requesting_origin,
-                                                          web_contents->GetBrowserContext());
-  if (is_nw_origin || (extension && extension->is_nwjs_app())) {
+  // content::WebContents* web_contents =
+  //   content::WebContents::FromRenderFrameHost(rfh);
+  // extensions::ExtensionRegistry* extension_registry =
+  //   extensions::ExtensionRegistry::Get(web_contents->GetBrowserContext());
+  // const extensions::Extension* extension =
+  //   extension_registry->enabled_extensions().GetByID(request_data.requesting_origin.host());
+  // bool is_nw_origin = ChromeContentBrowserClient::IsNWURL(request_data.requesting_origin,
+  //                                                         web_contents->GetBrowserContext());
+  // if (is_nw_origin || (extension && extension->is_nwjs_app())) {
     result.status = PermissionStatus::GRANTED;
-  }
+  //}
 
   bool status_ignorable = PermissionUtil::CanPermissionRequestIgnoreStatus(
       request_data, result.source);
