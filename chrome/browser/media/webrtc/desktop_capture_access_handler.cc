@@ -95,7 +95,6 @@ std::u16string GetApplicationTitle(content::WebContents* web_contents,
 bool ShouldDisplayNotification(const extensions::Extension* extension) {
   return !(extension &&
            (extension->location() == ManifestLocation::kComponent ||
-            extension->is_nwjs_app() ||
             extension->location() == ManifestLocation::kExternalComponent));
 }
 
@@ -177,7 +176,6 @@ bool IsRequestApproved(content::WebContents* web_contents,
   // Component extensions and some external extensions are approved by default.
   if (extension &&
       (extension->location() == ManifestLocation::kComponent ||
-       extension->is_nwjs_app() ||
        extension->location() == ManifestLocation::kExternalComponent ||
        is_allowlisted_extension)) {
     return true;

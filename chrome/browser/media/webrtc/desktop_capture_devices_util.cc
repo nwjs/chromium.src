@@ -142,7 +142,6 @@ DesktopMediaIDToDisplayMediaInformation(
       display_surface, logical_surface, cursor, std::move(capture_handle));
 }
 
-#if 0
 std::u16string GetNotificationText(const std::u16string& application_title,
                                    bool capture_audio,
                                    content::DesktopMediaID::Type capture_type) {
@@ -177,7 +176,6 @@ std::u16string GetNotificationText(const std::u16string& application_title,
   }
   return std::u16string();
 }
-#endif
 
 std::string DeviceNamePrefix(
     content::WebContents* web_contents,
@@ -281,7 +279,6 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
             media_id);
   }
 
-#if 0
   // If required, register to display the notification for stream capture.
   std::unique_ptr<MediaStreamUI> notification_ui;
   if (display_notification) {
@@ -308,7 +305,5 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
       ->GetMediaStreamCaptureIndicator()
       ->RegisterMediaStream(web_contents, out_devices,
                             std::move(notification_ui), application_title);
-#endif
-  std::unique_ptr<content::MediaStreamUI> ui;
-  return ui;
+
 }
