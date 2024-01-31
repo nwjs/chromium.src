@@ -5,14 +5,14 @@
 #ifndef CONTENT_BROWSER_PRELOADING_PREFETCH_PREFETCH_STATUS_H_
 #define CONTENT_BROWSER_PRELOADING_PREFETCH_PREFETCH_STATUS_H_
 
+#include "content/public/browser/preloading.h"
+
 namespace content {
 
 // The various states that a prefetch can go through or terminate with. Used in
 // UKM logging so don't remove or reorder values. Update
 // |PrefetchProxyPrefetchStatus| in //tools/metrics/histograms/enums.xml
 // whenever this is changed.
-// These are also mapped onto the first content internal range of
-// `PreloadingEligibility` and onto `PreloadingFailureReason`.
 //
 // If you change this, please follow the process
 // https://docs.google.com/document/d/1PnrfowsZMt62PX1EvvTp2Nqs3ji1zrklrAEe1JYbkTk
@@ -139,8 +139,8 @@ enum class PrefetchStatus {
   kPrefetchIsPrivacyDecoy = 29,
 
   // The prefetch was eligible, but too much time elapsed between the prefetch
-  // and the interception.
-  kPrefetchIsStale = 30,
+  // and the interception. No longer used.
+  // kPrefetchIsStale = 30,
 
   // Deprecated. NSP no longer supported
   // kPrefetchIsStaleWithNSP = 31,
@@ -213,6 +213,22 @@ enum class PrefetchStatus {
   // The max value of the PrefetchStatus. Update this when new enums are added.
   kMaxValue = kPrefetchEvicted,
 };
+
+// Mapping from `PrefetchStatus` to `PreloadingFailureReason`.
+static_assert(
+    static_cast<int>(PrefetchStatus::kMaxValue) +
+        static_cast<int>(
+            PreloadingFailureReason::kPreloadingFailureReasonCommonEnd) <=
+    static_cast<int>(
+        PreloadingFailureReason::kPreloadingFailureReasonContentEnd));
+
+inline PreloadingFailureReason ToPreloadingFailureReason(
+    PrefetchStatus prefetch_container_metrics) {
+  return static_cast<PreloadingFailureReason>(
+      static_cast<int>(prefetch_container_metrics) +
+      static_cast<int>(
+          PreloadingFailureReason::kPreloadingFailureReasonCommonEnd));
+}
 
 }  // namespace content
 

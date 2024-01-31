@@ -29,7 +29,6 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/device_reauth/chrome_device_authenticator_factory.h"
 #include "chrome/browser/fast_checkout/fast_checkout_client_impl.h"
-#include "chrome/browser/fast_checkout/fast_checkout_features.h"
 #include "chrome/browser/password_manager/chrome_password_manager_client.h"
 #include "chrome/browser/password_manager/password_manager_settings_service_factory.h"
 #include "chrome/browser/plus_addresses/plus_address_service_factory.h"
@@ -44,6 +43,7 @@
 #include "chrome/browser/ui/autofill/payments/autofill_snackbar_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/card_unmask_authentication_selection_dialog_controller_impl.h"
 #include "chrome/browser/ui/autofill/payments/card_unmask_otp_input_dialog_controller_impl.h"
+#include "chrome/browser/ui/autofill/payments/chrome_payments_autofill_client.h"
 #include "chrome/browser/ui/autofill/payments/create_card_unmask_prompt_view.h"
 #include "chrome/browser/ui/autofill/payments/credit_card_scanner_controller.h"
 #include "chrome/browser/ui/autofill/payments/iban_bubble_controller_impl.h"
@@ -72,7 +72,7 @@
 #include "components/autofill/core/browser/payments/credit_card_risk_based_authenticator.h"
 #include "components/autofill/core/browser/payments/mandatory_reauth_manager.h"
 #include "components/autofill/core/browser/payments/offer_notification_options.h"
-#include "components/autofill/core/browser/payments/payments_client.h"
+#include "components/autofill/core/browser/payments/payments_network_interface.h"
 #include "components/autofill/core/browser/ui/payments/bubble_show_options.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_controller_impl.h"
 #include "components/autofill/core/browser/ui/payments/card_unmask_prompt_view.h"
@@ -121,7 +121,7 @@
 #include "chrome/browser/android/signin/signin_bridge.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
-#include "chrome/browser/touch_to_fill/payments/android/touch_to_fill_credit_card_view_impl.h"
+#include "chrome/browser/touch_to_fill/autofill/android/touch_to_fill_credit_card_view_impl.h"
 #include "chrome/browser/ui/android/autofill/autofill_accessibility_utils.h"
 #include "chrome/browser/ui/android/autofill/autofill_cvc_save_message_delegate.h"
 #include "chrome/browser/ui/android/autofill/autofill_logger_android.h"
@@ -217,13 +217,13 @@ ChromeAutofillClient::GetURLLoaderFactory() {
       ->GetURLLoaderFactoryForBrowserProcess();
 }
 
-AutofillDownloadManager* ChromeAutofillClient::GetDownloadManager() {
-  if (!download_manager_) {
+AutofillCrowdsourcingManager* ChromeAutofillClient::GetCrowdsourcingManager() {
+  if (!crowdsourcing_manager_) {
     // Lazy initialization to avoid virtual function calls in the constructor.
-    download_manager_ = std::make_unique<AutofillDownloadManager>(
+    crowdsourcing_manager_ = std::make_unique<AutofillCrowdsourcingManager>(
         this, GetChannel(), GetLogManager());
   }
-  return download_manager_.get();
+  return crowdsourcing_manager_.get();
 }
 
 AutofillOptimizationGuide* ChromeAutofillClient::GetAutofillOptimizationGuide()
@@ -347,22 +347,33 @@ signin::IdentityManager* ChromeAutofillClient::GetIdentityManager() {
 FormDataImporter* ChromeAutofillClient::GetFormDataImporter() {
   if (!form_data_importer_) {
     form_data_importer_ = std::make_unique<FormDataImporter>(
-        this, GetPaymentsClient(), GetPersonalDataManager(),
+        this, GetPaymentsNetworkInterface(), GetPersonalDataManager(),
         GetPersonalDataManager()->app_locale());
   }
   return form_data_importer_.get();
 }
 
-payments::PaymentsClient* ChromeAutofillClient::GetPaymentsClient() {
-  if (!payments_client_) {
-    payments_client_ = std::make_unique<payments::PaymentsClient>(
-        Profile::FromBrowserContext(web_contents()->GetBrowserContext())
-            ->GetURLLoaderFactory(),
-        GetIdentityManager(), GetPersonalDataManager(),
-        Profile::FromBrowserContext(web_contents()->GetBrowserContext())
-            ->IsOffTheRecord());
+payments::PaymentsAutofillClient*
+ChromeAutofillClient::GetPaymentsAutofillClient() {
+  if (!payments_autofill_client_) {
+    payments_autofill_client_ =
+        std::make_unique<payments::ChromePaymentsAutofillClient>();
   }
-  return payments_client_.get();
+  return payments_autofill_client_.get();
+}
+
+payments::PaymentsNetworkInterface*
+ChromeAutofillClient::GetPaymentsNetworkInterface() {
+  if (!payments_network_interface_) {
+    payments_network_interface_ =
+        std::make_unique<payments::PaymentsNetworkInterface>(
+            Profile::FromBrowserContext(web_contents()->GetBrowserContext())
+                ->GetURLLoaderFactory(),
+            GetIdentityManager(), GetPersonalDataManager(),
+            Profile::FromBrowserContext(web_contents()->GetBrowserContext())
+                ->IsOffTheRecord());
+  }
+  return payments_network_interface_.get();
 }
 
 StrikeDatabase* ChromeAutofillClient::GetStrikeDatabase() {
@@ -698,28 +709,6 @@ void ChromeAutofillClient::ShowLocalCardMigrationResults(
                                    delete_local_card_callback);
 }
 
-void ChromeAutofillClient::ConfirmSaveIbanLocally(
-    const Iban& iban,
-    bool should_show_prompt,
-    SaveIbanPromptCallback callback) {
-  // Do lazy initialization of IbanBubbleControllerImpl.
-  IbanBubbleControllerImpl::CreateForWebContents(web_contents());
-  IbanBubbleControllerImpl::FromWebContents(web_contents())
-      ->OfferLocalSave(iban, should_show_prompt, std::move(callback));
-}
-
-void ChromeAutofillClient::ConfirmUploadIbanToCloud(
-    const Iban& iban,
-    const LegalMessageLines& legal_message_lines,
-    bool should_show_prompt,
-    SaveIbanPromptCallback callback) {
-  // Do lazy initialization of IbanBubbleControllerImpl.
-  IbanBubbleControllerImpl::CreateForWebContents(web_contents());
-  IbanBubbleControllerImpl::FromWebContents(web_contents())
-      ->OfferUploadSave(iban, legal_message_lines, should_show_prompt,
-                        std::move(callback));
-}
-
 void ChromeAutofillClient::ShowWebauthnOfferDialog(
     WebauthnDialogCallback offer_dialog_callback) {
   WebauthnDialogControllerImpl::GetOrCreateForPage(
@@ -878,6 +867,32 @@ void ChromeAutofillClient::ConfirmSaveCreditCardToCloud(
       SaveCardBubbleControllerImpl::FromWebContents(web_contents());
   controller->OfferUploadSave(card, legal_message_lines, options,
                               std::move(callback));
+#endif
+}
+
+void ChromeAutofillClient::ConfirmSaveIbanLocally(
+    const Iban& iban,
+    bool should_show_prompt,
+    SaveIbanPromptCallback callback) {
+#if !BUILDFLAG(IS_ANDROID)
+  // Do lazy initialization of IbanBubbleControllerImpl.
+  IbanBubbleControllerImpl::CreateForWebContents(web_contents());
+  IbanBubbleControllerImpl::FromWebContents(web_contents())
+      ->OfferLocalSave(iban, should_show_prompt, std::move(callback));
+#endif
+}
+
+void ChromeAutofillClient::ConfirmUploadIbanToCloud(
+    const Iban& iban,
+    LegalMessageLines legal_message_lines,
+    bool should_show_prompt,
+    SaveIbanPromptCallback callback) {
+#if !BUILDFLAG(IS_ANDROID)
+  // Do lazy initialization of IbanBubbleControllerImpl.
+  IbanBubbleControllerImpl::CreateForWebContents(web_contents());
+  IbanBubbleControllerImpl::FromWebContents(web_contents())
+      ->OfferUploadSave(iban, std::move(legal_message_lines),
+                        should_show_prompt, std::move(callback));
 #endif
 }
 
@@ -1166,8 +1181,6 @@ void ChromeAutofillClient::DismissOfferNotification() {
 
 void ChromeAutofillClient::OnVirtualCardDataAvailable(
     const VirtualCardManualFallbackBubbleOptions& options) {
-  GetFormDataImporter()->CacheFetchedVirtualCard(
-      options.virtual_card.LastFourDigits());
 #if BUILDFLAG(IS_ANDROID)
   // Show the virtual card snackbar only if the ManualFillingComponent component
   // is enabled for credit cards.
@@ -1388,9 +1401,7 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
     zoom_observation_.Observe(zoom_controller);
   }
 #else
-  if (base::FeatureList::IsEnabled(::features::kFastCheckout)) {
-    fast_checkout_client_ = std::make_unique<FastCheckoutClientImpl>(this);
-  }
+  fast_checkout_client_ = std::make_unique<FastCheckoutClientImpl>(this);
 #endif
 }
 

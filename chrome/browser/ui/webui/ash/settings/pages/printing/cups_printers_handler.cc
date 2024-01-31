@@ -40,10 +40,10 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/chrome_select_file_policy.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/printing/server_printer_url_util.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
-#include "chromeos/ash/components/dbus/debug_daemon/debug_daemon_client.h"
 #include "chromeos/printing/cups_printer_status.h"
 #include "chromeos/printing/ppd_line_reader.h"
 #include "chromeos/printing/printer_configuration.h"
@@ -371,10 +371,17 @@ void CupsPrintersHandler::RegisterMessages() {
 void CupsPrintersHandler::OnJavascriptAllowed() {
   DCHECK(!printers_manager_observation_.IsObserving());
   printers_manager_observation_.Observe(printers_manager_.get());
+  if (base::FeatureList::IsEnabled(::features::kLocalPrinterObserving)) {
+    DCHECK(!local_printers_observation_.IsObserving());
+    local_printers_observation_.Observe(printers_manager_.get());
+  }
 }
 
 void CupsPrintersHandler::OnJavascriptDisallowed() {
   printers_manager_observation_.Reset();
+  if (base::FeatureList::IsEnabled(::features::kLocalPrinterObserving)) {
+    local_printers_observation_.Reset();
+  }
 }
 
 void CupsPrintersHandler::SetWebUIForTest(content::WebUI* web_ui) {
@@ -478,29 +485,36 @@ void CupsPrintersHandler::OnSetUpPrinter(const std::string& printer_id,
   }
 
   // Once the printer has been setup we can request the PPD.
-  const std::vector<uint8_t> empty_ppd;
+  printscanmgr::CupsRetrievePpdResponse empty_response;
 
-  DebugDaemonClient::Get()->CupsRetrievePrinterPpd(
-      printer_id,
+  printscanmgr::CupsRetrievePpdRequest request;
+  request.set_name(printer_id);
+  PrintscanmgrClient::Get()->CupsRetrievePrinterPpd(
+      request,
       base::BindOnce(&CupsPrintersHandler::OnRetrieveCupsPrinterPpd,
                      weak_factory_.GetWeakPtr(), printer_name, eula),
       base::BindOnce(&CupsPrintersHandler::OnRetrieveCupsPrinterPpd,
                      weak_factory_.GetWeakPtr(), printer_name, eula,
-                     empty_ppd));
+                     empty_response));
 }
 
 void CupsPrintersHandler::OnRetrieveCupsPrinterPpd(
     const std::string& printer_name,
     const std::string& eula,
-    const std::vector<uint8_t>& data) {
-  if (data.empty()) {
-    PRINTER_LOG(ERROR) << "Retrieved an empty ppd";
+    absl::optional<printscanmgr::CupsRetrievePpdResponse> response) {
+  if (!response) {
+    PRINTER_LOG(ERROR) << "No response to retrieve PPD request";
     OnRetrievePpdError(printer_name);
     return;
   }
 
-  // Convert our ppd (array of bytes) into a string.
-  std::string ppd(data.begin(), data.end());
+  if (response->ppd() == "") {
+    PRINTER_LOG(ERROR) << "Retrieved an empty PPD";
+    OnRetrievePpdError(printer_name);
+    return;
+  }
+
+  std::string ppd = response->ppd();
 
   // If we have a eula link, insert that into our PPD as a comment.
   if (!eula.empty()) {
@@ -1202,6 +1216,19 @@ void CupsPrintersHandler::OnPrintersChanged(
                         BuildCupsPrintersList(printers));
       break;
   }
+}
+
+void CupsPrintersHandler::OnLocalPrintersUpdated() {
+  CHECK(base::FeatureList::IsEnabled(::features::kLocalPrinterObserving));
+
+  const std::vector<chromeos::Printer> printers =
+      printers_manager_->GetPrinters(PrinterClass::kSaved);
+  base::Value::List printers_as_values =
+      base::Value::List::with_capacity(printers.size());
+  for (const auto& printer : printers) {
+    printers_as_values.Append(GetCupsPrinterInfo(printer));
+  }
+  FireWebUIListener("local-printers-updated", printers_as_values);
 }
 
 void CupsPrintersHandler::UpdateDiscoveredPrinters() {

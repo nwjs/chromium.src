@@ -23,6 +23,7 @@
 #include "content/public/common/url_constants.h"
 #include "third_party/blink/public/common/security/protocol_handler_security_level.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace content {
@@ -168,6 +169,10 @@ bool WebContentsDelegate::GetCanResize() {
   return false;
 }
 
+ui::WindowShowState WebContentsDelegate::GetWindowShowState() const {
+  return ui::SHOW_STATE_DEFAULT;
+}
+
 bool WebContentsDelegate::IsFullscreenForTabOrPending(
     const WebContents* web_contents) {
   return false;
@@ -254,17 +259,11 @@ void WebContentsDelegate::RequestMediaAccessPermission(
 
 bool WebContentsDelegate::CheckMediaAccessPermission(
     RenderFrameHost* render_frame_host,
-    const GURL& security_origin,
+    const url::Origin& security_origin,
     blink::mojom::MediaStreamType type) {
   LOG(ERROR) << "WebContentsDelegate::CheckMediaAccessPermission: "
              << "Not supported.";
   return false;
-}
-
-std::string WebContentsDelegate::GetDefaultMediaDeviceID(
-    WebContents* web_contents,
-    blink::mojom::MediaStreamType type) {
-  return std::string();
 }
 
 std::string WebContentsDelegate::GetTitleForMediaControls(
@@ -377,12 +376,6 @@ bool WebContentsDelegate::IsBackForwardCacheSupported() {
 PreloadingEligibility WebContentsDelegate::IsPrerender2Supported(
     WebContents& web_contents) {
   return PreloadingEligibility::kPreloadingUnsupportedByWebContents;
-}
-
-std::unique_ptr<WebContents> WebContentsDelegate::ActivatePortalWebContents(
-    WebContents* predecessor_contents,
-    std::unique_ptr<WebContents> portal_contents) {
-  return portal_contents;
 }
 
 void WebContentsDelegate::UpdateInspectedWebContentsIfNecessary(

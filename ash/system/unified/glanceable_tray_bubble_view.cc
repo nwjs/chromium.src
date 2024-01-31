@@ -17,7 +17,6 @@
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/system/time/calendar_view.h"
-#include "ash/system/tray/detailed_view_delegate.h"
 #include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_utils.h"
@@ -31,13 +30,21 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/list_model.h"
 #include "ui/compositor/layer.h"
-#include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/focus/focus_manager.h"
 
 namespace ash {
 
+using BoundsType = CalendarView::CalendarSlidingSurfaceBoundsType;
+
 namespace {
+
+// If display height is greater than `kDisplayHeightThreshold`, the height of
+// the `calendar_view_` is `kCalendarBubbleHeightLargeDisplay`, otherwise
+// is `kCalendarBubbleHeightSmallDisplay`.
+constexpr int kDisplayHeightThreshold = 800;
+constexpr int kCalendarBubbleHeightSmallDisplay = 340;
+constexpr int kCalendarBubbleHeightLargeDisplay = 368;
 
 // The view that parents glanceable bubbles. It's a flex layout view that
 // propagates child preferred size changes to the tray bubble view and the
@@ -143,10 +150,7 @@ class ContainerView : public views::FlexLayoutView,
 GlanceableTrayBubbleView::GlanceableTrayBubbleView(
     const InitParams& init_params,
     Shelf* shelf)
-    : TrayBubbleView(init_params),
-      shelf_(shelf),
-      detailed_view_delegate_(
-          std::make_unique<DetailedViewDelegate>(/*tray_controller=*/nullptr)) {
+    : TrayBubbleView(init_params), shelf_(shelf) {
   Shell::Get()->glanceables_controller()->RecordGlanceablesBubbleShowTime(
       base::TimeTicks::Now());
 }
@@ -163,7 +167,7 @@ void GlanceableTrayBubbleView::InitializeContents() {
   scroll_view_->SetPaintToLayer();
   scroll_view_->layer()->SetFillsBoundsOpaquely(false);
   scroll_view_->ClipHeightTo(0, std::numeric_limits<int>::max());
-  scroll_view_->SetBackgroundColor(absl::nullopt);
+  scroll_view_->SetBackgroundColor(std::nullopt);
   scroll_view_->layer()->SetIsFastRoundedCorner(true);
   scroll_view_->SetDrawOverflowIndicator(false);
   scroll_view_->SetVerticalScrollBarMode(
@@ -182,7 +186,10 @@ void GlanceableTrayBubbleView::InitializeContents() {
                 bubble->calendar_view_->event_list_view()) {
               return;
             }
-            bubble->calendar_view_->SetCalendarSlidingSurfaceBounds(false);
+            bubble->calendar_view_->SetCalendarSlidingSurfaceBounds(
+                bubble->calendar_view_->up_next_view()
+                    ? BoundsType::UP_NEXT_VIEW_BOUNDS
+                    : BoundsType::CALENDAR_BOTTOM_BOUNDS);
           },
           base::Unretained(this)));
 
@@ -205,11 +212,18 @@ void GlanceableTrayBubbleView::InitializeContents() {
   scroll_view_->SetContents(std::move(child_glanceable_container));
 
   if (!calendar_view_) {
-    calendar_view_ =
-        scroll_view_->contents()->AddChildView(std::make_unique<CalendarView>(
-            detailed_view_delegate_.get(), /*for_glanceables_container=*/true));
-    // TODO(b:277268122): Update with glanceable spec.
-    calendar_view_->SetPreferredSize(gfx::Size(kRevampedTrayMenuWidth, 400));
+    calendar_view_ = scroll_view_->contents()->AddChildView(
+        std::make_unique<CalendarView>(/*for_glanceables_container=*/true));
+    // TODO(b/312320532): Update the height if display height is less than
+    // `kCalendarBubbleHeightSmallDisplay`.
+    calendar_view_->SetPreferredSize(
+        features::IsGlanceablesV2CalendarViewEnabled()
+            ? gfx::Size(kWideTrayMenuWidth,
+                        CalculateMaxTrayBubbleHeight(shelf_->GetWindow()) >
+                                kDisplayHeightThreshold
+                            ? kCalendarBubbleHeightLargeDisplay
+                            : kCalendarBubbleHeightSmallDisplay)
+            : gfx::Size(kWideTrayMenuWidth, 400));
   }
 
   auto* const tasks_client =
@@ -280,6 +294,15 @@ void GlanceableTrayBubbleView::OnWidgetClosing(views::Widget* widget) {
 void GlanceableTrayBubbleView::OnDisplayConfigurationChanged() {
   int max_height = CalculateMaxTrayBubbleHeight(shelf_->GetWindow());
   SetMaxHeight(max_height);
+  // TODO(b/312320532): Update the height if display height is less than
+  // `kCalendarBubbleHeightSmallDisplay`.
+  calendar_view_->SetPreferredSize(
+      features::IsGlanceablesV2CalendarViewEnabled()
+          ? gfx::Size(kWideTrayMenuWidth,
+                      max_height > kDisplayHeightThreshold
+                          ? kCalendarBubbleHeightLargeDisplay
+                          : kCalendarBubbleHeightSmallDisplay)
+          : gfx::Size(kWideTrayMenuWidth, 400));
   ChangeAnchorRect(shelf_->GetSystemTrayAnchorRect());
 }
 
@@ -297,8 +320,8 @@ void GlanceableTrayBubbleView::AddClassroomBubbleViewIfNeeded(
       std::find(scroll_contents->children().begin(),
                 scroll_contents->children().end(), calendar_view_) -
       scroll_contents->children().begin();
-  *view = scroll_contents->AddChildViewAt(
-      std::make_unique<T>(detailed_view_delegate_.get()), calendar_view_index);
+  *view = scroll_contents->AddChildViewAt(std::make_unique<T>(),
+                                          calendar_view_index);
 
   views::View* const default_focused_child =
       scroll_contents->GetChildrenFocusList().front();
@@ -311,7 +334,7 @@ void GlanceableTrayBubbleView::AddClassroomBubbleViewIfNeeded(
 }
 
 void GlanceableTrayBubbleView::AddTaskBubbleViewIfNeeded(
-    ui::ListModel<api::TaskList>* task_lists) {
+    const ui::ListModel<api::TaskList>* task_lists) {
   if (task_lists->item_count() == 0) {
     return;
   }
@@ -321,11 +344,9 @@ void GlanceableTrayBubbleView::AddTaskBubbleViewIfNeeded(
   std::unique_ptr<GlanceablesTasksViewBase> view;
   if (base::FeatureList::IsEnabled(
           features::kGlanceablesTimeManagementStableLaunch)) {
-    view = std::make_unique<GlanceablesTasksView>(detailed_view_delegate_.get(),
-                                                  task_lists);
+    view = std::make_unique<GlanceablesTasksView>(task_lists);
   } else {
-    view = std::make_unique<TasksBubbleView>(detailed_view_delegate_.get(),
-                                             task_lists);
+    view = std::make_unique<TasksBubbleView>(task_lists);
   }
   tasks_bubble_view_ = scroll_contents->AddChildViewAt(std::move(view), 0);
 
@@ -347,7 +368,9 @@ void GlanceableTrayBubbleView::OnGlanceablesContainerPreferredSizeChanged() {
 
 void GlanceableTrayBubbleView::OnGlanceablesContainerHeightChanged(
     int height_delta) {
-  if (!initialized_ || !IsDrawn() || !GetWidget() || GetWidget()->IsClosed()) {
+  if (!initialized_ || !IsDrawn() || !GetWidget() || GetWidget()->IsClosed() ||
+      base::FeatureList::IsEnabled(
+          features::kGlanceablesTimeManagementStableLaunch)) {
     return;
   }
 

@@ -54,6 +54,8 @@
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/ime/composition_text.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_header_macros.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/simple_menu_model.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
@@ -264,6 +266,8 @@ ui::ColorId GetFocusColorId(bool use_jelly_colors) {
 }  // namespace
 
 class CheckBoxMenuItemView : public views::MenuItemView {
+  METADATA_HEADER(CheckBoxMenuItemView, views::MenuItemView)
+
  public:
   CheckBoxMenuItemView(views::MenuItemView* parent,
                        int command,
@@ -287,11 +291,18 @@ class CheckBoxMenuItemView : public views::MenuItemView {
             static_cast<AppListSearchControlCategory>(GetCommand()))
             ? ax::mojom::CheckedState::kTrue
             : ax::mojom::CheckedState::kFalse);
+    // The title of the menu is not focusable but included in the position
+    // counting. Explicitly set the hierarchical level of the toggleable menu
+    // items to exclude the title.
+    node_data->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel, 1);
   }
 
  private:
   raw_ptr<AppListViewDelegate> view_delegate_ = nullptr;
 };
+
+BEGIN_METADATA(CheckBoxMenuItemView)
+END_METADATA
 
 class FilterMenuAdapter : public views::MenuModelAdapter {
  public:
@@ -378,9 +389,10 @@ class FilterMenuAdapter : public views::MenuModelAdapter {
   void ShowFilterMenu(SearchBoxView* search_box) {
     int run_types = views::MenuRunner::USE_ASH_SYS_UI_LAYOUT |
                     views::MenuRunner::FIXED_ANCHOR;
-    filter_menu_root_ = CreateMenu();
-    filter_menu_runner_ =
-        std::make_unique<views::MenuRunner>(filter_menu_root_, run_types);
+    std::unique_ptr<views::MenuItemView> filter_menu_root = CreateMenu();
+    filter_menu_root_ = filter_menu_root.get();
+    filter_menu_runner_ = std::make_unique<views::MenuRunner>(
+        std::move(filter_menu_root), run_types);
     filter_menu_runner_->RunMenuAt(
         search_box->GetWidget(), nullptr /*button_controller*/,
         search_box->filter_button()->GetBoundsInScreen(),
@@ -397,7 +409,7 @@ class FilterMenuAdapter : public views::MenuModelAdapter {
   // `category` button. This should only be called when the menu is opened.
   views::MenuItemView* GetFilterMenuItemByCategory(
       AppListSearchControlCategory category) {
-    absl::optional<size_t> index =
+    std::optional<size_t> index =
         model_->GetIndexOfCommandId(base::to_underlying(category));
     CHECK(index.has_value());
     return GetFilterMenuItemByIdx(index.value());
@@ -478,6 +490,12 @@ SearchBoxView::SearchBoxView(SearchBoxViewDelegate* delegate,
   SearchBoxModel* const search_box_model =
       model_provider->search_model()->search_box();
   search_box_model_observer_.Observe(search_box_model);
+
+  // The assistant view delegate could be nullptr in test.
+  if (view_delegate_->GetAssistantViewDelegate()) {
+    assistant_view_delegate_observer_.Observe(
+        view_delegate_->GetAssistantViewDelegate());
+  }
 
   if (features::IsUserEducationEnabled()) {
     // NOTE: Set `kHelpBubbleContextKey` before `views::kElementIdentifierKey`
@@ -746,28 +764,24 @@ void SearchBoxView::OnPaintBorder(gfx::Canvas* canvas) {
   }
 }
 
-const char* SearchBoxView::GetClassName() const {
-  return "SearchBoxView";
-}
-
 void SearchBoxView::OnThemeChanged() {
   SearchBoxViewBase::OnThemeChanged();
 
   const SkColor button_icon_color =
       GetColorProvider()->GetColor(kColorAshButtonIconColor);
-  close_button()->SetImage(
+  close_button()->SetImageModel(
       views::ImageButton::STATE_NORMAL,
-      gfx::CreateVectorIcon(views::kIcCloseIcon, GetSearchBoxIconSize(),
-                            button_icon_color));
-  assistant_button()->SetImage(
+      ui::ImageModel::FromVectorIcon(views::kIcCloseIcon, button_icon_color,
+                                     GetSearchBoxIconSize()));
+  assistant_button()->SetImageModel(
       views::ImageButton::STATE_NORMAL,
-      gfx::CreateVectorIcon(chromeos::kAssistantIcon, GetSearchBoxIconSize(),
-                            button_icon_color));
+      ui::ImageModel::FromVectorIcon(
+          chromeos::kAssistantIcon, button_icon_color, GetSearchBoxIconSize()));
   if (filter_button()) {
-    filter_button()->SetImage(
+    filter_button()->SetImageModel(
         views::ImageButton::STATE_NORMAL,
-        gfx::CreateVectorIcon(kFilterIcon, GetSearchBoxIconSize(),
-                              button_icon_color));
+        ui::ImageModel::FromVectorIcon(kFilterIcon, button_icon_color,
+                                       GetSearchBoxIconSize()));
   }
   auto* focus_ring = views::FocusRing::Get(assistant_button());
   focus_ring->SetOutsetFocusRingDisabled(true);
@@ -812,6 +826,10 @@ void SearchBoxView::OpenAssistantPage() {
   delegate_->AssistantButtonPressed();
 }
 
+void SearchBoxView::OnLauncherSearchChipPressed(const std::u16string& query) {
+  UpdateQuery(query);
+}
+
 void SearchBoxView::ShowFilterMenu() {
   ui::SimpleMenuModel* model = BuildFilterMenuModel();
   filter_menu_adapter_ = std::make_unique<FilterMenuAdapter>(
@@ -821,6 +839,7 @@ void SearchBoxView::ShowFilterMenu() {
       view_delegate_);
 
   filter_menu_adapter_->ShowFilterMenu(this);
+  RecordSearchCategoryFilterMenuOpened();
 }
 
 void SearchBoxView::OnFilterMenuClosed() {
@@ -828,6 +847,8 @@ void SearchBoxView::OnFilterMenuClosed() {
   if (HasSearch()) {
     TriggerSearch();
   }
+
+  RecordSearchCategoryEnableState(GetSearchCategoryEnableState());
 }
 
 views::MenuItemView* SearchBoxView::GetFilterMenuItemByCategory(
@@ -980,7 +1001,7 @@ void SearchBoxView::UpdateLayout(AppListState target_state,
   // Horizontal margins are selected to match search box icon's vertical
   // margins. Space used for iph should be ignored.
   const int iph_height =
-      iph_view() ? iph_view()->GetPreferredSize().height() : 0;
+      GetIphView() ? GetIphView()->GetPreferredSize().height() : 0;
   const int horizontal_spacing =
       (target_state_height - iph_height - GetSearchBoxIconSize()) / 2;
   const int horizontal_right_padding =
@@ -1178,6 +1199,12 @@ void SearchBoxView::CloseButtonPressed() {
 }
 
 void SearchBoxView::AssistantButtonPressed() {
+  // If Launcher search IPH view is showing, notify it that the Assistant
+  // button is pressed.
+  if (GetIphView()) {
+    GetIphView()->NotifyAssistantButtonPressedEvent();
+  }
+
   delegate_->AssistantButtonPressed();
 }
 
@@ -1298,7 +1325,7 @@ bool SearchBoxView::HasAutocompleteText() {
 
 void SearchBoxView::OnBeforeUserAction(views::Textfield* sender) {
   if (a11y_active_descendant_)
-    SetA11yActiveDescendant(absl::nullopt);
+    SetA11yActiveDescendant(std::nullopt);
 }
 
 void SearchBoxView::SetAutocompleteText(
@@ -1387,7 +1414,7 @@ void SearchBoxView::ClearSearchAndDeactivateSearchBox() {
   if (!is_search_box_active())
     return;
 
-  SetA11yActiveDescendant(absl::nullopt);
+  SetA11yActiveDescendant(std::nullopt);
   // Set search box as inactive first, because ClearSearch() eventually calls
   // into AppListMainView::QueryChanged() which will hide search results based
   // on `is_search_box_active_`.
@@ -1397,7 +1424,7 @@ void SearchBoxView::ClearSearchAndDeactivateSearchBox() {
 }
 
 void SearchBoxView::SetA11yActiveDescendant(
-    const absl::optional<int32_t>& active_descendant) {
+    const std::optional<int32_t>& active_descendant) {
   a11y_active_descendant_ = active_descendant;
   search_box()->NotifyAccessibilityEvent(
       ax::mojom::Event::kActiveDescendantChanged, true);
@@ -1537,7 +1564,7 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
         close_button()->RequestFocus();
       }
 
-      SetA11yActiveDescendant(absl::nullopt);
+      SetA11yActiveDescendant(std::nullopt);
       break;
     case ResultSelectionController::MoveResult::kSelectionCycleAfterLastResult:
       // If move was about to cycle, clear the selection and move the focus to
@@ -1553,7 +1580,7 @@ bool SearchBoxView::HandleKeyEvent(views::Textfield* sender,
       } else {
         close_button()->RequestFocus();
       }
-      SetA11yActiveDescendant(absl::nullopt);
+      SetA11yActiveDescendant(std::nullopt);
       break;
     case ResultSelectionController::MoveResult::kResultChanged:
       UpdateSearchBoxForSelectedResult(
@@ -1637,7 +1664,7 @@ void SearchBoxView::UpdateIphViewVisibility() {
                                          ->show_assistant_button();
   const bool would_trigger_iph =
       AppListModelProvider::Get()->search_model()->would_trigger_iph();
-  const bool is_iph_showing = iph_view() != nullptr;
+  const bool is_iph_showing = GetIphView() != nullptr;
 
   const bool should_show_iph = show_assistant_button && is_iph_allowed_ &&
                                !HasValidQuery() &&
@@ -1655,8 +1682,8 @@ void SearchBoxView::UpdateIphViewVisibility() {
     }
 
     SetIphView(std::make_unique<LauncherSearchIphView>(
-        std::move(scoped_iph_session), /*delegate=*/this,
-        /*is_in_tablet_mode=*/!is_app_list_bubble_));
+        /*delegate=*/this, /*is_in_tablet_mode=*/!is_app_list_bubble_,
+        std::move(scoped_iph_session)));
 
     assistant_button()->SetBackground(views::CreateThemedRoundedRectBackground(
         kColorAshControlBackgroundColorInactive,
@@ -1720,5 +1747,33 @@ std::vector<AppListSearchControlCategory>
 SearchBoxView::GetToggleableCategories() {
   return view_delegate_->GetToggleableCategories();
 }
+
+CategoryEnableStateMap SearchBoxView::GetSearchCategoryEnableState() {
+  auto toggleable_categories = GetToggleableCategories();
+  CategoryEnableStateMap category_to_state;
+
+  // Initialize the map.
+  for (int i = base::to_underlying(AppListSearchControlCategory::kMinValue);
+       i <= base::to_underlying(AppListSearchControlCategory::kMaxValue); ++i) {
+    auto category = static_cast<AppListSearchControlCategory>(i);
+    // Cannot toggle is not a category.
+    if (category == AppListSearchControlCategory::kCannotToggle) {
+      continue;
+    }
+
+    category_to_state[category] = SearchCategoryEnableState::kNotAvailable;
+  }
+
+  // Set the enable states for toggleable categories.
+  for (auto category : toggleable_categories) {
+    category_to_state[category] = view_delegate_->IsCategoryEnabled(category)
+                                      ? SearchCategoryEnableState::kEnabled
+                                      : SearchCategoryEnableState::kDisabled;
+  }
+  return category_to_state;
+}
+
+BEGIN_METADATA(SearchBoxView)
+END_METADATA
 
 }  // namespace ash

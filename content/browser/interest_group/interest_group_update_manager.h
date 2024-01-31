@@ -140,6 +140,9 @@ class CONTENT_EXPORT InterestGroupUpdateManager {
     // be re-allocated to a new address.
     net::IsolationInfo* GetIsolationInfoByJoiningOrigin(const url::Origin&);
 
+    // Clear `joining_origin_isolation_info_map_`.
+    void ClearJoiningOriginIsolationInfoMap();
+
     // Removes all queued interest group owners.
     void Clear();
 
@@ -187,6 +190,7 @@ class CONTENT_EXPORT InterestGroupUpdateManager {
   void DidUpdateInterestGroupsOfOwnerNetFetch(
       UrlLoadersList::iterator simple_url_loader,
       blink::InterestGroupKey group_key,
+      base::TimeTicks start_time,
       std::unique_ptr<std::string> fetch_body);
   void DidUpdateInterestGroupsOfOwnerJsonParse(
       blink::InterestGroupKey group_key,

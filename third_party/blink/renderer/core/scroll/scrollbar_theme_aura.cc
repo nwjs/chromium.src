@@ -129,13 +129,6 @@ PartPaintingParams ButtonPartPaintingParams(const Scrollbar& scrollbar,
   return PartPaintingParams(paint_part, state);
 }
 
-inline float Proportion(EScrollbarWidth scrollbar_width) {
-  if (scrollbar_width == EScrollbarWidth::kThin)
-    return kThinProportion;
-  else
-    return kAutoProportion;
-}
-
 }  // namespace
 
 ScrollbarTheme& ScrollbarTheme::NativeTheme() {
@@ -164,8 +157,9 @@ bool ScrollbarThemeAura::SupportsDragSnapBack() const {
 #endif
 }
 
-int ScrollbarThemeAura::ScrollbarThickness(float scale_from_dip,
-                                           EScrollbarWidth scrollbar_width) {
+int ScrollbarThemeAura::ScrollbarThickness(
+    float scale_from_dip,
+    EScrollbarWidth scrollbar_width) const {
   if (scrollbar_width == EScrollbarWidth::kNone)
     return 0;
 
@@ -401,6 +395,14 @@ bool ScrollbarThemeAura::ShouldSnapBackToDragOrigin(
 
   return (mouse_offset_in_scrollbar < snap_outside_of_min ||
           mouse_offset_in_scrollbar >= snap_outside_of_max);
+}
+
+float ScrollbarThemeAura::Proportion(EScrollbarWidth scrollbar_width) const {
+  if (scrollbar_width == EScrollbarWidth::kNone) {
+    return 0.f;
+  }
+  return scrollbar_width == EScrollbarWidth::kThin ? kThinProportion
+                                                   : kAutoProportion;
 }
 
 bool ScrollbarThemeAura::HasScrollbarButtons(

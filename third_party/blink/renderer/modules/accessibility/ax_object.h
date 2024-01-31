@@ -328,6 +328,7 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // AXObjectCacheImpl::InvalidateCachedValuesOnSubtree().
   void InvalidateCachedValues();
   bool NeedsToUpdateCachedValues() const { return cached_values_need_update_; }
+  void CheckCanAccessCachedValues() const;
 
   // The AXObjectCacheImpl that owns this object, and its unique ID within this
   // cache.
@@ -1142,6 +1143,12 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // Can AXObjects backed by this element have AXObject children?
   static bool CanHaveChildren(Element& element);
 
+  // Given the candidate parent node, return a node that can be used for the
+  // parent, or null if no parent is possible. For example, passing in a <map>
+  // will return the associated <img>, because the image would parent any of the
+  // map's descendants.
+  static Node* GetParentNodeForComputeParent(AXObjectCacheImpl&, Node*);
+
   // Compute the AXObject parent for the given node.
   // Does not take aria-owns into account.
   static AXObject* ComputeNonARIAParent(AXObjectCacheImpl& cache, Node* node);
@@ -1162,10 +1169,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   bool IsRoot() const;
 
 #if DCHECK_IS_ON()
-  // When the parent on children during AddChildren(), take the opportunity to
-  // check out ComputeParent() implementation. It should match.
-  void EnsureCorrectParentComputation();
-
   // Get/Prints the entire AX subtree to the screen for debugging, with |this|
   // highlighted via a "*" notation.
   std::string GetAXTreeForThis() const;
@@ -1322,7 +1325,8 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // TODO(accessibility): Remove virtual -- the only override is in a unit test.
   virtual void ChildrenChangedWithCleanLayout();
   virtual void HandleActiveDescendantChanged() {}
-  virtual void HandleAutofillStateChanged(WebAXAutofillState) {}
+  virtual void HandleAutofillSuggestionAvailabilityChanged(
+      WebAXAutofillSuggestionAvailability) {}
   virtual void HandleAriaExpandedChanged() {}
 
   // Static helper functions.
@@ -1374,9 +1378,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   // xml-roles object attribute.
   const AtomicString& GetRoleAttributeStringForObjectAttribute(
       ui::AXNodeData* node_data);
-
-  // Extra checks that occur right before a node is evaluated for serialization.
-  void PreSerializationConsistencyCheck();
 
   // Returns a string representation of this object.
   // |cached_values_only| avoids recomputing cached values, and thus can be
@@ -1480,11 +1481,6 @@ class MODULES_EXPORT AXObject : public GarbageCollected<AXObject> {
   virtual void SerializeMarkerAttributes(ui::AXNodeData* node_data) const;
 
  private:
-  // Given the candidate parent node, return a node that can be used for the
-  // parent, or null if no parent is possible. For example, passing in a <map>
-  // will return the associated <img>, because the image would parent any of the
-  // map's descendants.
-  static Node* GetParentNodeForComputeParent(AXObjectCacheImpl&, Node*);
   bool ComputeCanSetFocusAttribute() const;
   String KeyboardShortcut() const;
 

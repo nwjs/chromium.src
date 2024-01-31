@@ -302,12 +302,6 @@ const std::vector<SearchConcept>& GetCellularSearchConcepts() {
        mojom::SearchResultDefaultRank::kMedium,
        mojom::SearchResultType::kSetting,
        {.setting = mojom::Setting::kCellularRoaming}},
-      {IDS_OS_SETTINGS_TAG_CELLULAR_APN,
-       mojom::kCellularDetailsSubpagePath,
-       mojom::SearchResultIcon::kCellular,
-       mojom::SearchResultDefaultRank::kMedium,
-       mojom::SearchResultType::kSetting,
-       {.setting = mojom::Setting::kCellularApn}},
   });
   return *tags;
 }
@@ -394,6 +388,39 @@ const std::vector<SearchConcept>& GetCellularAddESimSearchTerms() {
        {.setting = mojom::Setting::kAddESimNetwork},
        {IDS_OS_SETTINGS_TAG_ADD_ESIM_ALT1, IDS_OS_SETTINGS_TAG_ADD_ESIM_ALT2,
         SearchConcept::kAltTagEnd}},
+  });
+  return *tags;
+}
+
+const std::vector<SearchConcept>&
+GeActiveCellularNetworkApnSettingsSearchConcepts() {
+  if (ash::features::IsApnRevampEnabled()) {
+    static const base::NoDestructor<std::vector<SearchConcept>> tags(
+        {{IDS_OS_SETTINGS_TAG_CELLULAR_APN_SETTINGS,
+          mojom::kApnSubpagePath,
+          mojom::SearchResultIcon::kCellular,
+          mojom::SearchResultDefaultRank::kMedium,
+          mojom::SearchResultType::kSubpage,
+          {.subpage = mojom::Subpage::kApn},
+          {IDS_OS_SETTINGS_TAG_CELLULAR_APN_SETTINGS_ALT_1,
+           SearchConcept::kAltTagEnd}},
+         {IDS_OS_SETTINGS_TAG_ADD_APN,
+          mojom::kApnSubpagePath,
+          mojom::SearchResultIcon::kCellular,
+          mojom::SearchResultDefaultRank::kMedium,
+          mojom::SearchResultType::kSetting,
+          {.setting = mojom::Setting::kCellularAddApn},
+          {IDS_OS_SETTINGS_TAG_ADD_APN_ALT1, SearchConcept::kAltTagEnd}}});
+    return *tags;
+  }
+
+  static const base::NoDestructor<std::vector<SearchConcept>> tags({
+      {IDS_OS_SETTINGS_TAG_CELLULAR_APN,
+       mojom::kCellularDetailsSubpagePath,
+       mojom::SearchResultIcon::kCellular,
+       mojom::SearchResultDefaultRank::kMedium,
+       mojom::SearchResultType::kSetting,
+       {.setting = mojom::Setting::kCellularApn}},
   });
   return *tags;
 }
@@ -602,6 +629,7 @@ const std::vector<mojom::Setting>& GetCellularDetailsSettings() {
       mojom::Setting::kCellularMetered,
       mojom::Setting::kCellularRemoveESimNetwork,
       mojom::Setting::kCellularRenameESimNetwork,
+      mojom::Setting::kCellularAddApn,
   });
   return *settings;
 }
@@ -745,6 +773,10 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_DEVICE_INFO_A11Y_LABEL_IMEI_AND_SERIAL},
       {"deviceInfoPopupA11yEidImeiAndSerial",
        IDS_SETTINGS_DEVICE_INFO_A11Y_LABEL_EID_IMEI_AND_SERIAL},
+      {"internetMenuItemDescriptionWifi",
+       IDS_OS_SETTINGS_INTERNET_MENU_ITEM_DESCRIPTION_WIFI_ONLY},
+      {"internetMenuItemDescriptionWifiAndMobileData",
+       IDS_OS_SETTINGS_INTERNET_MENU_ITEM_DESCRIPTION_WIFI_AND_MOBILE_DATA},
       {"internetAddCellular", IDS_SETTINGS_INTERNET_ADD_CELLULAR},
       {"internetAddConnection", IDS_SETTINGS_INTERNET_ADD_CONNECTION},
       {"internetAddConnectionExpandA11yLabel",
@@ -756,12 +788,12 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"internetAddWiFi", IDS_SETTINGS_INTERNET_ADD_WIFI},
       {"internetConfigName", IDS_SETTINGS_INTERNET_CONFIG_NAME},
       {"internetDetailPageTitle", IDS_SETTINGS_INTERNET_DETAIL},
-      {"internetDeviceEnabling", IDS_SETTINGS_INTERNET_DEVICE_ENABLING},
       {"internetDeviceBusy", IDS_SETTINGS_INTERNET_DEVICE_BUSY},
       {"internetJoinType", IDS_SETTINGS_INTERNET_JOIN_TYPE},
       {"internetKnownNetworksPageTitle", IDS_SETTINGS_INTERNET_KNOWN_NETWORKS},
       {"internetNoNetworks", IDS_SETTINGS_INTERNET_NO_NETWORKS},
-      {"internetPageTitle", IDS_SETTINGS_INTERNET},
+      {"internetPageTitle", isRevampEnabled ? IDS_OS_SETTINGS_REVAMP_INTERNET
+                                            : IDS_SETTINGS_INTERNET},
       {"internetSummaryButtonA11yLabel",
        IDS_SETTINGS_INTERNET_SUMMARY_BUTTON_ACCESSIBILITY_LABEL},
       {"internetToggleMobileA11yLabel",
@@ -798,6 +830,7 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
        IDS_SETTINGS_SETTINGS_NETWORK_ALLOW_DATA_ROAMING_ENABLED_ROAMING},
       {"networkAllowDataRoamingDisabled",
        IDS_SETTINGS_SETTINGS_NETWORK_ALLOW_DATA_ROAMING_DISABLED},
+      {"networkDeviceTurningOn", IDS_SETTINGS_NETWORK_DEVICE_TURNING_ON},
       {"networkVpnPreferences", IDS_SETTINGS_INTERNET_NETWORK_VPN_PREFERENCES},
       {"networkAlwaysOnVpn", IDS_SETTINGS_INTERNET_NETWORK_ALWAYS_ON_VPN},
       {"networkAlwaysOnVpnEnableSublabel",
@@ -872,6 +905,8 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       {"networkSharedNotOwner", IDS_SETTINGS_INTERNET_NETWORK_SHARED_NOT_OWNER},
       {"networkVpnBuiltin", IDS_NETWORK_TYPE_VPN_BUILTIN},
       {"networkOutOfRange", IDS_SETTINGS_INTERNET_WIFI_NETWORK_OUT_OF_RANGE},
+      {"networkMobileProviderLocked",
+       IDS_SETTINGS_INTERNET_MOBILE_PROVIDER_LOCKED},
       {"cellularSetupDialogTitle",
        IDS_SETTINGS_INTERNET_CELLULAR_SETUP_DIALOG_TITLE},
       {"tetherPhoneOutOfRange",
@@ -1150,17 +1185,17 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_INTERNET_HOTSPOT_SUBTITLE_WITH_LEARN_MORE_LINK,
           ui::GetChromeOSDeviceName(),
-          GetHelpUrlWithBoard(chrome::kInstantTetheringLearnMoreURL)));
+          GetHelpUrlWithBoard(chrome::kChromebookHotspotLearnMoreURL)));
   html_source->AddString(
       "hotspotMobileDataNotSupportedSublabelWithLink",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_INTERNET_HOTSPOT_MOBILE_DATA_NOT_SUPPORTED_SUBLABEL_WITH_LEARN_MORE_LINK,
-          GetHelpUrlWithBoard(chrome::kInstantTetheringLearnMoreURL)));
+          GetHelpUrlWithBoard(chrome::kChromebookHotspotLearnMoreURL)));
   html_source->AddString(
       "hotspotNoMobileDataSublabelWithLink",
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_INTERNET_HOTSPOT_NO_MOBILE_DATA_SUBLABEL_WITH_LEARN_MORE_LINK,
-          GetHelpUrlWithBoard(chrome::kInstantTetheringLearnMoreURL)));
+          GetHelpUrlWithBoard(chrome::kChromebookHotspotLearnMoreURL)));
   html_source->AddString(
       "hotspotSettingsTitle",
       l10n_util::GetStringFUTF16(IDS_SETTINGS_INTERNET_HOTSPOT_SETTINGS_TITLE,
@@ -1170,7 +1205,20 @@ void InternetSection::AddLoadTimeData(content::WebUIDataSource* html_source) {
       l10n_util::GetStringFUTF16(
           IDS_SETTINGS_INTERNET_HOTSPOT_SETTINGS_SUBTITLE_WITH_LEARN_MORE_LINK,
           ui::GetChromeOSDeviceName(),
-          GetHelpUrlWithBoard(chrome::kInstantTetheringLearnMoreURL)));
+          GetHelpUrlWithBoard(chrome::kChromebookHotspotLearnMoreURL)));
+
+  html_source->AddString(
+      "cellularSubpageSubtitle",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_INTERNET_CELLULAR_SUBTITLE_WITH_LEARN_MORE_LINK,
+          GetHelpUrlWithBoard(chrome::kCellularCarrierLockLearnMoreURL)));
+
+  html_source->AddString(
+      "networkCarrierLocked",
+      l10n_util::GetStringFUTF16(
+          IDS_SETTINGS_INTERNET_NETWORK_CARRIER_LOCKED_WITH_LEARN_MORE_LINK,
+          GetHelpUrlWithBoard(chrome::kCellularCarrierLockLearnMoreURL)));
+
   html_source->AddBoolean("isUserLoggedIn", IsUserLoggedIn());
 }
 
@@ -1180,7 +1228,9 @@ void InternetSection::AddHandlers(content::WebUI* web_ui) {
 }
 
 int InternetSection::GetSectionNameMessageId() const {
-  return IDS_SETTINGS_INTERNET;
+  return ash::features::IsOsSettingsRevampWayfindingEnabled()
+             ? IDS_OS_SETTINGS_REVAMP_INTERNET
+             : IDS_SETTINGS_INTERNET;
 }
 
 mojom::Section InternetSection::GetSection() const {
@@ -1337,6 +1387,10 @@ std::string InternetSection::ModifySearchResultUrl(
   }
 
   if (IsPartOfDetailsSubpage(type, id, mojom::Subpage::kCellularDetails)) {
+    return GetDetailsSubpageUrl(modified_url, *active_cellular_guid_);
+  }
+
+  if (IsPartOfDetailsSubpage(type, id, mojom::Subpage::kApn)) {
     return GetDetailsSubpageUrl(modified_url, *active_cellular_guid_);
   }
 
@@ -1503,6 +1557,7 @@ void InternetSection::OnNetworkList(
   updater.RemoveSearchTags(GetWifiMeteredSearchConcepts());
   updater.RemoveSearchTags(GetWifiHiddenSearchConcepts());
   updater.RemoveSearchTags(GetCellularSearchConcepts());
+  updater.RemoveSearchTags(GeActiveCellularNetworkApnSettingsSearchConcepts());
   updater.RemoveSearchTags(GetCellularConnectedSearchConcepts());
   updater.RemoveSearchTags(GetCellularPrimaryIsNonPolicyESimSearchConcepts());
   updater.RemoveSearchTags(GetCellularMeteredSearchConcepts());
@@ -1527,6 +1582,8 @@ void InternetSection::OnNetworkList(
       if (is_primary_cellular_network) {
         active_cellular_guid_ = network->guid;
         updater.AddSearchTags(GetCellularSearchConcepts());
+        updater.AddSearchTags(
+            GeActiveCellularNetworkApnSettingsSearchConcepts());
 
         // If the primary cellular network is ESim and not policy ESim.
         if (!network->type_state->get_cellular()->eid.empty() &&

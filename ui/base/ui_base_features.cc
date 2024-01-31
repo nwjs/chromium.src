@@ -101,13 +101,6 @@ BASE_FEATURE(kLacrosResourcesFileSharing,
              "LacrosResourcesFileSharing",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// When the input method wants to commit the composition, always call
-// ConfirmCompositionText even if Ash thinks there's no composition.
-// Enabling this fixes b/265853952.
-BASE_FEATURE(kAlwaysConfirmComposition,
-             "AlwaysConfirmComposition",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables settings that allow users to remap the F11 and F12 keys in the
 // "Customize keyboard keys" page.
 BASE_FEATURE(kSupportF11AndF12KeyShortcuts,
@@ -291,18 +284,6 @@ bool IsImprovedKeyboardShortcutsEnabled() {
   return base::FeatureList::IsEnabled(kImprovedKeyboardShortcuts);
 }
 
-// Whether to deprecate the Alt-Based event rewrites that map to the
-// Page Up/Down, Home/End, Insert/Delete keys. This feature was a
-// part of kImprovedKeyboardShortcuts, but it is being postponed until
-// the new shortcut customization app ships.
-// TODO(crbug.com/1179893): Remove after the customization app ships.
-BASE_FEATURE(kDeprecateAltBasedSixPack,
-             "DeprecateAltBasedSixPack",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsDeprecateAltBasedSixPackEnabled() {
-  return base::FeatureList::IsEnabled(kDeprecateAltBasedSixPack);
-}
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 // Whether to enable new touch text editing features such as extra touch
@@ -486,16 +467,6 @@ bool IsVariableRefreshRateAlwaysOn() {
   return base::FeatureList::IsEnabled(kEnableVariableRefreshRateAlwaysOn);
 }
 
-// Fixes b/267944900.
-BASE_FEATURE(kWaylandKeepSelectionFix,
-             "WaylandKeepSelectionFix",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Fixes b/267944900.
-BASE_FEATURE(kWaylandCancelComposition,
-             "WaylandCancelComposition",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables chrome color management wayland protocol for lacros.
 BASE_FEATURE(kLacrosColorManagement,
              "LacrosColorManagement",
@@ -649,6 +620,12 @@ BASE_FEATURE(kMacClipboardWriteImageWithPng,
 BASE_FEATURE(kCr2023MacFontSmoothing,
              "Cr2023MacFontSmoothing",
              base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
+#endif  // BUILDFLAG(IS_APPLE)
+
+#if BUILDFLAG(IS_WIN)
+BASE_FEATURE(kUseGammaContrastRegistrySettings,
+             "UseGammaContrastRegistrySettings",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_WIN)
 
 }  // namespace features

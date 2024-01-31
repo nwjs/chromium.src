@@ -5,8 +5,6 @@
 #include "chrome/browser/profiles/profile_io_data.h"
 
 #include "base/feature_list.h"
-#include "content/nw/src/policy_cert_verifier.h"
-
 #include "base/logging.h"
 #include "base/strings/string_util.h"
 #include "build/build_config.h"

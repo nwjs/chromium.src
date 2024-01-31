@@ -139,8 +139,7 @@ class TestNavigationLoaderInterceptor : public NavigationLoaderInterceptor {
       mojo::PendingRemote<network::mojom::URLLoader>* loader,
       mojo::PendingReceiver<network::mojom::URLLoaderClient>* client_receiver,
       blink::ThrottlingURLLoader* url_loader,
-      bool* skip_other_interceptors,
-      bool* will_return_unsafe_redirect) override {
+      bool* skip_other_interceptors) override {
     return false;
   }
 
@@ -282,6 +281,7 @@ class NavigationURLLoaderImplTest : public testing::Test {
             ChildProcessHost::kInvalidUniqueID /* initiator_process_id */,
             absl::nullopt /* initiator_document_token */,
             GlobalRenderFrameHostId() /* previous_render_frame_host_id */,
+            nullptr /* serving_page_metrics_container */,
             false /* allow_cookies_from_browser */, 0 /* navigation_id */,
             false /* shared_storage_writable */,
             is_ad_tagged /* is_ad_tagged */));

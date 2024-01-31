@@ -21,10 +21,6 @@
 #include "device/fido/public_key_credential_descriptor.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#include "base/android/scoped_java_ref.h"
-#endif
-
 #if BUILDFLAG(IS_MAC)
 #include "device/fido/mac/authenticator_config.h"
 #endif
@@ -80,13 +76,6 @@ class CONTENT_EXPORT WebAuthenticationDelegate {
       BrowserContext* browser_context,
       const url::Origin& caller_origin);
 
-  // Returns true if the tab security level is acceptable to allow WebAuthn
-  // requests, false otherwise.
-  virtual bool IsSecurityLevelAcceptableForWebAuthn(
-      content::RenderFrameHost* rfh,
-      const url::Origin& caller_origin);
-
-#if !BUILDFLAG(IS_ANDROID)
   // Permits the embedder to override the Relying Party ID for a WebAuthn call,
   // given the claimed relying party ID and the origin of the caller.
   //
@@ -142,7 +131,9 @@ class CONTENT_EXPORT WebAuthenticationDelegate {
   virtual WebAuthenticationRequestProxy* MaybeGetRequestProxy(
       BrowserContext* browser_context,
       const url::Origin& caller_origin);
-#endif  // !IS_ANDROID
+
+  // Returns true when the cloud enclave authenticator is available for use.
+  virtual bool IsEnclaveAuthenticatorAvailable(BrowserContext* browser_context);
 
 #if BUILDFLAG(IS_MAC)
   using TouchIdAuthenticatorConfig = device::fido::mac::AuthenticatorConfig;
@@ -168,14 +159,6 @@ class CONTENT_EXPORT WebAuthenticationDelegate {
   virtual ChromeOSGenerateRequestIdCallback GetGenerateRequestIdCallback(
       RenderFrameHost* render_frame_host);
 #endif  // BUILDFLAG(IS_CHROMEOS)
-
-#if BUILDFLAG(IS_ANDROID)
-  // GetIntentSender returns a Java object that implements
-  // `WebAuthenticationDelegate.IntentSender` from
-  // WebAuthenticationDelegate.java. See the comments in that file for details.
-  virtual base::android::ScopedJavaLocalRef<jobject> GetIntentSender(
-      WebContents* web_contents);
-#endif
 };
 
 // AuthenticatorRequestClientDelegate is an interface that lets embedders
@@ -296,6 +279,9 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
   // be functional and |pairings_from_extension| contains any caBLEv1 pairings
   // that have been provided in an extension to the WebAuthn get() call.
   //
+  // When `is_enclave_authenticator_available` is true, the embedder will
+  // provide a cloud enclave authenticator option.
+  //
   // Other FidoDiscoveryFactory fields (e.g. the `LAContextDropbox`) can also be
   // configured by this function.
   virtual void ConfigureDiscoveries(
@@ -305,6 +291,7 @@ class CONTENT_EXPORT AuthenticatorRequestClientDelegate
       device::FidoRequestType request_type,
       absl::optional<device::ResidentKeyRequirement> resident_key_requirement,
       base::span<const device::CableDiscoveryData> pairings_from_extension,
+      bool is_enclave_authenticator_available,
       device::FidoDiscoveryFactory* fido_discovery_factory);
 
   // SelectAccount is called to allow the embedder to select between one or more

@@ -9,6 +9,7 @@ import {str} from '../../common/js/translations.js';
 import {FileListModel, GROUP_BY_FIELD_DIRECTORY, GROUP_BY_FIELD_MODIFICATION_TIME, GroupHeader} from './file_list_model.js';
 import {MetadataModel} from './metadata/metadata_model.js';
 
+
 const TEST_METADATA = {
   'a.txt': {
     contentMimeType: 'text/plain',
@@ -156,16 +157,15 @@ export function testSplice() {
   fileListModel.sort('name', 'asc');
 
   fileListModel.addEventListener('splice', event => {
-    // @ts-ignore: error TS2339: Property 'added' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.added, ['p', 'b']);
-    // @ts-ignore: error TS2339: Property 'removed' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.removed, ['n']);
+    const
+        spliceEventDetail = /**
+                         @type {import('../../definitions/array_data_model_events.js').ArrayDataModelSpliceEvent}
+                           */
+        (event).detail;
+    assertEntryArrayEquals(spliceEventDetail.added, ['p', 'b']);
+    assertEntryArrayEquals(spliceEventDetail.removed, ['n']);
     // The first inserted item, 'p', should be at index:3 after splice.
-    // @ts-ignore: error TS2339: Property 'index' does not exist on type
-    // 'Event'.
-    assertEquals(event.index, 3);
+    assertEquals(spliceEventDetail.index, 3);
   });
 
   fileListModel.addEventListener('permuted', event => {
@@ -186,16 +186,15 @@ export function testSpliceWithoutSortStatus() {
   const fileListModel = makeSimpleFileListModel(['d', 'a', 'x', 'n']);
 
   fileListModel.addEventListener('splice', event => {
-    // @ts-ignore: error TS2339: Property 'added' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.added, ['p', 'b']);
-    // @ts-ignore: error TS2339: Property 'removed' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.removed, ['x']);
+    const
+        spliceEventDetail = /**
+                         @type {import('../../definitions/array_data_model_events.js').ArrayDataModelSpliceEvent}
+                           */
+        (event).detail;
+    assertEntryArrayEquals(spliceEventDetail.added, ['p', 'b']);
+    assertEntryArrayEquals(spliceEventDetail.removed, ['x']);
     // The first inserted item, 'p', should be at index:2 after splice.
-    // @ts-ignore: error TS2339: Property 'index' does not exist on type
-    // 'Event'.
-    assertEquals(event.index, 2);
+    assertEquals(spliceEventDetail.index, 2);
   });
 
   fileListModel.addEventListener('permuted', event => {
@@ -220,17 +219,16 @@ export function testSpliceWithoutAddingNewItems() {
   fileListModel.sort('name', 'asc');
 
   fileListModel.addEventListener('splice', event => {
-    // @ts-ignore: error TS2339: Property 'added' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.added, []);
-    // @ts-ignore: error TS2339: Property 'removed' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.removed, ['n']);
+    const
+        spliceEventDetail = /**
+                         @type {import('../../definitions/array_data_model_events.js').ArrayDataModelSpliceEvent}
+                           */
+        (event).detail;
+    assertEntryArrayEquals(spliceEventDetail.added, []);
+    assertEntryArrayEquals(spliceEventDetail.removed, ['n']);
     // The first item after insertion/deletion point is 'x', which should be at
     // 2nd position after the sort.
-    // @ts-ignore: error TS2339: Property 'index' does not exist on type
-    // 'Event'.
-    assertEquals(event.index, 2);
+    assertEquals(spliceEventDetail.index, 2);
   });
 
   fileListModel.addEventListener('permuted', event => {
@@ -251,15 +249,14 @@ export function testSpliceWithoutDeletingItems() {
   fileListModel.sort('name', 'asc');
 
   fileListModel.addEventListener('splice', event => {
-    // @ts-ignore: error TS2339: Property 'added' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.added, ['p', 'b']);
-    // @ts-ignore: error TS2339: Property 'removed' does not exist on type
-    // 'Event'.
-    assertEntryArrayEquals(event.removed, []);
-    // @ts-ignore: error TS2339: Property 'index' does not exist on type
-    // 'Event'.
-    assertEquals(event.index, 4);
+    const
+        spliceEventDetail = /**
+                         @type {import('../../definitions/array_data_model_events.js').ArrayDataModelSpliceEvent}
+                           */
+        (event).detail;
+    assertEntryArrayEquals(spliceEventDetail.added, ['p', 'b']);
+    assertEntryArrayEquals(spliceEventDetail.removed, []);
+    assertEquals(spliceEventDetail.index, 4);
   });
 
   fileListModel.addEventListener('permuted', event => {
@@ -289,6 +286,8 @@ export function testShouldShowGroupHeading() {
 }
 
 export function testGroupByModificationTime() {
+  const RecentDateBucket = chrome.fileManagerPrivate.RecentDateBucket;
+
   /**
    * @type {!Array<{
    *  metadataMap: !Object<string, {modificationTime: Date}>,
@@ -315,13 +314,13 @@ export function testGroupByModificationTime() {
         startIndex: 0,
         endIndex: 0,
         label: str('RECENT_TIME_HEADING_TODAY'),
-        group: 'today',
+        group: RecentDateBucket.TODAY,
       }],
       expectedReversedGroups: [{
         startIndex: 0,
         endIndex: 0,
         label: str('RECENT_TIME_HEADING_TODAY'),
-        group: 'today',
+        group: RecentDateBucket.TODAY,
       }],
     },
     // All items are in the same group.
@@ -344,13 +343,13 @@ export function testGroupByModificationTime() {
         startIndex: 0,
         endIndex: 2,
         label: str('RECENT_TIME_HEADING_TODAY'),
-        group: 'today',
+        group: RecentDateBucket.TODAY,
       }],
       expectedReversedGroups: [{
         startIndex: 0,
         endIndex: 2,
         label: str('RECENT_TIME_HEADING_TODAY'),
-        group: 'today',
+        group: RecentDateBucket.TODAY,
       }],
     },
     // Items belong to different groups.
@@ -390,31 +389,31 @@ export function testGroupByModificationTime() {
           startIndex: 0,
           endIndex: 1,
           label: str('RECENT_TIME_HEADING_TODAY'),
-          group: 'today',
+          group: RecentDateBucket.TODAY,
         },
         {
           startIndex: 2,
           endIndex: 2,
           label: str('RECENT_TIME_HEADING_YESTERDAY'),
-          group: 'yesterday',
+          group: RecentDateBucket.YESTERDAY,
         },
         {
           startIndex: 3,
           endIndex: 4,
           label: str('RECENT_TIME_HEADING_THIS_WEEK'),
-          group: 'earlier_this_week',
+          group: RecentDateBucket.EARLIER_THIS_WEEK,
         },
         {
           startIndex: 5,
           endIndex: 5,
           label: str('RECENT_TIME_HEADING_THIS_MONTH'),
-          group: 'earlier_this_month',
+          group: RecentDateBucket.EARLIER_THIS_MONTH,
         },
         {
           startIndex: 6,
           endIndex: 6,
           label: str('RECENT_TIME_HEADING_THIS_YEAR'),
-          group: 'earlier_this_year',
+          group: RecentDateBucket.EARLIER_THIS_YEAR,
         },
       ],
       expectedReversedGroups: [
@@ -422,31 +421,31 @@ export function testGroupByModificationTime() {
           startIndex: 0,
           endIndex: 0,
           label: str('RECENT_TIME_HEADING_THIS_YEAR'),
-          group: 'earlier_this_year',
+          group: RecentDateBucket.EARLIER_THIS_YEAR,
         },
         {
           startIndex: 1,
           endIndex: 1,
           label: str('RECENT_TIME_HEADING_THIS_MONTH'),
-          group: 'earlier_this_month',
+          group: RecentDateBucket.EARLIER_THIS_MONTH,
         },
         {
           startIndex: 2,
           endIndex: 3,
           label: str('RECENT_TIME_HEADING_THIS_WEEK'),
-          group: 'earlier_this_week',
+          group: RecentDateBucket.EARLIER_THIS_WEEK,
         },
         {
           startIndex: 4,
           endIndex: 4,
           label: str('RECENT_TIME_HEADING_YESTERDAY'),
-          group: 'yesterday',
+          group: RecentDateBucket.YESTERDAY,
         },
         {
           startIndex: 5,
           endIndex: 6,
           label: str('RECENT_TIME_HEADING_TODAY'),
-          group: 'today',
+          group: RecentDateBucket.TODAY,
         },
       ],
     },

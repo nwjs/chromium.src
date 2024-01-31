@@ -50,11 +50,11 @@
 #include "net/base/host_port_pair.h"
 #include "net/base/proxy_server.h"
 #include "net/base/proxy_string_util.h"
-#include "net/cert/pem.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util_nss.h"
 #include "net/proxy_resolution/proxy_bypass_rules.h"
 #include "net/proxy_resolution/proxy_config.h"
+#include "third_party/boringssl/src/pki/pem.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
@@ -173,7 +173,9 @@ void SetProxyForScheme(const net::ProxyConfig::ProxyRules& proxy_rules,
   }
   if (!proxy_list || proxy_list->IsEmpty())
     return;
-  const net::ProxyServer& server = proxy_list->Get();
+  const net::ProxyChain& chain = proxy_list->First();
+  CHECK(chain.is_single_proxy());
+  const net::ProxyServer& server = chain.GetProxyServer(/*chain_index=*/0);
   std::string host = server.host_port_pair().host();
 
   // For all proxy types except SOCKS, the default scheme of the proxy host is

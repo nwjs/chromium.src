@@ -8,6 +8,7 @@ load("//lib/builder_config.star", "builder_config")
 load("//lib/builders.star", "reclient", "sheriff_rotations")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
+load("//lib/gn_args.star", "gn_args")
 
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
@@ -282,6 +283,69 @@ ci.gpu.linux_builder(
     # Runs a lot of tests + VMs are slower than real hardware, so increase the
     # timeout.
     execution_timeout = 8 * time.hour,
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_tests",
+            "chromeos_device",
+            "amd64-generic-vm",
+            "ozone_headless",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "dcheck_off",
+            "no_symbols",
+        ],
+    ),
+    reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
+)
+
+ci.gpu.linux_builder(
+    name = "ChromeOS FYI Release Skylab (volteer)",
+    description_html = "Runs standard GPU tests on Skylab-hosted volteer devices",
+    builder_spec = builder_config.builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "chromeos",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "chromium",
+            apply_configs = [
+                "mb",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.INTEL,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.CHROMEOS,
+            target_cros_boards = [
+                "volteer",
+            ],
+        ),
+        run_tests_serially = True,
+        skylab_upload_location = builder_config.skylab_upload_location(
+            gs_bucket = "chromium-ci-skylab",
+            gs_extra = "chromeos_gpu",
+        ),
+    ),
+    console_view_entry = consoles.console_view_entry(
+        category = "ChromeOS|Intel",
+        short_name = "vlt",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_tests",
+            "chromeos_device",
+            "volteer",
+            "ozone_headless",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "dcheck_off",
+            "no_symbols",
+            "is_skylab",
+        ],
+    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -338,6 +402,16 @@ ci.gpu.linux_builder(
         category = "Android|Builder",
         short_name = "arm",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_tests",
+            "android_builder",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "static_angle",
+        ],
+    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -366,6 +440,17 @@ ci.gpu.linux_builder(
         category = "Android|Builder",
         short_name = "arm64",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_tests",
+            "android_builder",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "arm64",
+            "static_angle",
+        ],
+    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -387,6 +472,16 @@ ci.gpu.linux_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Lacros|Builder",
         short_name = "rel",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_tests",
+            "ozone_linux",
+            "ozone_linux_non_x11",
+            "release_builder",
+            "try_builder",
+            "reclient",
+        ],
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -412,6 +507,15 @@ ci.gpu.linux_builder(
         category = "Linux|Builder",
         short_name = "rel",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "disable_nacl",
+        ],
+    ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
 
@@ -433,6 +537,15 @@ ci.gpu.linux_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Linux|Builder",
         short_name = "dbg",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "debug_builder",
+            "reclient",
+            "disable_nacl",
+            "use_dummy_lastchange",
+        ],
     ),
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
 )
@@ -457,6 +570,16 @@ ci.gpu.linux_builder(
         category = "Linux",
         short_name = "tsn",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "tsan",
+            "disable_nacl",
+        ],
+    ),
 )
 
 ci.gpu.mac_builder(
@@ -478,6 +601,16 @@ ci.gpu.mac_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Mac|Builder",
         short_name = "rel",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "disable_nacl",
+            "x64",
+        ],
     ),
 )
 
@@ -501,6 +634,17 @@ ci.gpu.mac_builder(
         category = "Mac|Builder",
         short_name = "asn",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "asan",
+            "disable_nacl",
+            "x64",
+        ],
+    ),
 )
 
 ci.gpu.mac_builder(
@@ -522,6 +666,16 @@ ci.gpu.mac_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Mac|Builder",
         short_name = "dbg",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "debug_builder",
+            "reclient",
+            "disable_nacl",
+            "use_dummy_lastchange",
+            "x64",
+        ],
     ),
 )
 
@@ -545,6 +699,16 @@ ci.gpu.mac_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Mac|Builder",
         short_name = "arm",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "arm64",
+            "disable_nacl",
+        ],
     ),
 )
 
@@ -1369,6 +1533,16 @@ gpu_fyi_windows_builder(
         category = "Windows|Builder|Release",
         short_name = "x86",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "x86",
+            "disable_nacl",
+        ],
+    ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
 
@@ -1390,6 +1564,15 @@ gpu_fyi_windows_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|Release",
         short_name = "x64",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "disable_nacl",
+        ],
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1413,6 +1596,15 @@ gpu_fyi_windows_builder(
         category = "Windows|Builder|Debug",
         short_name = "x64",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "debug_builder",
+            "reclient",
+            "disable_nacl",
+            "use_dummy_lastchange",
+        ],
+    ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
 
@@ -1435,6 +1627,16 @@ gpu_fyi_windows_builder(
         category = "Windows|Builder|dx12vk",
         short_name = "rel",
     ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "dx12vk",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "disable_nacl",
+        ],
+    ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
 
@@ -1456,6 +1658,16 @@ gpu_fyi_windows_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|dx12vk",
         short_name = "dbg",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "dx12vk",
+            "debug_builder",
+            "reclient",
+            "disable_nacl",
+            "use_dummy_lastchange",
+        ],
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )
@@ -1485,6 +1697,15 @@ gpu_fyi_windows_builder(
     console_view_entry = consoles.console_view_entry(
         category = "Windows|Builder|XR",
         short_name = "x64",
+    ),
+    gn_args = gn_args.config(
+        configs = [
+            "gpu_fyi_tests",
+            "release_builder",
+            "try_builder",
+            "reclient",
+            "disable_nacl",
+        ],
     ),
     reclient_jobs = reclient.jobs.LOW_JOBS_FOR_CI,
 )

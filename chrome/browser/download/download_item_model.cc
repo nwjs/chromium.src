@@ -374,6 +374,7 @@ bool DownloadItemModel::IsMalicious() const {
       [[fallthrough]];
     case download::DOWNLOAD_DANGER_TYPE_UNCOMMON_CONTENT:
     case download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING:
+    case download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE:
     case download::DOWNLOAD_DANGER_TYPE_SENSITIVE_CONTENT_WARNING:
@@ -517,7 +518,7 @@ bool DownloadItemModel::ShouldPreferOpeningInBrowser() {
   const DownloadItemModelData* data =
       DownloadItemModelData::GetOrCreate(download_);
 #if !BUILDFLAG(IS_ANDROID)
-  if (!data->should_prefer_opening_in_browser_ && IsBubbleV2Enabled()) {
+  if (!data->should_prefer_opening_in_browser_) {
     base::FilePath path = GetTargetFilePath();
     std::string mime_type = GetMimeType();
     DetermineAndSetShouldPreferOpeningInBrowser(
@@ -827,13 +828,8 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
       CompleteSafeBrowsingScan();
 #endif
 #if 0
-      if (GetDangerType() == download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
-        LogDeepScanEvent(download_,
-                         safe_browsing::DeepScanEvent::kScanCanceled);
-      } else {
-        LogDeepScanEvent(download_,
-                         safe_browsing::DeepScanEvent::kPromptBypassed);
-      }
+      LogDeepScanEvent(download_,
+                       safe_browsing::DeepScanEvent::kPromptBypassed);
 #endif
       [[fallthrough]];
     case DownloadCommands::KEEP:
@@ -860,6 +856,9 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
 #if BUILDFLAG(FULL_SAFE_BROWSING)
       MaybeSendDownloadReport(GetURL(), GetDangerType(), /*did_proceed=*/false,
                               profile(), download_);
+      if (GetDangerType() == download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
+        LogDeepScanEvent(download_, safe_browsing::DeepScanEvent::kScanDeleted);
+      }
       if (MaybeSubmitDownloadToFeedbackService(command, profile(), download_)) {
         // Skip Remove because it is handled by download feedback service.
         break;
@@ -913,6 +912,7 @@ void DownloadItemModel::ExecuteCommand(DownloadCommands* download_commands,
       ChromeDownloadManagerDelegate* delegate =
           download_core_service->GetDownloadManagerDelegate();
       DCHECK(delegate);
+      LogDeepScanEvent(download_, safe_browsing::DeepScanEvent::kScanCanceled);
       delegate->CheckClientDownloadDone(
           download_->GetId(),
           safe_browsing::DownloadCheckResult::PROMPT_FOR_SCANNING);
@@ -977,8 +977,7 @@ DownloadItemModel::GetBubbleUIInfoForTailoredWarning() const {
 bool DownloadItemModel::ShouldShowTailoredWarning() const {
   return false;
 #if 0
-  if (!IsBubbleV2Enabled() ||
-      !base::FeatureList::IsEnabled(safe_browsing::kDownloadTailoredWarnings)) {
+  if (!base::FeatureList::IsEnabled(safe_browsing::kDownloadTailoredWarnings)) {
     return false;
   }
 
@@ -1043,10 +1042,6 @@ bool DownloadItemModel::ShouldShowInBubble() const {
 }
 
 bool DownloadItemModel::IsEphemeralWarning() const {
-  if (!IsBubbleV2Enabled()) {
-    return false;
-  }
-
   switch (GetInsecureDownloadStatus()) {
     case download::DownloadItem::InsecureDownloadStatus::BLOCK:
     case download::DownloadItem::InsecureDownloadStatus::WARN:
@@ -1078,6 +1073,7 @@ bool DownloadItemModel::IsEphemeralWarning() const {
     case download::DOWNLOAD_DANGER_TYPE_ALLOWLISTED_BY_POLICY:
     case download::DOWNLOAD_DANGER_TYPE_MAX:
     case download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING:
+    case download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING:
     case download::DOWNLOAD_DANGER_TYPE_DEEP_SCANNED_SAFE:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_UNSUPPORTED_FILETYPE:
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED:

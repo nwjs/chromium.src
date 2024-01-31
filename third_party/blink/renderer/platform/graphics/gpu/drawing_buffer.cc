@@ -520,7 +520,8 @@ bool DrawingBuffer::FinishPrepareTransferableResourceSoftware(
       static_cast<uint8_t*>(registered.bitmap->memory()));
 
   *out_resource = viz::TransferableResource::MakeSoftware(
-      registered.bitmap->id(), size_, viz::SinglePlaneFormat::kRGBA_8888,
+      registered.bitmap->id(), gpu::SyncToken(), size_,
+      viz::SinglePlaneFormat::kRGBA_8888,
       viz::TransferableResource::ResourceSource::kDrawingBuffer);
   out_resource->color_space = back_color_buffer_->color_space;
 
@@ -2004,10 +2005,12 @@ scoped_refptr<DrawingBuffer::ColorBuffer> DrawingBuffer::CreateColorBuffer(
         back_buffer_alpha_type = kUnpremul_SkAlphaType;
       }
 
-      back_buffer_mailbox =
+      auto client_shared_image =
           sii->CreateSharedImage(color_buffer_format_, size, color_space_,
                                  origin, back_buffer_alpha_type, usage,
                                  "WebGLDrawingBuffer", gpu::kNullSurfaceHandle);
+      CHECK(client_shared_image);
+      back_buffer_mailbox = client_shared_image->mailbox();
     }
   }
 

@@ -518,20 +518,9 @@ void MetricsWebContentsObserver::OnCookiesAccessedImpl(
   }
 }
 
-void MetricsWebContentsObserver::DidActivatePortal(
-    content::WebContents* predecessor_web_contents,
+void MetricsWebContentsObserver::DidActivatePreviewedPage(
     base::TimeTicks activation_time) {
-  // The `predecessor_web_contents` is the WebContents that instantiated the
-  // portal.
-  MetricsWebContentsObserver* predecessor_observer =
-      MetricsWebContentsObserver::FromWebContents(predecessor_web_contents);
-  // We only track the portal activation if the predecessor is also being
-  // tracked.
-  if (!primary_page_ || !predecessor_observer ||
-      !predecessor_observer->primary_page_) {
-    return;
-  }
-  primary_page_->DidActivatePortal(activation_time);
+  primary_page_->DidActivatePreviewedPage(activation_time);
 }
 
 void MetricsWebContentsObserver::OnStorageAccessed(

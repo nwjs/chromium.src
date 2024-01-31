@@ -9,6 +9,7 @@
 
 #import "ios/chrome/browser/ui/tab_switcher/tab_grid/tab_grid_mutator.h"
 
+@protocol GridToolbarsMutator;
 @protocol TabGridConsumer;
 @protocol TabGridPageMutator;
 
@@ -24,6 +25,9 @@ class PrefService;
 // Mutator for remote Tabs.
 @property(nonatomic, weak) id<TabGridPageMutator> remotePageMutator;
 
+// Mutator to handle toolbars modification.
+@property(nonatomic, weak) id<GridToolbarsMutator> toolbarsMutator;
+
 // Consumer for state changes in tab grid.
 @property(nonatomic, weak) id<TabGridConsumer> consumer;
 
@@ -33,6 +37,9 @@ class PrefService;
 - (instancetype)init NS_UNAVAILABLE;
 // Set the current displayed page (incognito, regular or remote).
 - (void)setPage:(TabGridPage)page;
+// Set the current mode (normal/selection/search/inactive) on the currently
+// displayed page.
+- (void)setModeOnCurrentPage:(TabGridMode)mode;
 // Stops mediating and disconnects from backend models.
 - (void)disconnect;
 

@@ -61,16 +61,17 @@ OnHostResolutionCallbackResult OnHostResolution(
 
 ClientSocketPool::SocketParams::SocketParams(
     std::unique_ptr<SSLConfig> ssl_config_for_origin,
-    std::unique_ptr<SSLConfig> ssl_config_for_proxy)
+    std::unique_ptr<SSLConfig> base_ssl_config_for_proxies)
     : ssl_config_for_origin_(std::move(ssl_config_for_origin)),
-      ssl_config_for_proxy_(std::move(ssl_config_for_proxy)) {}
+      base_ssl_config_for_proxies_(std::move(base_ssl_config_for_proxies)) {}
 
 ClientSocketPool::SocketParams::~SocketParams() = default;
 
 scoped_refptr<ClientSocketPool::SocketParams>
 ClientSocketPool::SocketParams::CreateForHttpForTesting() {
-  return base::MakeRefCounted<SocketParams>(nullptr /* ssl_config_for_origin */,
-                                            nullptr /* ssl_config_for_proxy */);
+  return base::MakeRefCounted<SocketParams>(
+      /*ssl_config_for_origin=*/nullptr,
+      /*base_ssl_config_for_proxies=*/nullptr);
 }
 
 ClientSocketPool::GroupId::GroupId()
@@ -179,7 +180,8 @@ std::unique_ptr<ConnectJob> ClientSocketPool::CreateConnectJob(
   bool using_ssl = GURL::SchemeIsCryptographic(group_id.destination().scheme());
 
   // If applicable, set up a callback to handle checking for H2 IP pooling
-  // opportunities.
+  // opportunities. We don't perform H2 IP pooling to or through proxy servers,
+  // so ignore those cases.
   OnHostResolutionCallback resolution_callback;
   if (using_ssl && proxy_chain.is_direct()) {
     resolution_callback = base::BindRepeating(
@@ -191,23 +193,12 @@ std::unique_ptr<ConnectJob> ClientSocketPool::CreateConnectJob(
                        group_id.network_anonymization_key(),
                        group_id.secure_dns_policy()),
         is_for_websockets_);
-  } else if (proxy_chain.proxy_server().is_https()) {
-    // TODO(crbug.com/1491092): Determine how to handle session aliasing for
-    // multi-proxy chains. See comments on https://crrev.com/c/4968319.
-    resolution_callback = base::BindRepeating(
-        &OnHostResolution, common_connect_job_params_->spdy_session_pool,
-        SpdySessionKey(proxy_chain.proxy_server().host_port_pair(),
-                       ProxyChain::Direct(), group_id.privacy_mode(),
-                       SpdySessionKey::IsProxySession::kTrue, socket_tag,
-                       group_id.network_anonymization_key(),
-                       group_id.secure_dns_policy()),
-        is_for_websockets_);
   }
 
   return connect_job_factory_->CreateConnectJob(
       group_id.destination(), proxy_chain, proxy_annotation_tag,
       socket_params->ssl_config_for_origin(),
-      socket_params->ssl_config_for_proxy(), is_for_websockets_,
+      socket_params->base_ssl_config_for_proxies(), is_for_websockets_,
       group_id.privacy_mode(), resolution_callback, request_priority,
       socket_tag, group_id.network_anonymization_key(),
       group_id.secure_dns_policy(), common_connect_job_params_, delegate);

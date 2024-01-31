@@ -29,6 +29,7 @@
 #include "components/update_client/action_runner.h"
 #include "components/update_client/component_unpacker.h"
 #include "components/update_client/configurator.h"
+#include "components/update_client/crx_cache.h"
 #include "components/update_client/crx_downloader_factory.h"
 #include "components/update_client/features.h"
 #include "components/update_client/network.h"
@@ -954,24 +955,48 @@ void Component::StateCanUpdate::DoHandle() {
 
   // Start computing the cost of the this update from here on.
   component.update_begin_ = base::TimeTicks::Now();
-
+  CHECK(component.update_context_->crx_cache_);
   if (CanTryDiffUpdate()) {
-    TransitionState(std::make_unique<StateDownloadingDiff>(&component));
-  } else {
-    TransitionState(std::make_unique<StateDownloading>(&component));
+    base::ThreadPool::PostTaskAndReplyWithResult(
+        FROM_HERE, {base::MayBlock()},
+        base::BindOnce(&update_client::CrxCache::Contains,
+                       component.update_context_->crx_cache_.value(),
+                       component.crx_component()->app_id,
+                       component.previous_fp_),
+        base::BindOnce(
+            &Component::StateCanUpdate::CheckIfCacheContainsCrxComplete,
+            base::Unretained(this)));
+    return;
   }
+  TransitionState(std::make_unique<StateDownloading>(&component));
 }
 
 // Returns true if a differential update is available, it has not failed yet,
 // and the configuration allows this update.
 bool Component::StateCanUpdate::CanTryDiffUpdate() const {
-  const auto& component = Component::State::component();
   if (!base::FeatureList::IsEnabled(features::kPuffinPatches)) {
     return false;
   }
+  const auto& component = Component::State::component();
   return HasDiffUpdate(component) && !component.diff_error_code_ &&
          component.update_context_->crx_cache_.has_value() &&
          component.update_context_->config->EnabledDeltas();
+}
+
+void Component::StateCanUpdate::CheckIfCacheContainsCrxComplete(
+    bool crx_is_in_cache) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  auto& component = State::component();
+  if (crx_is_in_cache) {
+    TransitionState(std::make_unique<StateDownloadingDiff>(&component));
+  } else {
+    // If the configuration allows diff update, but the previous crx
+    // is not cached, report the kPuffinMissingPreviousCrx error.
+    component.diff_error_category_ = ErrorCategory::kUnpack;
+    component.diff_error_code_ =
+        static_cast<int>(UnpackerError::kPuffinMissingPreviousCrx);
+    TransitionState(std::make_unique<StateDownloading>(&component));
+  }
 }
 
 Component::StateUpToDate::StateUpToDate(Component* component)
@@ -1162,7 +1187,8 @@ void Component::StateUpdatingDiff::DoHandle() {
   // the callback on the sequence the installer is running on.
   auto main_task_runner = base::SequencedTaskRunner::GetCurrentDefault();
   if (base::FeatureList::IsEnabled(features::kPuffinPatches) &&
-      update_context.crx_cache_.has_value()) {
+      update_context.crx_cache_.has_value() &&
+      update_context.config->EnabledDeltas()) {
     base::ThreadPool::CreateSequencedTaskRunner(kTaskTraits)
         ->PostTask(
             FROM_HERE,
@@ -1267,7 +1293,9 @@ void Component::StateUpdating::DoHandle() {
               component.next_fp_, component.install_params(),
               component.crx_component()->installer,
               update_context.config->GetUnzipperFactory()->Create(),
-              update_context.crx_cache_,
+              component.crx_component()->allow_cached_copies
+                  ? update_context.crx_cache_
+                  : absl::nullopt,
               component.crx_component()->crx_format_requirement,
               base::BindRepeating(&Component::StateUpdating::InstallProgress,
                                   base::Unretained(this)),
@@ -1298,6 +1326,16 @@ void Component::StateUpdating::InstallComplete(
   component.error_code_ = error_code;
   component.extra_code1_ = extra_code1;
   component.installer_result_ = installer_result;
+
+  CHECK(component.crx_component_);
+  if (!component.crx_component_->allow_cached_copies &&
+      component.update_context_->crx_cache_) {
+    base::ThreadPool::CreateSequencedTaskRunner(kTaskTraits)
+        ->PostTask(FROM_HERE,
+                   base::BindOnce(&CrxCache::RemoveAll,
+                                  component.update_context_->crx_cache_->get(),
+                                  component.crx_component()->app_id));
+  }
 
   if (component.error_code_ != 0) {
     TransitionState(std::make_unique<StateUpdateError>(&component));

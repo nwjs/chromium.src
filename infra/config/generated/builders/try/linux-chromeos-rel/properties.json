@@ -5,13 +5,16 @@
   },
   "$build/chromium_tests_builder_config": {
     "builder_config": {
+      "additional_exclusions": [
+        "infra/config/generated/builders/try/linux-chromeos-rel/gn-args.json"
+      ],
       "builder_db": {
         "entries": [
           {
             "builder_id": {
               "bucket": "ci",
               "builder": "linux-chromeos-rel",
-              "project": "chromium-m120"
+              "project": "chromium-m121"
             },
             "builder_spec": {
               "build_gs_bucket": "chromium-chromiumos-archive",
@@ -41,7 +44,7 @@
         {
           "bucket": "ci",
           "builder": "linux-chromeos-rel",
-          "project": "chromium-m120"
+          "project": "chromium-m121"
         }
       ]
     }

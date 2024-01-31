@@ -140,18 +140,6 @@ void DownloadBubbleUIController::OnDownloadItemAdded(
                                  model.ShouldShowDownloadStartedAnimation());
 }
 
-bool DownloadBubbleUIController::ShouldShowIncognitoIcon(
-    const DownloadUIModel* model) const {
-  return download::IsDownloadBubbleV2Enabled(profile_) && model->profile() &&
-         model->profile()->IsIncognitoProfile();
-}
-
-bool DownloadBubbleUIController::ShouldShowGuestIcon(
-    const DownloadUIModel* model) const {
-  return download::IsDownloadBubbleV2Enabled(profile_) && model->profile() &&
-         model->profile()->IsGuestSession();
-}
-
 void DownloadBubbleUIController::OnOfflineItemRemoved(const ContentId& id) {
   if (OfflineItemUtils::IsDownload(id)) {
     return;
@@ -291,16 +279,26 @@ void DownloadBubbleUIController::ProcessDownloadButtonPress(
     case DownloadCommands::CANCEL:
       model->SetActionedOn(true);
       [[fallthrough]];
-    case DownloadCommands::DEEP_SCAN:
     case DownloadCommands::BYPASS_DEEP_SCANNING:
+      DownloadItemWarningData::AddWarningActionEvent(
+          model->GetDownloadItem(), warning_surface,
+          DownloadItemWarningData::WarningAction::PROCEED_DEEP_SCAN);
+      commands.ExecuteCommand(command);
+      break;
+    case DownloadCommands::LEARN_MORE_SCANNING:
+    case DownloadCommands::LEARN_MORE_DOWNLOAD_BLOCKED:
+      DownloadItemWarningData::AddWarningActionEvent(
+          model->GetDownloadItem(), warning_surface,
+          DownloadItemWarningData::WarningAction::OPEN_LEARN_MORE_LINK);
+      commands.ExecuteCommand(command);
+      break;
+    case DownloadCommands::DEEP_SCAN:
     case DownloadCommands::RESUME:
     case DownloadCommands::PAUSE:
     case DownloadCommands::OPEN_WHEN_COMPLETE:
     case DownloadCommands::SHOW_IN_FOLDER:
     case DownloadCommands::ALWAYS_OPEN_TYPE:
     case DownloadCommands::CANCEL_DEEP_SCAN:
-    case DownloadCommands::LEARN_MORE_SCANNING:
-    case DownloadCommands::LEARN_MORE_DOWNLOAD_BLOCKED:
     case DownloadCommands::OPEN_SAFE_BROWSING_SETTING:
       commands.ExecuteCommand(command);
       break;

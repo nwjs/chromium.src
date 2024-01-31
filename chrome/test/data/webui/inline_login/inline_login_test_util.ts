@@ -15,14 +15,18 @@ export function getFakeAccountsList(): string[] {
   return ['test@gmail.com', 'test2@gmail.com', 'test3@gmail.com'];
 }
 
-export const fakeAuthExtensionData = {
+export function getFakeDeviceId(): string {
+  return '4b1918ab-e8a4-456d-b499-0000deadbeef';
+}
+
+export const fakeAuthenticationData = {
   hl: 'hl',
   gaiaUrl: 'https://accounts.google.com/',
   gaiaPath: 'gaiaPath',
   authMode: 1,
 };
 
-export const fakeAuthExtensionDataWithEmail = {
+export const fakeAuthenticationDataWithEmail = {
   hl: 'hl',
   gaiaUrl: 'https://accounts.google.com/',
   gaiaPath: 'gaiaPath',
@@ -47,6 +51,8 @@ export class TestAuthenticator extends EventTarget {
   loadCalls: number = 0;
   getAccountsResponseCalls: number = 0;
   getAccountsResponseResult: string[]|null = null;
+  getDeviceIdResponseCalls: number = 0;
+  getDeviceIdResponseResult: string = '';
 
   /**
    * @param authMode Authorization mode.
@@ -65,6 +71,14 @@ export class TestAuthenticator extends EventTarget {
     this.getAccountsResponseCalls++;
     this.getAccountsResponseResult = accounts;
   }
+
+  /**
+   * @param deviceId Device ID.
+   */
+  getDeviceIdResponse(deviceId: string) {
+    this.getDeviceIdResponseCalls++;
+    this.getDeviceIdResponseResult = deviceId;
+  }
 }
 
 export class TestInlineLoginBrowserProxy extends TestBrowserProxy implements
@@ -75,19 +89,11 @@ export class TestInlineLoginBrowserProxy extends TestBrowserProxy implements
 
   constructor() {
     super([
-      'initialize',
-      'authExtensionReady',
-      'switchToFullTab',
-      'completeLogin',
-      'lstFetchResults',
-      'metricsHandler:recordAction',
-      'showIncognito',
-      'getAccounts',
-      'dialogClose',
+      'initialize', 'authenticatorReady', 'switchToFullTab', 'completeLogin',
+      'lstFetchResults', 'metricsHandler:recordAction', 'showIncognito',
+      'getAccounts', 'getDeviceId', 'dialogClose',
       // <if expr="chromeos_ash">
-      'skipWelcomePage',
-      'openGuestWindow',
-      'getDialogArguments',
+      'skipWelcomePage', 'openGuestWindow', 'getDialogArguments',
       // </if>
     ]);
   }
@@ -102,8 +108,8 @@ export class TestInlineLoginBrowserProxy extends TestBrowserProxy implements
     this.methodCalled('initialize');
   }
 
-  authExtensionReady() {
-    this.methodCalled('authExtensionReady');
+  authenticatorReady() {
+    this.methodCalled('authenticatorReady');
   }
 
   switchToFullTab(url: string) {
@@ -129,6 +135,11 @@ export class TestInlineLoginBrowserProxy extends TestBrowserProxy implements
   getAccounts() {
     this.methodCalled('getAccounts');
     return Promise.resolve(getFakeAccountsList());
+  }
+
+  getDeviceId() {
+    this.methodCalled('getDeviceId');
+    return Promise.resolve(getFakeDeviceId());
   }
 
   dialogClose() {

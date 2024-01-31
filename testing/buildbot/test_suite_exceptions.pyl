@@ -26,12 +26,11 @@
   'accessibility_unittests': {
     'modifications': {
       'Linux ASan LSan Tests (1)': {
-        'swarming': {
-          'dimensions': {
-            # TODO(crbug.com/1442303): Move to Jammy when it's compatible.
-            'os': 'Ubuntu-18.04',
-          },
-        },
+        'args': [
+            # TODO(crbug.com/1442303): Re-enable.
+          '--gtest_filter=-AXPlatformNodeAuraLinuxTest.AtkComponentScrollTo:'
+          'AtkUtilAuraLinuxTest.*',
+        ],
       },
       'linux-exp-asan-lsan-fyi-rel': {
         'swarming': {
@@ -135,6 +134,7 @@
           'dimensions': {
             'cores': '8', # crbug.com/1292221
           },
+          'shards': 3,
         },
       },
       # Keep this same as android-oreo-x86-rel above
@@ -348,6 +348,10 @@
         },
       },
       'Mac12 Tests': {
+        # TODO(crbug.com/1479108): Remove this once the bug is fixed.
+        'args': [
+          '--driver-logging',
+        ],
         'swarming': {
           'dimensions': {
             'gpu': None,
@@ -597,6 +601,11 @@
           'hard_timeout': 2400,
         },
       },
+      'mac12-arm64-rel-tests': {
+        'args': [
+          '--driver-logging',
+        ],
+      },
       'mac12.0-blink-rel': {
         'swarming': {
           'hard_timeout': 2400,
@@ -695,6 +704,9 @@
         },
       },
       'Mac12 Tests': {
+        'args': [
+          '--driver-logging',
+        ],
         'swarming': {
           'dimensions': {
             'gpu': None,
@@ -900,7 +912,7 @@
       },
       'mac10.15-blink-rel': {
         'swarming': {
-          'shards': 12,
+          'shards': 1,
           'hard_timeout': 2400,
         },
       },
@@ -914,6 +926,11 @@
         'swarming': {
           'hard_timeout': 2400,
         },
+      },
+      'mac12-arm64-rel-tests': {
+        'args': [
+          '--driver-logging',
+        ],
       },
       'mac12.0-blink-rel': {
         'swarming': {
@@ -1068,8 +1085,9 @@
       'Linux Tests (dbg)(1)': {
         # crbug.com/1066161
         # crbug.com/1459645
+        # crbug.com/1508286
         'swarming': {
-          'shards': 27,
+          'shards': 32,
         },
       },
       'Mac ASan 64 Tests (1)': {
@@ -1183,7 +1201,7 @@
       },
       'linux-chromeos-dbg': {
         'swarming': {
-          'shards': 80,
+          'shards': 110,
         },
       },
       'linux-chromeos-rel': {
@@ -1222,7 +1240,7 @@
       # asan tests is slower.
       'linux-lacros-asan-lsan-rel': {
         'swarming': {
-          'shards': 20,
+          'shards': 30,
         },
         # TODO(crbug.com/1324240): Enable tests.
         'args': [
@@ -1417,6 +1435,9 @@
         'swarming': {
           'shards': 15,
         },
+        'args': [
+          '--tast-shard-method=hash',
+        ],
       },
       'chromeos-eve-chrome': {
         'swarming': {
@@ -1670,6 +1691,14 @@
       },
     },
   },
+  # TODO(weizhong): Remove this once experiment completes
+  'chrome_wpt_tests': {
+    'modifications': {
+      'linux-wpt-chromium-rel': {
+        'ci_only': False,
+      },
+    },
+  },
   'chromedriver_py_tests': {
     'modifications': {
       'Win10 Tests x64': {
@@ -1839,7 +1868,13 @@
           'shards': 10, # https://crbug.com/1471857
         },
       },
+      'Linux MSan Tests': {
+        'swarming': {
+          'shards': 10, # https://crbug.com/1497706
+        },
+      },
       'Linux TSan Tests': {
+        'ci_only': True, # https://crbug.com/1498240
         'swarming': {
           'shards': 30,
         },
@@ -1949,7 +1984,7 @@
         'ci_only': True,
         'experiment_percentage': 100,
         'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l_13.content_browsertests.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l.content_browsertests.filter',
         ],
         'swarming': {
           'shards': 40,
@@ -1957,7 +1992,7 @@
       },
       'android-12l-x64-fyi-dbg': {
         'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l_13.content_browsertests.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l.content_browsertests.filter',
         ],
         'swarming': {
           'shards': 40,
@@ -1965,7 +2000,7 @@
       },
       'android-13-x64-fyi-rel': {
         'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l_13.content_browsertests.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_13.content_browsertests.filter',
         ],
         'swarming': {
           'shards': 40,
@@ -1973,7 +2008,7 @@
       },
       'android-13-x64-rel': {
         'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l_13.content_browsertests.filter',
+          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_13.content_browsertests.filter',
         ],
         'swarming': {
           'shards': 40,
@@ -2559,6 +2594,17 @@
       },
     },
   },
+  'expected_color_pixel_passthrough_test VOLTEER_PUBLIC_RELEASE_LKGM': {
+    'modifications': {
+      'ChromeOS FYI Release Skylab (volteer)': {
+        'args': [
+          # Skylab currently doesn't support use of LUCI_CONTEXT, so Gold cannot
+          # automatically get the service account to authenticate with.
+          '--service-account=/creds/service_accounts/skylab-drone.json',
+        ],
+      },
+    },
+  },
   'expected_color_pixel_validating_test': {
     'modifications': {
       'Android FYI Release (Pixel 4)': {
@@ -2997,6 +3043,7 @@
         'args': [
           # Swarming does not report a GPU since tests are run in a VM, but
           # the VM does report that a GPU is present.
+          '--expected-vendor-id', '1af4',
           '--expected-device-id', '1050',
         ],
       },
@@ -3004,36 +3051,10 @@
     'replacements': {
       'ChromeOS FYI Release (amd64-generic)': {
         'args': {
-          # Swarming does not report a GPU since tests are run in a VM, but
-          # the VM does report that a GPU is present.
-          '--expected-vendor-id': '1af4',
           # Magic substitution happens after regular replacement, so remove it
           # now since we are manually applying the expected device ID above.
+          '$$MAGIC_SUBSTITUTION_GPUExpectedVendorId': None,
           '$$MAGIC_SUBSTITUTION_GPUExpectedDeviceId': None,
-        },
-      },
-      'Mac FYI Experimental Release (Apple M1)': {
-        'args': {
-          # Apple silicon does not show up normally as a PCI-e device, but
-          # Chrome is able to find a vendor ID that matches other (non-GPU)
-          # Apple PCI-e devices.
-          '--expected-vendor-id': '106b',
-        },
-      },
-      'Mac FYI Release (Apple M1)': {
-        'args': {
-          # Apple silicon does not show up normally as a PCI-e device, but
-          # Chrome is able to find a vendor ID that matches other (non-GPU)
-          # Apple PCI-e devices.
-          '--expected-vendor-id': '106b',
-        },
-      },
-      'Mac FYI Retina Release (Apple M2)': {
-        'args': {
-          # Apple silicon does not show up normally as a PCI-e device, but
-          # Chrome is able to find a vendor ID that matches other (non-GPU)
-          # Apple PCI-e devices.
-          '--expected-vendor-id': '106b',
         },
       },
     },
@@ -3072,10 +3093,11 @@
       },
       'Linux MSan Tests': {
         'swarming': {
-          'shards': 4,
+          'shards': 8,
         },
       },
       'Linux TSan Tests': {
+        'ci_only': True, # https://crbug.com/1498240
         # Only retry the individual failed tests instead of rerunning entire
         # shards.
         'retry_only_failed_tests': True,
@@ -3434,6 +3456,15 @@
       'fuchsia-x64-cast-receiver-rel',
       'fuchsia-x64-rel',
     ],
+  },
+  'model_validation_tests MODEL_VALIDATION_BASE': {
+    'modifications': {
+      'optimization_guide-win32': {
+        'args': [
+          '--target-platform=win32',
+        ],
+      },
+    },
   },
   'mojo_test_apk': {
     'remove_from': [
@@ -3823,6 +3854,17 @@
       },
     },
   },
+  'pixel_skia_gold_passthrough_test VOLTEER_PUBLIC_RELEASE_LKGM': {
+    'modifications': {
+      'ChromeOS FYI Release Skylab (volteer)': {
+        'args': [
+          # Skylab currently doesn't support use of LUCI_CONTEXT, so Gold cannot
+          # automatically get the service account to authenticate with.
+          '--service-account=/creds/service_accounts/skylab-drone.json',
+        ],
+      },
+    },
+  },
   'pixel_skia_gold_validating_test': {
     'modifications': {
       'Android FYI Release (Pixel 4)': {
@@ -4046,6 +4088,7 @@
         },
       },
       'Linux TSan Tests': {
+        'ci_only': True, # https://crbug.com/1498240
         'swarming': {
           'shards': 6,
         },
@@ -4386,6 +4429,11 @@
         # shards.
         'retry_only_failed_tests': True,
       },
+      'Mac ASan 64 Tests (1)': {
+        'swarming': {
+          'shards': 2,
+        },
+      },
       'Mac13 Tests': {
         'swarming': {
           'shards': 2,
@@ -4628,7 +4676,7 @@
       'Mac FYI Retina ASAN (AMD)',
     ],
   },
-  'webdriver_tests_suite': {
+  'webdriver_wpt_tests': {
     'modifications': {
       'Linux Tests (dbg)(1)': {
         'args': [
@@ -4719,6 +4767,14 @@
         ],
       },
     },
+    'replacements': {
+      'Mac Pro FYI Release (AMD)': {
+        'args': {
+          # Causes problems on older hardware. crbug.com/1499911.
+          '--enable-metal-debug-layers': None,
+        },
+      },
+    },
   },
   'webgl2_conformance_validating_tests': {
     'remove_from': [
@@ -4788,6 +4844,14 @@
         'args': [
           '--extra-browser-args=--disable-metal-shader-cache',
         ],
+      },
+    },
+    'replacements': {
+      'Mac Pro FYI Release (AMD)': {
+        'args': {
+          # Causes problems on older hardware. crbug.com/1499911.
+          '--enable-metal-debug-layers': None,
+        },
       },
     },
   },
@@ -4866,6 +4930,20 @@
       'mac-code-coverage',
       'win10-code-coverage',
     ],
+  },
+  'webgpu_cts_compat_tests': {
+    'modifications': {
+      # TODO(crbug.com/1483449): Enable on Intel trybots once there is
+      # sufficient capacity.
+      'Dawn Linux x64 DEPS Release (Intel UHD 630)': {
+        'ci_only': True,
+        'experiment_percentage': 100,
+      },
+      'Dawn Linux x64 Release (Intel UHD 630)': {
+        'ci_only': True,
+        'experiment_percentage': 100,
+      },
+    },
   },
   'webgpu_cts_tests': {
     'modifications': {
@@ -5054,17 +5132,11 @@
         },
       },
       'android-12l-x64-dbg-tests': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l.webview_instrumentation_test_apk.filter',
-        ],
         'swarming': {
           'shards': 9,
         },
       },
       'android-12l-x64-fyi-dbg': {
-        'args': [
-          '--test-launcher-filter-file=../../testing/buildbot/filters/android.emulator_12l.webview_instrumentation_test_apk.filter',
-        ],
         'swarming': {
           'shards': 9,
         },

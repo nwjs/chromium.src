@@ -535,8 +535,7 @@ void FakeUserDataAuthClient::TestApi::AddKey(
   UserCryptohomeState& user_state = GetUserState(account_id);
 
   const auto [factor_it, was_inserted] =
-      user_state.auth_factors.insert(KeyToFakeAuthFactor(
-          key, FakeUserDataAuthClient::Get()->enable_auth_check_));
+      user_state.auth_factors.insert(KeyToFakeAuthFactor(key, true));
   CHECK(was_inserted) << "Factor already exists";
 }
 
@@ -713,34 +712,6 @@ void FakeUserDataAuthClient::Remove(
   if (!request.auth_session_id().empty()) {
     // Removing the user also invalidates the AuthSession.
     auth_sessions_.erase(request.auth_session_id());
-  }
-}
-
-void FakeUserDataAuthClient::CheckKey(
-    const ::user_data_auth::CheckKeyRequest& request,
-    CheckKeyCallback callback) {
-  ::user_data_auth::CheckKeyReply reply;
-  ReplyOnReturn auto_reply(&reply, std::move(callback));
-
-  last_unlock_webauthn_secret_ = request.unlock_webauthn_secret();
-
-  const cryptohome::Key& key = request.authorization_request().key();
-  switch (AuthenticateViaAuthFactors(
-      request.account_id(), /*factor_label=*/key.data().label(),
-      /*secret=*/key.secret(), /*wildcard_allowed=*/true)) {
-    case AuthResult::kAuthSuccess:
-      // Empty reply denotes a successful check.
-      break;
-    case AuthResult::kUserNotFound:
-      reply.set_error(::user_data_auth::CRYPTOHOME_ERROR_ACCOUNT_NOT_FOUND);
-      break;
-    case AuthResult::kFactorNotFound:
-      reply.set_error(::user_data_auth::CRYPTOHOME_ERROR_KEY_NOT_FOUND);
-      break;
-    case AuthResult::kAuthFailed:
-      reply.set_error(
-          ::user_data_auth::CRYPTOHOME_ERROR_AUTHORIZATION_KEY_FAILED);
-      break;
   }
 }
 
@@ -1069,6 +1040,48 @@ void FakeUserDataAuthClient::CreatePersistentUser(
       cryptohome::kAuthsessionInitialLifetime.InSeconds());
 }
 
+void FakeUserDataAuthClient::RestoreDeviceKey(
+    const ::user_data_auth::RestoreDeviceKeyRequest& request,
+    RestoreDeviceKeyCallback callback) {
+  ::user_data_auth::RestoreDeviceKeyReply reply;
+  ReplyOnReturn auto_reply(&reply, std::move(callback));
+  RememberRequest<Operation::kRestoreDeviceKey>(request);
+
+  if (auto error = TakeOperationError(Operation::kRestoreDeviceKey);
+      error != CryptohomeErrorCode::CRYPTOHOME_ERROR_NOT_SET) {
+    reply.set_error(error);
+    return;
+  }
+
+  auto error = CryptohomeErrorCode::CRYPTOHOME_ERROR_NOT_SET;
+  auto* authenticated_auth_session =
+      GetAuthenticatedAuthSession(request.auth_session_id(), &error);
+
+  if (authenticated_auth_session == nullptr) {
+    reply.set_error(error);
+    return;
+  }
+
+  if (authenticated_auth_session->ephemeral) {
+    LOG(ERROR) << "Ephemeral AuthSession used with RestoreDeviceKey";
+    reply.set_error(CryptohomeErrorCode::CRYPTOHOME_ERROR_INVALID_ARGUMENT);
+    return;
+  }
+
+  const auto user_it = users_.find(authenticated_auth_session->account);
+  if (user_it == std::end(users_)) {
+    reply.set_error(CryptohomeErrorCode::CRYPTOHOME_ERROR_ACCOUNT_NOT_FOUND);
+    return;
+  }
+
+  if (!authenticated_auth_session->authorized_auth_session_intent.Has(
+          user_data_auth::AUTH_INTENT_DECRYPT)) {
+    reply.set_error(
+        CryptohomeErrorCode::CRYPTOHOME_ERROR_UNAUTHENTICATED_AUTH_SESSION);
+    return;
+  }
+}
+
 void FakeUserDataAuthClient::PreparePersistentVault(
     const ::user_data_auth::PreparePersistentVaultRequest& request,
     PreparePersistentVaultCallback callback) {
@@ -1171,7 +1184,6 @@ void FakeUserDataAuthClient::ExtendAuthSession(
     ExtendAuthSessionCallback callback) {
   ::user_data_auth::ExtendAuthSessionReply reply;
   ReplyOnReturn auto_reply(&reply, std::move(callback));
-
   auto error = CryptohomeErrorCode::CRYPTOHOME_ERROR_NOT_SET;
   auto* session_data =
       GetAuthenticatedAuthSession(request.auth_session_id(), &error);
@@ -1227,8 +1239,6 @@ void FakeUserDataAuthClient::AuthenticateAuthFactor(
     reply.set_error(error);
     return;
   }
-
-  last_unlock_webauthn_secret_ = false;
 
   const auto session_it = auth_sessions_.find(request.auth_session_id());
   if (session_it == auth_sessions_.end()) {

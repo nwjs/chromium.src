@@ -374,7 +374,7 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
         return true;
       web_contents = app_window()->web_contents();
       if (web_contents) {
-        DevToolsWindow::OpenDevToolsWindow(web_contents);
+        DevToolsWindow::OpenDevToolsWindow(web_contents, DevToolsOpenedByAction::kConsoleShortcut);
       }
       return true;
     case IDC_DEV_TOOLS_CONSOLE:
@@ -382,20 +382,23 @@ bool ChromeNativeAppWindowViews::AcceleratorPressed(
         return true;
       DevToolsWindow::OpenDevToolsWindow(
           web_view()->GetWebContents(),
-          DevToolsToggleAction::ShowConsolePanel());
+          DevToolsToggleAction::ShowConsolePanel(),
+          DevToolsOpenedByAction::kConsoleShortcut);
       return true;
     case IDC_DEV_TOOLS_INSPECT:
       if (!enable_devtools)
         return true;
-      DevToolsWindow::OpenDevToolsWindow(web_view()->GetWebContents(),
-                                         DevToolsToggleAction::Inspect());
+      DevToolsWindow::OpenDevToolsWindow(
+          web_view()->GetWebContents(), DevToolsToggleAction::Inspect(),
+          DevToolsOpenedByAction::kInspectorModeShortcut);
       return true;
     case IDC_DEV_TOOLS_TOGGLE:
       if (!enable_devtools)
         return true;
       web_contents = app_window()->web_contents();
       if (web_contents) {
-        DevToolsWindow::OpenDevToolsWindow(web_contents, DevToolsToggleAction::Toggle());
+        DevToolsWindow::OpenDevToolsWindow(web_contents, DevToolsToggleAction::Toggle(),
+					   DevToolsOpenedByAction::kInspectorModeShortcut);
       }
       return true;
 #endif

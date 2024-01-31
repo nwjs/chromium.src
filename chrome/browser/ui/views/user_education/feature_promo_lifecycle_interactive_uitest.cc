@@ -26,6 +26,7 @@
 #include "components/user_education/common/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo_specification.h"
 #include "components/user_education/common/feature_promo_storage_service.h"
+#include "components/user_education/common/user_education_features.h"
 #include "components/user_education/views/help_bubble_factory_views.h"
 #include "components/user_education/views/help_bubble_view.h"
 #include "components/webapps/common/web_app_id.h"
@@ -55,7 +56,6 @@ BASE_FEATURE(kFeaturePromoLifecycleTestPromo3,
 }  // namespace
 
 using TestBase = InteractiveBrowserTestT<web_app::WebAppControllerBrowserTest>;
-using CloseReason = user_education::FeaturePromoStorageService::CloseReason;
 
 class FeaturePromoLifecycleUiTest : public TestBase {
  public:
@@ -79,7 +79,7 @@ class FeaturePromoLifecycleUiTest : public TestBase {
   }
 
  protected:
-  using PromoData = user_education::FeaturePromoStorageService::PromoData;
+  using PromoData = user_education::FeaturePromoData;
 
   using SpecList = std::vector<user_education::FeaturePromoSpecification>;
   virtual SpecList CreatePromos() {
@@ -215,7 +215,7 @@ class FeaturePromoLifecycleUiTest : public TestBase {
       const base::Feature* feature = &kFeaturePromoLifecycleTestPromo) {
     return InBrowser(base::BindLambdaForTesting([feature](Browser* browser) {
       GetPromoController(browser)->EndPromo(
-          *feature, user_education::FeaturePromoCloseReason::kAbortPromo);
+          *feature, user_education::EndFeaturePromoReason::kAbortPromo);
     }));
   }
 
@@ -230,11 +230,11 @@ class FeaturePromoLifecycleUiTest : public TestBase {
   }
 
   auto CheckDismissedWithReason(
-      CloseReason close_reason,
+      user_education::FeaturePromoClosedReason close_reason,
       const base::Feature* feature = &kFeaturePromoLifecycleTestPromo) {
     return CheckBrowser(
         base::BindLambdaForTesting([close_reason, feature](Browser* browser) {
-          CloseReason actual_reason;
+          user_education::FeaturePromoClosedReason actual_reason;
           return GetPromoController(browser)->HasPromoBeenDismissed(
                      *feature, &actual_reason) &&
                  actual_reason == close_reason;
@@ -307,7 +307,8 @@ IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest, HasPromoBeenDismissed) {
 IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest,
                        HasPromoBeenDismissedWithReason) {
   RunTestSequence(AttemptIPH(true), DismissIPH(),
-                  CheckDismissed(CloseReason::kCancel));
+                  CheckDismissedWithReason(
+                      user_education::FeaturePromoClosedReason::kCancel));
 }
 
 IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest, CanReSnooze) {
@@ -316,8 +317,8 @@ IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest, CanReSnooze) {
   data.is_dismissed = false;
   data.show_count = 1;
   data.snooze_count = 1;
-  data.last_snooze_duration = base::Hours(26);
-  data.last_snooze_time = base::Time::Now() - data.last_snooze_duration;
+  data.last_snooze_time =
+      base::Time::Now() - user_education::features::GetSnoozeDuration();
   data.last_show_time = data.last_snooze_time - base::Seconds(1);
 
   RunTestSequence(SetSnoozePrefs(data), AttemptIPH(true), SnoozeIPH(),
@@ -341,7 +342,6 @@ IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest,
   data.is_dismissed = false;
   data.show_count = 1;
   data.snooze_count = 1;
-  data.last_snooze_duration = base::Hours(26);
   data.last_snooze_time = base::Time::Now();
   data.last_show_time = data.last_snooze_time - base::Seconds(1);
 
@@ -363,7 +363,7 @@ IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest, EndPromoSetsPrefs) {
       AttemptIPH(true), InBrowser(base::BindOnce([](Browser* browser) {
         GetPromoController(browser)->EndPromo(
             kFeaturePromoLifecycleTestPromo,
-            user_education::FeaturePromoCloseReason::kFeatureEngaged);
+            user_education::EndFeaturePromoReason::kFeatureEngaged);
       })),
       WaitForHide(
           user_education::HelpBubbleView::kHelpBubbleElementIdForTesting),
@@ -406,8 +406,8 @@ IN_PROC_BROWSER_TEST_F(FeaturePromoLifecycleUiTest, WorkWithoutNonClickerData) {
   PromoData data;
   data.is_dismissed = false;
   data.snooze_count = 1;
-  data.last_snooze_duration = base::Hours(26);
-  data.last_snooze_time = base::Time::Now() - data.last_snooze_duration;
+  data.last_snooze_time =
+      base::Time::Now() - user_education::features::GetSnoozeDuration();
 
   // Non-clicker policy shipped pref entries that don't exist before.
   // Make sure empty entries are properly handled.

@@ -15,6 +15,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
+#include "base/json/json_writer.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/message_loop/message_pump_type.h"
@@ -22,10 +23,15 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_executor.h"
+#include "base/task/thread_pool.h"
 #include "base/task/thread_pool/thread_pool_instance.h"
 #include "chrome/updater/app/app.h"
+#include "chrome/updater/configurator.h"
 #include "chrome/updater/constants.h"
+#include "chrome/updater/external_constants_default.h"
 #include "chrome/updater/ipc/ipc_support.h"
+#include "chrome/updater/policy/service.h"
+#include "chrome/updater/prefs.h"
 #include "chrome/updater/service_proxy_factory.h"
 #include "chrome/updater/update_service.h"
 
@@ -35,6 +41,8 @@ constexpr char kProductSwitch[] = "product";
 constexpr char kBackgroundSwitch[] = "background";
 constexpr char kListAppsSwitch[] = "list-apps";
 constexpr char kListUpdateSwitch[] = "list-update";
+constexpr char kListPoliciesSwitch[] = "list-policies";
+constexpr char kJSONFormatSwitch[] = "json";
 constexpr char kUpdateSwitch[] = "update";
 
 UpdaterScope Scope() {
@@ -47,6 +55,10 @@ UpdateService::Priority Priority() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(kBackgroundSwitch)
              ? UpdateService::Priority::kBackground
              : UpdateService::Priority::kForeground;
+}
+
+bool OutputInJSONFormat() {
+  return base::CommandLine::ForCurrentProcess()->HasSwitch(kJSONFormatSwitch);
 }
 
 std::string Quoted(const std::string& value) {
@@ -150,6 +162,7 @@ class UpdaterUtilApp : public App {
   void ListApps();
   void ListUpdate();
   void Update();
+  void ListPolicies();
 
   void FindApp(const std::string& app_id,
                base::OnceCallback<void(scoped_refptr<AppState>)> callback);
@@ -167,16 +180,17 @@ void UpdaterUtilApp::PrintUsage(const std::string& error_message) {
 
   std::cout << "Usage: "
             << base::CommandLine::ForCurrentProcess()->GetProgram().BaseName()
-            << " [action...] [parameters...]"
-            << R"(
+            << " [action...] [parameters...]" << R"(
     Actions:
         --update            Update app(s).
         --list-apps         List all registered apps.
         --list-update       List update for an app (skip update install).
+        --list-policies     List all currently effective enterprise policies.
     Action parameters:
         --background        Use background priority.
         --product           ProductID.
-        --system            Use the system scope.)"
+        --system            Use the system scope.
+        --json              Use JSON as output format where applicable.)"
             << std::endl;
   Shutdown(error_message.empty() ? 0 : 1);
 }
@@ -300,11 +314,37 @@ void UpdaterUtilApp::DoUpdateApp(scoped_refptr<AppState> app_state) {
           base::BindOnce(&UpdaterUtilApp::Shutdown, this)));
 }
 
+void UpdaterUtilApp::ListPolicies() {
+  base::ThreadPool::PostTaskAndReply(
+      FROM_HERE, {base::MayBlock(), base::WithBaseSyncPrimitives()},
+      base::BindOnce([] {
+        auto configurator = base::MakeRefCounted<Configurator>(
+            CreateGlobalPrefs(Scope()), CreateDefaultExternalConstants());
+        if (OutputInJSONFormat()) {
+          std::string policy_string;
+          if (base::JSONWriter::Write(
+                  configurator->GetPolicyService()->GetAllPolicies(),
+                  &policy_string)) {
+            std::cout << policy_string << std::endl;
+          } else {
+            LOG(ERROR) << "Failed to write policy as JSON string.";
+          }
+        } else {
+          std::cout
+              << "Updater policies: "
+              << configurator->GetPolicyService()->GetAllPoliciesAsString()
+              << std::endl;
+        }
+      }),
+      base::BindOnce(&UpdaterUtilApp::Shutdown, this, 0));
+}
+
 void UpdaterUtilApp::FirstTaskRun() {
   const std::map<std::string, void (UpdaterUtilApp::*)()> commands = {
       {kListAppsSwitch, &UpdaterUtilApp::ListApps},
       {kListUpdateSwitch, &UpdaterUtilApp::ListUpdate},
       {kUpdateSwitch, &UpdaterUtilApp::Update},
+      {kListPoliciesSwitch, &UpdaterUtilApp::ListPolicies},
   };
 
   base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();

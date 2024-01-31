@@ -16,6 +16,8 @@
 #include "base/no_destructor.h"
 #include "base/sequence_checker.h"
 #include "base/task/single_thread_task_runner.h"
+#include "build/buildflag.h"
+#include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/metrics/chrome_metrics_service_accessor.h"
 #include "chrome/browser/profiles/profile.h"
@@ -28,6 +30,10 @@
 #include "content/public/common/content_features.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+#include "chrome/browser/profiles/profile_types_ash.h"
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
 namespace tpcd::experiment {
 namespace {
 
@@ -36,7 +42,7 @@ const base::FeatureParam<std::string> kSyntheticTrialGroupOverride{
     "synthetic_trial_group_override", ""};
 
 bool NeedsOnboardingForExperiment() {
-  if (!kDisable3PCookies.Get()) {
+  if (!kDisable3PCookies.Get() && !kEnableSilentOnboarding.Get()) {
     return false;
   }
 
@@ -57,6 +63,14 @@ ExperimentManagerImpl* ExperimentManagerImpl::GetForProfile(Profile* profile) {
           features::kCookieDeprecationFacilitatedTesting)) {
     return nullptr;
   }
+
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  // Ash internal profile should not be accounted for the experiment
+  // eligibility, and therefore should not create the experiment manager.
+  if (!IsUserProfile(profile)) {
+    return nullptr;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   if (!features::kCookieDeprecationFacilitatedTestingEnableOTRProfiles.Get() &&
       (profile->IsOffTheRecord() || profile->IsGuestSession())) {

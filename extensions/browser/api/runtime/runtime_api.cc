@@ -678,7 +678,7 @@ ExtensionFunction::ResponseAction RuntimeOpenOptionsPageFunction::Run() {
 }
 
 ExtensionFunction::ResponseAction RuntimeSetUninstallURLFunction::Run() {
-  absl::optional<api::runtime::SetUninstallURL::Params> params =
+  std::optional<api::runtime::SetUninstallURL::Params> params =
       api::runtime::SetUninstallURL::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   if (!params->url.empty() && !GURL(params->url).SchemeIsHTTPOrHTTPS()) {
@@ -714,7 +714,7 @@ void RuntimeRequestUpdateCheckFunction::CheckComplete(
     const RuntimeAPIDelegate::UpdateCheckResult& result) {
   api::runtime::RequestUpdateCheck::Results::Result return_result;
   return_result.status = result.status;
-  return_result.version = absl::optional<std::string>(result.version);
+  return_result.version = std::optional<std::string>(result.version);
   Respond(WithArguments(return_result.ToValue()));
 }
 
@@ -735,7 +735,7 @@ ExtensionFunction::ResponseAction RuntimeRestartAfterDelayFunction::Run() {
     return RespondNow(Error(kErrorOnlyKioskModeAllowed));
   }
 
-  absl::optional<api::runtime::RestartAfterDelay::Params> params =
+  std::optional<api::runtime::RestartAfterDelay::Params> params =
       api::runtime::RestartAfterDelay::Params::Create(args());
   EXTENSION_FUNCTION_VALIDATE(params);
   int seconds = params->seconds;
@@ -815,7 +815,7 @@ ExtensionFunction::ResponseAction RuntimeGetContextsFunction::Run() {
   if (!filter.context_types ||
       base::Contains(*filter.context_types,
                      api::runtime::ContextType::kBackground)) {
-    if (absl::optional<api::runtime::ExtensionContext> worker =
+    if (std::optional<api::runtime::ExtensionContext> worker =
             GetWorkerContext()) {
       result.push_back(std::move(*worker));
     }
@@ -836,7 +836,7 @@ ExtensionFunction::ResponseAction RuntimeGetContextsFunction::Run() {
       ArgumentList(api::runtime::GetContexts::Results::Create(result)));
 }
 
-absl::optional<api::runtime::ExtensionContext>
+std::optional<api::runtime::ExtensionContext>
 RuntimeGetContextsFunction::GetWorkerContext() {
   ProcessManager* const process_manager =
       ProcessManager::Get(browser_context());
@@ -847,7 +847,7 @@ RuntimeGetContextsFunction::GetWorkerContext() {
   CHECK_LE(active_workers.size(), 1u);
 
   if (active_workers.empty()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   api::runtime::ExtensionContext context;

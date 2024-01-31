@@ -56,7 +56,7 @@ CreateAssignmentsForTeachers(int count) {
   for (int i = 0; i < count; ++i) {
     assignments.push_back(std::make_unique<GlanceablesClassroomAssignment>(
         base::StringPrintf("Course %d", i),
-        base::StringPrintf("Course work %d", i), GURL(), absl::nullopt,
+        base::StringPrintf("Course work %d", i), GURL(), std::nullopt,
         base::Time(), GlanceablesClassroomAggregatedSubmissionsState(2, 2, 0)));
   }
   return assignments;
@@ -68,8 +68,8 @@ CreateAssignmentsForStudents(int count) {
   for (int i = 0; i < count; ++i) {
     assignments.push_back(std::make_unique<GlanceablesClassroomAssignment>(
         base::StringPrintf("Course %d", i),
-        base::StringPrintf("Course work %d", i), GURL(), absl::nullopt,
-        base::Time(), absl::nullopt));
+        base::StringPrintf("Course work %d", i), GURL(), std::nullopt,
+        base::Time(), std::nullopt));
   }
   return assignments;
 }
@@ -1026,7 +1026,7 @@ TEST_P(GlanceablesDateTrayTest,
   const auto new_view_bounds =
       GetGlanceableTrayBubble()->GetBubbleView()->GetBoundsInScreen();
 
-  // Constant `kRevampedTrayMenuWidth`.
+  // Constant `kWideTrayMenuWidth`.
   EXPECT_EQ(old_view_bounds.width(), new_view_bounds.width());
 
   // Margins between the top, right and bottom edges of the view and the

@@ -58,7 +58,6 @@ class ChromeWebAuthenticationDelegate
 
   ~ChromeWebAuthenticationDelegate() override;
 
-#if !BUILDFLAG(IS_ANDROID)
   // content::WebAuthenticationDelegate:
   bool OverrideCallerOriginAndRelyingPartyIdValidation(
       content::BrowserContext* browser_context,
@@ -66,9 +65,6 @@ class ChromeWebAuthenticationDelegate
       const std::string& relying_party_id) override;
   bool OriginMayUseRemoteDesktopClientOverride(
       content::BrowserContext* browser_context,
-      const url::Origin& caller_origin) override;
-  bool IsSecurityLevelAcceptableForWebAuthn(
-      content::RenderFrameHost* rfh,
       const url::Origin& caller_origin) override;
   absl::optional<std::string> MaybeGetRelyingPartyIdOverride(
       const std::string& claimed_relying_party_id,
@@ -86,7 +82,9 @@ class ChromeWebAuthenticationDelegate
   content::WebAuthenticationRequestProxy* MaybeGetRequestProxy(
       content::BrowserContext* browser_context,
       const url::Origin& caller_origin) override;
-#endif
+  bool IsEnclaveAuthenticatorAvailable(
+      content::BrowserContext* browser_context) override;
+
 #if BUILDFLAG(IS_MAC)
   absl::optional<TouchIdAuthenticatorConfig> GetTouchIdAuthenticatorConfig(
       content::BrowserContext* browser_context) override;
@@ -175,6 +173,7 @@ class ChromeAuthenticatorRequestDelegate
       device::FidoRequestType request_type,
       absl::optional<device::ResidentKeyRequirement> resident_key_requirement,
       base::span<const device::CableDiscoveryData> pairings_from_extension,
+      bool is_enclave_authenticator_available,
       device::FidoDiscoveryFactory* discovery_factory) override;
   void SelectAccount(
       std::vector<device::AuthenticatorGetAssertionResponse> responses,
@@ -258,7 +257,8 @@ class ChromeAuthenticatorRequestDelegate
       const std::string& rp_id,
       device::FidoDiscoveryFactory* discovery_factory);
 
-  bool EnclaveAuthenticatorAvailable();
+  // Invoked when a new GPM passkey is created, to save it to sync data.
+  void OnPasskeyCreated(sync_pb::WebauthnCredentialSpecifics passkey);
 
 #if BUILDFLAG(IS_MAC)
   // DaysSinceDate returns the number of days between `formatted_date` (in ISO
@@ -326,6 +326,9 @@ class ChromeAuthenticatorRequestDelegate
   // can_use_synced_phone_passkeys_ is true if there is a phone pairing
   // available that can service requests for synced GPM passkeys.
   bool can_use_synced_phone_passkeys_ = false;
+
+  // True when the cloud enclave authenticator is available for use.
+  bool is_enclave_authenticator_available_ = false;
 
   base::WeakPtrFactory<ChromeAuthenticatorRequestDelegate> weak_ptr_factory_{
       this};

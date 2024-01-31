@@ -105,10 +105,17 @@ std::unique_ptr<PerformanceManagerImpl> PerformanceManagerImpl::Create(
   std::unique_ptr<PerformanceManagerImpl> instance =
       base::WrapUnique(new PerformanceManagerImpl());
 
-  GetTaskRunner()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&PerformanceManagerImpl::OnStartImpl,
-                     base::Unretained(instance.get()), std::move(on_start)));
+  if (base::FeatureList::IsEnabled(features::kRunOnMainThread)) {
+    // Invoke `OnStartImpl()` synchronously instead of via a posted task, so
+    // that any call to `CallOnGraphImpl()` that follows can access
+    // `g_performance_manager->ui_task_runner_`.
+    instance->OnStartImpl(std::move(on_start));
+  } else {
+    GetTaskRunner()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&PerformanceManagerImpl::OnStartImpl,
+                       base::Unretained(instance.get()), std::move(on_start)));
+  }
 
   return instance;
 }
@@ -126,6 +133,7 @@ std::unique_ptr<FrameNodeImpl> PerformanceManagerImpl::CreateFrameNode(
     ProcessNodeImpl* process_node,
     PageNodeImpl* page_node,
     FrameNodeImpl* parent_frame_node,
+    FrameNodeImpl* fenced_frame_embedder_frame_node,
     int render_frame_id,
     const blink::LocalFrameToken& frame_token,
     content::BrowsingInstanceId browsing_instance_id,
@@ -133,7 +141,8 @@ std::unique_ptr<FrameNodeImpl> PerformanceManagerImpl::CreateFrameNode(
     FrameNodeCreationCallback creation_callback) {
   return CreateNodeImpl<FrameNodeImpl>(
       std::move(creation_callback), process_node, page_node, parent_frame_node,
-      render_frame_id, frame_token, browsing_instance_id, site_instance_id);
+      fenced_frame_embedder_frame_node, render_frame_id, frame_token,
+      browsing_instance_id, site_instance_id);
 }
 
 // static

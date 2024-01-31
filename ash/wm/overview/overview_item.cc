@@ -33,7 +33,6 @@
 #include "ash/wm/raster_scale/raster_scale_controller.h"
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_utils.h"
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_mini_view_header_view.h"
 #include "ash/wm/window_preview_view.h"
 #include "ash/wm/window_state.h"
@@ -44,7 +43,6 @@
 #include "base/functional/callback_helpers.h"
 #include "base/metrics/user_metrics.h"
 #include "base/trace_event/trace_event.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_state_type.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -53,6 +51,7 @@
 #include "ui/compositor/layer_animation_sequence.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/compositor_extra/shadow.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/gfx/geometry/transform_util.h"
 #include "ui/views/widget/widget.h"
@@ -165,18 +164,19 @@ bool IsContinuousScrollInProgress() {
 OverviewItem::OverviewItem(aura::Window* window,
                            OverviewSession* overview_session,
                            OverviewGrid* overview_grid,
-                           WindowDestructionDelegate* delegate,
+                           WindowDestructionDelegate* destruction_delegate,
+                           EventHandlerDelegate* event_handler_delegate,
                            bool eligible_for_shadow_config)
     : OverviewItemBase(overview_session,
                        overview_grid,
                        window->GetRootWindow()),
       root_window_(window->GetRootWindow()),
       transform_window_(this, window),
-      window_destruction_delegate_(delegate),
+      window_destruction_delegate_(destruction_delegate),
       eligible_for_shadow_config_(eligible_for_shadow_config),
       animation_disabler_(window) {
   CHECK(window_destruction_delegate_);
-  CreateItemWidget();
+  CreateItemWidget(event_handler_delegate);
   window->AddObserver(this);
   WindowState::Get(window)->AddObserver(this);
 }
@@ -185,6 +185,14 @@ OverviewItem::~OverviewItem() {
   aura::Window* window = GetWindow();
   WindowState::Get(window)->RemoveObserver(this);
   window->RemoveObserver(this);
+}
+
+void OverviewItem::OnFocusedViewActivated() {
+  overview_session_->OnFocusedItemActivated(this);
+}
+
+void OverviewItem::OnFocusedViewClosed() {
+  overview_session_->OnFocusedItemClosed(this);
 }
 
 void OverviewItem::UpdateItemContentViewForMinimizedWindow() {
@@ -203,7 +211,7 @@ void OverviewItem::UpdateRoundedCorners() {
   OverviewController* overview_controller = OverviewController::Get();
   bool show_rounded_corners_for_start_animation = false;
   if (features::IsContinuousOverviewScrollAnimationEnabled() &&
-      !Shell::Get()->tablet_mode_controller()->InTabletMode()) {
+      !display::Screen::GetScreen()->InTabletMode()) {
     show_rounded_corners_for_start_animation =
         transform_window_.IsMinimizedOrTucked() ||
         !IsContinuousScrollInProgress();
@@ -411,19 +419,6 @@ void OverviewItem::SetBounds(const gfx::RectF& target_bounds,
 
   FadeInWidgetToOverview(item_widget_.get(), fade_animation,
                          /*observe=*/true);
-
-  // Update the item header visibility immediately if entering from home
-  // launcher.
-  if (new_animation_type == OVERVIEW_ANIMATION_ENTER_FROM_HOME_LAUNCHER) {
-    overview_item_view_->SetHeaderVisibility(
-        OverviewItemView::HeaderVisibility::kVisible, /*animate=*/true);
-  }
-
-  // Update the item header visibility immediately without an animation.
-  if (new_animation_type == OVERVIEW_ANIMATION_NONE) {
-    overview_item_view_->SetHeaderVisibility(
-        OverviewItemView::HeaderVisibility::kVisible, /*animate=*/false);
-  }
 }
 
 gfx::Transform OverviewItem::ComputeTargetTransform(
@@ -481,7 +476,7 @@ void OverviewItem::RestoreWindow(bool reset_transform, bool animate) {
   // TODO(oshima): SplitViewController has its own logic to adjust the
   // target state in `SplitViewController::OnOverviewModeEnding`.
   // Unify the mechanism to control it and remove ifs.
-  if (Shell::Get()->tablet_mode_controller()->InTabletMode() &&
+  if (display::Screen::GetScreen()->InTabletMode() &&
       !SplitViewController::Get(root_window_)->InSplitViewMode() &&
       reset_transform) {
     MaximizeIfSnapped(GetWindow());
@@ -557,8 +552,12 @@ void OverviewItem::EnsureVisible() {
   transform_window_.EnsureVisible();
 }
 
-OverviewFocusableView* OverviewItem::GetFocusableView() const {
-  return overview_item_view_;
+std::vector<OverviewFocusableView*> OverviewItem::GetFocusableViews() const {
+  // `overview_item_view_` might be set to nullptr in `RestoreWindow()` or
+  // `ShutDown()`.
+  return overview_item_view_
+             ? std::vector<OverviewFocusableView*>{overview_item_view_}
+             : std::vector<OverviewFocusableView*>{};
 }
 
 views::View* OverviewItem::GetBackDropView() const {
@@ -613,17 +612,11 @@ void OverviewItem::PrepareForOverview() {
 }
 
 void OverviewItem::OnStartingAnimationComplete() {
-  DCHECK(item_widget_);
+  CHECK(item_widget_);
 
-  if (transform_window_.IsMinimizedOrTucked()) {
-    // Fade the title in if minimized or tucked. The rest of `item_widget_`
-    // should already be shown.
-    overview_item_view_->SetHeaderVisibility(
-        OverviewItemView::HeaderVisibility::kVisible, /*animate=*/true);
-  } else if (!IsContinuousScrollInProgress() &&
-             overview_session_->enter_exit_overview_type() ==
-                 OverviewEnterExitType::
-                     kContinuousAnimationEnterOnScrollUpdate) {
+  if (!IsContinuousScrollInProgress() &&
+      overview_session_->enter_exit_overview_type() ==
+          OverviewEnterExitType::kContinuousAnimationEnterOnScrollUpdate) {
     // If a continuous scroll has ended, make the header visible again.
     item_widget_->GetLayer()->SetOpacity(1.f);
   } else {
@@ -772,16 +765,7 @@ void OverviewItem::StartDrag() {
 
 void OverviewItem::OnOverviewItemDragStarted(OverviewItemBase* item) {
   is_being_dragged_ = (item == this);
-
-  if (chromeos::features::IsJellyrollEnabled()) {
-    overview_item_view_->SetCloseButtonVisible(false);
-  } else {
-    overview_item_view_->SetHeaderVisibility(
-        is_being_dragged_
-            ? OverviewItemView::HeaderVisibility::kInvisible
-            : OverviewItemView::HeaderVisibility::kCloseButtonInvisibleOnly,
-        /*animate=*/true);
-  }
+  overview_item_view_->SetCloseButtonVisible(false);
 }
 
 void OverviewItem::OnOverviewItemDragEnded(bool snap) {
@@ -790,12 +774,7 @@ void OverviewItem::OnOverviewItemDragEnded(bool snap) {
       overview_item_view_->HideCloseInstantlyAndThenShowItSlowly();
     }
   } else {
-    if (chromeos::features::IsJellyrollEnabled()) {
-      overview_item_view_->SetCloseButtonVisible(true);
-    } else {
-      overview_item_view_->SetHeaderVisibility(
-          OverviewItemView::HeaderVisibility::kVisible, /*animate=*/true);
-    }
+    overview_item_view_->SetCloseButtonVisible(true);
   }
   is_being_dragged_ = false;
 }
@@ -893,8 +872,7 @@ void OverviewItem::UpdateMirrorsForDragging(bool is_touch_dragging) {
   DCHECK_GT(Shell::GetAllRootWindows().size(), 1u);
   const bool minimized_or_tucked = transform_window_.IsMinimizedOrTucked();
 
-  // With Jellyroll, header is visible while dragging.
-  if (minimized_or_tucked || chromeos::features::IsJellyrollEnabled()) {
+  if (minimized_or_tucked) {
     if (!item_mirror_for_dragging_) {
       item_mirror_for_dragging_ = std::make_unique<DragWindowController>(
           item_widget_->GetNativeWindow(), is_touch_dragging);
@@ -1124,7 +1102,8 @@ void OverviewItem::OnPostWindowStateTypeChange(WindowState* window_state,
   overview_grid_->PositionWindows(/*animate=*/false);
 }
 
-void OverviewItem::CreateItemWidget() {
+void OverviewItem::CreateItemWidget(
+    EventHandlerDelegate* event_handler_delegate) {
   TRACE_EVENT0("ui", "OverviewItem::CreateItemWidget");
 
   item_widget_ = std::make_unique<views::Widget>();
@@ -1143,7 +1122,7 @@ void OverviewItem::CreateItemWidget() {
 
   overview_item_view_ =
       item_widget_->SetContentsView(std::make_unique<OverviewItemView>(
-          this,
+          this, event_handler_delegate ? event_handler_delegate : this,
           base::BindRepeating(&OverviewItem::CloseButtonPressed,
                               base::Unretained(this)),
           GetWindow(), transform_window_.IsMinimizedOrTucked()));
@@ -1279,37 +1258,6 @@ void OverviewItem::SetItemBounds(const gfx::RectF& target_bounds,
 }
 
 void OverviewItem::UpdateHeaderLayout(OverviewAnimationType animation_type) {
-  if (chromeos::features::IsJellyrollEnabled()) {
-    UpdateHeaderLayoutCrOSNext(animation_type);
-    return;
-  }
-
-  aura::Window* widget_window = item_widget_->GetNativeWindow();
-  ScopedOverviewAnimationSettings animation_settings(animation_type,
-                                                     widget_window);
-  // Create a start animation observer if this is an enter overview layout
-  // animation.
-  if (animation_type == OVERVIEW_ANIMATION_LAYOUT_OVERVIEW_ITEMS_ON_ENTER ||
-      animation_type == OVERVIEW_ANIMATION_ENTER_FROM_HOME_LAUNCHER) {
-    auto enter_observer = std::make_unique<EnterAnimationObserver>();
-    animation_settings.AddObserver(enter_observer.get());
-    OverviewController::Get()->AddEnterAnimationObserver(
-        std::move(enter_observer));
-  }
-
-  gfx::RectF item_bounds = target_bounds_;
-  ::wm::TranslateRectFromScreen(root_window_, &item_bounds);
-  const gfx::Point origin = gfx::ToRoundedPoint(item_bounds.origin());
-  item_bounds.set_origin(gfx::PointF());
-  widget_window->SetBounds(ToStableSizeRoundedRect(item_bounds));
-
-  gfx::Transform label_transform;
-  label_transform.Translate(origin.x(), origin.y());
-  widget_window->SetTransform(label_transform);
-}
-
-void OverviewItem::UpdateHeaderLayoutCrOSNext(
-    OverviewAnimationType animation_type) {
   gfx::RectF current_item_bounds(item_widget_->GetWindowBoundsInScreen());
   gfx::RectF target_item_bounds = target_bounds_;
 
@@ -1384,7 +1332,7 @@ OverviewItem::GetExitOverviewAnimationTypeForMinimizedWindow(
   // Fade out the minimized window without animation if switch from tablet mode
   // to clamshell mode.
   if (type == OverviewEnterExitType::kFadeOutExit) {
-    return Shell::Get()->tablet_mode_controller()->InTabletMode()
+    return display::Screen::GetScreen()->InTabletMode()
                ? OVERVIEW_ANIMATION_EXIT_TO_HOME_LAUNCHER
                : OVERVIEW_ANIMATION_NONE;
   }
@@ -1417,7 +1365,7 @@ void OverviewItem::AnimateOpacity(float opacity,
 void OverviewItem::CloseButtonPressed() {
   base::RecordAction(
       base::UserMetricsAction("WindowSelector_OverviewCloseButton"));
-  if (Shell::Get()->tablet_mode_controller()->InTabletMode()) {
+  if (display::Screen::GetScreen()->InTabletMode()) {
     base::RecordAction(
         base::UserMetricsAction("Tablet_WindowCloseFromOverviewButton"));
   }

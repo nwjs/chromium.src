@@ -124,9 +124,6 @@ class PrintingAPIHandler : public BrowserContextKeyedAPI,
   void GetPrinterInfo(const std::string& printer_id,
                       GetPrinterInfoCallback callback);
 
-  void SetPrintJobControllerForTesting(
-      std::unique_ptr<printing::PrintJobController> print_job_controller);
-
  private:
   // Needed for BrowserContextKeyedAPI implementation.
   friend class BrowserContextKeyedAPIFactory<PrintingAPIHandler>;
@@ -159,6 +156,7 @@ class PrintingAPIHandler : public BrowserContextKeyedAPI,
 
   // BrowserContextKeyedAPI:
   static const bool kServiceIsNULLWhileTesting = true;
+  static const bool kServiceIsCreatedWithBrowserContext = false;
   static const char* service_name() { return "PrintingAPIHandler"; }
 
   const raw_ptr<content::BrowserContext> browser_context_;

@@ -876,6 +876,41 @@ void ArcApps::SetResizeLocked(const std::string& app_id, bool locked) {
                                         : arc::mojom::ArcResizeLockState::OFF);
 }
 
+void ArcApps::SetAppLocale(const std::string& app_id,
+                           const std::string& locale_tag) {
+  ArcAppListPrefs* prefs = ArcAppListPrefs::Get(profile_);
+  if (!profile_->GetPrefs() || !prefs) {
+    return;
+  }
+  const std::unique_ptr<ArcAppListPrefs::AppInfo> app_info =
+      prefs->GetApp(app_id);
+  if (!app_info) {
+    LOG(ERROR) << "SetAppLocale failed, could not find app with id " << app_id;
+    return;
+  }
+  if (app_info->package_name.empty()) {
+    LOG(ERROR) << "SetAppLocale failed, package name is empty with app_id "
+               << app_id;
+    return;
+  }
+  arc::mojom::AppInstance* app_instance =
+      (arc::ArcServiceManager::Get()
+           ? ARC_GET_INSTANCE_FOR_METHOD(
+                 arc::ArcServiceManager::Get()->arc_bridge_service()->app(),
+                 SetAppLocale)
+           : nullptr);
+  if (app_instance) {
+    app_instance->SetAppLocale(app_info->package_name, locale_tag);
+  } else {
+    // If AppInstance is not ready, we still want to update the prefs to ensure
+    // good UX. To ensure eventual-correctness between ARC settings and Chrome
+    // settings, on ARC boot, ARC will always sends its latest-set locale to
+    // Chrome. If there's a mismatch, Chrome will then send back its latest-set
+    // locale to ARC, both settings are still synchronized.
+    prefs->SetAppLocale(app_info->package_name, locale_tag);
+  }
+}
+
 void ArcApps::PauseApp(const std::string& app_id) {
   if (paused_apps_.MaybeAddApp(app_id)) {
     SetIconEffect(app_id);
@@ -1317,11 +1352,7 @@ AppPtr ArcApps::CreateApp(ArcAppListPrefs* prefs,
   app->policy_ids = {app_info.package_name};
 
   if (update_icon) {
-    app->icon_key = std::move(
-        *icon_key_factory_.CreateIconKey(GetIconEffects(app_id, app_info)));
-    if (raw_icon_updated) {
-      app->icon_key->raw_icon_updated = true;
-    }
+    app->icon_key = IconKey(raw_icon_updated, GetIconEffects(app_id, app_info));
   }
 
   app->version = app_info.version_name;
@@ -1333,6 +1364,10 @@ AppPtr ArcApps::CreateApp(ArcAppListPrefs* prefs,
       prefs->GetPackage(app_info.package_name);
   if (package) {
     app->permissions = CreatePermissions(package->permissions);
+    if (package->locale_info) {
+      app->supported_locales = package->locale_info->supported_locales;
+      app->selected_locale = package->locale_info->selected_locale;
+    }
   }
 
   auto show = ShouldShow(app_info);
@@ -1361,6 +1396,7 @@ AppPtr ArcApps::CreateApp(ArcAppListPrefs* prefs,
   }
 
   app->allow_uninstall = app_info.ready && !app_info.sticky;
+  app->allow_close = true;
 
   app->has_badge = app_notifications_.HasNotification(app_id);
   app->paused = paused_apps_.IsPaused(app_id);
@@ -1435,8 +1471,7 @@ void ArcApps::SetIconEffect(const std::string& app_id) {
   }
 
   auto app = std::make_unique<App>(AppType::kArc, app_id);
-  app->icon_key = std::move(
-      *icon_key_factory_.CreateIconKey(GetIconEffects(app_id, *app_info)));
+  app->icon_key = IconKey(GetIconEffects(app_id, *app_info));
   AppPublisher::Publish(std::move(app));
 }
 
@@ -1461,12 +1496,11 @@ void ArcApps::BuildMenuForShortcut(
   arc_app_shortcuts_request_ =
       std::make_unique<arc::ArcAppShortcutsRequest>(base::BindOnce(
           &ArcApps::OnGetAppShortcutItems, weak_ptr_factory_.GetWeakPtr(),
-          base::TimeTicks::Now(), std::move(menu_items), std::move(callback)));
+          std::move(menu_items), std::move(callback)));
   arc_app_shortcuts_request_->StartForPackage(package_name);
 }
 
 void ArcApps::OnGetAppShortcutItems(
-    const base::TimeTicks start_time,
     MenuItems menu_items,
     base::OnceCallback<void(MenuItems)> callback,
     std::unique_ptr<apps::AppShortcutItems> app_shortcut_items) {
@@ -1499,9 +1533,6 @@ void ArcApps::OnGetAppShortcutItems(
   }
   std::move(callback).Run(std::move(menu_items));
   arc_app_shortcuts_request_.reset();
-
-  UMA_HISTOGRAM_TIMES("Arc.AppShortcuts.BuildMenuTime",
-                      base::TimeTicks::Now() - start_time);
 }
 
 void ArcApps::OnInstallationStarted(const std::string& package_name) {
@@ -1559,13 +1590,15 @@ void ArcApps::OnInstallationActiveChanged(const std::string& package_name,
 }
 
 void ArcApps::OnInstallationFinished(const std::string& package_name,
-                                     bool success) {
+                                     bool success,
+                                     bool is_launchable_app) {
   if (ash::features::ArePromiseIconsEnabled() &&
       ArcVersionEligibleForPromiseIcons()) {
-    // Remove the promise app of any failed installation.
-    if (success) {
+    if (success && is_launchable_app) {
       return;
     }
+    // Remove the promise app of any failed installation or non-launchable
+    // package.
     PackageId package_id(AppType::kArc, package_name);
     if (!proxy()->PromiseAppRegistryCache()->HasPromiseApp(package_id)) {
       return;

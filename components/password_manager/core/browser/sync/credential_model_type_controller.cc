@@ -37,13 +37,7 @@ CredentialModelTypeController::CredentialModelTypeController(
                           std::move(delegate_for_transport_mode)),
       pref_service_(pref_service),
       identity_manager_(identity_manager),
-      sync_service_(sync_service),
-      account_storage_settings_watcher_(
-          pref_service_,
-          sync_service_,
-          base::BindRepeating(
-              &CredentialModelTypeController::OnOptInStateMaybeChanged,
-              base::Unretained(this))) {
+      sync_service_(sync_service) {
   CHECK(model_type == syncer::PASSWORDS ||
         model_type == syncer::WEBAUTHN_CREDENTIAL);
   identity_manager_observation_.Observe(identity_manager_);
@@ -56,7 +50,6 @@ void CredentialModelTypeController::LoadModels(
     const ModelLoadCallback& model_load_callback) {
   DCHECK(CalledOnValidThread());
   sync_service_observation_.Observe(sync_service_);
-  sync_mode_ = configure_context.sync_mode;
   ModelTypeController::LoadModels(configure_context, model_load_callback);
 }
 
@@ -64,39 +57,7 @@ void CredentialModelTypeController::Stop(syncer::SyncStopMetadataFate fate,
                                          StopCallback callback) {
   DCHECK(CalledOnValidThread());
   sync_service_observation_.Reset();
-  // In transport-only mode, our storage is scoped to the Gaia account. That
-  // means it should be cleared if Sync is stopped for any reason (other than
-  // just browser shutdown). E.g. when switching to full-Sync mode, we don't
-  // want to end up with two copies of the passwords (one in the profile DB, one
-  // in the account DB).
-  if (sync_mode_ == syncer::SyncMode::kTransportOnly) {
-    fate = syncer::SyncStopMetadataFate::CLEAR_METADATA;
-  }
   ModelTypeController::Stop(fate, std::move(callback));
-}
-
-syncer::DataTypeController::PreconditionState
-CredentialModelTypeController::GetPreconditionState() const {
-#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-  // If Sync-the-feature is enabled, then the user has opted in to that, and no
-  // additional opt-in is required here.
-  // TODO(crbug.com/1466447): IsSyncFeatureEnabled() is deprecated and should be
-  // removed. See ConsentLevel::kSync documentation for details.
-  if (sync_service_->IsSyncFeatureEnabled() ||
-      sync_service_->IsLocalSyncEnabled()) {
-    return PreconditionState::kPreconditionsMet;
-  }
-  // If Sync-the-feature is *not* enabled, then credential sync should only be
-  // turned on if the user has opted in to the account-scoped storage.
-  return features_util::IsOptedInForAccountStorage(pref_service_, sync_service_)
-             ? PreconditionState::kPreconditionsMet
-             : PreconditionState::kMustStopAndClearData;
-#else
-  // On Android and iOS, there is no explicit opt-in - instead the user's choice
-  // is handled via Sync's selected types (see `UserSelectableType`). So nothing
-  // to check here.
-  return PreconditionState::kPreconditionsMet;
-#endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
 }
 
 bool CredentialModelTypeController::ShouldRunInTransportOnlyMode() const {
@@ -142,33 +103,8 @@ void CredentialModelTypeController::OnAccountsInCookieUpdated(
 
 void CredentialModelTypeController::OnAccountsCookieDeletedByUserAction() {
 #if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-  features_util::ClearAccountStorageSettingsForAllUsers(pref_service_);
+  features_util::KeepAccountStorageSettingsOnlyForUsers(pref_service_, {});
 #endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-}
-
-void CredentialModelTypeController::OnPrimaryAccountChanged(
-    const signin::PrimaryAccountChangeEvent& event) {
-#if !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-  // TODO(crbug.com/1466447): ConsentLevel::kSync is deprecated and should be
-  // removed. See ConsentLevel::kSync documentation for details.
-  if (event.GetEventTypeFor(signin::ConsentLevel::kSync) ==
-      signin::PrimaryAccountChangeEvent::Type::kCleared) {
-    // Note: kCleared event for ConsentLevel::kSync basically means that the
-    // consent for Sync-the-feature was revoked. In this case, also clear any
-    // possible matching opt-in for the account-scoped storage, since it'd
-    // probably be surprising to the user if their account passwords still
-    // remained after disabling Sync.
-    features_util::OptOutOfAccountStorageAndClearSettingsForAccount(
-        pref_service_, event.GetPreviousState().primary_account.gaia);
-  }
-#endif  // !BUILDFLAG(IS_IOS) && !BUILDFLAG(IS_ANDROID)
-}
-
-void CredentialModelTypeController::OnOptInStateMaybeChanged() {
-  // Note: This method gets called in many other situations as well, not just
-  // when the opt-in state changes, but DataTypePreconditionChanged() is cheap
-  // if nothing actually changed, so some spurious calls don't hurt.
-  sync_service_->DataTypePreconditionChanged(type());
 }
 
 }  // namespace password_manager

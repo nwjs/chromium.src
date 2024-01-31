@@ -8,6 +8,7 @@
 #include <memory>
 #include <string>
 #include "ash/public/cpp/desk_template.h"
+#include "ash/public/cpp/session/session_observer.h"
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
@@ -55,17 +56,18 @@ enum class FloatingWorkspaceServiceNotificationType {
   kSyncErrorOrTimeOut,
   kRestoreAfterError,
   kProgressStatus,
+  kSafeMode
 };
 
 // A keyed service to support floating workspace. Note that a periodical
 // task `CaptureAndUploadActiveDesk` will be dispatched during service
 // initialization.
-class FloatingWorkspaceService
-    : public KeyedService,
-      public message_center::NotificationObserver,
-      public syncer::SyncServiceObserver,
-      public apps::AppRegistryCache::Observer,
-      public apps::AppRegistryCacheWrapper::Observer {
+class FloatingWorkspaceService : public KeyedService,
+                                 public message_center::NotificationObserver,
+                                 public syncer::SyncServiceObserver,
+                                 public apps::AppRegistryCache::Observer,
+                                 public apps::AppRegistryCacheWrapper::Observer,
+                                 public ash::SessionObserver {
  public:
   static FloatingWorkspaceService* GetForProfile(Profile* profile);
 
@@ -91,6 +93,9 @@ class FloatingWorkspaceService
   void CaptureAndUploadActiveDeskForTest(
       std::unique_ptr<DeskTemplate> desk_template);
 
+  // Get latest Floating Workspace Template from DeskSyncBridge.
+  const DeskTemplate* GetLatestFloatingWorkspaceTemplate();
+
   // syncer::SyncServiceObserver overrides:
   void OnStateChanged(syncer::SyncService* sync) override;
   void OnSyncShutdown(syncer::SyncService* sync) override;
@@ -99,14 +104,15 @@ class FloatingWorkspaceService
   void Click(const absl::optional<int>& button_index,
              const absl::optional<std::u16string>& reply) override;
 
+  // ash::SessionObserver:
+  void OnActiveUserSessionChanged(const AccountId& account_id) override;
+
   void MaybeCloseNotification();
 
   std::vector<const ash::DeskTemplate*> GetFloatingWorkspaceTemplateEntries();
 
  protected:
   std::unique_ptr<DeskTemplate> previously_captured_desk_template_;
-  // Indicate if it is a testing class.
-  bool is_testing_ = false;
 
  private:
   // AppRegistryCache::Observer
@@ -145,9 +151,6 @@ class FloatingWorkspaceService
 
   // Handles the updating of progress bar notification.
   void HandleProgressBarStatus();
-
-  // Get latest Floating Workspace Template from DeskSyncBridge.
-  const DeskTemplate* GetLatestFloatingWorkspaceTemplate();
 
   // Capture the current active desk task, running every ~30(TBD) seconds.
   // Upload captured desk to chrome sync and record the randomly generated
@@ -227,6 +230,18 @@ class FloatingWorkspaceService
   // initialized.
   bool AreRequiredAppTypesInitialized();
 
+  // Shuts down the observers and dependent services.
+  // This will be called when the user session changes to a different user or on
+  // service shutdown.
+  void ShutDownServicesAndObservers();
+
+  // Setups the convenience pointers to the dependent services and observers.
+  // This will be called when the service is first initialized and when the
+  // active user session is changed back to the first logged in user.
+  void SetUpServiceAndObservers(
+      syncer::SyncService* sync_service,
+      desks_storage::DeskSyncService* desk_sync_service);
+
   const raw_ptr<Profile, ExperimentalAsh> profile_;
 
   const floating_workspace_util::FloatingWorkspaceVersion version_;
@@ -254,6 +269,9 @@ class FloatingWorkspaceService
 
   // Time when we first received `kUpToDate` status from `sync_service_`
   absl::optional<base::TimeTicks> first_uptodate_download_timeticks_;
+
+  // Time when the last template was uploaded.
+  base::TimeTicks last_uploaded_timeticks_;
 
   // Timer used for periodic capturing and uploading.
   base::RepeatingTimer timer_;

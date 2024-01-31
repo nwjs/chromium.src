@@ -19,6 +19,7 @@
 #include "base/time/time.h"
 #include "base/uuid.h"
 #include "base/values.h"
+#include "chrome/browser/ash/policy/enrollment/auto_enrollment_state.h"
 #include "chrome/browser/ash/policy/enrollment/auto_enrollment_state_message_processor.h"
 #include "chrome/browser/ash/policy/enrollment/psm/rlwe_dmserver_client.h"
 #include "chrome/browser/ash/policy/server_backed_state/server_backed_device_state.h"
@@ -31,7 +32,6 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
-#include "content/public/browser/network_service_instance.h"
 #include "crypto/sha2.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -606,15 +606,15 @@ class AutoEnrollmentClientImpl::ServerStateRetriever {
     const DeviceStateMode device_state_mode = GetDeviceStateMode();
     switch (device_state_mode) {
       case RESTORE_MODE_NONE:
-        return AutoEnrollmentState::kNoEnrollment;
+        return AutoEnrollmentResult::kNoEnrollment;
       case RESTORE_MODE_DISABLED:
-        return AutoEnrollmentState::kDisabled;
+        return AutoEnrollmentResult::kDisabled;
       case RESTORE_MODE_REENROLLMENT_REQUESTED:
       case RESTORE_MODE_REENROLLMENT_ENFORCED:
       case INITIAL_MODE_ENROLLMENT_ENFORCED:
       case RESTORE_MODE_REENROLLMENT_ZERO_TOUCH:
       case INITIAL_MODE_ENROLLMENT_ZERO_TOUCH:
-        return AutoEnrollmentState::kEnrollment;
+        return AutoEnrollmentResult::kEnrollment;
     }
   }
 
@@ -844,8 +844,6 @@ void AutoEnrollmentClientImpl::RequestServerStateAvailability() {
     return;
   }
 
-  ReportProgress(AutoEnrollmentState::kPending);
-
   server_state_availability_requester_->Start(base::BindOnce(
       &AutoEnrollmentClientImpl::OnServerStateAvailabilityCompleted,
       base::Unretained(this)));
@@ -869,11 +867,11 @@ void AutoEnrollmentClientImpl::OnServerStateAvailabilityCompleted(
       break;
     case ServerStateAvailabilityResult::kConnectionError:
       state_ = State::kRequestServerStateAvailabilityConnectionError;
-      ReportProgress(AutoEnrollmentState::kConnectionError);
+      ReportProgress(kAutoEnrollmentLegacyConnectionError);
       break;
     case ServerStateAvailabilityResult::kServerError:
       state_ = State::kRequestServerStateAvailabilityServerError;
-      ReportProgress(AutoEnrollmentState::kServerError);
+      ReportProgress(kAutoEnrollmentLegacyServerError);
       break;
     case ServerStateAvailabilityResult::kAutoEnrollmentRetriableError:
       state_ = State::kRequestServerStateAvailabilityServerError;
@@ -897,8 +895,6 @@ void AutoEnrollmentClientImpl::RequestStateRetrieval() {
   DCHECK(!server_state_retriever_->GetAutoEnrollmentStateIfObtained());
   state_ = State::kRequestingStateRetrieval;
 
-  ReportProgress(AutoEnrollmentState::kPending);
-
   server_state_retriever_->Start(
       base::BindOnce(&AutoEnrollmentClientImpl::OnStateRetrievalCompleted,
                      base::Unretained(this)));
@@ -916,11 +912,11 @@ void AutoEnrollmentClientImpl::OnStateRetrievalCompleted(
       break;
     case ServerStateRetrievalResult::kConnectionError:
       state_ = State::kRequestStateRetrievalConnectionError;
-      ReportProgress(AutoEnrollmentState::kConnectionError);
+      ReportProgress(kAutoEnrollmentLegacyConnectionError);
       break;
     case ServerStateRetrievalResult::kServerError:
       state_ = State::kRequestStateRetrievalServerError;
-      ReportProgress(AutoEnrollmentState::kServerError);
+      ReportProgress(kAutoEnrollmentLegacyServerError);
       break;
   }
 }
@@ -938,7 +934,7 @@ void AutoEnrollmentClientImpl::ReportFinished() const {
   if (auto_enrollment_state_result) {
     ReportProgress(auto_enrollment_state_result.value());
   } else {
-    ReportProgress(AutoEnrollmentState::kNoEnrollment);
+    ReportProgress(AutoEnrollmentResult::kNoEnrollment);
   }
 }
 

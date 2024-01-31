@@ -19,7 +19,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/observer_list.h"
 #include "base/sequence_checker.h"
-#include "base/strings/string_piece_forward.h"
+#include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "base/values.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
@@ -479,6 +479,11 @@ class POLICY_EXPORT CloudPolicyClient {
     return manufacture_date_;
   }
 
+  const std::vector<std::string>& user_affiliation_ids() const {
+    DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+    return user_affiliation_ids_;
+  }
+
   void set_last_policy_timestamp(const base::Time& timestamp) {
     DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
     last_policy_timestamp_ = timestamp;
@@ -700,12 +705,17 @@ class POLICY_EXPORT CloudPolicyClient {
   std::unique_ptr<base::Value::Dict> configuration_seed_;
   DeviceMode device_mode_ = DEVICE_MODE_NOT_SET;
   std::string client_id_;
+  absl::optional<std::string> profile_id_;
   base::Time last_policy_timestamp_;
   int public_key_version_ = -1;
   bool public_key_version_valid_ = false;
   // Device DMToken for affiliated user policy requests.
   // Retrieved from |device_dm_token_callback_| on registration.
   std::string device_dm_token_;
+
+  // A list of user affiliation ids, provided during setup or after
+  // registration.
+  std::vector<std::string> user_affiliation_ids_;
 
   // Information for the latest policy invalidation received.
   int64_t invalidation_version_ = 0;

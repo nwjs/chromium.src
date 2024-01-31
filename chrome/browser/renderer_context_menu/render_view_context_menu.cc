@@ -141,6 +141,7 @@
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/language/core/browser/language_model_manager.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_metadata.mojom.h"
 #include "components/lens/lens_metrics.h"
 #include "components/live_caption/caption_util.h"
 #include "components/live_caption/pref_names.h"
@@ -234,6 +235,7 @@
 #if BUILDFLAG(ENABLE_COMPOSE)
 #include "chrome/browser/compose/chrome_compose_client.h"
 #include "components/compose/core/browser/compose_manager.h"
+#include "components/compose/core/browser/compose_metrics.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -274,6 +276,7 @@
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
+#include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #endif
@@ -512,13 +515,15 @@ const std::map<int, int>& GetIdcToUmaMap(UmaEnumIdLookupType type) {
        {IDC_CONTEXT_COMPOSE, 139},
        {IDC_CONTENT_CONTEXT_AUTOFILL_FALLBACK_PAYMENTS, 140},
        {IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS, 141},
+       {IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME, 142},
+       {IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME, 143},
        // To add new items:
        //   - Add one more line above this comment block, using the UMA value
        //     from the line below this comment block.
        //   - Increment the UMA value in that latter line.
        //   - Add the new item to the RenderViewContextMenuItem enum in
        //     tools/metrics/histograms/enums.xml.
-       {0, 142}});
+       {0, 144}});
 
   // These UMA values are for the the ContextMenuOptionDesktop enum, used for
   // the ContextMenu.SelectedOptionDesktop histograms.
@@ -973,6 +978,7 @@ void RenderViewContextMenu::AppendCurrentExtensionItems() {
                       : web_view_guest->owner_web_contents()->GetTitle();
     key = MenuItem::ExtensionKey(
         extension_id, web_view_guest->owner_rfh()->GetProcess()->GetID(),
+        web_view_guest->owner_rfh()->GetRoutingID(),
         web_view_guest->view_instance_id());
   } else {
     key = MenuItem::ExtensionKey(extension->id());
@@ -1118,10 +1124,7 @@ void RenderViewContextMenu::InitMenu() {
   if (content_type_->SupportsGroup(ContextMenuContentType::ITEM_GROUP_COPY)) {
     DCHECK(!editable);
     AppendCopyItem();
-
-    if (base::FeatureList::IsEnabled(features::kCopyLinkToText)) {
-      AppendLinkToTextItems();
-    }
+    AppendLinkToTextItems();
   }
 
 #if 0
@@ -1159,7 +1162,16 @@ void RenderViewContextMenu::InitMenu() {
           ContextMenuContentType::ITEM_GROUP_PARTIAL_TRANSLATE) &&
       search::DefaultSearchProviderIsGoogle(GetProfile()) &&
       CanTranslate(/*menu_logging=*/false)) {
-    AppendPartialTranslateItem();
+    // If the target language isn't supported in partial translation, fall
+    // back to showing the full page translate menu item. Partial translate
+    // uses a different backend that supports a subset of translation
+    // languages, so the current full page target language may not be
+    // supported.
+    if (CanPartiallyTranslateTargetLanguage()) {
+      AppendPartialTranslateItem();
+    } else {
+      AppendTranslateItem();
+    }
   }
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
@@ -1335,12 +1347,56 @@ int RenderViewContextMenu::GetRegionSearchIdc() const {
              : IDC_CONTENT_CONTEXT_WEB_REGION_SEARCH;
 }
 
+int RenderViewContextMenu::GetSearchForVideoFrameIdc() const {
+  return search::DefaultSearchProviderIsGoogle(GetProfile())
+             ? IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME
+             : IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME;
+}
+
+const TemplateURL* RenderViewContextMenu::GetImageSearchProvider() const {
+#if BUILDFLAG(IS_CHROMEOS_ASH)
+  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
+    // If Lacros is the only browser, disable region search in Ash because we
+    // have decided not to support this feature in the system UI so as not to
+    // confuse users by opening an Ash browser window.
+    return nullptr;
+  }
+#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+
+  if (!GetBrowser()) {
+    return nullptr;
+  }
+
+  // TODO(b/266624865): Image Search items do not function correctly when
+  // |GetBrowser| returns nullptr, as is the case for a context menu in the
+  // side panel, so for now we do not append image items in that case.
+  // TODO(nguyenbryan): Refactor to use lens_region_search_helper.cc after PDF
+  // support is cleaned up.
+  auto* service = TemplateURLServiceFactory::GetForProfile(GetProfile());
+  if (!service) {
+    return nullptr;
+  }
+
+  const TemplateURL* provider = service->GetDefaultSearchProvider();
+  if (!provider) {
+    return nullptr;
+  }
+
+  if (provider->image_url().empty() ||
+      !provider->image_url_ref().IsValid(service->search_terms_data())) {
+    return nullptr;
+  }
+
+  return provider;
+}
+
 std::u16string RenderViewContextMenu::GetImageSearchProviderName(
     const TemplateURL* provider) const {
   if (search::DefaultSearchProviderIsGoogle(GetProfile())) {
     // The image search branding label should always be 'Google'.
     return provider->short_name();
   }
+
   // image_search_branding_label() returns the provider short name if no
   // image_search_branding_label is set.
   return provider->image_search_branding_label();
@@ -1899,27 +1955,12 @@ void RenderViewContextMenu::AppendImageItems() {
 }
 
 void RenderViewContextMenu::AppendSearchWebForImageItems() {
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
-    // If Lacros is the only browser, disable image search in Ash because we
-    // have decided not to support this feature in the system UI so as not to
-    // confuse users by opening an Ash browser window.
-    return;
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-  // TODO(b/266624865): Image Search items do not function correctly when
-  // |GetBrowser| returns nullptr, as is the case for a context menu in the
-  // side panel, so for now we do not append image items in that case.
-  if (!GetBrowser() || !params_.has_image_contents) {
+  if (!params_.has_image_contents) {
     return;
   }
 
-  TemplateURLService* service =
-      TemplateURLServiceFactory::GetForProfile(GetProfile());
-  const TemplateURL* const provider = service->GetDefaultSearchProvider();
-  if (!provider || provider->image_url().empty() ||
-      !provider->image_url_ref().IsValid(service->search_terms_data())) {
+  const auto* provider = GetImageSearchProvider();
+  if (!provider) {
     return;
   }
 
@@ -1935,6 +1976,8 @@ void RenderViewContextMenu::AppendSearchWebForImageItems() {
   MaybePrepareForLensQuery();
 
 #if 0
+  auto* service = TemplateURLServiceFactory::GetForProfile(GetProfile());
+
   if (base::FeatureList::IsEnabled(lens::features::kLensStandalone) &&
       base::FeatureList::IsEnabled(lens::features::kEnableImageTranslate) &&
       provider && !provider->image_translate_url().empty() &&
@@ -1988,11 +2031,26 @@ void RenderViewContextMenu::AppendVideoItems() {
     menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME,
                                     IDS_CONTENT_CONTEXT_COPYVIDEOFRAME);
   }
+
   menu_model_.AddItemWithStringId(IDC_CONTENT_CONTEXT_COPYAVLOCATION,
                                   IDS_CONTENT_CONTEXT_COPYVIDEOLOCATION);
   menu_model_.AddCheckItemWithStringId(IDC_CONTENT_CONTEXT_PICTUREINPICTURE,
                                        IDS_CONTENT_CONTEXT_PICTUREINPICTURE);
   AppendMediaRouterItem();
+
+  if (base::FeatureList::IsEnabled(media::kContextMenuSearchForVideoFrame)) {
+    const auto* provider = GetImageSearchProvider();
+    if (!provider) {
+      return;
+    }
+
+    menu_model_.AddItem(
+        GetSearchForVideoFrameIdc(),
+        l10n_util::GetStringFUTF16(IDS_CONTENT_CONTEXT_SEARCHFORVIDEOFRAME,
+                                   GetImageSearchProviderName(provider)));
+    menu_model_.SetIsNewFeatureAt(menu_model_.GetItemCount() - 1, true);
+    MaybePrepareForLensQuery();
+  }
 }
 
 void RenderViewContextMenu::AppendMediaItems() {
@@ -2069,11 +2127,7 @@ void RenderViewContextMenu::AppendPageItems() {
 
 #if 0
   if (CanTranslate(/*menu_logging=*/true)) {
-    menu_model_.AddItem(
-        IDC_CONTENT_CONTEXT_TRANSLATE,
-        l10n_util::GetStringFUTF16(
-            IDS_CONTENT_CONTEXT_TRANSLATE,
-            GetTargetLanguageDisplayName(/*is_full_page_translation=*/true)));
+    AppendTranslateItem();
   }
 #endif
 }
@@ -2140,6 +2194,14 @@ void RenderViewContextMenu::AppendPartialTranslateItem() {
       l10n_util::GetStringFUTF16(
           IDS_CONTENT_CONTEXT_PARTIAL_TRANSLATE,
           GetTargetLanguageDisplayName(/*is_full_page_translation=*/false)));
+}
+
+void RenderViewContextMenu::AppendTranslateItem() {
+  menu_model_.AddItem(
+      IDC_CONTENT_CONTEXT_TRANSLATE,
+      l10n_util::GetStringFUTF16(
+          IDS_CONTENT_CONTEXT_TRANSLATE,
+          GetTargetLanguageDisplayName(/*is_full_page_translation=*/true)));
 }
 
 void RenderViewContextMenu::AppendMediaRouterItem() {
@@ -2293,6 +2355,8 @@ void RenderViewContextMenu::AppendSpellingAndSearchSuggestionItems() {
     auto* compose_client = GetChromeComposeClient();
     if (compose_client &&
         compose_client->ShouldTriggerContextMenu(render_frame_host, params_)) {
+      compose::LogComposeContextMenuCtr(
+          compose::ComposeContextMenuCtrEvent::kMenuItemDisplayed);
       menu_model_.AddItemWithStringId(IDC_CONTEXT_COMPOSE,
                                       IDS_COMPOSE_SUGGESTION_MAIN_TEXT);
       // TODO(b/303646344): Remove new feature tag when no longer new.
@@ -2541,13 +2605,11 @@ void RenderViewContextMenu::AppendRegionSearchItem() {
     resource_id = IDS_CONTENT_CONTEXT_LENS_REGION_SEARCH_ALT1;
   }
 
-  TemplateURLService* service =
-      TemplateURLServiceFactory::GetForProfile(GetProfile());
-  const TemplateURL* provider = service->GetDefaultSearchProvider();
   // GetDefaultSearchProvider can return null in unit tests or when the
   // default search provider is disabled by policy. In these cases, we align
   // with the search web for image menu item by not adding the region search
   // menu item.
+  const TemplateURL* provider = GetImageSearchProvider();
   if (provider) {
     menu_model_.AddItem(GetRegionSearchIdc(),
                         l10n_util::GetStringFUTF16(
@@ -2705,6 +2767,8 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
 
     case IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS:
     case IDC_CONTENT_CONTEXT_COPYVIDEOFRAME:
+    case IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME:
+    case IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME:
       return (params_.media_flags & ContextMenuData::kMediaEncrypted) == 0 &&
              (params_.media_flags &
               ContextMenuData::kMediaHasReadableVideoFrame) != 0;
@@ -2864,7 +2928,7 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
       return !GetProfile()->IsOffTheRecord();
 
     default:
-      NOTREACHED() << "Unhandled id: " << id;
+      DUMP_WILL_BE_NOTREACHED_NORETURN() << "Unhandled id: " << id;
       return false;
   }
 }
@@ -3044,6 +3108,19 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       ExecCopyVideoFrame();
       break;
 
+    case IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME:
+      RecordAmbientSearchQuery(
+          lens::AmbientSearchEntryPoint::
+              CONTEXT_MENU_SEARCH_VIDEO_FRAME_WITH_GOOGLE_LENS);
+      ExecSearchForVideoFrame();
+      break;
+
+    case IDC_CONTENT_CONTEXT_SEARCHWEBFORVIDEOFRAME:
+      RecordAmbientSearchQuery(lens::AmbientSearchEntryPoint::
+                                   CONTEXT_MENU_SEARCH_VIDEO_FRAME_WITH_WEB);
+      ExecSearchForVideoFrame();
+      break;
+
     case IDC_CONTENT_CONTEXT_SEARCHWEBFORIMAGE:
       ExecSearchWebForImage(/*is_image_translate=*/false);
       break;
@@ -3171,6 +3248,7 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_EXIT_FULLSCREEN:
+      base::RecordAction(base::UserMetricsAction("ExitFullscreen_ContextMenu"));
       ExecExitFullscreen();
       break;
 
@@ -3532,10 +3610,10 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
   Profile* const profile = Profile::FromBrowserContext(browser_context_);
-  supervised_user::SupervisedUserService* supervised_user_service =
-      SupervisedUserServiceFactory::GetForProfile(profile);
-  if (supervised_user_service &&
-      supervised_user_service->IsURLFilteringEnabled()) {
+  CHECK(profile);
+  if (supervised_user::IsUrlFilteringEnabled(*profile->GetPrefs())) {
+    supervised_user::SupervisedUserService* supervised_user_service =
+        SupervisedUserServiceFactory::GetForProfile(profile);
     supervised_user::SupervisedUserURLFilter* url_filter =
         supervised_user_service->GetURLFilter();
     // Use the URL filter's synchronous call to check if a site has been
@@ -3544,7 +3622,7 @@ bool RenderViewContextMenu::IsSaveLinkAsEnabled() const {
     // filter requires an async call. This call is made if the user selects
     // "Save link as" and blocks the download.
     if (url_filter->GetFilteringBehaviorForURL(params_.link_url) !=
-        supervised_user::SupervisedUserURLFilter::FilteringBehavior::ALLOW) {
+        supervised_user::FilteringBehavior::kAllow) {
       return false;
     }
   }
@@ -3673,37 +3751,14 @@ bool RenderViewContextMenu::IsQRCodeGeneratorEnabled() const {
 
 bool RenderViewContextMenu::IsRegionSearchEnabled() const {
 #if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-  if (!crosapi::browser_util::IsAshWebBrowserEnabled()) {
-    // If Lacros is the only browser, disable region search in Ash because we
-    // have decided not to support this feature in the system UI so as not to
-    // confuse users by opening an Ash browser window.
-    return false;
-  }
-#endif  // BUILDFLAG(IS_CHROMEOS_ASH)
-
-  // TODO(nguyenbryan): Refactor to use lens_region_search_helper.cc after PDF
-  // support is cleaned up.
-  if (!GetBrowser())
-    return false;
-
-  TemplateURLService* service =
-      TemplateURLServiceFactory::GetForProfile(GetProfile());
-  if (!service)
-    return false;
-
-// Region selection is broken in PWAs on Mac b/250074889
 #if BUILDFLAG(IS_MAC)
+  // Region selection is broken in PWAs on Mac b/250074889
   if (IsInProgressiveWebApp())
     return false;
 #endif  // BUILDFLAG(IS_MAC)
 
-  const TemplateURL* provider = service->GetDefaultSearchProvider();
-  const bool provider_supports_image_search =
-      provider && !provider->image_url().empty() &&
-      provider->image_url_ref().IsValid(service->search_terms_data());
   return base::FeatureList::IsEnabled(lens::features::kLensStandalone) &&
-         provider_supports_image_search &&
+         GetImageSearchProvider() &&
          !params_.frame_url.SchemeIs(content::kChromeUIScheme) &&
          GetPrefs(browser_context_)
              ->GetBoolean(prefs::kLensRegionSearchEnabled);
@@ -3890,7 +3945,8 @@ void RenderViewContextMenu::ExecOpenInReadAnything() {
   if (!browser) {
     return;
   }
-  ShowReadAnythingSidePanel(browser);
+  ShowReadAnythingSidePanel(browser,
+                            SidePanelOpenTrigger::kReadAnythingContextMenu);
 }
 
 void RenderViewContextMenu::ExecInspectElement() {
@@ -3906,17 +3962,17 @@ void RenderViewContextMenu::ExecInspectBackgroundPage() {
   DCHECK(platform_app);
   DCHECK(platform_app->is_platform_app());
 
-  extensions::devtools_util::InspectBackgroundPage(platform_app, GetProfile());
+  extensions::devtools_util::InspectBackgroundPage(
+      platform_app, GetProfile(), DevToolsOpenedByAction::kContextMenuInspect);
 }
 
 #if BUILDFLAG(ENABLE_SUPERVISED_USERS)
 void RenderViewContextMenu::CheckSupervisedUserURLFilterAndSaveLinkAs() {
   Profile* const profile = Profile::FromBrowserContext(browser_context_);
-  supervised_user::SupervisedUserService* supervised_user_service =
-      SupervisedUserServiceFactory::GetForProfile(profile);
-
-  if (supervised_user_service &&
-      supervised_user_service->IsURLFilteringEnabled()) {
+  CHECK(profile);
+  if (supervised_user::IsUrlFilteringEnabled(*profile->GetPrefs())) {
+    supervised_user::SupervisedUserService* supervised_user_service =
+        SupervisedUserServiceFactory::GetForProfile(profile);
     supervised_user::SupervisedUserURLFilter* url_filter =
         supervised_user_service->GetURLFilter();
     url_filter->GetFilteringBehaviorForURLWithAsyncChecks(
@@ -3930,12 +3986,10 @@ void RenderViewContextMenu::CheckSupervisedUserURLFilterAndSaveLinkAs() {
 }
 
 void RenderViewContextMenu::OnSupervisedUserURLFilterChecked(
-    supervised_user::SupervisedUserURLFilter::FilteringBehavior
-        filtering_behavior,
+    supervised_user::FilteringBehavior filtering_behavior,
     supervised_user::FilteringBehaviorReason reason,
     bool uncertain) {
-  if (filtering_behavior ==
-      supervised_user::SupervisedUserURLFilter::FilteringBehavior::ALLOW) {
+  if (filtering_behavior == supervised_user::FilteringBehavior::kAllow) {
     ExecSaveLinkAs();
   }
 }
@@ -4078,10 +4132,6 @@ void RenderViewContextMenu::ExecRegionSearch(
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
   Browser* browser = GetBrowser();
   CHECK(browser);
-  if (lens::features::IsLensRegionSearchStaticPageEnabled()) {
-    lens::OpenLensStaticPage(browser);
-    return;
-  }
 
   // We don't use `source_web_contents_` here because it doesn't work with the
   // PDF reader.
@@ -4165,36 +4215,44 @@ void RenderViewContextMenu::ExecLoadImage() {
 
 void RenderViewContextMenu::ExecLoop() {
   base::RecordAction(UserMetricsAction("MediaContextMenu_Loop"));
-  MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
-                      blink::mojom::MediaPlayerAction(
-                          blink::mojom::MediaPlayerActionType::kLoop,
-                          !IsCommandIdChecked(IDC_CONTENT_CONTEXT_LOOP)));
+  MediaPlayerAction(blink::mojom::MediaPlayerAction(
+      blink::mojom::MediaPlayerActionType::kLoop,
+      !IsCommandIdChecked(IDC_CONTENT_CONTEXT_LOOP)));
 }
 
 void RenderViewContextMenu::ExecControls() {
   base::RecordAction(UserMetricsAction("MediaContextMenu_Controls"));
-  MediaPlayerActionAt(gfx::Point(params_.x, params_.y),
-                      blink::mojom::MediaPlayerAction(
-                          blink::mojom::MediaPlayerActionType::kControls,
-                          !IsCommandIdChecked(IDC_CONTENT_CONTEXT_CONTROLS)));
+  MediaPlayerAction(blink::mojom::MediaPlayerAction(
+      blink::mojom::MediaPlayerActionType::kControls,
+      !IsCommandIdChecked(IDC_CONTENT_CONTEXT_CONTROLS)));
 }
 
 void RenderViewContextMenu::ExecSaveVideoFrameAs() {
   base::RecordAction(UserMetricsAction("MediaContextMenu_SaveVideoFrameAs"));
-  MediaPlayerActionAt(
-      gfx::Point(params_.x, params_.y),
-      blink::mojom::MediaPlayerAction(
-          blink::mojom::MediaPlayerActionType::kSaveVideoFrameAs,
-          !IsCommandIdChecked(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS)));
+  MediaPlayerAction(blink::mojom::MediaPlayerAction(
+      blink::mojom::MediaPlayerActionType::kSaveVideoFrameAs,
+      /*enable=*/true));
 }
 
 void RenderViewContextMenu::ExecCopyVideoFrame() {
   base::RecordAction(UserMetricsAction("MediaContextMenu_CopyVideoFrame"));
-  MediaPlayerActionAt(
+  MediaPlayerAction(blink::mojom::MediaPlayerAction(
+      blink::mojom::MediaPlayerActionType::kCopyVideoFrame,
+      /*enable=*/true));
+}
+
+void RenderViewContextMenu::ExecSearchForVideoFrame() {
+  base::RecordAction(UserMetricsAction("MediaContextMenu_SearchForVideoFrame"));
+
+  RenderFrameHost* frame_host = GetRenderFrameHost();
+  if (!frame_host) {
+    return;
+  }
+
+  frame_host->RequestVideoFrameAt(
       gfx::Point(params_.x, params_.y),
-      blink::mojom::MediaPlayerAction(
-          blink::mojom::MediaPlayerActionType::kCopyVideoFrame,
-          !IsCommandIdChecked(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME)));
+      base::BindOnce(&RenderViewContextMenu::SearchForVideoFrame,
+                     weak_pointer_factory_.GetWeakPtr()));
 }
 
 void RenderViewContextMenu::ExecLiveCaption() {
@@ -4337,19 +4395,37 @@ void RenderViewContextMenu::ExecPictureInPicture() {
         UserMetricsAction("MediaContextMenu_EnterPictureInPicture"));
   }
 
-  MediaPlayerActionAt(
-      gfx::Point(params_.x, params_.y),
-      blink::mojom::MediaPlayerAction(
-          blink::mojom::MediaPlayerActionType::kPictureInPicture,
-          !picture_in_picture_active));
+  MediaPlayerAction(blink::mojom::MediaPlayerAction(
+      blink::mojom::MediaPlayerActionType::kPictureInPicture,
+      !picture_in_picture_active));
 }
 
-void RenderViewContextMenu::MediaPlayerActionAt(
-    const gfx::Point& location,
+void RenderViewContextMenu::MediaPlayerAction(
     const blink::mojom::MediaPlayerAction& action) {
-  RenderFrameHost* frame_host = GetRenderFrameHost();
-  if (frame_host)
-    frame_host->ExecuteMediaPlayerActionAtLocation(location, action);
+  if (auto* frame_host = GetRenderFrameHost(); frame_host) {
+    frame_host->ExecuteMediaPlayerActionAtLocation(
+        gfx::Point(params_.x, params_.y), action);
+  }
+}
+
+void RenderViewContextMenu::SearchForVideoFrame(const gfx::ImageSkia& image) {
+  if (image.isNull()) {
+    return;
+  }
+
+  CoreTabHelper* core_tab_helper =
+      CoreTabHelper::FromWebContents(source_web_contents_);
+  if (!core_tab_helper) {
+    return;
+  }
+
+  if (search::DefaultSearchProviderIsGoogle(GetProfile())) {
+    core_tab_helper->SearchWithLens(
+        gfx::Image(image),
+        lens::EntryPoint::CHROME_VIDEO_FRAME_SEARCH_CONTEXT_MENU_ITEM);
+  } else {
+    core_tab_helper->SearchByImage(gfx::Image(image));
+  }
 }
 
 void RenderViewContextMenu::PluginActionAt(
@@ -4392,6 +4468,14 @@ bool RenderViewContextMenu::CanTranslate(bool menu_logging) {
          chrome_translate_client->GetTranslateManager()->CanManuallyTranslate(
              menu_logging);
 #endif
+}
+
+bool RenderViewContextMenu::CanPartiallyTranslateTargetLanguage() {
+  ChromeTranslateClient* chrome_translate_client =
+      ChromeTranslateClient::FromWebContents(embedder_web_contents_);
+  return chrome_translate_client &&
+         chrome_translate_client->GetTranslateManager()
+             ->CanPartiallyTranslateTargetLanguage();
 }
 
 void RenderViewContextMenu::MaybePrepareForLensQuery() {

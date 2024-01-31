@@ -7,6 +7,7 @@
 
 #include <stddef.h>
 
+#include <deque>
 #include <memory>
 #include <set>
 #include <string>
@@ -34,8 +35,6 @@
 #include "url/gurl.h"
 #include "url/origin.h"
 
-enum UploadRequired { UPLOAD_NOT_REQUIRED, UPLOAD_REQUIRED, USE_UPLOAD_RATES };
-
 namespace base {
 class TimeTicks;
 }
@@ -56,6 +55,7 @@ enum class PasswordAttribute {
 // page. These are sequence containers to reflect their order in the DOM.
 using FormAndFieldSignatures =
     std::vector<std::pair<FormSignature, std::vector<FieldSignature>>>;
+using FieldSuggestion = AutofillQueryResponse::FormSuggestion::FieldSuggestion;
 
 struct FormData;
 struct FormDataPredictions;
@@ -262,7 +262,6 @@ class FormStructure {
 
   // Classifies each field in |fields_| using the regular expressions.
   void ParseFieldTypesWithPatterns(PatternSource pattern_source,
-                                   const GeoIpCountryCode& client_country,
                                    LogManager* log_manager);
 
   // Returns the values that can be filled into the form structure for the
@@ -345,11 +344,6 @@ class FormStructure {
   void set_submission_event(mojom::SubmissionIndicatorEvent submission_event) {
     submission_event_ = submission_event;
   }
-
-  void set_upload_required(UploadRequired required) {
-    upload_required_ = required;
-  }
-  UploadRequired upload_required() const { return upload_required_; }
 
   base::TimeTicks form_parsed_timestamp() const {
     return form_parsed_timestamp_;
@@ -478,6 +472,23 @@ class FormStructure {
         kRequiredFieldsForFormsWithOnlyPasswordFields;
   };
 
+  // Builds a map from a pair of (form_signature, field_signature) to all the
+  // server FieldSuggestion's retrieved from `response`. Also includes the
+  // manual overrides provided from the feature `AutofillOverridePredictions`.
+  static std::map<std::pair<FormSignature, FieldSignature>,
+                  std::deque<FieldSuggestion>>
+  GetSuggestionsMapFromResponse(
+      const AutofillQueryResponse& response,
+      const std::vector<FormSignature>& queried_form_signatures);
+
+  // Given `form` and `field`, returns the appropriate FieldSuggestion stored
+  // for that field in `fields_suggestions`.
+  static std::optional<FieldSuggestion> GetFieldSuggestion(
+      const FormStructure& form,
+      const AutofillField& field,
+      std::map<std::pair<FormSignature, FieldSignature>,
+               std::deque<FieldSuggestion>>& fields_suggestions);
+
   // Parses the field types from the server query response. |forms| must be the
   // same as the one passed to EncodeQueryRequest when constructing the query.
   // |form_interactions_ukm_logger| is used to provide logs to UKM and can be
@@ -539,6 +550,10 @@ class FormStructure {
   // adjacent fields.
   void ExtractParseableFieldLabels();
 
+  // The country where the user is currently located. Used to introduce biases
+  // in form parsing and understanding according to the user's location.
+  GeoIpCountryCode client_country_;
+
   // The language detected for this form's page, before any translations
   // performed by Chrome.
   LanguageCode current_page_language_;
@@ -585,10 +600,6 @@ class FormStructure {
   // The number of fields that are part of the form signature and that are
   // included in queries to the Autofill server.
   size_t active_field_count_ = 0;
-
-  // Whether the server expects us to always upload, never upload, or default
-  // to the stored upload rates.
-  UploadRequired upload_required_ = USE_UPLOAD_RATES;
 
   // Whether the form includes any field types explicitly specified by the site
   // author, via the |autocompletetype| attribute.

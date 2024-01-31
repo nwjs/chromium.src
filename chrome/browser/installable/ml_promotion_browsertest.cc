@@ -163,8 +163,8 @@ class MLPromotionBrowserTest : public MLPromotionBrowserTestBase {
     task_runner_ = base::MakeRefCounted<base::TestSimpleTaskRunner>();
     scoped_feature_list_.InitAndEnableFeatureWithParameters(
         webapps::features::kWebAppsEnableMLModelForPromotion,
-        {{kGuardrailResultReportProb.name, "1.0"},
-         {kModelDeclineUserDeclineReportProb.name, "1.0"}});
+        {{features::kWebAppsMLGuardrailResultReportProb.name, "1.0"},
+         {features::kWebAppsMLModelUserDeclineReportProb.name, "1.0"}});
   }
   ~MLPromotionBrowserTest() override = default;
 
@@ -698,7 +698,7 @@ IN_PROC_BROWSER_TEST_F(MLPromotionBrowserTest,
       web_contents());
 
   views::NamedWidgetShownWaiter waiter(views::test::AnyWidgetTestPasskey{},
-                                       "WebAppConfirmationView");
+                                       "CreateShortcutConfirmationView");
   chrome::ExecuteCommand(browser(), IDC_CREATE_SHORTCUT);
   views::Widget* widget = waiter.WaitIfNeededAndGet();
   EXPECT_TRUE(widget != nullptr);
@@ -728,7 +728,7 @@ class MLPromotionInstallDialogBrowserTest
       case InstallDialogState::kDetailedInstallDialog:
         return "WebAppDetailedInstallDialog";
       case InstallDialogState::kCreateShortcutDialog:
-        return "WebAppConfirmationView";
+        return "CreateShortcutConfirmationView";
     }
   }
 

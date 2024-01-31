@@ -17,7 +17,15 @@ dictionary IdentityProviderRequestOptions : IdentityProviderConfig {
   [RuntimeEnabled=FedCmAuthz] sequence<USVString> scope;
   [RuntimeEnabled=FedCmAuthz] sequence<USVString> responseType;
   [RuntimeEnabled=FedCmAuthz] record<USVString, USVString> params;
-  // DigitalCredential-specific attributes
+};
+
+// extends the IdentityProviderConfig for Registered IdPs
+partial dictionary IdentityProviderConfig  {
+  [RuntimeEnabled=FedCmIdPRegistration] boolean registered;
+};
+
+// extends the IdentityProviderConfig with DigitalCredential-specific attributes
+partial dictionary IdentityProviderConfig  {
   [RuntimeEnabled=WebIdentityDigitalCredentials] DigitalCredentialProvider holder;
 };
 
@@ -28,6 +36,12 @@ dictionary DigitalCredentialProvider  {
 
   // An opaque map of parameters sent to wallets upon selection.
   record<USVString, USVString> params;
+
+  // Alternatively, a provider can also be specified by a protocol and a
+  // request.
+  DOMString protocol;
+  DOMString request;
+  DOMString publicKey;
 };
 
 dictionary DigitalCredentialSelector {

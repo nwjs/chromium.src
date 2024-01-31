@@ -79,11 +79,11 @@ struct CORE_EXPORT PaintLayerScrollableAreaRareData final
   PaintLayerScrollableAreaRareData& operator=(
       const PaintLayerScrollableAreaRareData&) = delete;
 
-  void Trace(Visitor* visitor) const;
+  void Trace(Visitor* visitor) const {}
 
-  HeapLinkedHashSet<Member<PaintLayer>> sticky_layers_;
   absl::optional<cc::SnapContainerData> snap_container_data_;
-  bool snap_container_data_needs_update_ = true;
+  absl::optional<cc::SnappedTargetData> snapped_target_data_;
+  absl::optional<cc::SnappedTargetData> snapchanging_target_data_;
   Vector<gfx::Rect> tickmarks_override_;
 };
 
@@ -418,6 +418,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
   // coordinates, clipped by the parent's client rect.
   PhysicalRect ScrollIntoView(
       const PhysicalRect&,
+      const PhysicalBoxStrut& scroll_margin,
       const mojom::blink::ScrollIntoViewParamsPtr&) override;
 
   // Returns true if the scrollable area is user-scrollable and it does
@@ -490,12 +491,8 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   void EnqueueForSnapUpdateIfNeeded();
 
-  void AddStickyLayer(PaintLayer*);
-  bool HasStickyLayer(PaintLayer* layer) const {
-    return rare_data_ && rare_data_->sticky_layers_.Contains(layer);
-  }
   void UpdateAllStickyConstraints();
-  void InvalidateAllStickyConstraints();
+  void EnqueueForStickyUpdateIfNeeded();
   void InvalidatePaintForStickyDescendants();
 
   // This function doesn't check background-attachment:fixed backgrounds
@@ -542,11 +539,19 @@ class CORE_EXPORT PaintLayerScrollableArea final
   const cc::SnapContainerData* GetSnapContainerData() const override;
   void SetSnapContainerData(absl::optional<cc::SnapContainerData>) override;
   bool SetTargetSnapAreaElementIds(cc::TargetSnapAreaElementIds) override;
-  bool SnapContainerDataNeedsUpdate() const override;
-  void SetSnapContainerDataNeedsUpdate(bool) override;
 
   absl::optional<gfx::PointF> GetSnapPositionAndSetTarget(
       const cc::SnapSelectionStrategy& strategy) override;
+  void SetSnappedTargetData(
+      absl::optional<cc::SnappedTargetData> data) override;
+  const cc::SnappedTargetData* GetSnappedTargetData() const override;
+  void UpdateSnappedTargetsAndEnqueueSnapChanged() override;
+
+  const cc::SnappedTargetData* GetSnapChangingTargetData() const override;
+  void SetSnapChangingTargetData(
+      absl::optional<cc::SnappedTargetData>) override;
+  void UpdateSnapChangingTargetsAndEnqueueSnapChanging(
+      const gfx::PointF&) override;
 
   void DisposeImpl() override;
 
@@ -566,7 +571,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   void SetTickmarksOverride(Vector<gfx::Rect> tickmarks);
 
-  bool ShouldDirectlyCompositeScrollbar(const Scrollbar&) const;
+  bool MayCompositeScrollbar(const Scrollbar&) const;
 
   void EstablishScrollbarRoot(bool freeze_horizontal, bool freeze_vertical);
   void ClearScrollbarRoot();
@@ -671,19 +676,21 @@ class CORE_EXPORT PaintLayerScrollableArea final
 
   gfx::Size PixelSnappedBorderBoxSize() const;
 
-  void InvalidatePaintOfScrollbarIfNeeded(
-      const PaintInvalidatorContext&,
-      bool needs_paint_invalidation,
-      Scrollbar* scrollbar,
-      bool& previously_was_overlay,
-      bool& previously_was_directly_composited,
-      gfx::Rect& visual_rect);
+  void InvalidatePaintOfScrollbarIfNeeded(const PaintInvalidatorContext&,
+                                          bool needs_paint_invalidation,
+                                          Scrollbar* scrollbar,
+                                          bool& previously_was_overlay,
+                                          bool& previously_might_be_composited,
+                                          gfx::Rect& visual_rect);
 
   void DelayableClampScrollOffsetAfterOverflowChange();
   void ClampScrollOffsetAfterOverflowChangeInternal();
   Element* GetElementForScrollStart() const;
 
   void SetShouldCheckForPaintInvalidation();
+
+  bool UsedColorSchemeScrollbarsChanged(const ComputedStyle* old_style) const;
+  bool IsGlobalRootNonOverlayScroller() const;
 
   // PaintLayer is destructed before PaintLayerScrollable area, during this
   // time before PaintLayerScrollableArea has been collected layer_ will
@@ -722,7 +729,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
   gfx::Point scroll_origin_;
 
   // The width/height of our scrolled area.
-  // This is OverflowModel's layout overflow translated to physical
+  // This is OverflowModel's scrollable overflow translated to physical
   // coordinates. See OverflowModel for the different overflow and
   // LayoutBoxModelObject for the coordinate systems.
   PhysicalRect overflow_rect_;
@@ -756,8 +763,8 @@ class CORE_EXPORT PaintLayerScrollableArea final
   // These are not bitfields because they need to be passed as references.
   bool horizontal_scrollbar_previously_was_overlay_ = false;
   bool vertical_scrollbar_previously_was_overlay_ = false;
-  bool horizontal_scrollbar_previously_was_directly_composited_ = false;
-  bool vertical_scrollbar_previously_was_directly_composited_ = false;
+  bool horizontal_scrollbar_previously_might_be_composited_ = false;
+  bool vertical_scrollbar_previously_might_be_composited_ = false;
   gfx::Rect horizontal_scrollbar_visual_rect_;
   gfx::Rect vertical_scrollbar_visual_rect_;
   gfx::Rect scroll_corner_and_resizer_visual_rect_;

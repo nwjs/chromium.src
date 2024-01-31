@@ -113,6 +113,11 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, SidePanelNotShownOnPwa) {
 }
 
 IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, ToggleSidePanelVisibility) {
+  if (features::IsSidePanelPinningEnabled()) {
+    GTEST_SKIP()
+        << "Default sidepanel button is not present with pinning feature.";
+  }
+
   RunTestSequence(
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),
@@ -132,6 +137,11 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, ToggleSidePanelVisibility) {
 
 IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest,
                        SwitchBetweenDifferentEntries) {
+  if (features::IsSidePanelPinningEnabled()) {
+    GTEST_SKIP()
+        << "Default sidepanel button is not present with pinning feature.";
+  }
+
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBookmarksWebContentsId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kReadLaterWebContentsId);
 
@@ -160,6 +170,11 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest,
 
 IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest,
                        StaysOpenOnTabSwitchWithActiveGlobalEntry) {
+  if (features::IsSidePanelPinningEnabled()) {
+    GTEST_SKIP()
+        << "Default sidepanel button is not present with pinning feature.";
+  }
+
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTabElementId);
 
   RunTestSequence(
@@ -185,6 +200,14 @@ IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest,
 
 IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest,
                        ReopensToLastActiveGlobalEntry) {
+  // This test does not make sense with pinned feature the default toolbar
+  // sidepanel button is not present to show the last active global entry.
+  // A particular sidepanel has to be opened.
+  if (features::IsSidePanelPinningEnabled()) {
+    GTEST_SKIP()
+        << "Default sidepanel button is not present with pinning feature.";
+  }
+
   RunTestSequence(
       // Ensure the side panel isn't open
       EnsureNotPresent(kSidePanelElementId),
@@ -347,6 +370,18 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
 }
 
 IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
+                       SidePanelPinButtonsHideInIncognitoMode) {
+  Browser* const incognito = CreateIncognitoBrowser();
+  RunTestSequence(
+      InContext(incognito->window()->GetElementContext(),
+                WaitForShow(kBrowserViewElementId)),
+      InSameContext(Steps(ActivateSurface(kBrowserViewElementId), FlushEvents(),
+                          EnsureNotPresent(kSidePanelElementId),
+                          OpenBookmarksSidePanel(),
+                          EnsureNotPresent(kSidePanelPinButtonElementId))));
+}
+
+IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
                        PinnedToolbarButtonsHighlightWhileSidePanelVisible) {
   // Replace the contents of the ReadingMode side panel with an empty view so it
   // loads faster.
@@ -368,11 +403,11 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
       Check(base::BindLambdaForTesting([=]() {
         return actions_model->Contains(kActionSidePanelShowBookmarks);
       })),
-      CheckResult(
-          base::BindLambdaForTesting([this]() {
-            return GetPinnedToolbarActionsContainer()->children().size();
-          }),
-          1),
+      CheckView(
+          kPinnedToolbarActionsContainerElementId,
+          [](views::View* view) { return view->children().size() == 2u; }),
+      CheckViewProperty(kPinnedToolbarActionsContainerDividerElementId,
+                        &views::View::GetVisible, true),
       // Verify the bookmarks pinned toolbar button is not highlighted.
       CheckPinnedToolbarActionsContainerChildInkDropState(0, false),
       // Open the bookmarks side panel.

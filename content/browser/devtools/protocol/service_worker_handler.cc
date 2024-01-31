@@ -406,10 +406,9 @@ void ServiceWorkerHandler::OnWorkerVersionUpdated(
     base::flat_set<std::string> client_set;
 
     for (const auto& client : version.clients) {
-      if (client.second.type() ==
-          blink::mojom::ServiceWorkerClientType::kWindow) {
+      if (absl::holds_alternative<GlobalRenderFrameHostId>(client.second)) {
         WebContents* web_contents = WebContentsImpl::FromRenderFrameHostID(
-            client.second.GetRenderFrameHostId());
+            absl::get<GlobalRenderFrameHostId>(client.second));
         // There is a possibility that the frame is already deleted
         // because of the thread hopping.
         if (!web_contents)
@@ -441,8 +440,12 @@ void ServiceWorkerHandler::OnWorkerVersionUpdated(
             ->GetDevToolsAgentHostForWorker(
                 version.process_id,
                 version.devtools_agent_route_id));
-    if (host)
+    if (host) {
       version_value->SetTargetId(host->GetId());
+    }
+    if (version.router_rules) {
+      version_value->SetRouterRules(*version.router_rules);
+    }
     result->emplace_back(std::move(version_value));
   }
   frontend_->WorkerVersionUpdated(std::move(result));

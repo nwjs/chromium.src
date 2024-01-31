@@ -34,6 +34,7 @@
 #include "chromeos/constants/chromeos_features.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/color/color_id.h"
@@ -187,12 +188,12 @@ ui::ColorId GetLabelColorId(SearchResultView::LabelType label_type,
   }
 }
 
-absl::optional<TypographyToken> GetTypographyToken(
+std::optional<TypographyToken> GetTypographyToken(
     SearchResultView::LabelType label_type,
     bool is_match,
     bool is_inline_detail) {
   if (!chromeos::features::IsJellyEnabled()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   if (is_match) {
@@ -219,7 +220,7 @@ absl::optional<TypographyToken> GetTypographyToken(
       return TypographyToken::kCrosAnnotation1;
   }
 
-  return absl::nullopt;
+  return std::nullopt;
 }
 
 views::ImageView* SetupChildImageView(views::FlexLayoutView* parent) {
@@ -237,7 +238,7 @@ views::Label* SetupChildLabelView(
     SearchResultView::SearchResultViewType view_type,
     SearchResultView::LabelType label_type,
     ui::ColorId color_id,
-    absl::optional<TypographyToken> typography_token,
+    std::optional<TypographyToken> typography_token,
     int flex_order,
     bool has_keyboard_shortcut_contents,
     bool is_multi_line,
@@ -315,8 +316,8 @@ views::Label* SetupChildLabelView(
 views::ProgressBar* SetupChildProgressBarView(
     views::FlexLayoutView* parent,
     double value,
-    absl::optional<double> upper_warning_limit,
-    absl::optional<double> lower_warning_limit) {
+    std::optional<double> upper_warning_limit,
+    std::optional<double> lower_warning_limit) {
   views::ProgressBar* progress_bar_view =
       parent->AddChildView(std::make_unique<views::ProgressBar>());
   progress_bar_view->GetViewAccessibility().OverrideIsIgnored(true);
@@ -365,6 +366,8 @@ SearchResultInlineIconView* SetupChildInlineIconView(
 // An ImageView that optionally masks the image into a circle or rectangle with
 // rounded corners.
 class MaskedImageView : public views::ImageView {
+  METADATA_HEADER(MaskedImageView, views::ImageView)
+
  public:
   MaskedImageView() = default;
 
@@ -411,6 +414,9 @@ class MaskedImageView : public views::ImageView {
  private:
   SearchResult::IconShape shape_;
 };
+
+BEGIN_METADATA(MaskedImageView)
+END_METADATA
 
 SearchResultView::LabelAndTag::LabelAndTag(views::Label* label,
                                            SearchResult::Tags tags)
@@ -1034,7 +1040,7 @@ void SearchResultView::UpdateDetailsContainer() {
         LabelType::kDetails, has_keyboard_shortcut_contents_,
         /*is_multi_line=*/result()->multiline_details());
 
-    absl::optional<std::u16string> right_details =
+    std::optional<std::u16string> right_details =
         result()->system_info_extra_details();
     ash::SearchResultTextItem text_item(SearchResultTextItemType::kString);
     text_item.SetText(right_details.value());
@@ -1199,7 +1205,7 @@ void SearchResultView::OnQueryRemovalAccepted(bool accepted) {
 
   if (confirm_remove_by_long_press_) {
     confirm_remove_by_long_press_ = false;
-    SetSelected(false, absl::nullopt);
+    SetSelected(false, std::nullopt);
   }
 
   RecordSearchResultRemovalDialogDecision(
@@ -1428,7 +1434,7 @@ void SearchResultView::OnGestureEvent(ui::GestureEvent* event) {
     case ui::ET_GESTURE_LONG_PRESS:
       if (actions_view()->IsValidActionIndex(SearchResultActionType::kRemove)) {
         ScrollRectToVisible(GetLocalBounds());
-        SetSelected(true, absl::nullopt);
+        SetSelected(true, std::nullopt);
         confirm_remove_by_long_press_ = true;
         event->SetHandled();
       }

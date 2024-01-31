@@ -7,6 +7,7 @@
 #include <limits>
 #include <vector>
 
+#include <optional>
 #include "base/containers/contains.h"
 #include "base/containers/queue.h"
 #include "base/functional/bind.h"
@@ -29,7 +30,6 @@
 #include "mojo/public/cpp/platform/named_platform_channel.h"
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/platform/platform_channel_server.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 #if BUILDFLAG(IS_WIN)
 #include <windows.h>
@@ -151,7 +151,7 @@ class ThreadDestructionObserver
 };
 
 #if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_NACL) && !BUILDFLAG(IS_FUCHSIA)
-absl::optional<ConnectionParams> CreateSyncNodeConnectionParams(
+std::optional<ConnectionParams> CreateSyncNodeConnectionParams(
     const base::Process& target_process,
     ConnectionParams connection_params,
     const ProcessErrorCallback& process_error_callback,
@@ -172,7 +172,7 @@ absl::optional<ConnectionParams> CreateSyncNodeConnectionParams(
   node_connection_params.set_is_untrusted_process(is_untrusted_process);
   if (!broker_host->SendChannel(
           node_channel.TakeRemoteEndpoint().TakePlatformHandle())) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return node_connection_params;
@@ -225,7 +225,7 @@ void NodeController::SendBrokerClientInvitation(
 
 void NodeController::AcceptBrokerClientInvitation(
     ConnectionParams connection_params) {
-  absl::optional<PlatformHandle> broker_host_handle;
+  std::optional<PlatformHandle> broker_host_handle;
   DCHECK(!GetConfiguration().is_broker_process);
 #if !BUILDFLAG(IS_APPLE) && !BUILDFLAG(IS_NACL) && !BUILDFLAG(IS_FUCHSIA)
   if (!connection_params.is_async()) {
@@ -275,7 +275,7 @@ void NodeController::AcceptBrokerClientInvitation(
 
 void NodeController::ConnectIsolated(ConnectionParams connection_params,
                                      const ports::PortRef& port,
-                                     base::StringPiece connection_name) {
+                                     std::string_view connection_name) {
   io_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(&NodeController::ConnectIsolatedOnIOThread,
@@ -464,7 +464,7 @@ void NodeController::SendBrokerClientInvitationOnIOThread(
     }
 #endif
 
-    absl::optional<ConnectionParams> params = CreateSyncNodeConnectionParams(
+    std::optional<ConnectionParams> params = CreateSyncNodeConnectionParams(
         target_process, std::move(connection_params), process_error_callback,
         handle_policy);
     if (!params) {
@@ -514,7 +514,7 @@ void NodeController::FinishSendBrokerClientInvitationOnIOThread(
 
 void NodeController::AcceptBrokerClientInvitationOnIOThread(
     ConnectionParams connection_params,
-    absl::optional<PlatformHandle> broker_host_handle) {
+    std::optional<PlatformHandle> broker_host_handle) {
   DCHECK(io_task_runner_->RunsTasksInCurrentSequence());
 
   {
@@ -1494,7 +1494,7 @@ NodeController::IsolatedConnection::IsolatedConnection(
 NodeController::IsolatedConnection::IsolatedConnection(
     scoped_refptr<NodeChannel> channel,
     const ports::PortRef& local_port,
-    base::StringPiece name)
+    std::string_view name)
     : channel(std::move(channel)), local_port(local_port), name(name) {}
 
 NodeController::IsolatedConnection::~IsolatedConnection() = default;

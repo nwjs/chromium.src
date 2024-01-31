@@ -44,6 +44,10 @@ extern const char kCredentialProviderEnabledOnStartup[];
 // migration steps, it should not be modified in Chrome.
 extern const char kAutoSignInEnabledGMS[];
 
+// A cache of whether the profile LoginDatabase is empty, so that can be checked
+// early on startup.
+extern const char kEmptyProfileStoreLoginDatabase[];
+
 // Boolean controlling whether the password manager offers to save passwords.
 // If false, the password manager will not save credentials, but it will still
 // fill previously saved ones. This pref is not synced. Its value is set
@@ -228,15 +232,6 @@ extern const char kPasswordsPrefWithNewLabelUsed[];
 extern const char kProfileStoreDateLastUsedForFilling[];
 extern const char kAccountStoreDateLastUsedForFilling[];
 
-// A list of ongoing PasswordChangeSuccessTracker flows that is persisted in
-// case Chrome is temporarily shut down while, e.g., a user retrieves a
-// password reset email.
-extern const char kPasswordChangeSuccessTrackerFlows[];
-
-// Integer indicating the format version of the list saved under
-// |kPasswordChangeSuccessTrackerFlows|.
-extern const char kPasswordChangeSuccessTrackerVersion[];
-
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 // Integer indicating how many times user saw biometric authentication before
 // filling promo.
@@ -263,6 +258,11 @@ extern const char kAccountStorageNewFeatureIconImpressions[];
 #endif  // BUILDFLAG(IS_IOS)
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+// How many times in a row the password generation popup in `kNudgePassword`
+// experiment was dismissed by the user. The counter resets when the user
+// accepts password generation.
+extern const char kPasswordGenerationNudgePasswordDismissCount[];
+
 // A list of available promo cards with related information which are displayed
 // in the Password Manager UI.
 extern const char kPasswordManagerPromoCardsList[];
@@ -271,6 +271,11 @@ extern const char kPasswordManagerPromoCardsList[];
 // Boolean pref indicating whether password sharing is enabled. Enables both
 // sending and receiving passwords.
 extern const char kPasswordSharingEnabled[];
+
+#if BUILDFLAG(IS_MAC)
+// Integer pref indicating how many times relaunch Chrome bubble was dismissed.
+extern const char kRelaunchChromeBubbleDismissedCounter[];
+#endif
 
 }  // namespace password_manager::prefs
 

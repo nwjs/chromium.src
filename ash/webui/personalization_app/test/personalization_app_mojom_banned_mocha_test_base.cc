@@ -7,8 +7,10 @@
 #include "ash/public/cpp/style/dark_light_mode_controller.h"
 #include "ash/style/mojom/color_scheme.mojom-shared.h"
 #include "ash/webui/personalization_app/mojom/personalization_app.mojom.h"
+#include "ash/webui/personalization_app/mojom/sea_pen.mojom.h"
 #include "ash/webui/personalization_app/personalization_app_ambient_provider.h"
 #include "ash/webui/personalization_app/personalization_app_keyboard_backlight_provider.h"
+#include "ash/webui/personalization_app/personalization_app_sea_pen_provider.h"
 #include "ash/webui/personalization_app/personalization_app_theme_provider.h"
 #include "ash/webui/personalization_app/personalization_app_ui.h"
 #include "ash/webui/personalization_app/personalization_app_url_constants.h"
@@ -96,6 +98,38 @@ class MockPersonalizationAppKeyboardBacklightProvider
   MOCK_METHOD(void, HandleNudgeShown, (), (override));
 };
 
+class MockPersonalizationAppSeaPenProvider
+    : public PersonalizationAppSeaPenProvider {
+ public:
+  MOCK_METHOD(void,
+              BindInterface,
+              (mojo::PendingReceiver<
+                  ::ash::personalization_app::mojom::SeaPenProvider> receiver),
+              (override));
+  MOCK_METHOD(void,
+              SearchWallpaper,
+              (const mojom::SeaPenQueryPtr, SearchWallpaperCallback callback),
+              (override));
+  MOCK_METHOD(void,
+              SelectSeaPenThumbnail,
+              (uint32_t, SelectSeaPenThumbnailCallback),
+              (override));
+  MOCK_METHOD(void,
+              SelectRecentSeaPenImage,
+              (const base::FilePath& file_path,
+               SelectRecentSeaPenImageCallback),
+              (override));
+  MOCK_METHOD(void,
+              GetRecentSeaPenImages,
+              (GetRecentSeaPenImagesCallback),
+              (override));
+  MOCK_METHOD(void,
+              GetRecentSeaPenImageThumbnail,
+              (const base::FilePath& file_path,
+               GetRecentSeaPenImageThumbnailCallback),
+              (override));
+};
+
 class MockPersonalizationAppThemeProvider
     : public PersonalizationAppThemeProvider {
  public:
@@ -167,12 +201,12 @@ class MockPersonalizationAppWallpaperProvider
               (override));
   MOCK_METHOD(void,
               FetchGooglePhotosAlbums,
-              (const absl::optional<std::string>& resume_token,
+              (const std::optional<std::string>& resume_token,
                FetchGooglePhotosAlbumsCallback callback),
               (override));
   MOCK_METHOD(void,
               FetchGooglePhotosSharedAlbums,
-              (const absl::optional<std::string>& resume_token,
+              (const std::optional<std::string>& resume_token,
                FetchGooglePhotosAlbumsCallback callback),
               (override));
   MOCK_METHOD(void,
@@ -181,9 +215,9 @@ class MockPersonalizationAppWallpaperProvider
               (override));
   MOCK_METHOD(void,
               FetchGooglePhotosPhotos,
-              (const absl::optional<std::string>& item_id,
-               const absl::optional<std::string>& album_id,
-               const absl::optional<std::string>& resume_token,
+              (const std::optional<std::string>& item_id,
+               const std::optional<std::string>& album_id,
+               const std::optional<std::string>& resume_token,
                FetchGooglePhotosPhotosCallback callback),
               (override));
   MOCK_METHOD(void,
@@ -259,6 +293,10 @@ class MockPersonalizationAppWallpaperProvider
               (override));
   MOCK_METHOD(void, ConfirmPreviewWallpaper, (), (override));
   MOCK_METHOD(void, CancelPreviewWallpaper, (), (override));
+  MOCK_METHOD(void,
+              ShouldShowTimeOfDayWallpaperDialog,
+              (ShouldShowTimeOfDayWallpaperDialogCallback callback),
+              (override));
 };
 
 class MockPersonalizationAppUserProvider
@@ -300,6 +338,8 @@ TestPersonalizationAppMojomBannedWebUIProvider::NewWebUI(content::WebUI* web_ui,
       testing::StrictMock<MockPersonalizationAppAmbientProvider>>();
   auto keyboard_backlight_provider = std::make_unique<
       testing::StrictMock<MockPersonalizationAppKeyboardBacklightProvider>>();
+  auto sea_pen_provider = std::make_unique<
+      testing::StrictMock<MockPersonalizationAppSeaPenProvider>>();
   auto theme_provider = std::make_unique<
       testing::StrictMock<MockPersonalizationAppThemeProvider>>();
   auto wallpaper_provider = std::make_unique<
@@ -308,8 +348,9 @@ TestPersonalizationAppMojomBannedWebUIProvider::NewWebUI(content::WebUI* web_ui,
       testing::StrictMock<MockPersonalizationAppUserProvider>>();
   return std::make_unique<PersonalizationAppUI>(
       web_ui, std::move(ambient_provider),
-      std::move(keyboard_backlight_provider), std::move(theme_provider),
-      std::move(user_provider), std::move(wallpaper_provider));
+      std::move(keyboard_backlight_provider), std::move(sea_pen_provider),
+      std::move(theme_provider), std::move(user_provider),
+      std::move(wallpaper_provider));
 }
 
 PersonalizationAppMojomBannedMochaTestBase::

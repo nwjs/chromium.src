@@ -50,6 +50,7 @@
 #include "ui/accessibility/ax_tree_id.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/display/manager/display_manager.h"
+#include "ui/display/screen.h"
 #include "ui/gfx/canvas.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/image/image_skia.h"
@@ -213,8 +214,8 @@ void HandleToggleTouchscreen() {
 }
 
 void HandleToggleTabletMode() {
-  TabletModeController* controller = Shell::Get()->tablet_mode_controller();
-  controller->SetEnabledForDev(!controller->InTabletMode());
+  Shell::Get()->tablet_mode_controller()->SetEnabledForDev(
+      !display::Screen::GetScreen()->InTabletMode());
 }
 
 void HandleToggleVideoConferenceCameraTrayIcon() {
@@ -298,7 +299,7 @@ void HandleShowSystemNudge() {
   const std::u16string title_text = u"Title text";
   const std::u16string short_body_text = u"Nudge body text";
   const std::u16string long_body_text =
-      u"Nudge body text should be clear, short and succint (80 characters "
+      u"Nudge body text should be clear, short and succinct (80 characters "
       u"recommended)";
 
   AnchoredNudgeData nudge_data(
@@ -316,8 +317,8 @@ void HandleShowSystemNudge() {
   }
 
   if (has_buttons) {
-    nudge_data.first_button_text = u"First";
-    nudge_data.second_button_text = u"Second";
+    nudge_data.primary_button_text = u"Primary";
+    nudge_data.secondary_button_text = u"Secondary";
   }
 
   Shell::Get()->anchored_nudge_manager()->Show(nudge_data);

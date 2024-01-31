@@ -201,7 +201,8 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   bool CanSynchronizeVisualProperties() override;
   std::unique_ptr<SyntheticGestureTarget> CreateSyntheticGestureTarget()
       override;
-  void DidNavigateMainFramePreCommit() override;
+  void OnOldViewDidNavigatePreCommit() override;
+  void OnNewViewDidNavigatePostCommit() override;
   void DidEnterBackForwardCache() override;
   const viz::FrameSinkId& GetFrameSinkId() const override;
   viz::FrameSinkId GetRootFrameSinkId() override;
@@ -295,6 +296,9 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   }
   void set_selection_popup_controller(SelectionPopupController* controller) {
     selection_popup_controller_ = controller;
+  }
+  SelectionPopupController* selection_popup_controller() const {
+    return selection_popup_controller_.get();
   }
   void set_text_suggestion_host(
       TextSuggestionHostAndroid* text_suggestion_host) {
@@ -429,6 +433,7 @@ class CONTENT_EXPORT RenderWidgetHostViewAndroid
   ~RenderWidgetHostViewAndroid() override;
 
   // RenderWidgetHostViewBase:
+  void UpdateFrameSinkIdRegistration() override;
   void UpdateBackgroundColor() override;
   bool HasFallbackSurface() const override;
   absl::optional<DisplayFeature> GetDisplayFeature() override;

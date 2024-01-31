@@ -275,7 +275,6 @@
     {
       name: "IdleDetection",
       permissions_policy_name: "idle-detection",
-      depends_on: ["IdleDetection"],
     },
     {
       name: "JoinAdInterestGroup",
@@ -400,6 +399,11 @@
       depends_on: ["WebUSB"],
     },
     {
+      name: "UsbUnrestricted",
+      permissions_policy_name: "usb-unrestricted",
+      depends_on: ["UnrestrictedUsb"],
+    },
+    {
       // Unload is special and can default to being disabled by default based
       // on the DeprecateUnload flag.
       name: "Unload",
@@ -411,6 +415,11 @@
       permissions_policy_name: "vertical-scroll",
       feature_default: "EnableForAll",
       depends_on: ["ExperimentalPolicies"],
+    },
+    {
+      name: "WebPrinting",
+      permissions_policy_name: "web-printing",
+      depends_on: ["WebPrinting"],
     },
     {
       name: "WebShare",

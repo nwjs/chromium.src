@@ -26,7 +26,12 @@ class RecentFile;
 // All member functions must be called on the UI thread.
 class RecentArcMediaSource : public RecentSource {
  public:
-  explicit RecentArcMediaSource(Profile* profile);
+  // Creates a recent file sources that scans Arc media. The `profile` is used
+  // to create scanners for all known media roots (Documents, Movies, etc.). The
+  // `max_files` parameter limits the maximum number of files returned by this
+  // source to the callback specified in the parameters of the GetRecentFiles
+  // method.
+  RecentArcMediaSource(Profile* profile, size_t max_files);
 
   RecentArcMediaSource(const RecentArcMediaSource&) = delete;
   RecentArcMediaSource& operator=(const RecentArcMediaSource&) = delete;
@@ -34,7 +39,7 @@ class RecentArcMediaSource : public RecentSource {
   ~RecentArcMediaSource() override;
 
   // RecentSource overrides:
-  void GetRecentFiles(Params params) override;
+  void GetRecentFiles(Params params, GetRecentFilesCallback callback) override;
 
  private:
   FRIEND_TEST_ALL_PREFIXES(RecentArcMediaSourceTest, UmaStats);
@@ -52,13 +57,19 @@ class RecentArcMediaSource : public RecentSource {
   const raw_ptr<Profile, ExperimentalAsh> profile_;
   std::vector<std::unique_ptr<MediaRoot>> roots_;
 
-  absl::optional<Params> params_;
-
   // Time when the build started.
   base::TimeTicks build_start_time_;
 
   int num_inflight_roots_ = 0;
   std::vector<RecentFile> files_;
+
+  const size_t max_files_;
+
+  // The callback to be called once all files are gathered. We do not know ahead
+  // of time when this may be the case, due to nested directories. Thus this
+  // class behaves similarly to a Barrier class, except that the number of times
+  // the barrier has to be called varies.
+  GetRecentFilesCallback callback_;
 
   base::WeakPtrFactory<RecentArcMediaSource> weak_ptr_factory_{this};
 };

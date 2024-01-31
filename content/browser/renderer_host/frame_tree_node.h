@@ -283,12 +283,19 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
   // `Sec-Browsing-Topics` header.
   bool browsing_topics() const { return attributes_->browsing_topics; }
 
+  // Tracks iframe's 'adauctionheaders' attribute, indicating whether the
+  // navigation request on this frame should calculate and send the
+  // 'Sec-Ad-Auction-Fetch` header.
+  bool ad_auction_headers() const { return attributes_->ad_auction_headers; }
+
   // Tracks iframe's 'sharedstoragewritable' attribute, indicating what value
-  // the the corresponding `network::ResourceRequest::shared_storage_writable`
-  // should take for the navigation(s) on this frame. If true, the network
+  // the the corresponding
+  // `network::ResourceRequest::shared_storage_writable_eligible` should take
+  // for the navigation(s) on this frame, pending a permissions policy check. If
+  // true, and if the permissions policy check returns "enabled", the network
   // service will send the `Shared-Storage-Write` request header.
-  bool shared_storage_writable() const {
-    return attributes_->shared_storage_writable;
+  bool shared_storage_writable_opted_in() const {
+    return attributes_->shared_storage_writable_opted_in;
   }
   const absl::optional<std::string> html_id() const { return attributes_->id; }
   // This tracks iframe's 'name' attribute instead of window.name, which is
@@ -590,6 +597,10 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
       FencedFramePropertiesNodeSource node_source =
           FencedFramePropertiesNodeSource::kClosestAncestor);
 
+  bool HasFencedFrameProperties() const {
+    return fenced_frame_properties_.has_value();
+  }
+
   // Called from the currently active document via the
   // `Fence.setReportEventDataForAutomaticBeacons` JS API.
   void SetFencedFrameAutomaticBeaconReportEventData(
@@ -598,7 +609,8 @@ class CONTENT_EXPORT FrameTreeNode : public RenderFrameHostOwner {
       const std::vector<blink::FencedFrame::ReportingDestination>& destinations,
       network::AttributionReportingRuntimeFeatures
           attribution_reporting_runtime_features,
-      bool once) override;
+      bool once,
+      bool cross_origin_exposed) override;
 
   // Helper function to clear out automatic beacon data after one automatic
   // beacon if `once` was set to true when calling

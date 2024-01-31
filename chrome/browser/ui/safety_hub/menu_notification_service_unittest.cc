@@ -18,13 +18,14 @@
 #include "chrome/browser/ui/safety_hub/notification_permission_review_service_factory.h"
 #include "chrome/browser/ui/safety_hub/password_status_check_service.h"
 #include "chrome/browser/ui/safety_hub/password_status_check_service_factory.h"
+#include "chrome/browser/ui/safety_hub/safety_hub_constants.h"
 #include "chrome/browser/ui/safety_hub/safety_hub_test_util.h"
 #include "chrome/browser/ui/safety_hub/unused_site_permissions_service_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/password_manager/core/browser/test_password_store.h"
+#include "components/password_manager/core/browser/password_store/test_password_store.h"
 #include "components/permissions/constants.h"
 #include "components/permissions/pref_names.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
@@ -466,5 +467,18 @@ TEST_F(SafetyHubMenuNotificationServiceTest, DismissNotifications) {
   EXPECT_FALSE(
       menu_notification_service()->GetNotificationToShow().has_value());
 
-  // TODO(crbug.com/1443466): Add test for DismissPasswordNotification().
+  // Create mock password menu notification.
+  const std::string& kOrigin = "https://www.example.com";
+  SetMockCredentialEntry(kOrigin, true);
+  notification = menu_notification_service()->GetNotificationToShow();
+  EXPECT_TRUE(notification.has_value());
+  ExpectPluralString(
+      IDS_SETTINGS_SAFETY_HUB_COMPROMISED_PASSWORDS_MENU_NOTIFICATION, 1,
+      notification.value().label);
+
+  // The notification should no longer appear after it has been dismissed.
+  menu_notification_service()->DismissActiveNotificationOfModule(
+      safety_hub::SafetyHubModuleType::PASSWORDS);
+  notification = menu_notification_service()->GetNotificationToShow();
+  EXPECT_FALSE(notification.has_value());
 }

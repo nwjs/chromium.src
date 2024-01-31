@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/browser_desktop_window_tree_host_lacros.h"
 
+#include "base/check.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_non_client_frame_view.h"
@@ -11,7 +12,6 @@
 #include "chrome/browser/ui/views/frame/desktop_browser_frame_lacros.h"
 #include "chrome/browser/ui/views/tabs/tab_drag_controller.h"
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "chromeos/ui/frame/frame_utils.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -62,33 +62,33 @@ BrowserDesktopWindowTreeHostLacros::~BrowserDesktopWindowTreeHostLacros() {
 }
 
 void BrowserDesktopWindowTreeHostLacros::UpdateFrameHints() {
-  auto* const view = browser_view_->frame()->GetFrameView();
-  const bool showing_frame =
-      browser_view_->frame()->UseCustomFrame() && !view->IsFrameCondensed();
   const float scale = device_scale_factor();
   const gfx::Size widget_size_px =
       platform_window()->GetBoundsInPixels().size();
 
-  const float corner_radius =
-      chromeos::GetFrameCornerRadius(browser_view_->GetNativeWindow());
+  auto* wayland_extension = ui::GetWaylandExtension(*platform_window());
+  DCHECK(wayland_extension);
+
+  const gfx::RoundedCornersF window_radii =
+      wayland_extension->GetWindowCornersRadii();
 
   std::vector<gfx::Rect> opaque_region;
-  const bool should_have_rounded_corners = corner_radius > 0;
-  if (showing_frame && should_have_rounded_corners) {
-    gfx::RoundedCornersF frame_radii{corner_radius, corner_radius, 0, 0};
-    if (chromeos::features::IsRoundedWindowsEnabled()) {
-      frame_radii.set_lower_left(corner_radius);
-      frame_radii.set_lower_right(corner_radius);
-    }
 
-    GetContentWindow()->layer()->SetRoundedCornerRadius(frame_radii);
+  const aura::Window* native_window = browser_view_->GetNativeWindow();
+  const bool should_have_rounded_corners =
+      chromeos::ShouldWindowHaveRoundedCorners(native_window);
+  if (should_have_rounded_corners) {
+    GetContentWindow()->layer()->SetRoundedCornerRadius(window_radii);
     GetContentWindow()->layer()->SetIsFastRoundedCorner(true);
 
     // The opaque region is a list of rectangles that contain only fully
     // opaque pixels of the window.  We need to convert the clipping
     // rounded-rect into this format.
+
+    const BrowserNonClientFrameView* view =
+        browser_view_->frame()->GetFrameView();
     gfx::Rect local_bounds = view->GetLocalBounds();
-    gfx::RRectF rounded_corners_rect(gfx::RectF(local_bounds), frame_radii);
+    gfx::RRectF rounded_corners_rect(gfx::RectF(local_bounds), window_radii);
     gfx::RectF rect_f = rounded_corners_rect.rect();
     rect_f.Scale(scale);
 
@@ -134,6 +134,13 @@ void BrowserDesktopWindowTreeHostLacros::UpdateFrameHints() {
   // TODO(crbug.com/1306688): Instead of setting OpaqueRegion, set the rounded
   // corners in dp.
   platform_window()->SetOpaqueRegion(opaque_region);
+
+  // If the window is rounded, we hint the platform to match the drop shadow's
+  // radii to the window's radii. Otherwise, we allow the platform to
+  // determine the drop shadow's radii.
+  if (should_have_rounded_corners) {
+    wayland_extension->SetShadowCornersRadii(window_radii);
+  }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

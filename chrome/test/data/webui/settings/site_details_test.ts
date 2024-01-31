@@ -5,7 +5,7 @@
 // clang-format off
 import {isChromeOS} from 'chrome://resources/js/platform.js';
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
-import {listenOnce} from 'chrome://resources/js/util_ts.js';
+import {listenOnce} from 'chrome://resources/js/util.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 import {ChooserType, ContentSetting, ContentSettingsTypes, SiteDetailsElement, SiteSettingSource, SiteSettingsPrefsBrowserProxyImpl, WebsiteUsageBrowserProxy, WebsiteUsageBrowserProxyImpl} from 'chrome://settings/lazy_load.js';
 import {MetricsBrowserProxyImpl, PrivacyElementInteractions, Router, routes} from 'chrome://settings/settings.js';
@@ -550,39 +550,6 @@ suite('SiteDetails', function() {
         flush();
 
         assertTrue(Boolean(testElement.shadowRoot!.querySelector<HTMLElement>(
-            '#confirmClearStorage #adPersonalization')));
-      });
-});
-
-// TODO(crbug.com/1378703): Remove once PrivacySandboxSettings4 has been rolled
-// out.
-suite('SiteDetailsPrivacySandboxSettings4Disabled', function() {
-  suiteSetup(function() {
-    loadTimeData.overrideValues({
-      isPrivacySandboxSettings4: false,
-    });
-  });
-
-  /** A site list element created before each test. */
-  let testElement: SiteDetailsElement;
-
-  function createSiteDetails(origin: string) {
-    const siteDetailsElement = document.createElement('site-details');
-    document.body.appendChild(siteDetailsElement);
-    Router.getInstance().navigateTo(
-        routes.SITE_SETTINGS_SITE_DETAILS,
-        new URLSearchParams('site=' + origin));
-    return siteDetailsElement;
-  }
-
-  test(
-      'clear data dialog does not warn about ad personalization data removal',
-      function() {
-        const origin = 'https://foo.com:443';
-        testElement = createSiteDetails(origin);
-
-        flush();
-        assertFalse(Boolean(testElement.shadowRoot!.querySelector<HTMLElement>(
             '#confirmClearStorage #adPersonalization')));
       });
 });

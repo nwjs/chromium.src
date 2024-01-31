@@ -56,6 +56,11 @@ class ExpandablePopupParentControllerImpl {
   // `nullptr` is returned in these cases.
   virtual base::WeakPtr<AutofillPopupView> CreateSubPopupView(
       base::WeakPtr<AutofillPopupController> sub_controller) = 0;
+
+  // Returns the number of popups above this one. For example, if `this` is the
+  // second popup, `GetPopupLevel()` returns 1, if `this` is the root popup,
+  // it returns 0.
+  virtual int GetPopupLevel() const = 0;
 };
 
 // This class is a controller for an AutofillPopupView. It implements
@@ -109,7 +114,24 @@ class AutofillPopupControllerImpl
   bool HandleKeyPressEvent(const content::NativeWebKeyboardEvent& event);
 
   // AutofillPopupController:
+  void OnSuggestionsChanged() override;
+  void SelectSuggestion(absl::optional<size_t> index) override;
+  void AcceptSuggestion(int index, base::TimeTicks event_time) override;
+  void PerformButtonActionForSuggestion(int index) override;
+  bool RemoveSuggestion(int list_index) override;
+  int GetLineCount() const override;
   std::vector<Suggestion> GetSuggestions() const override;
+  const Suggestion& GetSuggestionAt(int row) const override;
+  std::u16string GetSuggestionMainTextAt(int row) const override;
+  std::u16string GetSuggestionMinorTextAt(int row) const override;
+  std::vector<std::vector<Suggestion::Text>> GetSuggestionLabelsAt(
+      int row) const override;
+  bool GetRemovalConfirmationText(int list_index,
+                                  std::u16string* title,
+                                  std::u16string* body) override;
+  PopupType GetPopupType() const override;
+  AutofillSuggestionTriggerSource GetAutofillSuggestionTriggerSource()
+      const override;
   bool ShouldIgnoreMouseObservedOutsideItemBoundsCheck() const override;
   base::WeakPtr<AutofillPopupController> OpenSubPopup(
       const gfx::RectF& anchor_bounds,
@@ -137,9 +159,6 @@ class AutofillPopupControllerImpl
   int GetLineCountForTesting() const { return GetLineCount(); }
 
  protected:
-  FRIEND_TEST_ALL_PREFIXES(AutofillPopupControllerUnitTest,
-                           ProperlyResetController);
-
   AutofillPopupControllerImpl(
       base::WeakPtr<AutofillPopupDelegate> delegate,
       content::WebContents* web_contents,
@@ -160,25 +179,6 @@ class AutofillPopupControllerImpl
   const gfx::RectF& element_bounds() const override;
   void SetElementBounds(const gfx::RectF& bounds);
   base::i18n::TextDirection GetElementTextDirection() const override;
-
-  // AutofillPopupController:
-  void OnSuggestionsChanged() override;
-  void SelectSuggestion(absl::optional<size_t> index) override;
-  void AcceptSuggestion(int index, base::TimeTicks event_time) override;
-  void PerformButtonActionForSuggestion(int index) override;
-  bool RemoveSuggestion(int list_index) override;
-  int GetLineCount() const override;
-  const Suggestion& GetSuggestionAt(int row) const override;
-  std::u16string GetSuggestionMainTextAt(int row) const override;
-  std::u16string GetSuggestionMinorTextAt(int row) const override;
-  std::vector<std::vector<Suggestion::Text>> GetSuggestionLabelsAt(
-      int row) const override;
-  bool GetRemovalConfirmationText(int list_index,
-                                  std::u16string* title,
-                                  std::u16string* body) override;
-  PopupType GetPopupType() const override;
-  AutofillSuggestionTriggerSource GetAutofillSuggestionTriggerSource()
-      const override;
 
   // Returns true if the popup still has non-options entries to show the user.
   bool HasSuggestions() const;
@@ -220,6 +220,7 @@ class AutofillPopupControllerImpl
   // ExpandablePopupParentControllerImpl:
   base::WeakPtr<AutofillPopupView> CreateSubPopupView(
       base::WeakPtr<AutofillPopupController> controller) override;
+  int GetPopupLevel() const override;
 
   // Returns `true` if this popup has no parent, and `false` for sub-popups.
   bool IsRootPopup() const;
@@ -251,7 +252,8 @@ class AutofillPopupControllerImpl
   std::vector<Suggestion> suggestions_;
 
   // The trigger source of the `suggestions_`.
-  AutofillSuggestionTriggerSource trigger_source_;
+  AutofillSuggestionTriggerSource trigger_source_ =
+      AutofillSuggestionTriggerSource::kUnspecified;
 
   // If set to true, the popup will stay open regardless of external changes on
   // the machine that would normally cause the popup to be hidden.

@@ -24,6 +24,7 @@
 #include "chrome/browser/webauthn/authenticator_transport.h"
 #include "chrome/browser/webauthn/observable_authenticator_list.h"
 #include "components/webauthn/core/browser/passkey_model.h"
+#include "components/webauthn/core/browser/passkey_model_change.h"
 #include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/global_routing_id.h"
 #include "device/fido/cable/cable_discovery_data.h"
@@ -624,6 +625,10 @@ class AuthenticatorRequestDialogModel
     is_non_webauthn_request_ = is_non_webauthn_request;
   }
 
+  void set_is_enclave_authenticator_available(bool available) {
+    is_enclave_authenticator_available_ = available;
+  }
+
   void set_cable_transport_info(
       absl::optional<bool> extension_is_v2,
       std::vector<std::unique_ptr<device::cablev2::Pairing>> paired_phones,
@@ -775,7 +780,8 @@ class AuthenticatorRequestDialogModel
       device::AuthenticatorType source);
 
   // webauthn::PasskeyModel::Observer:
-  void OnPasskeysChanged() override;
+  void OnPasskeysChanged(
+      const std::vector<webauthn::PasskeyModelChange>& changes) override;
   void OnPasskeyModelShuttingDown() override;
 
   // Identifier for the RenderFrameHost of the frame that initiated the current
@@ -796,6 +802,9 @@ class AuthenticatorRequestDialogModel
 
   // started_ records whether |StartFlow| has been called.
   bool started_ = false;
+
+  // True when the cloud enclave authenticator is available for use.
+  bool is_enclave_authenticator_available_ = false;
 
   // pending_step_ holds requested steps until the UI is shown. The UI is only
   // shown once the TransportAvailabilityInfo is available, but authenticators

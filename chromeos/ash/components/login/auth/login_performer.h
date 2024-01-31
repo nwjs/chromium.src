@@ -16,7 +16,6 @@
 #include "chromeos/ash/components/login/auth/auth_events_recorder.h"
 #include "chromeos/ash/components/login/auth/auth_status_consumer.h"
 #include "chromeos/ash/components/login/auth/authenticator.h"
-#include "chromeos/ash/components/login/auth/extended_authenticator.h"
 #include "chromeos/ash/components/login/auth/public/auth_callbacks.h"
 #include "chromeos/ash/components/login/auth/public/auth_failure.h"
 #include "chromeos/ash/components/login/auth/public/user_context.h"
@@ -96,10 +95,11 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) LoginPerformer
   void OnAuthFailure(const AuthFailure& error) override;
   void OnAuthSuccess(const UserContext& user_context) override;
   void OnOffTheRecordAuthSuccess() override;
-  void OnPasswordChangeDetectedLegacy(const UserContext& user_context) override;
-  void OnPasswordChangeDetected(std::unique_ptr<UserContext>) override;
+  void OnOnlinePasswordUnusable(std::unique_ptr<UserContext>, bool) override;
   void OnOldEncryptionDetected(std::unique_ptr<UserContext>,
                                bool has_incomplete_migration) override;
+  void OnLocalAuthenticationRequired(
+      std::unique_ptr<UserContext> user_context) override;
 
   // Migrates cryptohome using |old_password| specified.
   void RecoverEncryptedData(const std::string& old_password);
@@ -114,15 +114,6 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) LoginPerformer
 
   // True if password change has been detected.
   bool password_changed() { return password_changed_; }
-
-  // Number of times we've been called with OnPasswordChangeDetected().
-  // If user enters incorrect old password, same LoginPerformer instance will
-  // be called so callback count makes it possible to distinguish initial
-  // "password changed detected" event from further attempts to enter old
-  // password for cryptohome migration (when > 1).
-  int password_changed_callback_count() {
-    return password_changed_callback_count_;
-  }
 
   void set_delegate(Delegate* delegate) { delegate_ = delegate; }
 
@@ -193,10 +184,12 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) LoginPerformer
   void NotifyAuthFailure(const AuthFailure& error);
   void NotifyAuthSuccess(const UserContext& user_context);
   void NotifyOffTheRecordAuthSuccess();
-  void NotifyPasswordChangeDetectedLegacy(const UserContext& user_context);
-  void NotifyPasswordChangeDetected(std::unique_ptr<UserContext> user_context);
+  void NotifyOnlinePasswordUnusable(std::unique_ptr<UserContext> user_context,
+                                    bool online_password_mismatch);
   void NotifyOldEncryptionDetected(std::unique_ptr<UserContext> user_context,
                                    bool has_incomplete_migration);
+  void NotifyLocalAuthenticationRequired(
+      std::unique_ptr<UserContext> user_context);
   void NotifyAllowlistCheckFailure();
 
   // Callback passed to `LoadAndApplyEarlyPrefs`.
@@ -219,7 +212,6 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH) LoginPerformer
   // True if password change has been detected.
   // Once correct password is entered homedir migration is executed.
   bool password_changed_ = false;
-  int password_changed_callback_count_ = 0;
 
   // Authorization mode type.
   AuthorizationMode auth_mode_ = AuthorizationMode::kInternal;

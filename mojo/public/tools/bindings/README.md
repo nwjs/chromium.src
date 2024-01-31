@@ -351,6 +351,37 @@ struct Employee {
 The effect of nested definitions on generated bindings varies depending on the
 target language. See [documentation for individual target languages](#Generated-Code-For-Target-Languages).
 
+### Features
+
+Features can be declared with a `name` and `default_state` and can be attached
+in mojo to interfaces or methods using the `RuntimeFeature` attribute. If the
+feature is disabled at runtime the method will crash, and the interface will
+refused to be bound / instantiated. Features cannot serialized to be sent over
+IPC at this time.
+
+```
+module experimental.mojom;
+
+feature kUseElevators {
+  const string name = "UseElevators";
+  const bool default_state = false;
+}
+
+[RuntimeFeature=kUseElevators]
+interface Elevator {
+  // This interface cannot be bound or called if the feature is disabled.
+}
+
+interface Building {
+  // This method cannot be called if the feature is disabled.
+  [RuntimeFeature=kUseElevators]
+  CallElevator(int floor);
+
+  // This method can be called.
+  RingDoorbell(int volune);
+}
+```
+
 ### Interfaces
 
 An **interface** is a logical bundle of parameterized request messages. Each
@@ -461,6 +492,16 @@ interesting attributes supported today.
   string representation as specified by RFC 4122. New UUIDs can be generated
   with common tools such as `uuidgen`.
 
+* **`[RuntimeFeature=feature]`**
+  The `RuntimeFeature` attribute should reference a mojo `feature`. If this
+  feature is enabled (e.g. using `--enable-features={feature.name}`) then the
+  interface behaves entirely as expected. If the feature is not enabled the
+  interface cannot be bound to a concrete receiver or remote - attempting to do
+  so will result in the receiver or remote being reset() to an unbound state.
+  Note that this is a different concept to the build-time `EnableIf` directive.
+  `RuntimeFeature` is currently only supported for C++ bindings and has no
+  effect for, say, Java or TypeScript bindings (see https://crbug.com/1278253).
+
 * **`[EnableIf=value]`**:
   The `EnableIf` attribute is used to conditionally enable definitions when the
   mojom is parsed. If the `mojom` target in the GN file does not include the
@@ -511,6 +552,13 @@ interesting attributes supported today.
   `AllowedContext` attribute to a method is a strong indication that you need
    a detailed security review of your design - please reach out to the security
    team.
+
+* **`[SupportsUrgent]`**:
+  The `SupportsUrgent` attribute is used in conjunction with
+  `mojo::UrgentMessageScope` in Chromium to tag messages as having high
+  priority. The IPC layer notifies the underlying scheduler upon both receiving
+  and processing an urgent message. At present, this attribute only affects
+  channel associated messages in the renderer process.
 
 ## Generated Code For Target Languages
 

@@ -19,6 +19,7 @@
 #include "components/viz/service/display/output_surface_client.h"
 #include "components/viz/service/display/output_surface_frame.h"
 #include "gpu/GLES2/gl2extchromium.h"
+#include "gpu/command_buffer/client/client_shared_image.h"
 #include "gpu/command_buffer/common/mailbox_holder.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/common/swap_buffers_complete_params.h"
@@ -282,15 +283,18 @@ void FakeSkiaOutputSurface::CopyOutput(
     // anything into the mailbox, but currently the only tests that use this
     // don't actually check the returned texture data.
     auto* sii = GetSharedImageInterface();
-    gpu::Mailbox local_mailbox = sii->CreateSharedImage(
+    auto client_shared_image = sii->CreateSharedImage(
         SinglePlaneFormat::kRGBA_8888, geometry.result_selection.size(),
         color_space, kTopLeft_GrSurfaceOrigin, kPremul_SkAlphaType,
         gpu::SHARED_IMAGE_USAGE_GLES2, "CopyOutput", gpu::kNullSurfaceHandle);
+    CHECK(client_shared_image);
+    gpu::Mailbox local_mailbox = client_shared_image->mailbox();
 
     CopyOutputResult::ReleaseCallbacks release_callbacks;
-    release_callbacks.push_back(base::BindPostTaskToCurrentDefault(
-        base::BindOnce(&FakeSkiaOutputSurface::DestroyCopyOutputTexture,
-                       weak_ptr_factory_.GetWeakPtr(), local_mailbox)));
+    release_callbacks.push_back(
+        base::BindPostTaskToCurrentDefault(base::BindOnce(
+            &FakeSkiaOutputSurface::DestroyCopyOutputTexture,
+            weak_ptr_factory_.GetWeakPtr(), std::move(client_shared_image))));
 
     request->SendResult(std::make_unique<CopyOutputTextureResult>(
         CopyOutputResult::Format::RGBA, geometry.result_bounds,
@@ -361,9 +365,8 @@ bool FakeSkiaOutputSurface::GetGrBackendTexture(
       image_context.mailbox_holder().sync_token.GetConstData());
   auto texture_id = gl->CreateAndTexStorage2DSharedImageCHROMIUM(
       image_context.mailbox_holder().mailbox.name);
-  auto gl_format_desc = gpu::ToGLFormatDesc(
-      image_context.format(), /*plane_index=*/0,
-      context_provider()->ContextCapabilities().angle_rgbx_internal_format);
+  auto gl_format_desc = gpu::GLFormatCaps().ToGLFormatDesc(
+      image_context.format(), /*plane_index=*/0);
   GrGLTextureInfo gl_texture_info = {
       image_context.mailbox_holder().texture_target, texture_id,
       gl_format_desc.storage_internal_format};
@@ -384,10 +387,11 @@ void FakeSkiaOutputSurface::SwapBuffersAck() {
 }
 
 void FakeSkiaOutputSurface::DestroyCopyOutputTexture(
-    const gpu::Mailbox& mailbox,
+    scoped_refptr<gpu::ClientSharedImage> shared_image,
     const gpu::SyncToken& sync_token,
     bool is_lost) {
-  GetSharedImageInterface()->DestroySharedImage(sync_token, mailbox);
+  GetSharedImageInterface()->DestroySharedImage(sync_token,
+                                                std::move(shared_image));
 }
 
 void FakeSkiaOutputSurface::ScheduleGpuTaskForTesting(

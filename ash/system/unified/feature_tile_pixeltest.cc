@@ -61,7 +61,7 @@ class FeatureTilePixelTest : public AshTestBase {
   }
 
   // AshTestBase:
-  absl::optional<pixel_test::InitParams> CreatePixelTestInitParams()
+  std::optional<pixel_test::InitParams> CreatePixelTestInitParams()
       const override {
     return pixel_test::InitParams();
   }
@@ -71,11 +71,10 @@ class FeatureTilePixelTest : public AshTestBase {
 };
 
 TEST_F(FeatureTilePixelTest, PrimaryTile) {
-  auto* tile = widget_->GetContentsView()->AddChildView(
-      std::make_unique<FeatureTile>(base::DoNothing(), /*is_togglable=*/true,
-                                    FeatureTile::TileType::kPrimary));
-  // Use the default size from go/cros-quick-settings-spec
-  tile->SetPreferredSize(gfx::Size(180, 64));
+  auto* tile =
+      widget_->GetContentsView()->AddChildView(std::make_unique<FeatureTile>(
+          views::Button::PressedCallback(), /*is_togglable=*/true,
+          FeatureTile::TileType::kPrimary));
   tile->SetVectorIcon(vector_icons::kDogfoodIcon);
   tile->SetLabel(u"Label");
   tile->SetSubLabel(u"Sub-label");
@@ -105,18 +104,49 @@ TEST_F(FeatureTilePixelTest, PrimaryTile) {
       /*revision_number=*/0, widget_.get()));
 }
 
+TEST_F(FeatureTilePixelTest, PrimaryTileWithoutDiveInButton) {
+  auto* tile =
+      widget_->GetContentsView()->AddChildView(std::make_unique<FeatureTile>(
+          views::Button::PressedCallback(), /*is_togglable=*/true,
+          FeatureTile::TileType::kPrimary));
+  tile->SetVectorIcon(vector_icons::kDogfoodIcon);
+  tile->SetLabel(u"Label");
+  tile->SetSubLabel(u"Sub-label");
+  // Needed for accessibility paint checks.
+  tile->SetTooltipText(u"Tooltip");
+
+  EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
+      "basic",
+      /*revision_number=*/0, widget_.get()));
+
+  widget_->GetFocusManager()->SetFocusedView(tile);
+  EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
+      "focused",
+      /*revision_number=*/0, widget_.get()));
+
+  tile->SetToggled(true);
+  EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
+      "toggled",
+      /*revision_number=*/0, widget_.get()));
+
+  // Test eliding.
+  tile->SetLabel(u"A very very long label");
+  tile->SetSubLabel(u"A very very long label");
+  EXPECT_TRUE(GetPixelDiffer()->CompareUiComponentsOnPrimaryScreen(
+      "elided",
+      /*revision_number=*/0, widget_.get()));
+}
+
 TEST_F(FeatureTilePixelTest, PrimaryTile_RTL) {
   // Turn on RTL mode.
   base::i18n::SetRTLForTesting(true);
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(base::i18n::IsRTL());
 
-  auto* tile = widget_->GetContentsView()->AddChildView(
-      std::make_unique<FeatureTile>(base::DoNothing(), /*is_togglable=*/true,
-                                    FeatureTile::TileType::kPrimary));
-
-  // Use the default size from go/cros-quick-settings-spec
-  tile->SetPreferredSize(gfx::Size(180, 64));
+  auto* tile =
+      widget_->GetContentsView()->AddChildView(std::make_unique<FeatureTile>(
+          views::Button::PressedCallback(), /*is_togglable=*/true,
+          FeatureTile::TileType::kPrimary));
   tile->SetVectorIcon(vector_icons::kDogfoodIcon);
   tile->SetLabel(u"Label");
   tile->SetSubLabel(u"Sub-label");
@@ -131,11 +161,10 @@ TEST_F(FeatureTilePixelTest, PrimaryTile_RTL) {
 }
 
 TEST_F(FeatureTilePixelTest, CompactTile) {
-  auto* tile = widget_->GetContentsView()->AddChildView(
-      std::make_unique<FeatureTile>(base::DoNothing(), /*is_togglable=*/true,
-                                    FeatureTile::TileType::kCompact));
-  // Use the default size from go/cros-quick-settings-spec
-  tile->SetPreferredSize(gfx::Size(86, 64));
+  auto* tile =
+      widget_->GetContentsView()->AddChildView(std::make_unique<FeatureTile>(
+          views::Button::PressedCallback(), /*is_togglable=*/true,
+          FeatureTile::TileType::kCompact));
   tile->SetVectorIcon(vector_icons::kDogfoodIcon);
   tile->SetLabel(u"Multi-line label");
   // Needed for accessibility paint checks.

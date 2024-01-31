@@ -11,6 +11,10 @@
     width: var(--wallpaper-grid-item-width, calc(100% / 3 - 0.34px));
   }
 
+  :host([data-is-promoted-tile]) {
+    padding: 0 calc(var(--personalization-app-grid-item-spacing) / 2);
+  }
+
   @media(min-width: 720px) {
     :host {
       /* Subtract 0.25px to fix subpixel rounding issues with iron-list. This
@@ -121,6 +125,12 @@
     z-index: 1;
   }
 
+  :host([data-is-promoted-tile]) #text,
+  :host([data-sea-pen]) #text {
+    position: relative;
+    top: 8px;
+  }
+
   #text {
     bottom: 0;
     box-sizing: border-box;
@@ -148,12 +158,14 @@
 
   .primary-text,
   ::slotted(.primary-text) {
-    font: var(--cros-headline-1-font);
+    font: var(--cros-title-2-font);
   }
 
-  :host-context(body.jelly-enabled) .primary-text,
-  :host-context(body.jelly-enabled) ::slotted(.primary-text) {
-    font: var(--cros-title-2-font);
+  :host([data-is-promoted-tile]) .primary-text,
+  :host([data-is-promoted-tile]) ::slotted(.primary-text),
+  :host([data-sea-pen]) .primary-text,
+  :host([data-sea-pen]) ::slotted(.primary-text) {
+    font: var(--cros-display-6_regular-font);
   }
 
   p.primary-text:last-of-type,
@@ -173,16 +185,20 @@
     top: 8px;
   }
 
+  .check-mark-icon-container {
+    left: 8px;
+    position: absolute;
+    top: 8px;
+    z-index: 2;
+  }
+
   iron-icon {
     --iron-icon-height: 20px;
     --iron-icon-width: 20px;
     animation-duration: 200ms;
     animation-name: iron-icon-scale;
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1.0);
-    left: 8px;
-    position: absolute;
-    top: 8px;
-    z-index: 2;
+    margin-inline: 0;
   }
 
   @keyframes iron-icon-scale {
@@ -234,5 +250,7 @@
       restamp>
     <info-svg id="infoIcon" title$="[[infoText]]" part="info-icon"></info-svg>
   </template>
-  <iron-icon part="icon" icon="[[checkmarkIcon_]]"></iron-icon>
+  <div class="check-mark-icon-container" part="icon">
+    <iron-icon icon="[[checkmarkIcon_]]"></iron-icon>
+  </div>
 </div>

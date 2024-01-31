@@ -11,7 +11,7 @@
 #import "ios/chrome/browser/reading_list/model/reading_list_constants.h"
 #import "ios/chrome/browser/shared/ui/elements/activity_overlay_egtest_util.h"
 #import "ios/chrome/browser/shared/ui/table_view/table_view_navigation_controller_constants.h"
-#import "ios/chrome/browser/signin/fake_system_identity.h"
+#import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/ui/authentication/authentication_constants.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_constants.h"
 #import "ios/chrome/browser/ui/authentication/signin_earl_grey.h"
@@ -144,8 +144,6 @@ std::unique_ptr<net::test_server::HttpResponse> StandardResponse(
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
-  config.features_enabled.push_back(
-      syncer::kReadingListEnableDualReadingListModel);
   config.features_enabled.push_back(
       syncer::kReadingListEnableSyncTransportModeUponSignIn);
   if ([self isRunningTest:@selector

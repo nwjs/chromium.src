@@ -60,7 +60,6 @@
 #include "content/browser/browser_process_io_thread.h"
 #include "content/browser/browser_thread_impl.h"
 #include "content/browser/first_party_sets/first_party_sets_handler_impl.h"
-#include "content/browser/first_party_sets/local_set_declaration.h"
 #include "content/browser/gpu/gpu_main_thread_factory.h"
 #include "content/browser/renderer_host/render_process_host_impl.h"
 #include "content/browser/scheduler/browser_task_executor.h"
@@ -104,6 +103,7 @@
 #include "mojo/public/cpp/system/dynamic_library_support.h"
 #include "mojo/public/cpp/system/invitation.h"
 #include "mojo/public/cpp/system/message_pipe.h"
+#include "net/first_party_sets/local_set_declaration.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "sandbox/policy/sandbox.h"
 #include "sandbox/policy/sandbox_type.h"
@@ -124,7 +124,6 @@
 #include <cstring>
 
 #include "base/trace_event/trace_event_etw_export_win.h"
-#include "base/win/dark_mode_support.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/display/win/dpi.h"
 #elif BUILDFLAG(IS_MAC)
@@ -890,11 +889,6 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
     if (base::StringToDouble(scale_factor_string, &scale_factor))
       display::win::SetDefaultDeviceScaleFactor(scale_factor);
   }
-
-  // Make sure the 'uxtheme.dll' is pinned and that the process enabled to
-  // support the OS dark mode only for the browser process.
-  if (process_type.empty())
-    base::win::AllowDarkModeForApp(true);
 #endif
 
   RegisterContentSchemes(delegate_->ShouldLockSchemeRegistry());
@@ -929,7 +923,9 @@ int ContentMainRunnerImpl::Initialize(ContentMainParams params) {
     tracing::EnableStartupTracingIfNeeded();
 
 #if BUILDFLAG(IS_WIN)
+#if !BUILDFLAG(USE_PERFETTO_CLIENT_LIBRARY)
   base::trace_event::TraceEventETWExport::EnableETWExport();
+#endif
 #endif  // BUILDFLAG(IS_WIN)
 
   // Android tracing started at the beginning of the method.
@@ -1262,7 +1258,7 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
       // Minimal browser mode doesn't initialize First-Party Sets the "usual"
       // way, so we do it manually.
       content::FirstPartySetsHandlerImpl::GetInstance()->Init(
-          base::FilePath(), LocalSetDeclaration());
+          base::FilePath(), net::LocalSetDeclaration());
     }
 
     discardable_shared_memory_manager_ =

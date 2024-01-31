@@ -21,6 +21,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
+#include "base/types/cxx23_to_underlying.h"
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/ash/arc/fileapi/arc_documents_provider_util.h"
@@ -445,6 +446,8 @@ void CloudOpenTask::OpenOrMoveFiles() {
   OfficeFilesSourceVolume source_volume;
   if (UrlIsOnODFS(profile_, file_urls_.front())) {
     source_volume = OfficeFilesSourceVolume::kMicrosoftOneDrive;
+  } else if (UrlIsOnAndroidOneDrive(profile_, file_urls_.front())) {
+    source_volume = OfficeFilesSourceVolume::kAndroidOneDriveDocumentsProvider;
   } else {
     auto* volume_manager = file_manager::VolumeManager::Get(profile_);
     base::WeakPtr<file_manager::Volume> source =
@@ -465,14 +468,15 @@ void CloudOpenTask::OpenOrMoveFiles() {
         OfficeFilesTransferRequired::kNotRequired);
     OpenAlreadyHostedDriveUrls();
   } else if (cloud_provider_ == CloudProvider::kOneDrive &&
-             UrlIsOnODFS(profile_, file_urls_.front())) {
+             source_volume == OfficeFilesSourceVolume::kMicrosoftOneDrive) {
     // The files are on OneDrive already, selected from ODFS.
     transfer_required_ = OfficeFilesTransferRequired::kNotRequired;
     cloud_open_metrics_->LogTransferRequired(
         OfficeFilesTransferRequired::kNotRequired);
     OpenODFSUrls(OfficeTaskResult::kOpened);
   } else if (cloud_provider_ == CloudProvider::kOneDrive &&
-             UrlIsOnAndroidOneDrive(profile_, file_urls_.front())) {
+             source_volume ==
+                 OfficeFilesSourceVolume::kAndroidOneDriveDocumentsProvider) {
     // The files are on OneDrive already, selected from Android OneDrive.
     transfer_required_ = OfficeFilesTransferRequired::kNotRequired;
     cloud_open_metrics_->LogTransferRequired(
@@ -611,21 +615,6 @@ void CloudOpenTask::ConfirmMoveOrStartUpload() {
 bool ShouldFixUpOffice(Profile* profile, const CloudProvider cloud_provider) {
   return cloud_provider == CloudProvider::kOneDrive &&
          !(IsODFSMounted(profile) && IsOfficeWebAppInstalled(profile));
-}
-
-bool UrlIsOnODFS(Profile* profile, const FileSystemURL& url) {
-  ash::file_system_provider::util::FileSystemURLParser parser(url);
-  if (!parser.Parse()) {
-    return false;
-  }
-
-  file_system_provider::ProviderId provider_id =
-      file_system_provider::ProviderId::CreateFromExtensionId(
-          extension_misc::kODFSExtensionId);
-  if (parser.file_system()->GetFileSystemInfo().provider_id() != provider_id) {
-    return false;
-  }
-  return true;
 }
 
 bool UrlIsOnAndroidOneDrive(Profile* profile, const FileSystemURL& url) {
@@ -800,21 +789,18 @@ void CloudOpenTask::StartUpload() {
   }
 }
 
-void CloudOpenTask::FinishedDriveUpload(absl::optional<GURL> url,
+void CloudOpenTask::FinishedDriveUpload(OfficeTaskResult task_result,
+                                        absl::optional<GURL> url,
                                         int64_t size) {
   DCHECK_GT(pending_uploads_, 0UL);
   if (url.has_value()) {
     upload_total_size_ += size;
     fm_tasks::SetOfficeFileMovedToGoogleDrive(profile_, base::Time::Now());
-    // Open the URL.
-    const OfficeTaskResult task_result_uma =
-        transfer_required_ == OfficeFilesTransferRequired::kCopy
-            ? OfficeTaskResult::kCopied
-            : OfficeTaskResult::kMoved;
-    OpenUploadedDriveUrl(url.value(), task_result_uma);
+    // Log TaskResult after open is tried.
+    OpenUploadedDriveUrl(url.value(), task_result);
   } else {
-    has_upload_errors_ = true;
-    cloud_open_metrics_->LogTaskResult(OfficeTaskResult::kFailedToUpload);
+    cloud_open_metrics_->LogTaskResult(task_result);
+    has_upload_errors_ = task_result == OfficeTaskResult::kFailedToUpload;
   }
   if (--pending_uploads_) {
     return;
@@ -826,6 +812,7 @@ void CloudOpenTask::FinishedDriveUpload(absl::optional<GURL> url,
 
 void CloudOpenTask::FinishedOneDriveUpload(
     base::WeakPtr<Profile> profile_weak_ptr,
+    OfficeTaskResult task_result,
     absl::optional<storage::FileSystemURL> url,
     int64_t size) {
   DCHECK_GT(pending_uploads_, 0UL);
@@ -837,16 +824,13 @@ void CloudOpenTask::FinishedOneDriveUpload(
       return;
     }
     fm_tasks::SetOfficeFileMovedToOneDrive(profile, base::Time::Now());
-    const OfficeTaskResult task_result_uma =
-        transfer_required_ == OfficeFilesTransferRequired::kCopy
-            ? OfficeTaskResult::kCopied
-            : OfficeTaskResult::kMoved;
+    // Log TaskResult after open is tried.
     OpenODFSUrl(profile, url.value(),
                 base::BindOnce(&CloudOpenTask::LogOneDriveOpenResultUMA, this,
-                               task_result_uma));
+                               task_result));
   } else {
-    has_upload_errors_ = true;
-    cloud_open_metrics_->LogTaskResult(OfficeTaskResult::kFailedToUpload);
+    cloud_open_metrics_->LogTaskResult(task_result);
+    has_upload_errors_ = task_result == OfficeTaskResult::kFailedToUpload;
   }
   if (--pending_uploads_) {
     return;
@@ -1042,7 +1026,7 @@ void CloudOpenTask::OnDialogComplete(const std::string& user_response) {
   // (and for StartUpload?).
   if (user_response == kUserActionConfirmOrUploadToGoogleDrive) {
     cloud_provider_ = CloudProvider::kGoogleDrive;
-    cloud_open_metrics_->UpdateCloudProvider(cloud_provider_);
+    cloud_open_metrics_->set_cloud_provider(cloud_provider_);
 
     // Because we treat Docs/Sheets/Slides as three separate apps, only set
     // the default handler for the types that we are dealing with.
@@ -1072,8 +1056,6 @@ void CloudOpenTask::OnDialogComplete(const std::string& user_response) {
     // Office/OneDrive.
     OpenOrMoveFiles();
   } else if (user_response == kUserActionUploadToGoogleDrive) {
-    cloud_provider_ = CloudProvider::kGoogleDrive;
-    cloud_open_metrics_->UpdateCloudProvider(cloud_provider_);
     fm_tasks::SetOfficeMoveConfirmationShownForDrive(profile_, true);
     SourceType source_type = GetSourceType(profile_, file_urls_[0]);
     switch (source_type) {
@@ -1109,7 +1091,7 @@ void CloudOpenTask::OnDialogComplete(const std::string& user_response) {
     UMA_HISTOGRAM_ENUMERATION(kFileHandlerSelectionMetricName,
                               OfficeSetupFileHandler::kMicrosoft365);
     cloud_provider_ = CloudProvider::kOneDrive;
-    cloud_open_metrics_->UpdateCloudProvider(cloud_provider_);
+    cloud_open_metrics_->set_cloud_provider(cloud_provider_);
     InitAndShowDialog(mojom::DialogPage::kOneDriveSetup);
   } else if (user_response == kUserActionCancel) {
     cloud_open_metrics_->LogTaskResult(OfficeTaskResult::kCancelledAtSetup);
@@ -1163,7 +1145,8 @@ void CloudOpenTask::LocalTaskExecuted(
   if (!error_message.empty()) {
     LOG(ERROR) << "Execution of local file task with app id " << task.app_id
                << " to open office files. Led to error message: "
-               << error_message << " and result: " << result;
+               << error_message
+               << " and result: " << base::to_underlying(result);
     return;
   }
 

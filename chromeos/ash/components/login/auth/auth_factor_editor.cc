@@ -15,6 +15,8 @@
 #include "chromeos/ash/components/cryptohome/auth_factor_input.h"
 #include "chromeos/ash/components/cryptohome/common_types.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_util.h"
+#include "chromeos/ash/components/cryptohome/error_types.h"
+#include "chromeos/ash/components/cryptohome/error_util.h"
 #include "chromeos/ash/components/cryptohome/system_salt_getter.h"
 #include "chromeos/ash/components/cryptohome/userdataauth_util.h"
 #include "chromeos/ash/components/dbus/constants/cryptohome_key_delegate_constants.h"
@@ -330,7 +332,6 @@ void AuthFactorEditor::RemovePinFactor(std::unique_ptr<UserContext> context,
 
 void AuthFactorEditor::AddRecoveryFactor(std::unique_ptr<UserContext> context,
                                          AuthOperationCallback callback) {
-  CHECK(features::IsCryptohomeRecoveryEnabled());
   DCHECK(!context->GetAuthSessionId().empty());
 
   // TODO(crbug.com/1310312): Check whether a recovery key already exists and
@@ -369,7 +370,6 @@ void AuthFactorEditor::AddRecoveryFactor(std::unique_ptr<UserContext> context,
 void AuthFactorEditor::RotateRecoveryFactor(
     std::unique_ptr<UserContext> context,
     AuthOperationCallback callback) {
-  CHECK(features::IsCryptohomeRecoveryEnabled());
   CHECK(!context->GetAuthSessionId().empty());
 
   LOGIN_LOG(EVENT) << "Rotating recovery key";
@@ -404,7 +404,6 @@ void AuthFactorEditor::RotateRecoveryFactor(
 void AuthFactorEditor::RemoveRecoveryFactor(
     std::unique_ptr<UserContext> context,
     AuthOperationCallback callback) {
-  CHECK(features::IsCryptohomeRecoveryEnabled());
   DCHECK(!context->GetAuthSessionId().empty());
 
   // TODO(crbug.com/1310312): Check whether a recovery key already exists and
@@ -510,7 +509,7 @@ void AuthFactorEditor::OnListAuthFactors(
     AuthOperationCallback callback,
     absl::optional<user_data_auth::ListAuthFactorsReply> reply) {
   auto error = user_data_auth::ReplyToCryptohomeError(reply);
-  if (error != user_data_auth::CRYPTOHOME_ERROR_NOT_SET) {
+  if (cryptohome::HasError(error)) {
     LOGIN_LOG(ERROR) << "Could not list auth factors " << error;
     std::move(callback).Run(std::move(context), AuthenticationError{error});
     return;
@@ -584,7 +583,7 @@ void AuthFactorEditor::OnAddAuthFactor(
     AuthOperationCallback callback,
     absl::optional<user_data_auth::AddAuthFactorReply> reply) {
   auto error = user_data_auth::ReplyToCryptohomeError(reply);
-  if (error != user_data_auth::CRYPTOHOME_ERROR_NOT_SET) {
+  if (cryptohome::HasError(error)) {
     LOGIN_LOG(ERROR) << "AddAuthFactor failed with error " << error;
     std::move(callback).Run(std::move(context), AuthenticationError{error});
     return;
@@ -602,7 +601,7 @@ void AuthFactorEditor::OnUpdateAuthFactor(
     AuthOperationCallback callback,
     absl::optional<user_data_auth::UpdateAuthFactorReply> reply) {
   auto error = user_data_auth::ReplyToCryptohomeError(reply);
-  if (error != user_data_auth::CRYPTOHOME_ERROR_NOT_SET) {
+  if (cryptohome::HasError(error)) {
     LOGIN_LOG(ERROR) << "UpdateAuthFactor failed with error " << error;
     std::move(callback).Run(std::move(context), AuthenticationError{error});
     return;
@@ -618,7 +617,7 @@ void AuthFactorEditor::OnRemoveAuthFactor(
     AuthOperationCallback callback,
     absl::optional<::user_data_auth::RemoveAuthFactorReply> reply) {
   auto error = user_data_auth::ReplyToCryptohomeError(reply);
-  if (error != user_data_auth::CRYPTOHOME_ERROR_NOT_SET) {
+  if (cryptohome::HasError(error)) {
     LOG(WARNING) << "RemoveAuthFactor failed with error " << error;
     std::move(callback).Run(std::move(context), AuthenticationError{error});
     return;

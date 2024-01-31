@@ -46,7 +46,6 @@
 #include "components/content_settings/core/common/content_settings_pattern.h"
 #include "components/content_settings/core/common/content_settings_utils.h"
 #include "components/permissions/contexts/bluetooth_chooser_context.h"
-#include "components/permissions/features.h"
 #include "components/permissions/object_permission_context_base.h"
 #include "components/permissions/permission_decision_auto_blocker.h"
 #include "components/permissions/permission_util.h"
@@ -177,7 +176,8 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     {ContentSettingsType::HTTP_ALLOWED, nullptr},
     {ContentSettingsType::HTTPS_ENFORCED, nullptr},
     {ContentSettingsType::FORMFILL_METADATA, nullptr},
-    {ContentSettingsType::FEDERATED_IDENTITY_ACTIVE_SESSION, nullptr},
+    {ContentSettingsType::DEPRECATED_FEDERATED_IDENTITY_ACTIVE_SESSION,
+     nullptr},
     {ContentSettingsType::AUTO_DARK_WEB_CONTENT, nullptr},
     {ContentSettingsType::REQUEST_DESKTOP_SITE, nullptr},
     {ContentSettingsType::NOTIFICATION_INTERACTIONS, nullptr},
@@ -204,6 +204,7 @@ const ContentSettingsTypeNameEntry kContentSettingsTypeGroupNames[] = {
     // for the integration with Safety Hub.
     {ContentSettingsType::FILE_SYSTEM_ACCESS_EXTENDED_PERMISSION, nullptr},
     {ContentSettingsType::TPCD_HEURISTICS_GRANTS, nullptr},
+    {ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION, nullptr},
 };
 
 static_assert(std::size(kContentSettingsTypeGroupNames) ==
@@ -310,13 +311,9 @@ SiteSettingSource CalculateSiteSettingSource(
   return SiteSettingSource::kPreference;
 }
 
-bool PatternAppliesToWebUISchemes(const ContentSettingPatternSource& pattern) {
-  return pattern.primary_pattern.GetScheme() ==
-             ContentSettingsPattern::SchemeType::SCHEME_CHROME ||
-         pattern.primary_pattern.GetScheme() ==
-             ContentSettingsPattern::SchemeType::SCHEME_CHROMEUNTRUSTED ||
-         pattern.primary_pattern.GetScheme() ==
-             ContentSettingsPattern::SchemeType::SCHEME_DEVTOOLS;
+bool IsFromWebUIAllowlistSource(const ContentSettingPatternSource& pattern) {
+  return HostContentSettingsMap::GetProviderTypeFromSource(pattern.source) ==
+         HostContentSettingsMap::WEBUI_ALLOWLIST_PROVIDER;
 }
 
 // If the given |pattern| represents an individual origin, Isolated Web App, or
@@ -571,8 +568,7 @@ const std::vector<ContentSettingsType>& GetVisiblePermissionCategories() {
       base_types->push_back(ContentSettingsType::AUTO_PICTURE_IN_PICTURE);
     }
 
-    if (base::FeatureList::IsEnabled(
-            permissions::features::kBlockMidiByDefault)) {
+    if (base::FeatureList::IsEnabled(features::kBlockMidiByDefault)) {
       base_types->push_back(ContentSettingsType::MIDI);
     } else {
       base_types->push_back(ContentSettingsType::MIDI_SYSEX);
@@ -848,8 +844,8 @@ void GetRawExceptionsForContentSettingsType(
       continue;
     }
 
-    // Don't add WebUI settings.
-    if (PatternAppliesToWebUISchemes(setting)) {
+    // Don't add allowlisted settings.
+    if (IsFromWebUIAllowlistSource(setting)) {
       continue;
     }
 
@@ -960,6 +956,8 @@ void GetExceptionsForContentType(ContentSettingsType type,
 
   // Display the URLs with File System entries that are granted
   // permissions via File System Access Persistent Permissions.
+  // TODO(crbug.com/1467574): Remove `kFileSystemAccessPersistentPermissions`
+  // flag after FSA Persistent Permissions feature launch.
   if (base::FeatureList::IsEnabled(
           features::kFileSystemAccessPersistentPermissions) &&
       (type == ContentSettingsType::FILE_SYSTEM_READ_GUARD ||
@@ -1097,11 +1095,12 @@ std::vector<ContentSettingPatternSource>
 GetSingleOriginExceptionsForContentType(HostContentSettingsMap* map,
                                         ContentSettingsType content_type) {
   ContentSettingsForOneType entries = map->GetSettingsForOneType(content_type);
-  // Exclude any entries that don't represent a single webby top-frame origin.
+  // Exclude any entries that are allowlisted or don't represent a single
+  // top-frame origin.
   base::EraseIf(entries, [](const ContentSettingPatternSource& e) {
     return !content_settings::PatternAppliesToSingleOrigin(
                e.primary_pattern, e.secondary_pattern) ||
-           PatternAppliesToWebUISchemes(e);
+           IsFromWebUIAllowlistSource(e);
   });
   return entries;
 }

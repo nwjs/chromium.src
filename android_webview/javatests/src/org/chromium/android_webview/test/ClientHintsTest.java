@@ -18,6 +18,8 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwCookieManager;
@@ -48,9 +50,10 @@ import java.util.regex.Pattern;
  * mobile is always true because there is some test bots don't set to use mobile user-agent.
  */
 @DoNotBatch(reason = "These tests conflict with each other.")
-@RunWith(AwJUnit4ClassRunner.class)
-public class ClientHintsTest {
-    @Rule public AwActivityTestRule mActivityTestRule = new AwActivityTestRule();
+@RunWith(Parameterized.class)
+@UseParametersRunnerFactory(AwJUnit4ClassRunnerWithParameters.Factory.class)
+public class ClientHintsTest extends AwParameterizedTest {
+    @Rule public AwActivityTestRule mActivityTestRule;
 
     private static final String[] USER_AGENT_CLIENT_HINTS = {
         "sec-ch-ua",
@@ -79,6 +82,10 @@ public class ClientHintsTest {
             this.mHttpHeaderClientHints = httpHeaderClientHints;
             this.mJsClientHints = jsClientHints;
         }
+    }
+
+    public ClientHintsTest(AwSettingsMutation param) {
+        this.mActivityTestRule = new AwActivityTestRule(param.getMutation());
     }
 
     @Test
@@ -231,7 +238,8 @@ public class ClientHintsTest {
         Assert.assertEquals("HEADER_NOT_FOUND", jsonObject.getString("sec-ch-ua-wow64"));
         // This client hint isn't sent when data-saver is off.
         Assert.assertEquals("HEADER_NOT_FOUND", jsonObject.getString("save-data"));
-        Assert.assertNotEquals("HEADER_NOT_FOUND", jsonObject.getString("sec-ch-prefers-reduced-motion"));
+        Assert.assertNotEquals(
+                "HEADER_NOT_FOUND", jsonObject.getString("sec-ch-prefers-reduced-motion"));
         Assert.assertEquals("HEADER_NOT_FOUND", jsonObject.getString("sec-ch-ua-form-factor"));
         Assert.assertNotEquals(
                 "HEADER_NOT_FOUND", jsonObject.getString("sec-ch-prefers-reduced-transparency"));
@@ -336,6 +344,7 @@ public class ClientHintsTest {
         "enable-features=UserAgentClientHint,ClientHintsFormFactor",
         ContentSwitches.HOST_RESOLVER_RULES + "=MAP * 127.0.0.1"
     })
+    @SkipMutations(reason = "This test depends on AwSettings.setUserAgentString()")
     public void testEnableUserAgentClientHintsJavaScript() throws Throwable {
         verifyClientHintsJavaScript(/* useCustomUserAgent= */ false);
     }
@@ -384,7 +393,7 @@ public class ClientHintsTest {
         url =
                 server.getURL(
                         "/critical-client-hints-header?accept-ch=sec-ch-device-memory,device-memory&"
-                            + "critical-ch=sec-ch-device-memory");
+                                + "critical-ch=sec-ch-device-memory");
         loadUrlSync(contents, contentsClient.getOnPageFinishedHelper(), url);
         validateHeadersFromJSON(contents, contentsClient, "sec-ch-device-memory", true);
         validateHeadersFromJSON(contents, contentsClient, "device-memory", false);
@@ -923,6 +932,7 @@ public class ClientHintsTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    @SkipMutations(reason = "This test depends on AwSettings.setUserAgentString()")
     public void testDefaultUserAgentDefaultReductionOverride() throws Throwable {
         String defaultUserAgent = getDefaultUserAgent();
         // Verify user-agent minor version not reduced.
@@ -937,6 +947,7 @@ public class ClientHintsTest {
     @Test
     @SmallTest
     @Feature({"AndroidWebView"})
+    @SkipMutations(reason = "This test depends on AwSettings.setUserAgentString()")
     @CommandLineFlags.Add({"enable-features=ReduceUserAgentMinorVersion"})
     public void testDefaultUserAgentEnableReductionOverride() throws Throwable {
         String defaultUserAgent = getDefaultUserAgent();
@@ -969,7 +980,8 @@ public class ClientHintsTest {
         Assert.assertEquals("?1", clientHintsMap.get("sec-ch-ua-mobile"));
         Assert.assertEquals("\"128\"", clientHintsMap.get("sec-ch-ua-bitness"));
         Assert.assertEquals("?1", clientHintsMap.get("sec-ch-ua-wow64"));
-        Assert.assertEquals("\"fake_mobile\"", clientHintsMap.get("sec-ch-ua-form-factor"));
+        Assert.assertEquals(
+                "\"Automotive\", \"Tablet\"", clientHintsMap.get("sec-ch-ua-form-factor"));
 
         // Verify js client hints result.
         JSONObject jsClientHints = clientHintsResult.mJsClientHints;
@@ -989,7 +1001,7 @@ public class ClientHintsTest {
         Assert.assertTrue(jsClientHints.getBoolean("mobile"));
         Assert.assertEquals("128", jsClientHints.getString("bitness"));
         Assert.assertTrue(jsClientHints.getBoolean("wow64"));
-        Assert.assertEquals("fake_mobile", jsClientHints.getString("formFactor"));
+        Assert.assertEquals("[\"Automotive\",\"Tablet\"]", jsClientHints.getString("formFactor"));
     }
 
     private Map<String, Object> makeFakeMetadata() {
@@ -1005,7 +1017,9 @@ public class ClientHintsTest {
         settings.put(AwUserAgentMetadata.MetadataKeys.MOBILE, true);
         settings.put(AwUserAgentMetadata.MetadataKeys.BITNESS, 128);
         settings.put(AwUserAgentMetadata.MetadataKeys.WOW64, true);
-        settings.put(AwUserAgentMetadata.MetadataKeys.FORM_FACTOR, "fake_mobile");
+        settings.put(
+                AwUserAgentMetadata.MetadataKeys.FORM_FACTOR,
+                new String[] {"Automotive", "Tablet"});
         return settings;
     }
 

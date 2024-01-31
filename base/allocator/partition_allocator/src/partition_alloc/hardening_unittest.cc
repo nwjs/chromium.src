@@ -6,11 +6,11 @@
 #include <string>
 #include <vector>
 
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_config.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_freelist_entry.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_page.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_root.h"
 #include "build/build_config.h"
+#include "partition_alloc/partition_alloc_config.h"
+#include "partition_alloc/partition_freelist_entry.h"
+#include "partition_alloc/partition_page.h"
+#include "partition_alloc/partition_root.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 // With *SAN, PartitionAlloc is rerouted to malloc().
@@ -27,9 +27,9 @@ TEST(HardeningTest, PartialCorruption) {
   std::string important_data("very important");
   char* to_corrupt = const_cast<char*>(important_data.c_str());
 
-  PartitionRoot root(PartitionOptions{
-      .aligned_alloc = PartitionOptions::kAllowed,
-  });
+  PartitionOptions opts;
+  opts.aligned_alloc = PartitionOptions::kAllowed;
+  PartitionRoot root(opts);
   root.UncapEmptySlotSpanMemoryForTesting();
 
   const size_t kAllocSize = 100;
@@ -52,9 +52,9 @@ TEST(HardeningTest, OffHeapPointerCrashing) {
   std::string important_data("very important");
   char* to_corrupt = const_cast<char*>(important_data.c_str());
 
-  PartitionRoot root(PartitionOptions{
-      .aligned_alloc = PartitionOptions::kAllowed,
-  });
+  PartitionOptions opts;
+  opts.aligned_alloc = PartitionOptions::kAllowed;
+  PartitionRoot root(opts);
   root.UncapEmptySlotSpanMemoryForTesting();
 
   const size_t kAllocSize = 100;
@@ -73,9 +73,9 @@ TEST(HardeningTest, OffHeapPointerCrashing) {
 }
 
 TEST(HardeningTest, MetadataPointerCrashing) {
-  PartitionRoot root(PartitionOptions{
-      .aligned_alloc = PartitionOptions::kAllowed,
-  });
+  PartitionOptions opts;
+  opts.aligned_alloc = PartitionOptions::kAllowed;
+  PartitionRoot root(opts);
   root.UncapEmptySlotSpanMemoryForTesting();
 
   const size_t kAllocSize = 100;
@@ -100,9 +100,9 @@ TEST(HardeningTest, MetadataPointerCrashing) {
 #if !BUILDFLAG(IS_ANDROID)
 
 TEST(HardeningTest, SuccessfulCorruption) {
-  PartitionRoot root(PartitionOptions{
-      .aligned_alloc = PartitionOptions::kAllowed,
-  });
+  PartitionOptions opts;
+  opts.aligned_alloc = PartitionOptions::kAllowed;
+  PartitionRoot root(opts);
   root.UncapEmptySlotSpanMemoryForTesting();
 
   uintptr_t* zero_vector = reinterpret_cast<uintptr_t*>(

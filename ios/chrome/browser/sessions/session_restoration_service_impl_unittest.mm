@@ -16,7 +16,6 @@
 #import "base/run_loop.h"
 #import "base/scoped_multi_source_observation.h"
 #import "base/test/metrics/histogram_tester.h"
-#import "base/test/scoped_feature_list.h"
 #import "base/time/time.h"
 #import "ios/chrome/browser/sessions/proto/storage.pb.h"
 #import "ios/chrome/browser/sessions/session_constants.h"
@@ -40,10 +39,6 @@
 #import "ui/base/page_transition_types.h"
 #import "ui/base/window_open_disposition.h"
 #import "url/gurl.h"
-
-// To get access to web::features::kEnableSessionSerializationOptimizations.
-// TODO(crbug.com/1383087): remove once the feature is fully launched.
-#import "ios/web/common/features.h"
 
 namespace {
 
@@ -239,10 +234,6 @@ base::RepeatingClosure ExpectNCall(base::RepeatingClosure closure, size_t n) {
 class SessionRestorationServiceImplTest : public PlatformTest {
  public:
   SessionRestorationServiceImplTest() {
-    // Enable the feature. Needs to happen before the threads are created.
-    scoped_feature_list_.InitAndEnableFeature(
-        web::features::kEnableSessionSerializationOptimizations);
-
     // Use the ChromeWebClient as the test tries to load chrome:// URLs.
     scoped_web_client_ = std::make_unique<web::ScopedTestingWebClient>(
         std::make_unique<ChromeWebClient>());
@@ -262,9 +253,10 @@ class SessionRestorationServiceImplTest : public PlatformTest {
     // the code using the `enable_pinned_web_states` is tested by the
     // deserialization code and does not need to be tested again here).
     service_ = std::make_unique<SessionRestorationServiceImpl>(
-        kSaveDelay, /* enable_pinned_web_states */ true,
+        kSaveDelay, /*enable_pinned_web_states=*/true,
         browser_state_->GetStatePath(),
-        base::SequencedTaskRunner::GetCurrentDefault());
+        base::SequencedTaskRunner::GetCurrentDefault(),
+        /*tab_restore_service=*/nullptr);
   }
 
   ~SessionRestorationServiceImplTest() override { service_->Shutdown(); }
@@ -314,13 +306,8 @@ class SessionRestorationServiceImplTest : public PlatformTest {
 
   // Wait until all task posted on the background sequence are complete.
   void WaitForBackgroundTaskComplete() {
-    // Since the current TaskRunner is injected in the service to use for
-    // background processing, posting a task to and waiting for it to be
-    // invoked will ensure that all pending background processing is now
-    // complete.
     base::RunLoop run_loop;
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, run_loop.QuitClosure());
+    service_->InvokeClosureWhenBackgroundProcessingDone(run_loop.QuitClosure());
     run_loop.Run();
   }
 
@@ -348,7 +335,6 @@ class SessionRestorationServiceImplTest : public PlatformTest {
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   FileModificationTracker file_tracker_;
 
   std::unique_ptr<web::ScopedTestingWebClient> scoped_web_client_;
@@ -559,7 +545,7 @@ TEST_F(SessionRestorationServiceImplTest, SaveSessionChangesOnlyRequiredFiles) {
   EXPECT_EQ(ModifiedFiles(),
             ExpectedStorageFilesForWebStates(
                 SessionPathFromIdentifier(kIdentifier0),
-                /* expect_session_metadata_storage */ true,
+                /*expect_session_metadata_storage=*/true,
                 {WebStateReference{
                     .web_state = browser.GetWebStateList()->GetActiveWebState(),
                     .is_native_session_available = true,
@@ -617,9 +603,10 @@ TEST_F(SessionRestorationServiceImplTest, AdoptUnrealizedWebStateOnMove) {
   ASSERT_EQ(list0->count(), static_cast<int>(std::size(kURLs)));
   ASSERT_EQ(list1->count(), 0);
 
+  // Check that the WebState are not realized.
   for (int index = 0; index < list0->count(); ++index) {
     web::WebState* web_state = list0->GetWebStateAt(index);
-    EXPECT_EQ(web_state->IsRealized(), index == list0->active_index());
+    EXPECT_FALSE(web_state->IsRealized());
   }
 
   // Move all tabs from browser0 to browser1 and check that this results in
@@ -660,7 +647,7 @@ TEST_F(SessionRestorationServiceImplTest, AdoptUnrealizedWebStateOnMove) {
 
   FilePathSet expected_browser0 = ExpectedStorageFilesForWebStates(
       SessionPathFromIdentifier(kIdentifier0),
-      /* expect_session_metadata_storage */ true, {});
+      /*expect_session_metadata_storage=*/true, {});
   FilePathSet expected_browser1 = ExpectedStorageFilesForBrowser(
       SessionPathFromIdentifier(kIdentifier1), &browser1);
 
@@ -712,10 +699,9 @@ TEST_F(SessionRestorationServiceImplTest, SavePendingChangesOnDisconnect) {
   // has been written to disk (because it was scheduled when the Browser
   // was disconnected as it contained pending changes).
   EXPECT_LT(base::Time::Now() - disconnect_time, kSaveDelay);
-  EXPECT_EQ(ModifiedFiles(),
-            ExpectedStorageFilesForWebStates(
-                SessionPathFromIdentifier(kIdentifier0),
-                /* expect_session_metadata_storage */ true, {}));
+  EXPECT_EQ(ModifiedFiles(), ExpectedStorageFilesForWebStates(
+                                 SessionPathFromIdentifier(kIdentifier0),
+                                 /*expect_session_metadata_storage=*/true, {}));
 }
 
 // Tests that the service delete obsolete files when loading the session.
@@ -752,13 +738,13 @@ TEST_F(SessionRestorationServiceImplTest, DeleteObsoleteFilesOnLoadSession) {
     EXPECT_EQ(ModifiedFiles(),
               ExpectedStorageFilesForWebStates(
                   SessionPathFromIdentifier(kIdentifier0),
-                  /* expect_session_metatadat_storage */ true, {}));
+                  /*expect_session_metatadat_storage=*/true, {}));
 
     // Record the files used to represent the state of the detached WebState.
     // Those files will be deleted when the session is loaded.
     expected_deleted_files = ExpectedStorageFilesForWebStates(
         SessionPathFromIdentifier(kIdentifier0),
-        /* expect_session_metadata_storage */ false,
+        /*expect_session_metadata_storage=*/false,
         {WebStateReference{.web_state = detached_web_state.get(),
                            .is_native_session_available = true}});
 
@@ -851,13 +837,13 @@ TEST_F(SessionRestorationServiceImplTest, CreateUnrealizedWebState) {
 
   // Record the list of expected files while the pointer to the newly created
   // WebState is still valid.
-  const FilePathSet expected_files = ExpectedStorageFilesForWebStates(
-      SessionPathFromIdentifier(kIdentifier0),
-      /* expect_session_metadata_storage */ true,
-      {WebStateReference{
-          .web_state = web_state.get(),
-          .is_native_session_available = false,
-      }});
+  const FilePathSet expected_files =
+      ExpectedStorageFilesForWebStates(SessionPathFromIdentifier(kIdentifier0),
+                                       /*expect_session_metadata_storage=*/true,
+                                       {WebStateReference{
+                                           .web_state = web_state.get(),
+                                           .is_native_session_available = false,
+                                       }});
 
   // Insert the WebState into the Browser's WebStateList and then wait for
   // the session to be saved to storage.
@@ -882,7 +868,7 @@ TEST_F(SessionRestorationServiceImplTest, SaveSessionsCallableAtAnyTime) {
   EXPECT_EQ(ModifiedFiles(), FilePathSet{});
 
   // Check that calling SaveSessions() when Browser are registered with no
-  // changes is a no-op
+  // changes is a no-op.
   TestBrowser browser0 = TestBrowser(browser_state());
   TestBrowser browser1 = TestBrowser(browser_state());
   service()->SetSessionID(&browser0, kIdentifier0);
@@ -917,15 +903,14 @@ TEST_F(SessionRestorationServiceImplTest, SaveSessionsCallableAtAnyTime) {
 
   service()->SaveSessions();
   WaitForBackgroundTaskComplete();
-  EXPECT_EQ(ModifiedFiles(),
-            ExpectedStorageFilesForWebStates(
-                SessionPathFromIdentifier(kIdentifier0),
-                /* expect_session_metadata_storage */ true, {}));
+  EXPECT_EQ(ModifiedFiles(), ExpectedStorageFilesForWebStates(
+                                 SessionPathFromIdentifier(kIdentifier0),
+                                 /*expect_session_metadata_storage=*/true, {}));
 
   SnapshotFiles();
 
   // Check that calling SaveSessions() when all Browser have been disconnected
-  // is a no-op;
+  // is a no-op.
   service()->Disconnect(&browser0);
   service()->Disconnect(&browser1);
 
@@ -933,4 +918,129 @@ TEST_F(SessionRestorationServiceImplTest, SaveSessionsCallableAtAnyTime) {
 
   WaitForBackgroundTaskComplete();
   EXPECT_EQ(ModifiedFiles(), FilePathSet{});
+}
+
+// Tests that calling ScheduleSaveSessions() is a no-op.
+TEST_F(SessionRestorationServiceImplTest, ScheduleSaveSessions) {
+  // Check that calling ScheduleSaveSessions() when no Browser is observed
+  // is a no-op.
+  service()->ScheduleSaveSessions();
+
+  WaitForBackgroundTaskComplete();
+  EXPECT_EQ(ModifiedFiles(), FilePathSet{});
+
+  // Check that calling ScheduleSaveSessions() when Browser are registered
+  // with no changes is a no-op.
+  TestBrowser browser0 = TestBrowser(browser_state());
+  TestBrowser browser1 = TestBrowser(browser_state());
+  service()->SetSessionID(&browser0, kIdentifier0);
+  service()->SetSessionID(&browser1, kIdentifier1);
+
+  service()->ScheduleSaveSessions();
+
+  WaitForBackgroundTaskComplete();
+  EXPECT_EQ(ModifiedFiles(), FilePathSet{});
+
+  // Insert a few WebStage in one of the Browser and wait for the changes
+  // to automatically be saved (this is because loading the pages will
+  // take time and may cause automatically saving the session).
+  {
+    InsertTabsWithUrls(browser0, base::make_span(kURLs));
+    WaitForSessionSaveComplete();
+
+    EXPECT_EQ(ModifiedFiles(),
+              ExpectedStorageFilesForBrowser(
+                  SessionPathFromIdentifier(kIdentifier0), &browser0));
+
+    SnapshotFiles();
+  }
+
+  // Check that making a modification and then calling ScheduleSaveSessions()
+  // is also a no-op, and that the save will only happen after the save delay
+  // has expired.
+  ASSERT_NE(browser0.GetWebStateList()->active_index(), 0);
+  browser0.GetWebStateList()->ActivateWebStateAt(0);
+
+  WaitForBackgroundTaskComplete();
+  EXPECT_EQ(ModifiedFiles(), FilePathSet{});
+
+  service()->ScheduleSaveSessions();
+  WaitForBackgroundTaskComplete();
+  EXPECT_EQ(ModifiedFiles(), FilePathSet{});
+
+  // Check that the session are saved after waiting to the save delay.
+  WaitForSessionSaveComplete();
+  EXPECT_EQ(ModifiedFiles(), ExpectedStorageFilesForWebStates(
+                                 SessionPathFromIdentifier(kIdentifier0),
+                                 /*expect_session_metadata_storage=*/true, {}));
+
+  SnapshotFiles();
+
+  // Check that calling SaveSessions() when all Browser have been disconnected
+  // is a no-op.
+  service()->Disconnect(&browser0);
+  service()->Disconnect(&browser1);
+
+  service()->ScheduleSaveSessions();
+
+  WaitForBackgroundTaskComplete();
+  EXPECT_EQ(ModifiedFiles(), FilePathSet{});
+}
+
+// Tests that calling DeleteDataForDiscardedSessions() deletes data for
+// discarded sessions and accept inexistant sessions identifiers.
+TEST_F(SessionRestorationServiceImplTest, DeleteDataForDiscardedSessions) {
+  TestBrowser browser = TestBrowser(browser_state());
+  service()->SetSessionID(&browser, kIdentifier0);
+
+  // Insert a few WebStage in one of the Browser and wait for the changes
+  // to automatically be saved (this is because loading the pages will
+  // take time and may cause automatically saving the session).
+  InsertTabsWithUrls(browser, base::make_span(kURLs));
+  WaitForSessionSaveComplete();
+
+  // Record the file that make the storage for `browser`.
+  const FilePathSet browser_storage = ExpectedStorageFilesForBrowser(
+      SessionPathFromIdentifier(kIdentifier0), &browser);
+
+  EXPECT_EQ(ModifiedFiles(), browser_storage);
+
+  service()->Disconnect(&browser);
+  WaitForSessionSaveComplete();
+
+  SnapshotFiles();
+
+  // Ask for deletion of session for the disconnected Browser's identifier
+  // and for a non-existent identifier.
+  base::RunLoop run_loop;
+  service()->DeleteDataForDiscardedSessions({kIdentifier0, kIdentifier1},
+                                            run_loop.QuitClosure());
+  run_loop.Run();
+
+  // Verify that the files for Browser have been deleted.
+  EXPECT_EQ(DeletedFiles(), browser_storage);
+}
+
+// Tests that PurgeUnassociatedData() can be called at any point as the
+// SessionRestorationServiceImpl version is a no-op.
+TEST_F(SessionRestorationServiceImplTest, PurgeUnassociatedData) {
+  // Test that the method can be called before any Browser has been
+  // registered.
+  {
+    base::RunLoop run_loop;
+    service()->PurgeUnassociatedData(run_loop.QuitClosure());
+    run_loop.Run();
+  }
+
+  // Test that the method can be called after a Browser has been
+  // registered.
+  TestBrowser browser = TestBrowser(browser_state());
+  service()->SetSessionID(&browser, kIdentifier0);
+  {
+    base::RunLoop run_loop;
+    service()->PurgeUnassociatedData(run_loop.QuitClosure());
+    run_loop.Run();
+  }
+
+  service()->Disconnect(&browser);
 }

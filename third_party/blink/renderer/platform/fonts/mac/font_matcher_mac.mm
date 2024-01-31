@@ -37,12 +37,21 @@
 #include "base/apple/foundation_util.h"
 #include "base/apple/scoped_cftyperef.h"
 #include "third_party/blink/renderer/platform/fonts/font_cache.h"
+#include "third_party/blink/renderer/platform/fonts/font_selection_types.h"
 #import "third_party/blink/renderer/platform/wtf/hash_set.h"
+#include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #import "third_party/blink/renderer/platform/wtf/text/atomic_string_hash.h"
+#import "third_party/blink/renderer/platform/wtf/text/string_impl.h"
+
+using base::apple::GetValueFromDictionary;
+using base::apple::ScopedCFTypeRef;
 
 namespace blink {
 
 namespace {
+
+const FourCharCode kWeightTag = 'wght';
+const FourCharCode kWidthTag = 'wdth';
 
 const NSFontTraitMask SYNTHESIZED_FONT_TRAITS =
     (NSBoldFontMask | NSItalicFontMask);
@@ -99,57 +108,150 @@ BOOL BetterChoice(NSFontTraitMask desired_traits,
   return candidate_weight_delta_magnitude < chosen_weight_delta_magnitude;
 }
 
-NSFontWeight ToFontWeight(blink::FontSelectionValue font_weight) {
-  if (font_weight <= 50 || font_weight >= 950)
-    return NSFontWeightRegular;
-
-  const NSFontWeight ns_font_weights[] = {
-      NSFontWeightUltraLight, NSFontWeightThin,   NSFontWeightLight,
-      NSFontWeightRegular,    NSFontWeightMedium, NSFontWeightSemibold,
-      NSFontWeightBold,       NSFontWeightHeavy,  NSFontWeightBlack,
-  };
-  size_t select_weight = roundf(font_weight / 100) - 1;
-  DCHECK_GE(select_weight, 0ul);
-  DCHECK_LE(select_weight, std::size(ns_font_weights));
-  return ns_font_weights[select_weight];
-}
-
 }  // namespace
 
-NSFont* MatchUniqueFont(const AtomicString& unique_font_name, float size) {
+ScopedCFTypeRef<CTFontRef> MatchUniqueFont(const AtomicString& unique_font_name,
+                                           float size) {
   // Note the header documentation: when matching, the system first searches for
   // fonts with its value as their PostScript name, then falls back to searching
   // for fonts with its value as their family name, and then falls back to
   // searching for fonts with its value as their display name.
-  NSString* desired_name = unique_font_name;
-  NSDictionary* attributes = @{
-    base::apple::CFToNSPtrCast(kCTFontNameAttribute) : desired_name,
-    base::apple::CFToNSPtrCast(kCTFontSizeAttribute) : @(size)
-  };
-  base::apple::ScopedCFTypeRef<CTFontDescriptorRef> descriptor(
-      CTFontDescriptorCreateWithAttributes(
-          base::apple::NSToCFPtrCast(attributes)));
-
-  base::apple::ScopedCFTypeRef<CTFontRef> matched_font(
-      CTFontCreateWithFontDescriptor(descriptor.get(), 0, nullptr));
+  ScopedCFTypeRef<CFStringRef> desired_name(
+      unique_font_name.Impl()->CreateCFString());
+  ScopedCFTypeRef<CTFontRef> matched_font(
+      CTFontCreateWithName(desired_name.get(), size, nullptr));
   DCHECK(matched_font);
 
   // CoreText will usually give us *something* but not always an exactly matched
   // font.
-  NSString* matched_postscript_name = base::apple::CFToNSOwnershipCast(
-      CTFontCopyName(matched_font.get(), kCTFontPostScriptNameKey));
-  NSString* matched_full_font_name = base::apple::CFToNSOwnershipCast(
-      CTFontCopyName(matched_font.get(), kCTFontFullNameKey));
+  ScopedCFTypeRef<CFStringRef> matched_postscript_name(
+      CTFontCopyPostScriptName(matched_font.get()));
+  ScopedCFTypeRef<CFStringRef> matched_full_font_name(
+      CTFontCopyFullName(matched_font.get()));
   // If the found font does not match in PostScript name or full font name, it's
   // not the exact match that is required, so return nullptr.
-  if ([matched_postscript_name caseInsensitiveCompare:desired_name] !=
-          NSOrderedSame &&
-      [matched_full_font_name caseInsensitiveCompare:desired_name] !=
-          NSOrderedSame) {
-    return nullptr;
+  if (CFStringCompare(matched_postscript_name.get(), desired_name.get(),
+                      kCFCompareCaseInsensitive) != kCFCompareEqualTo &&
+      CFStringCompare(matched_full_font_name.get(), desired_name.get(),
+                      kCFCompareCaseInsensitive) != kCFCompareEqualTo) {
+    return ScopedCFTypeRef<CTFontRef>(nullptr);
   }
 
-  return base::apple::CFToNSOwnershipCast(matched_font.release());
+  return matched_font;
+}
+
+void ClampVariationValuesToFontAcceptableRange(
+    ScopedCFTypeRef<CTFontRef> ct_font,
+    FontSelectionValue& weight,
+    FontSelectionValue& width) {
+  ScopedCFTypeRef<CFArrayRef> all_axes(CTFontCopyVariationAxes(ct_font.get()));
+  for (CFIndex i = 0; i < CFArrayGetCount(all_axes.get()); ++i) {
+    CFDictionaryRef axis = base::apple::CFCast<CFDictionaryRef>(
+        CFArrayGetValueAtIndex(all_axes.get(), i));
+    if (!axis) {
+      continue;
+    }
+
+    CFNumberRef axis_id = GetValueFromDictionary<CFNumberRef>(
+        axis, kCTFontVariationAxisIdentifierKey);
+    if (!axis_id) {
+      continue;
+    }
+    int axis_id_value;
+    if (!CFNumberGetValue(axis_id, kCFNumberIntType, &axis_id_value)) {
+      continue;
+    }
+
+    CFNumberRef axis_min_number = GetValueFromDictionary<CFNumberRef>(
+        axis, kCTFontVariationAxisMinimumValueKey);
+    double axis_min_value = 0.0;
+    if (!axis_min_number ||
+        !CFNumberGetValue(axis_min_number, kCFNumberDoubleType,
+                          &axis_min_value)) {
+      continue;
+    }
+
+    CFNumberRef axis_max_number = GetValueFromDictionary<CFNumberRef>(
+        axis, kCTFontVariationAxisMaximumValueKey);
+    double axis_max_value = 0.0;
+    if (!axis_max_number ||
+        !CFNumberGetValue(axis_max_number, kCFNumberDoubleType,
+                          &axis_max_value)) {
+      continue;
+    }
+
+    FontSelectionRange capabilities_range({FontSelectionValue(axis_min_value),
+                                           FontSelectionValue(axis_max_value)});
+
+    if (axis_id_value == kWeightTag && weight != kNormalWeightValue) {
+      weight = capabilities_range.clampToRange(weight);
+    }
+    if (axis_id_value == kWidthTag && width != kNormalWidthValue) {
+      width = capabilities_range.clampToRange(width);
+    }
+  }
+}
+
+ScopedCFTypeRef<CTFontRef> MatchSystemUIFont(FontSelectionValue desired_weight,
+                                             FontSelectionValue desired_slant,
+                                             FontSelectionValue desired_width,
+                                             float size) {
+  ScopedCFTypeRef<CTFontRef> ct_font(
+      CTFontCreateUIFontForLanguage(kCTFontUIFontSystem, size, nullptr));
+
+  CTFontSymbolicTraits desired_traits = 0;
+
+  if (desired_slant != kNormalSlopeValue) {
+    desired_traits |= kCTFontItalicTrait;
+  }
+
+  if (desired_weight >= kBoldThreshold) {
+    desired_traits |= kCTFontBoldTrait;
+  }
+
+  if (desired_traits) {
+    ct_font.reset(CTFontCreateCopyWithSymbolicTraits(
+        ct_font.get(), size, nullptr, desired_traits, desired_traits));
+  }
+
+  if (desired_weight == kNormalWeightValue &&
+      desired_width == kNormalWidthValue) {
+    return ct_font;
+  }
+
+  ClampVariationValuesToFontAcceptableRange(ct_font, desired_weight,
+                                            desired_width);
+
+  ScopedCFTypeRef<CFMutableDictionaryRef> variations(CFDictionaryCreateMutable(
+      kCFAllocatorDefault, 2, &kCFTypeDictionaryKeyCallBacks,
+      &kCFTypeDictionaryValueCallBacks));
+
+  auto add_axis_to_variations = [&variations](const FourCharCode tag,
+                                              float desired_value,
+                                              float normal_value) {
+    if (desired_value != normal_value) {
+      ScopedCFTypeRef<CFNumberRef> tag_number(
+          CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &tag));
+      ScopedCFTypeRef<CFNumberRef> value_number(CFNumberCreate(
+          kCFAllocatorDefault, kCFNumberFloatType, &desired_value));
+      CFDictionarySetValue(variations.get(), tag_number.get(),
+                           value_number.get());
+    }
+  };
+  add_axis_to_variations(kWeightTag, desired_weight, kNormalWeightValue);
+  add_axis_to_variations(kWidthTag, desired_width, kNormalWidthValue);
+
+  ScopedCFTypeRef<CFMutableDictionaryRef> attributes(CFDictionaryCreateMutable(
+      kCFAllocatorDefault, 1, &kCFTypeDictionaryKeyCallBacks,
+      &kCFTypeDictionaryValueCallBacks));
+  CFDictionarySetValue(attributes.get(), kCTFontVariationAttribute,
+                       variations.get());
+
+  ScopedCFTypeRef<CTFontDescriptorRef> var_font_desc(
+      CTFontDescriptorCreateWithAttributes(attributes.get()));
+
+  return ScopedCFTypeRef<CTFontRef>(CTFontCreateCopyWithAttributes(
+      ct_font.get(), size, nullptr, var_font_desc.get()));
 }
 
 // Family name is somewhat of a misnomer here.  We first attempt to find an
@@ -161,15 +263,6 @@ NSFont* MatchNSFontFamily(const AtomicString& desired_family_string,
                           FontSelectionValue desired_weight,
                           float size) {
   DCHECK_NE(desired_family_string, FontCache::LegacySystemFontFamily());
-
-  if (desired_family_string == font_family_names::kSystemUi) {
-    NSFont* font = [NSFont systemFontOfSize:size
-                                     weight:ToFontWeight(desired_weight)];
-    if (desired_traits & IMPORTANT_FONT_TRAITS)
-      font = [NSFontManager.sharedFontManager convertFont:font
-                                              toHaveTrait:desired_traits];
-    return font;
-  }
 
   NSString* desired_family = desired_family_string;
   NSFontManager* font_manager = NSFontManager.sharedFontManager;

@@ -10,16 +10,16 @@
 #import "components/password_manager/core/browser/features/password_features.h"
 #import "components/password_manager/core/browser/password_form.h"
 #import "components/password_manager/core/browser/password_manager.h"
-#import "components/password_manager/core/browser/password_store_interface.h"
+#import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "components/password_manager/core/browser/password_ui_utils.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/ios/ios_password_manager_driver_factory.h"
 #import "components/password_manager/ios/shared_password_controller.h"
 #import "components/prefs/pref_service.h"
-#import "ios/chrome/browser/autofill/bottom_sheet/autofill_bottom_sheet_java_script_feature.h"
-#import "ios/chrome/browser/autofill/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
-#import "ios/chrome/browser/autofill/form_input_suggestions_provider.h"
-#import "ios/chrome/browser/autofill/form_suggestion_tab_helper.h"
+#import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_java_script_feature.h"
+#import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
+#import "ios/chrome/browser/autofill/model/form_input_suggestions_provider.h"
+#import "ios/chrome/browser/autofill/model/form_suggestion_tab_helper.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/passwords/model/password_tab_helper.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
@@ -45,6 +45,21 @@ using ReauthenticationEvent::kAttempt;
 using ReauthenticationEvent::kFailure;
 using ReauthenticationEvent::kMissingPasscode;
 using ReauthenticationEvent::kSuccess;
+
+namespace {
+
+int PrimaryActionStringIdFromSuggestion(FormSuggestion* suggestion) {
+  if (!base::FeatureList::IsEnabled(
+          password_manager::features::kIOSPasswordSignInUff)) {
+    return IDS_IOS_PASSWORD_BOTTOM_SHEET_USE_PASSWORD;
+  }
+
+  return suggestion.metadata.is_single_username_form
+             ? IDS_IOS_PASSWORD_BOTTOM_SHEET_CONTINUE
+             : IDS_IOS_PASSWORD_BOTTOM_SHEET_USE_PASSWORD;
+}
+
+}  // namespace
 
 @interface PasswordSuggestionBottomSheetMediator () <WebStateListObserving,
                                                      CRWWebStateObserver>
@@ -94,6 +109,10 @@ using ReauthenticationEvent::kSuccess;
   // the bottom sheet is dismissed. Default is true.
   bool _needsRefocus;
 
+  // Whether the user has chosen to use one of the proposed suggestions to fill
+  // the fields. Default is false.
+  bool _suggestionSelected;
+
   // FaviconLoader is a keyed service that uses LargeIconService to retrieve
   // favicon images.
   raw_ptr<FaviconLoader> _faviconLoader;
@@ -121,6 +140,7 @@ using ReauthenticationEvent::kSuccess;
                         accountPasswordStore {
   if (self = [super init]) {
     _needsRefocus = true;
+    _suggestionSelected = false;
     _faviconLoader = faviconLoader;
     _prefService = prefService;
     _reauthenticationModule = reauthModule;
@@ -185,7 +205,7 @@ using ReauthenticationEvent::kSuccess;
   return [self.suggestions count] > 0;
 }
 
-- (absl::optional<password_manager::CredentialUIEntry>)
+- (std::optional<password_manager::CredentialUIEntry>)
     getCredentialForFormSuggestion:(FormSuggestion*)formSuggestion {
   NSString* username = formSuggestion.value;
   if ([username containsString:kPasswordFormSuggestionSuffix]) {
@@ -206,8 +226,8 @@ using ReauthenticationEvent::kSuccess;
         return false;
       });
   return it != _credentials.end()
-             ? absl::optional<password_manager::CredentialUIEntry>(*it)
-             : absl::nullopt;
+             ? std::optional<password_manager::CredentialUIEntry>(*it)
+             : std::nullopt;
 }
 
 - (void)logExitReason:(PasswordSuggestionBottomSheetExitReason)exitReason {
@@ -236,6 +256,14 @@ using ReauthenticationEvent::kSuccess;
       [consumer setTitle:[self sharingNotificationTitle]
                 subtitle:[self sharingNotificationSubtitle:domain]];
     }
+
+    // Determine the primary action label only from the first suggestion, which
+    // is sufficient as all the suggestions should have the same metadata. There
+    // should be at least one suggestion at this point because the consumer is
+    // set when there is at least one suggestion.
+    [consumer setPrimaryActionString:l10n_util::GetNSString(
+                                        PrimaryActionStringIdFromSuggestion(
+                                            self.suggestions.firstObject))];
   } else {
     [consumer dismiss];
   }
@@ -276,9 +304,11 @@ using ReauthenticationEvent::kSuccess;
 
 - (void)dismiss {
   if (_needsRefocus && _webStateList) {
-    [self logExitReason:kDismissal];
-    [self incrementDismissCount];
-    [self markSharedPasswordNotificationsDisplayed];
+    if (!_suggestionSelected) {
+      [self logExitReason:kDismissal];
+      [self incrementDismissCount];
+      [self markSharedPasswordNotificationsDisplayed];
+    }
 
     web::WebState* activeWebState = _webStateList->GetActiveWebState();
     if (!activeWebState) {
@@ -298,6 +328,10 @@ using ReauthenticationEvent::kSuccess;
 
 - (void)disableRefocus {
   _needsRefocus = false;
+}
+
+- (void)willSelectSuggestion {
+  _suggestionSelected = true;
 }
 
 - (NSString*)usernameAtRow:(NSInteger)row {

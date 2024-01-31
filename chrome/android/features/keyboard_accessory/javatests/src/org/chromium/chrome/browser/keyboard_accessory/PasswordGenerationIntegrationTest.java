@@ -34,6 +34,7 @@ import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.DisableIf;
+import org.chromium.base.test.util.DisabledTest;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.IntegrationTest;
 import org.chromium.base.test.util.Matchers;
@@ -189,6 +190,7 @@ public class PasswordGenerationIntegrationTest {
 
     @Test
     @IntegrationTest
+    @DisabledTest(message = "crbug.com/1502972")
     public void testManualGenerationCancel() throws InterruptedException, TimeoutException {
         waitForGenerationLabel();
         focusField(PASSWORD_NODE_ID_MANUAL);
@@ -210,6 +212,7 @@ public class PasswordGenerationIntegrationTest {
 
     @Test
     @IntegrationTest
+    @DisabledTest(message = "crbug.com/1498678")
     public void testAutomaticGenerationUsePassword() throws InterruptedException, TimeoutException {
         waitForGenerationLabel();
         focusField(PASSWORD_NODE_ID);

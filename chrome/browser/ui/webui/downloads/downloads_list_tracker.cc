@@ -76,6 +76,8 @@ downloads::mojom::DangerType GetDangerType(
       return downloads::mojom::DangerType::kPotentiallyUnwanted;
     case download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING:
       return downloads::mojom::DangerType::kAsyncScanning;
+    case download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING:
+      return downloads::mojom::DangerType::kAsyncLocalPasswordScanning;
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED:
       return downloads::mojom::DangerType::kBlockedPasswordProtected;
     case download::DOWNLOAD_DANGER_TYPE_BLOCKED_TOO_LARGE:
@@ -133,9 +135,11 @@ std::u16string GetFormattedDisplayUrl(const GURL& url) {
   std::u16string result = url_formatter::FormatUrlForSecurityDisplay(url);
   // Truncate long URL to avoid surpassing mojo data limit (c.f.
   // crbug.com/1070451). If it's really this long, the user won't be able to see
-  // the end of it anyway.
+  // the whole thing anyway. We truncate the beginning so that the end of it is
+  // shown, which contains the eTLD+1.
+  // Note: This may truncate the scheme part of the URL.
   if (result.size() > url::kMaxURLChars) {
-    result.resize(url::kMaxURLChars);
+    result = result.substr(result.size() - url::kMaxURLChars);
   }
   return result;
 }
@@ -327,6 +331,10 @@ downloads::mojom::DataPtr DownloadsListTracker::CreateDownloadData(
       if (download_item->GetDangerType() ==
           download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING) {
         state = downloads::mojom::State::kPromptForScanning;
+      } else if (download_item->GetDangerType() ==
+                 download::
+                     DOWNLOAD_DANGER_TYPE_PROMPT_FOR_LOCAL_PASSWORD_SCANNING) {
+        state = downloads::mojom::State::kPromptForLocalPasswordScanning;
       } else if (download_item->GetDangerType() ==
                  download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
         state = downloads::mojom::State::kAsyncScanning;

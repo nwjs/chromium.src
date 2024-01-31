@@ -12,6 +12,7 @@
 # - fuzztest, a way of building new fuzzing targets using simpler macros.
 
 import("//build/config/sanitizers/sanitizers.gni")
+import("//build_overrides/build.gni")
 
 config("fuzztest_internal_config") {
   cflags = [
@@ -31,7 +32,7 @@ config("fuzztest_internal_config") {
   include_dirs = [ "src" ]
   if (use_centipede) {
     defines = [ "FUZZTEST_USE_CENTIPEDE" ]
-  } else if (use_fuzzing_engine) {
+  } else if (use_fuzzing_engine && fuzzing_engine_supports_custom_main) {
     defines = [ "FUZZTEST_COMPATIBILITY_MODE" ]
   }
 }
@@ -83,7 +84,6 @@ if (use_centipede) {
       "src/centipede/runner_sancov.cc",
       "src/centipede/runner_sancov_object.cc",
       "src/centipede/runner_sancov_object.h",
-      "src/centipede/runner_sanitizer.cc",
       "src/centipede/runner_utils.cc",
       "src/centipede/runner_utils.h",
     ]
@@ -112,10 +112,6 @@ if (use_centipede) {
     sources = [ "src/centipede/runner_main.cc" ]
   }
 
-  source_set("centipede_weak_sancov_stubs") {
-    sources = [ "src/centipede/weak_sancov_stubs.cc" ]
-  }
-
   # The centipede out-of-process runner executable.
   executable("centipede") {
     configs += [ ":fuzztest_internal_config" ]
@@ -126,10 +122,6 @@ if (use_centipede) {
     deps = [
       ":centipede_common",
       ":fuzztest_internal",
-
-      # Depend on fuzzing_engine so that we are automatically built in builds
-      # destined for ClusterFuzz.
-      "//testing/libfuzzer:fuzzing_engine",
       "//third_party/abseil-cpp:absl",
       "//third_party/abseil-cpp/absl/flags:config",
       "//third_party/abseil-cpp/absl/flags:flag",
@@ -139,7 +131,6 @@ if (use_centipede) {
       "//third_party/abseil-cpp/absl/log:check",
       "//third_party/abseil-cpp/absl/log:globals",
       "//third_party/abseil-cpp/absl/log:initialize",
-      "//third_party/boringssl",
     ]
     sources = [
       "src/centipede/analyze_corpora.cc",
@@ -180,6 +171,24 @@ if (use_centipede) {
       "src/centipede/workdir.cc",
       "src/centipede/workdir.h",
     ]
+
+    if (build_with_chromium) {
+      deps += [
+        # Depend on fuzzing_engine so that we are automatically built in builds
+        # destined for ClusterFuzz.
+        "//testing/libfuzzer:fuzzing_engine",
+        "//third_party/boringssl",
+      ]
+    } else {
+      # Other projects sharing fuzztest might not have boringssl.
+      ldflags = [ "-lcrypto" ]
+    }
+  }
+}
+
+if (use_centipede || enable_fuzztest_fuzz) {
+  source_set("centipede_weak_sancov_stubs") {
+    sources = [ "src/centipede/weak_sancov_stubs.cc" ]
   }
 }
 
@@ -196,6 +205,8 @@ source_set("fuzztest_internal") {
     "src/fuzztest/internal/centipede_adaptor.h",
     "src/fuzztest/internal/compatibility_mode.cc",
     "src/fuzztest/internal/compatibility_mode.h",
+    "src/fuzztest/internal/configuration.cc",
+    "src/fuzztest/internal/configuration.h",
     "src/fuzztest/internal/coverage.cc",
     "src/fuzztest/internal/coverage.h",
     "src/fuzztest/internal/domains/absl_helpers.h",
@@ -254,13 +265,17 @@ source_set("fuzztest_internal") {
 
   deps = [
     "//testing/gtest",
-
-    # Depends transitively on fuzzing_engine so that we are automatically built in builds
-    # destined for ClusterFuzz.
-    "//testing/libfuzzer:fuzzing_engine",
     "//third_party/abseil-cpp/absl/flags:flag",
     "//third_party/abseil-cpp/absl/random:bit_gen_ref",
   ]
+
+  if (build_with_chromium) {
+    deps += [
+      # Depends transitively on fuzzing_engine so that we are automatically
+      # built in builds destined for ClusterFuzz.
+      "//testing/libfuzzer:fuzzing_engine",
+    ]
+  }
 
   public_deps = [
     "//third_party/abseil-cpp:absl",
@@ -294,7 +309,8 @@ source_set("fuzztest") {
     # which can be used as centipede fuzzers.
     sources = [ "src/fuzztest/internal/centipede_adaptor.cc" ]
     deps = [ ":centipede_runner_no_main" ]
-  } else if (use_fuzzing_engine) {
+  } else if (use_fuzzing_engine && fuzzing_engine_supports_custom_main) {
+    # Typically, libfuzzer.
     deps = [ "//testing/libfuzzer:fuzzing_engine_no_main" ]
   }
   public_deps = [ ":fuzztest_internal" ]

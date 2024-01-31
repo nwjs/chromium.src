@@ -398,13 +398,11 @@ void PageLoadMetricsForwardObserver::OnPrefetchLikely() {
   NOTREACHED();
 }
 
-void PageLoadMetricsForwardObserver::DidActivatePortal(
-    base::TimeTicks activation_time) {
-  NOTREACHED() << "Not supported.";
-}
-
 void PageLoadMetricsForwardObserver::DidActivatePrerenderedPage(
     content::NavigationHandle* navigation_handle) {}
+
+void PageLoadMetricsForwardObserver::DidActivatePreviewedPage(
+    base::TimeTicks activation_time) {}
 
 void PageLoadMetricsForwardObserver::OnV8MemoryChanged(
     const std::vector<MemoryUpdate>& memory_updates) {

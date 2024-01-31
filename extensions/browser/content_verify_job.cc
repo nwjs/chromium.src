@@ -100,8 +100,6 @@ ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
 
 
 ContentVerifyJob::~ContentVerifyJob() {
-  UMA_HISTOGRAM_COUNTS_1M("ExtensionContentVerifyJob.TimeSpentUS",
-                          time_spent_.InMicroseconds());
   delete[] buf_;
   buf_ = nullptr;
 }

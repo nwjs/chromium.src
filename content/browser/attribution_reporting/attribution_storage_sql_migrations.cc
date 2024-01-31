@@ -10,7 +10,9 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "components/attribution_reporting/event_report_windows.h"
+#include "components/attribution_reporting/max_event_level_reports.h"
 #include "components/attribution_reporting/source_type.mojom.h"
+#include "content/browser/attribution_reporting/attribution_reporting.pb.h"
 #include "content/browser/attribution_reporting/attribution_storage_sql.h"
 #include "content/browser/attribution_reporting/sql_utils.h"
 #include "net/base/schemeful_site.h"
@@ -89,8 +91,8 @@ bool To53(sql::Database& db) {
       "source_id,source_event_id,source_origin,"
       "reporting_origin,source_time,"
       "expiry_time,event_report_window_time,aggregatable_report_window_time,"
-      "source_type,attribution_logic,priority,source_site,"
-      "num_attributions,event_level_active,aggregatable_active,debug_key,"
+      "num_attributions,event_level_active,aggregatable_active,"
+      "source_type,attribution_logic,priority,source_site,debug_key,"
       "aggregatable_budget_consumed,"
       "IIF(aggregatable_budget_consumed>0,1,0),"
       "aggregatable_source,filter_data FROM sources";
@@ -305,16 +307,6 @@ bool To56(sql::Database& db) {
       continue;
     }
 
-    int max_event_level_reports;
-    switch (source_type.value()) {
-      case attribution_reporting::mojom::SourceType::kNavigation:
-        max_event_level_reports = 3;
-        break;
-      case attribution_reporting::mojom::SourceType::kEvent:
-        max_event_level_reports = 1;
-        break;
-    }
-
     auto event_report_windows =
         attribution_reporting::EventReportWindows::FromDefaults(
             event_report_window_time - source_time, *source_type);
@@ -322,14 +314,13 @@ bool To56(sql::Database& db) {
       continue;
     }
 
+    proto::AttributionReadOnlySourceData msg;
+    SetReadOnlySourceData(
+        *event_report_windows,
+        attribution_reporting::MaxEventLevelReports(*source_type), msg);
+
     set_statement.Reset(/*clear_bound_vars=*/true);
-    // '-1' represents null for the randomized response rate field.
-    set_statement.BindString(
-        0, SerializeReadOnlySourceData(*event_report_windows,
-                                       max_event_level_reports,
-                                       /*randomized_response_rate=*/-1,
-                                       /*trigger_config=*/nullptr,
-                                       /*debug_cookie_set=*/nullptr));
+    set_statement.BindBlob(0, msg.SerializeAsString());
     set_statement.BindInt64(1, id);
     if (!set_statement.Run()) {
       return false;

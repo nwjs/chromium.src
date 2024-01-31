@@ -13,7 +13,6 @@
 #include "components/autofill/core/browser/autofill_test_utils.h"
 #include "components/autofill/core/browser/browser_autofill_manager_test_api.h"
 #include "components/autofill/core/browser/payments/test_credit_card_save_manager.h"
-#include "components/autofill/core/browser/payments/test_payments_client.h"
 #include "components/autofill/core/browser/test_autofill_client.h"
 #include "components/autofill/core/browser/test_autofill_driver.h"
 #include "components/autofill/core/browser/test_browser_autofill_manager.h"
@@ -59,8 +58,7 @@ class AutofillMetricsBaseTest {
   void CreateAmbiguousProfiles();
 
   // Removes all existing profiles and creates one profile.
-  // |is_server| allows creation of |SERVER_PROFILE|.
-  void RecreateProfile(bool is_server);
+  void RecreateProfile();
 
   // Removes all existing credit cards and then invokes CreateCreditCards to
   // create the cards.
@@ -172,10 +170,13 @@ class AutofillMetricsBaseTest {
     return form;
   }
 
-  void DidShowAutofillSuggestions(const FormData& form,
-                                  size_t field_index = 0) {
+  void DidShowAutofillSuggestions(
+      const FormData& form,
+      size_t field_index = 0,
+      PopupItemId suggestion_type = PopupItemId::kAddressEntry) {
     autofill_manager().DidShowSuggestions(
-        /*has_autofill_suggestions=*/true, form, form.fields[field_index]);
+        std::vector<PopupItemId>({suggestion_type}), form,
+        form.fields[field_index]);
   }
 
   void FillTestProfile(const FormData& form) {

@@ -287,10 +287,25 @@ class ContentAnalysisDelegate : public ContentAnalysisDelegateBase {
   virtual bool CancelDialog();
 
  private:
-  // Uploads data for deep scanning.  Returns true if uploading is occurring in
-  // the background and false if there is nothing to do. Sets `data_uploaded_`
-  // to true right before returning.
-  bool UploadData();
+  // Enum representing the data uploading status.
+  enum class UploadDataStatus {
+    kNoLocalClientFound = 0,
+    kInProgress = 1,
+    kComplete = 2,
+  };
+
+  // Uploads data for deep scanning.  Returns "kNoClientFound" if there's no
+  // client to receive data, "kInProgress" if uploading is occurring in the
+  // background, and "kComplete" if data uploading is finished.
+  UploadDataStatus UploadData();
+
+  // Helper function to evaluate if fail-closed conditions are met.
+  bool IsFailClosed(UploadDataStatus upload_data_status,
+                    bool should_allow_by_default);
+
+  // Helper function to decide if fail-closed settings should be applied when
+  // LCAC cannot establish connection with local client.
+  bool ShouldFailOpenWithoutLocalClient(bool should_allow_by_default);
 
   // Prepares an upload request for the text in `data_`. If `data_.text` is
   // empty, this method does nothing.

@@ -325,6 +325,7 @@ void RecentTabsSubMenuModel::RegisterLogMenuMetricsCallback(
 void RecentTabsSubMenuModel::Build() {
   // The menu contains:
   // - History to open the full history tab.
+  // - History to open in side panel.
   // - Separator
   // - Recently closed header, then list of local recently closed tabs/windows,
   //   then separator
@@ -340,11 +341,13 @@ void RecentTabsSubMenuModel::Build() {
     SetCommandIcon(this, IDC_SHOW_HISTORY,
                    vector_icons::kHistoryChromeRefreshIcon);
   }
-  if (base::FeatureList::IsEnabled(features::kSidePanelPinning)) {
+  if (features::IsSidePanelPinningEnabled()) {
     InsertItemWithStringIdAt(1, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
                              IDS_HISTORY_CLUSTERS_SHOW_SIDE_PANEL);
-    SetCommandIcon(this, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
-                   vector_icons::kHistoryChromeRefreshIcon);
+    if (features::IsChromeRefresh2023()) {
+      SetCommandIcon(this, IDC_SHOW_HISTORY_CLUSTERS_SIDE_PANEL,
+                     vector_icons::kHistoryChromeRefreshIcon);
+    }
   }
   AddSeparator(ui::NORMAL_SEPARATOR);
   history_separator_index_ = GetItemCount() - 1;
@@ -855,6 +858,8 @@ void RecentTabsSubMenuModel::ClearTabsFromOtherDevices() {
   weak_ptr_factory_for_other_devices_tab_.InvalidateWeakPtrs();
 
   other_devices_tab_navigation_items_.clear();
+
+  device_sub_menu_items_.clear();
 }
 
 sync_sessions::OpenTabsUIDelegate*

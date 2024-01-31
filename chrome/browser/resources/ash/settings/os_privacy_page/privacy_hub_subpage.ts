@@ -22,13 +22,14 @@ import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {DeepLinkingMixin} from '../deep_linking_mixin.js';
+import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
+import {RouteObserverMixin} from '../common/route_observer_mixin.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import {RouteObserverMixin} from '../route_observer_mixin.js';
 import {Route, Router, routes} from '../router.js';
 
 import {MediaDevicesProxy} from './media_devices_proxy.js';
 import {PrivacyHubBrowserProxy, PrivacyHubBrowserProxyImpl} from './privacy_hub_browser_proxy.js';
+import {PrivacyHubSensorSubpageUserAction} from './privacy_hub_metrics_util.js';
 import {getTemplate} from './privacy_hub_subpage.html.js';
 
 /**
@@ -67,10 +68,7 @@ export class SettingsPrivacyHubSubpage extends SettingsPrivacyHubSubpageBase {
         },
       },
 
-      useCameraToggleFallbackSubtext_: {
-        type: Boolean,
-        value: false,
-      },
+      cameraSubLabel_: String,
 
       /**
        * The list of connected cameras.
@@ -171,8 +169,8 @@ export class SettingsPrivacyHubSubpage extends SettingsPrivacyHubSubpageBase {
   }
 
   private browserProxy_: PrivacyHubBrowserProxy;
+  private cameraSubLabel_: string;
   private camerasConnected_: string[];
-  private useCameraToggleFallbackSubtext_: boolean;
   private isCameraListEmpty_: boolean;
   private isMicListEmpty_: boolean;
   private isHatsSurveyEnabled_: boolean;
@@ -213,7 +211,7 @@ export class SettingsPrivacyHubSubpage extends SettingsPrivacyHubSubpageBase {
         });
 
     this.browserProxy_.getCameraLedFallbackState().then((enabled) => {
-      this.setCameraLedFallbackState_(enabled);
+      this.setCameraSubLabel_(enabled);
     });
 
     this.updateMediaDeviceLists_();
@@ -258,10 +256,13 @@ export class SettingsPrivacyHubSubpage extends SettingsPrivacyHubSubpageBase {
   }
 
   /**
-   * @param enabled whether the fallback mechanism for camera LED is enabled
+   * @param fallbackEnabled whether the fallback mechanism for camera LED is
+   * enabled
    */
-  private setCameraLedFallbackState_(enabled: boolean): void {
-    this.useCameraToggleFallbackSubtext_ = enabled;
+  private setCameraSubLabel_(fallbackEnabled: boolean): void {
+    this.cameraSubLabel_ = fallbackEnabled ?
+        this.i18n('cameraToggleFallbackSubtext') :
+        this.i18n('cameraToggleSubtext');
   }
 
   /**
@@ -307,20 +308,30 @@ export class SettingsPrivacyHubSubpage extends SettingsPrivacyHubSubpageBase {
         (event.target as SettingsToggleButtonElement).checked);
   }
 
-  private navigateToMicrophoneSubpage_(): void {
+  private onCameraSubpageLinkClick_(): void {
+    chrome.metricsPrivate.recordEnumerationValue(
+        'ChromeOS.PrivacyHub.CameraSubpage.UserAction',
+        PrivacyHubSensorSubpageUserAction.SUBPAGE_OPENED,
+        Object.keys(PrivacyHubSensorSubpageUserAction).length);
+
+    Router.getInstance().navigateTo(routes.PRIVACY_HUB_CAMERA);
+  }
+
+  private onMicrophoneSubpageLinkClick_(): void {
+    chrome.metricsPrivate.recordEnumerationValue(
+        'ChromeOS.PrivacyHub.MicrophoneSubpage.UserAction',
+        PrivacyHubSensorSubpageUserAction.SUBPAGE_OPENED,
+        Object.keys(PrivacyHubSensorSubpageUserAction).length);
+
     Router.getInstance().navigateTo(routes.PRIVACY_HUB_MICROPHONE);
   }
 
-  private onMicrophoneWrapperClick_(): void {
-    this.navigateToMicrophoneSubpage_();
-  }
-
-  private onMicrophoneSubpageArrowClick_(e: Event): void {
-    this.navigateToMicrophoneSubpage_();
-    e.stopPropagation();
-  }
-
   private onGeolocationAreaClick_(): void {
+    chrome.metricsPrivate.recordEnumerationValue(
+        'ChromeOS.PrivacyHub.LocationSubpage.UserAction',
+        PrivacyHubSensorSubpageUserAction.SUBPAGE_OPENED,
+        Object.keys(PrivacyHubSensorSubpageUserAction).length);
+
     Router.getInstance().navigateTo(routes.PRIVACY_HUB_GEOLOCATION);
   }
 }

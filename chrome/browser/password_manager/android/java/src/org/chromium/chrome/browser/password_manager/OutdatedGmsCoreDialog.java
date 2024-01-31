@@ -51,7 +51,9 @@ class OutdatedGmsCoreDialog {
      * @param context The context for accessing resources.
      * @param resultHandler Handler to be called on whether the user have chosen to update or not.
      */
-    OutdatedGmsCoreDialog(ModalDialogManager modalDialogManager, Context context,
+    OutdatedGmsCoreDialog(
+            ModalDialogManager modalDialogManager,
+            Context context,
             Callback<Boolean> resultHandler) {
         mModalDialogManager = modalDialogManager;
         mContext = context;
@@ -66,16 +68,26 @@ class OutdatedGmsCoreDialog {
         PropertyModel dialogModel =
                 new PropertyModel.Builder(ModalDialogProperties.ALL_KEYS)
                         .with(ModalDialogProperties.CONTROLLER, modalDialogController)
-                        .with(ModalDialogProperties.MESSAGE_PARAGRAPH_1,
-                                mContext.getResources().getString(
-                                        R.string.password_manager_outdated_gms_dialog_description))
-                        .with(ModalDialogProperties.POSITIVE_BUTTON_TEXT,
-                                mContext.getResources().getString(
-                                        R.string.password_manager_outdated_gms_positive_button))
-                        .with(ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
-                                mContext.getResources().getString(
-                                        R.string.password_manager_outdated_gms_negative_button))
-                        .with(ModalDialogProperties.BUTTON_STYLES,
+                        .with(
+                                ModalDialogProperties.MESSAGE_PARAGRAPH_1,
+                                mContext.getResources()
+                                        .getString(
+                                                R.string
+                                                        .password_manager_outdated_gms_dialog_description))
+                        .with(
+                                ModalDialogProperties.POSITIVE_BUTTON_TEXT,
+                                mContext.getResources()
+                                        .getString(
+                                                R.string
+                                                        .password_manager_outdated_gms_positive_button))
+                        .with(
+                                ModalDialogProperties.NEGATIVE_BUTTON_TEXT,
+                                mContext.getResources()
+                                        .getString(
+                                                R.string
+                                                        .password_manager_outdated_gms_negative_button))
+                        .with(
+                                ModalDialogProperties.BUTTON_STYLES,
                                 ModalDialogProperties.ButtonStyles.PRIMARY_FILLED_NEGATIVE_OUTLINE)
                         .build();
 

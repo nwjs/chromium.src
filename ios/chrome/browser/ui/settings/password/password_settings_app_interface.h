@@ -85,8 +85,8 @@
 + (void)setFakeBulkLeakCheckBufferedState:
     (password_manager::BulkLeakCheckServiceInterface::State)state;
 
-// Returns true if the Password Checkup feature flag is enabled.
-+ (BOOL)isPasswordCheckupEnabled;
+// Returns YES if the Passcode Settings page can be opened from the app.
++ (BOOL)isPasscodeSettingsAvailable;
 
 @end
 

@@ -1047,9 +1047,13 @@ class SiteSettingsHandlerBaseTest : public testing::Test {
   const ContentSettingsType kPermissionStorageAccess =
       ContentSettingsType::STORAGE_ACCESS;
 
-  // The number of listeners that are expected to fire when any content setting
-  // is changed.
-  const size_t kNumberContentSettingListeners = 2;
+  // The number of listeners that are expected to fire when notification content
+  // setting is changed.
+  const size_t kNumberNotificationsContentSettingListeners = 2;
+
+  // The number of listeners that are expected to fire when cookies content
+  // setting is changed.
+  const size_t kNumberCookiesContentSettingListeners = 1;
 
   // Browsing data model constants. Here, instead of in the anon namespace, to
   // avoid static GURL creation.
@@ -2262,7 +2266,8 @@ TEST_F(SiteSettingsHandlerTest, SetCategoryPermissionForPattern) {
   set_args.Append(false);  // Incognito.
 
   handler()->HandleSetCategoryPermissionForPattern(set_args);
-  EXPECT_EQ(kNumberContentSettingListeners, web_ui()->call_data().size());
+  EXPECT_EQ(kNumberNotificationsContentSettingListeners,
+            web_ui()->call_data().size());
 
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(profile());
@@ -2285,7 +2290,8 @@ TEST_F(SiteSettingsHandlerTest, SetCategoryPermissionForPattern_WildCard) {
   set_args.Append(false);  // Incognito.
 
   handler()->HandleSetCategoryPermissionForPattern(set_args);
-  EXPECT_EQ(kNumberContentSettingListeners, web_ui()->call_data().size());
+  EXPECT_EQ(kNumberNotificationsContentSettingListeners,
+            web_ui()->call_data().size());
 
   HostContentSettingsMap* map =
       HostContentSettingsMapFactory::GetForProfile(profile());
@@ -2442,7 +2448,8 @@ TEST_F(SiteSettingsHandlerTest, SetCategoryPermissionForPattern_SessionOnly) {
   set_args.Append(false);  // Incognito.
   handler()->HandleSetCategoryPermissionForPattern(set_args);
 
-  EXPECT_EQ(kNumberContentSettingListeners, web_ui()->call_data().size());
+  EXPECT_EQ(kNumberCookiesContentSettingListeners,
+            web_ui()->call_data().size());
 }
 
 TEST_F(SiteSettingsHandlerTest, ExtensionDisplayName) {
@@ -3678,6 +3685,8 @@ class PersistentPermissionsSiteSettingsHandlerTest
     // when Persistent Permissions is launched.
 
     // Enable Persisted Permissions.
+    // TODO(crbug.com/1467574): Remove `kFileSystemAccessPersistentPermissions`
+    // flag after FSA Persistent Permissions feature launch.
     feature_list_.InitAndEnableFeature(
         features::kFileSystemAccessPersistentPermissions);
   }
@@ -5974,6 +5983,90 @@ TEST_F(SiteSettingsHandlerTest, ClearReducedAcceptLanguage) {
   EXPECT_EQ(0U, accept_language_settings.size());
 }
 
+TEST_F(SiteSettingsHandlerTest, ClearDurableStorage) {
+  // Confirm that when the user clears durable storage or the eTLD+1
+  // group, durable storage are also cleared.
+  SetupModels();
+  handler()->OnStorageFetched();
+
+  GURL hosts[] = {GURL("https://example.com/"), GURL("https://www.example.com"),
+                  GURL("https://google.com/"), GURL("https://www.google.com/")};
+
+  HostContentSettingsMap* host_content_settings_map =
+      HostContentSettingsMapFactory::GetForProfile(profile());
+
+  // Add setting for the hosts.
+  for (const auto& host : hosts) {
+    host_content_settings_map->SetContentSettingDefaultScope(
+        host, GURL(), ContentSettingsType::DURABLE_STORAGE,
+        ContentSetting::CONTENT_SETTING_ALLOW);
+  }
+
+  // Clear at the eTLD+1 level and ensure affected origins are cleared.
+  base::Value::List args;
+  args.Append(GroupingKey::CreateFromEtldPlus1("example.com").Serialize());
+  handler()->HandleClearSiteGroupDataAndCookies(args);
+  ContentSettingsForOneType settings =
+      host_content_settings_map->GetSettingsForOneType(
+          ContentSettingsType::DURABLE_STORAGE);
+
+  // ContentSettingsType::DURABLE_STORAGE has a default settings type for the
+  // wildcard '*' set to BLOCK. Here, we expect 2 but we put 3.
+  EXPECT_EQ(3U, settings.size());
+
+  EXPECT_EQ(ContentSettingsPattern::FromURLNoWildcard(hosts[2]),
+            settings.at(0).primary_pattern);
+  EXPECT_EQ(ContentSettingsPattern::Wildcard(),
+            settings.at(0).secondary_pattern);
+  EXPECT_EQ(ContentSetting::CONTENT_SETTING_ALLOW,
+            settings.at(0).setting_value);
+
+  EXPECT_EQ(ContentSettingsPattern::FromURLNoWildcard(hosts[3]),
+            settings.at(1).primary_pattern);
+  EXPECT_EQ(ContentSettingsPattern::Wildcard(),
+            settings.at(1).secondary_pattern);
+  EXPECT_EQ(ContentSetting::CONTENT_SETTING_ALLOW,
+            settings.at(1).setting_value);
+
+  // Clear unpartitioned usage data, which should only affect the specific
+  // origin.
+  args.clear();
+  args.Append("https://google.com/");
+  handler()->HandleClearUnpartitionedUsage(args);
+
+  // Validate the reduce accept language has been cleared.
+  settings = host_content_settings_map->GetSettingsForOneType(
+      ContentSettingsType::DURABLE_STORAGE);
+
+  // ContentSettingsType::DURABLE_STORAGE has a default settings type for the
+  // wildcard '*' set to BLOCK. Here, we expect 1 but we put 2.
+  EXPECT_EQ(2U, settings.size());
+
+  // www.google.com should be the only remaining entry.
+  EXPECT_EQ(ContentSettingsPattern::FromURLNoWildcard(hosts[3]),
+            settings.at(0).primary_pattern);
+  EXPECT_EQ(ContentSettingsPattern::Wildcard(),
+            settings.at(0).secondary_pattern);
+  EXPECT_EQ(ContentSetting::CONTENT_SETTING_ALLOW,
+            settings.at(0).setting_value);
+
+  // Clear unpartitioned usage data through HTTPS scheme, make sure https site
+  // durable storage have been cleared when the specific origin HTTPS
+  // scheme exist.
+  args.clear();
+  args.Append("http://www.google.com/");
+  handler()->HandleClearUnpartitionedUsage(args);
+
+  // Validate the durable storage has been cleared.
+  settings = host_content_settings_map->GetSettingsForOneType(
+      ContentSettingsType::DURABLE_STORAGE);
+
+  // ContentSettingsType::DURABLE_STORAGE has a default settings type for the
+  // wildcard '*' set to BLOCK. Therefore, when there's only one rule, it means
+  // that there are none.
+  EXPECT_EQ(1U, settings.size());
+}
+
 TEST_F(SiteSettingsHandlerTest, HandleClearPartitionedUsage) {
   // Confirm that removing unpartitioned storage correctly removes the
   // appropriate nodes.
@@ -6032,100 +6125,6 @@ TEST_F(SiteSettingsHandlerTest, HandleClearPartitionedUsage) {
           kExampleUnpartitionedEntry,
           kGoogleOnExampleEntry,
       });
-}
-
-TEST_F(SiteSettingsHandlerTest, CookieSettingDescription) {
-  const auto kBlocked = [](int num) {
-    return l10n_util::GetPluralStringFUTF8(
-        IDS_SETTINGS_SITE_SETTINGS_COOKIES_BLOCK, num);
-  };
-  const auto kAllowed = [](int num) {
-    return l10n_util::GetPluralStringFUTF8(
-        IDS_SETTINGS_SITE_SETTINGS_COOKIES_ALLOW, num);
-  };
-  const std::string kBlockThirdParty = l10n_util::GetStringUTF8(
-      IDS_SETTINGS_SITE_SETTINGS_COOKIES_BLOCK_THIRD_PARTY);
-  const std::string kBlockThirdPartyIncognito = l10n_util::GetStringUTF8(
-      IDS_SETTINGS_SITE_SETTINGS_COOKIES_BLOCK_THIRD_PARTY_INCOGNITO);
-
-  // Enforce expected default profile setting.
-  profile()->GetPrefs()->SetInteger(
-      prefs::kCookieControlsMode,
-      static_cast<int>(content_settings::CookieControlsMode::kIncognitoOnly));
-  auto* content_settings =
-      HostContentSettingsMapFactory::GetForProfile(profile());
-  content_settings->SetDefaultContentSetting(
-      ContentSettingsType::COOKIES, ContentSetting::CONTENT_SETTING_ALLOW);
-  web_ui()->ClearTrackedCalls();
-
-  // Validate get method works.
-  base::Value::List get_args;
-  get_args.Append(kCallbackId);
-  handler()->HandleGetCookieSettingDescription(get_args);
-  const content::TestWebUI::CallData& data = *web_ui()->call_data().back();
-
-  EXPECT_EQ("cr.webUIResponse", data.function_name());
-  EXPECT_EQ(kCallbackId, data.arg1()->GetString());
-  ASSERT_TRUE(data.arg2()->GetBool());
-  EXPECT_EQ(kBlockThirdPartyIncognito, data.arg3()->GetString());
-
-  // Multiple listeners will be called when prefs and content settings are
-  // changed in this test. Increment our expected call_data index accordingly.
-  int expected_call_index = 0;
-  const int kPrefListenerIndex = 1;
-  const int kContentSettingListenerIndex = 2;
-
-  // Check updates are working,
-  profile()->GetPrefs()->SetInteger(
-      prefs::kCookieControlsMode,
-      static_cast<int>(content_settings::CookieControlsMode::kBlockThirdParty));
-  expected_call_index += kPrefListenerIndex;
-  ValidateCookieSettingUpdate(kBlockThirdParty, expected_call_index);
-
-  content_settings->SetDefaultContentSetting(
-      ContentSettingsType::COOKIES, ContentSetting::CONTENT_SETTING_BLOCK);
-  expected_call_index += kContentSettingListenerIndex;
-  ValidateCookieSettingUpdate(kBlocked(0), expected_call_index);
-
-  // Check changes which do not affect the effective cookie setting.
-  profile()->GetPrefs()->SetInteger(
-      prefs::kCookieControlsMode,
-      static_cast<int>(content_settings::CookieControlsMode::kOff));
-  expected_call_index += kPrefListenerIndex;
-  ValidateCookieSettingUpdate(kBlocked(0), expected_call_index);
-
-  // Set to allow and check previous changes are respected.
-  content_settings->SetDefaultContentSetting(
-      ContentSettingsType::COOKIES, ContentSetting::CONTENT_SETTING_ALLOW);
-  expected_call_index += kContentSettingListenerIndex;
-  ValidateCookieSettingUpdate(kAllowed(0), expected_call_index);
-
-  // Confirm exceptions are counted correctly.
-  GURL url1("https://example.com");
-  GURL url2("http://example.com");
-  GURL url3("http://another.example.com");
-  content_settings->SetContentSettingDefaultScope(
-      url1, url1, ContentSettingsType::COOKIES,
-      ContentSetting::CONTENT_SETTING_BLOCK);
-  expected_call_index += kContentSettingListenerIndex;
-  ValidateCookieSettingUpdate(kAllowed(1), expected_call_index);
-
-  content_settings->SetContentSettingDefaultScope(
-      url2, url2, ContentSettingsType::COOKIES,
-      ContentSetting::CONTENT_SETTING_ALLOW);
-  expected_call_index += kContentSettingListenerIndex;
-  ValidateCookieSettingUpdate(kAllowed(1), expected_call_index);
-
-  content_settings->SetContentSettingDefaultScope(
-      url3, url3, ContentSettingsType::COOKIES,
-      ContentSetting::CONTENT_SETTING_SESSION_ONLY);
-  expected_call_index += kContentSettingListenerIndex;
-  ValidateCookieSettingUpdate(kAllowed(1), expected_call_index);
-
-  content_settings->SetDefaultContentSetting(
-      ContentSettingsType::COOKIES, ContentSetting::CONTENT_SETTING_BLOCK);
-  expected_call_index += kContentSettingListenerIndex;
-  ValidateCookieSettingUpdate(kBlocked(2), expected_call_index);
 }
 
 TEST_F(SiteSettingsHandlerTest, HandleGetFpsMembershipLabel) {

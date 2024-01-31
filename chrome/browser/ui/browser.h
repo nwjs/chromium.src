@@ -536,6 +536,7 @@ class Browser : public TabStripModelObserver,
   }
 
   base::WeakPtr<Browser> AsWeakPtr();
+  base::WeakPtr<const Browser> AsWeakPtr() const;
 
   // Get the FindBarController for this browser, creating it if it does not
   // yet exist.
@@ -791,9 +792,6 @@ class Browser : public TabStripModelObserver,
   bool IsBackForwardCacheSupported() override;
   content::PreloadingEligibility IsPrerender2Supported(
       content::WebContents& web_contents) override;
-  std::unique_ptr<content::WebContents> ActivatePortalWebContents(
-      content::WebContents* predecessor_contents,
-      std::unique_ptr<content::WebContents> portal_contents) override;
   void UpdateInspectedWebContentsIfNecessary(
       content::WebContents* old_contents,
       content::WebContents* new_contents,
@@ -966,10 +964,6 @@ class Browser : public TabStripModelObserver,
                           const std::string& frame_name,
                           const GURL& target_url,
                           content::WebContents* new_contents, const std::u16string& nw_window_manifest) override;
-  void PortalWebContentsCreated(
-      content::WebContents* portal_web_contents) override;
-  void WebContentsBecamePortal(
-      content::WebContents* portal_web_contents) override;
   void RendererUnresponsive(
       content::WebContents* source,
       content::RenderWidgetHost* render_widget_host,
@@ -995,11 +989,12 @@ class Browser : public TabStripModelObserver,
                           const base::FilePath& path) override;
   bool CanUseWindowingControls(
       content::RenderFrameHost* requesting_frame) override;
-  void SetCanResizeFromWebAPI(absl::optional<bool> can_resize) override;
+  void OnCanResizeFromWebAPIChanged() override;
   bool GetCanResize() override;
   void MinimizeFromWebAPI() override;
   void MaximizeFromWebAPI() override;
   void RestoreFromWebAPI() override;
+  ui::WindowShowState GetWindowShowState() const override;
   bool CanEnterFullscreenModeForTab(
       content::RenderFrameHost* requesting_frame,
       const blink::mojom::FullscreenOptions& options) override;
@@ -1041,11 +1036,8 @@ class Browser : public TabStripModelObserver,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback) override;
   bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
-                                  const GURL& security_origin,
+                                  const url::Origin& security_origin,
                                   blink::mojom::MediaStreamType type) override;
-  std::string GetDefaultMediaDeviceID(
-      content::WebContents* web_contents,
-      blink::mojom::MediaStreamType type) override;
   std::string GetTitleForMediaControls(
       content::WebContents* web_contents) override;
 

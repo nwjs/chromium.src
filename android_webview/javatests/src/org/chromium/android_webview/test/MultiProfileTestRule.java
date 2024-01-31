@@ -6,13 +6,21 @@ package org.chromium.android_webview.test;
 
 import org.chromium.android_webview.AwBrowserContext;
 import org.chromium.android_webview.AwContents;
+import org.chromium.android_webview.AwSettings;
 import org.chromium.base.ThreadUtils;
+
+import java.util.function.Consumer;
 
 /** Wrapper around AwActivityTestRule with helper methods for tests using multiple profiles. */
 public class MultiProfileTestRule extends AwActivityTestRule {
     private final TestAwContentsClient mContentsClient;
 
     public MultiProfileTestRule() {
+        mContentsClient = new TestAwContentsClient();
+    }
+
+    public MultiProfileTestRule(Consumer<AwSettings> mMaybeMutateAwSettings) {
+        super(mMaybeMutateAwSettings);
         mContentsClient = new TestAwContentsClient();
     }
 
@@ -28,10 +36,11 @@ public class MultiProfileTestRule extends AwActivityTestRule {
     }
 
     public void setBrowserContextSync(AwContents awContents, AwBrowserContext browserContext) {
-        ThreadUtils.runOnUiThreadBlockingNoException(() -> {
-            awContents.setBrowserContext(browserContext);
-            return null;
-        });
+        ThreadUtils.runOnUiThreadBlockingNoException(
+                () -> {
+                    awContents.setBrowserContext(browserContext);
+                    return null;
+                });
     }
 
     public AwBrowserContext getProfileSync(String name, boolean createIfNeeded) {

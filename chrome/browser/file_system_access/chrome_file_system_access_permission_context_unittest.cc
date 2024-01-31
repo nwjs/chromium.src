@@ -94,6 +94,8 @@ class TestFileSystemAccessPermissionContext
 
 class ChromeFileSystemAccessPermissionContextTest : public testing::Test {
  public:
+  // TODO(crbug.com/1467574): Remove `kFileSystemAccessPersistentPermissions`
+  // flag after FSA Persistent Permissions feature launch.
   ChromeFileSystemAccessPermissionContextTest() {
     scoped_feature_list_.InitWithFeatures(
         {features::kFileSystemAccessPersistentPermissions,
@@ -267,6 +269,8 @@ class ChromeFileSystemAccessPermissionContextTest : public testing::Test {
 class ChromeFileSystemAccessPermissionContextNoPersistenceTest
     : public ChromeFileSystemAccessPermissionContextTest {
  public:
+  // TODO(crbug.com/1467574): Remove `kFileSystemAccessPersistentPermissions`
+  // flag after FSA Persistent Permissions feature launch.
   ChromeFileSystemAccessPermissionContextNoPersistenceTest() {
     scoped_feature_list_.InitAndDisableFeature(
         features::kFileSystemAccessPersistentPermissions);
@@ -615,36 +619,39 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
 
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
        ConfirmSensitiveEntryAccess_DangerousFile) {
+  base::FilePath home_dir = temp_dir_.GetPath().AppendASCII("home");
+  base::ScopedPathOverride home_override(base::DIR_HOME, home_dir, true, true);
+
   // Saving files with a harmless extension should be allowed.
-  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
-                permission_context(), PathType::kLocal,
-                temp_dir_.GetPath().AppendASCII("test.txt"), HandleType::kFile,
-                UserAction::kSave),
-            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(permission_context(), PathType::kLocal,
+                                      home_dir.AppendASCII("test.txt"),
+                                      HandleType::kFile, UserAction::kSave),
+      SensitiveDirectoryResult::kAllowed);
   // Saving files with a dangerous extension should show a prompt.
-  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
-                permission_context(), PathType::kLocal,
-                temp_dir_.GetPath().AppendASCII("test.swf"), HandleType::kFile,
-                UserAction::kSave),
-            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(permission_context(), PathType::kLocal,
+                                      home_dir.AppendASCII("test.swf"),
+                                      HandleType::kFile, UserAction::kSave),
+      SensitiveDirectoryResult::kAbort);
   // Files with a dangerous extension from no user action should be allowed.
-  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
-                permission_context(), PathType::kLocal,
-                temp_dir_.GetPath().AppendASCII("test.swf"), HandleType::kFile,
-                UserAction::kNone),
-            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(permission_context(), PathType::kLocal,
+                                      home_dir.AppendASCII("test.swf"),
+                                      HandleType::kFile, UserAction::kNone),
+      SensitiveDirectoryResult::kAllowed);
   // Opening files with a dangerous extension should be allowed.
-  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
-                permission_context(), PathType::kLocal,
-                temp_dir_.GetPath().AppendASCII("test.swf"), HandleType::kFile,
-                UserAction::kOpen),
-            SensitiveDirectoryResult::kAllowed);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(permission_context(), PathType::kLocal,
+                                      home_dir.AppendASCII("test.swf"),
+                                      HandleType::kFile, UserAction::kOpen),
+      SensitiveDirectoryResult::kAllowed);
   // Opening files with a dangerous compound extension should show a prompt.
-  EXPECT_EQ(ConfirmSensitiveEntryAccessSync(
-                permission_context(), PathType::kLocal,
-                temp_dir_.GetPath().AppendASCII("test.txt.swf"),
-                HandleType::kFile, UserAction::kSave),
-            SensitiveDirectoryResult::kAbort);
+  EXPECT_EQ(
+      ConfirmSensitiveEntryAccessSync(permission_context(), PathType::kLocal,
+                                      home_dir.AppendASCII("test.txt.swf"),
+                                      HandleType::kFile, UserAction::kSave),
+      SensitiveDirectoryResult::kAbort);
 }
 
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
@@ -1059,11 +1066,7 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   EXPECT_TRUE(permission_context()->HasExtendedPermissionForTesting(
       kTestOrigin, kTestPath, HandleType::kFile, GrantType::kWrite));
 
-  grant.reset();
-  // Permission should not be granted for `kOpen`.
-  grant = permission_context()->GetWritePermissionGrant(
-      kTestOrigin, kTestPath, HandleType::kFile, UserAction::kOpen);
-  EXPECT_EQ(grant->GetStatus(), PermissionStatus::ASK);
+  permission_context()->RevokeActiveGrantsForTesting(kTestOrigin, kTestPath);
 
   // Permission should be auto-granted here via the persisted permission.
   base::test::TestFuture<PermissionRequestOutcome> future;
@@ -1141,7 +1144,6 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   // Revoke the active grant, but not the persisted permission. The granted
   // object for the given origin is not revoked.
   permission_context()->RevokeActiveGrantsForTesting(kTestOrigin);
-  EXPECT_EQ(grant->GetStatus(), PermissionStatus::ASK);
   ASSERT_THAT(
       permission_context()->GetExtendedPersistedObjectsForTesting(kTestOrigin),
       testing::SizeIs(1));
@@ -1528,8 +1530,9 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto origin_is_embargoed =
       PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(profile()))
-          ->IsEmbargoed(kTestOrigin.GetURL(),
-                        ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+          ->IsEmbargoed(
+              kTestOrigin.GetURL(),
+              ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION);
   EXPECT_FALSE(origin_is_embargoed);
 
   //  Check that the origin is placed under embargo after being ignored
@@ -1541,8 +1544,9 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto origin_is_embargoed_updated =
       PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(profile()))
-          ->IsEmbargoed(kTestOrigin.GetURL(),
-                        ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+          ->IsEmbargoed(
+              kTestOrigin.GetURL(),
+              ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION);
   EXPECT_FALSE(origin_is_embargoed_updated);
   // The origin is embargoed, after reaching the ignore limit set by
   // `kDefaultDismissalsBeforeBlock`.
@@ -1551,8 +1555,9 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto origin_is_embargoed_after_rejection_limit =
       PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(profile()))
-          ->IsEmbargoed(kTestOrigin.GetURL(),
-                        ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+          ->IsEmbargoed(
+              kTestOrigin.GetURL(),
+              ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION);
   EXPECT_TRUE(origin_is_embargoed_after_rejection_limit);
 }
 
@@ -1704,8 +1709,9 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto origin_is_embargoed =
       PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(profile()))
-          ->IsEmbargoed(kTestOrigin.GetURL(),
-                        ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+          ->IsEmbargoed(
+              kTestOrigin.GetURL(),
+              ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION);
   EXPECT_FALSE(origin_is_embargoed);
 
   // The origin is placed under embargo after being ignored
@@ -1719,8 +1725,9 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto origin_is_embargoed_updated =
       PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(profile()))
-          ->IsEmbargoed(kTestOrigin.GetURL(),
-                        ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+          ->IsEmbargoed(
+              kTestOrigin.GetURL(),
+              ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION);
   EXPECT_FALSE(origin_is_embargoed_updated);
 
   // The origin is embargoed, after reaching the ignore limit set by
@@ -1730,8 +1737,9 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto origin_is_embargoed_after_ignore_limit =
       PermissionDecisionAutoBlockerFactory::GetForProfile(
           Profile::FromBrowserContext(profile()))
-          ->IsEmbargoed(kTestOrigin.GetURL(),
-                        ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+          ->IsEmbargoed(
+              kTestOrigin.GetURL(),
+              ContentSettingsType::FILE_SYSTEM_ACCESS_RESTORE_PERMISSION);
   EXPECT_TRUE(origin_is_embargoed_after_ignore_limit);
 }
 
@@ -2041,25 +2049,6 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
 }
 
 TEST_F(ChromeFileSystemAccessPermissionContextTest,
-       PersistedPermission_RevokeOnlyActiveGrants) {
-  permission_context()->SetOriginHasExtendedPermissionForTesting(kTestOrigin);
-  auto grant = permission_context()->GetWritePermissionGrant(
-      kTestOrigin, kTestPath, HandleType::kFile, UserAction::kSave);
-  EXPECT_EQ(grant->GetStatus(), PermissionStatus::GRANTED);
-  // Revoke active grant, but not the persisted permission.
-  permission_context()->RevokeActiveGrantsForTesting(kTestOrigin);
-  EXPECT_EQ(grant->GetStatus(), PermissionStatus::ASK);
-  EXPECT_TRUE(permission_context()->HasExtendedPermissionForTesting(
-      kTestOrigin, kTestPath, HandleType::kFile, GrantType::kWrite));
-
-  ChromeFileSystemAccessPermissionContext::Grants grants =
-      permission_context()->ConvertObjectsToGrants(
-          permission_context()->GetGrantedObjects(kTestOrigin));
-  std::vector<base::FilePath> expected_res = {kTestPath};
-  EXPECT_EQ(grants.file_write_grants, expected_res);
-}
-
-TEST_F(ChromeFileSystemAccessPermissionContextTest,
        PersistedPermission_RevokeGrantByFilePath) {
   auto grant = permission_context()->GetWritePermissionGrant(
       kTestOrigin, kTestPath, HandleType::kFile, UserAction::kSave);
@@ -2080,15 +2069,7 @@ TEST_F(ChromeFileSystemAccessPermissionContextTest,
   auto grant = permission_context()->GetWritePermissionGrant(
       kTestOrigin, kTestPath, HandleType::kFile, UserAction::kSave);
   EXPECT_EQ(grant->GetStatus(), PermissionStatus::GRANTED);
-  grant.reset();
-  EXPECT_TRUE(permission_context()->HasExtendedPermissionForTesting(
-      kTestOrigin, kTestPath, HandleType::kFile, GrantType::kWrite));
-
-  // After reset, the grant should be cleared, and the new grant request should
-  // be in the `ASK` state.
-  grant = permission_context()->GetWritePermissionGrant(
-      kTestOrigin, kTestPath, HandleType::kFile, UserAction::kOpen);
-  EXPECT_EQ(grant->GetStatus(), PermissionStatus::ASK);
+  permission_context()->RevokeActiveGrantsForTesting(kTestOrigin, kTestPath);
 
   SetDefaultContentSettingValue(ContentSettingsType::FILE_SYSTEM_WRITE_GUARD,
                                 CONTENT_SETTING_BLOCK);

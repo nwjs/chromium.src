@@ -70,11 +70,12 @@ component("gpu") {
     visibility += [ "//content/common" ]
   }
 
-  defines = [ "MEDIA_GPU_IMPLEMENTATION" ]
-  if (!use_runtime_vlog) {
-    # Enable VLOG(1) when using build time VLOG.
-    defines += [ "ENABLED_VLOG_LEVEL=1" ]
-  }
+  defines = [
+    "MEDIA_GPU_IMPLEMENTATION",
+
+    # Enable VLOG(1) so that they are included in field feedbacks.
+    "ENABLED_VLOG_LEVEL=1",
+  ]
 
   sources = [
     "gpu_video_accelerator_util.cc",
@@ -386,6 +387,8 @@ source_set("common") {
     sources += [
       "vp9_svc_layers.cc",
       "vp9_svc_layers.h",
+      "vp9_svc_layers_stateful.cc",
+      "vp9_svc_layers_stateful.h",
     ]
     configs += [ "//third_party/libvpx:libvpx_config" ]
     deps += [
@@ -461,7 +464,10 @@ if (use_v4l2_codec || use_vaapi) {
 
     # vaapi_dmabuf_video_frame_mapper
     if (use_vaapi) {
-      deps += [ "//media/gpu/vaapi" ]
+      deps += [
+        "//media/gpu/vaapi",
+        "//media/gpu/vaapi:common",
+      ]
     }
   }
 
@@ -649,6 +655,7 @@ source_set("unit_tests") {
   }
 
   if (is_win || use_vaapi) {
+    sources += [ "vp9_svc_layers_stateful_unittest.cc" ]
     sources += [ "vp9_svc_layers_unittest.cc" ]
   }
 }

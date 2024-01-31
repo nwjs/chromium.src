@@ -28,7 +28,6 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
-#include "base/functional/identity.h"
 #include "base/location.h"
 #include "base/logging.h"
 #include "base/memory/scoped_refptr.h"
@@ -44,6 +43,8 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
 #include "chrome/browser/apps/app_service/app_launch_params.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/intent_util.h"
 #include "chrome/browser/apps/app_service/launch_utils.h"
 #include "chrome/browser/apps/app_service/policy_util.h"
@@ -102,8 +103,6 @@
 #include "url/origin.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/apps/app_service/app_service_proxy.h"
-#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/app_service/browser_app_instance_tracker.h"
 #include "chrome/browser/badging/badge_manager.h"
 #include "chrome/browser/badging/badge_manager_factory.h"
@@ -214,11 +213,11 @@ apps::InstallReason GetHighestPriorityInstallReason(const WebApp* web_app) {
     }
   }
 
-  // On some devices, this partner app is installed through App Preload Service
+  // On some devices, Adobe Express is installed through App Preload Service
   // as an OEM app, but should not appear in the OEM folder.
   // TODO(b/300857328): Remove this workaround.
   if (web_app->GetHighestPrioritySource() == WebAppManagement::kOem &&
-      web_app->app_id() == web_app::kDefaultInstalledPartnerAppId) {
+      web_app->app_id() == web_app::kAdobeExpressAppId) {
     return apps::InstallReason::kDefault;
   }
 
@@ -701,8 +700,7 @@ apps::AppPtr WebAppPublisherHelper::CreateWebApp(const WebApp* web_app) {
   // Web App's publisher_id the start url.
   app->publisher_id = web_app->start_url().spec();
 
-  app->icon_key =
-      std::move(*icon_key_factory_.CreateIconKey(GetIconEffects(web_app)));
+  app->icon_key = apps::IconKey(GetIconEffects(web_app));
 
   app->last_launch_time = web_app->last_launch_time();
   app->install_time = web_app->first_install_time();
@@ -780,6 +778,8 @@ apps::AppPtr WebAppPublisherHelper::CreateWebApp(const WebApp* web_app) {
   const auto login_mode = registrar().GetAppRunOnOsLoginMode(web_app->app_id());
   app->run_on_os_login = apps::RunOnOsLogin(
       ConvertOsLoginMode(login_mode.value), !login_mode.user_controllable);
+
+  app->allow_close = !registrar().IsPreventCloseEnabled(web_app->app_id());
 
   for (const auto& shortcut : web_app->shortcuts_menu_item_infos()) {
     const std::string name = base::UTF16ToUTF8(shortcut.name);
@@ -861,8 +861,7 @@ void WebAppPublisherHelper::SetIconEffect(const std::string& app_id) {
   }
 
   auto app = std::make_unique<apps::App>(app_type(), app_id);
-  app->icon_key =
-      std::move(*icon_key_factory_.CreateIconKey(GetIconEffects(web_app)));
+  app->icon_key = apps::IconKey(GetIconEffects(web_app));
   delegate_->PublishWebApp(std::move(app));
 }
 
@@ -1192,6 +1191,17 @@ apps::WindowMode WebAppPublisherHelper::GetWindowMode(
   return ConvertDisplayModeToWindowMode(display_mode);
 }
 
+void WebAppPublisherHelper::UpdateAppSize(const std::string& app_id) {
+  const auto* web_app = GetWebApp(app_id);
+  if (!web_app) {
+    return;
+  }
+
+  provider_->scheduler().ComputeAppSize(
+      app_id, base::BindOnce(&WebAppPublisherHelper::OnGetWebAppSize,
+                             weak_ptr_factory_.GetWeakPtr(), app_id));
+}
+
 void WebAppPublisherHelper::SetWindowMode(const std::string& app_id,
                                           apps::WindowMode window_mode) {
   auto user_display_mode = mojom::UserDisplayMode::kStandalone;
@@ -1371,7 +1381,7 @@ void WebAppPublisherHelper::OnWebAppManifestUpdated(
     // a new `raw_icon_data_version`, to remove the icon files saved in the
     // AppService icon directory, to get the new raw icon files of the web app
     // for AppService.
-    app->icon_key->raw_icon_updated = true;
+    app->icon_key->update_version = true;
     delegate_->PublishWebApp(std::move(app));
   }
 }
@@ -1430,8 +1440,21 @@ void WebAppPublisherHelper::OnWebAppUserDisplayModeChanged(
   if (IsAppServiceShortcut(app_id, *provider_)) {
     return;
   }
-  PublishWindowModeUpdate(app_id,
-                          registrar().GetAppEffectiveDisplayMode(app_id));
+
+  // If the app that changed display mode is not registered in app service, it
+  // is because this was considered as a shortcut and now considered as an app
+  // due to display mode change, in this case we should publish the full app.
+  if (apps::AppServiceProxyFactory::GetForProfile(profile_)
+          ->AppRegistryCache()
+          .IsAppInstalled(app_id)) {
+    PublishWindowModeUpdate(app_id,
+                            registrar().GetAppEffectiveDisplayMode(app_id));
+  } else {
+    const WebApp* web_app = GetWebApp(app_id);
+    if (web_app) {
+      delegate_->PublishWebApp(CreateWebApp(web_app));
+    }
+  }
 }
 
 void WebAppPublisherHelper::OnWebAppRunOnOsLoginModeChanged(
@@ -1459,9 +1482,7 @@ void WebAppPublisherHelper::OnWebAppDisabledStateChanged(
 
   DCHECK_EQ(is_disabled, web_app->chromeos_data()->is_disabled);
   apps::AppPtr app = CreateWebApp(web_app);
-  app->icon_key =
-      std::move(*icon_key_factory_.CreateIconKey(GetIconEffects(web_app)));
-  ;
+  app->icon_key = apps::IconKey(GetIconEffects(web_app));
 
   // If the disable mode is hidden, update the visibility of the new disabled
   // app.
@@ -1593,17 +1614,12 @@ void WebAppPublisherHelper::OnContentSettingChanged(
 
 void WebAppPublisherHelper::OnWebAppSettingsPolicyChanged() {
   DCHECK(!IsShuttingDown());
-  // TODO(crbug.com/1293961): when more fseatures are added to policy manager,
-  // we need to remove per-feature updates in favor of a full refresh, as each
-  // feature multiplicatively increases the complexity of this operation.
+
   for (const WebApp& web_app : registrar().GetApps()) {
     if (IsAppServiceShortcut(web_app.app_id(), *provider_)) {
       continue;
     }
-    const auto login_mode =
-        registrar().GetAppRunOnOsLoginMode(web_app.app_id());
-
-    PublishRunOnOsLoginModeUpdate(web_app.app_id(), login_mode.value);
+    delegate_->PublishWebApp(CreateWebApp(&web_app));
   }
 }
 
@@ -1708,7 +1724,15 @@ void WebAppPublisherHelper::LaunchAppWithIntentImpl(
           [](base::OnceCallback<void(const std::vector<content::WebContents*>&)>
                  callback,
              content::WebContents* contents) {
-            std::move(callback).Run({contents});
+            // These calls are piped through LaunchWebAppCommand and can end
+            // early during an Abort due to various reasons (like
+            // FirstRunService not completed), in which case there will be no
+            // web contents.
+            if (contents) {
+              std::move(callback).Run({contents});
+            } else {
+              std::move(callback).Run({});
+            }
           },
           std::move(callback)));
 }
@@ -1992,6 +2016,18 @@ void WebAppPublisherHelper::OnLaunchCompleted(
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
   std::move(on_complete).Run(web_contents.get());
+}
+
+void WebAppPublisherHelper::OnGetWebAppSize(
+    webapps::AppId app_id,
+    absl::optional<ComputeAppSizeCommand::Size> size) {
+  auto app = std::make_unique<apps::App>(app_type(), app_id);
+  if (!size.has_value()) {
+    return;
+  }
+  app->app_size_in_bytes = size->app_size_in_bytes;
+  app->data_size_in_bytes = size->data_size_in_bytes;
+  delegate_->PublishWebApp(std::move(app));
 }
 
 }  // namespace web_app

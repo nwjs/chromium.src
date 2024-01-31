@@ -19,7 +19,9 @@
 #include "components/search_engines/search_engines_pref_names.h"
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "components/version_info/version_info.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_web_contents_factory.h"
 #include "content/public/test/test_web_ui.h"
@@ -154,6 +156,7 @@ TEST_P(SearchEnginesHandlerParametrizedTest,
   EXPECT_EQ("search-engines-changed", second_call_data.arg1()->GetString());
 }
 
+#if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
 TEST_P(SearchEnginesHandlerParametrizedTest,
        SettingTheDefaultSearchEngineRecordsHistogram) {
   base::Value::List first_call_args;
@@ -213,6 +216,9 @@ TEST_F(SearchEnginesHandlerTestWithSearchEngineChoiceEnabled,
 
   EXPECT_FALSE(pref_service->HasPrefPath(
       prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp));
+  EXPECT_FALSE(pref_service->HasPrefPath(
+      prefs::kDefaultSearchProviderChoiceScreenCompletionVersion));
+
   base::Value::List args;
   // Search engine model id.
   args.Append(1);
@@ -224,6 +230,9 @@ TEST_F(SearchEnginesHandlerTestWithSearchEngineChoiceEnabled,
                   prefs::kDefaultSearchProviderChoiceScreenCompletionTimestamp),
               base::Time::Now().ToDeltaSinceWindowsEpoch().InSeconds(),
               /*abs_error=*/2);
+  EXPECT_EQ(pref_service->GetString(
+                prefs::kDefaultSearchProviderChoiceScreenCompletionVersion),
+            version_info::GetVersionNumber());
 }
 
 TEST_F(SearchEnginesHandlerTestWithSearchEngineChoiceEnabled,
@@ -256,4 +265,5 @@ TEST_F(SearchEnginesHandlerTestWithSearchEngineChoiceEnabled,
       search_engines::kSearchEngineChoiceScreenDefaultSearchEngineTypeHistogram,
       SearchEngineType::SEARCH_ENGINE_BING, 1);
 }
+#endif
 }  // namespace settings

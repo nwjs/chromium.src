@@ -78,6 +78,7 @@
 #include "components/search_engines/template_url_service.h"
 #include "components/supervised_user/core/common/buildflags.h"
 #include "components/supervised_user/core/common/pref_names.h"
+#include "components/supervised_user/test_support/kids_management_api_server_mock.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
 #include "content/public/browser/browser_message_filter.h"
@@ -142,12 +143,11 @@
 #include "chrome/browser/supervised_user/supervised_user_service_factory.h"
 #include "chrome/test/supervised_user/embedded_test_server_setup_mixin.h"
 #include "chrome/test/supervised_user/supervision_mixin.h"
-#include "components/supervised_user/core/browser/kids_chrome_management_client.h"
+#include "components/supervised_user/core/browser/supervised_user_preferences.h"
 #include "components/supervised_user/core/browser/supervised_user_service.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filter.h"
 #include "components/supervised_user/core/common/features.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
-#include "components/supervised_user/test_support/kids_chrome_management_test_utils.h"
 #endif
 
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -205,7 +205,9 @@ class ContextMenuBrowserTest : public MixinBasedInProcessBrowserTest {
  protected:
   ContextMenuBrowserTest() {
     scoped_feature_list_.InitWithFeatures(
-        {features::kReadAnything, media::kContextMenuSaveVideoFrameAs}, {});
+        {features::kReadAnything, media::kContextMenuSaveVideoFrameAs,
+         media::kContextMenuSearchForVideoFrame},
+        {});
   }
 
   std::unique_ptr<TestRenderViewContextMenu> CreateContextMenuMediaTypeNone(
@@ -603,6 +605,11 @@ class ContextMenuForSupervisedUsersBrowserTest : public ContextMenuBrowserTest {
     return SupervisedUserServiceFactory::GetForProfile(browser()->profile());
   }
 
+  supervised_user::KidsManagementApiServerMock& kids_management_api_mock() {
+    return supervision_mixin_.api_mock_setup_mixin().api_mock();
+  }
+
+ private:
   // Supervision mixin hooks kids management api (including ClassifyUrl) onto
   // given embedded test server. This server is run in separate process and is
   // responding to all requests as configured in this mixin.
@@ -647,7 +654,8 @@ IN_PROC_BROWSER_TEST_F(ContextMenuWithoutFilteringForSupervisedUsersBrowserTest,
   ASSERT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVELINKAS));
 
   // The entry is only disabled for platforms on which URL filtering is enabled.
-  if (GetSupervisedUserService()->IsURLFilteringEnabled()) {
+  if (supervised_user::IsUrlFilteringEnabled(
+          *browser()->profile()->GetPrefs())) {
     EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
   } else {
     EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVELINKAS));
@@ -661,10 +669,11 @@ IN_PROC_BROWSER_TEST_F(
 
   base::RunLoop().RunUntilIdle();
 
-  if (GetSupervisedUserService()->IsURLFilteringEnabled()) {
-    supervision_mixin_.api_mock_setup_mixin()
-        .api_mock()
-        .QueueRestrictedUrlClassification();
+  if (supervised_user::IsUrlFilteringEnabled(
+          *browser()->profile()->GetPrefs())) {
+    kids_management_api_mock().RestrictSubsequentClassifyUrl();
+    EXPECT_CALL(kids_management_api_mock().classify_url_mock(), ClassifyUrl)
+        .Times(1);
   }
 
   ASSERT_TRUE(embedded_test_server()->Started());
@@ -696,7 +705,8 @@ IN_PROC_BROWSER_TEST_F(
   std::u16string suggested_filename = menu_observer.params().suggested_filename;
   // The save link as action is only blocked for platforms on which URL
   // filtering is enabled.
-  if (GetSupervisedUserService()->IsURLFilteringEnabled()) {
+  if (supervised_user::IsUrlFilteringEnabled(
+          *browser()->profile()->GetPrefs())) {
     const std::string kSuggestedFilename("");
     ASSERT_EQ(kSuggestedFilename,
               base::UTF16ToUTF8(suggested_filename).c_str());
@@ -712,10 +722,11 @@ IN_PROC_BROWSER_TEST_F(
     SaveLinkAsEntryIsEnabledForUrlsAllowedByAsyncCheckerForChild) {
   ContextMenuWaiter menu_observer;
 
-  if (GetSupervisedUserService()->IsURLFilteringEnabled()) {
-    supervision_mixin_.api_mock_setup_mixin()
-        .api_mock()
-        .QueueAllowedUrlClassification();
+  if (supervised_user::IsUrlFilteringEnabled(
+          *browser()->profile()->GetPrefs())) {
+    kids_management_api_mock().AllowSubsequentClassifyUrl();
+    EXPECT_CALL(kids_management_api_mock().classify_url_mock(), ClassifyUrl)
+        .Times(1);
   }
 
   base::RunLoop().RunUntilIdle();
@@ -796,9 +807,9 @@ IN_PROC_BROWSER_TEST_F(
     SaveLinkAsEntryIsDisabledForUrlsBlockedByAsyncCheckerForChild) {
   ContextMenuWaiter menu_observer;
 
-  supervision_mixin_.api_mock_setup_mixin()
-      .api_mock()
-      .QueueRestrictedUrlClassification();
+  kids_management_api_mock().RestrictSubsequentClassifyUrl();
+  EXPECT_CALL(kids_management_api_mock().classify_url_mock(), ClassifyUrl)
+      .Times(1);
   base::RunLoop().RunUntilIdle();
 
   ASSERT_TRUE(embedded_test_server()->Started());
@@ -837,9 +848,9 @@ IN_PROC_BROWSER_TEST_F(
     SaveLinkAsEntryIsEnabledForUrlsAllowedByAsyncCheckerForChild) {
   ContextMenuWaiter menu_observer;
 
-  supervision_mixin_.api_mock_setup_mixin()
-      .api_mock()
-      .QueueAllowedUrlClassification();
+  kids_management_api_mock().AllowSubsequentClassifyUrl();
+  EXPECT_CALL(kids_management_api_mock().classify_url_mock(), ClassifyUrl)
+      .Times(1);
 
   base::RunLoop().RunUntilIdle();
 
@@ -1904,8 +1915,8 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, OpenLinkInProfileEntryPresent) {
   }
 }
 
-// Flaky on Lacros. https://crbug.com/1453315.
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
+// Flaky on Lacros and Linux. https://crbug.com/1453315.
+#if BUILDFLAG(IS_CHROMEOS_LACROS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_OpenLinkInProfile DISABLED_OpenLinkInProfile
 #else
 #define MAYBE_OpenLinkInProfile OpenLinkInProfile
@@ -2571,7 +2582,7 @@ class SearchByRegionWithUnifiedSidePanelBrowserTest
 };
 
 // https://crbug.com/1444953
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #define MAYBE_ValidLensRegionSearchWithUnifiedSidePanel \
   DISABLED_ValidLensRegionSearchWithUnifiedSidePanel
 #else
@@ -2624,7 +2635,7 @@ IN_PROC_BROWSER_TEST_F(SearchByRegionWithUnifiedSidePanelBrowserTest,
 }
 
 // https://crbug.com/1444953
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
 #define MAYBE_ValidFullscreenLensRegionSearchWithUnifiedSidePanel \
   DISABLED_ValidFullscreenLensRegionSearchWithUnifiedSidePanel
 #else
@@ -2965,8 +2976,11 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
 
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
-  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
   EXPECT_TRUE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
+  EXPECT_TRUE(
+      menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
@@ -2980,6 +2994,9 @@ IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest,
   EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SAVEVIDEOFRAMEAS));
   EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
   EXPECT_FALSE(menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_COPYVIDEOFRAME));
+  EXPECT_TRUE(menu->IsItemPresent(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
+  EXPECT_FALSE(
+      menu->IsCommandIdEnabled(IDC_CONTENT_CONTEXT_SEARCHLENSFORVIDEOFRAME));
 }
 
 IN_PROC_BROWSER_TEST_F(ContextMenuBrowserTest, ContextMenuForEncryptedVideo) {

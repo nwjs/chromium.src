@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -15,7 +16,6 @@
 #include "ash/glanceables/glanceables_controller.h"
 #include "ash/shell.h"
 #include "ash/style/combobox.h"
-#include "ash/system/tray/detailed_view_delegate.h"
 #include "ash/system/unified/classroom_bubble_base_view.h"
 #include "ash/system/unified/classroom_bubble_student_view.h"
 #include "ash/system/unified/classroom_bubble_teacher_view.h"
@@ -30,7 +30,6 @@
 #include "components/prefs/pref_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/progress_bar.h"
@@ -100,7 +99,7 @@ std::vector<std::unique_ptr<GlanceablesClassroomAssignment>> CreateAssignments(
         "Course title", base::StringPrintf("Course work title %d", i + 1),
         GURL(base::StringPrintf("https://classroom.google.com/test-link-%d",
                                 i + 1)),
-        absl::nullopt, base::Time(), absl::nullopt));
+        std::nullopt, base::Time(), std::nullopt));
   }
   return assignments;
 }
@@ -190,7 +189,6 @@ class ClassroomBubbleViewTest : public AshTestBase {
   // https://ci.chromium.org/ui/p/chromium/builders/try/linux-chromeos-rel/1690881/overview
   raw_ptr<ClassroomBubbleBaseView, FlakyDanglingUntriaged | ExperimentalAsh>
       view_;
-  DetailedViewDelegate detailed_view_delegate_{nullptr};
   const GlanceablesTestNewWindowDelegate new_window_delegate_;
 
  private:
@@ -210,7 +208,7 @@ class ClassroomBubbleStudentViewTest : public ClassroomBubbleViewTest {
           std::move(cb).Run(/*success=*/true, CreateAssignments(1));
         });
     view_ = widget_->SetContentsView(
-        std::make_unique<ClassroomBubbleStudentView>(&detailed_view_delegate_));
+        std::make_unique<ClassroomBubbleStudentView>());
   }
 
   int GetLastSelectedAssignmentsListPrefValue() const {
@@ -242,7 +240,7 @@ class ClassroomBubbleTeacherViewTest : public ClassroomBubbleViewTest {
           std::move(cb).Run(/*success=*/true, {});
         });
     view_ = widget_->SetContentsView(
-        std::make_unique<ClassroomBubbleTeacherView>(&detailed_view_delegate_));
+        std::make_unique<ClassroomBubbleTeacherView>());
   }
 
  private:
@@ -355,8 +353,8 @@ TEST_F(ClassroomBubbleStudentViewTest, ReadsInitialComboBoxViewValueFromPrefs) {
 
   // Swap `widget_`'s content. Verify that the new `view_` contains a combobox
   // with the correct initial value.
-  view_ = widget_->SetContentsView(
-      std::make_unique<ClassroomBubbleStudentView>(&detailed_view_delegate_));
+  view_ =
+      widget_->SetContentsView(std::make_unique<ClassroomBubbleStudentView>());
   ASSERT_TRUE(GetComboBoxView());
   EXPECT_EQ(GetLastSelectedAssignmentsListPrefValue(), 3);
   EXPECT_EQ(GetComboBoxView()->GetSelectedIndex(), 3u);

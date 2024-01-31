@@ -5,6 +5,7 @@
 #ifndef CHROME_BROWSER_ASH_OWNERSHIP_OWNER_KEY_LOADER_H_
 #define CHROME_BROWSER_ASH_OWNERSHIP_OWNER_KEY_LOADER_H_
 
+#include "base/feature_list.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/ref_counted.h"
@@ -20,6 +21,9 @@ class PolicyData;
 namespace ash {
 
 class DeviceSettingsService;
+
+BASE_DECLARE_FEATURE(kStoreOwnerKeyInPrivateSlot);
+BASE_DECLARE_FEATURE(kMigrateOwnerKeyToPrivateSlot);
 
 // A helper single-use class to load the owner key.
 // Determines whether the current user is the owner or not.
@@ -49,9 +53,16 @@ class OwnerKeyLoader {
   // the class.
   void Run();
 
+  // Extracts the old owner key when it was replaced. Should be called after
+  // Run() and after the `callback` (from the constructor) is called. Returns a
+  // nullptr if the key was not replaced.
+  // TODO(b/264397430): The method can be removed after the migration is done.
+  crypto::ScopedSECKEYPrivateKey ExtractOldOwnerKey();
+
  private:
   void OnPublicKeyLoaded(scoped_refptr<ownership::PublicKey> public_key);
-  void OnPrivateKeyLoaded(scoped_refptr<ownership::PrivateKey> private_key);
+  void OnPrivateKeyLoaded(scoped_refptr<ownership::PrivateKey> private_key,
+                          bool found_in_public_slot);
   void MaybeGenerateNewKey();
   void GenerateNewKey();
   void OnNewKeyGenerated(scoped_refptr<ownership::PublicKey> public_key,
@@ -67,6 +78,10 @@ class OwnerKeyLoader {
   scoped_refptr<ownership::PublicKey> public_key_;
   KeypairCallback callback_;
   int generate_attempt_counter_ = 0;
+  // If not null, contains the old owner key that is currently being replaced by
+  // the MigrateOwnerKeyToPrivateSlot experiment.
+  // TODO(b/264397430): This can be removed after the migration is finished.
+  crypto::ScopedSECKEYPrivateKey old_owner_key_;
 
   base::WeakPtrFactory<OwnerKeyLoader> weak_factory_{this};
 };

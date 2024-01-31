@@ -90,6 +90,16 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   std::unique_ptr<blink::URLLoaderThrottleProvider>
   CreateURLLoaderThrottleProviderForWorker(
       blink::URLLoaderThrottleProviderType provider_type) override;
+  void CreateWebGPUGraphicsContext3DProviderAsync(
+      const blink::WebURL& document_url,
+      base::OnceCallback<
+          void(std::unique_ptr<blink::WebGraphicsContext3DProvider>)> callback)
+      override;
+  void OnGpuChannelEstablished(
+      const blink::WebURL& document_url,
+      base::OnceCallback<
+          void(std::unique_ptr<blink::WebGraphicsContext3DProvider>)> callback,
+      scoped_refptr<gpu::GpuChannelHost> gpu_channel_host);
   std::unique_ptr<blink::WebSocketHandshakeThrottleProvider>
   CreateWebSocketHandshakeThrottleProvider() override;
   blink::WebString DefaultLocale() override;
@@ -258,7 +268,17 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   // Thread to run the VideoFrameCompositor on.
   std::unique_ptr<base::Thread> video_frame_compositor_thread_;
 
+  // FrameSinks are generated on both the browser and the renderer. The
+  // browser uses routing IDs and will be in the range [0,
+  // std::numeric_limits<int32_t>::max()] The renderer has the
+  // [std::numeric_limits<int32_t>::max() + 1,
+  // std::numeric_limits<uint32_t>::max()] range.
+  uint32_t next_frame_sink_id_;
+
   THREAD_CHECKER(main_thread_checker_);
+
+  // Used for callbacks.
+  base::WeakPtrFactory<RendererBlinkPlatformImpl> weak_factory_{this};
 };
 
 }  // namespace content

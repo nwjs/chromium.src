@@ -187,16 +187,17 @@ class CORE_EXPORT VisualViewport : public GarbageCollected<VisualViewport>,
   // ScrollableArea implementation
   ChromeClient* GetChromeClient() const override;
   SmoothScrollSequencer* GetSmoothScrollSequencer() const override;
-  void SetScrollOffset(const ScrollOffset&,
+  bool SetScrollOffset(const ScrollOffset&,
                        mojom::blink::ScrollType,
                        mojom::blink::ScrollBehavior,
                        ScrollCallback on_finish) override;
-  void SetScrollOffset(const ScrollOffset&,
+  bool SetScrollOffset(const ScrollOffset&,
                        mojom::blink::ScrollType,
                        mojom::blink::ScrollBehavior =
                            mojom::blink::ScrollBehavior::kInstant) override;
   PhysicalRect ScrollIntoView(
       const PhysicalRect&,
+      const PhysicalBoxStrut& scroll_margin,
       const mojom::blink::ScrollIntoViewParamsPtr&) override;
   bool IsThrottled() const override {
     // VisualViewport is always in the main frame, so the frame does not get

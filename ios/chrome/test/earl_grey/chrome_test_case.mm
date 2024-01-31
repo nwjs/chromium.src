@@ -323,6 +323,12 @@ void ResetAuthentication() {
       isEqualToString:NSStringFromSelector(selector)];
 }
 
+- (void)triggerRestoreByRestartingApplication {
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.relaunch_policy = ForceRelaunchByCleanShutdown;
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+}
+
 + (void)testForStartup {
   gStartupTest = YES;
 }
@@ -414,8 +420,6 @@ void ResetAuthentication() {
                  @"Unable to load custom WebKit");
 
   [[self class] enableMockAuthentication];
-
-  [ChromeEarlGreyAppInterface disableDefaultBrowserPromo];
 
   // Sometimes on start up there can be infobars (e.g. restore session), so
   // ensure the UI is in a clean state.

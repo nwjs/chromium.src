@@ -2,16 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-/**
- * @fileoverview
- * This file is checked via TS, so we suppress Closure checks.
- * @suppress {checkTypes}
- */
 import {assertInstanceof, assertNotReached} from 'chrome://resources/ash/common/assert.js';
 
 import {getMimeType, startIOTask} from '../../common/js/api.js';
 import {type AnnotatedTask, getDefaultTask} from '../../common/js/file_tasks.js';
-import {isJellyEnabled} from '../../common/js/flags.js';
 import {recordDirectoryListLoadWithTolerance, startInterval} from '../../common/js/metrics.js';
 import {str, strf} from '../../common/js/translations.js';
 import {checkAPIError} from '../../common/js/util.js';
@@ -19,7 +13,7 @@ import {Crostini} from '../../externs/background/crostini.js';
 import {ProgressCenter} from '../../externs/background/progress_center.js';
 import {FilesAppDirEntry, FilesAppEntry} from '../../externs/files_app_entry_interfaces.js';
 import {FileData, FileKey, FileTasks as StoreFileTasks, PropStatus, State} from '../../externs/ts/state.js';
-import {VolumeManager} from '../../externs/volume_manager.js';
+import type {VolumeManager} from '../../externs/volume_manager.js';
 import {fetchFileTasks} from '../../state/ducks/current_directory.js';
 import {getFilesData, getStore, type Store, waitForState} from '../../state/store.js';
 import {XfPasswordDialog} from '../../widgets/xf_password_dialog.js';
@@ -302,15 +296,12 @@ export class TaskController {
     const tasks = fileTasks.getAnnotatedTasks();
     const items = [];
 
-    // We don't bold default task item in refresh23 style.
-    const shouldBoldDefaultItem = !isJellyEnabled();
-
     // Create items.
     for (const task of tasks) {
       if (task === fileTasks.defaultTask) {
         const title = task.title + ' ' + str('DEFAULT_TASK_LABEL');
         items.push(createDropdownItem(
-            task, title, /*bold=*/ shouldBoldDefaultItem, /*isDefault=*/ true,
+            task, title, /*isDefault=*/ true,
             /*isPolicyDefault=*/
             !!fileTasks.getPolicyDefaultHandlerStatus()));
       } else {
@@ -683,7 +674,6 @@ export interface DropdownItem {
   iconUrl?: string;
   iconType: string;
   task: chrome.fileManagerPrivate.FileTask;
-  bold: boolean;
   isDefault: boolean;
   isPolicyDefault: boolean;
   isGenericFileHandler?: boolean;
@@ -692,11 +682,10 @@ export interface DropdownItem {
 
 /**
  * Creates dropdown item based on task.
- * @param bold Make a menu item bold.
  * @param isDefault Mark the item as default item.
  */
 function createDropdownItem(
-    task: chrome.fileManagerPrivate.FileTask, title?: string, bold?: boolean,
+    task: chrome.fileManagerPrivate.FileTask, title?: string,
     isDefault?: boolean, isPolicyDefault?: boolean): DropdownItem {
   return {
     type: TaskMenuItemType.RUN_TASK,
@@ -704,7 +693,6 @@ function createDropdownItem(
     iconUrl: task.iconUrl || '',
     iconType: (task as AnnotatedTask).iconType || '',
     task: task,
-    bold: bold || false,
     isDefault: isDefault || false,
     isPolicyDefault: isPolicyDefault || false,
     isGenericFileHandler: task.isGenericFileHandler,

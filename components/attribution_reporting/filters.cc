@@ -14,6 +14,7 @@
 #include "base/metrics/histogram_base.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/ranges/algorithm.h"
+#include "base/strings/string_util.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
 #include "base/types/expected_macros.h"
@@ -37,6 +38,7 @@ enum class FilterValuesError {
   kValueWrongType,
   kTooManyKeys,
   kKeyTooLong,
+  kKeyReserved,
   kListTooLong,
   kValueTooLong,
 };
@@ -110,6 +112,10 @@ base::expected<FilterValues, FilterValuesError> ParseFilterValuesFromJSON(
   filter_values.reserve(dict.size());
 
   for (auto [filter, value] : dict) {
+    if (base::StartsWith(filter, FilterConfig::kReservedKeyPrefix)) {
+      return base::unexpected(FilterValuesError::kKeyReserved);
+    }
+
     if (check_sizes && filter.size() > kMaxBytesPerFilterString) {
       return base::unexpected(FilterValuesError::kKeyTooLong);
     }
@@ -150,7 +156,7 @@ base::expected<FilterValues, FilterValuesError> ParseFilterValuesFromJSON(
 
 base::Value::Dict FilterValuesToJson(const FilterValues& filter_values) {
   base::Value::Dict dict;
-  for (auto [key, values] : filter_values) {
+  for (const auto& [key, values] : filter_values) {
     base::Value::List list;
     for (const auto& value : values) {
       list.Append(value);
@@ -194,6 +200,8 @@ base::expected<FilterData, SourceRegistrationError> FilterData::FromJSON(
 
   const auto map_errors = [](FilterValuesError error) {
     switch (error) {
+      case FilterValuesError::kKeyReserved:
+        return SourceRegistrationError::kFilterDataKeyReserved;
       case FilterValuesError::kTooManyKeys:
         return SourceRegistrationError::kFilterDataTooManyKeys;
       case FilterValuesError::kKeyTooLong:
@@ -387,6 +395,8 @@ base::expected<FiltersDisjunction, TriggerRegistrationError> FiltersFromJSON(
     const auto map_errors = [](FilterValuesError error) {
       if (error == FilterValuesError::kValueWrongType) {
         return TriggerRegistrationError::kFiltersValueWrongType;
+      } else if (error == FilterValuesError::kKeyReserved) {
+        return TriggerRegistrationError::kFiltersUsingReservedKey;
       }
       CHECK_EQ(FilterValuesError::kListWrongType, error);
       return TriggerRegistrationError::kFiltersListWrongType;

@@ -20,6 +20,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
+#include "chrome/browser/file_system_access/file_system_access_features.h"
 #include "chrome/browser/ssl/stateful_ssl_host_state_delegate_factory.h"
 #include "chrome/browser/subresource_filter/subresource_filter_profile_context_factory.h"
 #include "chrome/browser/ui/page_info/chrome_page_info_delegate.h"
@@ -50,6 +51,7 @@
 #include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
 #include "content/public/browser/ssl_host_state_delegate.h"
 #include "content/public/browser/ssl_status.h"
+#include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/web_contents_tester.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -150,7 +152,13 @@ class PageInfoTest : public ChromeRenderViewHostTestHarness {
   void SetUp() override {
     // TODO(crbug.com/1344787): Fix tests and enable the feature.
     scoped_feature_list_.InitWithFeatures(
-        {permissions::features::kPermissionStorageAccessAPI}, {});
+        {
+            permissions::features::kPermissionStorageAccessAPI,
+#if !BUILDFLAG(IS_ANDROID)
+            features::kFileSystemAccessPersistentPermissions,
+#endif
+        },
+        {});
 
     ChromeRenderViewHostTestHarness::SetUp();
 
@@ -168,14 +176,7 @@ class PageInfoTest : public ChromeRenderViewHostTestHarness {
         /*is_affiliated=*/true);
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
 
-    infobars::ContentInfoBarManager::CreateForWebContents(web_contents());
-    content_settings::PageSpecificContentSettings::CreateForWebContents(
-        web_contents(),
-        std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-            web_contents()));
-
-    permissions::PermissionRecoverySuccessRateTracker::CreateForWebContents(
-        web_contents());
+    CreateWebContentsUserData(web_contents());
 
     // Setup mock ui.
     ResetMockUI();
@@ -290,11 +291,7 @@ class PageInfoTest : public ChromeRenderViewHostTestHarness {
           content::WebContentsTester::CreateTestWebContents(
               profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true),
               nullptr);
-
-      content_settings::PageSpecificContentSettings::CreateForWebContents(
-          incognito_web_contents_.get(),
-          std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
-              incognito_web_contents_.get()));
+      CreateWebContentsUserData(incognito_web_contents_.get());
 
       incognito_mock_ui_ = std::make_unique<NiceMock<MockPageInfoUI>>();
       incognito_mock_ui_->set_permission_info_callback_ = base::BindRepeating(
@@ -312,6 +309,17 @@ class PageInfoTest : public ChromeRenderViewHostTestHarness {
       run_loop.Run();
     }
     return incognito_page_info_.get();
+  }
+
+  void CreateWebContentsUserData(content::WebContents* contents) {
+    // The test WebContents don't have all the helpers attached, so add in the
+    // missing ones needed by these tests.
+    infobars::ContentInfoBarManager::CreateForWebContents(contents);
+    content_settings::PageSpecificContentSettings::CreateForWebContents(
+        contents, std::make_unique<chrome::PageSpecificContentSettingsDelegate>(
+                      contents));
+    permissions::PermissionRecoverySuccessRateTracker::CreateForWebContents(
+        contents);
   }
 
   security_state::SecurityLevel security_level_;
@@ -427,6 +435,14 @@ TEST_F(PageInfoTest, NonFactoryDefaultAndRecentlyChangedPermissionsShown) {
                                        url::Origin::Create(kEmbedded1),
                                        /*is_one_time=*/false);
   expected_visible_permissions.insert(ContentSettingsType::STORAGE_ACCESS);
+#if !BUILDFLAG(IS_ANDROID)
+  page_info()->OnSitePermissionChanged(
+      ContentSettingsType::FILE_SYSTEM_WRITE_GUARD, CONTENT_SETTING_ALLOW,
+      url::Origin::Create(kEmbedded1),
+      /*is_one_time=*/false);
+  expected_visible_permissions.insert(
+      ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+#endif
   ExpectPermissionInfoList(expected_visible_permissions,
                            last_permission_info_list());
 
@@ -693,13 +709,22 @@ TEST_F(PageInfoTest, OnPermissionsChanged) {
   setting = content_settings->GetContentSetting(
       kEmbedded, url(), ContentSettingsType::STORAGE_ACCESS);
   EXPECT_EQ(setting, CONTENT_SETTING_ASK);
+#if !BUILDFLAG(IS_ANDROID)
+  setting = content_settings->GetContentSetting(
+      kEmbedded, url(), ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+  EXPECT_EQ(setting, CONTENT_SETTING_ASK);
+#endif
 
   EXPECT_CALL(*mock_ui(), SetIdentityInfo(_));
   ExpectInitialSetCookieInfoCall(mock_ui());
 
   // SetPermissionInfo() is called once initially, and then again every time
   // OnSitePermissionChanged() is called.
+#if !BUILDFLAG(IS_ANDROID)
+  EXPECT_CALL(*mock_ui(), SetPermissionInfoStub()).Times(8);
+#else
   EXPECT_CALL(*mock_ui(), SetPermissionInfoStub()).Times(7);
+#endif
 
   // Execute code under tests.
   page_info()->OnSitePermissionChanged(ContentSettingsType::POPUPS,
@@ -726,6 +751,12 @@ TEST_F(PageInfoTest, OnPermissionsChanged) {
                                        CONTENT_SETTING_ALLOW,
                                        url::Origin::Create(kEmbedded),
                                        /*is_one_time=*/false);
+#if !BUILDFLAG(IS_ANDROID)
+  page_info()->OnSitePermissionChanged(
+      ContentSettingsType::FILE_SYSTEM_WRITE_GUARD, CONTENT_SETTING_ALLOW,
+      url::Origin::Create(kEmbedded),
+      /*is_one_time=*/false);
+#endif
 
   // Verify that the site permissions were changed correctly.
   setting = content_settings->GetContentSetting(url(), url(),
@@ -746,6 +777,11 @@ TEST_F(PageInfoTest, OnPermissionsChanged) {
   setting = content_settings->GetContentSetting(
       kEmbedded, url(), ContentSettingsType::STORAGE_ACCESS);
   EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
+#if !BUILDFLAG(IS_ANDROID)
+  setting = content_settings->GetContentSetting(
+      kEmbedded, url(), ContentSettingsType::FILE_SYSTEM_WRITE_GUARD);
+  EXPECT_EQ(setting, CONTENT_SETTING_ALLOW);
+#endif
 }
 
 TEST_F(PageInfoTest, OnChosenObjectDeleted) {
@@ -2398,7 +2434,7 @@ TEST_F(PageInfoTest, WithoutPageSpecificContentSettings) {
 
 TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenAllowMidi) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndEnableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2424,7 +2460,7 @@ TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenAllowMidi) {
 
 TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenBlockMidi) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndEnableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2450,7 +2486,7 @@ TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenBlockMidi) {
 
 TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenBlockMidiAllowSysex) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndEnableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2478,7 +2514,7 @@ TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenBlockMidiAllowSysex) {
 
 TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenAllowkMidiAllowSysex) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndEnableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2506,8 +2542,7 @@ TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenAllowkMidiAllowSysex) {
 
 TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenNotBlockMidiByDefaultAllowMidi) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndDisableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2532,8 +2567,7 @@ TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenNotBlockMidiByDefaultAllowMidi) {
 
 TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenNotBlockMidiByDefaultBlockMidi) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndDisableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2559,8 +2593,7 @@ TEST_F(PageInfoTest, MidiGrantsAreFilteredWhenNotBlockMidiByDefaultBlockMidi) {
 TEST_F(PageInfoTest,
        MidiGrantsAreFilteredWhenNotBlockMidiByDefaultBlockMidiAllowSysex) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndDisableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 
@@ -2589,8 +2622,7 @@ TEST_F(PageInfoTest,
 TEST_F(PageInfoTest,
        MidiGrantsAreFilteredWhenNotBlockMidiByDefaultAllowkMidiAllowSysex) {
   base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(
-      permissions::features::kBlockMidiByDefault);
+  feature_list.InitAndDisableFeature(features::kBlockMidiByDefault);
 
   std::set<ContentSettingsType> expected_visible_permissions;
 

@@ -27,6 +27,7 @@ class StubPasswordManagerDriver : public PasswordManagerDriver {
   void SetPasswordFillData(
       const autofill::PasswordFormFillData& form_data) override;
   void GeneratedPasswordAccepted(const std::u16string& password) override;
+  void FocusNextFieldAfterPasswords() override;
   void FillSuggestion(const std::u16string& username,
                       const std::u16string& password) override;
 #if BUILDFLAG(IS_ANDROID)
@@ -36,9 +37,9 @@ class StubPasswordManagerDriver : public PasswordManagerDriver {
                          const std::u16string& password) override;
   void PreviewGenerationSuggestion(const std::u16string& password) override;
   void ClearPreviewedForm() override;
-  void SetSuggestionAvailability(
-      autofill::FieldRendererId element_id,
-      const autofill::mojom::AutofillState state) override;
+  void SetSuggestionAvailability(autofill::FieldRendererId element_id,
+                                 autofill::mojom::AutofillSuggestionAvailability
+                                     suggestion_availability) override;
   PasswordGenerationFrameHelper* GetPasswordGenerationHelper() override;
   PasswordManagerInterface* GetPasswordManager() override;
   PasswordAutofillManager* GetPasswordAutofillManager() override;

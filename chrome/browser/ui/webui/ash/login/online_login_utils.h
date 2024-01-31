@@ -84,6 +84,7 @@ struct OnlineSigninArtifacts {
   absl::optional<::login::StringList> services_list;
   absl::optional<SamlPasswordAttributes> saml_password_attributes;
   absl::optional<SyncTrustedVaultKeys> sync_trusted_vault_keys;
+  // Client certificate data for SmartCard flows. Only for SAML.
   absl::optional<ChallengeResponseKey> challenge_response_key;
   absl::optional<GaiaCookiesData> cookies;
 };
@@ -136,6 +137,9 @@ void BuildUserContextForGaiaSignIn(
 AccountId GetAccountId(const std::string& authenticated_email,
                        const std::string& gaia_id,
                        const AccountType& account_type);
+
+// Common utility for checking whether family link is allowed.
+bool IsFamilyLinkAllowed();
 
 }  // namespace login
 

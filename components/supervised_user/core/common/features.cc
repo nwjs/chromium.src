@@ -23,9 +23,6 @@ constexpr base::FeatureParam<std::string> kKidFriendlyContentFeedEndpoint{
 
 // Enables local parent approvals for the blocked website on the Family Link
 // user's device.
-// The feature includes one experiment parameter: "preferred_button", which
-// determines which button is displayed as the preferred option in the
-// interstitial UI (i.e. dark blue button).
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kLocalWebApprovals,
              "LocalWebApprovals",
@@ -39,10 +36,12 @@ BASE_FEATURE(kLocalWebApprovals,
 // Proto fetcher experiments.
 BASE_FEATURE(kEnableProtoApiForClassifyUrl,
              "EnableProtoApiForClassifyUrl",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kUseBuiltInRetryingMechanismForListFamilyMembers,
-             "UseBuiltInRetryingMechanismForListFamilyMembers",
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Request priority experiment for ClassifyUrl (for critical path of rendering).
+BASE_FEATURE(kHighestRequestPriorityForClassifyUrl,
+             "HighestRequestPriorityForClassifyUrl",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsGoogleBrandedBuild() {
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -56,7 +55,7 @@ bool IsLocalWebApprovalsEnabled() {
   // TODO(crbug.com/1272462, b/261729051):
   // Move this logic to SupervisedUserService, once it's migrated to
   // components, and de-release the intended usage of
-  // WebsiteParentApproval::IsLocalApprovalSupported for Andoird.
+  // WebsiteParentApproval::IsLocalApprovalSupported for Android.
 #if BUILDFLAG(IS_ANDROID)
   return base::FeatureList::IsEnabled(kLocalWebApprovals) &&
          IsGoogleBrandedBuild();
@@ -67,11 +66,6 @@ bool IsLocalWebApprovalsEnabled() {
 
 bool IsProtoApiForClassifyUrlEnabled() {
   return base::FeatureList::IsEnabled(kEnableProtoApiForClassifyUrl);
-}
-
-bool IsRetryMechanismForListFamilyMembersEnabled() {
-  return base::FeatureList::IsEnabled(
-      kUseBuiltInRetryingMechanismForListFamilyMembers);
 }
 
 // The following flags control whether supervision features are enabled on

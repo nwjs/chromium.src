@@ -39,6 +39,7 @@
 #include "chrome/browser/ui/views/frame/top_controls_slide_controller.h"
 #include "chrome/browser/ui/views/frame/web_contents_close_handler.h"
 #include "chrome/browser/ui/views/intent_picker_bubble_view.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_closer.h"
 #include "chrome/browser/ui/views/tabs/tab.h"
 #include "chrome/browser/ui/views/user_education/browser_feature_promo_controller.h"
 #include "chrome/common/buildflags.h"
@@ -519,8 +520,9 @@ class BrowserView : public BrowserWindow,
   void Maximize() override;
   void Minimize() override;
   void Restore() override;
-  void SetCanResizeFromWebAPI(absl::optional<bool> can_resize) override;
+  void OnCanResizeFromWebAPIChanged() override;
   bool GetCanResize() override;
+  ui::WindowShowState GetWindowShowState() const override;
   void EnterFullscreen(const GURL& url,
                        ExclusiveAccessBubbleType bubble_type,
                        int64_t display_id) override;
@@ -665,7 +667,7 @@ class BrowserView : public BrowserWindow,
       user_education::FeaturePromoParams params) override;
   bool CloseFeaturePromo(
       const base::Feature& iph_feature,
-      user_education::FeaturePromoCloseReason close_reason) override;
+      user_education::EndFeaturePromoReason end_promo_reason) override;
   user_education::FeaturePromoHandle CloseFeaturePromoAndContinue(
       const base::Feature& iph_feature) override;
   void NotifyFeatureEngagementEvent(const char* event_name) override;
@@ -735,6 +737,7 @@ class BrowserView : public BrowserWindow,
                              const gfx::Rect& new_bounds) override;
   void OnWidgetVisibilityChanged(views::Widget* widget, bool visible) override;
   void OnWidgetSizeConstraintsChanged(views::Widget* widget) override;
+  void OnWidgetShowStateChanged(views::Widget* widget) override;
 
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
@@ -823,7 +826,7 @@ class BrowserView : public BrowserWindow,
       const;
 
   // Create and open the tab search bubble.
-  void CreateTabSearchBubble() override;
+  void CreateTabSearchBubble(const int tab_index = -1) override;
   // Closes the tab search bubble if open for the given browser instance.
   void CloseTabSearchBubble() override;
 
@@ -856,26 +859,6 @@ class BrowserView : public BrowserWindow,
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, BrowserView);
   FRIEND_TEST_ALL_PREFIXES(BrowserViewTest, AccessibleWindowTitle);
   class AccessibilityModeObserver;
-
-  // Data scoped to a single page. PageData has the same lifetime as the page's
-  // main document.
-  class PageData : public content::PageUserData<PageData> {
-   public:
-    explicit PageData(content::Page& page);
-    PageData(const PageData&) = delete;
-    PageData& operator=(const PageData&) = delete;
-
-    absl::optional<bool> can_resize() const { return can_resize_; }
-    void set_can_resize(absl::optional<bool> can_resize) {
-      can_resize_ = can_resize;
-    }
-
-    PAGE_USER_DATA_KEY_DECL();
-
-   private:
-    // Keeps track of the resizability set by `window.setResizable(bool)` API.
-    absl::optional<bool> can_resize_ = absl::nullopt;
-  };
 
   // If the browser is in immersive full screen mode, it will reveal the
   // tabstrip for a short duration. This is useful for shortcuts that perform
@@ -956,6 +939,8 @@ private:
                          ExclusiveAccessBubbleType bubble_type,
                          int64_t display_id);
 
+  void SynchronizeRenderWidgetHostVisualPropertiesForMainFrame();
+
   // Returns whether immmersive fullscreen should replace fullscreen. This
   // should only occur for "browser-fullscreen" for tabbed-typed windows (not
   // for tab-fullscreen and not for app/popup type windows).
@@ -1035,6 +1020,9 @@ private:
   bool resizable_ = true;
 
   extensions::SizeConstraints size_constraints_, saved_size_constraints_;
+
+  // Attempts to show IPH promo for experimental AI.
+  void MaybeShowExperimentalAIIPH();
 
   void UpdateWindowControlsOverlayEnabled();
 
@@ -1333,6 +1321,8 @@ private:
       DevToolsDockedPlacement::kNone;
 
   PrefChangeRegistrar registrar_;
+
+  ui::OmniboxPopupCloser omnibox_popup_closer_{this};
 
   mutable base::WeakPtrFactory<BrowserView> weak_ptr_factory_{this};
 };

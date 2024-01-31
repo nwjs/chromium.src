@@ -100,13 +100,6 @@
 
 namespace blink {
 
-struct SameSizeAsBorderValue {
-  StyleColor color_;
-  unsigned bitfield_;
-};
-
-ASSERT_SIZE(BorderValue, SameSizeAsBorderValue);
-
 // Since different compilers/architectures pack ComputedStyle differently,
 // re-create the same structure for an accurate size comparison.
 //
@@ -358,7 +351,7 @@ bool ComputedStyle::NeedsReattachLayoutTree(const Element& element,
     return true;
   }
 
-  // We use LayoutNGTextCombine only for vertical writing mode.
+  // We use LayoutTextCombine only for vertical writing mode.
   if (new_style->HasTextCombine() && old_style->IsHorizontalWritingMode() !=
                                          new_style->IsHorizontalWritingMode()) {
     DCHECK_EQ(old_style->HasTextCombine(), new_style->HasTextCombine());
@@ -769,7 +762,8 @@ StyleDifference ComputedStyle::VisualInvalidationDiff(
   }
 
   if (!diff.NeedsFullLayout() && GetPosition() != EPosition::kStatic &&
-      !OffsetEqual(other)) {
+      (!InsetsEqual(other) ||
+       (HasOutOfFlowPosition() && GetInsetArea() != other.GetInsetArea()))) {
     diff.SetNeedsPositionedMovementLayout();
   }
 
@@ -1987,7 +1981,6 @@ FontHeight ComputedStyle::GetFontHeight(FontBaseline baseline) const {
   if (const SimpleFontData* font_data = GetFont().PrimaryFont()) {
     return font_data->GetFontMetrics().GetFontHeight(baseline);
   }
-  NOTREACHED();
   return FontHeight();
 }
 
@@ -2577,7 +2570,8 @@ bool ComputedStyle::CanMatchSizeContainerQueries(const Element& element) const {
 
 bool ComputedStyle::IsInterleavingRoot(const ComputedStyle* style) {
   const ComputedStyle* unensured = ComputedStyle::NullifyEnsured(style);
-  return unensured && unensured->IsContainerForSizeContainerQueries();
+  return unensured && (unensured->IsContainerForSizeContainerQueries() ||
+                       unensured->PositionFallback());
 }
 
 bool ComputedStyle::CalculateIsStackingContextWithoutContainment() const {
@@ -2622,6 +2616,20 @@ bool ComputedStyle::CalculateIsStackingContextWithoutContainment() const {
 bool ComputedStyle::IsRenderedInTopLayer(const Element& element) const {
   return (element.IsInTopLayer() && Overlay() == EOverlay::kAuto) ||
          StyleType() == kPseudoIdBackdrop;
+}
+
+bool ComputedStyle::ApplyControlFixedSize(const Node* node) const {
+  if (FieldSizing() == EFieldSizing::kFixed) {
+    return true;
+  }
+  if (!node) {
+    return false;
+  }
+  const auto* control = DynamicTo<HTMLFormControlElement>(node);
+  if (!control) {
+    control = DynamicTo<HTMLFormControlElement>(node->OwnerShadowHost());
+  }
+  return control && control->GetAutofillState() != WebAutofillState::kNotFilled;
 }
 
 ComputedStyleBuilder::ComputedStyleBuilder(const ComputedStyle& style)
@@ -2799,6 +2807,12 @@ void ComputedStyleBuilder::SetUsedColorScheme(
       (force_dark && !prefers_dark);
 
   SetColorSchemeForced(forced_scheme);
+
+  if (RuntimeEnabledFeatures::UsedColorSchemeRootScrollbarsEnabled()) {
+    const bool is_normal =
+        flags == static_cast<ColorSchemeFlags>(ColorSchemeFlag::kNormal);
+    SetColorSchemeFlagsIsNormal(is_normal);
+  }
 }
 
 CSSVariableData* ComputedStyleBuilder::GetVariableData(

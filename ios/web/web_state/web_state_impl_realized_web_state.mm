@@ -12,6 +12,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/strings/utf_string_conversions.h"
 #import "base/time/time.h"
+#import "components/security_state/core/security_state.h"
 #import "ios/web/common/features.h"
 #import "ios/web/js_messaging/java_script_feature_manager.h"
 #import "ios/web/js_messaging/web_view_js_utils.h"
@@ -475,9 +476,11 @@ void WebStateImpl::RealizedWebState::SendChangeLoadProgress(double progress) {
 }
 
 void WebStateImpl::RealizedWebState::ShowRepostFormWarningDialog(
+    FormWarningType warning_type,
     base::OnceCallback<void(bool)> callback) {
   if (delegate_) {
-    delegate_->ShowRepostFormWarningDialog(owner_, std::move(callback));
+    delegate_->ShowRepostFormWarningDialog(owner_, warning_type,
+                                           std::move(callback));
   } else {
     std::move(callback).Run(true);
   }
@@ -770,7 +773,7 @@ const GURL& WebStateImpl::RealizedWebState::GetLastCommittedURL() const {
   return item ? item->GetVirtualURL() : GURL::EmptyGURL();
 }
 
-absl::optional<GURL>
+std::optional<GURL>
 WebStateImpl::RealizedWebState::GetLastCommittedURLIfTrusted() const {
   NavigationItemImpl* item = navigation_manager_->GetLastCommittedItemImpl();
   if (!item) {
@@ -778,7 +781,7 @@ WebStateImpl::RealizedWebState::GetLastCommittedURLIfTrusted() const {
   }
 
   if (item->IsUntrusted()) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   return item->GetVirtualURL();
@@ -906,7 +909,13 @@ void WebStateImpl::RealizedWebState::OnStateChangedForPermission(
 
 void WebStateImpl::RealizedWebState::RequestPermissionsWithDecisionHandler(
     NSArray<NSNumber*>* permissions,
+    const GURL& origin,
     PermissionDecisionHandler web_view_decision_handler) {
+  if (!security_state::IsSchemeCryptographic(origin) &&
+      !security_state::IsOriginLocalhostOrFile(origin)) {
+    web_view_decision_handler(WKPermissionDecisionDeny);
+    return;
+  }
   if (delegate_) {
     WebStatePermissionDecisionHandler web_state_decision_handler =
         ^(PermissionDecision decision) {

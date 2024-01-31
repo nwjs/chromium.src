@@ -31,7 +31,9 @@ Observable::Observable(ExecutionContext* execution_context,
   DCHECK(RuntimeEnabledFeatures::ObservableAPIEnabled(execution_context));
 }
 
-void Observable::subscribe(ScriptState* script_state, Observer* observer) {
+void Observable::subscribe(ScriptState* script_state,
+                           Observer* observer,
+                           SubscribeOptions* options) {
   // Cannot subscribe to an Observable that was constructed in a detached
   // context, because this might involve reporting an exception with the global,
   // which relies on a valid `ScriptState`.
@@ -43,7 +45,7 @@ void Observable::subscribe(ScriptState* script_state, Observer* observer) {
   // Build and initialize a `Subscriber` with a dictionary of `Observer`
   // callbacks.
   Subscriber* subscriber = MakeGarbageCollected<Subscriber>(
-      PassKey(), GetExecutionContext(), observer);
+      PassKey(), script_state, observer, options);
 
   DCHECK(subscribe_callback_);
   // Ordinarily we'd just invoke `subscribe_callback_` with

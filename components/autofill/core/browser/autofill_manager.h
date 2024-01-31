@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_AUTOFILL_MANAGER_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_AUTOFILL_MANAGER_H_
 
+#include <functional>
 #include <map>
 #include <memory>
 #include <string>
@@ -23,13 +24,14 @@
 #include "base/types/pass_key.h"
 #include "base/types/strong_alias.h"
 #include "build/build_config.h"
-#include "components/autofill/core/browser/autofill_download_manager.h"
 #include "components/autofill/core/browser/autofill_driver.h"
 #include "components/autofill/core/browser/autofill_trigger_details.h"
+#include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/common/dense_set.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/language_code.h"
+#include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom.h"
 #include "components/autofill/core/common/signatures.h"
 #include "components/autofill/core/common/unique_ids.h"
@@ -44,7 +46,6 @@ namespace autofill {
 class AutofillField;
 class AutofillProfile;
 class CreditCard;
-class CreditCardAccessManager;
 struct FormData;
 struct FormFieldData;
 class FormStructure;
@@ -60,7 +61,7 @@ class TouchToFillDelegateAndroidImpl;
 //
 // It is owned by the AutofillDriver.
 class AutofillManager
-    : public AutofillDownloadManager::Observer,
+    : public AutofillCrowdsourcingManager::Observer,
       public translate::TranslateDriver::LanguageDetectionObserver {
  public:
   // Observer of AutofillManager events.
@@ -71,7 +72,8 @@ class AutofillManager
   // OnBeforeFoo() may be called without a corresponding OnAfterFoo() call are:
   // - if the number of cached forms exceeds `kAutofillManagerMaxFormCacheSize`;
   // - if this AutofillManager has been destroyed or reset in the meantime.
-  // - if the request in AutofillDownloadManager was not successful (i.e. no 2XX
+  // - if the request in AutofillCrowdsourcingManager was not successful (i.e.
+  // no 2XX
   //   response code or a null response body).
   //
   // TODO(crbug.com/1476488): Consider moving events that are specific to BAM to
@@ -92,9 +94,12 @@ class AutofillManager
     virtual void OnBeforeTextFieldDidChange(AutofillManager& manager,
                                             FormGlobalId form,
                                             FieldGlobalId field) {}
+
+    // TODO(crbug.com/1331312): Get rid of `text_value`.
     virtual void OnAfterTextFieldDidChange(AutofillManager& manager,
                                            FormGlobalId form,
-                                           FieldGlobalId field) {}
+                                           FieldGlobalId field,
+                                           std::u16string text_value) {}
 
     virtual void OnBeforeTextFieldDidScroll(AutofillManager& manager,
                                             FormGlobalId form,
@@ -198,13 +203,19 @@ class AutofillManager
   // Returns a WeakPtr to the leaf class.
   virtual base::WeakPtr<AutofillManager> GetWeakPtr() = 0;
 
-  // May return nullptr.
-  virtual CreditCardAccessManager* GetCreditCardAccessManager() = 0;
-
   // Events triggered by the renderer.
 
   // Returns true only if the previewed form should be cleared.
   virtual bool ShouldClearPreviewedForm() = 0;
+
+  // Records filling information and routes the filling back to the driver.
+  // TODO(crbug.com/1331312): Replace FormFieldData parameter by FieldGlobalId.
+  virtual void FillOrPreviewField(mojom::ActionPersistence action_persistence,
+                                  mojom::TextReplacement text_replacement,
+                                  const FormData& form,
+                                  const FormFieldData& field,
+                                  const std::u16string& value,
+                                  PopupItemId popup_item_id) = 0;
 
   // Invoked when the value of textfield is changed.
   // |bounding_box| are viewport coordinates.
@@ -344,7 +355,7 @@ class AutofillManager
   template <typename Functor, typename... Args>
   void NotifyObservers(const Functor& functor, const Args&... args) {
     for (Observer& observer : observers_) {
-      base::invoke(functor, observer, *this, args...);
+      std::invoke(functor, observer, *this, args...);
     }
   }
 
@@ -356,10 +367,6 @@ class AutofillManager
 
   AutofillDriver& driver() { return *driver_; }
   const AutofillDriver& driver() const { return *driver_; }
-
-  AutofillDownloadManager* download_manager() {
-    return client().GetDownloadManager();
-  }
 
   // The return value shouldn't be cached, retrieve it as needed.
   AutofillMetrics::FormInteractionsUkmLogger* form_interactions_ukm_logger() {
@@ -473,7 +480,8 @@ class AutofillManager
   //   ParseFormsAsync(), and then unwrap the vector again.
   // - Let OnFormsSeen() take a single FormData. That simplifies also
   //   ContentAutofillDriver and AutofillDriverRouter a bit, but then the
-  //   AutofillDownloadManager needs to collect forms to send a batch query.
+  //   AutofillCrowdsourcingManager needs to collect forms to send a batch
+  //   query.
   // - Let all other events take a FormGlobalId instead of a FormData and fire
   //   OnFormsSeen() before these events if necessary.
   void ParseFormsAsync(
@@ -500,7 +508,7 @@ class AutofillManager
  private:
   friend class AutofillManagerTestApi;
 
-  // AutofillDownloadManager::Observer:
+  // AutofillCrowdsourcingManager::Observer:
   void OnLoadedServerPredictions(
       std::string response,
       const std::vector<FormSignature>& queried_form_signatures) override;

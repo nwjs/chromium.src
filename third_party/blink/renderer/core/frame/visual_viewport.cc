@@ -752,7 +752,7 @@ SmoothScrollSequencer* VisualViewport::GetSmoothScrollSequencer() const {
   return LocalMainFrame().GetSmoothScrollSequencer();
 }
 
-void VisualViewport::SetScrollOffset(
+bool VisualViewport::SetScrollOffset(
     const ScrollOffset& offset,
     mojom::blink::ScrollType scroll_type,
     mojom::blink::ScrollBehavior scroll_behavior,
@@ -766,19 +766,21 @@ void VisualViewport::SetScrollOffset(
   // stores fractional offsets and that truncation happens elsewhere, see
   // crbug.com/626315.
   ScrollOffset new_scroll_offset = ClampScrollOffset(offset);
-  ScrollableArea::SetScrollOffset(new_scroll_offset, scroll_type,
-                                  scroll_behavior, std::move(on_finish));
+  return ScrollableArea::SetScrollOffset(new_scroll_offset, scroll_type,
+                                         scroll_behavior, std::move(on_finish));
 }
 
-void VisualViewport::SetScrollOffset(
+bool VisualViewport::SetScrollOffset(
     const ScrollOffset& offset,
     mojom::blink::ScrollType scroll_type,
     mojom::blink::ScrollBehavior scroll_behavior) {
-  SetScrollOffset(offset, scroll_type, scroll_behavior, ScrollCallback());
+  return SetScrollOffset(offset, scroll_type, scroll_behavior,
+                         ScrollCallback());
 }
 
 PhysicalRect VisualViewport::ScrollIntoView(
     const PhysicalRect& rect_in_absolute,
+    const PhysicalBoxStrut& scroll_margin,
     const mojom::blink::ScrollIntoViewParamsPtr& params) {
   if (!IsActiveViewport())
     return rect_in_absolute;
@@ -787,8 +789,8 @@ PhysicalRect VisualViewport::ScrollIntoView(
 
   ScrollOffset new_scroll_offset =
       ClampScrollOffset(ScrollAlignment::GetScrollOffsetToExpose(
-          scroll_snapport_rect, rect_in_absolute, *params->align_x.get(),
-          *params->align_y.get(), GetScrollOffset()));
+          scroll_snapport_rect, rect_in_absolute, scroll_margin,
+          *params->align_x.get(), *params->align_y.get(), GetScrollOffset()));
 
   if (new_scroll_offset != GetScrollOffset()) {
     if (params->is_for_scroll_sequence) {
@@ -985,11 +987,8 @@ bool VisualViewport::IsActiveViewport() const {
   if (!main_frame->IsLocalFrame())
     return false;
 
-  // Only the outermost main frame should have an active viewport. A portal is
-  // the only exception since it may eventually become the outermost main frame
-  // so its viewport should be active (e.g. it should be able to independently
-  // scale based on a viewport <meta> tag).
-  return main_frame->IsOutermostMainFrame() || GetPage().InsidePortal();
+  // Only the outermost main frame should have an active viewport.
+  return main_frame->IsOutermostMainFrame();
 }
 
 LocalFrame& VisualViewport::LocalMainFrame() const {

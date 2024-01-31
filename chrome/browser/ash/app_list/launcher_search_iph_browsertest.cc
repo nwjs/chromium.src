@@ -7,7 +7,6 @@
 #include "ash/app_list/app_list_public_test_util.h"
 #include "ash/app_list/views/app_list_bubble_view.h"
 #include "ash/app_list/views/app_list_main_view.h"
-#include "ash/app_list/views/app_list_toast_view.h"
 #include "ash/app_list/views/app_list_view.h"
 #include "ash/app_list/views/assistant/assistant_test_api_impl.h"
 #include "ash/app_list/views/contents_view.h"
@@ -17,6 +16,7 @@
 #include "ash/assistant/test/test_assistant_service.h"
 #include "ash/assistant/ui/assistant_view_ids.h"
 #include "ash/assistant/ui/main_stage/assistant_zero_state_view.h"
+#include "ash/assistant/ui/main_stage/chip_view.h"
 #include "ash/assistant/ui/main_stage/launcher_search_iph_view.h"
 #include "ash/public/cpp/accelerators.h"
 #include "ash/public/cpp/app_list/app_list_types.h"
@@ -41,6 +41,7 @@
 #include "components/feature_engagement/test/scoped_iph_feature_list.h"
 #include "content/public/test/browser_test.h"
 #include "ui/aura/window.h"
+#include "ui/compositor/scoped_animation_duration_scale_mode.h"
 #include "ui/events/test/event_generator.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/styled_label.h"
@@ -234,16 +235,16 @@ class AppListIphBrowserTest : public MixinBasedInProcessBrowserTest,
             ash::AssistantViewID::kZeroStateView));
   }
 
-  ash::AppListToastView* GetAssistantLearnMoreToast() {
+  ash::LauncherSearchIphView* GetAssistantLauncherSearchIph() {
     if (IsClamshellModeTest()) {
-      return static_cast<ash::AppListToastView*>(
+      return static_cast<ash::LauncherSearchIphView*>(
           ash::GetAppListBubbleView()->GetViewByID(
-              ash::AssistantViewID::kLearnMoreToast));
+              ash::AssistantViewID::kLauncherSearchIph));
     }
 
-    return static_cast<ash::AppListToastView*>(
+    return static_cast<ash::LauncherSearchIphView*>(
         ash::GetAppListView()->GetViewByID(
-            ash::AssistantViewID::kLearnMoreToast));
+            ash::AssistantViewID::kLauncherSearchIph));
   }
 
   bool IsSearchPageActive() {
@@ -354,25 +355,58 @@ IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithTestConfigClamshell,
   EXPECT_FALSE(IsLauncherSearchIphViewVisible());
 }
 
+IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithTestConfigClamshell,
+                       ClickAssistantInSearchBox) {
+  OpenAppListAndWaitForIphView();
+
+  EXPECT_TRUE(IsLauncherSearchIphViewVisible());
+  // Confirm that a background is installed as we check that this gets removed
+  // if IPH is not shown below.
+  EXPECT_TRUE(search_box_view()->assistant_button()->GetBackground());
+
+  // Confirm that assistant event is recorded. Make sure that the initial count
+  // is 0 to distinguish this from other events.
+  base::UserActionTester user_action_tester;
+  ASSERT_EQ(0, user_action_tester.GetActionCount(kNotifyEventUserActionName));
+  views::ImageButton* assistant_button = search_box_view()->assistant_button();
+  ASSERT_TRUE(assistant_button);
+  Click(assistant_button);
+  EXPECT_EQ(1, user_action_tester.GetActionCount(kNotifyEventUserActionName));
+
+  EXPECT_TRUE(IsAssistantPageActive());
+  EXPECT_FALSE(IsLauncherSearchIphViewVisible());
+
+  // Dismiss the app list and show it again. IPH won't be shown this time. Note
+  // that this behavior is coming from the IPH test config.
+  DismissAppList();
+  OpenAppListForSearch();
+  EXPECT_FALSE(IsLauncherSearchIphViewVisible());
+
+  // Launcher search iph installs a background to an assistant button in the
+  // search box. It should be removed if the iph gets dismissed.
+  EXPECT_FALSE(search_box_view()->assistant_button()->GetBackground());
+}
+
 IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithTestConfig, ClickChip) {
   OpenAppListAndWaitForIphView();
 
   // Chip click is specified as EventUsed in the test config.
   base::UserActionTester user_action_tester;
-  views::View* chip = search_box_view()->GetViewByID(
-      ash::LauncherSearchIphView::ViewId::kChipStart);
+  auto* chip = static_cast<ash::ChipView*>(search_box_view()->GetViewByID(
+      ash::LauncherSearchIphView::ViewId::kChipStart));
   ASSERT_TRUE(chip);
+  auto text = chip->GetText();
   Click(chip);
   EXPECT_EQ(1,
             user_action_tester.GetActionCount(kNotifyUsedEventUserActionName));
 
-  EXPECT_EQ(u"Weather",
-            app_list_client_impl()->search_controller()->get_query());
+  EXPECT_EQ(text, app_list_client_impl()->search_controller()->get_query());
   EXPECT_TRUE(IsSearchPageActive());
   EXPECT_FALSE(IsLauncherSearchIphViewVisible());
 }
 
-IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithTestConfig, ClickAssistant) {
+IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithTestConfig,
+                       ClickAssistantInIph) {
   OpenAppListAndWaitForIphView();
 
   EXPECT_TRUE(IsLauncherSearchIphViewVisible());
@@ -427,7 +461,7 @@ IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithTestConfig,
 }
 
 // The bool param indicates if the AssistantLearnMore feature is enabled or not.
-class AppListIphBrowserTestWithLearnMoreToast : public AppListIphBrowserTest {
+class AppListIphBrowserTestAssistantZeroState : public AppListIphBrowserTest {
  public:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     scoped_feature_list_.InitAndEnableFeature(
@@ -440,8 +474,7 @@ class AppListIphBrowserTestWithLearnMoreToast : public AppListIphBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-IN_PROC_BROWSER_TEST_P(AppListIphBrowserTest,
-                       NoAssistantLearnMoreToastFlagOff) {
+IN_PROC_BROWSER_TEST_P(AppListIphBrowserTest, NoAssistantZeroStateIphFlagOff) {
   ASSERT_FALSE(base::FeatureList::IsEnabled(
       ash::assistant::features::kEnableAssistantLearnMore));
 
@@ -451,30 +484,64 @@ IN_PROC_BROWSER_TEST_P(AppListIphBrowserTest,
   ASSERT_TRUE(assistant_button);
   Click(assistant_button);
 
-  // The learn more toast is shown in the zero state view.
+  // The LauncherSearchIphView is not shown in the zero state view.
   ASSERT_TRUE(IsAssistantPageActive());
   ASSERT_TRUE(GetAssistantZeroStateView()->GetVisible());
 
-  ash::AppListToastView* learn_more_toast = GetAssistantLearnMoreToast();
-  EXPECT_FALSE(learn_more_toast->GetVisible());
-  EXPECT_FALSE(learn_more_toast->IsDrawn());
+  ash::LauncherSearchIphView* launcher_search_iph =
+      GetAssistantLauncherSearchIph();
+  EXPECT_FALSE(launcher_search_iph->GetVisible());
+  EXPECT_FALSE(launcher_search_iph->IsDrawn());
 }
 
-IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestWithLearnMoreToast,
-                       ShowAssistantLearnMoreToast) {
+IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestAssistantZeroState,
+                       ShowAssistantZeroStateIph) {
   OpenAppList();
 
   views::ImageButton* assistant_button = search_box_view()->assistant_button();
   ASSERT_TRUE(assistant_button);
   Click(assistant_button);
 
-  // The learn more toast is shown in the zero state view.
+  // The LauncherSearchIphView is shown in the zero state view.
   ASSERT_TRUE(IsAssistantPageActive());
   ASSERT_TRUE(GetAssistantZeroStateView()->GetVisible());
 
-  ash::AppListToastView* learn_more_toast = GetAssistantLearnMoreToast();
-  EXPECT_TRUE(learn_more_toast->GetVisible());
-  EXPECT_TRUE(learn_more_toast->IsDrawn());
+  ash::LauncherSearchIphView* launcher_search_iph =
+      GetAssistantLauncherSearchIph();
+  EXPECT_TRUE(launcher_search_iph->GetVisible());
+  EXPECT_TRUE(launcher_search_iph->IsDrawn());
+}
+
+IN_PROC_BROWSER_TEST_P(AppListIphBrowserTestAssistantZeroState,
+                       DismissAssistantPageAfterClickChip) {
+  auto duration_mode = std::make_unique<ui::ScopedAnimationDurationScaleMode>(
+      ui::ScopedAnimationDurationScaleMode::ZERO_DURATION);
+
+  OpenAppList();
+
+  views::ImageButton* assistant_button = search_box_view()->assistant_button();
+  ASSERT_TRUE(assistant_button);
+  Click(assistant_button);
+
+  // The LauncherSearchIphView is shown in the zero state view.
+  ASSERT_TRUE(IsAssistantPageActive());
+  ASSERT_TRUE(GetAssistantZeroStateView()->GetVisible());
+
+  ash::LauncherSearchIphView* launcher_search_iph =
+      GetAssistantLauncherSearchIph();
+  EXPECT_TRUE(launcher_search_iph->GetVisible());
+  EXPECT_TRUE(launcher_search_iph->IsDrawn());
+
+  // Chip click will redirect to the search page with query of the chip's text.
+  auto* chip = static_cast<ash::ChipView*>(launcher_search_iph->GetViewByID(
+      ash::LauncherSearchIphView::ViewId::kChipStart));
+  ASSERT_TRUE(chip);
+  auto text = chip->GetText();
+  Click(chip);
+
+  EXPECT_EQ(text, app_list_client_impl()->search_controller()->get_query());
+  EXPECT_TRUE(IsSearchPageActive());
+  EXPECT_FALSE(IsAssistantPageActive());
 }
 
 INSTANTIATE_TEST_SUITE_P(LauncherSearchIph,
@@ -493,6 +560,6 @@ INSTANTIATE_TEST_SUITE_P(LauncherSearchIph,
                          &GenerateTestSuffix);
 
 INSTANTIATE_TEST_SUITE_P(LauncherSearchIph,
-                         AppListIphBrowserTestWithLearnMoreToast,
+                         AppListIphBrowserTestAssistantZeroState,
                          /*is_tablet_mode=*/testing::Bool(),
                          &GenerateTestSuffix);

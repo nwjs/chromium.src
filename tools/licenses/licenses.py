@@ -56,10 +56,15 @@ PRUNE_PATHS = set([
     # Only binaries, used during development.
     os.path.join('third_party', 'valgrind'),
 
+    # Not actually a third party dependency. Supplies configuration for
+    # enabling or disabling field trials and features in Chromium projects.
+    os.path.join('third_party', 'chromium-variations'),
+
     # Used for development and test, not in the shipping product.
     os.path.join('build', 'secondary'),
     os.path.join('third_party', 'bison'),
     os.path.join('third_party', 'chromite'),
+    os.path.join('third_party', 'clang-format'),
     os.path.join('third_party', 'cygwin'),
     os.path.join('third_party', 'gles2_conform'),
     os.path.join('third_party', 'gnu_binutils'),
@@ -79,12 +84,14 @@ PRUNE_PATHS = set([
     os.path.join('third_party', 'syzygy'),
 
     # Stuff pulled in from chrome-internal for official builds/tools.
+    os.path.join('third_party', 'amd'),
     os.path.join('third_party', 'clear_cache'),
     os.path.join('third_party', 'gnu'),
     os.path.join('third_party', 'googlemac'),
     os.path.join('third_party', 'pcre'),
     os.path.join('third_party', 'psutils'),
     os.path.join('third_party', 'sawbuck'),
+    os.path.join('third_party', 'wix'),
     # See crbug.com/350472
     os.path.join('chrome', 'browser', 'resources', 'chromeos', 'quickoffice'),
     # Chrome for Android proprietary code.

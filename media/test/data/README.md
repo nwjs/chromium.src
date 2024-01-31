@@ -902,6 +902,12 @@ Additional containers derived from bear.ogv:
 * bear.rm     -- created using `avconv -i bear.ogv -f rm -b 192k bear.rm`.
 * bear.swf    -- created using `avconv -i bear.ogv -f swf -an bear.swf`.
 
+Additional containers created by Dolby:
+
+* ac4-ajoc.ac4                 -- encoded with bitstream version 2, presentation version 1 and prosentation level 3
+* ac4-channel-based-coding.ac4 -- encoded with bitstream version 2, presentation version 1 and prosentation level 1
+* ac4-ims.ac4                  -- encoded with bitstream version 2, presentation version 2 
+
 ## VDA Test Files:
 
 ### test-25fps
@@ -1347,6 +1353,27 @@ mp4mux --track bear.eac3 bear-eac3-only.mp4
 mp4fragment bear-eac3-only.mp4 bear-eac3-only-frag.mp4
 ```
 
+#### ac4-only-ajoc-frag.mp4
+AC4 A-JOC audio in framented MP4, generated with bento4 by the following command:
+```
+mp4mux --track ac4-ajoc.ac4 ac4-only-ajoc.mp4
+mp4fragment ac4-only-ajoc.mp4 ac4-only-ajoc-frag.mp4
+```
+
+#### ac4-only-channel-based-coding-frag.mp4
+AC4 channel based audio in framented MP4, generated with bento4 by the following command:
+```
+mp4mux --track ac4-channel-based-coding.ac4 ac4-only-channel-based-coding.mp4
+mp4fragment ac4-only-channel-based-coding.mp4 ac4-only-channel-based-coding-frag.mp4
+```
+
+#### ac4-only-ims-frag.mp4
+AC4 immersive stereo(IMS) audio in framented MP4, generated with bento4 by the following command:
+```
+mp4mux --track ac4-ims.ac4 ac4-only-ims.mp4
+mp4fragment ac4-only-ims.mp4 ac4-only-ims-frag.mp4
+```
+
 ### Mpeg2ts stream with AAC HE audio that uses SBR
 
 #### bear-1280x720-aac_he.ts
@@ -1512,6 +1539,12 @@ Generated using following steps:
 H.264 video stream with the first track marked as disabled, generated with
 ````
 ffmpeg -f lavfi -i "color=c=white:d=1" -f lavfi -i "testsrc2=d=1" -map 0 -disposition:v:0 0 -map 1 -disposition:v:1 default -c:v libx264 multitrack-disabled.mp4
+````
+
+#### track-disabled.mp4
+H.264 video stream with the only track disabled, generated with
+````
+ffmpeg -f lavfi -i "color=c=white:d=1" -map 0 -disposition:v:0 0 -c:v libx264 track-disabled.mp4
 ````
 
 ### Multi-track WebM file

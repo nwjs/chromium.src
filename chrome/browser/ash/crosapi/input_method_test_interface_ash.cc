@@ -40,12 +40,7 @@ GetInputMethodManagerState() {
 }
 
 bool HasCapability(const base::StringPiece capability) {
-  return capability == kInputMethodTestCapabilitySendKeyModifiers ||
-         capability == kInputMethodTestCapabilityConfirmComposition ||
-         capability == kInputMethodTestCapabilityAlwaysConfirmComposition ||
-         capability == kInputMethodTestCapabilityDeleteSurroundingText ||
-         capability == kInputMethodTestCapabilityExtendedConfirmComposition ||
-         capability == kInputMethodTestCapabilityChangeInputMethod;
+  return false;
 }
 
 std::string GenerateUniqueExtensionId() {
@@ -199,9 +194,10 @@ void InputMethodTestInterfaceAsh::WaitForNextSurroundingTextChange(
     surrounding_text_change_callback_ = std::move(callback);
     return;
   }
-  const auto& [text, selection_range] = surrounding_text_changes_.front();
+  auto surrounding_text = std::move(surrounding_text_changes_.front());
   surrounding_text_changes_.pop();
-  std::move(callback).Run(text, selection_range);
+  std::move(callback).Run(surrounding_text.text,
+                          surrounding_text.selection_range);
 }
 
 void InputMethodTestInterfaceAsh::HasCapabilities(

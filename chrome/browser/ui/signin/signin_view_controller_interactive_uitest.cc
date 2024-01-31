@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/signin/signin_view_controller_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/signin/enterprise_profile_welcome_ui.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/login_ui_test_utils.h"
@@ -213,8 +212,16 @@ IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
 
 // Tests that the confirm button is focused by default in the enterprise
 // interception dialog.
+// TODO(crbug.com/1503125): Enable the flaky test.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_EnterpriseConfirmationDefaultFocus \
+  DISABLED_EnterpriseConfirmationDefaultFocus
+#else
+#define MAYBE_EnterpriseConfirmationDefaultFocus \
+  EnterpriseConfirmationDefaultFocus
+#endif
 IN_PROC_BROWSER_TEST_F(SignInViewControllerBrowserTest,
-                       EnterpriseConfirmationDefaultFocus) {
+                       MAYBE_EnterpriseConfirmationDefaultFocus) {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   // This test runs in the main profile.
   EXPECT_TRUE(

@@ -6,6 +6,7 @@
 #include "base/test/bind.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/one_drive_upload_handler.h"
 
+#include "ash/constants/ash_features.h"
 #include "base/files/file.h"
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr.h"
@@ -159,37 +160,52 @@ class OneDriveUploadHandlerTest : public InProcessBrowserTest,
         ->RemoveObserver(this);
   }
 
-  void Wait() {
-    base::ScopedAllowBlockingForTesting allow_blocking;
+  void SetUpRunLoop(int conditions_to_end_wait = 1) {
+    conditions_to_end_wait_ = conditions_to_end_wait;
     ASSERT_FALSE(run_loop_);
     run_loop_ = std::make_unique<base::RunLoop>();
+  }
+
+  void Wait() {
+    base::ScopedAllowBlockingForTesting allow_blocking;
     run_loop_->Run();
     run_loop_ = nullptr;
   }
 
+  void SetUpRunLoopAndWait(int conditions_to_end_wait = 1) {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    SetUpRunLoop(conditions_to_end_wait);
+    Wait();
+  }
+
+  // Quits the run loop started with `Wait()` once `EndWait()` is called
+  // `conditions_to_end_wait_` number of times.
   void EndWait() {
+    conditions_to_end_wait_--;
     ASSERT_TRUE(run_loop_);
-    run_loop_->Quit();
+    if (conditions_to_end_wait_ == 0) {
+      run_loop_->Quit();
+    }
   }
 
   void CheckPathExistsOnODFS(const base::FilePath& path) {
     ASSERT_TRUE(provided_file_system_);
     provided_file_system_->GetMetadata(
-        path, storage::FileSystemOperation::GET_METADATA_FIELD_NONE,
+        path, {},
         base::BindOnce(&OneDriveUploadHandlerTest::OnGetMetadataExpectSuccess,
                        base::Unretained(this)));
     base::ScopedAllowBlockingForTesting allow_blocking;
-    Wait();
+    SetUpRunLoopAndWait();
   }
 
   void CheckPathNotFoundOnODFS(const base::FilePath& path) {
     ASSERT_TRUE(provided_file_system_);
     provided_file_system_->GetMetadata(
-        path, storage::FileSystemOperation::GET_METADATA_FIELD_NONE,
+        path, {},
         base::BindOnce(&OneDriveUploadHandlerTest::OnGetMetadataExpectNotFound,
                        base::Unretained(this)));
     base::ScopedAllowBlockingForTesting allow_blocking;
-    Wait();
+    SetUpRunLoopAndWait();
   }
 
   void OnGetMetadataExpectSuccess(
@@ -207,9 +223,21 @@ class OneDriveUploadHandlerTest : public InProcessBrowserTest,
   }
 
   // Watch for a valid `uploaded_file_url`.
-  void OnUploadDone(absl::optional<storage::FileSystemURL> uploaded_file_url,
-                    int64_t size) {
+  void OnUploadSuccessful(
+      OfficeTaskResult task_result,
+      absl::optional<storage::FileSystemURL> uploaded_file_url,
+      int64_t size) {
     ASSERT_TRUE(uploaded_file_url.has_value());
+    observed_task_result_ = task_result;
+    EndWait();
+  }
+
+  // Watch for an invalid `uploaded_file_url`.
+  void OnUploadFailed(OfficeTaskResult task_result,
+                      absl::optional<storage::FileSystemURL> uploaded_file_url,
+                      int64_t size) {
+    ASSERT_FALSE(uploaded_file_url.has_value());
+    observed_task_result_ = task_result;
     EndWait();
   }
 
@@ -245,11 +273,13 @@ class OneDriveUploadHandlerTest : public InProcessBrowserTest,
                                          /*file_count=*/1);
   base::SafeRef<CloudOpenMetrics> cloud_open_metrics_ref_ =
       cloud_open_metrics_->GetSafeRef();
+  OfficeTaskResult observed_task_result_;
   base::HistogramTester histogram_;
+  base::test::ScopedFeatureList feature_list_;
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   base::ScopedTempDir temp_dir_;
+  int conditions_to_end_wait_;
   std::unique_ptr<base::RunLoop> run_loop_;
   // Used to observe upload notifications during the tests.
   base::RepeatingCallback<void(const message_center::Notification&)>
@@ -267,10 +297,10 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest, UploadFromMyFiles) {
   // successfully.
   OneDriveUploadHandler::Upload(
       profile(), source_file_url,
-      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadDone,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadSuccessful,
                      base::Unretained(this)),
       cloud_open_metrics_ref_);
-  Wait();
+  SetUpRunLoopAndWait();
 
   // Check that the source file has been moved to OneDrive.
   {
@@ -281,6 +311,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest, UploadFromMyFiles) {
 
   histogram_.ExpectUniqueSample(kOneDriveUploadResultMetricName,
                                 OfficeFilesUploadResult::kSuccess, 1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kMoved);
 }
 
 IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
@@ -295,10 +326,10 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
   // successfully.
   OneDriveUploadHandler::Upload(
       profile(), source_file_url,
-      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadDone,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadSuccessful,
                      base::Unretained(this)),
       cloud_open_metrics_ref_);
-  Wait();
+  SetUpRunLoopAndWait();
 
   // Check that the source file has been copied to OneDrive.
   {
@@ -309,6 +340,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
 
   histogram_.ExpectUniqueSample(kOneDriveUploadResultMetricName,
                                 OfficeFilesUploadResult::kSuccess, 1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kCopied);
 }
 
 // Test that when the upload to ODFS fails due reauthentication to OneDrive
@@ -318,9 +350,65 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
   SetUpObservers();
   SetUpMyFiles();
   SetUpODFS();
+  provided_file_system_->SetReauthenticationRequired(false);
+  // Ensure upload fails due to reauthentication to OneDrive being required. We
+  // want to test ReauthRequired being set after we begin uploading.
+  provided_file_system_->SetCreateFileCallback(
+      base::BindLambdaForTesting([&]() {
+        // Wait until we try to create the file, and then set reauth required to
+        // emulate auth being lost during upload.
+        provided_file_system_->SetCreateFileError(
+            base::File::Error::FILE_ERROR_ACCESS_DENIED);
+        provided_file_system_->SetReauthenticationRequired(true);
+      }));
+
+  // Expect the reauthentication required notification.
+  const std::string test_file_name = "text.docx";
+  FileSystemURL source_file_url =
+      SetUpSourceFile(test_file_name, my_files_dir_);
+
+  // Start the upload workflow and end the test once the upload has failed due
+  // to reauthentication being required.
+  auto on_notification = base::BindLambdaForTesting(
+      [&](const message_center::Notification& notification) {
+        if (notification.message() ==
+            base::UTF8ToUTF16(GetReauthenticationRequiredMessage())) {
+          EndWait();
+        }
+      });
+  SetOnNotificationDisplayedCallback(std::move(on_notification));
+  OneDriveUploadHandler::Upload(
+      profile(), source_file_url,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadFailed,
+                     base::Unretained(this)),
+      cloud_open_metrics_ref_);
+  SetUpRunLoopAndWait(/*conditions_to_end_wait=*/2);
+
+  // Check that the source file still exists only at the intended source
+  // location and did not get uploaded to ODFS.
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    EXPECT_TRUE(base::PathExists(my_files_dir_.AppendASCII(test_file_name)));
+    CheckPathNotFoundOnODFS(base::FilePath("/").AppendASCII(test_file_name));
+  }
+
+  histogram_.ExpectUniqueSample(kOneDriveMoveErrorMetricName,
+                                -base::File::FILE_ERROR_ACCESS_DENIED, 1);
+  histogram_.ExpectUniqueSample(kOneDriveUploadResultMetricName,
+                                OfficeFilesUploadResult::kCloudReauthRequired,
+                                1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kFailedToUpload);
+}
+
+// Test that when the upload to ODFS fails due reauthentication to OneDrive
+// being required (before starting the upload), the reauthentication required
+// notification is shown.
+IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
+                       FailToStartUploadDueToReauthenticationRequired) {
+  SetUpObservers();
+  SetUpMyFiles();
+  SetUpODFS();
   // Ensure upload fails due to reauthentication to OneDrive being required.
-  provided_file_system_->SetCreateFileError(
-      base::File::Error::FILE_ERROR_ACCESS_DENIED);
   provided_file_system_->SetReauthenticationRequired(true);
   // Expect the reauthentication required notification.
   const std::string test_file_name = "text.docx";
@@ -337,8 +425,12 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
         }
       });
   SetOnNotificationDisplayedCallback(std::move(on_notification));
-  OneDriveUploadHandler::Upload(profile(), source_file_url, base::DoNothing(),
-                                cloud_open_metrics_ref_);
+  SetUpRunLoop(/*conditions_to_end_wait=*/2);
+  OneDriveUploadHandler::Upload(
+      profile(), source_file_url,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadFailed,
+                     base::Unretained(this)),
+      cloud_open_metrics_ref_);
   Wait();
 
   // Check that the source file still exists only at the intended source
@@ -349,11 +441,121 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
     CheckPathNotFoundOnODFS(base::FilePath("/").AppendASCII(test_file_name));
   }
 
-  histogram_.ExpectUniqueSample(kOneDriveMoveErrorMetricName,
-                                -base::File::FILE_ERROR_ACCESS_DENIED, 1);
+  histogram_.ExpectTotalCount(kOneDriveMoveErrorMetricName, 0);
+  histogram_.ExpectUniqueSample(
+      kOneDriveUploadResultMetricName,
+      OfficeFilesUploadResult::kUploadNotStartedReauthenticationRequired, 1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kFailedToUpload);
+}
+
+class OneDriveUploadHandlerTest_ReauthEnabled
+    : public OneDriveUploadHandlerTest {
+ public:
+  OneDriveUploadHandlerTest_ReauthEnabled() {
+    feature_list_.Reset();
+    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud,
+                                    features::kOneDriveUploadImmediateReauth},
+                                   {});
+  }
+};
+
+// Test that when reauthentication to OneDrive is required (before starting the
+// upload) interactive auth is requested without a prompt. And test that when
+// the auth succeeds, the upload succeeds.
+IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest_ReauthEnabled,
+                       UploadSucceedsAfterReauth) {
+  SetUpMyFiles();
+  SetUpODFS();
+  // Ensure the first check of reauth required fails due to reauthentication to
+  // OneDrive being required.
+  provided_file_system_->SetReauthenticationRequired(true);
+  const std::string test_file_name = "text.docx";
+  FileSystemURL source_file_url =
+      SetUpSourceFile(test_file_name, my_files_dir_);
+
+  // Start the upload workflow and simulate a successful mount() request
+  // (indicating interactive auth has succeeded).
+  file_manager::test::GetFakeProviderOneDrive(profile())->SetRequestMountImpl(
+      base::BindLambdaForTesting(
+          [&](ash::file_system_provider::RequestMountCallback callback) {
+            // The second check of reauth required after the mount succeeds
+            // should be OK so we attempt upload.
+            provided_file_system_->SetReauthenticationRequired(false);
+            std::move(callback).Run(base::File::Error::FILE_OK);
+          }));
+
+  OneDriveUploadHandler::Upload(
+      profile(), source_file_url,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadSuccessful,
+                     base::Unretained(this)),
+      cloud_open_metrics_ref_);
+  SetUpRunLoopAndWait();
+
+  // Check that the source file has been moved to OneDrive.
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    EXPECT_FALSE(base::PathExists(my_files_dir_.AppendASCII(test_file_name)));
+    CheckPathExistsOnODFS(base::FilePath("/").AppendASCII(test_file_name));
+  }
+
   histogram_.ExpectUniqueSample(kOneDriveUploadResultMetricName,
-                                OfficeFilesUploadResult::kCloudReauthRequired,
+                                OfficeFilesUploadResult::kSuccessAfterReauth,
                                 1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kMoved);
+}
+
+// Test that when reauthentication to OneDrive is required (before starting the
+// upload) interactive auth is requested without a prompt. And test that when
+// the auth fails, the upload is not attempted and instead the sign-in
+// notification is shown.
+IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
+                       UploadNotAttemptedAfterFailedReauth) {
+  SetUpObservers();
+  SetUpMyFiles();
+  SetUpODFS();
+  // Ensure the first check of reauth required fails due to reauthentication to
+  // OneDrive being required.
+  provided_file_system_->SetReauthenticationRequired(true);
+  const std::string test_file_name = "text.docx";
+  FileSystemURL source_file_url =
+      SetUpSourceFile(test_file_name, my_files_dir_);
+
+  // Start the upload workflow and simulate a failed mount() request (indicating
+  // interactive auth has failed).
+  file_manager::test::GetFakeProviderOneDrive(profile())->SetRequestMountImpl(
+      base::BindLambdaForTesting(
+          [&](ash::file_system_provider::RequestMountCallback callback) {
+            std::move(callback).Run(base::File::Error::FILE_ERROR_FAILED);
+          }));
+
+  auto on_notification = base::BindLambdaForTesting(
+      [&](const message_center::Notification& notification) {
+        if (notification.message() ==
+            base::UTF8ToUTF16(GetReauthenticationRequiredMessage())) {
+          EndWait();
+        }
+      });
+  SetOnNotificationDisplayedCallback(std::move(on_notification));
+  SetUpRunLoop(/*conditions_to_end_wait=*/2);
+  OneDriveUploadHandler::Upload(
+      profile(), source_file_url,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadFailed,
+                     base::Unretained(this)),
+      cloud_open_metrics_ref_);
+  Wait();
+  // Check that the source file still exists only at the intended source
+  // location and did not get uploaded to ODFS.
+  {
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    EXPECT_TRUE(base::PathExists(my_files_dir_.AppendASCII(test_file_name)));
+    CheckPathNotFoundOnODFS(base::FilePath("/").AppendASCII(test_file_name));
+  }
+
+  histogram_.ExpectTotalCount(kOneDriveMoveErrorMetricName, 0);
+  histogram_.ExpectUniqueSample(
+      kOneDriveUploadResultMetricName,
+      OfficeFilesUploadResult::kUploadNotStartedReauthenticationRequired, 1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kFailedToUpload);
 }
 
 // Test that when the upload to ODFS fails due an access error that is not
@@ -383,9 +585,12 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
         }
       });
   SetOnNotificationDisplayedCallback(std::move(on_notification));
-  OneDriveUploadHandler::Upload(profile(), source_file_url, base::DoNothing(),
-                                cloud_open_metrics_ref_);
-  Wait();
+  OneDriveUploadHandler::Upload(
+      profile(), source_file_url,
+      base::BindOnce(&OneDriveUploadHandlerTest::OnUploadFailed,
+                     base::Unretained(this)),
+      cloud_open_metrics_ref_);
+  SetUpRunLoopAndWait(/*conditions_to_end_wait=*/2);
 
   // Check that the source file still exists only at the intended source
   // location and did not get uploaded to ODFS.
@@ -399,6 +604,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveUploadHandlerTest,
                                 -base::File::FILE_ERROR_ACCESS_DENIED, 1);
   histogram_.ExpectUniqueSample(kOneDriveUploadResultMetricName,
                                 OfficeFilesUploadResult::kCloudAccessDenied, 1);
+  ASSERT_EQ(observed_task_result_, OfficeTaskResult::kFailedToUpload);
 }
 
 }  // namespace ash::cloud_upload

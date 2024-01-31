@@ -12,6 +12,7 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/callback_forward.h"
 #include "base/functional/function_ref.h"
+#include "base/memory/safety_checks.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "content/common/content_export.h"
@@ -39,6 +40,7 @@
 #include "third_party/blink/public/mojom/permissions_policy/permissions_policy_feature.mojom-forward.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
 #include "ui/accessibility/ax_node_id_forward.h"
+#include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_widget_types.h"
 
 class GURL;
@@ -77,12 +79,12 @@ class PendingReceiver;
 namespace net {
 class IsolationInfo;
 class NetworkIsolationKey;
-class HttpResponseHeaders;
 }  // namespace net
 
 namespace network {
 namespace mojom {
 class URLLoaderFactory;
+class URLResponseHead;
 }
 }  // namespace network
 
@@ -109,6 +111,7 @@ namespace content {
 class BrowserContext;
 class DocumentRef;
 struct GlobalRenderFrameHostId;
+struct GlobalRenderFrameHostToken;
 class RenderProcessHost;
 class RenderViewHost;
 class RenderWidgetHost;
@@ -125,6 +128,10 @@ class Page;
 // access it.
 class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
                                        public IPC::Sender {
+  // Do not remove this macro!
+  // The macro is maintained by the memory safety team.
+  ADVANCED_MEMORY_SAFETY_CHECKS();
+
  public:
   // Constant used to denote that a lookup of a FrameTreeNode ID has failed.
   enum { kNoFrameTreeNodeId = -1 };
@@ -134,12 +141,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   static RenderFrameHost* FromID(const GlobalRenderFrameHostId& id);
   static RenderFrameHost* FromID(int render_process_id, int render_frame_id);
 
-  // Returns the RenderFrameHost given its frame token and its process
-  // ID. Returns nullptr if the frame token does not correspond to a live
-  // RenderFrameHost.
+  // Returns the RenderFrameHost given its global frame token. Returns nullptr
+  // if the frame token does not correspond to a live RenderFrameHost.
   static RenderFrameHost* FromFrameToken(
-      int initiator_process_id,
-      const blink::LocalFrameToken& frame_token);
+      const GlobalRenderFrameHostToken& frame_token);
 
   // Globally allows for injecting JavaScript into the main world. This feature
   // is present only to support Android WebView, WebLayer, Fuchsia web.Contexts,
@@ -217,8 +222,14 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   virtual RenderProcessHost* GetProcess() const = 0;
 
   // Returns the GlobalRenderFrameHostId for this frame. Embedders should store
-  // this instead of a raw RenderFrameHost pointer.
+  // this instead of a raw RenderFrameHost pointer. This API is based on routing
+  // IDs from legacy IPC. The renderer may not have routing IDs for frames so it
+  // is preferred to use `GetGlobalFrameToken` over this API.
   virtual GlobalRenderFrameHostId GetGlobalId() const = 0;
+
+  // Returns the GlobalRenderFrameHostToken for this frame. Embedders should
+  // store this instead of a raw RenderFrameHost pointer.
+  virtual GlobalRenderFrameHostToken GetGlobalFrameToken() const = 0;
 
   // Returns a StoragePartition associated with this RenderFrameHost.
   // Associated StoragePartition never changes.
@@ -228,14 +239,14 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Associated BrowserContext never changes.
   virtual BrowserContext* GetBrowserContext() = 0;
 
-  // Returns the current document's HTTP response headers. Note that this value
-  // will change when a cross-document navigation reuses RenderFrameHost and
-  // commits a new document in existing RenderFrameHost. Must not be called
-  // in LifecycleState::kPendingCommit before committing a document.
+  // Returns the current document's response head. Note that this value will
+  // change when a cross-document navigation reuses RenderFrameHost and commits
+  // a new document in existing RenderFrameHost. Must not be called in
+  // LifecycleState::kPendingCommit before committing a document.
   //
   // This is null if there was no response: the initial empty document,
   // about:blank, about:srcdoc, and MHTML iframes.
-  virtual const net::HttpResponseHeaders* GetLastResponseHeaders() = 0;
+  virtual const network::mojom::URLResponseHead* GetLastResponseHead() = 0;
 
   // Returns the RenderWidgetHostView for this frame or the nearest ancestor
   // frame, which can be used to control input, focus, rendering and visibility
@@ -267,8 +278,8 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Returns the document owning the frame this RenderFrameHost is located
   // in, which will either be a parent (for <iframe>s) or outer document (for
-  // <fencedframe> and <portal>). This will return the outer document in cases
-  // of fenced frames and portals but will not cross a browsing session boundary
+  // <fencedframe>). This will return the outer document in cases
+  // of fenced frames but will not cross a browsing session boundary
   // (ie. it will not escape a GuestView). See
   // `RenderFrameHost::GetParentOrOuterDocumentOrEmbedder` for the
   // version of this API that will cross a browsing session boundary.
@@ -289,7 +300,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
 
   // Returns the document owning the frame this RenderFrameHost is located
   // in, which will either be a parent (for <iframe>s) or outer document (for
-  // <fencedframe>, <portal> or an embedder (e.g. GuestViews)). See
+  // <fencedframe>, or an embedder (e.g. GuestViews)). See
   // `RenderFrameHost::GetParentOrOuterDocument` for the version of this API
   // that does not cross a browsing session boundary (ie. Not escaping a
   // GuestView). This method typically will be used for input, compositing, and
@@ -362,9 +373,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   virtual bool IsNestedWithinFencedFrame() const = 0;
 
   // |ForEachRenderFrameHost| traverses this RenderFrameHost and all of its
-  // descendants, including frames in any inner frame trees, in breadth-first
-  // order. Examples of features that have inner frame trees are portals or
-  // GuestViews. Note: The RenderFrameHost parameter is not guaranteed to have a
+  // descendants, including frames in any inner frame trees (such as guest
+  // views), in breadth-first order.
+  //
+  // Note: The RenderFrameHost parameter is not guaranteed to have a
   // live RenderFrame counterpart in the renderer process. Callbacks should
   // check IsRenderFrameLive(), as sending IPC messages to it in this case will
   // fail silently.
@@ -857,6 +869,10 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
       const gfx::Point& location,
       const blink::mojom::MediaPlayerAction& action) = 0;
 
+  virtual void RequestVideoFrameAt(
+      const gfx::Point& location,
+      base::OnceCallback<void(const gfx::ImageSkia&)> callback) = 0;
+
   // Creates a Network Service-backed factory from appropriate |NetworkContext|.
   //
   // If this returns true, any redirect safety checks should be bypassed in
@@ -968,9 +984,7 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // non-bfcache navigation in the outermost main frame).
   // This id typically has an associated PageLoad UKM event.
   // Note: this can be called on any frame, but this id for all subframes or
-  // fenced frames is the same as the id for the outermost main frame. For
-  // portals, this id for frames inside a portal is the same as the id for the
-  // main frame for the portal.
+  // fenced frames is the same as the id for the outermost main frame.
   // Should not be called while prerendering as our data collection policy
   // disallow recording UKMs until the page activation.
   // See //content/browser/preloading/prerender/README.md#ukm-source-ids for

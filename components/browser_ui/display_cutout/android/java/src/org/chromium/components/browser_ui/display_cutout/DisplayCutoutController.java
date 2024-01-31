@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.Log;
 import org.chromium.base.UserData;
 import org.chromium.base.UserDataHost;
 import org.chromium.base.supplier.ObservableSupplier;
@@ -58,9 +59,7 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
      */
     private @Nullable ObservableSupplier<Integer> mBrowserCutoutModeSupplier;
 
-    /**
-     * Observes {@link mBrowserCutoutModeSupplier}.
-     */
+    /** Observes {@link mBrowserCutoutModeSupplier}. */
     private @Nullable Callback<Integer> mBrowserCutoutModeObserver;
 
     /** Tracks Safe Area Insets. */
@@ -72,9 +71,7 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
      */
     public interface SafeAreaInsetsTracker {
 
-        /**
-         * @return whether this Tracker was created for a web page set to Cover.
-         */
+        /** @return whether this Tracker was created for a web page set to Cover. */
         boolean isViewportFitCover();
     }
 
@@ -125,9 +122,6 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
 
         /** Whether the activity is in browser (not-HTML) fullscreen. */
         boolean isInBrowserFullscreen();
-
-        /** Whether the basic Feature for drawing Edge To Edge is enabled. */
-        boolean isDrawEdgeToEdgeEnabled();
     }
 
     private final Delegate mDelegate;
@@ -211,9 +205,10 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
         mBrowserCutoutModeSupplier = supplier;
         mBrowserCutoutModeObserver = null;
         if (mBrowserCutoutModeSupplier != null) {
-            mBrowserCutoutModeObserver = (browserDisplayCutoutMode) -> {
-                maybeUpdateLayout();
-            };
+            mBrowserCutoutModeObserver =
+                    (browserDisplayCutoutMode) -> {
+                        maybeUpdateLayout();
+                    };
             mBrowserCutoutModeSupplier.addObserver(mBrowserCutoutModeObserver);
         }
     }
@@ -228,13 +223,13 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
      * @param value The new viewport fit value.
      */
     public void setViewportFit(@WebContentsObserver.ViewportFitType int value) {
+        Log.i(TAG, "setViewportFit: %s", value);
         mSafeAreaInsetsTracker.setIsViewportFitCover(
                 value == ViewportFit.COVER || value == ViewportFit.COVER_FORCED_BY_USER_AGENT);
 
         // TODO(crbug.com/1480477): Investigate whether if() can be turned into assert.
         if (!mDelegate.getWebContents().isFullscreenForCurrentTab()
-                && !mDelegate.isInBrowserFullscreen()
-                && !mDelegate.isDrawEdgeToEdgeEnabled()) {
+                && !mDelegate.isInBrowserFullscreen()) {
             value = ViewportFit.AUTO;
         }
 
@@ -263,7 +258,9 @@ public class DisplayCutoutController implements InsetObserver.WindowInsetObserve
         if (webContents == null) return;
 
         float dipScale = getDipScale();
-        area.set(adjustInsetForScale(area.left, dipScale), adjustInsetForScale(area.top, dipScale),
+        area.set(
+                adjustInsetForScale(area.left, dipScale),
+                adjustInsetForScale(area.top, dipScale),
                 adjustInsetForScale(area.right, dipScale),
                 adjustInsetForScale(area.bottom, dipScale));
 

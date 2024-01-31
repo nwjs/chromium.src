@@ -32,6 +32,7 @@
 #include "third_party/blink/renderer/core/dom/document_fragment.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/html_form_control_element.h"
@@ -386,7 +387,7 @@ Element* HTMLTreeBuilder::TakeScriptToProcess(
 }
 
 void HTMLTreeBuilder::ConstructTree(AtomicHTMLToken* token) {
-  RUNTIME_CALL_TIMER_SCOPE(V8PerIsolateData::MainThreadIsolate(),
+  RUNTIME_CALL_TIMER_SCOPE(parser_->GetDocument()->GetAgent().isolate(),
                            RuntimeCallStats::CounterId::kConstructTree);
   if (ShouldProcessTokenInForeignContent(token))
     ProcessTokenInForeignContent(token);
@@ -973,10 +974,13 @@ void HTMLTreeBuilder::ProcessStartTagForInBody(AtomicHTMLToken* token) {
       ParseError(token);
       break;
     case HTMLTag::kPermission:
-      tree_.ReconstructTheActiveFormattingElements();
-      tree_.InsertSelfClosingHTMLElementDestroyingToken(token);
-      frameset_ok_ = false;
-      break;
+      if (RuntimeEnabledFeatures::PermissionElementEnabled()) {
+        tree_.ReconstructTheActiveFormattingElements();
+        tree_.InsertSelfClosingHTMLElementDestroyingToken(token);
+        frameset_ok_ = false;
+        break;
+      }
+      [[fallthrough]];
     default:
       if (token->GetName() == mathml_names::kMathTag.LocalName()) {
         tree_.ReconstructTheActiveFormattingElements();

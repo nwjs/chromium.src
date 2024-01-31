@@ -136,6 +136,13 @@ $ git config --global core.filemode false
 $ git config --global branch.autosetuprebase always
 ```
 
+While not necessarily required it can be helpful to configure git to allow long
+path support (beyond the Windows MAX_PATH limit):
+
+```shell
+git config --global core.longpaths true
+```
+
 Create a `chromium` directory for the checkout and change to it. You can call
 this whatever you like and put it wherever you like, as long as the full path
 has no spaces. However there are some performance benefits for Googlers in
@@ -241,7 +248,9 @@ In addition, Google employees should use reclient, a distributed compilation sys
 Detailed information is available internally but the relevant gn arg is:
 * `use_remoteexec = true`
 
-Google employees can visit go/building-chrome-win#setup-reclient for more information.
+Google employees can visit
+[go/building-chrome-win#setup-remote-execution](http://go/building-chrome-win#setup-remote-execution)
+for more information.
 
 When invoking ninja, specify 'chrome' as the target to avoid building all test
 binaries as well.

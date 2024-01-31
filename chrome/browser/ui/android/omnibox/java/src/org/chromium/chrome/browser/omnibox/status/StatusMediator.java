@@ -14,18 +14,18 @@ import android.view.View;
 import androidx.annotation.ColorInt;
 import androidx.annotation.ColorRes;
 import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
-import org.chromium.base.Promise;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.base.supplier.Supplier;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.merchant_viewer.MerchantTrustSignalsCoordinator;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
 import org.chromium.chrome.browser.omnibox.R;
-import org.chromium.chrome.browser.omnibox.SearchEngineLogoUtils;
+import org.chromium.chrome.browser.omnibox.SearchEngineUtils;
 import org.chromium.chrome.browser.omnibox.UrlBarEditingTextStateProvider;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.PermissionIconResource;
 import org.chromium.chrome.browser.omnibox.status.StatusProperties.StatusIconResource;
@@ -71,7 +71,6 @@ public class StatusMediator
     static final String COOKIE_CONTROLS_ICON = "COOKIE_CONTROLS_ICON";
 
     private final PropertyModel mModel;
-    private final SearchEngineLogoUtils mSearchEngineLogoUtils;
     private final OneshotSupplier<TemplateUrlService> mTemplateUrlServiceSupplier;
     private final Supplier<Profile> mProfileSupplier;
     private final Supplier<MerchantTrustSignalsCoordinator>
@@ -131,7 +130,6 @@ public class StatusMediator
      * @param isTablet Whether the current device is a tablet.
      * @param locationBarDataProvider Provides data to the location bar.
      * @param permissionDialogController Controls showing permission dialogs.
-     * @param searchEngineLogoUtils Provides utilities around the search engine logo.
      * @param templateUrlServiceSupplier Supplies the {@link TemplateUrlService}.
      * @param profileSupplier Supplies the current {@link Profile}.
      * @param pageInfoIPHController Manages when an IPH bubble for PageInfo is shown.
@@ -148,7 +146,6 @@ public class StatusMediator
             boolean isTablet,
             LocationBarDataProvider locationBarDataProvider,
             PermissionDialogController permissionDialogController,
-            SearchEngineLogoUtils searchEngineLogoUtils,
             OneshotSupplier<TemplateUrlService> templateUrlServiceSupplier,
             Supplier<Profile> profileSupplier,
             PageInfoIPHController pageInfoIPHController,
@@ -158,7 +155,6 @@ public class StatusMediator
                             merchantTrustSignalsCoordinatorSupplier) {
         mModel = model;
         mLocationBarDataProvider = locationBarDataProvider;
-        mSearchEngineLogoUtils = searchEngineLogoUtils;
         mTemplateUrlServiceSupplier = templateUrlServiceSupplier;
         mTemplateUrlServiceSupplier.onAvailable(
                 (templateUrlService) -> {
@@ -530,26 +526,11 @@ public class StatusMediator
     @VisibleForTesting
     boolean maybeUpdateStatusIconForSearchEngineIcon() {
         // Show the logo unfocused if we're on the NTP.
-        if (shouldDisplaySearchEngineIcon()) {
-            Promise<StatusIconResource> resourcePromise =
-                    getStatusIconResourceForSearchEngineIcon();
-            // As an optimization, synchronously update the status icon resource if it's available
-            // immediately, which is the common case. This lets us avoid rechecking
-            // shouldDisplaySearchEngineIcon().
-            if (resourcePromise.isFulfilled()) {
-                mModel.set(StatusProperties.STATUS_ICON_RESOURCE, resourcePromise.getResult());
-            } else {
-                resourcePromise.then(
-                        (result -> {
-                            if (shouldDisplaySearchEngineIcon()) {
-                                mModel.set(StatusProperties.STATUS_ICON_RESOURCE, result);
-                            }
-                        }));
-            }
-            return true;
-        } else {
-            return false;
-        }
+        if (!shouldDisplaySearchEngineIcon()) return false;
+
+        mModel.set(
+                StatusProperties.STATUS_ICON_RESOURCE, getStatusIconResourceForSearchEngineIcon());
+        return true;
     }
 
     /**
@@ -570,23 +551,19 @@ public class StatusMediator
                 && mProfileSupplier.hasValue();
     }
 
-    /**
-     * Returns a promise wrapping the result of calculating the security icon resource for the
-     * search engine icon. The icon is available immediately in most case, but may need to be
-     * fetched asynchronously. The returned promise will never be rejected.
-     */
-    private Promise<StatusIconResource> getStatusIconResourceForSearchEngineIcon() {
+    /** Returns status icon resource for the user-selected default search engine. */
+    private @NonNull StatusIconResource getStatusIconResourceForSearchEngineIcon() {
         // If the current url text is a valid url, then swap the dse icon for a globe.
         if (!mUrlBarTextIsSearch) {
-            return Promise.fulfilled(
-                    new StatusIconResource(
-                            R.drawable.ic_globe_24dp,
-                            ThemeUtils.getThemedToolbarIconTintRes(mBrandedColorScheme)));
+            return SearchEngineUtils.getFallbackNavigationIcon(mBrandedColorScheme);
         }
 
-        Profile profile = mProfileSupplier.hasValue() ? mProfileSupplier.get() : null;
-        return mSearchEngineLogoUtils.getSearchEngineLogo(
-                mResources, mBrandedColorScheme, profile, mTemplateUrlServiceSupplier.get());
+        if (!mProfileSupplier.hasValue()) {
+            return SearchEngineUtils.getFallbackSearchIcon(mBrandedColorScheme);
+        }
+
+        var profile = mProfileSupplier.get();
+        return SearchEngineUtils.getForProfile(profile).getSearchEngineLogo(mBrandedColorScheme);
     }
 
     /** Return the resource id for the accessibility description or 0 if none apply. */

@@ -120,6 +120,8 @@ component("cpp") {
     "connectivity_services.h",
     "default_user_image.cc",
     "default_user_image.h",
+    "desk_profiles_delegate.cc",
+    "desk_profiles_delegate.h",
     "desk_template.cc",
     "desk_template.h",
     "esim_manager.cc",
@@ -128,12 +130,6 @@ component("cpp") {
     "feature_discovery_duration_reporter.h",
     "feature_discovery_metric_util.cc",
     "feature_discovery_metric_util.h",
-    "file_preview/file_preview_controller.cc",
-    "file_preview/file_preview_controller.h",
-    "file_preview/file_preview_factory.cc",
-    "file_preview/file_preview_factory.h",
-    "file_preview/file_preview_image_skia_source.cc",
-    "file_preview/file_preview_image_skia_source.h",
     "fps_counter.cc",
     "fps_counter.h",
     "fwupd_download_client.cc",
@@ -247,6 +243,8 @@ component("cpp") {
     "notifier_settings_controller.cc",
     "notifier_settings_controller.h",
     "notifier_settings_observer.h",
+    "oobe_dialog_util.cc",
+    "oobe_dialog_util.h",
     "pagination/pagination_controller.cc",
     "pagination/pagination_controller.h",
     "pagination/pagination_model.cc",
@@ -255,6 +253,8 @@ component("cpp") {
     "personalization_app/enterprise_policy_delegate.h",
     "personalization_app/user_display_info.cc",
     "personalization_app/user_display_info.h",
+    "picker/picker_client.cc",
+    "picker/picker_client.h",
     "power_utils.cc",
     "power_utils.h",
     "presentation_time_recorder.cc",
@@ -380,6 +380,8 @@ component("cpp") {
     "wallpaper/online_wallpaper_params.h",
     "wallpaper/online_wallpaper_variant.cc",
     "wallpaper/online_wallpaper_variant.h",
+    "wallpaper/sea_pen_image.cc",
+    "wallpaper/sea_pen_image.h",
     "wallpaper/wallpaper_controller.cc",
     "wallpaper/wallpaper_controller.h",
     "wallpaper/wallpaper_controller_client.h",
@@ -478,6 +480,7 @@ component("cpp") {
     "//chromeos/crosapi/mojom",
     "//chromeos/services/network_config/public/mojom",
     "//components/app_restore",
+    "//components/manta/proto",
     "//components/session_manager:base",
     "//components/user_manager",
     "//components/version_info:channel",
@@ -500,8 +503,7 @@ source_set("unit_tests") {
     "ambient/ambient_prefs_unittest.cc",
     "android_intent_helper_unittest.cc",
     "app_list/app_list_config_provider_unittest.cc",
-    "file_preview/file_preview_factory_unittest.cc",
-    "file_preview/file_preview_unittest.cc",
+    "holding_space/holding_space_controller_unittest.cc",
     "holding_space/holding_space_image_unittest.cc",
     "holding_space/holding_space_item_unittest.cc",
     "holding_space/holding_space_model_unittest.cc",
@@ -547,6 +549,11 @@ source_set("unit_tests") {
     "//ui/views",
     "//ui/views:test_support",
   ]
+
+  data = [
+    # Needed to make commit bots run unit_tests on enums.xml changes.
+    "//tools/metrics/histograms/metadata/chromeos/enums.xml",
+  ]
 }
 
 source_set("accelerator_actions") {
@@ -564,8 +571,8 @@ source_set("test_support") {
   sources = [
     "personalization_app/time_of_day_test_utils.cc",
     "personalization_app/time_of_day_test_utils.h",
-    "test/in_process_image_decoder.cc",
-    "test/in_process_image_decoder.h",
+    "test/in_process_data_decoder.cc",
+    "test/in_process_data_decoder.h",
     "test/mock_in_session_auth_token_provider.cc",
     "test/mock_in_session_auth_token_provider.h",
     "test/mock_input_device_settings_controller.cc",
@@ -601,6 +608,7 @@ source_set("test_support") {
     "//components/access_code_cast/common:metrics",
     "//mojo/public/cpp/bindings",
     "//services/data_decoder/public/cpp:service_provider",
+    "//services/data_decoder/public/cpp:test_support",
     "//services/data_decoder/public/mojom",
     "//services/device/public/cpp:test_support",
     "//services/network/public/cpp:cpp",

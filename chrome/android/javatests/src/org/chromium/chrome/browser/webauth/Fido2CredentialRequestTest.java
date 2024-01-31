@@ -51,7 +51,6 @@ import org.chromium.base.test.util.JniMocker;
 import org.chromium.blink.mojom.AuthenticatorAttachment;
 import org.chromium.blink.mojom.AuthenticatorStatus;
 import org.chromium.blink.mojom.AuthenticatorTransport;
-import org.chromium.blink.mojom.DevicePublicKeyRequest;
 import org.chromium.blink.mojom.GetAssertionAuthenticatorResponse;
 import org.chromium.blink.mojom.MakeCredentialAuthenticatorResponse;
 import org.chromium.blink.mojom.PaymentOptions;
@@ -71,6 +70,7 @@ import org.chromium.components.webauthn.Fido2Api;
 import org.chromium.components.webauthn.Fido2ApiCallHelper;
 import org.chromium.components.webauthn.Fido2ApiTestHelper;
 import org.chromium.components.webauthn.Fido2CredentialRequest;
+import org.chromium.components.webauthn.FidoIntentSender;
 import org.chromium.components.webauthn.InternalAuthenticator;
 import org.chromium.components.webauthn.InternalAuthenticatorJni;
 import org.chromium.components.webauthn.WebAuthnBrowserBridge;
@@ -79,7 +79,6 @@ import org.chromium.content.browser.ClientDataJsonImpl;
 import org.chromium.content.browser.ClientDataJsonImplJni;
 import org.chromium.content_public.browser.ClientDataRequestType;
 import org.chromium.content_public.browser.RenderFrameHost;
-import org.chromium.content_public.browser.WebAuthenticationDelegate;
 import org.chromium.content_public.browser.test.mock.MockRenderFrameHost;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentSwitches;
@@ -204,7 +203,7 @@ public class Fido2CredentialRequestTest {
         }
     }
 
-    private static class MockIntentSender implements WebAuthenticationDelegate.IntentSender {
+    private static class MockIntentSender implements FidoIntentSender {
         private Pair<Integer, Intent> mNextResult;
         private boolean mInvokeCallbackImmediately = true;
         private Callback<Pair<Integer, Intent>> mCallback;
@@ -434,14 +433,14 @@ public class Fido2CredentialRequestTest {
         }
 
         @Override
-        public int performMakeCredentialWebAuthSecurityChecks(
+        public void performMakeCredentialWebAuthSecurityChecks(
                 String relyingPartyId,
                 Origin effectiveOrigin,
-                boolean isPaymentCredentialCreation) {
-            super.performMakeCredentialWebAuthSecurityChecks(
-                    relyingPartyId, effectiveOrigin, isPaymentCredentialCreation);
+                boolean isPaymentCredentialCreation,
+                Callback<Integer> callback) {
             mIsPaymentCredentialCreation = isPaymentCredentialCreation;
-            return 0;
+            super.performMakeCredentialWebAuthSecurityChecks(
+                    relyingPartyId, effectiveOrigin, isPaymentCredentialCreation, callback);
         }
     }
 
@@ -1375,35 +1374,6 @@ public class Fido2CredentialRequestTest {
         Assert.assertEquals(mCallback.getStatus(), Integer.valueOf(AuthenticatorStatus.SUCCESS));
         Fido2ApiTestHelper.validatePrfResults(
                 mCallback.getGetAssertionResponse().extensions.prfResults);
-        Fido2ApiTestHelper.verifyRespondedBeforeTimeout(mStartTimeMs);
-    }
-
-    @Test
-    @SmallTest
-    public void testAuthenticatorImplGetAssertionWithDevicePubKey_success() {
-        AuthenticatorImpl authenticator =
-                new AuthenticatorImpl(
-                        mContext,
-                        mIntentSender,
-                        /* createConfirmationUiDelegate= */ null,
-                        mFrameHost,
-                        mOrigin);
-        mIntentSender.setNextResultIntent(
-                Fido2ApiTestHelper.createSuccessfulGetAssertionIntentWithDevicePubKey());
-        mRequestOptions.extensions.devicePublicKey = new DevicePublicKeyRequest();
-
-        TestThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    authenticator.getAssertion(
-                            mRequestOptions,
-                            (status, response, dom_exception) ->
-                                    mCallback.onSignResponse(status, response));
-                });
-        mCallback.blockUntilCalled();
-
-        Assert.assertEquals(mCallback.getStatus(), Integer.valueOf(AuthenticatorStatus.SUCCESS));
-        Fido2ApiTestHelper.validateDevicePubKey(
-                mCallback.getGetAssertionResponse().extensions.devicePublicKey);
         Fido2ApiTestHelper.verifyRespondedBeforeTimeout(mStartTimeMs);
     }
 

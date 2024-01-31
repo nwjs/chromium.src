@@ -20,10 +20,11 @@ import {WebUiListenerMixin} from 'chrome://resources/cr_elements/web_ui_listener
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {PolymerElement} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
 
-import {DeepLinkingMixin} from '../deep_linking_mixin.js';
+import {DeepLinkingMixin} from '../common/deep_linking_mixin.js';
+import {isRevampWayfindingEnabled} from '../common/load_time_booleans.js';
+import {RouteOriginMixin} from '../common/route_origin_mixin.js';
 import {Section} from '../mojom-webui/routes.mojom-webui.js';
 import {Setting} from '../mojom-webui/setting.mojom-webui.js';
-import {RouteOriginMixin} from '../route_origin_mixin.js';
 import {Route, Router, routes} from '../router.js';
 
 import {getTemplate} from './os_a11y_page.html.js';
@@ -110,6 +111,36 @@ export class OsSettingsA11yPageElement extends OsSettingsA11yPageElementBase {
           Setting.kLiveCaption,
         ]),
       },
+
+      rowIcons_: {
+        type: Object,
+        value() {
+          if (isRevampWayfindingEnabled()) {
+            return {
+              imageDescription: 'os-settings:a11y-image-description',
+              showInQuickSettings: 'os-settings:accessibility-revamp',
+              textToSpeech: 'os-settings:a11y-text-to-speech',
+              displayAndMagnification:
+                  'os-settings:a11y-display-and-magnification',
+              keyboardAndTextInput: 'os-settings:a11y-keyboard-and-text-input',
+              cursorAndTouchpad: 'os-settings:a11y-cursor-and-touchpad',
+              audioAndCaptions: 'os-settings:a11y-audio-and-captions',
+              findMore: 'os-settings:a11y-find-more',
+            };
+          }
+
+          return {
+            imageDescription: '',
+            showInQuickSettings: '',
+            textToSpeech: '',
+            displayAndMagnification: '',
+            keyboardAndTextInput: '',
+            cursorAndTouchpad: '',
+            audioAndCaptions: '',
+            findMore: '',
+          };
+        },
+      },
     };
   }
 
@@ -118,6 +149,7 @@ export class OsSettingsA11yPageElement extends OsSettingsA11yPageElementBase {
   private hasScreenReader_: boolean;
   private isGuest_: boolean;
   private isKioskModeActive_: boolean;
+  private rowIcons_: Record<string, string>;
   private section_: Section;
   private showAccessibilityLabelsSetting_: boolean;
 

@@ -30,6 +30,7 @@
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/download/bubble/download_bubble_prefs.h"
 #include "chrome/browser/download/download_core_service.h"
 #include "chrome/browser/download/download_core_service_factory.h"
 #include "chrome/browser/download/download_crx_util.h"
@@ -749,14 +750,12 @@ void ChromeDownloadManagerDelegate::ShouldCompleteDownloadInternal(
   DownloadItem* item = download_manager_->GetDownload(download_id);
   if (!item)
     return;
-  // This should be called only once.
-  base::RepeatingClosure callback = base::BindRepeating(
-      [](base::OnceClosure callback) { std::move(callback).Run(); },
-      base::Passed(&user_complete_callback));
-  if (ShouldCompleteDownload(item, callback)) {
-    // |callback| should not have run when ShouldCompleteDownload() returns
-    // true.
-    std::move(callback).Run();
+  auto [async_completion, sync_completion] =
+      base::SplitOnceCallback(std::move(user_complete_callback));
+  if (ShouldCompleteDownload(item, std::move(async_completion))) {
+    // If `ShouldCompleteDownload()` returns true, `async_completion` will never
+    // run.
+    std::move(sync_completion).Run();
   }
 }
 
@@ -1328,9 +1327,11 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
   if (!download_manager_)
     return;
   DownloadItem* item = download_manager_->GetDownload(download_id);
-  if (!item || (item->GetState() != DownloadItem::IN_PROGRESS &&
-                item->GetDangerType() !=
-                    download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING)) {
+  if (!item ||
+      (item->GetState() != DownloadItem::IN_PROGRESS &&
+       item->GetDangerType() != download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING &&
+       item->GetDangerType() !=
+           download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING)) {
     return;
   }
 
@@ -1348,6 +1349,8 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       item->GetDangerType() ==
           download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT ||
       item->GetDangerType() == download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING ||
+      item->GetDangerType() ==
+          download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING ||
       item->GetDangerType() ==
           download::DOWNLOAD_DANGER_TYPE_PROMPT_FOR_SCANNING ||
       item->GetDangerType() ==
@@ -1382,6 +1385,11 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
       case safe_browsing::DownloadCheckResult::ASYNC_SCANNING:
         is_pending_scanning = true;
         danger_type = download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING;
+        break;
+      case safe_browsing::DownloadCheckResult::ASYNC_LOCAL_PASSWORD_SCANNING:
+        is_pending_scanning = true;
+        danger_type =
+            download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING;
         break;
       case safe_browsing::DownloadCheckResult::BLOCKED_PASSWORD_PROTECTED:
         danger_type = download::DOWNLOAD_DANGER_TYPE_BLOCKED_PASSWORD_PROTECTED;
@@ -1424,8 +1432,10 @@ void ChromeDownloadManagerDelegate::CheckClientDownloadDone(
               download::DOWNLOAD_DANGER_TYPE_MAYBE_DANGEROUS_CONTENT);
 
     if (item->GetState() == DownloadItem::COMPLETE &&
-        item->GetDangerType() ==
-            download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING) {
+        (item->GetDangerType() ==
+             download::DOWNLOAD_DANGER_TYPE_ASYNC_SCANNING ||
+         item->GetDangerType() ==
+             download::DOWNLOAD_DANGER_TYPE_ASYNC_LOCAL_PASSWORD_SCANNING)) {
       // If the file was opened during async scanning, we override the danger
       // type, since the user can no longer discard the download.
       if (danger_type != download::DOWNLOAD_DANGER_TYPE_NOT_DANGEROUS) {
@@ -1609,7 +1619,7 @@ void ChromeDownloadManagerDelegate::OnDownloadTargetDetermined(
         web_contents ? web_contents->GetTopLevelNativeWindow() : nullptr;
     if (native_window && item) {
       InsecureDownloadDialogBridge::GetInstance()->CreateDialog(
-          item, target_path.BaseName(), native_window,
+          item, item->GetFileNameToReportUser(), native_window,
           base::BindOnce(HandleInsecureDownloadInfoBarResult, item,
                          std::move(target_info), std::move(callback)));
       return;
@@ -1830,7 +1840,6 @@ void ChromeDownloadManagerDelegate::OnCheckDownloadAllowedComplete(
     bool storage_permission_granted,
     bool allow) {
   if (!storage_permission_granted) {
-    // UMA for this will be recorded in MobileDownload.StoragePermission.
   } else if (allow) {
     // Presumes all downloads initiated by navigation use this throttle and
     // nothing else does.
@@ -1891,6 +1900,9 @@ void ChromeDownloadManagerDelegate::OnManagerInitialized() {
 #if !BUILDFLAG(IS_ANDROID)
 void ChromeDownloadManagerDelegate::ScheduleCancelForEphemeralWarning(
     const std::string& guid) {
+  if (!download::IsDownloadBubbleEnabled()) {
+    return;
+  }
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
       FROM_HERE,
       base::BindOnce(&ChromeDownloadManagerDelegate::CancelForEphemeralWarning,
@@ -1914,6 +1926,9 @@ void ChromeDownloadManagerDelegate::CancelForEphemeralWarning(
 }
 
 void ChromeDownloadManagerDelegate::CancelAllEphemeralWarnings() {
+  if (!download::IsDownloadBubbleEnabled()) {
+    return;
+  }
   content::DownloadManager::DownloadVector downloads;
   download_manager_->GetAllDownloads(&downloads);
   for (auto* download : downloads) {

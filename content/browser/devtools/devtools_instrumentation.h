@@ -26,12 +26,9 @@
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom-forward.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
-#include "third_party/blink/public/mojom/devtools/console_message.mojom.h"
 #include "third_party/blink/public/mojom/devtools/inspector_issue.mojom-forward.h"
 #include "third_party/blink/public/mojom/navigation/navigation_params.mojom-forward.h"
-#include "third_party/blink/public/mojom/page/widget.mojom.h"
 #include "third_party/blink/public/mojom/speculation_rules/speculation_rules.mojom-forward.h"
-#include "ui/base/dragdrop/mojom/drag_drop_types.mojom-forward.h"
 
 class GURL;
 
@@ -72,6 +69,7 @@ class ServiceWorkerContextWrapper;
 class SignedExchangeEnvelope;
 class StoragePartition;
 class WebContents;
+struct PrerenderMismatchedHeaders;
 
 struct SignedExchangeError;
 
@@ -189,6 +187,33 @@ void OnNavigationRequestFailed(
     const NavigationRequest& nav_request,
     const network::URLLoaderCompletionStatus& status);
 
+// Logs fetch keepalive requests proxied via browser to Network panel.
+//
+// As the implementation requires a RenderFrameHost to locate a
+// RenderFrameDevToolsAgentHost to attach the logs to, `frame_free_node` must
+// not be nullptr. This doesn't really fit the whole need as such requests may
+// be sent after RenderFrameHost unload.
+//
+// Caller also needs to make sure to avoid duplicated logging that may already
+// happens in the request initiator renderer.
+void OnFetchKeepAliveRequestWillBeSent(
+    FrameTreeNode* frame_tree_node,
+    const std::string& request_id,
+    const network::ResourceRequest& request,
+    absl::optional<
+        std::pair<const GURL&,
+                  const network::mojom::URLResponseHeadDevToolsInfo&>>
+        redirect_info = absl::nullopt);
+void OnFetchKeepAliveResponseReceived(
+    FrameTreeNode* frame_tree_node,
+    const std::string& request_id,
+    const GURL& url,
+    const network::mojom::URLResponseHead& head);
+void OnFetchKeepAliveRequestComplete(
+    FrameTreeNode* frame_tree_node,
+    const std::string& request_id,
+    const network::URLLoaderCompletionStatus& status);
+
 void OnAuctionWorkletNetworkRequestWillBeSent(
     int frame_tree_node_id,
     const network::ResourceRequest& request,
@@ -243,7 +268,8 @@ void DidUpdatePrerenderStatus(
     absl::optional<blink::mojom::SpeculationTargetHint> target_hint,
     PreloadingTriggeringOutcome status,
     absl::optional<PrerenderFinalStatus> prerender_status,
-    absl::optional<std::string> disallowed_mojo_interface);
+    absl::optional<std::string> disallowed_mojo_interface,
+    const std::vector<PrerenderMismatchedHeaders>* mismatched_headers);
 
 void OnSignedExchangeReceived(
     FrameTreeNode* frame_tree_node,
@@ -424,11 +450,12 @@ void CleanUpDeviceRequestPrompt(RenderFrameHost* render_frame_host,
 // `intercept` should be set to true if the handler is active.
 // `disable_delay` should be set to true if the handler wants to disable
 // the normal FedCM delay in notifying the renderer of success/failure.
-void WillSendFedCmRequest(RenderFrameHost* render_frame_host,
+void WillSendFedCmRequest(RenderFrameHost& render_frame_host,
                           bool* intercept,
                           bool* disable_delay);
-void WillShowFedCmDialog(RenderFrameHost* render_frame_host, bool* intercept);
-void OnFedCmDialogShown(RenderFrameHost* render_frame_host);
+void WillShowFedCmDialog(RenderFrameHost& render_frame_host, bool* intercept);
+void DidShowFedCmDialog(RenderFrameHost& render_frame_host);
+void DidCloseFedCmDialog(RenderFrameHost& render_frame_host);
 
 // Handles dev tools integration for fenced frame reporting beacons. Used in
 // `FencedFrameReporter`.

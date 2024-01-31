@@ -5,11 +5,14 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_SIDE_PANEL_UTIL_H_
 #define CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_SIDE_PANEL_UTIL_H_
 
+#include <type_traits>
+
 #include "base/time/time.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_entry.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "ui/actions/actions.h"
 
 class Browser;
 class SidePanelRegistry;
@@ -41,6 +44,9 @@ class SidePanelUtil {
   static SidePanelCoordinator* GetSidePanelCoordinatorForBrowser(
       Browser* browser);
 
+  static actions::ActionItem::InvokeActionCallback
+  CreateToggleSidePanelActionCallback(SidePanelEntryKey key, Browser* browser);
+
   static void RecordNewTabButtonClicked(SidePanelEntry::Id id);
   static void RecordSidePanelOpen(absl::optional<SidePanelOpenTrigger> trigger);
   static void RecordSidePanelShowOrChangeEntryTrigger(
@@ -58,6 +64,11 @@ class SidePanelUtil {
       SidePanelEntry::Id id,
       absl::optional<SidePanelOpenTrigger> trigger);
   static void RecordComboboxShown();
+  static void RecordPinnedButtonClicked(SidePanelEntry::Id id, bool is_pinned);
 };
+
+extern const ui::ClassProperty<
+    std::underlying_type_t<SidePanelOpenTrigger>>* const
+    kSidePanelOpenTriggerKey;
 
 #endif  // CHROME_BROWSER_UI_VIEWS_SIDE_PANEL_SIDE_PANEL_UTIL_H_

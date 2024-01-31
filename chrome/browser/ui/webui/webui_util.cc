@@ -4,7 +4,8 @@
 
 #include "chrome/browser/ui/webui/webui_util.h"
 
-#include "base/containers/cxx20_erase.h"
+#include <string>
+
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "content/public/browser/web_ui_data_source.h"
@@ -39,11 +40,7 @@ namespace webui {
 void SetJSModuleDefaults(content::WebUIDataSource* source) {
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::ScriptSrc,
-      "script-src chrome://resources chrome://webui-test "
-#if BUILDFLAG(IS_CHROMEOS_ASH)
-      "chrome://test "
-#endif
-      "'self';");
+      "script-src chrome://resources chrome://webui-test 'self';");
 
   source->UseStringsJs();
   source->EnableReplaceI18nInJS();
@@ -86,7 +83,7 @@ void AddLocalizedString(content::WebUIDataSource* source,
                         const std::string& message,
                         int id) {
   std::u16string str = l10n_util::GetStringUTF16(id);
-  base::Erase(str, '&');
+  std::erase(str, '&');
   source->AddString(message, str);
 }
 

@@ -85,10 +85,6 @@ public class PageInsightsSheetContentTest {
         ViewGroup rootView = sTestRule.getActivity().findViewById(android.R.id.content);
         TestThreadUtils.runOnUiThreadBlocking(() -> rootView.removeAllViews());
 
-        TestValues testValues = new TestValues();
-        testValues.addFeatureFlagOverride(ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, true);
-        FeatureList.setTestValues(testValues);
-
         mScrimCoordinator =
                 new ScrimCoordinator(
                         sTestRule.getActivity(),

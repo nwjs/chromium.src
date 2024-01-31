@@ -67,6 +67,7 @@
 #include "third_party/blink/renderer/core/inspector/identifiers_factory.h"
 #include "third_party/blink/renderer/core/inspector/inspected_frames.h"
 #include "third_party/blink/renderer/core/inspector/network_resources_data.h"
+#include "third_party/blink/renderer/core/inspector/protocol/network.h"
 #include "third_party/blink/renderer/core/inspector/request_debug_header_scope.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
@@ -89,6 +90,7 @@
 #include "third_party/blink/renderer/platform/loader/fetch/resource_load_timing.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_request.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_response.h"
+#include "third_party/blink/renderer/platform/loader/fetch/service_worker_router_info.h"
 #include "third_party/blink/renderer/platform/loader/fetch/unique_identifier.h"
 #include "third_party/blink/renderer/platform/loader/fetch/url_loader/url_loader_client.h"
 #include "third_party/blink/renderer/platform/network/http_header_map.h"
@@ -1061,6 +1063,13 @@ BuildObjectForResourceResponse(const ResourceResponse& response,
   if (!response.CacheStorageCacheName().empty()) {
     response_object->setCacheStorageCacheName(response.CacheStorageCacheName());
   }
+  if (response.GetServiceWorkerRouterInfo()) {
+    response_object->setServiceWorkerRouterInfo(
+        protocol::Network::ServiceWorkerRouterInfo::create()
+            .setRuleIdMatched(
+                response.GetServiceWorkerRouterInfo()->RuleIdMatched())
+            .build());
+  }
 
   response_object->setFromPrefetchCache(response.WasInPrefetchCache());
   if (response.GetResourceLoadTiming())
@@ -1403,6 +1412,7 @@ void InspectorNetworkAgent::PrepareRequest(DocumentLoader* loader,
 }
 
 void InspectorNetworkAgent::WillSendRequest(
+    ExecutionContext*,
     DocumentLoader* loader,
     const KURL& fetch_context_url,
     const ResourceRequest& request,
@@ -1474,8 +1484,8 @@ void InspectorNetworkAgent::DidReceiveResourceResponse(
                         ? IdentifiersFactory::FrameId(loader->GetFrame())
                         : "";
   String loader_id = IdentifiersFactory::LoaderId(loader);
-  resources_data_->ResponseReceived(request_id, frame_id, response);
   resources_data_->SetResourceType(request_id, type);
+  resources_data_->ResponseReceived(request_id, frame_id, response);
 
   const absl::optional<net::SSLInfo>& ssl_info = response.GetSSLInfo();
   if (ssl_info.has_value() && ssl_info->cert) {
@@ -2263,14 +2273,6 @@ protocol::Response InspectorNetworkAgent::GetResponseBody(
   if (resource_data->IsContentEvicted()) {
     return protocol::Response::ServerError(
         "Request content was evicted from inspector cache");
-  }
-
-  if (resource_data->Buffer() && !resource_data->TextEncodingName().IsNull()) {
-    bool success = InspectorPageAgent::SharedBufferContent(
-        resource_data->Buffer(), resource_data->MimeType(),
-        resource_data->TextEncodingName(), content, base64_encoded);
-    DCHECK(success);
-    return protocol::Response::Success();
   }
 
   if (resource_data->CachedResource() &&

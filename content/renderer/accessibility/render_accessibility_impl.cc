@@ -183,7 +183,6 @@ void RenderAccessibilityImpl::DidCommitProvisionalLoad(
       accessibility_mode_.has_mode(ui::AXMode::kLabelImages)) {
     return;
   }
-  ax_image_annotator_->Destroy();
   ax_image_annotator_.reset();
   page_language_.clear();
   serialization_in_flight_ = false;
@@ -212,9 +211,6 @@ void RenderAccessibilityImpl::AccessibilityModeChanged(const ui::AXMode& mode) {
 
   SetAccessibilityCrashKey(mode);
 
-  // Initialize features based on the accessibility mode.
-  StartOrStopLabelingImages(old_mode, mode);
-
   if (ax_context_) {
     ax_context_->SetAXMode(mode);
   } else {
@@ -233,6 +229,9 @@ void RenderAccessibilityImpl::AccessibilityModeChanged(const ui::AXMode& mode) {
   if (was_on) {
     ax_context_->MarkDocumentDirty();
   }
+
+  // Initialize features based on the accessibility mode.
+  StartOrStopLabelingImages(old_mode, mode);
 
   // Fire a load complete event so that any ATs present can treat the page as
   // fresh and newly loaded.
@@ -266,25 +265,8 @@ void RenderAccessibilityImpl::HitTest(
   ax_context_->UpdateAXForAllDocuments();
 
   WebAXObject ax_object;
-  // 1. Now that layout has been updated for the entire document, try to run
-  // the hit test operation on the popup root element, if there's a popup
-  // opened. This is needed to allow hit testing within web content popups.
-  absl::optional<gfx::RectF> popup_bounds = GetPopupBounds();
-  if (popup_bounds.has_value()) {
-    auto popup_root_obj = WebAXObject::FromWebDocument(GetPopupDocument());
-    // WebAXObject::HitTest expects the point passed by parameter to be
-    // relative to the instance we call it from.
-    ax_object = popup_root_obj.HitTest(
-        point - ToRoundedVector2d(popup_bounds->OffsetFromOrigin()));
-  }
-
-  // 2. If running the hit test operation on the popup didn't returned any
-  // result (or if there was no popup), run the hit test operation from the
-  // main element.
-  if (ax_object.IsNull()) {
-    auto root_obj = WebAXObject::FromWebDocument(document);
-    ax_object = root_obj.HitTest(point);
-  }
+  auto root_obj = WebAXObject::FromWebDocument(document);
+  ax_object = root_obj.HitTest(point);
 
   // Return if no attached accessibility object was found for the main document.
   if (ax_object.IsDetached()) {
@@ -722,8 +704,6 @@ void RenderAccessibilityImpl::AXReadyCallback() {
   // again via ProcessDeferredAccessibilityEvents() if there are any changes in
   // the document.
   weak_factory_for_serialization_pipeline_.InvalidateWeakPtrs();
-
-  last_serialization_timestamp_ = now;
 
   SendPendingAccessibilityEvents();
 }
@@ -1169,9 +1149,12 @@ bool RenderAccessibilityImpl::SerializeUpdatesAndEvents(
 
   if (had_end_of_test_event) {
     ui::AXEvent end_of_test(root.AxID(), ax::mojom::Event::kEndOfTest);
-    if (!WebAXObject::IsDirty(document)) {
+    if (!WebAXObject::IsDirty(document) && GetMainDocument().IsLoaded()) {
       events.emplace_back(end_of_test);
     } else {
+      DLOG(ERROR) << "Had end of test event, but document is still dirty. "
+                     "Serialize post lifecycle: "
+                  << serialize_post_lifecycle_;
       // Document is still dirty, queue up another end of test and process
       // immediately.
       if (!serialize_post_lifecycle_) {
@@ -1425,6 +1408,7 @@ void RenderAccessibilityImpl::OnSerializationReceived() {
   // AXReadyCallback() will be called. ScheduleAXUpdate() will only schedule a
   // visual update if the AXObjectCache is dirty.
   serialization_in_flight_ = false;
+  last_serialization_timestamp_ = base::Time::Now();
   if (immediate_update_required_after_ack_) {
     ScheduleImmediateAXUpdate();
     immediate_update_required_after_ack_ = false;
@@ -1546,7 +1530,6 @@ void RenderAccessibilityImpl::StartOrStopLabelingImages(ui::AXMode old_mode,
     CreateAXImageAnnotator();
   } else if (old_mode.has_mode(ui::AXMode::kLabelImages) &&
              !new_mode.has_mode(ui::AXMode::kLabelImages)) {
-    ax_image_annotator_->Destroy();
     ax_image_annotator_.reset();
   }
 }
@@ -1628,25 +1611,6 @@ blink::WebDocument RenderAccessibilityImpl::GetPopupDocument() {
   if (popup)
     return popup->GetDocument();
   return WebDocument();
-}
-
-absl::optional<gfx::RectF> RenderAccessibilityImpl::GetPopupBounds() {
-  const WebDocument& popup_document = GetPopupDocument();
-  if (popup_document.IsNull())
-    return absl::nullopt;
-
-  auto obj = WebAXObject::FromWebDocument(popup_document);
-
-  gfx::RectF popup_bounds;
-  WebAXObject popup_container;
-  gfx::Transform transform;
-  obj.GetRelativeBounds(popup_container, popup_bounds, transform);
-
-  // The |popup_container| will never be set for a popup element. See
-  // `AXObject::GetRelativeBounds`.
-  DCHECK(popup_container.IsNull());
-
-  return popup_bounds;
 }
 
 blink::WebAXObject RenderAccessibilityImpl::GetPluginRoot() {

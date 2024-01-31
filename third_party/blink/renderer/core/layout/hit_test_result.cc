@@ -48,7 +48,7 @@
 #include "third_party/blink/renderer/core/layout/layout_embedded_content.h"
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
-#include "third_party/blink/renderer/core/layout/ng/ng_physical_box_fragment.h"
+#include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/page/scrolling/top_document_root_scroller_controller.h"
 #include "third_party/blink/renderer/core/scroll/scrollbar.h"
@@ -149,10 +149,9 @@ void HitTestResult::Trace(Visitor* visitor) const {
   visitor->Trace(list_based_test_result_);
 }
 
-void HitTestResult::SetNodeAndPosition(
-    Node* node,
-    const NGPhysicalBoxFragment* box_fragment,
-    const PhysicalOffset& position) {
+void HitTestResult::SetNodeAndPosition(Node* node,
+                                       const PhysicalBoxFragment* box_fragment,
+                                       const PhysicalOffset& position) {
   if (box_fragment) {
     local_point_ = position + box_fragment->OffsetFromOwnerLayoutBox();
   } else {
@@ -248,9 +247,7 @@ void HitTestResult::SetToShadowHostIfInUAShadowRoot() {
 }
 
 CompositorElementId HitTestResult::GetScrollableContainer() const {
-  DCHECK(InnerNode());
-  // TODO(1303411): Some users encounter InnerNode() == null here, but we don't
-  // know why. Return an invalid element ID in this case, which we check for in
+  // If no node was found, return an invalid element ID, which we check for in
   // InputHandlerProxy::ContinueScrollBeginAfterMainThreadHitTest.
   if (!InnerNode())
     return CompositorElementId();

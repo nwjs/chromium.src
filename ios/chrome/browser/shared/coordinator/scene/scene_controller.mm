@@ -24,7 +24,6 @@
 #import "components/infobars/core/infobar_manager.h"
 #import "components/password_manager/core/browser/ui/credential_ui_entry.h"
 #import "components/password_manager/core/browser/ui/password_check_referrer.h"
-#import "components/password_manager/core/common/password_manager_features.h"
 #import "components/policy/core/common/cloud/user_cloud_policy_manager.h"
 #import "components/prefs/pref_service.h"
 #import "components/previous_session_info/previous_session_info.h"
@@ -38,7 +37,6 @@
 #import "ios/chrome/app/application_delegate/startup_information.h"
 #import "ios/chrome/app/application_delegate/url_opener.h"
 #import "ios/chrome/app/application_delegate/url_opener_params.h"
-#import "ios/chrome/app/application_delegate/user_activity_handler.h"
 #import "ios/chrome/app/application_mode.h"
 #import "ios/chrome/app/chrome_overlay_window.h"
 #import "ios/chrome/app/deferred_initialization_runner.h"
@@ -53,14 +51,14 @@
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
-#import "ios/chrome/browser/first_run/first_run.h"
+#import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/geolocation/model/geolocation_logger.h"
 #import "ios/chrome/browser/infobars/infobar_manager_impl.h"
-#import "ios/chrome/browser/mailto_handler/mailto_handler_service.h"
-#import "ios/chrome/browser/mailto_handler/mailto_handler_service_factory.h"
-#import "ios/chrome/browser/main/browser_util.h"
-#import "ios/chrome/browser/ntp/features.h"
-#import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/intents/user_activity_browser_agent.h"
+#import "ios/chrome/browser/mailto_handler/model/mailto_handler_service.h"
+#import "ios/chrome/browser/mailto_handler/model/mailto_handler_service_factory.h"
+#import "ios/chrome/browser/main/model/browser_util.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_password_check_manager_factory.h"
 #import "ios/chrome/browser/passwords/model/password_checkup_utils.h"
@@ -70,9 +68,9 @@
 #import "ios/chrome/browser/policy/policy_watcher_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/promos_manager/features.h"
 #import "ios/chrome/browser/promos_manager/promos_manager_factory.h"
+#import "ios/chrome/browser/reading_list/model/reading_list_browser_agent.h"
 #import "ios/chrome/browser/screenshot/model/screenshot_delegate.h"
 #import "ios/chrome/browser/sessions/session_saving_scene_agent.h"
-#import "ios/chrome/browser/sessions/session_service_ios.h"
 #import "ios/chrome/browser/shared/coordinator/default_browser_promo/non_modal_default_browser_promo_scheduler_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_scene_agent.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_ui_provider.h"
@@ -89,6 +87,7 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
+#import "ios/chrome/browser/shared/public/commands/bookmarks_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/browsing_data_commands.h"
@@ -104,14 +103,14 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/top_view_controller.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/signin/authentication_service.h"
-#import "ios/chrome/browser/signin/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/capabilities_types.h"
-#import "ios/chrome/browser/signin/chrome_account_manager_service.h"
-#import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/constants.h"
-#import "ios/chrome/browser/signin/identity_manager_factory.h"
-#import "ios/chrome/browser/signin/system_identity_manager.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/capabilities_types.h"
+#import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
+#import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
+#import "ios/chrome/browser/signin/model/constants.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/browser/signin/model/system_identity_manager.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/chrome/browser/tab_insertion/model/tab_insertion_browser_agent.h"
 #import "ios/chrome/browser/ui/app_store_rating/app_store_rating_scene_agent.h"
@@ -123,6 +122,7 @@
 #import "ios/chrome/browser/ui/authentication/signin_notification_infobar_delegate.h"
 #import "ios/chrome/browser/ui/browser_view/browser_view_controller.h"
 #import "ios/chrome/browser/ui/credential_provider_promo/credential_provider_promo_scene_agent.h"
+#import "ios/chrome/browser/ui/first_run/omnibox_position/promo/omnibox_position_choice_scene_agent.h"
 #import "ios/chrome/browser/ui/first_run/orientation_limiting_navigation_controller.h"
 #import "ios/chrome/browser/ui/history/history_coordinator.h"
 #import "ios/chrome/browser/ui/history/history_coordinator_delegate.h"
@@ -158,7 +158,7 @@
 #import "ios/chrome/browser/url_loading/model/url_loading_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/browser/web/page_placeholder_browser_agent.h"
-#import "ios/chrome/browser/web_state_list/session_metrics.h"
+#import "ios/chrome/browser/web_state_list/model/session_metrics.h"
 #import "ios/chrome/browser/window_activities/model/window_activity_helpers.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/grit/ios_strings.h"
@@ -174,11 +174,15 @@
 #import "net/base/mac/url_conversions.h"
 #import "ui/base/l10n/l10n_util.h"
 
-// To get access to UseSessionSerializationOptimizations().
-// TODO(crbug.com/1383087): remove once the feature is fully launched.
-#import "ios/web/common/features.h"
-
 namespace {
+
+// Killswitch, can be removed around February 2024. If enabled,
+// createInitialUI will call makeKeyAndVisible before mainCoordinator start.
+// When disabled, this fix resolves a flicker when starting the app in light
+// mode
+BASE_FEATURE(kMakeKeyAndVisibleBeforeMainCoordinatorStart,
+             "MakeKeyAndVisibleBeforeMainCoordinatorStart",
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Feature to control whether Search Intents (Widgets, Application
 // Shortcuts menu) forcibly open a new tab, rather than reusing an
@@ -443,10 +447,6 @@ void InjectNTP(Browser* browser) {
 - (void)setStartupParameters:(AppStartupParameters*)parameters {
   _startupParameters = parameters;
   self.startupParametersAreBeingHandled = NO;
-  BOOL shouldShowPromo =
-      self.sceneState.appState.shouldShowDefaultBrowserPromo &&
-      (parameters.postOpeningAction == NO_ACTION);
-  self.sceneState.appState.shouldShowDefaultBrowserPromo = shouldShowPromo;
 
   if (parameters.openedViaFirstPartyScheme) {
     [[NonModalDefaultBrowserPromoSchedulerSceneAgent
@@ -471,6 +471,8 @@ void InjectNTP(Browser* browser) {
   if (![self canHandleIntents]) {
     return;
   }
+  UserActivityBrowserAgent* userActivityBrowserAgent =
+      UserActivityBrowserAgent::FromBrowser(self.currentInterface.browser);
   // Handle URL opening from
   // `UIWindowSceneDelegate scene:willConnectToSession:options:`.
   for (UIOpenURLContext* context in self.sceneState.connectionOptions
@@ -483,15 +485,8 @@ void InjectNTP(Browser* browser) {
                            appState:self.sceneState.appState];
   }
   if (self.sceneState.connectionOptions.shortcutItem) {
-    [UserActivityHandler
-        performActionForShortcutItem:self.sceneState.connectionOptions
-                                         .shortcutItem
-                   completionHandler:nil
-                           tabOpener:self
-               connectionInformation:self
-                  startupInformation:self.sceneState.appState.startupInformation
-                        browserState:self.currentInterface.browserState
-                           initStage:self.sceneState.appState.initStage];
+    userActivityBrowserAgent->Handle3DTouchApplicationShortcuts(
+        self.sceneState.connectionOptions.shortcutItem);
   }
 
   // See if this scene launched as part of a multiwindow URL opening.
@@ -532,14 +527,7 @@ void InjectNTP(Browser* browser) {
     // Consider the scene as still not active at this point as the handling
     // of startup parameters is not yet done (and will be later in this
     // function).
-    [UserActivityHandler
-         continueUserActivity:activityWithCompletion
-          applicationIsActive:NO
-                    tabOpener:self
-        connectionInformation:self
-           startupInformation:self.sceneState.appState.startupInformation
-                 browserState:self.currentInterface.browserState
-                    initStage:self.sceneState.appState.initStage];
+    userActivityBrowserAgent->ContinueUserActivity(activityWithCompletion, NO);
   }
   self.sceneState.connectionOptions = nil;
 
@@ -560,14 +548,7 @@ void InjectNTP(Browser* browser) {
           setApplicationMode:ApplicationModeForTabOpening::NORMAL];
     }
 
-    [UserActivityHandler
-        handleStartupParametersWithTabOpener:self
-                       connectionInformation:self
-                          startupInformation:self.sceneState.appState
-                                                 .startupInformation
-                                browserState:self.currentInterface.browserState
-                                   initStage:self.sceneState.appState
-                                                 .initStage];
+    userActivityBrowserAgent->RouteToCorrectTab();
 
     // Show a toast if the browser is opened in an unexpected mode.
     if (self.startupParameters.isUnexpectedMode) {
@@ -645,15 +626,13 @@ void InjectNTP(Browser* browser) {
     [self.startupParameters
         setApplicationMode:ApplicationModeForTabOpening::INCOGNITO];
   }
-
-  [UserActivityHandler
-      performActionForShortcutItem:shortcutItem
-                 completionHandler:completionHandler
-                         tabOpener:self
-             connectionInformation:self
-                startupInformation:self.sceneState.appState.startupInformation
-                      browserState:self.currentInterface.browserState
-                         initStage:self.sceneState.appState.initStage];
+  UserActivityBrowserAgent* userActivityBrowserAgent =
+      UserActivityBrowserAgent::FromBrowser(self.currentInterface.browser);
+  BOOL handledShortcutItem =
+      userActivityBrowserAgent->Handle3DTouchApplicationShortcuts(shortcutItem);
+  if (completionHandler) {
+    completionHandler(handledShortcutItem);
+  }
 }
 
 - (void)sceneState:(SceneState*)sceneState
@@ -675,21 +654,15 @@ void InjectNTP(Browser* browser) {
   self.sceneState.startupHadExternalIntent = YES;
 
   PrefService* prefs = self.currentInterface.browserState->GetPrefs();
+  UserActivityBrowserAgent* userActivityBrowserAgent =
+      UserActivityBrowserAgent::FromBrowser(self.currentInterface.browser);
   if (IsIncognitoPolicyApplied(prefs) &&
-      ![UserActivityHandler canProceedWithUserActivity:userActivity
-                                           prefService:prefs]) {
+      !userActivityBrowserAgent->ProceedWithUserActivity(userActivity)) {
     // If users request opening url in a unavailable mode, don't open the url
     // but show a toast.
     [self showToastWhenOpenExternalIntentInUnexpectedMode];
   } else {
-    [UserActivityHandler
-         continueUserActivity:userActivity
-          applicationIsActive:sceneIsActive
-                    tabOpener:self
-        connectionInformation:self
-           startupInformation:self.sceneState.appState.startupInformation
-                 browserState:self.currentInterface.browserState
-                    initStage:self.sceneState.appState.initStage];
+    userActivityBrowserAgent->ContinueUserActivity(userActivity, sceneIsActive);
   }
 
   if (sceneIsActive) {
@@ -721,10 +694,6 @@ void InjectNTP(Browser* browser) {
 // `PasswordCheckupCoordinator`.
 - (void)startPasswordCheckupCoordinator:
     (password_manager::PasswordCheckReferrer)referrer {
-  if (!password_manager::features::IsPasswordCheckupEnabled()) {
-    return;
-  }
-
   Browser* browser = self.mainInterface.browser;
 
   if (!self.settingsNavigationController) {
@@ -1013,16 +982,17 @@ void InjectNTP(Browser* browser) {
   [sceneState addAgent:[[WhatsNewSceneAgent alloc]
                            initWithPromosManager:promosManager]];
 
-  if (ios::provider::IsChoiceEnabled()) {
-    [sceneState addAgent:ios::provider::CreateChoiceSceneAgent(promosManager,
-                                                               browserState)];
-  }
-
   // Do not gate by feature flag so it can run for enabled -> disabled
   // scenarios.
   [sceneState addAgent:[[CredentialProviderPromoSceneAgent alloc]
                            initWithPromosManager:promosManager
                                      prefService:browserState->GetPrefs()]];
+
+  if (IsBottomOmniboxPromoFlagEnabled(BottomOmniboxPromoType::kAppLaunch)) {
+    [sceneState addAgent:[[OmniboxPositionChoiceSceneAgent alloc]
+                             initWithPromosManager:promosManager
+                                   forBrowserState:browserState]];
+  }
 }
 
 // Determines the mode (normal or incognito) the initial UI should be in.
@@ -1087,12 +1057,22 @@ void InjectNTP(Browser* browser) {
       _webStateListForwardingObserver.get());
   _mainWebStateObserver->Observe(self.mainInterface.browser->GetWebStateList());
 
-  // Enables UI initializations to query the keyWindow's size.
-  [self.sceneState.window makeKeyAndVisible];
+  if (base::FeatureList::IsEnabled(
+          kMakeKeyAndVisibleBeforeMainCoordinatorStart)) {
+    [self.sceneState.window makeKeyAndVisible];
+  }
 
   // Lazy init of mainCoordinator.
   [self.mainCoordinator start];
 
+  if (!base::FeatureList::IsEnabled(
+          kMakeKeyAndVisibleBeforeMainCoordinatorStart)) {
+    // Enables UI initializations to query the keyWindow's size. Do this after
+    // `mainCoordinator start` as it sets self.window.rootViewController to work
+    // around crbug.com/850387, causing a flicker if -makeKeyAndVisible has been
+    // called.
+    [self.sceneState.window makeKeyAndVisible];
+  }
   [self.mainCoordinator setActivePage:[self activePage]];
 
   if (!self.sceneState.appState.startupInformation.isFirstRun) {
@@ -1135,10 +1115,6 @@ void InjectNTP(Browser* browser) {
         currentBrowser->GetCommandDispatcher(), ApplicationCommands);
     [applicationHandler openURLInNewTab:command];
   }
-
-  if (!IsDefaultBrowserInPromoManagerEnabled()) {
-    [self maybeShowDefaultBrowserPromo:self.mainInterface.browser];
-  }
 }
 
 // Notifies the Feature Engagement Tracker that an eligibility criterion has
@@ -1156,93 +1132,6 @@ void InjectNTP(Browser* browser) {
     tracker->NotifyEvent(feature_engagement::events::kBlueDotPromoCriterionMet);
     tracker->NotifyEvent(
         feature_engagement::events::kDefaultBrowserVideoPromoConditionsMet);
-  }
-}
-
-// `YES` if Chrome is not the default browser, the app did not crash recently,
-// the user never saw the promo UI and is in the correct experiment groups.
-- (BOOL)potentiallyInterestedUser {
-  // If skipping first run, not in Safe Mode, no post opening action and the
-  // launch is not after a crash, consider showing the default browser promo.
-  TabOpeningPostOpeningAction postOpeningAction =
-      self.NTPActionAfterTabSwitcherDismissal;
-  if (self.startupParameters) {
-    postOpeningAction = self.startupParameters.postOpeningAction;
-  }
-  return postOpeningAction == NO_ACTION &&
-         GetApplicationContext()->WasLastShutdownClean() &&
-         !IsChromeLikelyDefaultBrowser();
-}
-
-- (void)maybeShowDefaultBrowserPromo:(Browser*)browser {
-  ChromeBrowserState* browserState = self.sceneState.appState.mainBrowserState;
-  PrefService* prefService = browserState->GetPrefs();
-  AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForBrowserState(browserState);
-
-  policy::UserCloudPolicyManager* userPolicyManager =
-      browserState->GetUserCloudPolicyManager();
-  if (self.sceneState.appState.startupInformation.isFirstRun ||
-      IsUserPolicyNotificationNeeded(authService, prefService,
-                                     userPolicyManager) ||
-      ![self potentiallyInterestedUser]) {
-    // Don't show the default browser promo when either (1) the user is going
-    // through the First Run screens, (2) the user MUST see the User Policy
-    // notification, OR (3) it was determined that the user isn't potentially
-    // interested in that promo.
-    //
-    // Showing the User Policy notification has priority over showing the
-    // default browser promo. Both dialogs are competing for the same time slot
-    // which is after the browser startup and the browser UI is initialized.
-    return;
-  }
-
-  // Don't show the default browser promo if the user is in the default browser
-  // blue dot experiment.
-  // TODO(crbug.com/1410229) clean-up experiment code when fully launched.
-  if (!AreDefaultBrowserPromosEnabled()) {
-    return;
-  }
-
-  // Show the Default Browser promo UI if the user's past behavior fits
-  // the categorization of potentially interested users or if the user is
-  // signed in. Do not show if it is determined that Chrome is already the
-  // default browser (checked in the if enclosing this comment) or if the user
-  // has already seen the promo UI. If the user was in the experiment group
-  // that showed the Remind Me Later button and tapped on it, then show the
-  // promo again if now is the right time.
-
-  BOOL isSignedIn = [self isSignedIn];
-
-  // Tailored promos take priority over general promo.
-  BOOL isMadeForIOSPromoEligible =
-      IsLikelyInterestedDefaultBrowserUser(DefaultPromoTypeMadeForIOS);
-  BOOL isAllTabsPromoEligible =
-      IsLikelyInterestedDefaultBrowserUser(DefaultPromoTypeAllTabs) &&
-      isSignedIn;
-  BOOL isStaySafePromoEligible =
-      IsLikelyInterestedDefaultBrowserUser(DefaultPromoTypeStaySafe);
-
-  BOOL isTailoredPromoEligibleUser =
-      !HasUserInteractedWithTailoredFullscreenPromoBefore() &&
-      (isMadeForIOSPromoEligible || isAllTabsPromoEligible ||
-       isStaySafePromoEligible);
-  if (isTailoredPromoEligibleUser && !UserInFullscreenPromoCooldown()) {
-    self.sceneState.appState.shouldShowDefaultBrowserPromo = YES;
-    self.sceneState.appState.defaultBrowserPromoTypeToShow =
-        MostRecentInterestDefaultPromoType(!isSignedIn);
-    DCHECK(self.sceneState.appState.defaultBrowserPromoTypeToShow !=
-           DefaultPromoTypeGeneral);
-    return;
-  }
-
-  if (!HasUserInteractedWithFullscreenPromoBefore() &&
-      (IsLikelyInterestedDefaultBrowserUser(DefaultPromoTypeGeneral) ||
-       isSignedIn) &&
-      !UserInFullscreenPromoCooldown()) {
-    self.sceneState.appState.shouldShowDefaultBrowserPromo = YES;
-    self.sceneState.appState.defaultBrowserPromoTypeToShow =
-        DefaultPromoTypeGeneral;
   }
 }
 
@@ -2100,8 +1989,7 @@ void InjectNTP(Browser* browser) {
 // TODO(crbug.com/779791) : Remove show settings commands from MainController.
 - (void)showSavedPasswordsSettingsFromViewController:
             (UIViewController*)baseViewController
-                                    showCancelButton:(BOOL)showCancelButton
-                                  startPasswordCheck:(BOOL)startPasswordCheck {
+                                    showCancelButton:(BOOL)showCancelButton {
   if (!baseViewController) {
     // TODO(crbug.com/779791): Don't pass base view controller through
     // dispatched command.
@@ -2114,8 +2002,7 @@ void InjectNTP(Browser* browser) {
   if (self.settingsNavigationController) {
     [self.settingsNavigationController
         showSavedPasswordsSettingsFromViewController:baseViewController
-                                    showCancelButton:showCancelButton
-                                  startPasswordCheck:startPasswordCheck];
+                                    showCancelButton:showCancelButton];
     return;
   }
   Browser* browser = self.mainInterface.browser;
@@ -2131,10 +2018,6 @@ void InjectNTP(Browser* browser) {
 // Shows the Password Checkup page for `referrer`.
 - (void)showPasswordCheckupPageForReferrer:
     (password_manager::PasswordCheckReferrer)referrer {
-  if (!password_manager::features::IsPasswordCheckupEnabled()) {
-    return;
-  }
-
   UIViewController* baseViewController = self.currentInterface.viewController;
 
   [self startPasswordCheckupCoordinator:referrer];
@@ -2171,10 +2054,6 @@ void InjectNTP(Browser* browser) {
     showPasswordIssuesWithWarningType:(password_manager::WarningType)warningType
                              referrer:(password_manager::PasswordCheckReferrer)
                                           referrer {
-  if (!password_manager::features::IsPasswordCheckupEnabled()) {
-    return;
-  }
-
   UIViewController* baseViewController = self.currentInterface.viewController;
 
   [self startPasswordCheckupCoordinator:referrer];
@@ -2479,7 +2358,7 @@ void InjectNTP(Browser* browser) {
       };
     case START_LENS_FROM_INTENTS:
       return ^{
-        [weakSelf startLensWithEntryPoint:LensEntrypoint::Spotlight];
+        [weakSelf startLensWithEntryPoint:LensEntrypoint::Intents];
       };
     case FOCUS_OMNIBOX:
       return ^{
@@ -2487,7 +2366,8 @@ void InjectNTP(Browser* browser) {
       };
     case SHOW_DEFAULT_BROWSER_SETTINGS:
       return ^{
-        [weakSelf showDefaultBrowserSettings];
+        [weakSelf showDefaultBrowserSettingsWithSourceForUMA:
+                      DefaultBrowserPromoSource::kExternalIntent];
       };
     case SEARCH_PASSWORDS:
       return ^{
@@ -2511,7 +2391,8 @@ void InjectNTP(Browser* browser) {
       };
     case SET_CHROME_DEFAULT_BROWSER:
       return ^{
-        [weakSelf showDefaultBrowserSettings];
+        [weakSelf showDefaultBrowserSettingsWithSourceForUMA:
+                      DefaultBrowserPromoSource::kExternalIntent];
       };
     case VIEW_HISTORY:
       return ^{
@@ -2545,6 +2426,19 @@ void InjectNTP(Browser* browser) {
     case OPEN_CLEAR_BROWSING_DATA_DIALOG:
       return ^{
         [weakSelf openClearBrowsingDataDialog];
+      };
+    case ADD_BOOKMARKS:
+      return ^{
+        [weakSelf addBookmarks:weakSelf.startupParameters.inputURLs];
+      };
+    case ADD_READING_LIST_ITEMS:
+      return ^{
+        [weakSelf addReadingListItems:weakSelf.startupParameters.inputURLs];
+      };
+    case EXTERNAL_ACTION_SHOW_BROWSER_SETTINGS:
+      return ^{
+        [weakSelf showDefaultBrowserSettingsWithSourceForUMA:
+                      DefaultBrowserPromoSource::kExternalAction];
       };
     default:
       return nil;
@@ -2597,7 +2491,8 @@ void InjectNTP(Browser* browser) {
   [omniboxCommandsHandler focusOmnibox];
 }
 
-- (void)showDefaultBrowserSettings {
+- (void)showDefaultBrowserSettingsWithSourceForUMA:
+    (DefaultBrowserPromoSource)sourceForUMA {
   if (!self.currentInterface.browser) {
     return;
   }
@@ -2606,8 +2501,7 @@ void InjectNTP(Browser* browser) {
                          ApplicationSettingsCommands);
   [applicationSettingsCommandsHandler
       showDefaultBrowserSettingsFromViewController:nil
-                                      sourceForUMA:DefaultBrowserPromoSource::
-                                                       kExternalIntent];
+                                      sourceForUMA:sourceForUMA];
 }
 
 - (void)startPasswordSearch {
@@ -2693,6 +2587,28 @@ void InjectNTP(Browser* browser) {
   webStateList->ActivateWebStateAt(index);
 }
 
+- (void)addBookmarks:(NSArray<NSURL*>*)URLs {
+  if (!self.currentInterface.browser || [URLs count] < 1) {
+    return;
+  }
+
+  id<BookmarksCommands> bookmarksCommandsHandler = HandlerForProtocol(
+      self.currentInterface.browser->GetCommandDispatcher(), BookmarksCommands);
+
+  [bookmarksCommandsHandler bulkCreateBookmarksWithURLs:URLs];
+}
+
+- (void)addReadingListItems:(NSArray<NSURL*>*)URLs {
+  if (!self.currentInterface.browser || [URLs count] < 1) {
+    return;
+  }
+
+  ReadingListBrowserAgent* readingListBrowserAgent =
+      ReadingListBrowserAgent::FromBrowser(self.currentInterface.browser);
+
+  readingListBrowserAgent->BulkAddURLsToReadingListWithViewSnackbar(URLs);
+}
+
 #pragma mark - TabOpening implementation.
 
 - (void)dismissModalsAndMaybeOpenSelectedTabInMode:
@@ -2774,7 +2690,7 @@ void InjectNTP(Browser* browser) {
   if (currentWebState) {
     web::NavigationManager* navigation_manager =
         currentWebState->GetNavigationManager();
-    // Check if the current tab is in the procress of restoration and whether it
+    // Check if the current tab is in the process of restoration and whether it
     // is an NTP. If so, add the tabs-opening action to the
     // RestoreCompletionCallback queue so that the tabs are opened only after
     // the NTP finishes restoring. This is to avoid an edge where multiple tabs
@@ -3554,6 +3470,12 @@ void InjectNTP(Browser* browser) {
   self.passwordCheckupCoordinator = nil;
 }
 
+#pragma mark - PasswordManagerReauthenticationDelegate
+
+- (void)dismissPasswordManagerAfterFailedReauthentication {
+  [self closeSettingsUI];
+}
+
 #pragma mark - Helpers for web state list events
 
 // Called when the last incognito tab was closed.
@@ -3791,18 +3713,6 @@ void InjectNTP(Browser* browser) {
     [sceneController willDestroyIncognitoBrowserState];
   }
 
-  // Delete all the remaining sessions. This is asynchronous, but will happen
-  // after all pending saves, if any, have completed. There is a risk of a
-  // race-condition with loading them, but as -incognitoBrowserStateCreated
-  // does not load the session, the only risk is if the application were to
-  // crash before the deletion could complete (in which case the user may
-  // see the previous state of the app before closing the last incognito tab).
-  if (!web::features::UseSessionSerializationOptimizations()) {
-    [[SessionServiceIOS sharedService]
-        deleteAllSessionFilesInDirectory:otrBrowserState->GetStatePath()
-                              completion:base::DoNothing()];
-  }
-
   // Record off-the-record metrics before detroying the BrowserState.
   SessionMetrics::FromBrowserState(otrBrowserState)
       ->RecordAndClearSessionMetrics(MetricsToRecordFlags::kNoMetrics);
@@ -3826,7 +3736,7 @@ void InjectNTP(Browser* browser) {
   // will be destroyed.
   self.mainCoordinator.incognitoBrowser = nil;
 
-  if (breadcrumbs::IsEnabled()) {
+  if (breadcrumbs::IsEnabled(GetApplicationContext()->GetLocalState())) {
     BreadcrumbManagerBrowserAgent::FromBrowser(self.incognitoInterface.browser)
         ->SetLoggingEnabled(false);
   }

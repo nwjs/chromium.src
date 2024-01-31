@@ -34,6 +34,7 @@
 #include "chrome/browser/download/offline_item_utils.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/download_protection/download_protection_util.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -466,17 +467,22 @@ void DownloadsDOMHandler::DeepScan(const std::string& id) {
     return;
   }
 
-  if (base::FeatureList::IsEnabled(
-          safe_browsing::kDeepScanningEncryptedArchives) &&
+  if ((base::FeatureList::IsEnabled(
+           safe_browsing::kDeepScanningEncryptedArchives) ||
+       base::FeatureList::IsEnabled(
+           safe_browsing::kEncryptedArchivesMetadata)) &&
       DownloadItemWarningData::IsEncryptedArchive(download)) {
     // For encrypted archives, we need a password from the user. We will request
     // this in the download bubble.
     PromptForScanningInBubble(GetWebUIWebContents(), download);
-  } else {
-    DownloadItemModel model(download);
-    DownloadCommands commands(model.GetWeakPtr());
-    commands.ExecuteCommand(DownloadCommands::DEEP_SCAN);
+    return;
   }
+
+  LogDeepScanEvent(download,
+                   safe_browsing::DeepScanEvent::kPromptAcceptedFromWebUI);
+  DownloadItemModel model(download);
+  DownloadCommands commands(model.GetWeakPtr());
+  commands.ExecuteCommand(DownloadCommands::DEEP_SCAN);
 }
 
 void DownloadsDOMHandler::BypassDeepScanRequiringGesture(
@@ -492,7 +498,14 @@ void DownloadsDOMHandler::BypassDeepScanRequiringGesture(
   if (download) {
     DownloadItemModel model(download);
     DownloadCommands commands(model.GetWeakPtr());
-    commands.ExecuteCommand(DownloadCommands::BYPASS_DEEP_SCANNING_AND_OPEN);
+    // Under ImprovedDownloadPageWarnings, the button says "Download suspicious
+    // file" which does not imply opening the file. In the old behavior, the
+    // button says "Open anyway" so we should open the file.
+    commands.ExecuteCommand(
+        base::FeatureList::IsEnabled(
+            safe_browsing::kImprovedDownloadPageWarnings)
+            ? DownloadCommands::BYPASS_DEEP_SCANNING
+            : DownloadCommands::BYPASS_DEEP_SCANNING_AND_OPEN);
   }
 }
 

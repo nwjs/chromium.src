@@ -210,6 +210,8 @@ component("gfx") {
       "font_fallback_win.cc",
       "font_fallback_win.h",
       "font_render_params_win.cc",
+      "font_util_win.cc",
+      "font_util_win.h",
       "path_win.cc",
       "path_win.h",
       "system_fonts_win.cc",
@@ -395,6 +397,7 @@ component("gfx") {
 
   # Windows.
   if (is_win) {
+    deps += [ "//ui/base:features" ]
     libs = [
       "setupapi.lib",
       "dwmapi.lib",
@@ -924,6 +927,10 @@ test("gfx_unittests") {
     deps += [ "//ui/android:ui_java" ]
   }
 
+  if (is_ios) {
+    deps += [ "//ui/gfx:codec_tests_bundle_data" ]
+  }
+
   if (is_android || is_fuchsia) {
     sources += [ "font_fallback_skia_unittest.cc" ]
   }
@@ -934,6 +941,8 @@ test("gfx_unittests") {
 
   if (is_win) {
     sources += [
+      "font_render_params_win_unittest.cc",
+      "font_util_win.cc",
       "icon_util_unittest.cc",
       "icon_util_unittests.rc",
       "icon_util_unittests_resource.h",
@@ -1041,8 +1050,12 @@ fuzzer_test("render_text_api_fuzzer") {
 }
 
 if (is_ios) {
-  bundle_data_from_filelist("unit_tests_bundle_data") {
+  bundle_data_from_filelist("codec_tests_bundle_data") {
     testonly = true
-    filelist_name = "test/data/unit_tests_bundle_data.filelist"
+    filelist_name = "test/data/codec/unit_tests_bundle_data.filelist"
+  }
+  bundle_data_from_filelist("compositor_tests_bundle_data") {
+    testonly = true
+    filelist_name = "test/data/compositor/unit_tests_bundle_data.filelist"
   }
 }

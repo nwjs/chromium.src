@@ -9,8 +9,8 @@
 #include "chrome/browser/ui/quick_answers/ui/quick_answers_util.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/flex_layout_view.h"
 
 namespace quick_answers {
 
@@ -19,9 +19,10 @@ namespace quick_answers {
 
 RichAnswersTranslationView::RichAnswersTranslationView(
     const gfx::Rect& anchor_view_bounds,
-    base::WeakPtr<QuickAnswersUiController> controller,
-    const quick_answers::QuickAnswer& result)
-    : RichAnswersView(anchor_view_bounds, controller, result) {
+    base::WeakPtr<QuickAnswersUiController> controller)
+    : RichAnswersView(anchor_view_bounds,
+                      controller,
+                      ResultType::kTranslationResult) {
   InitLayout();
 
   // TODO (b/274184294): Add custom focus behavior according to
@@ -32,6 +33,15 @@ RichAnswersTranslationView::~RichAnswersTranslationView() = default;
 
 void RichAnswersTranslationView::InitLayout() {
   // TODO (b/265258270): Populate translation view contents.
+  content_view_ = GetContentView();
+
+  title_view_ = content_view_->AddChildView(
+      views::Builder<views::FlexLayoutView>()
+          .SetOrientation(views::LayoutOrientation::kHorizontal)
+          .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
+          .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
+          .Build());
+  AddSettingsButtonTo(title_view_);
 }
 
 BEGIN_METADATA(RichAnswersTranslationView, RichAnswersView)

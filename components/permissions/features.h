@@ -28,14 +28,6 @@ BASE_DECLARE_FEATURE(kBlockRepeatedAutoReauthnPrompts);
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kBlockRepeatedNotificationPermissionPrompts);
 
-COMPONENT_EXPORT(PERMISSIONS_COMMON) BASE_DECLARE_FEATURE(kConfirmationChip);
-
-COMPONENT_EXPORT(PERMISSIONS_COMMON)
-BASE_DECLARE_FEATURE(kChipLocationBarIconOverride);
-
-COMPONENT_EXPORT(PERMISSIONS_COMMON)
-BASE_DECLARE_FEATURE(kPermissionElement);
-
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kNotificationInteractionHistory);
 
@@ -60,18 +52,15 @@ BASE_DECLARE_FEATURE(kPermissionDedicatedCpssSetting);
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kPermissionPredictionsV2);
 
+COMPONENT_EXPORT(PERMISSIONS_COMMON)
+BASE_DECLARE_FEATURE(kPermissionsPromptSurvey);
+
 #if BUILDFLAG(IS_ANDROID)
 
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kBlockNotificationPromptsIfDisabledOnAppLevel);
 
 #else
-
-COMPONENT_EXPORT(PERMISSIONS_COMMON)
-BASE_DECLARE_FEATURE(kPermissionsPromptSurvey);
-
-COMPONENT_EXPORT(PERMISSIONS_COMMON)
-BASE_DECLARE_FEATURE(kRecordPermissionExpirationTimestamps);
 
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kMitigateUnpartitionedWebviewPermissions);
@@ -86,9 +75,6 @@ BASE_DECLARE_FEATURE(kWindowPlacementPermissionAlias);
 
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 BASE_DECLARE_FEATURE(kShowRelatedWebsiteSetsPermissionGrants);
-
-COMPONENT_EXPORT(PERMISSIONS_COMMON)
-BASE_DECLARE_FEATURE(kBlockMidiByDefault);
 
 }  // namespace features
 namespace feature_params {
@@ -117,7 +103,6 @@ extern const base::FeatureParam<double>
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 extern const base::FeatureParam<double> kPermissionPredictionsV2HoldbackChance;
 
-#if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 extern const base::FeatureParam<std::string> kPermissionsPromptSurveyTriggerId;
 
@@ -159,7 +144,6 @@ extern const base::FeatureParam<base::TimeDelta>
 COMPONENT_EXPORT(PERMISSIONS_COMMON)
 extern const base::FeatureParam<std::string>
     kPermissionPromptSurveyOneTimePromptsDecidedBucket;
-#endif
 
 }  // namespace feature_params
 }  // namespace permissions

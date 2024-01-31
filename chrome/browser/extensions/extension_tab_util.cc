@@ -467,6 +467,13 @@ api::tabs::Tab ExtensionTabUtil::CreateTabObject(
     if (group.has_value()) {
       tab_object.group_id = tab_groups_util::GetGroupId(group.value());
     }
+
+    absl::optional<base::Time> last_accessed =
+        tab_strip->GetLastAccessed(tab_index);
+
+    if (last_accessed.has_value()) {
+      tab_object.last_accessed = last_accessed->InMillisecondsFSinceUnixEpoch();
+    }
   }
 
   auto* audible_helper = RecentlyAudibleHelper::FromWebContents(contents);
@@ -490,7 +497,7 @@ api::tabs::Tab ExtensionTabUtil::CreateTabObject(
   tab_object.discarded =
       tab_lifecycle_unit_external && tab_lifecycle_unit_external->IsDiscarded();
   DCHECK(!tab_object.discarded ||
-         tab_object.status == api::tabs::TAB_STATUS_UNLOADED);
+         tab_object.status == api::tabs::TabStatus::kUnloaded);
   tab_object.auto_discardable =
       !tab_lifecycle_unit_external ||
       tab_lifecycle_unit_external->IsAutoDiscardable();
@@ -603,10 +610,10 @@ api::tabs::MutedInfo ExtensionTabUtil::CreateMutedInfo(
     case TabMutedReason::AUDIO_INDICATOR:
     case TabMutedReason::CONTENT_SETTING:
     case TabMutedReason::CONTENT_SETTING_CHROME:
-      info.reason = api::tabs::MUTED_INFO_REASON_USER;
+      info.reason = api::tabs::MutedInfoReason::kUser;
       break;
     case TabMutedReason::EXTENSION:
-      info.reason = api::tabs::MUTED_INFO_REASON_EXTENSION;
+      info.reason = api::tabs::MutedInfoReason::kExtension;
       info.extension_id =
           LastMuteMetadata::FromWebContents(contents)->extension_id;
       DCHECK(!info.extension_id->empty());
@@ -1074,14 +1081,14 @@ bool ExtensionTabUtil::BrowserSupportsTabs(Browser* browser) {
 // static
 api::tabs::TabStatus ExtensionTabUtil::GetLoadingStatus(WebContents* contents) {
   if (contents->IsLoading())
-    return api::tabs::TAB_STATUS_LOADING;
+    return api::tabs::TabStatus::kLoading;
 
   // Anything that isn't backed by a process is considered unloaded.
   if (!HasValidMainFrameProcess(contents))
-    return api::tabs::TAB_STATUS_UNLOADED;
+    return api::tabs::TabStatus::kUnloaded;
 
   // Otherwise its considered loaded.
-  return api::tabs::TAB_STATUS_COMPLETE;
+  return api::tabs::TabStatus::kComplete;
 }
 
 void ExtensionTabUtil::ClearBackForwardCache() {

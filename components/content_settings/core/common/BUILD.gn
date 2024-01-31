@@ -16,6 +16,8 @@ static_library("common") {
     "content_settings_metadata.h",
     "content_settings_param_traits.cc",
     "content_settings_param_traits.h",
+    "content_settings_partition_key.cc",
+    "content_settings_partition_key.h",
     "content_settings_pattern.cc",
     "content_settings_pattern.h",
     "content_settings_pattern_parser.cc",
@@ -82,6 +84,9 @@ mojom("mojo_bindings") {
   sources = [ "content_settings.mojom" ]
 
   public_deps = [ "//mojo/public/mojom/base" ]
+
+  webui_module_path = "/"
+  generate_legacy_js_bindings = true
 
   cpp_typemaps = [
     {

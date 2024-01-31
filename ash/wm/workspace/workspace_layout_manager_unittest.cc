@@ -4,6 +4,7 @@
 
 #include "ash/wm/workspace/workspace_layout_manager.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -36,6 +37,7 @@
 #include "ash/shell_observer.h"
 #include "ash/system/message_center/ash_message_popup_collection.h"
 #include "ash/system/message_center/message_popup_animation_waiter.h"
+#include "ash/system/notification_center/notification_center_tray.h"
 #include "ash/system/unified/unified_system_tray.h"
 #include "ash/test/ash_test_base.h"
 #include "ash/test/test_window_builder.h"
@@ -63,7 +65,6 @@
 #include "base/run_loop.h"
 #include "base/test/scoped_feature_list.h"
 #include "chromeos/ash/components/audio/sounds.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/aura/client/aura_constants.h"
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/client/window_parenting_client.h"
@@ -1051,7 +1052,7 @@ TEST_F(WorkspaceLayoutManagerTest,
   message_center::MessageCenter::Get()->AddNotification(
       std::move(notification));
   MessagePopupAnimationWaiter(
-      GetPrimaryUnifiedSystemTray()->GetMessagePopupCollection())
+      GetPrimaryNotificationCenterTray()->popup_collection())
       .Wait();
 
   // PiP window has moved due to the popup notification window.
@@ -1061,7 +1062,7 @@ TEST_F(WorkspaceLayoutManagerTest,
   message_center::MessageCenter::Get()->RemoveNotification(notification_id,
                                                            /*by_user=*/true);
   MessagePopupAnimationWaiter(
-      GetPrimaryUnifiedSystemTray()->GetMessagePopupCollection())
+      GetPrimaryNotificationCenterTray()->popup_collection())
       .Wait();
 
   // Now, the PiP window has returned to its original position.
@@ -1586,7 +1587,7 @@ class WorkspaceLayoutManagerBackdropTest : public AshTestBase {
   // Turn tablet mode on / off.
   void SetTabletModeEnabled(bool enabled) {
     Shell::Get()->tablet_mode_controller()->SetEnabledForTest(enabled);
-    ASSERT_EQ(enabled, Shell::Get()->tablet_mode_controller()->InTabletMode());
+    ASSERT_EQ(enabled, display::Screen::GetScreen()->InTabletMode());
   }
 
   aura::Window* CreateTestWindowInParent(aura::Window* root_window) {
@@ -1638,7 +1639,7 @@ class WorkspaceLayoutManagerBackdropTest : public AshTestBase {
   raw_ptr<aura::Window, DanglingUntriaged | ExperimentalAsh> default_container_;
 };
 
-constexpr absl::optional<Sound> kNoSoundKey = absl::nullopt;
+constexpr std::optional<Sound> kNoSoundKey = std::nullopt;
 
 }  // namespace
 

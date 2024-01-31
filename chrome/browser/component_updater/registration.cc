@@ -4,6 +4,7 @@
 
 #include "chrome/browser/component_updater/registration.h"
 
+#include "afp_blocked_domain_list_component_installer.h"
 #include "base/feature_list.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -39,6 +40,7 @@
 #include "chrome/browser/component_updater/tpcd_metadata_component_installer.h"
 #include "chrome/browser/component_updater/trust_token_key_commitments_component_installer.h"
 #include "chrome/common/buildflags.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
 #include "components/component_updater/component_updater_service.h"
 #include "components/component_updater/installer_policies/autofill_states_component_installer.h"
@@ -143,6 +145,10 @@ void RegisterComponentsForUpdate() {
   RegisterFirstPartySetsComponent(cus);
   RegisterMaskedDomainListComponent(cus);
   RegisterPrivacySandboxAttestationsComponent(cus);
+  if (base::FeatureList::IsEnabled(
+          features::kEnableNetworkServiceResourceBlockList)) {
+    RegisterAntiFingerprintingBlockedDomainListComponent(cus);
+  }
 
   base::FilePath path;
   if (base::PathService::Get(chrome::DIR_USER_DATA, &path)) {
@@ -150,6 +156,13 @@ void RegisterComponentsForUpdate() {
 
     // Clean up any remaining desktop sharing hub state.
     component_updater::DeleteDesktopSharingHub(path);
+
+    // Clean up any existing versions of the blocklist if the feature is
+    // disabled.
+    if (!base::FeatureList::IsEnabled(
+            features::kEnableNetworkServiceResourceBlockList)) {
+      DeleteAntiFingerprintingBlockedDomainListComponent(path);
+    }
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
     if (base::SysInfo::IsRunningOnChromeOS()) {
@@ -208,12 +221,6 @@ void RegisterComponentsForUpdate() {
 
 #if BUILDFLAG(IS_ANDROID)
   RegisterRealTimeUrlChecksAllowlistComponent(cus);
-  // TODO(https://crbug.com/1423159): Clean this up once it's been live for a
-  // few months.
-  base::ThreadPool::PostTask(
-      FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
-      base::GetDeleteFileCallback(
-          path.Append(FILE_PATH_LITERAL("CreatorChipConfig"))));
 #endif  // BUIDLFLAG(IS_ANDROID)
 
   RegisterAutofillStatesComponent(cus, g_browser_process->local_state());
@@ -226,15 +233,14 @@ void RegisterComponentsForUpdate() {
 
   RegisterTpcdMetadataComponent(cus);
 
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
   // TODO(crbug.com/1490685): Remove this test component once the
   // experiment has concluded.
   if (base::FeatureList::IsEnabled(features::kPayloadTestComponent)) {
     RegisterPayloadTestComponent(cus);
   }
+
   // TODO(crbug.com/1499359): Remove once the experiment has concluded.
   EnsureNetworkQualityObserver();
-#endif
 #endif // disable component updater
 }
 

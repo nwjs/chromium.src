@@ -19,10 +19,12 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/accessibility/accessibility_state_utils.h"
+#include "chrome/browser/autofill/personal_data_manager_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/picture_in_picture/picture_in_picture_window_manager.h"
 #include "chrome/browser/ui/autofill/autofill_popup_view.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/personal_data_manager.h"
 #include "components/autofill/core/browser/ui/autofill_popup_delegate.h"
 #include "components/autofill/core/browser/ui/popup_item_ids.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
@@ -399,8 +401,8 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index,
   mf_controller->UpdateSourceAvailability(FillingSource::AUTOFILL,
                                           /*has_suggestions=*/false);
   mf_controller->Hide();
-#endif
 
+#endif
   if (suggestion.popup_item_id == PopupItemId::kVirtualCreditCardEntry) {
     std::string event_name =
         suggestion.feature_for_iph ==
@@ -427,7 +429,11 @@ void AutofillPopupControllerImpl::AcceptSuggestion(int index,
     view_->AxAnnounce(*announcement);
   }
 
-  delegate_->DidAcceptSuggestion(suggestion, index, trigger_source_);
+  delegate_->DidAcceptSuggestion(
+      suggestion,
+      AutofillPopupDelegate::SuggestionPosition{
+          .row = index, .sub_popup_level = GetPopupLevel()},
+      trigger_source_);
 #if BUILDFLAG(IS_ANDROID)
   if ((suggestion.popup_item_id == PopupItemId::kPasswordEntry ||
        suggestion.popup_item_id == PopupItemId::kUsernameEntry) &&
@@ -537,11 +543,63 @@ bool AutofillPopupControllerImpl::GetRemovalConfirmationText(
     int list_index,
     std::u16string* title,
     std::u16string* body) {
-  return delegate_->GetDeletionConfirmationText(
-      suggestions_[list_index].main_text.value,
-      suggestions_[list_index].popup_item_id,
-      suggestions_[list_index].GetPayload<Suggestion::BackendId>(), title,
-      body);
+  const std::u16string& value = suggestions_[list_index].main_text.value;
+  const PopupItemId popup_item_id = suggestions_[list_index].popup_item_id;
+  const Suggestion::BackendId backend_id =
+      suggestions_[list_index].GetPayload<Suggestion::BackendId>();
+
+  if (popup_item_id == PopupItemId::kAutocompleteEntry) {
+    if (title) {
+      title->assign(value);
+    }
+    if (body) {
+      body->assign(l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_DELETE_AUTOCOMPLETE_SUGGESTION_CONFIRMATION_BODY));
+    }
+    return true;
+  }
+
+  if (popup_item_id != PopupItemId::kAddressEntry &&
+      popup_item_id != PopupItemId::kCreditCardEntry) {
+    return false;
+  }
+  PersonalDataManager* pdm = PersonalDataManagerFactory::GetForBrowserContext(
+      web_contents()->GetBrowserContext());
+
+  if (const CreditCard* credit_card = pdm->GetCreditCardByGUID(
+          absl::get<Suggestion::Guid>(backend_id).value())) {
+    if (!CreditCard::IsLocalCard(credit_card)) {
+      return false;
+    }
+    if (title) {
+      title->assign(credit_card->CardNameAndLastFourDigits());
+    }
+    if (body) {
+      body->assign(l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_DELETE_CREDIT_CARD_SUGGESTION_CONFIRMATION_BODY));
+    }
+    return true;
+  }
+
+  if (const AutofillProfile* profile = pdm->GetProfileByGUID(
+          absl::get<Suggestion::Guid>(backend_id).value())) {
+    if (title) {
+      std::u16string street_address = profile->GetRawInfo(ADDRESS_HOME_CITY);
+      if (!street_address.empty()) {
+        title->swap(street_address);
+      } else {
+        title->assign(value);
+      }
+    }
+    if (body) {
+      body->assign(l10n_util::GetStringUTF16(
+          IDS_AUTOFILL_DELETE_PROFILE_SUGGESTION_CONFIRMATION_BODY));
+    }
+
+    return true;
+  }
+
+  return false;  // The ID was valid. The entry may have been deleted in a race.
 }
 
 bool AutofillPopupControllerImpl::RemoveSuggestion(int list_index) {
@@ -688,6 +746,10 @@ base::WeakPtr<AutofillPopupView>
 AutofillPopupControllerImpl::CreateSubPopupView(
     base::WeakPtr<AutofillPopupController> controller) {
   return view_ ? view_->CreateSubPopupView(controller) : nullptr;
+}
+
+int AutofillPopupControllerImpl::GetPopupLevel() const {
+  return !IsRootPopup() ? parent_controller_->get()->GetPopupLevel() + 1 : 0;
 }
 
 void AutofillPopupControllerImpl::FireControlsChangedEvent(bool is_show) {

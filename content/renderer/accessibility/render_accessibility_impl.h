@@ -240,10 +240,6 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
   // Returns the document for the active popup if any.
   blink::WebDocument GetPopupDocument();
 
-  // Returns the bounds of the popup (if there's one) relative to the main
-  // document.
-  absl::optional<gfx::RectF> GetPopupBounds();
-
   // Searches the accessibility tree for plugin's root object and returns it.
   // Returns an empty WebAXObject if no root object is present.
   blink::WebAXObject GetPluginRoot();
@@ -328,14 +324,15 @@ class CONTENT_EXPORT RenderAccessibilityImpl : public RenderAccessibility,
   };
   LoadingStage loading_stage_ = LoadingStage::kPreload;
 
-  // This stores the last time during that a serialization was done, so that
-  // serializations can be skipped if the time since the last serialization is
-  // less than GetDeferredEventsDelay(). Setting to "beginning of time" causes
-  // the upcoming serialization to occur at the next available opportunity.
-  // Batching is used to reduce the number of serializations, in order to
-  // provide overall faster content updates while using less CPU, because nodes
-  // that change multiple times in a short time period only need to be
-  // serialized once, e.g. during page loads or animations.
+  // This stores the last time a serialization was ACK'ed after being sent to
+  // the browser, so that serializations can be skipped if the time since the
+  // last serialization is less than GetDeferredEventsDelay(). Setting to
+  // "beginning of time" causes the upcoming serialization to occur at the next
+  // available opportunity.  Batching is used to reduce the number of
+  // serializations, in order to provide overall faster content updates while
+  // using less CPU, because nodes that change multiple times in a short time
+  // period only need to be serialized once, e.g. during page loads or
+  // animations.
   static constexpr base::Time kSerializeAtNextOpportunity =
       base::Time::UnixEpoch();
   base::Time last_serialization_timestamp_ = kSerializeAtNextOpportunity;

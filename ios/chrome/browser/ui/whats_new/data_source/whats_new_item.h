@@ -8,7 +8,8 @@
 #import <UIKit/UIKit.h>
 
 // An enum representing the different Features and Chrome tips added to What's
-// New.
+// New. Please do not modify this enum. The content is updated by script. For
+// more info, please see `tools/whats_new`.
 enum class WhatsNewType {
   kError = -1,
   kMinValue = 0,
@@ -53,10 +54,6 @@ class GURL;
 @property(nonatomic, copy) NSString* title;
 // What's New entry subtitle.
 @property(nonatomic, copy) NSString* subtitle;
-// What's New entry hero banner image.
-@property(nonatomic, copy) UIImage* heroBannerImage;
-// What's New entry banner image.
-@property(nonatomic, copy) UIImage* bannerImage;
 // What's New entry icon image.
 @property(nonatomic, copy) UIImage* iconImage;
 // What's New entry icon background color.

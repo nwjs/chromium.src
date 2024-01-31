@@ -129,6 +129,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
       const GURL& url,
       const net::SiteForCookies& site_for_cookies,
       const absl::optional<url::Origin>& top_frame_origin,
+      const net::FirstPartySetMetadata& first_party_set_metadata,
       net::CookieSettingOverrides overrides,
       net::CookieInclusionStatus* cookie_inclusion_status) const;
 
@@ -163,6 +164,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
   bool MitigationsEnabledFor3pcd() const override;
   bool IsStorageAccessApiEnabled() const override;
 
+  bool IsThirdPartyPhaseoutEnabled() const;
+
   const ContentSettingsForOneType& GetContentSettings(
       ContentSettingsType type) const;
 
@@ -193,6 +196,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CookieSettings
   // Returns true if at least one content settings is session only.
   bool HasSessionOnlyOrigins() const;
 
+  // Returns true if user blocks 3PC or 3PCD is on.
   bool block_third_party_cookies_ =
       net::cookie_util::IsForceThirdPartyCookieBlockingEnabled();
   bool block_truncated_cookies_ = true;

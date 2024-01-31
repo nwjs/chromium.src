@@ -56,6 +56,7 @@ using base::android::AttachCurrentThread;
 using base::android::ClearException;
 using base::android::ConvertJavaStringToUTF8;
 using base::android::ConvertUTF8ToJavaString;
+using base::android::JavaByteArrayToByteVector;
 using base::android::ScopedJavaGlobalRef;
 using base::android::ScopedJavaLocalRef;
 using base::android::ToJavaByteArray;
@@ -467,11 +468,11 @@ ClipboardAndroid::~ClipboardAndroid() {
 void ClipboardAndroid::OnPreShutdown() {}
 
 // DataTransferEndpoint is not used on this platform.
-DataTransferEndpoint* ClipboardAndroid::GetSource(
+absl::optional<DataTransferEndpoint> ClipboardAndroid::GetSource(
     ClipboardBuffer buffer) const {
   DCHECK(CalledOnValidThread());
   DCHECK_EQ(buffer, ClipboardBuffer::kCopyPaste);
-  return nullptr;
+  return absl::nullopt;
 }
 
 const ClipboardSequenceNumberToken& ClipboardAndroid::GetSequenceNumber(

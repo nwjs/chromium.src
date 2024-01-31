@@ -56,7 +56,7 @@
 #include "ui/gfx/native_widget_types.h"
 #include "ui/gfx/overlay_transform.h"
 
-#if BUILDFLAG(IS_OZONE)
+#if BUILDFLAG(IS_LINUX)
 #include "ui/ozone/buildflags.h"
 #endif
 
@@ -210,6 +210,7 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   void DisableAnimations();
   void EnableAnimations();
   bool animations_are_enabled() const { return animations_are_enabled_; }
+  bool IsAnimating() const { return animation_started_; }
 
   cc::AnimationTimeline* GetAnimationTimeline() const;
 
@@ -418,10 +419,12 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   void DidInitializeLayerTreeFrameSink() override {}
   void DidFailToInitializeLayerTreeFrameSink() override;
   void WillCommit(const cc::CommitState&) override {}
-  void DidCommit(base::TimeTicks, base::TimeTicks) override;
-  void DidCommitAndDrawFrame() override {}
+  void DidCommit(int source_frame_number,
+                 base::TimeTicks,
+                 base::TimeTicks) override;
+  void DidCommitAndDrawFrame(int source_frame_number) override {}
   void DidReceiveCompositorFrameAck() override;
-  void DidCompletePageScaleAnimation() override {}
+  void DidCompletePageScaleAnimation(int source_frame_number) override {}
   void DidPresentCompositorFrame(
       uint32_t frame_token,
       const gfx::PresentationFeedback& feedback) override;
@@ -435,6 +438,7 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   void NotifyThroughputTrackerResults(
       cc::CustomTrackerResults results) override;
   void DidObserveFirstScrollDelay(
+      int source_frame_number,
       base::TimeDelta first_scroll_delay,
       base::TimeTicks first_scroll_timestamp) override {}
 
@@ -460,11 +464,11 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
   // base::PowerSuspendObserver:
   void OnResume() override;
 
-#if BUILDFLAG(IS_OZONE)
+#if BUILDFLAG(IS_LINUX)
 #if BUILDFLAG(OZONE_PLATFORM_X11)
   void OnCompleteSwapWithNewSize(const gfx::Size& size);
 #endif  // BUILDFLAG(OZONE_PLATFORM_X11)
-#endif  // BUILFFLAG(IS_OZONE)
+#endif  // BUILDFLAG(IS_LINUX)
 
   bool IsLocked() { return lock_manager_.IsLocked(); }
 
@@ -503,6 +507,11 @@ class COMPOSITOR_EXPORT Compositor : public base::PowerSuspendObserver,
 
   size_t saved_events_metrics_count_for_testing() const {
     return host_->saved_events_metrics_count_for_testing();
+  }
+
+  // Returns true if there are throughput trackers.
+  bool has_throughput_trackers_for_testing() const {
+    return !throughput_tracker_map_.empty();
   }
 
  private:

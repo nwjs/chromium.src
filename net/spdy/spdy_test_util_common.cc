@@ -447,7 +447,7 @@ base::WeakPtr<SpdySession> CreateSpdySessionHelper(
   scoped_refptr<ClientSocketPool::SocketParams> socket_params =
       base::MakeRefCounted<ClientSocketPool::SocketParams>(
           /*ssl_config_for_origin=*/std::move(ssl_config),
-          /*ssl_config_for_proxy=*/nullptr);
+          /*base_ssl_config_for_proxies=*/nullptr);
   int rv = connection->Init(
       ClientSocketPool::GroupId(
           url::SchemeHostPort(url::kHttpsScheme,
@@ -529,11 +529,6 @@ class FakeSpdySessionClientSocket : public MockClientSocket {
   }
 
   bool WasEverUsed() const override {
-    ADD_FAILURE();
-    return false;
-  }
-
-  bool WasAlpnNegotiated() const override {
     ADD_FAILURE();
     return false;
   }

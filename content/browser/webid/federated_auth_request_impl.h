@@ -31,7 +31,7 @@
 
 namespace content {
 
-class FederatedAuthRevokeRequest;
+class FederatedAuthDisconnectRequest;
 class FederatedAuthUserInfoRequest;
 class FederatedIdentityApiPermissionContextDelegate;
 class FederatedIdentityAutoReauthnPermissionContextDelegate;
@@ -56,7 +56,7 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
           IdpSigninStatusObserver,
       public content::FederatedIdentityModalDialogViewDelegate {
  public:
-  static constexpr char kWildcardDomainHint[] = "*";
+  static constexpr char kWildcardDomainHint[] = "any";
 
   static void Create(RenderFrameHost*,
                      mojo::PendingReceiver<blink::mojom::FederatedAuthRequest>);
@@ -83,20 +83,18 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   void CancelTokenRequest() override;
   void ResolveTokenRequest(const std::string& token,
                            ResolveTokenRequestCallback callback) override;
-  void LogoutRps(std::vector<blink::mojom::LogoutRpsRequestPtr> logout_requests,
-                 LogoutRpsCallback) override;
   void SetIdpSigninStatus(const url::Origin& origin,
                           blink::mojom::IdpSigninStatus status) override;
   void RegisterIdP(const ::GURL& idp, RegisterIdPCallback) override;
   void UnregisterIdP(const ::GURL& idp, UnregisterIdPCallback) override;
   void CloseModalDialogView() override;
   void PreventSilentAccess(PreventSilentAccessCallback callback) override;
-  void Revoke(blink::mojom::IdentityCredentialRevokeOptionsPtr options,
-              RevokeCallback) override;
+  void Disconnect(blink::mojom::IdentityCredentialDisconnectOptionsPtr options,
+                  DisconnectCallback) override;
 
   // FederatedIdentityPermissionContextDelegate::IdpSigninStatusObserver:
-  void OnIdpSigninStatusChanged(const url::Origin& idp_config_origin,
-                                bool idp_signin_status) override;
+  void OnIdpSigninStatusReceived(const url::Origin& idp_config_origin,
+                                 bool idp_signin_status) override;
 
   void SetTokenRequestDelayForTests(base::TimeDelta delay);
   void SetNetworkManagerForTests(
@@ -146,6 +144,11 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
     absl::optional<IdentityProviderData> data;
   };
 
+  struct IdentityProviderLoginUrlInfo {
+    std::string login_hint;
+    std::string domain_hint;
+  };
+
   // For use by the devtools protocol for browser automation.
   IdentityRequestDialogController* GetDialogController() {
     return request_dialog_controller_.get();
@@ -155,14 +158,26 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
     return idp_data_for_display_;
   }
 
-  enum DialogType { kNone, kSelectAccount, kAutoReauth, kConfirmIdpLogin };
+  enum DialogType {
+    kNone,
+    kSelectAccount,
+    kAutoReauth,
+    kConfirmIdpLogin,
+    kError
+  };
   DialogType GetDialogType() const { return dialog_type_; }
+
+  enum IdentitySelectionType { kExplicit, kAutoWidget };
 
   void AcceptAccountsDialogForDevtools(const GURL& config_url,
                                        const IdentityRequestAccount& account);
   void DismissAccountsDialogForDevtools(bool should_embargo);
   void AcceptConfirmIdpLoginDialogForDevtools();
   void DismissConfirmIdpLoginDialogForDevtools();
+  bool HasMoreDetailsButtonForDevtools();
+  void ClickErrorDialogGotItForDevtools();
+  void ClickErrorDialogMoreDetailsForDevtools();
+  void DismissErrorDialogForDevtools();
 
   // Check if the scope of the request allows the browser to mediate
   // or delegate (to the IdP) the authorization.
@@ -225,6 +240,9 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
       absl::optional<content::FedCmRequestIdTokenStatus> token_status,
       bool should_delay_callback);
 
+  std::vector<blink::mojom::IdentityProviderPtr> MaybeAddRegisteredProviders(
+      std::vector<blink::mojom::IdentityProviderPtr>& providers);
+
   void MaybeShowAccountsDialog();
   void ShowModalDialog(const GURL& url);
   void ShowErrorDialog(const GURL& idp_config_url,
@@ -268,8 +286,6 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
       blink::mojom::IdentityProviderRequestOptionsPtr idp,
       IdpNetworkRequestManager::FetchStatus status,
       const GURL& url);
-  void DispatchOneLogout();
-  void OnLogoutCompleted();
 
   void CompleteRequestWithError(
       blink::mojom::FederatedAuthRequestResult result,
@@ -286,7 +302,6 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
       const absl::optional<GURL>& selected_idp_config_url,
       const std::string& token,
       bool should_delay_callback);
-  void CompleteLogoutRequest(blink::mojom::LogoutRpsStatus);
   void CompleteUserInfoRequest(
       FederatedAuthUserInfoRequest* request,
       RequestUserInfoCallback callback,
@@ -347,10 +362,13 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   bool RequiresUserMediation();
   void SetRequiresUserMediation(bool requires_user_mediation);
 
-  void SignInToIdP(GURL signin_url);
+  // Trigger a dialog to prompt the user to login to the IdP. `can_append_hints`
+  // is true if the caller allows the login url to be augmented with login and
+  // domain hints.
+  void LoginToIdP(bool can_append_hints, GURL login_url);
 
-  void CompleteRevokeRequest(RevokeCallback callback,
-                             blink::mojom::RevokeStatus status);
+  void CompleteDisconnectRequest(DisconnectCallback callback,
+                                 blink::mojom::DisconnectStatus status);
 
   void RecordErrorMetrics(
       blink::mojom::IdentityProviderRequestOptionsPtr idp,
@@ -377,6 +395,10 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // Populated by MaybeShowAccountsDialog().
   base::flat_map<GURL, std::unique_ptr<IdentityProviderInfo>> idp_infos_;
   std::vector<IdentityProviderData> idp_data_for_display_;
+
+  // Maps the login URL to the info that may be added as query parameters to
+  // that URL. Populated by OnAllConfigAndWellKnownFetched().
+  base::flat_map<GURL, IdentityProviderLoginUrlInfo> idp_login_infos_;
 
   raw_ptr<FederatedIdentityApiPermissionContextDelegate>
       api_permission_delegate_ = nullptr;
@@ -419,11 +441,8 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   base::flat_set<std::unique_ptr<FederatedAuthUserInfoRequest>>
       user_info_requests_;
 
-  // Pending revoke request.
-  std::unique_ptr<FederatedAuthRevokeRequest> revoke_request_;
-
-  base::queue<blink::mojom::LogoutRpsRequestPtr> logout_requests_;
-  LogoutRpsCallback logout_callback_;
+  // Pending disconnect request.
+  std::unique_ptr<FederatedAuthDisconnectRequest> disconnect_request_;
 
   // TODO(crbug.com/1361649): Refactor these member variables introduced through
   // the multi IDP prototype implementation to make them less confusing.
@@ -441,8 +460,18 @@ class CONTENT_EXPORT FederatedAuthRequestImpl
   // If dialog_type_ is kConfirmIdpLogin, this is the login URL for the IDP.
   GURL login_url_;
 
+  // If dialog_type_ is kError, this is the config URL for the IDP.
+  GURL config_url_;
+
+  // If dialog_type_ is kError, this is the fetch status of the token request.
+  IdpNetworkRequestManager::FetchStatus token_request_status_;
+
+  // If dialog_type_ is kError, this is the token error.
+  absl::optional<TokenError> token_error_;
+
   DialogType dialog_type_ = kNone;
   MediationRequirement mediation_requirement_;
+  IdentitySelectionType identity_selection_type_ = kExplicit;
 
   std::unique_ptr<DigitalCredentialProvider> digital_credential_provider_;
   RequestTokenCallback digital_credential_request_callback_;

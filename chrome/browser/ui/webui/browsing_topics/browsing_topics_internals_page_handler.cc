@@ -28,12 +28,10 @@ void BrowsingTopicsInternalsPageHandler::GetBrowsingTopicsConfiguration(
   auto config = browsing_topics::mojom::WebUIBrowsingTopicsConfiguration::New(
       base::FeatureList::IsEnabled(blink::features::kBrowsingTopics),
       base::FeatureList::IsEnabled(features::kPrivacySandboxAdsAPIsOverride),
-      base::FeatureList::IsEnabled(privacy_sandbox::kPrivacySandboxSettings3),
       base::FeatureList::IsEnabled(
           privacy_sandbox::kOverridePrivacySandboxSettingsLocalTesting),
       base::FeatureList::IsEnabled(
           blink::features::kBrowsingTopicsBypassIPIsPubliclyRoutableCheck),
-      base::FeatureList::IsEnabled(blink::features::kBrowsingTopicsXHR),
       base::FeatureList::IsEnabled(blink::features::kBrowsingTopicsDocumentAPI),
       browsing_topics::CurrentConfigVersion(),
       base::FeatureList::IsEnabled(blink::features::kBrowsingTopicsParameters),

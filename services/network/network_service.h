@@ -66,6 +66,7 @@
 #endif  // BUILDFLAG(IS_CT_SUPPORTED)
 
 namespace net {
+class CookieCryptoDelegate;
 class FileNetLogObserver;
 class HostResolverManager;
 class HttpAuthHandlerFactory;
@@ -145,7 +146,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 
   // mojom::NetworkService implementation:
   void SetParams(mojom::NetworkServiceParamsPtr params) override;
-  void SetAdditionalTrustAnchors(const net::CertificateList& anchors) override;
   void StartNetLog(base::File file,
                    uint64_t max_total_size,
                    net::NetLogCaptureMode capture_mode,
@@ -190,8 +190,6 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
 #if BUILDFLAG(IS_ANDROID)
   void OnApplicationStateChange(base::android::ApplicationState state) override;
 #endif  // BUILDFLAG(IS_ANDROID)
-  void SetEnvironment(
-      std::vector<mojom::EnvironmentVariablePtr> environment) override;
   void SetTrustTokenKeyCommitments(const std::string& raw_commitments,
                                    base::OnceClosure done) override;
   void ParseHeaders(const GURL& url,
@@ -231,6 +229,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
       mojo::PendingRemote<mojom::GssapiLibraryLoadObserver>
           gssapi_library_load_observer) override;
 #endif  // BUILDFLAG(IS_LINUX)
+  void SetCookieEncryptionProvider(
+      mojo::PendingRemote<mojom::CookieEncryptionProvider> provider) override;
 
   void StartNetLogBounded(base::File file,
                           uint64_t max_total_size,
@@ -276,6 +276,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   }
   HttpAuthCacheCopier* http_auth_cache_copier() {
     return http_auth_cache_copier_.get();
+  }
+
+  net::CookieCryptoDelegate* cookie_crypto_delegate() {
+    return cookie_crypto_delegate_.get();
   }
 
 #if BUILDFLAG(IS_CT_SUPPORTED)
@@ -373,6 +377,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   void SetSystemDnsResolver(
       mojo::PendingRemote<mojom::SystemDnsResolver> override_remote);
 
+  void SetEnvironment(std::vector<mojom::EnvironmentVariablePtr> environment);
+
   bool initialized_ = false;
 
   enum class FunctionTag : uint8_t {
@@ -420,6 +426,11 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkService
   std::unique_ptr<net::HostResolverManager> host_resolver_manager_;
   std::unique_ptr<net::HostResolver::Factory> host_resolver_factory_;
   std::unique_ptr<HttpAuthCacheCopier> http_auth_cache_copier_;
+
+  // Contains the instance of crypto delegate for this network service, if
+  // cookie encryption is enabled, and the 'default' delegate from
+  // components/cookie_config is not being used.
+  std::unique_ptr<net::CookieCryptoDelegate> cookie_crypto_delegate_;
 
   // Members that would store the http auth network_service related params.
   // These Params are later used by NetworkContext to create

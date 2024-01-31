@@ -4,6 +4,7 @@
 
 #include "media/gpu/vaapi/av1_vaapi_video_encoder_delegate.h"
 
+#include <bit>
 #include <utility>
 
 #include "base/bits.h"
@@ -275,8 +276,7 @@ void DownscaleSegmentMap(const uint8_t* src_seg_map,
   // compute the log, since we know the segment size ratios of going to be
   // powers of two.
   const uint32_t log_seg_size_ratio =
-      base::bits::CountLeadingZeroBits(src_seg_size) -
-      base::bits::CountLeadingZeroBits(dst_seg_size);
+      std::countl_zero(src_seg_size) - std::countl_zero(dst_seg_size);
   const uint32_t src_width =
       base::bits::AlignUp(static_cast<uint32_t>(coded_size.width()),
                           src_seg_size) /
@@ -350,9 +350,11 @@ bool AV1VaapiVideoEncoderDelegate::Initialize(
   }
 
   visible_size_ = config.input_visible_size;
-  coded_size_ = gfx::Size(
-      base::bits::AlignUp(visible_size_.width(), kAV1AlignmentSize.width()),
-      base::bits::AlignUp(visible_size_.height(), kAV1AlignmentSize.height()));
+  coded_size_ =
+      gfx::Size(base::bits::AlignUpDeprecatedDoNotUse(
+                    visible_size_.width(), kAV1AlignmentSize.width()),
+                base::bits::AlignUpDeprecatedDoNotUse(
+                    visible_size_.height(), kAV1AlignmentSize.height()));
 
   current_params_.framerate = config.initial_framerate.value_or(
       VideoEncodeAccelerator::kDefaultFramerate);

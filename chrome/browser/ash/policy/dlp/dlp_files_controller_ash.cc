@@ -17,6 +17,7 @@
 #include "base/check.h"
 #include "base/check_is_test.h"
 #include "base/containers/contains.h"
+#include "base/containers/fixed_flat_set.h"
 #include "base/containers/flat_map.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -27,6 +28,7 @@
 #include "base/memory/raw_ref.h"
 #include "base/ranges/algorithm.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_piece.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
@@ -68,6 +70,12 @@
 
 namespace policy {
 namespace {
+
+// System application URLs.
+// Please keep them updated with dlp_files_controller_ash_unittest.cc.
+constexpr char kFileManagerUrl[] = "chrome://file-manager/";
+constexpr char kImageLoaderUrl[] =
+    "chrome-extension://pmfjbimdmchhbnneeidfognadeopoehp/";
 
 // Timeout defining when two events having the same properties are considered
 // duplicates.
@@ -165,7 +173,7 @@ class FolderRecursionDelegate : public storage::RecursiveOperationDelegate {
   void ProcessFile(const storage::FileSystemURL& url,
                    StatusCallback callback) override {
     file_system_context()->operation_runner()->GetMetadata(
-        url, storage::FileSystemOperation::GET_METADATA_FIELD_IS_DIRECTORY,
+        url, {storage::FileSystemOperation::GetMetadataField::kIsDirectory},
         base::BindOnce(&FolderRecursionDelegate::OnGetMetadata,
                        weak_ptr_factory_.GetWeakPtr(), url,
                        std::move(callback)));
@@ -344,6 +352,15 @@ file_manager::VolumeManager* GetVolumeManager(
   }
   return volume_manager;
 }
+
+// Returns whether `url` represents the URL of a system application.
+bool IsSystemAppURL(const GURL& url) {
+  static constexpr auto kSystemURLsMap =
+      base::MakeFixedFlatSet<base::StringPiece>(
+          {kFileManagerUrl, kImageLoaderUrl});
+  return kSystemURLsMap.contains(url.spec());
+}
+
 }  // namespace
 
 // static
@@ -712,8 +729,10 @@ void DlpFilesControllerAsh::IsFilesTransferRestricted(
           GURL(file.source_url), GURL(*destination.url()),
           DlpRulesManager::Restriction::kFiles, &source_pattern,
           &destination_pattern.value(), &rule_metadata);
-      MaybeReportEvent(file.inode, file.crtime, file.path, source_pattern,
-                       actual_dst, destination_pattern, rule_metadata, level);
+      if (!IsSystemAppURL(destination.url().value())) {
+        MaybeReportEvent(file.inode, file.crtime, file.path, source_pattern,
+                         actual_dst, destination_pattern, rule_metadata, level);
+      }
     }
 
     switch (level) {
@@ -852,28 +871,23 @@ bool DlpFilesControllerAsh::IsDlpPolicyMatched(const FileDaemonInfo& file) {
   data_controls::DlpHistogramEnumeration(
       data_controls::dlp::kFilesUnknownAccessLevel, level);
 
-  MaybeReportEvent(
-      file.inode, file.crtime, file.path, src_pattern,
-      DlpFileDestination(data_controls::Component::kUnknownComponent),
-      absl::nullopt, rule_metadata, level);
-
   return restricted;
 }
 
-void DlpFilesControllerAsh::CheckIfDropAllowed(
-    const std::vector<ui::FileInfo>& dropped_files,
+void DlpFilesControllerAsh::CheckIfPasteOrDropIsAllowed(
+    const std::vector<base::FilePath>& files,
     const ui::DataTransferEndpoint* data_dst,
     CheckIfDlpAllowedCallback result_callback) {
-  std::vector<base::FilePath> files_paths;
-  for (const auto& file : dropped_files) {
-    if (!IsInLocalFileSystem(profile_, file.path)) {
+  std::vector<base::FilePath> local_files;
+  for (const auto& path : files) {
+    if (!IsInLocalFileSystem(profile_, path)) {
       continue;
     }
-    files_paths.push_back(file.path);
+    local_files.push_back(path);
   }
 
   std::vector<storage::FileSystemURL> files_urls =
-      ConvertFilePathsToFileSystemUrls(profile_, files_paths);
+      ConvertFilePathsToFileSystemUrls(profile_, local_files);
   if (files_urls.empty()) {
     std::move(result_callback).Run(/*is_allowed=*/true);
     return;
@@ -889,9 +903,10 @@ void DlpFilesControllerAsh::CheckIfDropAllowed(
 
   auto* roots_recursion_delegate = new RootsRecursionDelegate(
       file_system_context, std::move(files_urls),
-      base::BindOnce(&DlpFilesControllerAsh::ContinueCheckIfDropAllowed,
-                     weak_ptr_factory_.GetWeakPtr(), std::move(destination),
-                     std::move(result_callback)));
+      base::BindOnce(
+          &DlpFilesControllerAsh::ContinueCheckIfPasteOrDropIsAllowed,
+          weak_ptr_factory_.GetWeakPtr(), std::move(destination),
+          std::move(result_callback)));
   content::GetIOThreadTaskRunner({})->PostTask(
       FROM_HERE,
       base::BindOnce(&RootsRecursionDelegate::Run,
@@ -1273,10 +1288,10 @@ void DlpFilesControllerAsh::ContinueFilterDisallowedUploads(
       request, std::move(return_uploads_callback));
 }
 
-void DlpFilesControllerAsh::ContinueCheckIfDropAllowed(
+void DlpFilesControllerAsh::ContinueCheckIfPasteOrDropIsAllowed(
     const DlpFileDestination& destination,
     CheckIfDlpAllowedCallback result_callback,
-    std::vector<storage::FileSystemURL> dropped_files) {
+    std::vector<storage::FileSystemURL> files) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   if (!chromeos::DlpClient::Get() || !chromeos::DlpClient::Get()->IsAlive()) {
@@ -1285,7 +1300,7 @@ void DlpFilesControllerAsh::ContinueCheckIfDropAllowed(
   }
 
   ::dlp::CheckFilesTransferRequest request;
-  for (const auto& file : dropped_files) {
+  for (const auto& file : files) {
     request.add_files_paths(file.path().value());
   }
   if (destination.component().has_value()) {
@@ -1295,11 +1310,11 @@ void DlpFilesControllerAsh::ContinueCheckIfDropAllowed(
     DCHECK(destination.url());
     request.set_destination_url(destination.url()->spec());
   }
-  request.set_file_action(::dlp::FileAction::MOVE);
+  request.set_file_action(::dlp::FileAction::COPY);
 
   auto return_drop_allowed_cb =
       base::BindOnce(&DlpFilesControllerAsh::ReturnIfActionAllowed,
-                     weak_ptr_factory_.GetWeakPtr(), dlp::FileAction::kMove,
+                     weak_ptr_factory_.GetWeakPtr(), dlp::FileAction::kCopy,
                      std::move(result_callback));
   chromeos::DlpClient::Get()->CheckFilesTransfer(
       request, std::move(return_drop_allowed_cb));

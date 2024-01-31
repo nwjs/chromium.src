@@ -50,6 +50,7 @@
 #include "third_party/blink/renderer/core/editing/editing_utilities.h"
 #include "third_party/blink/renderer/core/editing/markers/document_marker_controller.h"
 #include "third_party/blink/renderer/core/events/event_util.h"
+#include "third_party/blink/renderer/core/execution_context/agent.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
@@ -149,14 +150,6 @@ bool IsInitialEmptyDocument(const Document& document) {
 
   // No contents and not a child document, return true if about::blank.
   return document.Url().IsAboutBlankURL();
-}
-
-// Return a node for the current layout object or ancestor layout object.
-Node* GetClosestNodeForLayoutObject(const LayoutObject* layout_object) {
-  if (!layout_object)
-    return nullptr;
-  Node* node = layout_object->GetNode();
-  return node ? node : GetClosestNodeForLayoutObject(layout_object->Parent());
 }
 
 // Return true if display locked or inside slot recalc, false otherwise.
@@ -556,8 +549,10 @@ bool IsSubtreePrunedForAccessibility(const Element* node) {
   if (IsA<HTMLMapElement>(node))
     return true;  // Contains children for an img, but is not its own object.
 
-  if (node->HasTagName(html_names::kColgroupTag))
+  if (node->HasTagName(html_names::kColgroupTag) ||
+      node->HasTagName(html_names::kColTag)) {
     return true;  // Affects table layout, but doesn't get it's own AXObject.
+  }
 
   if (node->IsPseudoElement()) {
     if (!AXObjectCacheImpl::IsRelevantPseudoElement(*node))
@@ -717,6 +712,47 @@ AXObjectType DetermineAXObjectType(const Node* node,
   return is_layout_relevant ? kAXLayoutObject : kAXNodeObject;
 }
 
+const int kSizeMb = 1000000;
+const int kSize10Mb = 10 * kSizeMb;
+const int kSizeGb = 1000 * kSizeMb;
+const int kBucketCount = 100;
+
+void LogNodeDataSizeDistribution(
+    const ui::AXNodeData::AXNodeDataSize& node_data_size) {
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.Int",
+      base::saturated_cast<int>(node_data_size.int_attribute_size), 1,
+      kSize10Mb, kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.Float",
+      base::saturated_cast<int>(node_data_size.float_attribute_size), 1,
+      kSize10Mb, kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.Bool",
+      base::saturated_cast<int>(node_data_size.bool_attribute_size), 1, kSizeMb,
+      kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.String",
+      base::saturated_cast<int>(node_data_size.string_attribute_size), 1,
+      kSizeGb, kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.IntList",
+      base::saturated_cast<int>(node_data_size.int_list_attribhute_size), 1,
+      kSize10Mb, kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.StringList",
+      base::saturated_cast<int>(node_data_size.string_list_attribute_size), 1,
+      kSizeGb, kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.HTML",
+      base::saturated_cast<int>(node_data_size.html_attribute_size), 1, kSizeGb,
+      kBucketCount);
+  UMA_HISTOGRAM_CUSTOM_COUNTS(
+      "Accessibility.Performance.AXObjectCacheImpl.Incremental.ChildIds",
+      base::saturated_cast<int>(node_data_size.child_ids_size), 1, kSize10Mb,
+      kBucketCount);
+}
+
 }  // namespace
 
 // static
@@ -795,7 +831,7 @@ AXObject* AXObjectCacheImpl::Root() {
   if (AXObject* root = SafeGet(document_))
     return root;
 
-  ProcessDeferredAccessibilityEvents(GetDocument());
+  ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
   return SafeGet(document_.Get());
 }
 
@@ -846,8 +882,7 @@ void AXObjectCacheImpl::UpdateAXForAllDocuments() {
   // Next flush all accessibility events and dirty objects, for both the main
   // and popup document, and update tree if needed.
   if (IsDirty() || HasDirtyObjects()) {
-    pause_tree_updates_until_more_loaded_content_ = false;
-    ProcessDeferredAccessibilityEvents(GetDocument());
+    ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
   }
 }
 
@@ -864,13 +899,23 @@ AXObject* AXObjectCacheImpl::FocusedObject() {
   Node* focused_node = FocusedNode();
   CHECK(focused_node);
 
-  AXObject* obj = GetOrCreate(focused_node);
+  AXObject* obj = nullptr;
+  if (IsProcessingDeferredEvents()) {
+    obj = GetOrCreate(focused_node);
+  } else {
+    // The focus is on a node that has been pruned from the a11y tree, such as
+    // on an area in an image map that is not being used. Handle this rare
+    // edge case without crashing (do not try to create an accessible while
+    // being frozen).
+    obj = Get(focused_node);
+  }
   if (!obj) {
     // In rare cases it's possible for the focus to not exist in the tree.
     // An example would be a focused element inside of an image map that
     // gets trimmed.
     // In these cases, treat the focus as on the root object itself, so that
     // AT users have some starting point.
+    DLOG(ERROR) << "The focus was not part of the a11y tree: " << focused_node;
     return Root();
   }
 
@@ -907,17 +952,6 @@ AXObject* AXObjectCacheImpl::Get(const LayoutObject* layout_object,
   }
   AXID ax_id = it_id->value;
   DCHECK(!WTF::IsHashTraitsDeletedValue<HashTraits<AXID>>(ax_id));
-
-  if (IsDisplayLocked(layout_object) ||
-      !IsLayoutObjectRelevantForAccessibility(*layout_object)) {
-    // Change from AXLayoutObject -> AXNodeObject.
-    // We previously saved the node in the cache with its layout object,
-    // but now it's in a locked subtree so we should remove the entry with its
-    // layout object and replace it with an AXNodeObject created from the node
-    // instead. Do this later at a safe time.
-    Remove(const_cast<LayoutObject*>(layout_object));
-    return nullptr;
-  }
 
   auto it_result = objects_.find(ax_id);
   AXObject* result = it_result != objects_.end() ? it_result->value : nullptr;
@@ -1253,8 +1287,9 @@ bool AXObjectCacheImpl::IsRelevantPseudoElementDescendant(
       return false;
     if (ancestor->IsPseudoElement()) {
       // When an ancestor is exposed using CSS alt text, descendants are pruned.
-      if (AXNodeObject::GetCSSAltText(ancestor->GetNode()))
+      if (AXNodeObject::GetCSSAltText(To<Element>(ancestor->GetNode()))) {
         return false;
+      }
       return IsRelevantPseudoElement(*ancestor->GetNode());
     }
     if (!ancestor->IsAnonymous())
@@ -1327,18 +1362,131 @@ AXObject* AXObjectCacheImpl::GetOrCreate(const Node* node,
 
 AXObject* AXObjectCacheImpl::GetOrCreate(Node* node,
                                          AXObject* parent_if_known) {
+  if (!IsProcessingDeferredEvents()) {
+    return Get(node);
+  }
+
   if (!node)
     return nullptr;
 
-  // The relation cache must exit before the creation of any object, as it
-  // can affect the parent chain of any object returned.
-  EnsureRelationCache();
-
   if (AXObject* obj = Get(node)) {
-    return obj;
+    // The object already exists.
+    CHECK(!obj->IsDetached());
+    if (!obj->IsMissingParent()) {
+      return obj;
+    }
+
+    if (parent_if_known) {
+      // The parent is provided when the object is being added to the parent.
+      // This is expected when re-adding a child to a parent via
+      // AXNodeObject::AddChildren(), as the parent on previous children
+      // will have been cleared immediately before re-adding any of them.
+      obj->SetParent(parent_if_known);
+      return obj;
+    }
+
+    // TODO(accessibility) Try to get rid of repair situations by addressing
+    // partial subtrees and mid-tree object removal directly when they occur.
+    return RepairChildrenOfIncludedParent(node);
   }
 
   return CreateAndInit(node, node->GetLayoutObject(), parent_if_known);
+}
+
+// TODO(accessibility) Try to get rid of repair situations by addressing
+// partial subtrees and mid-tree object removal directly when they occur.
+AXObject* AXObjectCacheImpl::RepairChildrenOfIncludedParent(Node* child) {
+  CHECK(Root());
+
+  // Create a list of ancestor nodes up to and including the first one included
+  // in the tree.
+  // These will be used to repair the local included subtree top down.
+  HeapDeque<Member<Node>> ancestors_to_repair;
+  Node* ancestor = child;
+  AXObject* ax_ancestor = SafeGet(ancestor);
+  AXObject* ax_included_ancestor = nullptr;
+
+  while (true) {
+    // Check for an aria-owns relation. If one is found, both the owner and
+    // child's AXObject will exist, with correctly set parent-child relations.
+    if (AXObject* ax_owner =
+            relation_cache_->GetOrCreateAriaOwnerFor(ancestor, ax_ancestor)) {
+      // There cannot be any other ancestors to repair, brecause both aria-owns
+      // parents and children are both always included in the tree.
+      // Create the child with the aria-owns parent as its parent.
+      GetOrCreate(ancestor, ax_owner);
+      if (AXObject* ax_owned_child = Get(ancestor)) {
+        if (IsAriaOwned(ax_owned_child) &&
+            ax_owned_child->CachedParentObject() == ax_owner) {
+          // aria-owns relation was valid and created the child.
+          CHECK(ax_owned_child->AccessibilityIsIncludedInTree());
+          CHECK(ax_owner->AccessibilityIsIncludedInTree());
+          CHECK_GE(ax_owned_child->IndexInParent(), 0);
+          ax_included_ancestor = ax_owned_child;
+          break;
+        }
+        // Detach from parent, so that when we fall through, it can be
+        // reattached when the correct parent adds it as a child.
+        ax_owned_child->DetachFromParent();
+        // Ensure that the cached values are recomputed with the new parent as
+        // a basis, since some cached values are inherited from the parent.
+        ax_owned_child->InvalidateCachedValues();
+      }
+      // aria-owns relation was not valid, fall through to using DOM ancestry.
+    }
+    // Loop stops on included ancestor, and the root is always included.
+    CHECK(!ax_ancestor || !ax_ancestor->IsRoot()) << "Should not reach root.";
+
+    // Get or compute the next ancestor's Node and AXObject.
+    AXObject* next_ax_ancestor = nullptr;
+    if (ax_ancestor && ax_ancestor->CachedParentObject()) {
+      // Use computed parent if available, it could be from aria-owns.
+      next_ax_ancestor = ax_ancestor->CachedParentObject();
+    } else if (ancestor) {
+      next_ax_ancestor = AXObject::ComputeNonARIAParent(*this, ancestor);
+    }
+
+    if (!next_ax_ancestor) {
+      // A parent was not reached. An example is a node that is no longer in the
+      // flat tree, such as a slot that is unassigned.
+      RemoveSubtreeWhenSafe(ancestor ? ancestor : child);
+      return nullptr;
+    }
+
+    ax_ancestor = next_ax_ancestor;
+    ancestor = next_ax_ancestor->GetNode();
+
+    // Push this ancestor to the front, as the subtree will be built top-down
+    // in the next loop.
+    if (ancestor) {
+      ancestors_to_repair.push_front(ancestor);
+    }
+    if (ax_ancestor && ax_ancestor->LastKnownIsIncludedInTreeValue()) {
+      ax_included_ancestor = ax_ancestor;
+      break;
+    }
+  };
+
+  // The first included ancestor needs to update its children.
+  ax_included_ancestor->ChildrenChangedWithCleanLayout();
+
+  // Starting from the highest ancestor, add children.
+  for (Node* ancestor_to_repair : ancestors_to_repair) {
+    ax_ancestor = SafeGet(ancestor_to_repair);
+    if (!ax_ancestor || ax_ancestor->IsDetached()) {
+      RemoveSubtreeWhenSafe(ancestor_to_repair);
+      return nullptr;
+    }
+    ax_ancestor->UpdateChildrenIfNecessary();
+  }
+
+  AXObject* result = SafeGet(child);
+  if (!result || result->IsDetached()) {
+    RemoveSubtreeWhenSafe(child);
+    return nullptr;
+  }
+
+  return result;
 }
 
 // Caller must provide a node, a layout object, or both (where they match).
@@ -1403,26 +1551,36 @@ AXObject* AXObjectCacheImpl::CreateAndInit(Node* node,
     // The root object does not have a parent.
     parent = nullptr;
   } else {
-    // Must compute the parent, which occurs when an AXObject is being created
-    // in the middle of the tree.
-    parent = AXObject::ComputeNonARIAParent(*this, node);
+    // The AXObject is being created in the middle of the tree, without a known
+    // parent. First compute the parent, and then add all of its children.
+    // If the AXObject for |node| was created during that process, we will
+    // return it. If not, that means the entire subtree is not viable, and
+    // therefore we ensure it is removed, and null is returned.
+    CHECK(node)
+        << "AXLayoutObjects without a node are pseudo element descendants, and "
+           "they must be created with a passed-in |parent_if_known|: "
+        << layout_object;
 
-    // Only rebuild the child list of the parent if we had to compute
-    // the parent here, and it wasn't passed in as context. In other situations,
-    // we should know about the child already.
-    if (parent) {
-      DCHECK(!parent->IsDetached());
-      parent->ChildrenChangedWithCleanLayout();
+    // If the node is for a document, it must be a popup document to reach here.
+    if (auto* document = DynamicTo<Document>(node)) {
+      CHECK(document->GetFrame() && document->GetFrame()->PagePopupOwner());
     }
-    // The parent can become detached in ChildrenChangedWithCleanLayout.
-    if (!parent || parent->IsDetached()) {
-      // An AXObject must have a parent, unless it's the root.
-      // This because when no parent can be computed, it means that any AXObject
-      // we would create would not have a path to the root. We do not create
-      // ophaned AXObjects, so return null.
-      return nullptr;
+
+    // TODO(accessibility) Try to get rid of repair situations by addressing
+    // partial subtrees and mid-tree object removal directly when they occur.
+    if (AXObject* result = RepairChildrenOfIncludedParent(node)) {
+      // If this is the target of an aria-activedescendant relation, fire the
+      // relevant events.
+      CHECK(relation_cache_);
+      relation_cache_->UpdateRelatedActiveDescendant(node);
+      return result;
     }
+    return nullptr;
   }
+
+  CHECK(IsProcessingDeferredEvents())
+      << "Only create AXObjects while processing AX events and tree: " << node
+      << " " << layout_object;
 
   AXID axid = GenerateAXID();
   DCHECK(!base::Contains(objects_, axid));
@@ -1454,8 +1612,8 @@ AXObject* AXObjectCacheImpl::CreateAndInit(Node* node,
 
   // Process new relations.
   // Only elements (non-pseudo ones) can have relations.
-  CHECK(relation_cache_);
   if (IsA<Element>(node) && !node->IsPseudoElement()) {
+    CHECK(relation_cache_);
     // Register incomplete relations with the relation cache, so that when the
     // target id shows up at a later time, the source node can be reserialized
     // with the completed relation.
@@ -1652,15 +1810,22 @@ void AXObjectCacheImpl::Remove(AccessibleNode* accessible_node,
   Remove(ax_id, notify_parent);
 }
 
-// This is safe to call even if there isn't a current mapping.
-void AXObjectCacheImpl::Remove(LayoutObject* layout_object) {
-  Remove(layout_object, /* notify_parent */ true);
-}
-
 void AXObjectCacheImpl::Remove(LayoutObject* layout_object,
                                bool notify_parent) {
-  if (!layout_object)
-    return;
+  CHECK(layout_object);
+
+  if (IsA<LayoutView>(layout_object)) {
+    // A document is being destroyed.
+    // This code is only reached when it is a popup being destroyed.
+    // TODO(accessibility) Can we remove this case since Blink calls
+    // RemovePopup(document) for us?
+    DCHECK(!popup_document_ ||
+           popup_document_ == &layout_object->GetDocument());
+    // Popup has been destroyed.
+    if (popup_document_) {
+      RemovePopup(popup_document_);
+    }
+  }
 
   if (IsA<LayoutView>(layout_object)) {
     // A document is being destroyed.
@@ -1683,27 +1848,15 @@ void AXObjectCacheImpl::Remove(LayoutObject* layout_object,
     if (node->IsPseudoElement()) {
       DeferTreeUpdate(TreeUpdateReason::kMarkDirtyFromRemove, node);
     }
-    // Shadow root subtrees that don't have layout objects for the assigned
-    // nodes will not reach Node::RemovedFromFlatTree() and therefore the
-    // safest thing to do is ensure everything under a shadow host is removed
-    // when the host itself is removed.
-    if (node->GetShadowRoot()) {
-      RemoveSubtreeWhenSafe(node);
-    }
-    if (layout_object->Style() &&
-        !layout_object->Style()->IsContentVisibilityVisible()) {
-      // If a content-visibility: auto/hidden node is removed, remove the entire
-      // subtree because any AXObject descendants are now invalid, and there
-      // will not be any other signals to hook for invalidation or removal.
-      RemoveSubtreeWhenSafe(node);
-    }
+
     if (IsA<HTMLImageElement>(node)) {
       // If an image is removed, ensure its entire subtree is deleted as there
       // may have been children supplied via a map.
-      if (auto* layout_image = DynamicTo<LayoutImage>(layout_object)) {
+      if (auto* layout_image =
+              DynamicTo<LayoutImage>(node->GetLayoutObject())) {
         if (auto* map = layout_image->ImageMap()) {
           if (map->ImageElement() == node) {
-            RemoveSubtreeWhenSafe(map, false);
+            RemoveSubtreeWithFlatTraversal(map, /*remove_root*/ false);
           }
         }
       }
@@ -1721,7 +1874,7 @@ void AXObjectCacheImpl::Remove(LayoutObject* layout_object,
   DCHECK(ax_id);
 
   layout_object_mapping_.erase(iter);
-  Remove(ax_id, notify_parent);
+  Remove(ax_id, false);
 }
 
 // This is safe to call even if there isn't a current mapping.
@@ -1800,6 +1953,27 @@ void AXObjectCacheImpl::RemoveIncludedSubtree(AXObject* object,
   }
 }
 
+void AXObjectCacheImpl::RemoveAXObjectsInLayoutSubtree(
+    LayoutObject* subtree_root) {
+  Remove(subtree_root, /*notify_parent*/ true);
+
+  LayoutObject* iter = subtree_root;
+  while ((iter = iter->NextInPreOrder(subtree_root)) != nullptr) {
+    Remove(iter, /*notify_parent*/ false);
+  }
+}
+
+void AXObjectCacheImpl::RemoveAXObjectsInLayoutSubtree(Node* subtree_root) {
+  // Remove the root immediately in order to avoid DCHECK(!has_ax_object_)
+  // in LayoutObject::Destroy() when removing a subtrree from
+  // DetachLayoutSubtree().
+  Remove(subtree_root);
+
+  // Remove the rest when safe (when flat tree traversal is allowed, and
+  // slot assignments are complete).
+  RemoveSubtreeWhenSafe(subtree_root, /*remove_root*/ false);
+}
+
 void AXObjectCacheImpl::ProcessSubtreeRemovals() {
   for (auto& node : nodes_for_subtree_removal_) {
     ProcessSubtreeRemoval(node.first, node.second);
@@ -1812,6 +1986,9 @@ void AXObjectCacheImpl::ProcessSubtreeRemoval(Node* node, bool remove_root) {
     RemoveSubtreeWithFlatTraversal(node, /* remove root */ true,
                                    /* notify_parent */ true);
   } else {
+    if (IsA<ShadowRoot>(node)) {
+      node = &To<ShadowRoot>(node)->host();
+    }
     for (Node* child_node = LayoutTreeBuilderTraversal::FirstChild(*node);
          child_node;
          child_node = LayoutTreeBuilderTraversal::NextSibling(*child_node)) {
@@ -1944,7 +2121,7 @@ void AXObjectCacheImpl::RemoveReferencesToAXID(AXID obj_id) {
   // Clear AXIDs from maps. Note: do not need to erase id from
   // changed_bounds_ids_, a set which is cleared each time
   // SerializeLocationChanges() is finished.
-  autofill_state_map_.erase(obj_id);
+  autofill_suggestion_availability_map_.erase(obj_id);
   fixed_or_sticky_node_ids_.erase(obj_id);
   cached_bounding_boxes_.erase(obj_id);
   // Clear id from relation cache.
@@ -1986,6 +2163,14 @@ bool AXObjectCacheImpl::CanDeferTreeUpdate(Document* tree_update_document) {
   // Ensure the tree update document is in a good state.
   if (!tree_update_document || !IsActive(*tree_update_document)) {
     return false;
+  }
+
+  if (tree_update_document != document_) {
+    // If we are queuing an update to a document other than the main document,
+    // then it must be in an active popup document. The cache would never
+    // receive notifications from other documents.
+    DCHECK(popup_document_);
+    DCHECK_EQ(tree_update_document, popup_document_);
   }
 
   return true;
@@ -2121,6 +2306,7 @@ void AXObjectCacheImpl::StyleChanged(const LayoutObject* layout_object,
 
   if (visibility_or_inertness_changed) {
     ChildrenChanged(ax_object);
+    ChildrenChanged(ax_object->CachedParentObject());
   }
   MarkAXObjectDirty(ax_object);
 }
@@ -2134,7 +2320,17 @@ void AXObjectCacheImpl::TextChanged(Node* node) {
     return;
   }
 
-  DeferTreeUpdate(TreeUpdateReason::kTextChangedFromTextChangedNode, node);
+  DeferTreeUpdate(TreeUpdateReason::kTextChangedOnNode, node);
+}
+
+// Return a node for the current layout object or ancestor layout object.
+Node* AXObjectCacheImpl::GetClosestNodeForLayoutObject(
+    const LayoutObject* layout_object) {
+  if (!layout_object) {
+    return nullptr;
+  }
+  Node* node = layout_object->GetNode();
+  return node ? node : GetClosestNodeForLayoutObject(layout_object->Parent());
 }
 
 void AXObjectCacheImpl::TextChanged(const LayoutObject* layout_object) {
@@ -2146,17 +2342,21 @@ void AXObjectCacheImpl::TextChanged(const LayoutObject* layout_object) {
   // when it has a block sibling.
   Node* node = GetClosestNodeForLayoutObject(layout_object);
   if (node) {
-    // A text changed event is redundant with children changed on the same node.
-    if (base::Contains(nodes_with_pending_children_changed_, node)) {
+    // If the text changed in a pseudo element, rebuild the entire subtree.
+    if (node->IsPseudoElement()) {
+      RemoveAXObjectsInLayoutSubtree(node->GetLayoutObject());
+    } else if (base::Contains(nodes_with_pending_children_changed_, node)) {
+      // Text changed is redundant with children changed on the same node.
       return;
     }
 
-    DeferTreeUpdate(TreeUpdateReason::kTextChangedFromTextChangedNode, node);
+    DeferTreeUpdate(TreeUpdateReason::kTextChangedOnClosestNodeForLayoutObject,
+                    node);
     return;
   }
 
   if (Get(layout_object)) {
-    DeferTreeUpdate(TreeUpdateReason::kTextChangedFromTextChangedAXObject,
+    DeferTreeUpdate(TreeUpdateReason::kTextChangedOnLayoutObject,
                     Get(layout_object));
   }
 }
@@ -2233,12 +2433,29 @@ void AXObjectCacheImpl::DocumentTitleChanged() {
 
 void AXObjectCacheImpl::NodeIsConnected(Node* node) {
   if (IsParsingMainDocument()) {
-    // Whitespace at the end of the document is problematic during page loads,
+    // Pausing tree updates during page loads until ready to process more:
+    // 1. An unrendeered subtree, which will not receive NodeIsAttached()
+    // signals for incrementally loaded content, and therefore is unsafe to
+    // finish parsing until it has completely loaded.
+    // 2. Whitespace at the end of the document is a problem during page loads,
     // because there is not yet enough context around the whitespace to
     // determine whether it's relevant. This will pause processing of the
     // a11y tree until the document is either completely loaded or it does
     // not end in whitespace.
-    pause_tree_updates_until_more_loaded_content_ = false;
+    if (node_to_parse_before_more_tree_updates_) {
+      CHECK(pause_tree_updates_until_more_loaded_content_);
+      // For case #1, keep the pause  if the expected node isn't fully parsed.
+      if (node_to_parse_before_more_tree_updates_
+              ->IsFinishedParsingChildren()) {
+        node_to_parse_before_more_tree_updates_ = nullptr;
+        pause_tree_updates_until_more_loaded_content_ = false;
+      }
+    } else {
+      // For case #2, any new content means there's enough context around
+      // the whitespace to process updates.
+      pause_tree_updates_until_more_loaded_content_ = false;
+    }
+    // Start a new tree update pause if we are on a whitespace node.
     if (Text* text = DynamicTo<Text>(node)) {
       if (text->ContainsOnlyWhitespaceOrEmpty()) {
         pause_tree_updates_until_more_loaded_content_ = true;
@@ -2246,10 +2463,26 @@ void AXObjectCacheImpl::NodeIsConnected(Node* node) {
     }
   }
 
-  // Register relation ids so that reverse relations can be computed.
-  if (relation_cache_) {
-    if (Element* element = DynamicTo<Element>(node)) {
+  if (Element* element = DynamicTo<Element>(node)) {
+    if (relation_cache_) {
+      // Register relation ids so that reverse relations can be computed.
       relation_cache_->CacheRelationIds(*element);
+      ScheduleAXUpdate();
+    }
+    if (AXObject::HasARIAOwns(element)) {
+      DeferTreeUpdate(TreeUpdateReason::kUpdateAriaOwns, element);
+    }
+  }
+}
+
+void AXObjectCacheImpl::UpdateAriaOwnsWithCleanLayout(Node* node) {
+  // Process any relation attributes that can affect ax objects already created.
+  // Force computation of aria-owns, so that original parents that already
+  // computed their children get the aria-owned children removed.
+  if (AXObject::HasARIAOwns(To<Element>(node))) {
+    if (AXObject* obj = GetOrCreate(node)) {
+      CHECK(relation_cache_);
+      relation_cache_->UpdateAriaOwnsWithCleanLayout(obj);
     }
   }
 }
@@ -2260,6 +2493,15 @@ void AXObjectCacheImpl::SubtreeIsAttached(Node* node) {
   // using AXLayoutObjects.
   AXObject* obj = Get(node);
   if (!obj) {
+    if (!node->GetLayoutObject() && !node->IsFinishedParsingChildren() &&
+        !node_to_parse_before_more_tree_updates_) {
+      // Unrendered subtrees that are not fully parsed are unsafe to
+      // process until they are complete, because there are no NodeIsAttached()
+      // signals for incrementally loaded content.
+      node_to_parse_before_more_tree_updates_ = node;
+      pause_tree_updates_until_more_loaded_content_ = true;
+    }
+
     // No AX subtree to invalidate: just add an AXObject for this node.
     // It will automatically add its subtree.
     ChildrenChanged(LayoutTreeBuilderTraversal::Parent(*node));
@@ -2311,6 +2553,13 @@ void AXObjectCacheImpl::NodeIsAttached(Node* node) {
       RemoveSubtreeWithFlatTraversal(node);
       return;
     }
+    if (IsA<HTMLTableElement>(node) && !node->IsFinishedParsingChildren() &&
+        !node_to_parse_before_more_tree_updates_) {
+      // Tables must be fully parsed before building, because many of the
+      // computed properties require the entire table.
+      node_to_parse_before_more_tree_updates_ = node;
+      pause_tree_updates_until_more_loaded_content_ = true;
+    }
   }
 
   DeferTreeUpdate(TreeUpdateReason::kNodeIsAttached, node);
@@ -2330,16 +2579,6 @@ void AXObjectCacheImpl::NodeIsAttachedWithCleanLayout(Node* node) {
       << node->GetDocument().Lifecycle().ToString();
 #endif  // DCHECK_IS_ON()
 
-  // Process any relation attributes that can affect ax objects already created.
-  // Force computation of aria-owns, so that original parents that already
-  // computed their children get the aria-owned children removed.
-  if (AXObject::HasARIAOwns(element)) {
-    if (AXObject* obj = GetOrCreate(element)) {
-      CHECK(relation_cache_);
-      relation_cache_->UpdateAriaOwnsWithCleanLayout(obj);
-    }
-  }
-
   if (AccessibleNode::GetPropertyOrARIAAttributeValue(
           element, AOMRelationProperty::kActiveDescendant)) {
     HandleActiveDescendantChangedWithCleanLayout(element);
@@ -2347,19 +2586,6 @@ void AXObjectCacheImpl::NodeIsAttachedWithCleanLayout(Node* node) {
 
   AXObject* obj = Get(node);
   MaybeNewRelationTarget(*node, obj);
-
-  // Even if the node or parent are ignored, an ancestor may need to include
-  // descendants of the attached node, thus ChildrenChangedWithCleanLayout()
-  // must be called. It handles ignored logic, ensuring that the first ancestor
-  // that should have this as a child will be updated.
-  Node* parent_node = IsA<ShadowRoot>(node)
-                          ? &To<ShadowRoot>(node)->host()
-                          : LayoutTreeBuilderTraversal::Parent(*node);
-  ChildrenChangedWithCleanLayout(parent_node);
-
-  // If an image map area is added, we need to update children on the image.
-  if (IsA<HTMLAreaElement>(node))
-    ChildrenChangedWithCleanLayout(AXObject::ComputeNonARIAParent(*this, node));
 
   // Rare edge case: if an image is added, it could have changed the order of
   // images with the same usemap in the document. Only the first image for a
@@ -2372,7 +2598,7 @@ void AXObjectCacheImpl::NodeIsAttachedWithCleanLayout(Node* node) {
       if (node != primary_image_element) {
         ChildrenChangedWithCleanLayout(SafeGet(primary_image_element));
       } else if (AXObject* ax_previous_parent = GetAXImageForMap(*map)) {
-        if (ax_previous_parent != obj) {
+        if (ax_previous_parent->GetNode() != node) {
           ChildrenChangedWithCleanLayout(ax_previous_parent->GetNode(),
                                          ax_previous_parent);
           ax_previous_parent->ClearChildren();
@@ -2403,18 +2629,6 @@ void AXObjectCacheImpl::ChildrenChangedOnAncestorOf(AXObject* obj) {
   DCHECK(obj);
   DCHECK(!obj->IsDetached());
   DCHECK(!updating_tree_);
-
-  // If |obj| is not included, and it has no included descendants, then there is
-  // nothing in any ancestor's cached children that needs clearing. This rule
-  // improves performance when removing an entire subtree of unincluded nodes.
-  // For example, if a <div id="root" style="display:none"> will be
-  // included because it is a potential relation target. If unincluded
-  // descendants change, no ChildrenChanged() processing is necessary, because
-  // #root has no children.
-  if (!obj->LastKnownIsIncludedInTreeValue() &&
-      obj->CachedChildrenIncludingIgnored().empty()) {
-    return;
-  }
 
   // Clear children of ancestors in order to ensure this detached object is not
   // cached in an ancestor's list of children:
@@ -2459,7 +2673,7 @@ AXObject* AXObjectCacheImpl::ChildrenChanged(AXObject* obj) {
   if (AXObject* ax_ancestor_for_notification = InvalidateChildren(obj)) {
     // Don't enqueue a deferred event on the same node more than once.
     CHECK(!updating_tree_);
-    CHECK(!is_frozen_);
+    CHECK(!IsFrozen());
     if (ax_ancestor_for_notification->GetNode() &&
         !nodes_with_pending_children_changed_
              .insert(ax_ancestor_for_notification->GetNode())
@@ -2569,33 +2783,27 @@ void AXObjectCacheImpl::ChildrenChangedWithCleanLayout(Node* node) {
 
 void AXObjectCacheImpl::ChildrenChangedWithCleanLayout(Node* optional_node,
                                                        AXObject* obj) {
-  if (HTMLMapElement* map_element = DynamicTo<HTMLMapElement>(optional_node)) {
-    obj = GetAXImageForMap(*map_element);
-    if (!obj)
-      return;
-    optional_node = obj->GetNode();
-  }
-  if (obj ? obj->IsDetached() : !optional_node)
-    return;
+  CHECK(obj);
+  CHECK(!obj->IsDetached());
 
 #if DCHECK_IS_ON()
-  if (obj && optional_node) {
+  if (optional_node) {
     DCHECK_EQ(obj->GetNode(), optional_node);
     DCHECK_EQ(obj, SafeGet(optional_node));
   }
-  Document* document = obj ? obj->GetDocument() : &optional_node->GetDocument();
+  Document* document = obj->GetDocument();
   DCHECK(document);
   DCHECK(document->Lifecycle().GetState() >= DocumentLifecycle::kLayoutClean)
       << "Unclean document at lifecycle " << document->Lifecycle().ToString();
 #endif  // DCHECK_IS_ON()
 
-  if (obj) {
-    obj->ChildrenChangedWithCleanLayout();
-    // TODO(accessibility) Only needed for <select> size changes.
-    // This can turn into a DCHECK if the shadow DOM is used for <select>
-    // elements instead of AXMenuList* and AXListBox* classes.
-    if (obj->IsDetached())
-      return;
+  obj->ChildrenChangedWithCleanLayout();
+  // TODO(accessibility) Only needed for <select> size changes.
+  // This can turn into a DCHECK if the shadow DOM is used for <select>
+  // elements instead of AXMenuList* and AXListBox* classes.
+  if (obj->IsDetached()) {
+    RemoveSubtreeWhenSafe(optional_node);
+    return;
   }
 
   if (optional_node) {
@@ -2633,14 +2841,21 @@ void AXObjectCacheImpl::UpdateTreeIfNeeded() {
 
 void AXObjectCacheImpl::CheckStyleIsComplete(Document& document) const {
 #if EXPENSIVE_DCHECKS_ARE_ON()
+  Element* root_element = document.documentElement();
+  if (!root_element) {
+    return;
+  }
+
   {
     // Check that all style is up-to-date when layout is clean, when a11y is on.
     // This allows content-visibility: auto subtrees to have proper a11y
     // semantics, e.g. for the hidden and focusable states.
-    Node* node = &document;
+    Node* node = root_element;
     do {
       CHECK(!node->NeedsStyleRecalc()) << "Need style on: " << node;
-      const ComputedStyle* style = node->GetComputedStyle();
+      auto* element = DynamicTo<Element>(node);
+      const ComputedStyle* style =
+          element ? element->GetComputedStyle() : nullptr;
       if (!style || style->ContentVisibility() == EContentVisibility::kHidden ||
           style->IsEnsuredInDisplayNone()) {
         // content-visibility:hidden nodes are an exception and do not
@@ -2656,9 +2871,11 @@ void AXObjectCacheImpl::CheckStyleIsComplete(Document& document) const {
   {
     // Check results of ChildNeedsStyleRecalc() as well, just to be sure there
     // isn't a discrepancy there.
-    Node* node = &document;
+    Node* node = root_element;
     do {
-      const ComputedStyle* style = node->GetComputedStyle();
+      auto* element = DynamicTo<Element>(node);
+      const ComputedStyle* style =
+          element ? element->GetComputedStyle() : nullptr;
       if (!style || style->ContentVisibility() == EContentVisibility::kHidden ||
           style->IsEnsuredInDisplayNone()) {
         // content-visibility:hidden nodes are an exception and do not
@@ -2674,15 +2891,27 @@ void AXObjectCacheImpl::CheckStyleIsComplete(Document& document) const {
 #endif
 }
 
-void AXObjectCacheImpl::CheckTreeIsUpdated() const {
-  // TODO(crbug.com/1480442) Add back as once we implement improved tree repair
-  // in crrev.com/c/4873421.
-  // CHECK(nodes_with_pending_children_changed_.empty());
-  // CHECK(tree_update_callback_queue_main_.empty());
-  // CHECK(tree_update_callback_queue_popup_.empty());
+void AXObjectCacheImpl::CheckTreeIsUpdated() {
+  CHECK(nodes_with_pending_children_changed_.empty());
+  CHECK(tree_update_callback_queue_main_.empty());
+  CHECK(tree_update_callback_queue_popup_.empty());
 
 #if DCHECK_IS_ON()
+  // The following checks can make tests flaky if the tree being checked
+  // is quite large. Therefore cap the number of objects we check.
+  constexpr int kMaxObjectsToCheckAfterTreeUpdate = 10000;
+  if (objects_.size() > kMaxObjectsToCheckAfterTreeUpdate) {
+    DLOG(INFO) << "AXObjectCacheImpl::CheckTreeIsUpdated: Only checking first "
+               << kMaxObjectsToCheckAfterTreeUpdate
+               << " items in objects_ (size: " << objects_.size() << ")";
+  }
+
+  // First loop checks that tree structure is consistent.
+  int count = 0;
   for (const auto& entry : objects_) {
+    if (count > kMaxObjectsToCheckAfterTreeUpdate) {
+      break;
+    }
     const AXObject* object = entry.value;
     DCHECK(!object->IsDetached());
     DCHECK(object->GetDocument());
@@ -2695,32 +2924,72 @@ void AXObjectCacheImpl::CheckTreeIsUpdated() const {
         << "\n* Computed parent: "
         << (object->ComputeParent() ? object->ComputeParent()->ToString(true)
                                     : "not found");
-    AXObject* included_parent = object->ParentObjectIncludedInTree();
-    DCHECK(!object->HasDirtyDescendants())
-        << "No subtrees should be flagged as needing updates at this point:"
-        << "\n* Object: " << object->ToString(true) << "\n* Included parent: "
-        << (included_parent ? included_parent->ToString(true) : "");
-    DCHECK(!object->NeedsToUpdateChildren())
-        << "No children in the tree should require an update at this point: "
-        << "\n* Object: " << object->ToString(true) << "\n* Included parent: "
-        << (included_parent ? included_parent->ToString(true) : "");
-    DCHECK(!object->NeedsToUpdateCachedValues())
-        << "No cached values should require an update at this point: "
-        << "\n* Object: " << object->ToString(true) << "\n* Included parent: "
-        << (included_parent ? included_parent->ToString(true) : "");
     if (object->AccessibilityIsIncludedInTree()) {
+      // All cached children must be included.
       for (const auto& child : object->CachedChildrenIncludingIgnored()) {
         CHECK(child->AccessibilityIsIncludedInTree())
-            << "Included parent cannot have unlincluded child:"
-            << "\n* Parent: " << object->ToString(true, true)
+            << "Included parent cannot have unincluded child:" << "\n* Parent: "
+            << object->ToString(true, true)
             << "\n* Child: " << child->ToString(true, true);
       }
+      if (!object->IsRoot()) {
+        // Parent must have this child in its cached children.
+        AXObject* included_parent = object->ParentObjectIncludedInTree();
+        CHECK(included_parent);
+        const HeapVector<Member<AXObject>>& siblings =
+            included_parent->CachedChildrenIncludingIgnored();
+        DCHECK(siblings.Contains(object))
+            << "Object was not included in its parent: " << "\n* Object: "
+            << object->ToString(true)
+            << "\n* Included parent: " << included_parent->ToString(true);
+      }
     }
+    count++;
+  }
+
+  // Second loop checks that all dirty bits to update properties or children
+  // have been cleared.
+  count = 0;
+  for (const auto& entry : objects_) {
+    if (count > kMaxObjectsToCheckAfterTreeUpdate) {
+      break;
+    }
+    const AXObject* object = entry.value;
+    if (object->HasDirtyDescendants()) {
+      // This an error: log the top ancestor that still has dirty descendants.
+      const AXObject* ancestor = object;
+      while (ancestor && ancestor->ParentObjectIncludedInTree() &&
+             ancestor->ParentObjectIncludedInTree()->HasDirtyDescendants()) {
+        ancestor = ancestor->ParentObjectIncludedInTree();
+      }
+      AXObject* included_parent = ancestor->ParentObjectIncludedInTree();
+      if (!included_parent) {
+        included_parent = Root();
+      }
+      DCHECK(!ancestor->HasDirtyDescendants())
+          << "No subtrees should be flagged as needing updates at this point:"
+          << "\n* Object: " << ancestor->ToString(true)
+          << "\n* Included parent: " << included_parent->GetAXTreeForThis();
+    }
+    AXObject* included_parent = object->ParentObjectIncludedInTree();
+    if (!included_parent) {
+      included_parent = Root();
+    }
+    DCHECK(!object->NeedsToUpdateChildren())
+        << "No children in the tree should require an update at this point: "
+        << "\n* Object: " << object->ToString(true)
+        << "\n* Included parent: " << included_parent->ToString(true);
+    DCHECK(!object->NeedsToUpdateCachedValues())
+        << "No cached values should require an update at this point: "
+        << "\n* Object: " << object->ToString(true)
+        << "\n* Included parent: " << included_parent->ToString(true);
+    count++;
   }
 #endif
 }
 
-void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document) {
+void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document,
+                                                           bool force) {
   if (IsPopup(document)) {
     // Only process popup document together with main document.
     DCHECK_EQ(&document, GetPopupDocumentIfShowing());
@@ -2736,21 +3005,25 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document) {
   CHECK(!processing_deferred_events_);
 
   if (tree_updates_paused_) {
-    LOG(INFO) << "Accessibility tree updates will be resumed after rebuilding "
-                 "the tree from root";
-    MarkDocumentDirty();
     tree_updates_paused_ = false;
-    return;
+    if (!force) {
+      LOG(INFO)
+          << "Accessibility tree updates will be resumed after rebuilding "
+             "the tree from root";
+      MarkDocumentDirty();
+      return;
+    }
   }
 
   // Don't update the tree at an awkward time during page load.
   // Example: when the last node is whitespace, there is not yet enough context
   // to determine the relevance of the whitespace.
-  if (pause_tree_updates_until_more_loaded_content_) {
+  if (pause_tree_updates_until_more_loaded_content_ && !force) {
     if (IsParsingMainDocument()) {
       return;
     }
     pause_tree_updates_until_more_loaded_content_ = false;
+    node_to_parse_before_more_tree_updates_ = nullptr;
   }
 
   if (GetPopupDocumentIfShowing()) {
@@ -2760,6 +3033,7 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document) {
 
   SCOPED_DISALLOW_LIFECYCLE_TRANSITION();
 
+  // ------------ Process deferred events and update tree  --------------------
   {
     base::AutoReset<bool> processing(&processing_deferred_events_, true);
 
@@ -2788,6 +3062,16 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document) {
       ProcessDeferredAccessibilityEventsImpl(document);
     }
 
+    // At this point, the popup queue should be clear, and we must ensure this
+    // even if nothing is dirty. It seems that there are cases where it
+    // IsDirty() returns false where there is no popup document, but there are
+    // entries in the popup queue.
+    // TODO(https://crbug.com/1507396): It is unclear when this happens, but it
+    // explains why we still have a full popup queue in CheckTreeIsUpdated().
+    // DCHECKs have been added elsewhere to help discover the underlying cause.
+    // For now, keep this line in order to pass CheckTreeIsUpdated().
+    tree_update_callback_queue_popup_.clear();
+
 #if BUILDFLAG(IS_ANDROID)
     // On Android, the inline textboxes of focused editable subtrees are always
     // loaded, but only if inline text boxes are enabled.
@@ -2805,26 +3089,34 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEvents(Document& document) {
     UpdateTreeIfNeeded();
   }
 
-  // ***** Serialize *****
-  // Check whether there are dirty objects ready to be serialized.
-  // TODO(accessibility) It's a bit confusing that this can be true when the
-  // IsDirty() is false, but this is the case for objects marked dirty from
-  // RenderAccessibilityImpl, e.g. for the kEndOfTest event.
-  if (HasDirtyObjects()) {
-    if (auto* client = GetWebLocalFrameClient())
-      client->AXReadyCallback();
-  }
+  // ------------------------ Freeze and serialize ---------------------------
+  {
+    // The frozen state begins immediately after processing deferred events.
+    ScopedFreezeAXCache scoped_freeze_cache(*this);
 
-  // ***** Update Inspector Views *****
-  // Accessibility is now clean for both documents: AXObjects can be safely
-  // traversed and AXObject's properties can be safely fetched.
-  // TODO(accessibility) Now that both documents are always processed at the
-  // same time, consider modifying the InspectorAccessibilityAgent so that only
-  // the callback for the main document is needed.
-  for (auto agent : agents_) {
-    agent->AXReadyCallback(document);
-    if (GetPopupDocumentIfShowing())
-      agent->AXReadyCallback(*GetPopupDocumentIfShowing());
+    // ***** Serialize *****
+    // Check whether there are dirty objects ready to be serialized.
+    // TODO(accessibility) It's a bit confusing that this can be true when the
+    // IsDirty() is false, but this is the case for objects marked dirty from
+    // RenderAccessibilityImpl, e.g. for the kEndOfTest event.
+    if (HasDirtyObjects()) {
+      if (auto* client = GetWebLocalFrameClient()) {
+        client->AXReadyCallback();
+      }
+    }
+
+    // ***** Update Inspector Views *****
+    // Accessibility is now clean for both documents: AXObjects can be safely
+    // traversed and AXObject's properties can be safely fetched.
+    // TODO(accessibility) Now that both documents are always processed at the
+    // same time, consider modifying the InspectorAccessibilityAgent so that
+    // only the callback for the main document is needed.
+    for (auto agent : agents_) {
+      agent->AXReadyCallback(document);
+      if (GetPopupDocumentIfShowing()) {
+        agent->AXReadyCallback(*GetPopupDocumentIfShowing());
+      }
+    }
   }
 }
 
@@ -2852,7 +3144,8 @@ void AXObjectCacheImpl::ProcessDeferredAccessibilityEventsImpl(
 }
 
 bool AXObjectCacheImpl::IsParsingMainDocument() const {
-  return GetDocument().Parser() && !v8::Isolate::GetCurrent()->InContext();
+  return GetDocument().Parser() &&
+         !GetDocument().GetAgent().isolate()->InContext();
 }
 
 bool AXObjectCacheImpl::IsMainDocumentDirty() const {
@@ -2861,8 +3154,13 @@ bool AXObjectCacheImpl::IsMainDocumentDirty() const {
 }
 
 bool AXObjectCacheImpl::IsPopupDocumentDirty() const {
-  if (!popup_document_)
+  if (!popup_document_) {
+    // This should have been cleared in RemovePopup(), but technically the
+    // popup could be null without calling that, since it's a weak pointer.
+    DCHECK(tree_update_callback_queue_popup_.empty());
+    DCHECK(notifications_to_post_popup_.empty());
     return false;
+  }
   return !tree_update_callback_queue_popup_.empty() ||
          !notifications_to_post_popup_.empty();
 }
@@ -3038,6 +3336,12 @@ AXObject* AXObjectCacheImpl::TreeUpdateObjectIfRelevant(
     if (node->GetDocument() != document || !node->isConnected()) {
       return nullptr;
     }
+
+    VLOG(1) << "\n**** Processing tree update:" << "\n* Node: " << node
+            << "\n* Layout Object: " << node->GetLayoutObject()
+            << "\n* Event: " << tree_update->event
+            << "\n* Reason: " << static_cast<int>(tree_update->update_reason);
+
     AXObject* ax_object = GetOrCreate(node);
     if (!ax_object || ax_object->IsDetached()) {
       return nullptr;
@@ -3045,7 +3349,7 @@ AXObject* AXObjectCacheImpl::TreeUpdateObjectIfRelevant(
     // Update cached attributes for all changed nodes before serialization,
     // because updating ignored/included can cause tree structure changes, and
     // the tree structure needs to be stable before serialization begins.
-    ax_object->UpdateCachedAttributeValuesIfNeeded();
+    ax_object->UpdateCachedAttributeValuesIfNeeded(/* notify_parent */ true);
     return ax_object->IsDetached() ? nullptr : ax_object;
   }
 
@@ -3060,6 +3364,11 @@ AXObject* AXObjectCacheImpl::TreeUpdateObjectIfRelevant(
     return nullptr;
   }
 
+  VLOG(1) << "\n**** Processing tree update:" << "\n* AXObject: "
+          << ax_object->ToString(true, true)
+          << "\n* Event: " << tree_update->event
+          << "\n* Reason: " << static_cast<int>(tree_update->update_reason);
+
   if (ax_object->GetNode() && !ax_object->GetNode()->isConnected()) {
     return nullptr;
   }
@@ -3068,10 +3377,26 @@ AXObject* AXObjectCacheImpl::TreeUpdateObjectIfRelevant(
     return nullptr;
   }
 
+  // TODO(accessibility) Try to get rid of repair situations by addressing
+  // partial subtrees and mid-tree object removal directly when they occur.
+  if (ax_object->IsMissingParent()) {
+    // TODO(accessibility) This should become a CHECK once we resolve remaining
+    // cases. Breaks on https://github.com/openui/open-ui/discussions/960.
+    DCHECK(false) << "Missing parent on: " << ax_object->ToString(true, true);
+    if (!ax_object->GetNode()) {
+      RemoveIncludedSubtree(ax_object, /* remove_root */ true);
+      return nullptr;
+    }
+    ax_object = RepairChildrenOfIncludedParent(ax_object->GetNode());
+    if (!ax_object) {
+      return nullptr;
+    }
+  }
+
   // Update cached attributes for all changed nodes before serialization,
   // because updating ignored/included can cause tree structure changes, and
   // the tree structure needs to be stable before serialization begins.
-  ax_object->UpdateCachedAttributeValuesIfNeeded();
+  ax_object->UpdateCachedAttributeValuesIfNeeded(/* notify_parent */ true);
   return ax_object->IsDetached() ? nullptr : ax_object;
 }
 
@@ -3104,7 +3429,7 @@ void AXObjectCacheImpl::FireTreeUpdatedEventImmediately(
       case TreeUpdateReason::kMarkAXSubtreeDirty:
         MarkAXSubtreeDirtyWithCleanLayout(ax_object);
         break;
-      case TreeUpdateReason::kTextChangedFromTextChangedAXObject:
+      case TreeUpdateReason::kTextChangedOnLayoutObject:
         TextChangedWithCleanLayout(ax_object->GetNode(), ax_object);
         break;
       default:
@@ -3185,7 +3510,8 @@ void AXObjectCacheImpl::FireTreeUpdatedEventImmediately(
     case TreeUpdateReason::kSectionOrRegionRoleMaybeChangedFromTitle:
       SectionOrRegionRoleMaybeChangedWithCleanLayout(node);
       break;
-    case TreeUpdateReason::kTextChangedFromTextChangedNode:
+    case TreeUpdateReason::kTextChangedOnNode:
+    case TreeUpdateReason::kTextChangedOnClosestNodeForLayoutObject:
       TextChangedWithCleanLayout(node);
       break;
     case TreeUpdateReason::kTextMarkerDataAdded:
@@ -3196,6 +3522,9 @@ void AXObjectCacheImpl::FireTreeUpdatedEventImmediately(
       break;
     case TreeUpdateReason::kNodeIsAttached:
       NodeIsAttachedWithCleanLayout(node);
+      break;
+    case TreeUpdateReason::kUpdateAriaOwns:
+      UpdateAriaOwnsWithCleanLayout(node);
       break;
     case TreeUpdateReason::kUpdateTableRole:
       UpdateTableRoleWithCleanLayout(node);
@@ -3345,16 +3674,6 @@ void AXObjectCacheImpl::HandleAttributeChanged(
   if (!accessible_node)
     return;
   MarkAXObjectDirty(Get(accessible_node));
-}
-
-void AXObjectCacheImpl::FinishedParsingTable(HTMLTableElement* table) {
-  // The data table heuristic can change from false to true as a table's
-  // children are parsed; but it will never change from true to false.
-  if (AXObject* ax_object = SafeGet(table)) {
-    if (ax_object->RoleValue() == ax::mojom::blink::Role::kLayoutTable) {
-      DeferTreeUpdate(TreeUpdateReason::kUpdateTableRole, table);
-    }
-  }
 }
 
 void AXObjectCacheImpl::UpdateTableRoleWithCleanLayout(Node* table) {
@@ -3565,6 +3884,8 @@ void AXObjectCacheImpl::HandleRoleChangeWithCleanLayout(Node* node) {
 
   // Remove the current object and make the parent reconsider its children.
   if (AXObject* obj = GetOrCreate(node)) {
+    ChildrenChangedOnAncestorOf(obj);
+
     // When the role of `obj` is changed, its AXObject needs to be destroyed and
     // a new one needs to be created in its place.
     if (RolePresentationPropagates(node)) {
@@ -3578,16 +3899,14 @@ void AXObjectCacheImpl::HandleRoleChangeWithCleanLayout(Node* node) {
       // The children of this thing need to detach from parent.
       Remove(obj, /* notify_parent */ false);
     }
-    // The aria-owns relation may have changed if the role changed,
-    // because some roles allow aria-owns and others don't.
-    // In addition, any owned objects need to reset their parent_ to point
-    // to the new object.
+
+    // Calling GetOrCreate(node) will not only create a new object with the
+    // correct role, it will also repair all parent-child relationships from the
+    // included ancestor done. If a new AXObject is not possible it will remove
+    // the subtree.
     if (AXObject* new_object = GetOrCreate(node)) {
-      CHECK(relation_cache_);
       relation_cache_->UpdateAriaOwnsWithCleanLayout(new_object, true);
-      // Notify parent synchronously (Remove() does it async).
-      DCHECK(new_object->CachedParentObject());
-      ChildrenChangedWithCleanLayout(new_object->CachedParentObject());
+      new_object->UpdateChildrenIfNecessary();
     }
   }
 }
@@ -3950,24 +4269,13 @@ void AXObjectCacheImpl::AriaOwnsChangedWithCleanLayout(Node* node) {
 }
 
 void AXObjectCacheImpl::InlineTextBoxesUpdated(LayoutObject* layout_object) {
-  CHECK(IsA<LayoutText>(layout_object));
-  auto it = layout_object_mapping_.find(layout_object);
-  AXID ax_id = it != layout_object_mapping_.end() ? it->value : 0;
-  DCHECK(!WTF::IsHashTraitsDeletedValue<HashTraits<AXID>>(ax_id));
-
-  // Only update if the accessibility object already exists and it's
-  // not already marked as dirty.
-  // Do not use Get(): it does extra work to determine whether the object should
-  // be invalidated, including calling IsLayoutObjectRelevantForAccessibility(),
-  // which uses the InlineCursor. However, the InlineCursor cannot be used
-  // while inline boxes are being updated.
-  if (ax_id) {
-    AXObject* obj = objects_.at(ax_id);
-    DCHECK(obj);
-    DCHECK(obj->IsAXLayoutObject());
-    DCHECK(!obj->IsDetached());
-    if (!obj->NeedsToUpdateChildren() && obj->ShouldLoadInlineTextBoxes()) {
+  if (AXObject* obj = Get(layout_object)) {
+    // Only update if the accessibility object already exists and it's
+    // not already marked as dirty.
+    CHECK(!obj->IsDetached());
+    if (obj->ShouldLoadInlineTextBoxes()) {
       obj->SetNeedsToUpdateChildren();
+      obj->ClearChildren();
       MarkAXObjectDirty(obj);
     }
   }
@@ -4095,14 +4403,6 @@ void AXObjectCacheImpl::MarkAXObjectDirtyWithCleanLayoutHelper(
   obj->UpdateCachedAttributeValuesIfNeeded(true);
   for (auto agent : agents_)
     agent->AXObjectModified(obj, subtree);
-}
-
-void AXObjectCacheImpl::MarkAXObjectDirtyWithCleanLayoutAndEvent(
-    AXObject* obj,
-    ax::mojom::blink::EventFrom event_from,
-    ax::mojom::blink::Action event_from_action) {
-  MarkAXObjectDirtyWithCleanLayoutHelper(obj, false, event_from,
-                                         event_from_action);
 }
 
 void AXObjectCacheImpl::MarkAXObjectDirtyWithCleanLayout(AXObject* obj) {
@@ -4237,8 +4537,9 @@ AXObject* AXObjectCacheImpl::GetSerializationTarget(AXObject* obj) {
     // This should become a DCHECK(!obj->IsMissingParent()) once the shadow DOM
     // is used for <select> elements instead of AXMenuList* and AXListBox*
     // classes.
-    if (!RestoreParentOrPrune(obj))
+    if (!RestoreParentOrPruneWithCleanLayout(obj)) {
       return nullptr;
+    }
   }
 
   // Return included in tree object.
@@ -4248,7 +4549,26 @@ AXObject* AXObjectCacheImpl::GetSerializationTarget(AXObject* obj) {
   return obj->ParentObjectIncludedInTree();
 }
 
+// TODO(accessibility) Try to get rid of repair situations by addressing
+// partial subtrees and mid-tree object removal directly when they occur.
 AXObject* AXObjectCacheImpl::RestoreParentOrPrune(AXObject* child) {
+  CHECK(child->GetNode()) << "Cannot restore parents of nodeless objects.";
+  AXObject* parent =
+      SafeGet(LayoutTreeBuilderTraversal::Parent(*child->GetNode()));
+  if (parent) {
+    child->SetParent(parent);
+  } else {
+    // If no parent is possible, the child is no longer part of the tree.
+    RemoveSubtreeWhenSafe(child->GetNode());
+  }
+
+  return parent;
+}
+
+// TODO(accessibility) Try to get rid of repair situations by addressing
+// partial subtrees and mid-tree object removal directly when they occur.
+AXObject* AXObjectCacheImpl::RestoreParentOrPruneWithCleanLayout(
+    AXObject* child) {
   AXObject* parent = child->ComputeParentOrNull();
   if (parent) {
     child->SetParent(parent);
@@ -4265,16 +4585,11 @@ void AXObjectCacheImpl::HandleFocusedUIElementChanged(
     Element* new_focused_element) {
   TRACE_EVENT0("accessibility",
                "AXObjectCacheImpl::HandleFocusedUIElementChanged");
-  Document& focused_doc =
-      new_focused_element ? new_focused_element->GetDocument() : *document_;
 
 #if DCHECK_IS_ON()
   // The focus can be in a different document when a popup is open.
   SCOPED_DISALLOW_LIFECYCLE_TRANSITION();
 #endif  // DCHECK_IS_ON()
-
-  if (focused_doc.GetPage() && focused_doc.GetPage()->InsidePortal())
-    return;  // Elements inside a portal are not considered focusable.
 
   if (validation_message_axid_) {
     DeferTreeUpdate(
@@ -4378,9 +4693,11 @@ void AXObjectCacheImpl::SerializeLocationChanges(uint32_t reset_token) {
   }
 }
 
-bool AXObjectCacheImpl::SerializeEntireTree(size_t max_node_count,
-                                            base::TimeDelta timeout,
-                                            ui::AXTreeUpdate* response) {
+bool AXObjectCacheImpl::SerializeEntireTree(
+    size_t max_node_count,
+    base::TimeDelta timeout,
+    ui::AXTreeUpdate* response,
+    std::set<ui::AXSerializationErrorFlag>* out_error) {
   // Ensure that an initial tree exists.
   CHECK(IsFrozen());
   CHECK(!IsDirty());
@@ -4407,9 +4724,17 @@ bool AXObjectCacheImpl::SerializeEntireTree(size_t max_node_count,
   if (!timeout.is_zero())
     serializer.set_timeout(timeout);
 
-  bool success = serializer.SerializeChanges(Root(), response);
+  bool success = serializer.SerializeChanges(Root(), response, out_error);
   CHECK(success)
       << "Serializer failed. Should have hit DCHECK inside of serializer.";
+
+  if (RuntimeEnabledFeatures::AccessibilitySerializationSizeMetricsEnabled()) {
+    // For a tree snapshot, we don't break down by type.
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "Accessibility.Performance.AXObjectCacheImpl.Snapshot",
+        base::saturated_cast<int>(response->ByteSize()), 1, kSizeGb,
+        kBucketCount);
+  }
 
   return true;
 }
@@ -4473,6 +4798,7 @@ void AXObjectCacheImpl::SerializeDirtyObjectsAndEvents(
   DCHECK(!popup_document_ || popup_document_->Lifecycle().GetState() >=
                                  DocumentLifecycle::kLayoutClean);
 
+  ui::AXNodeData::AXNodeDataSize node_data_size;
   while (!dirty_objects_.empty() && --num_remaining_objects_to_serialize > 0) {
     AXDirtyObject* current_dirty_object = std::move(dirty_objects_.front());
     dirty_objects_.pop_front();
@@ -4539,11 +4865,23 @@ void AXObjectCacheImpl::SerializeDirtyObjectsAndEvents(
                .Find(obj);
 
     updates.push_back(update);
+    if (RuntimeEnabledFeatures::
+            AccessibilitySerializationSizeMetricsEnabled()) {
+      update.AccumulateSize(node_data_size);
+    }
   }
 
   UMA_HISTOGRAM_COUNTS_10000(
       "Accessibility.Performance.AXObjectCacheImpl.RedundantSerializations",
       redundant_serialization_count);
+
+  if (RuntimeEnabledFeatures::AccessibilitySerializationSizeMetricsEnabled()) {
+    LogNodeDataSizeDistribution(node_data_size);
+    UMA_HISTOGRAM_CUSTOM_COUNTS(
+        "Accessibility.Performance.AXObjectCacheImpl.Incremental",
+        base::saturated_cast<int>(node_data_size.ByteSize()), 1, kSizeGb,
+        kBucketCount);
+  }
 
   // Add kLayoutComplete if layout has changed.
   if (need_to_send_location_changes_) {
@@ -4928,7 +5266,8 @@ void AXObjectCacheImpl::HandleScrollPositionChanged(
 const AtomicString& AXObjectCacheImpl::ComputedRoleForNode(Node* node) {
   // Accessibility tree must be updated before getting an object.
   SCOPED_DISALLOW_LIFECYCLE_TRANSITION();
-  ProcessDeferredAccessibilityEvents(GetDocument());
+  ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
+  ScopedFreezeAXCache scoped_freeze_cache(*this);
   AXObject* obj = SafeGet(node);
   return AXObject::ARIARoleName(obj ? obj->RoleValue()
                                     : ax::mojom::blink::Role::kUnknown);
@@ -4937,7 +5276,8 @@ const AtomicString& AXObjectCacheImpl::ComputedRoleForNode(Node* node) {
 String AXObjectCacheImpl::ComputedNameForNode(Node* node) {
   // Accessibility tree must be updated before getting an object.
   SCOPED_DISALLOW_LIFECYCLE_TRANSITION();
-  ProcessDeferredAccessibilityEvents(GetDocument());
+  ProcessDeferredAccessibilityEvents(GetDocument(), /*force*/ true);
+  ScopedFreezeAXCache scoped_freeze_cache(*this);
   AXObject* obj = SafeGet(node);
   return obj ? obj->ComputedName() : "";
 }
@@ -5059,6 +5399,8 @@ void AXObjectCacheImpl::Trace(Visitor* visitor) const {
   visitor->Trace(ax_tree_source_);
   visitor->Trace(dirty_objects_);
   visitor->Trace(aria_notifications_);
+  visitor->Trace(node_to_parse_before_more_tree_updates_);
+
   AXObjectCache::Trace(visitor);
 }
 
@@ -5075,17 +5417,22 @@ ax::mojom::blink::EventFrom AXObjectCacheImpl::ComputeEventFrom() {
   return ax::mojom::blink::EventFrom::kPage;
 }
 
-WebAXAutofillState AXObjectCacheImpl::GetAutofillState(AXID id) const {
-  auto iter = autofill_state_map_.find(id);
-  if (iter == autofill_state_map_.end())
-    return WebAXAutofillState::kNoSuggestions;
+WebAXAutofillSuggestionAvailability
+AXObjectCacheImpl::GetAutofillSuggestionAvailability(AXID id) const {
+  auto iter = autofill_suggestion_availability_map_.find(id);
+  if (iter == autofill_suggestion_availability_map_.end()) {
+    return WebAXAutofillSuggestionAvailability::kNoSuggestions;
+  }
   return iter->value;
 }
 
-void AXObjectCacheImpl::SetAutofillState(AXID id, WebAXAutofillState state) {
-  WebAXAutofillState previous_state = GetAutofillState(id);
-  if (state != previous_state) {
-    autofill_state_map_.Set(id, state);
+void AXObjectCacheImpl::SetAutofillSuggestionAvailability(
+    AXID id,
+    WebAXAutofillSuggestionAvailability suggestion_availability) {
+  WebAXAutofillSuggestionAvailability previous_suggestion_availability =
+      GetAutofillSuggestionAvailability(id);
+  if (suggestion_availability != previous_suggestion_availability) {
+    autofill_suggestion_availability_map_.Set(id, suggestion_availability);
     MarkAXObjectDirty(ObjectFromAXID(id));
   }
 }

@@ -73,10 +73,10 @@ constexpr const size_t kNumOfWorlds = 2;
 
 inline scoped_refptr<DOMWrapperWorld> IndexToWorld(v8::Isolate* isolate,
                                                    size_t index) {
-  return index == 0
-             ? scoped_refptr<DOMWrapperWorld>(&DOMWrapperWorld::MainWorld())
-             : DOMWrapperWorld::EnsureIsolatedWorld(
-                   isolate, DOMWrapperWorld::WorldId::kMainWorldId + 1);
+  return index == 0 ? scoped_refptr<DOMWrapperWorld>(
+                          &DOMWrapperWorld::MainWorld(isolate))
+                    : DOMWrapperWorld::EnsureIsolatedWorld(
+                          isolate, DOMWrapperWorld::WorldId::kMainWorldId + 1);
 }
 
 inline int WorldToIndex(const DOMWrapperWorld& world) {
@@ -422,8 +422,7 @@ void V8ContextSnapshotImpl::InstallInterfaceTemplates(v8::Isolate* isolate) {
   }
 }
 
-v8::StartupData V8ContextSnapshotImpl::TakeSnapshot() {
-  v8::Isolate* isolate = V8PerIsolateData::MainThreadIsolate();
+v8::StartupData V8ContextSnapshotImpl::TakeSnapshot(v8::Isolate* isolate) {
   CHECK(isolate);
   CHECK(isolate->IsCurrent());
   V8PerIsolateData* per_isolate_data = V8PerIsolateData::From(isolate);

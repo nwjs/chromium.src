@@ -10,7 +10,6 @@
 #include "base/base64.h"
 #include "base/json/json_reader.h"
 #include "base/logging.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/values.h"
@@ -22,8 +21,8 @@
 #include "crypto/encryptor.h"
 #include "crypto/hmac.h"
 #include "crypto/symmetric_key.h"
-#include "net/cert/pem.h"
 #include "net/cert/x509_certificate.h"
+#include "third_party/boringssl/src/pki/pem.h"
 
 namespace chromeos::onc {
 namespace {
@@ -613,7 +612,7 @@ std::string DecodePEM(const std::string& pem_encoded) {
   pem_headers.push_back(kCertificateHeader);
   pem_headers.push_back(kX509CertificateHeader);
 
-  net::PEMTokenizer pem_tokenizer(pem_encoded, pem_headers);
+  bssl::PEMTokenizer pem_tokenizer(pem_encoded, pem_headers);
   std::string decoded;
   if (pem_tokenizer.GetNext()) {
     decoded = pem_tokenizer.data();
@@ -686,11 +685,6 @@ bool ParseAndValidateOncForImport(const std::string& onc_blob,
       validator.ValidateAndRepairObject(&kToplevelConfigurationSignature,
                                         toplevel_onc.value(),
                                         &validation_result);
-
-  if (from_policy) {
-    UMA_HISTOGRAM_BOOLEAN("Enterprise.ONC.PolicyValidation",
-                          validation_result == Validator::VALID);
-  }
 
   bool success = true;
   if (validation_result == Validator::VALID_WITH_WARNINGS) {

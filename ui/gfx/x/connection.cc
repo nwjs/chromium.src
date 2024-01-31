@@ -19,14 +19,28 @@
 #include "base/threading/thread_local.h"
 #include "base/trace_event/trace_event.h"
 #include "ui/gfx/switches.h"
+#include "ui/gfx/x/atom_cache.h"
 #include "ui/gfx/x/bigreq.h"
+#include "ui/gfx/x/dri3.h"
 #include "ui/gfx/x/event.h"
+#include "ui/gfx/x/glx.h"
 #include "ui/gfx/x/keyboard_state.h"
+#include "ui/gfx/x/property_cache.h"
 #include "ui/gfx/x/randr.h"
+#include "ui/gfx/x/render.h"
+#include "ui/gfx/x/screensaver.h"
+#include "ui/gfx/x/shape.h"
+#include "ui/gfx/x/shm.h"
+#include "ui/gfx/x/sync.h"
+#include "ui/gfx/x/visual_manager.h"
+#include "ui/gfx/x/window_event_manager.h"
+#include "ui/gfx/x/xfixes.h"
+#include "ui/gfx/x/xinput.h"
 #include "ui/gfx/x/xkb.h"
 #include "ui/gfx/x/xproto.h"
 #include "ui/gfx/x/xproto_internal.h"
 #include "ui/gfx/x/xproto_types.h"
+#include "ui/gfx/x/xtest.h"
 
 namespace x11 {
 
@@ -48,8 +62,7 @@ void DefaultIOErrorHandler() {
 
 class UnknownError : public Error {
  public:
-  explicit UnknownError(Connection::RawError error_bytes)
-      : error_bytes_(error_bytes) {}
+  explicit UnknownError(RawError error_bytes) : error_bytes_(error_bytes) {}
 
   ~UnknownError() override = default;
 
@@ -70,8 +83,15 @@ class UnknownError : public Error {
   }
 
  private:
-  Connection::RawError error_bytes_;
+  RawError error_bytes_;
 };
+
+Window GetWindowPropertyAsWindow(const GetPropertyResponse& value) {
+  if (const Window* wm_window = PropertyCache::GetAs<Window>(value)) {
+    return *wm_window;
+  }
+  return Window::None;
+}
 
 }  // namespace
 
@@ -106,7 +126,8 @@ Connection::Connection(const std::string& address)
                                                       : display_string_.c_str(),
                               &default_screen_id_),
                   xcb_disconnect),
-      io_error_handler_(base::BindOnce(DefaultIOErrorHandler)) {
+      io_error_handler_(base::BindOnce(DefaultIOErrorHandler)),
+      window_event_manager_(this) {
   DUMP_WILL_BE_CHECK(connection_);
   if (Ready()) {
     auto buf = ReadBuffer(base::MakeRefCounted<UnretainedRefCountedMemory>(
@@ -126,20 +147,7 @@ Connection::Connection(const std::string& address)
   }
 
   ExtensionManager::Init(this);
-  auto enable_bigreq = bigreq().Enable();
-  // Xlib enables XKB on display creation, so we do that here to maintain
-  // compatibility.
-  xkb()
-      .UseExtension({Xkb::major_version, Xkb::minor_version})
-      .OnResponse(base::BindOnce([](Xkb::UseExtensionResponse response) {
-        if (!response || !response->supported) {
-          DVLOG(1) << "Xkb extension not available.";
-        }
-      }));
-  Flush();
-  if (auto response = enable_bigreq.Sync()) {
-    extended_max_request_length_ = response->maximum_request_length;
-  }
+  InitializeExtensions();
 
   const Format* formats[256];
   memset(formats, 0, sizeof(formats));
@@ -161,6 +169,15 @@ Connection::Connection(const std::string& address)
   keyboard_state_ = CreateKeyboardState(this);
 
   InitErrorParsers();
+
+  atom_cache_ = std::make_unique<AtomCache>(this);
+
+  root_props_ = std::make_unique<PropertyCache>(
+      this, default_root(),
+      std::vector<Atom>{GetAtom("_NET_SUPPORTING_WM_CHECK"),
+                        GetAtom("_NET_SUPPORTED")},
+      base::BindRepeating(&Connection::OnRootPropertyChanged,
+                          base::Unretained(this)));
 }
 
 Connection::~Connection() {
@@ -182,77 +199,142 @@ XlibDisplay& Connection::GetXlibDisplay() {
   return *xlib_display_;
 }
 
-Connection::FutureImpl::FutureImpl(Connection* connection,
-                                   SequenceType sequence,
-                                   bool generates_reply,
-                                   const char* request_name_for_tracing)
-    : connection(connection),
-      sequence(sequence),
-      generates_reply(generates_reply),
-      request_name_for_tracing(request_name_for_tracing) {}
-
-void Connection::FutureImpl::Wait() {
-  connection->WaitForResponse(this);
+void Connection::DeleteProperty(Window window, Atom name) {
+  XProto::DeleteProperty({
+      .window = static_cast<Window>(window),
+      .property = name,
+  });
 }
 
-void Connection::FutureImpl::DispatchNow() {
-  Wait();
-  ProcessResponse();
+void Connection::SetStringProperty(Window window,
+                                   Atom property,
+                                   Atom type,
+                                   const std::string& value) {
+  std::vector<char> str(value.begin(), value.end());
+  SetArrayProperty(window, property, type, str);
 }
 
-bool Connection::FutureImpl::AfterEvent(const Event& event) const {
-  return CompareSequenceIds(event.sequence(), sequence) > 0;
+Window Connection::CreateDummyWindow(const std::string& name) {
+  auto window = GenerateId<Window>();
+  CreateWindow(CreateWindowRequest{
+      .wid = window,
+      .parent = default_root(),
+      .x = -100,
+      .y = -100,
+      .width = 10,
+      .height = 10,
+      .c_class = WindowClass::InputOnly,
+      .override_redirect = Bool32(true),
+  });
+  if (!name.empty()) {
+    SetStringProperty(window, Atom::WM_NAME, Atom::STRING, name);
+  }
+  return window;
 }
 
-void Connection::FutureImpl::Sync(RawReply* raw_reply,
-                                  std::unique_ptr<Error>* error) {
-  Wait();
-  TakeResponse(raw_reply, error);
+VisualManager& Connection::GetOrCreateVisualManager() {
+  if (!visual_manager_) {
+    visual_manager_ = std::make_unique<VisualManager>(this);
+  }
+  return *visual_manager_;
 }
 
-void Connection::FutureImpl::OnResponse(ResponseCallback callback) {
-  UpdateRequestHandler(std::move(callback));
+bool Connection::GetWmNormalHints(Window window, SizeHints* hints) {
+  std::vector<uint32_t> hints32;
+  if (!GetArrayProperty(window, Atom::WM_NORMAL_HINTS, &hints32)) {
+    return false;
+  }
+  if (hints32.size() != sizeof(SizeHints) / 4) {
+    return false;
+  }
+  memcpy(hints, hints32.data(), sizeof(*hints));
+  return true;
 }
 
-void Connection::FutureImpl::UpdateRequestHandler(ResponseCallback callback) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(connection->sequence_checker_);
-  DUMP_WILL_BE_CHECK(callback);
-
-  auto* request = connection->GetRequestForFuture(this);
-  // Make sure we haven't processed this request yet.
-  DUMP_WILL_BE_CHECK(request->callback);
-
-  request->callback = std::move(callback);
+void Connection::SetWmNormalHints(Window window, const SizeHints& hints) {
+  std::vector<uint32_t> hints32(sizeof(SizeHints) / 4);
+  memcpy(hints32.data(), &hints, sizeof(SizeHints));
+  SetArrayProperty(window, Atom::WM_NORMAL_HINTS, Atom::WM_SIZE_HINTS, hints32);
 }
 
-void Connection::FutureImpl::ProcessResponse() {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(connection->sequence_checker_);
-
-  auto* request = connection->GetRequestForFuture(this);
-  DUMP_WILL_BE_CHECK(request->callback);
-  DUMP_WILL_BE_CHECK(request->have_response);
-
-  std::move(request->callback)
-      .Run(std::move(request->reply), std::move(request->error));
+bool Connection::GetWmHints(Window window, WmHints* hints) {
+  std::vector<uint32_t> hints32;
+  if (!GetArrayProperty(window, Atom::WM_HINTS, &hints32)) {
+    return false;
+  }
+  if (hints32.size() != sizeof(WmHints) / 4) {
+    return false;
+  }
+  memcpy(hints, hints32.data(), sizeof(*hints));
+  return true;
 }
 
-void Connection::FutureImpl::TakeResponse(RawReply* raw_reply,
-                                          std::unique_ptr<Error>* error) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(connection->sequence_checker_);
+void Connection::SetWmHints(Window window, const WmHints& hints) {
+  std::vector<uint32_t> hints32(sizeof(WmHints) / 4);
+  memcpy(hints32.data(), &hints, sizeof(WmHints));
+  SetArrayProperty(window, Atom::WM_HINTS, Atom::WM_HINTS, hints32);
+}
 
-  auto* request = connection->GetRequestForFuture(this);
-  DUMP_WILL_BE_CHECK(request->callback);
-  DUMP_WILL_BE_CHECK(request->have_response);
+void Connection::WithdrawWindow(Window window) {
+  UnmapWindow({window});
 
-  *raw_reply = std::move(request->reply);
-  *error = std::move(request->error);
-  request->callback.Reset();
+  auto root = default_root();
+  UnmapNotifyEvent event{.event = root, .window = window};
+  auto mask = EventMask::SubstructureNotify | EventMask::SubstructureRedirect;
+  SendEvent(event, root, mask);
+}
+
+void Connection::RaiseWindow(Window window) {
+  ConfigureWindow(
+      ConfigureWindowRequest{.window = window, .stack_mode = StackMode::Above});
+}
+
+void Connection::LowerWindow(Window window) {
+  ConfigureWindow(
+      ConfigureWindowRequest{.window = window, .stack_mode = StackMode::Below});
+}
+
+void Connection::DefineCursor(Window window, Cursor cursor) {
+  ChangeWindowAttributes(
+      ChangeWindowAttributesRequest{.window = window, .cursor = cursor});
+}
+
+ScopedEventSelector Connection::ScopedSelectEvent(Window window,
+                                                  EventMask event_mask) {
+  return ScopedEventSelector(this, window, event_mask);
+}
+
+Atom Connection::GetAtom(const char* name) const {
+  return atom_cache_->GetAtom(name);
+}
+
+std::string Connection::GetWmName() const {
+  if (WmSupportsEwmh()) {
+    size_t size;
+    if (const char* name =
+            wm_props_->GetAs<char>(GetAtom("_NET_WM_NAME"), &size)) {
+      std::string wm_name;
+      wm_name.assign(name, size);
+      return wm_name;
+    }
+  }
+  return std::string();
+}
+
+bool Connection::WmSupportsHint(Atom atom) const {
+  if (WmSupportsEwmh()) {
+    size_t size;
+    if (const Atom* supported =
+            root_props_->GetAs<Atom>(GetAtom("_NET_SUPPORTED"), &size)) {
+      const Atom* end = supported + size;
+      return std::find(supported, end, atom) != end;
+    }
+  }
+  return false;
 }
 
 Connection::Request::Request(ResponseCallback callback)
-    : callback(std::move(callback)) {
-  DUMP_WILL_BE_CHECK(this->callback);
-}
+    : callback(std::move(callback)) {}
 
 Connection::Request::Request(Request&& other) = default;
 
@@ -494,6 +576,48 @@ void Connection::InitRootDepthAndVisual() {
   NOTREACHED();
 }
 
+void Connection::InitializeExtensions() {
+  auto bigreq_future = bigreq().Enable();
+  dri3().QueryVersion(Dri3::major_version, Dri3::minor_version);
+  glx().QueryVersion(Glx::major_version, Glx::minor_version);
+  auto randr_future =
+      randr().QueryVersion(RandR::major_version, RandR::minor_version);
+  auto render_future =
+      render().QueryVersion(Render::major_version, Render::minor_version);
+  auto screensaver_future = screensaver().QueryVersion(
+      ScreenSaver::major_version, ScreenSaver::minor_version);
+  shape().QueryVersion();
+  auto shm_future = shm().QueryVersion();
+  sync().Initialize(Sync::major_version, Sync::minor_version);
+  xfixes().QueryVersion(XFixes::major_version, XFixes::minor_version);
+  auto xinput_future =
+      xinput().XIQueryVersion(Input::major_version, Input::minor_version);
+  xkb().UseExtension({Xkb::major_version, Xkb::minor_version});
+  xtest().GetVersion(Test::major_version, Test::minor_version);
+
+  Flush();
+
+  if (auto response = bigreq_future.Sync()) {
+    extended_max_request_length_ = response->maximum_request_length;
+  }
+  if (auto response = randr_future.Sync()) {
+    randr_version_ = {response->major_version, response->minor_version};
+  }
+  if (auto response = render_future.Sync()) {
+    render_version_ = {response->major_version, response->minor_version};
+  }
+  if (auto response = screensaver_future.Sync()) {
+    screensaver_version_ = {response->server_major_version,
+                            response->server_minor_version};
+  }
+  if (auto response = shm_future.Sync()) {
+    shm_version_ = {response->major_version, response->minor_version};
+  }
+  if (auto response = xinput_future.Sync()) {
+    xinput_version_ = {response->major_version, response->minor_version};
+  }
+}
+
 void Connection::ProcessNextEvent() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DUMP_WILL_BE_CHECK(HasNextEvent());
@@ -522,7 +646,7 @@ void Connection::ProcessNextResponse() {
   }
 }
 
-std::unique_ptr<Connection::FutureImpl> Connection::SendRequest(
+std::unique_ptr<FutureImpl> Connection::SendRequestImpl(
     WriteBuffer* buf,
     const char* request_name_for_tracing,
     bool generates_reply,
@@ -597,10 +721,19 @@ std::unique_ptr<Connection::FutureImpl> Connection::SendRequest(
   }
 
   SequenceType next_request_id = first_request_id_ + requests_.size();
-  DUMP_WILL_BE_CHECK_EQ(CompareSequenceIds(next_request_id, sequence), 0);
 
-  // If we ever reach 2^32 outstanding requests, then bail because sequence IDs
-  // would no longer be unique.
+  // XCB inserts requests every 2^32 requests (or every 2^16 requests if
+  // all outstanding requests don't generate a reply).  Because it's difficult
+  // to track these, increment the sequence counter until ours matches XCB's.
+  CHECK_LT(CompareSequenceIds(sequence, next_request_id), 10);
+  while (CompareSequenceIds(sequence, next_request_id) > 0) {
+    requests_.emplace_back(ResponseCallback());
+    requests_.back().have_response = true;
+    next_request_id++;
+    // If we ever reach 2^32 outstanding requests, then bail because sequence
+    // IDs would no longer be unique.
+    CHECK_NE(next_request_id, first_request_id_);
+  }
   next_request_id++;
   DUMP_WILL_BE_CHECK_NE(next_request_id, first_request_id_);
 
@@ -637,12 +770,12 @@ void Connection::WaitForResponse(FutureImpl* future) {
 
   xcb_generic_error_t* error = nullptr;
   void* reply = nullptr;
-  if (future->generates_reply) {
-    if (!xcb_poll_for_reply(XcbConnection(), future->sequence, &reply,
+  if (future->generates_reply()) {
+    if (!xcb_poll_for_reply(XcbConnection(), future->sequence(), &reply,
                             &error)) {
       TRACE_EVENT1("ui", "xcb_wait_for_reply", "request",
-                   future->request_name_for_tracing);
-      reply = xcb_wait_for_reply(XcbConnection(), future->sequence, &error);
+                   future->request_name_for_tracing());
+      reply = xcb_wait_for_reply(XcbConnection(), future->sequence(), &error);
     }
   } else {
     // There's a special case here.  This request doesn't generate a reply, and
@@ -661,7 +794,7 @@ void Connection::WaitForResponse(FutureImpl* future) {
     } else {
       SequenceType last_non_void_offset =
           last_non_void_request_id_.value() - first_request_id_;
-      SequenceType sequence_offset = future->sequence - first_request_id_;
+      SequenceType sequence_offset = future->sequence() - first_request_id_;
       needs_extra_request_for_check = sequence_offset > last_non_void_offset;
     }
     if (needs_extra_request_for_check) {
@@ -678,8 +811,8 @@ void Connection::WaitForResponse(FutureImpl* future) {
 
     {
       TRACE_EVENT1("ui", "xcb_request_check", "request",
-                   future->request_name_for_tracing);
-      error = xcb_request_check(XcbConnection(), {future->sequence});
+                   future->request_name_for_tracing());
+      error = xcb_request_check(XcbConnection(), {future->sequence()});
     }
   }
   request->SetResponse(this, reply, error);
@@ -688,7 +821,7 @@ void Connection::WaitForResponse(FutureImpl* future) {
 Connection::Request* Connection::GetRequestForFuture(FutureImpl* future) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
-  SequenceType offset = future->sequence - first_request_id_;
+  SequenceType offset = future->sequence() - first_request_id_;
   DUMP_WILL_BE_CHECK_LT(offset, requests_.size());
   return &requests_[offset];
 }
@@ -763,6 +896,33 @@ std::unique_ptr<Error> Connection::ParseError(RawError error_bytes) {
 
 uint32_t Connection::GenerateIdImpl() {
   return xcb_generate_id(connection_.get());
+}
+
+void Connection::OnRootPropertyChanged(Atom property,
+                                       const GetPropertyResponse& value) {
+  Atom check_atom = GetAtom("_NET_SUPPORTING_WM_CHECK");
+  if (property == check_atom) {
+    wm_props_.reset();
+    Window wm_window = GetWindowPropertyAsWindow(value);
+    if (wm_window != Window::None) {
+      wm_props_ = std::make_unique<PropertyCache>(
+          this, wm_window,
+          std::vector<Atom>{check_atom, GetAtom("_NET_WM_NAME")});
+    }
+  }
+}
+
+bool Connection::WmSupportsEwmh() const {
+  Atom check_atom = GetAtom("_NET_SUPPORTING_WM_CHECK");
+  Window wm_window = GetWindowPropertyAsWindow(root_props_->Get(check_atom));
+
+  if (!wm_props_) {
+    return false;
+  }
+  if (const x11::Window* wm_check = wm_props_->GetAs<Window>(check_atom)) {
+    return *wm_check == wm_window;
+  }
+  return false;
 }
 
 }  // namespace x11

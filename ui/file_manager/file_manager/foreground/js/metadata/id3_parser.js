@@ -2,9 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import {MetadataParserLogger} from '../../../externs/metadata_worker_window.js';
-
-import {ByteReader} from './byte_reader.js';
+import {ByteReader, SeekOrigin} from './byte_reader.js';
 import {FunctionParallel} from './function_parallel.js';
 import {FunctionSequence} from './function_sequence.js';
 import {MetadataParser} from './metadata_parser.js';
@@ -16,7 +14,8 @@ import {MetadataParser} from './metadata_parser.js';
  */
 export class Id3Parser extends MetadataParser {
   /**
-   * @param {!MetadataParserLogger} parent A metadata dispatcher.
+   * @param {!import("./metadata_parser.js").MetadataParserLogger}
+   *     parent A metadata dispatcher.
    */
   constructor(parent) {
     super(parent, 'id3', /\.(mp3)$/i);
@@ -78,12 +77,12 @@ export class Id3Parser extends MetadataParser {
         // @ts-ignore: error TS4111: Property 'ENCODING' comes from an index
         // signature, so it must be accessed with ['ENCODING'].
       case Id3Parser.v2.ENCODING.UTF_16:
-        return reader.readNullTerminatedStringUTF16(true, size);
+        return reader.readNullTerminatedStringUtf16(true, size);
 
         // @ts-ignore: error TS4111: Property 'ENCODING' comes from an index
         // signature, so it must be accessed with ['ENCODING'].
       case Id3Parser.v2.ENCODING.UTF_16BE:
-        return reader.readNullTerminatedStringUTF16(false, size);
+        return reader.readNullTerminatedStringUtf16(false, size);
 
         // @ts-ignore: error TS4111: Property 'ENCODING' comes from an index
         // signature, so it must be accessed with ['ENCODING'].
@@ -244,7 +243,7 @@ export class Id3Parser extends MetadataParser {
 
     const frame = {};
 
-    reader.pushSeek(reader.tell(), ByteReader.SEEK_BEG);
+    reader.pushSeek(reader.tell(), SeekOrigin.SEEK_BEG);
 
     const position = reader.tell();
 
@@ -293,7 +292,7 @@ export class Id3Parser extends MetadataParser {
 
     reader.popSeek();
 
-    reader.seek(frame.size + frame.headerSize, ByteReader.SEEK_CUR);
+    reader.seek(frame.size + frame.headerSize, SeekOrigin.SEEK_CUR);
 
     return frame;
   }
@@ -310,7 +309,7 @@ export class Id3Parser extends MetadataParser {
     this.log('Starting id3 parser for ' + file.name);
 
     const id3v1Parser = new FunctionSequence(
-        'id3v1parser', [
+        [
           /**
            * Reads last 128 bytes of file in bytebuffer,
            * which passes further.
@@ -349,7 +348,7 @@ export class Id3Parser extends MetadataParser {
                 metadata.title = title;
               }
 
-              reader.seek(3 + 30, ByteReader.SEEK_BEG);
+              reader.seek(3 + 30, SeekOrigin.SEEK_BEG);
 
               const artist = reader.readNullTerminatedString(30).trim();
               if (artist.length > 0) {
@@ -358,7 +357,7 @@ export class Id3Parser extends MetadataParser {
                 metadata.artist = artist;
               }
 
-              reader.seek(3 + 30 + 30, ByteReader.SEEK_BEG);
+              reader.seek(3 + 30 + 30, SeekOrigin.SEEK_BEG);
 
               const album = reader.readNullTerminatedString(30).trim();
               if (album.length > 0) {
@@ -377,7 +376,7 @@ export class Id3Parser extends MetadataParser {
         this, () => {}, error => {});
 
     const id3v2Parser = new FunctionSequence(
-        'id3v2parser', [
+        [
           // @ts-ignore: error TS7006: Parameter 'file' implicitly has an 'any'
           // type.
           function readHead(file) {
@@ -546,7 +545,7 @@ export class Id3Parser extends MetadataParser {
     const metadataParser = new FunctionParallel(
         // @ts-ignore: error TS2322: Type 'FunctionSequence' is not assignable
         // to type 'Function'.
-        'mp3metadataParser', [id3v1Parser, id3v2Parser], this, () => {
+        [id3v1Parser, id3v2Parser], this, () => {
           callback.call(null, metadata);
         }, onError);
 

@@ -130,6 +130,7 @@ class ControlVHistogramRecorder;
 class CoralController;
 class CrosDisplayConfig;
 class DarkLightModeControllerImpl;
+class DeskProfilesDelegate;
 class DesksController;
 class DetachableBaseHandler;
 class DetachableBaseNotificationController;
@@ -197,13 +198,14 @@ class NightLightControllerImpl;
 class OcclusionTrackerPauser;
 class OverviewController;
 class ParentAccessController;
-class LocalAuthenticationRequestControllerImpl;
+class LocalAuthenticationRequestController;
 class PartialMagnifierController;
 class PciePeripheralNotificationController;
 class UsbPeripheralNotificationController;
 class PeripheralBatteryListener;
 class PeripheralBatteryNotifier;
 class PersistentWindowController;
+class PickerController;
 class PipController;
 class PolicyRecommendationRestorer;
 class PostLoginGlanceablesMetricsRecorder;
@@ -257,6 +259,7 @@ class UserMetricsRecorder;
 class VideoActivityNotifier;
 class VideoDetector;
 class WallpaperControllerImpl;
+class WindowBoundsTracker;
 class WindowCycleController;
 class WindowTreeHostManager;
 class WmModeController;
@@ -264,6 +267,10 @@ class ArcInputMethodBoundsTracker;
 class MultiCaptureServiceClient;
 
 enum class LoginStatus;
+
+namespace api {
+class TasksController;
+}  // namespace api
 
 namespace diagnostics {
 class DiagnosticsLogController;
@@ -378,9 +385,10 @@ class ASH_EXPORT Shell : public SessionObserver,
   // Called when dictation is ended.
   void OnDictationEnded();
 
-  // Returns whether the device is currently in tablet mode. If the tablet
-  // mode controller isn't available, we assume the device is not in
-  // tablet mode.
+  // DEPRECATED. Use display::Screen::GetScreen()->InTabletMode() instead.
+  // TODO(crbug.com/1502114): Remove this.
+  //
+  // Returns whether the device is currently in tablet mode.
   bool IsInTabletMode() const;
 
   // Tests if TabletModeWindowManager is not enabled, and if
@@ -604,7 +612,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   LocaleUpdateControllerImpl* locale_update_controller() {
     return locale_update_controller_.get();
   }
-  LocalAuthenticationRequestControllerImpl*
+  LocalAuthenticationRequestController*
   local_authentication_request_controller() {
     return local_authentication_request_controller_.get();
   }
@@ -655,6 +663,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   PeripheralBatteryListener* peripheral_battery_listener() {
     return peripheral_battery_listener_.get();
   }
+  PickerController* picker_controller() { return picker_controller_.get(); }
   PipController* pip_controller() { return pip_controller_.get(); }
   PolicyRecommendationRestorer* policy_recommendation_restorer() {
     return policy_recommendation_restorer_.get();
@@ -780,6 +789,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   WindowTreeHostManager* window_tree_host_manager() {
     return window_tree_host_manager_.get();
   }
+  WindowBoundsTracker* window_bounds_tracker() {
+    return window_bounds_tracker_.get();
+  }
   BackGestureEventHandler* back_gesture_event_handler() {
     return back_gesture_event_handler_.get();
   }
@@ -880,6 +892,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   LoginUnlockThroughputRecorder* login_unlock_throughput_recorder() {
     return login_unlock_throughput_recorder_.get();
   }
+
+  // Returns the DeskProfilesDelegate, or nullptr if it isn't available.
+  DeskProfilesDelegate* GetDeskProfilesDelegate();
 
  private:
   FRIEND_TEST_ALL_PREFIXES(ExtendedDesktopTest, TestCursor);
@@ -1034,10 +1049,11 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<NearbyShareControllerImpl> nearby_share_controller_;
   std::unique_ptr<NearbyShareDelegate> nearby_share_delegate_;
   std::unique_ptr<ParentAccessController> parent_access_controller_;
-  std::unique_ptr<LocalAuthenticationRequestControllerImpl>
+  std::unique_ptr<LocalAuthenticationRequestController>
       local_authentication_request_controller_;
   std::unique_ptr<PciePeripheralNotificationController>
       pcie_peripheral_notification_controller_;
+  std::unique_ptr<PickerController> picker_controller_;
   std::unique_ptr<PrivacyHubController> privacy_hub_controller_;
   std::unique_ptr<UsbPeripheralNotificationController>
       usb_peripheral_notification_controller_;
@@ -1066,6 +1082,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<SystemTrayModel> system_tray_model_;
   std::unique_ptr<SystemTrayNotifier> system_tray_notifier_;
   std::unique_ptr<SystemSoundsDelegate> system_sounds_delegate_;
+  std::unique_ptr<api::TasksController> tasks_controller_;
   std::unique_ptr<ToastManagerImpl> toast_manager_;
   std::unique_ptr<ClipboardHistoryControllerImpl> clipboard_history_controller_;
   std::unique_ptr<TouchDevicesController> touch_devices_controller_;
@@ -1089,6 +1106,7 @@ class ASH_EXPORT Shell : public SessionObserver,
   std::unique_ptr<VideoDetector> video_detector_;
   std::unique_ptr<WindowTreeHostManager> window_tree_host_manager_;
   std::unique_ptr<PersistentWindowController> persistent_window_controller_;
+  std::unique_ptr<WindowBoundsTracker> window_bounds_tracker_;
   std::unique_ptr<ColorEnhancementController> color_enhancement_controller_;
   std::unique_ptr<FullscreenMagnifierController>
       fullscreen_magnifier_controller_;

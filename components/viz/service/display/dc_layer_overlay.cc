@@ -68,9 +68,10 @@ enum DCLayerResult {
 
 bool IsCompatibleHDRMetadata(
     const absl::optional<gfx::HDRMetadata>& hdr_metadata) {
-  return hdr_metadata && hdr_metadata->smpte_st_2086 &&
-         hdr_metadata->smpte_st_2086->IsValid() && hdr_metadata->cta_861_3 &&
-         hdr_metadata->cta_861_3->IsValid();
+  return hdr_metadata &&
+         ((hdr_metadata->smpte_st_2086 &&
+           hdr_metadata->smpte_st_2086->IsValid()) ||
+          (hdr_metadata->cta_861_3 && hdr_metadata->cta_861_3->IsValid()));
 }
 
 DCLayerResult ValidateYUVOverlay(
@@ -108,10 +109,10 @@ DCLayerResult ValidateYUVOverlay(
 
   if (video_color_space.IsHDR()) {
     // Otherwise, it could be a parser bug like https://crbug.com/1362288 if the
-    // hdr metadata is still missing. Missing `smpte_st_2086` and `cta_861_3`
-    // could always cause intel driver crash when in HDR overlay mode, and
+    // hdr metadata is still missing. Missing `smpte_st_2086` or `cta_861_3`
+    // could always causes intel driver crash when in HDR overlay mode, and
     // technically as long as one of the `smpte_st_2086` or `cta_861_3` exists
-    // could solve the crash issue, but for safe reason, validate both here.
+    // could solve the crash issue.
     if (!IsCompatibleHDRMetadata(hdr_metadata)) {
       return DC_LAYER_FAILED_YUV_VIDEO_QUAD_NO_HDR_METADATA;
     }
@@ -192,10 +193,10 @@ DCLayerResult ValidateYUVQuad(
 
   if (quad->video_color_space.IsHDR()) {
     // Otherwise, it could be a parser bug like https://crbug.com/1362288 if the
-    // hdr metadata is still missing. Missing `smpte_st_2086` and `cta_861_3`
-    // could always cause intel driver crash when in HDR overlay mode, and
+    // hdr metadata is still missing. Missing `smpte_st_2086` or `cta_861_3`
+    // could always causes intel driver crash when in HDR overlay mode, and
     // technically as long as one of the `smpte_st_2086` or `cta_861_3` exists
-    // could solve the crash issue, but for safe reason, validate both here.
+    // could solve the crash issue.
     if (!IsCompatibleHDRMetadata(quad->hdr_metadata)) {
       return DC_LAYER_FAILED_YUV_VIDEO_QUAD_NO_HDR_METADATA;
     }
@@ -290,8 +291,7 @@ DCLayerResult ValidateTextureQuad(
   }
 
   if (quad->is_video_frame) {
-    auto color_space =
-        resource_provider->GetOverlayColorSpace(quad->resource_id());
+    auto color_space = resource_provider->GetColorSpace(quad->resource_id());
     auto buffer_format =
         resource_provider->GetBufferFormat(quad->resource_id());
     auto result = ValidateYUVOverlay(
@@ -338,8 +338,7 @@ void FromTextureQuad(const TextureDrawQuad* quad,
         quad->shared_quad_state->clip_rect.value_or(gfx::Rect()));
   }
 
-  dc_layer->color_space =
-      resource_provider->GetOverlayColorSpace(quad->resource_id());
+  dc_layer->color_space = resource_provider->GetColorSpace(quad->resource_id());
   dc_layer->hdr_metadata = quad->hdr_metadata;
   // Both color space and protected_video_type are hard-coded for stream video.
   // TODO(crbug.com/1384544): Consider using quad->protected_video_type.
@@ -732,7 +731,7 @@ void DCLayerOverlayProcessor::UpdateDamageRect(
         // We only support at most two overlays. The size of
         // damages_to_be_removed will not be bigger than 2. We should revisit
         // this damages_to_be_removed for-loop if we try to support many
-        // overlays. See capabilities.supports_two_yuv_hardware_overlays.
+        // overlays. See capabilities.allowed_yuv_overlay_count.
         for (const auto index_to_be_removed :
              current_frame_state.damages_to_be_removed) {
           // The overlay damages and the damages right below them will not be

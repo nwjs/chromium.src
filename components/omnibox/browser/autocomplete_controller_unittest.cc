@@ -17,10 +17,11 @@
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/autocomplete_scoring_model_service.h"
 #include "components/omnibox/browser/fake_autocomplete_provider_client.h"
-#include "components/omnibox/browser/omnibox_feature_configs.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/browser/omnibox_prefs.h"
 #include "components/omnibox/browser/test_scheme_classifier.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "components/prefs/pref_registry_simple.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -104,6 +105,9 @@ class AutocompleteControllerTest : public testing::Test {
   void SetUp() override {
     auto provider_client = std::make_unique<FakeAutocompleteProviderClient>();
 
+    omnibox::RegisterProfilePrefs(static_cast<PrefRegistrySimple*>(
+        provider_client->GetPrefs()->DeprecatedGetPrefRegistry()));
+
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB)
     provider_client->set_scoring_model_service(
         std::make_unique<FakeAutocompleteScoringModelService>());
@@ -113,7 +117,7 @@ class AutocompleteControllerTest : public testing::Test {
         std::move(provider_client), 0, false);
   }
 
-  void set_autocomplete_matches(std::vector<AutocompleteMatch>& matches) {
+  void set_autocomplete_matches(const std::vector<AutocompleteMatch>& matches) {
     controller_->internal_result_.Reset();
     controller_->internal_result_.AppendMatches(matches);
   }
@@ -145,10 +149,21 @@ class AutocompleteControllerTest : public testing::Test {
     return match;
   }
 
-  AutocompleteMatch CreateSearchSuggestion() {
+  AutocompleteMatch CreateSearchSuggestion(std::u16string contents = u"text") {
     AutocompleteMatch match;
     match.type = AutocompleteMatchType::Type::SEARCH_SUGGEST;
-    match.contents = u"text";
+    match.contents = contents;
+    return match;
+  }
+
+  AutocompleteMatch CreateStarterPackMatch(std::u16string keyword) {
+    AutocompleteMatch match;
+    match.type = AutocompleteMatchType::Type::STARTER_PACK;
+    match.contents = keyword;
+    match.keyword = keyword;
+    match.associated_keyword = std::make_unique<AutocompleteMatch>(
+        nullptr, 1000, false, AutocompleteMatchType::SEARCH_WHAT_YOU_TYPED);
+    match.associated_keyword->keyword = keyword;
     return match;
   }
 
@@ -349,14 +364,6 @@ TEST_F(AutocompleteControllerTest, RemoveCompanyEntityImage_MostAggressive) {
 #if BUILDFLAG(BUILD_WITH_TFLITE_LIB) && !BUILDFLAG(IS_ANDROID) && \
     !BUILDFLAG(IS_IOS)
 TEST_F(AutocompleteControllerTest, MlRanking) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeatureWithParameters(
-      omnibox_feature_configs::ShortcutBoosting::kShortcutBoost,
-      {
-          {"ShortcutBoostNonTopHitThreshold", "2"},
-          {"ShortcutBoostGroupWithSearches", "true"},
-      });
-
   EXPECT_THAT(MlRank({}), testing::ElementsAre());
 
   // Even if ML ranks a URL 0, it should still use traditional scores.
@@ -518,3 +525,30 @@ TEST_F(AutocompleteControllerTest, MlRanking) {
 }
 #endif  //  BUILDFLAG(BUILD_WITH_TFLITE_LIB) && !BUILDFLAG(IS_ANDROID) &&
         //  !BUILDFLAG(IS_IOS)
+
+TEST_F(AutocompleteControllerTest, FilterMatchesForInstantKeywordWithBareAt) {
+  base::test::ScopedFeatureList feature_list(
+      omnibox::kOmniboxKeywordModeRefresh);
+
+  set_autocomplete_matches({
+      CreateSearchSuggestion(u"@"),
+      CreateCompanyEntityMatch("https://example.com"),
+      CreateHistoryURLMatch("https://example.com"),
+      CreateStarterPackMatch(u"@bookmarks"),
+      CreateStarterPackMatch(u"@history"),
+      CreateStarterPackMatch(u"@tabs"),
+  });
+
+  AutocompleteInput input(u"@", 1u, metrics::OmniboxEventProto::OTHER,
+                          TestSchemeClassifier());
+  controller_->MaybeCleanSuggestionsForKeywordMode(
+      input, &controller_->internal_result_);
+
+  EXPECT_EQ(controller_->internal_result_.size(), 4u);
+  EXPECT_TRUE(
+      std::all_of(controller_->internal_result_.begin(),
+                  controller_->internal_result_.end(), [](const auto& match) {
+                    return match.type == AutocompleteMatchType::STARTER_PACK ||
+                           match.contents == u"@";
+                  }));
+}

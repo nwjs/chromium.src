@@ -5,7 +5,7 @@
 #ifndef IOS_CHROME_BROWSER_UI_RECENT_TABS_RECENT_TABS_TABLE_VIEW_CONTROLLER_H_
 #define IOS_CHROME_BROWSER_UI_RECENT_TABS_RECENT_TABS_TABLE_VIEW_CONTROLLER_H_
 
-#import "ios/chrome/browser/shared/ui/table_view/chrome_table_view_controller.h"
+#import "ios/chrome/browser/shared/ui/table_view/legacy_chrome_table_view_controller.h"
 #import "ios/chrome/browser/ui/recent_tabs/recent_tabs_consumer.h"
 #include "ui/base/window_open_disposition.h"
 
@@ -24,8 +24,8 @@ struct DistantSession;
 @protocol TableViewFaviconDataSource;
 
 @interface RecentTabsTableViewController
-    : ChromeTableViewController <RecentTabsConsumer,
-                                 UIAdaptivePresentationControllerDelegate>
+    : LegacyChromeTableViewController <RecentTabsConsumer,
+                                       UIAdaptivePresentationControllerDelegate>
 // The Browser for the tabs being restored. It's an error to pass a nullptr
 // Browser.
 @property(nonatomic, assign) Browser* browser;
@@ -58,6 +58,11 @@ struct DistantSession;
 
 // Multi-window session for this vc's recent tabs.
 @property(nonatomic, weak) UISceneSession* session;
+
+// Whether the grid is scrolled to the top.
+@property(nonatomic, readonly, getter=isScrolledToTop) BOOL scrolledToTop;
+// Whether the grid is scrolled to the bottom.
+@property(nonatomic, readonly, getter=isScrolledToBottom) BOOL scrolledToBottom;
 
 // Initializers.
 - (instancetype)init NS_DESIGNATED_INITIALIZER;

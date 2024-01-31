@@ -179,8 +179,16 @@ class NativeRendererMessagingService::MessagePortScope
   }
 
   mojom::MessagePortHost* GetMessagePortHost(const PortId& port_id) {
+    auto* result = GetMessagePortHostIfExists(port_id);
+    CHECK(result);
+    return result;
+  }
+
+  mojom::MessagePortHost* GetMessagePortHostIfExists(const PortId& port_id) {
     auto it = message_port_hosts_.find(port_id);
-    CHECK(it != message_port_hosts_.end());
+    if (it == message_port_hosts_.end()) {
+      return nullptr;
+    }
     return it->second.get();
   }
 
@@ -830,9 +838,16 @@ gin::Handle<GinPort> NativeRendererMessagingService::CreatePort(
   else
     DCHECK_NE(port_id.context_id, script_context->context_id());
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_LEGACY_IPC)
   content::RenderFrame* render_frame = script_context->GetRenderFrame();
   int routing_id =
       render_frame ? render_frame->GetRoutingID() : MSG_ROUTING_NONE;
+#else
+  // We do not use routing_id for anything in the mojo based IPC mechanism.
+  // TODO(dtapuska): Remove this and clean up the API when build flag is
+  // removed.
+  int routing_id = MSG_ROUTING_NONE;
+#endif
 
   MessagingPerContextData* data =
       GetPerContextData<MessagingPerContextData>(context, kCreateIfMissing);
@@ -893,6 +908,14 @@ mojom::MessagePortHost* NativeRendererMessagingService::GetMessagePortHost(
     const PortId& port_id) {
   return GetMessagePortScope(script_context->GetRenderFrame())
       ->GetMessagePortHost(port_id);
+}
+
+mojom::MessagePortHost*
+NativeRendererMessagingService::GetMessagePortHostIfExists(
+    ScriptContext* script_context,
+    const PortId& port_id) {
+  return GetMessagePortScope(script_context->GetRenderFrame())
+      ->GetMessagePortHostIfExists(port_id);
 }
 
 base::SafeRef<NativeRendererMessagingService>

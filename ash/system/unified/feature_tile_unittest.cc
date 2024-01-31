@@ -4,7 +4,6 @@
 
 #include "ash/system/unified/feature_tile.h"
 
-#include "ash/constants/ash_features.h"
 #include "ash/constants/quick_settings_catalogs.h"
 #include "ash/shell.h"
 #include "ash/system/tray/tray_constants.h"
@@ -15,18 +14,22 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
-#include "base/test/scoped_feature_list.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/accessibility/ax_node_data.h"
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
+#include "ui/gfx/geometry/rrect_f.h"
 #include "ui/views/animation/ink_drop.h"
 #include "ui/views/animation/ink_drop_state.h"
+#include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/test/views_test_utils.h"
+#include "ui/views/view_class_properties.h"
 
 namespace ash {
+
+constexpr int kDefaultButtonRadius = 16;
 
 namespace {
 
@@ -100,8 +103,7 @@ class MockFeaturePodController : public FeaturePodControllerBase {
 
 class FeatureTileTest : public AshTestBase {
  public:
-  FeatureTileTest() { feature_list_.InitAndEnableFeature(features::kQsRevamp); }
-
+  FeatureTileTest() = default;
   FeatureTileTest(const FeatureTileTest&) = delete;
   FeatureTileTest& operator=(const FeatureTileTest&) = delete;
   ~FeatureTileTest() override = default;
@@ -124,9 +126,6 @@ class FeatureTileTest : public AshTestBase {
   }
 
   std::unique_ptr<views::Widget> widget_;
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
 TEST_F(FeatureTileTest, PrimaryTile_LaunchSurface) {
@@ -302,7 +301,7 @@ TEST_F(FeatureTileTest, PrimaryTile_ToggleWithDecorativeDrillIn) {
 }
 
 TEST_F(FeatureTileTest, PrimaryTile_WithSubLabel) {
-  FeatureTile primary_tile_with_sub_label(base::DoNothing(),
+  FeatureTile primary_tile_with_sub_label(views::Button::PressedCallback(),
                                           /*is_togglable=*/true,
                                           FeatureTile::TileType::kPrimary);
   primary_tile_with_sub_label.SetLabel(u"Button label");
@@ -314,10 +313,34 @@ TEST_F(FeatureTileTest, PrimaryTile_WithSubLabel) {
   EXPECT_EQ((int)primary_tile_with_sub_label.label()->GetMaxLines(), 0);
 }
 
+TEST_F(FeatureTileTest, PrimaryTile_UpdatedCornerRadius) {
+  int updated_radius = 10;
+  auto mock_controller =
+      std::make_unique<MockFeaturePodController>(/*togglable=*/false);
+  auto* tile = widget_->SetContentsView(mock_controller->CreateTile());
+
+  // Verify the initial tile state utilizes the default radius.
+  views::RoundRectHighlightPathGenerator* path_generator =
+      static_cast<views::RoundRectHighlightPathGenerator*>(
+          tile->GetProperty(views::kHighlightPathGeneratorKey));
+  gfx::RectF bounds = gfx::RectF(tile->GetLocalBounds());
+  EXPECT_EQ(path_generator->GetRoundRect(bounds),
+            gfx::RRectF(bounds, kDefaultButtonRadius));
+
+  tile->SetButtonCornerRadius(updated_radius);
+
+  // Verify the tile utilizes the updated radius.
+  path_generator = static_cast<views::RoundRectHighlightPathGenerator*>(
+      tile->GetProperty(views::kHighlightPathGeneratorKey));
+  bounds = gfx::RectF(tile->GetLocalBounds());
+  EXPECT_EQ(path_generator->GetRoundRect(bounds),
+            gfx::RRectF(bounds, updated_radius));
+}
+
 TEST_F(FeatureTileTest, CompactTile_AddedAndRemoveSubLabel) {
   // Create initial compact `FeatureTile` without a sub-label and verify default
   // parameters.
-  FeatureTile compact_tile_with_sub_label(base::DoNothing(),
+  FeatureTile compact_tile_with_sub_label(views::Button::PressedCallback(),
                                           /*is_togglable=*/true,
                                           FeatureTile::TileType::kCompact);
   compact_tile_with_sub_label.SetLabel(u"Button label");
@@ -391,7 +414,7 @@ TEST_F(FeatureTileTest, CompactTile_Toggle) {
 
 TEST_F(FeatureTileTest, TogglingTileUpdatesInkDropColor) {
   auto* tile = widget_->SetContentsView(
-      std::make_unique<FeatureTile>(base::DoNothing()));
+      std::make_unique<FeatureTile>(views::Button::PressedCallback()));
   auto* color_provider = tile->GetColorProvider();
 
   tile->SetToggled(true);
@@ -418,7 +441,8 @@ TEST_F(FeatureTileTest, TogglingTileHidesInkDrop) {
 
 TEST_F(FeatureTileTest, AccessibilityRoles) {
   // Togglable feature tiles (like Do Not Disturb) have role "toggle button".
-  FeatureTile togglable_tile(base::DoNothing(), /*is_togglable=*/true);
+  FeatureTile togglable_tile(views::Button::PressedCallback(),
+                             /*is_togglable=*/true);
   togglable_tile.SetToggled(true);
   ui::AXNodeData node_data;
   togglable_tile.GetAccessibleNodeData(&node_data);
@@ -440,7 +464,8 @@ TEST_F(FeatureTileTest, AccessibilityRoles) {
   EXPECT_EQ(node_data3.role, ax::mojom::Role::kButton);
 
   // Non-togglable feature tiles are just buttons.
-  FeatureTile non_togglable_tile(base::DoNothing(), /*is_togglable=*/false);
+  FeatureTile non_togglable_tile(views::Button::PressedCallback(),
+                                 /*is_togglable=*/false);
   ui::AXNodeData node_data4;
   non_togglable_tile.GetAccessibleNodeData(&node_data4);
   EXPECT_EQ(node_data4.role, ax::mojom::Role::kButton);

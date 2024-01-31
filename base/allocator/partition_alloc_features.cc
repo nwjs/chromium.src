@@ -110,6 +110,18 @@ MIRACLE_PARAMETER_FOR_INT(
 BASE_FEATURE(kPartitionAllocLargeEmptySlotSpanRing,
              "PartitionAllocLargeEmptySlotSpanRing",
              FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kPartitionAllocSchedulerLoopQuarantine,
+             "PartitionAllocSchedulerLoopQuarantine",
+             FEATURE_DISABLED_BY_DEFAULT);
+// Scheduler Loop Quarantine's capacity in bytes.
+const base::FeatureParam<int> kPartitionAllocSchedulerLoopQuarantineCapacity{
+    &kPartitionAllocSchedulerLoopQuarantine,
+    "PartitionAllocSchedulerLoopQuarantineCapacity", 0};
+
+BASE_FEATURE(kPartitionAllocZappingByFreeFlags,
+             "PartitionAllocZappingByFreeFlags",
+             FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)
 
 BASE_FEATURE(kPartitionAllocBackupRefPtr,
@@ -426,6 +438,12 @@ MIRACLE_PARAMETER_FOR_INT(
 BASE_FEATURE(kPartitionAllocDisableBRPInBufferPartition,
              "PartitionAllocDisableBRPInBufferPartition",
              FEATURE_DISABLED_BY_DEFAULT);
+
+#if BUILDFLAG(USE_FREELIST_POOL_OFFSETS)
+BASE_FEATURE(kUsePoolOffsetFreelists,
+             "PartitionAllocUsePoolOffsetFreelists",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 }  // namespace features
 }  // namespace base

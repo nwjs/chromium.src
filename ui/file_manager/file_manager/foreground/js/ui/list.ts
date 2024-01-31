@@ -7,10 +7,13 @@ import {assert} from 'chrome://resources/js/assert.js';
 
 import {ArrayDataModel} from '../../../common/js/array_data_model.js';
 import {boolAttrSetter, decorate, PropertyChangeEvent} from '../../../common/js/cr_ui.js';
+import {isNullOrUndefined} from '../../../common/js/util.js';
+import type {ArrayDataModelChangeEvent} from '../../../definitions/array_data_model_events.js';
 
 import {createListItem, ListItem} from './list_item.js';
 import {ListSelectionController} from './list_selection_controller.js';
-import {ListSelectionModel} from './list_selection_model.js';
+import {ListSelectionModel, SelectionChangeEvent} from './list_selection_model.js';
+import {ListSingleSelectionModel} from './list_single_selection_model.js';
 
 /**
  * @fileoverview This implements a list control.
@@ -27,23 +30,11 @@ interface Size {
 
 type EventHandler = (event: Event) => void;
 
-// TODO: Move the event when list_selection_model is converted to TS.
-type SelectionModelChangeEvent = Event&{
-  changes: Array<{
-    index: number,
-    selected: boolean,
-  }>,
-};
-
 // TODO: Move ArrayDataModel event types when array_data_model is converted to
 // TS.
 type ArrayDataModelPermutationEvent = Event&{
   permutation: number[],
   newLength: number,
-};
-
-type ArrayDataModelChangeEvent = Event&{
-  index: number,
 };
 
 /**
@@ -111,7 +102,8 @@ export class List extends HTMLUListElement {
   protected itemConstructor_: (...args: any[]) => ListItem = createListItem;
 
   private dataModel_: ArrayDataModel|null = null;
-  private selectionModel_: ListSelectionModel|null = null;
+  private selectionModel_: ListSelectionModel|ListSingleSelectionModel|null =
+      null;
   private selectionController_: ListSelectionController|null = null;
 
   /**
@@ -131,10 +123,12 @@ export class List extends HTMLUListElement {
 
   private boundHandleDataModelPermuted_: EventHandler|null = null;
   private boundHandleDataModelChange_: EventHandler|null = null;
-  private boundHandleOnChange_: EventHandler|null = null;
+  private boundHandleOnChange_: EventListenerOrEventListenerObject|null = null;
   private boundHandleLeadChange_: EventHandler|null = null;
   protected beforeFiller_: HTMLElement|null = null;
   protected afterFiller_: HTMLElement|null = null;
+  /** Managed by DragSelector */
+  cachedBounds: DOMRect|null = null;
 
   /**
    * Function used to create grid items.
@@ -154,7 +148,7 @@ export class List extends HTMLUListElement {
   /**
    * The data model driving the list.
    */
-  set dataModel(dataModel: ArrayDataModel) {
+  set dataModel(dataModel: ArrayDataModel|null) {
     if (this.dataModel_ === dataModel) {
       return;
     }
@@ -162,7 +156,8 @@ export class List extends HTMLUListElement {
     if (!this.boundHandleDataModelPermuted_) {
       this.boundHandleDataModelPermuted_ =
           this.handleDataModelPermuted_.bind(this);
-      this.boundHandleDataModelChange_ = this.handleDataModelChange_.bind(this);
+      this.boundHandleDataModelChange_ =
+          this.handleDataModelChange_.bind(this) as EventListener;
     }
 
     if (this.dataModel_) {
@@ -198,17 +193,18 @@ export class List extends HTMLUListElement {
   /**
    * The selection model to use.
    */
-  get selectionModel(): ListSelectionModel|null {
+  get selectionModel(): ListSelectionModel|ListSingleSelectionModel|null {
     return this.selectionModel_;
   }
-  set selectionModel(sm: ListSelectionModel) {
+  set selectionModel(sm: ListSelectionModel|ListSingleSelectionModel) {
     const oldSm = this.selectionModel_;
     if (oldSm === sm) {
       return;
     }
 
     if (!this.boundHandleOnChange_) {
-      this.boundHandleOnChange_ = this.handleOnChange_.bind(this);
+      this.boundHandleOnChange_ =
+          this.handleOnChange_.bind(this) as EventListenerOrEventListenerObject;
       this.boundHandleLeadChange_ = this.handleLeadChange.bind(this);
     }
 
@@ -263,7 +259,7 @@ export class List extends HTMLUListElement {
     if (dataModel) {
       const index = this.selectionModel!.selectedIndex;
       if (index !== -1) {
-        return dataModel.item(index);
+        return dataModel.item(index) ?? null;
       }
     }
     return null;
@@ -284,7 +280,10 @@ export class List extends HTMLUListElement {
     const indexes = this.selectionModel!.selectedIndexes;
     const dataModel = this.dataModel;
     if (dataModel) {
-      return indexes.map(i => dataModel.item(i));
+      return indexes
+          .map(i => dataModel.item(i))
+          // b/307500990 somehow this was getting invalid indexes.
+          .filter(item => item !== undefined);
     }
     return [];
   }
@@ -349,7 +348,11 @@ export class List extends HTMLUListElement {
     this.fixedHeight_ = true;
     this.remainingSpace_ = true;
     this.batchCount_ = 0;
-    this.itemConstructor_ = createListItem;
+    this.itemConstructor_ = (label: string) => {
+      const item = createListItem();
+      item.label = label;
+      return item;
+    };
 
     const length = this.dataModel ? this.dataModel.length : 0;
     this.selectionModel = new ListSelectionModel(length);
@@ -637,9 +640,8 @@ export class List extends HTMLUListElement {
    * @param event Event with change info.
    * @private
    */
-  private handleOnChange_(event: Event) {
-    const ce = event as SelectionModelChangeEvent;
-    const changes = ce.changes || [];
+  private handleOnChange_(event: SelectionChangeEvent) {
+    const changes = event.detail.changes || [];
     for (const change of changes) {
       const listItem = this.getListItemByIndex(change.index);
       if (listItem) {
@@ -742,14 +744,17 @@ export class List extends HTMLUListElement {
     this.endBatchUpdates();
   }
 
-  private handleDataModelChange_(event: Event) {
-    const e = event as ArrayDataModelChangeEvent;
-    delete this.cachedItems_[e.index];
-    delete this.cachedItemHeights_[e.index];
+  private handleDataModelChange_(event: ArrayDataModelChangeEvent) {
+    if (isNullOrUndefined(event.detail.index)) {
+      return;
+    }
+    const eventIndex = event.detail.index;
+    delete this.cachedItems_[eventIndex];
+    delete this.cachedItemHeights_[eventIndex];
     this.cachedMeasuredItem_ = null;
 
-    if (e.index >= this.firstIndex_ &&
-        (e.index < this.lastIndex_ || this.remainingSpace_)) {
+    if (eventIndex >= this.firstIndex_ &&
+        (eventIndex < this.lastIndex_ || this.remainingSpace_)) {
       this.redraw();
     }
   }
@@ -891,10 +896,6 @@ export class List extends HTMLUListElement {
    */
   createItem(label: string): ListItem {
     const item = this.itemConstructor_(label);
-    item.label = label;
-    if (typeof item.decorate === 'function') {
-      item.decorate();
-    }
     return item;
   }
 
@@ -903,7 +904,8 @@ export class List extends HTMLUListElement {
    * @param sm The underlying selection model.
    * @return The newly created selection controller.
    */
-  createSelectionController(sm: ListSelectionModel): ListSelectionController {
+  createSelectionController(sm: ListSelectionModel|
+                            ListSingleSelectionModel): ListSelectionController {
     return new ListSelectionController(sm);
   }
 

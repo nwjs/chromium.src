@@ -79,8 +79,7 @@ void UpdateIconKey(apps::AppServiceProxy& proxy, const std::string& app_id) {
       app_id, [&app_type, &icon_key](const apps::AppUpdate& update) {
         app_type = update.AppType();
         icon_key = std::make_unique<apps::IconKey>(
-            update.IconKey()->timeline + 1, update.IconKey()->resource_id,
-            update.IconKey()->icon_effects);
+            /*raw_icon_updated=*/true, update.IconKey()->icon_effects);
       });
 
   std::vector<apps::AppPtr> apps;
@@ -139,11 +138,11 @@ TEST_F(AppSearchProviderTest, Basic) {
   EXPECT_EQ("Hosted App", RunQuery("host"));
 
   result = RunQuery("fake");
-  EXPECT_TRUE(result == "Fake App 0,Fake App 1" ||
-              result == "Fake App 1,Fake App 0");
-  result = RunQuery("app1");
-  EXPECT_TRUE(result == "Packaged App 1,Fake App 1" ||
-              result == "Fake App 1,Packaged App 1");
+  EXPECT_TRUE(result == "Fake App 1,Fake App 2" ||
+              result == "Fake App 2,Fake App 1");
+  result = RunQuery("app2");
+  EXPECT_TRUE(result == "Packaged App 2,Fake App 2" ||
+              result == "Fake App 2,Packaged App 2");
   arc_test().TearDown();
 }
 
@@ -242,7 +241,7 @@ TEST_F(AppSearchProviderTest, InstallUninstallArc) {
   InitializeSearchProvider();
 
   EXPECT_EQ("", GetSortedResultsString());
-  EXPECT_EQ("", RunQuery("fake0"));
+  EXPECT_EQ("", RunQuery("fake1"));
 
   arc_apps.emplace_back(arc_test().fake_apps()[0]->Clone());
   arc_test().app_instance()->SendRefreshAppList(arc_apps);
@@ -250,7 +249,7 @@ TEST_F(AppSearchProviderTest, InstallUninstallArc) {
   // Allow async callbacks to run.
   base::RunLoop().RunUntilIdle();
 
-  EXPECT_EQ("Fake App 0", RunQuery("fake0"));
+  EXPECT_EQ("Fake App 1", RunQuery("fake1"));
 
   arc_apps.clear();
   arc_test().app_instance()->SendRefreshAppList(arc_apps);
@@ -259,7 +258,7 @@ TEST_F(AppSearchProviderTest, InstallUninstallArc) {
   base::RunLoop().RunUntilIdle();
 
   EXPECT_EQ("", GetSortedResultsString());
-  EXPECT_EQ("", RunQuery("fake0"));
+  EXPECT_EQ("", RunQuery("fake1"));
 
   // Let uninstall code to clean up.
   base::RunLoop().RunUntilIdle();
@@ -457,8 +456,8 @@ TEST_F(AppSearchProviderTest, AppServiceIconCache) {
       proxy->OverrideInnerIconLoaderForTesting(&stub_icon_loader);
 
   // Insert dummy map values so that the stub_icon_loader knows of these apps.
-  stub_icon_loader.timelines_by_app_id_[kPackagedApp1Id] = 1;
-  stub_icon_loader.timelines_by_app_id_[kPackagedApp2Id] = 2;
+  stub_icon_loader.update_version_by_app_id_[kPackagedApp1Id] = 1;
+  stub_icon_loader.update_version_by_app_id_[kPackagedApp2Id] = 2;
 
   // The stub_icon_loader should start with no LoadIconFromIconKey calls.
   InitializeSearchProvider();

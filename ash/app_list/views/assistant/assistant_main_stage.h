@@ -67,13 +67,14 @@ class ASH_EXPORT AppListAssistantMainStage
   void OnUiVisibilityChanged(
       AssistantVisibility new_visibility,
       AssistantVisibility old_visibility,
-      absl::optional<AssistantEntryPoint> entry_point,
-      absl::optional<AssistantExitPoint> exit_point) override;
+      std::optional<AssistantEntryPoint> entry_point,
+      std::optional<AssistantExitPoint> exit_point) override;
 
   void InitializeUIForBubbleView();
 
  private:
   void InitLayout();
+  void InitLayoutWithIph();
   std::unique_ptr<views::View> CreateContentLayoutContainer();
   std::unique_ptr<views::View> CreateMainContentLayoutContainer();
   std::unique_ptr<views::View> CreateDividerLayoutContainer();
@@ -82,7 +83,7 @@ class ASH_EXPORT AppListAssistantMainStage
   void AnimateInZeroState();
   void AnimateInFooter();
 
-  void MaybeHideZeroState();
+  void MaybeHideZeroStateAndShowFooter();
   void InitializeUIForStartingSession(bool from_search);
 
   const raw_ptr<AssistantViewDelegate, ExperimentalAsh>

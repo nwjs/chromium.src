@@ -46,11 +46,12 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
 
     private final @NonNull Activity mActivity;
     private final @NonNull TabSupplierObserver mTabSupplierObserver;
-    private final @NonNull EdgeToEdgeOSWrapper mEdgeToEdgeOSWrapper;
     private final @NonNull TabObserver mTabObserver;
 
     /** Multiplier to convert from pixels to DPs. */
     private final float mPxToDp;
+
+    private @NonNull EdgeToEdgeOSWrapper mEdgeToEdgeOSWrapper;
 
     private Tab mCurrentTab;
     private WebContentsObserver mWebContentsObserver;
@@ -76,12 +77,13 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
         mEdgeToEdgeOSWrapper =
                 edgeToEdgeOSWrapper == null ? new EdgeToEdgeOSWrapperImpl() : edgeToEdgeOSWrapper;
         mPxToDp = 1.f / mActivity.getResources().getDisplayMetrics().density;
-        mTabSupplierObserver = new TabSupplierObserver(tabObservableSupplier) {
-            @Override
-            protected void onObservingDifferentTab(Tab tab) {
-                onTabSwitched(tab);
-            }
-        };
+        mTabSupplierObserver =
+                new TabSupplierObserver(tabObservableSupplier) {
+                    @Override
+                    protected void onObservingDifferentTab(Tab tab) {
+                        onTabSwitched(tab);
+                    }
+                };
         mTabObserver =
                 new EmptyTabObserver() {
                     @Override
@@ -155,7 +157,7 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
         if (toEdge == mIsActivityToEdge) return;
 
         mIsActivityToEdge = toEdge;
-        Log.v(TAG, "Switching " + (toEdge ? "ToEdge" : "ToNormal"));
+        Log.v(TAG, "Switching %s", (toEdge ? "ToEdge" : "ToNormal"));
         View rootView = mActivity.findViewById(viewId);
         assert rootView != null : "Root view for Edge To Edge not found!";
 
@@ -173,10 +175,10 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
                                                 + WindowInsets.Type.statusBars());
                         if (!newInsets.equals(mSystemInsets)) {
                             mSystemInsets = newInsets;
-                            Log.w(TAG, "System Bar insets changed to %s", mSystemInsets);
+                            Log.w(TAG, "System Bar insets changed to: %s", mSystemInsets);
                             // Note that we cannot adjustEdges earlier since we need the system
                             // insets.
-                            adjustEdges(toEdge, viewId, webContents);
+                            adjustEdges(mIsActivityToEdge, viewId, webContents);
                         }
                         return windowInsets;
                     });
@@ -212,8 +214,7 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
         // underneath.
         // TODO(donnd): Use an appropriate background color when not transparent.
         //     For the web we may need to call Blink or some system background color API.
-        @ColorInt
-        int navBarColor = toEdge ? Color.TRANSPARENT : Color.BLACK;
+        @ColorInt int navBarColor = toEdge ? Color.TRANSPARENT : Color.BLACK;
         mEdgeToEdgeOSWrapper.setNavigationBarColor(mActivity.getWindow(), navBarColor);
 
         if (webContents != null) pushInsetsToBlink(toEdge, webContents);
@@ -292,14 +293,18 @@ public class EdgeToEdgeControllerImpl implements EdgeToEdgeController {
     }
 
     @VisibleForTesting
-    @Nullable
-    WebContentsObserver getWebContentsObserver() {
-        return mWebContentsObserver;
+    public boolean isToEdge() {
+        return mIsActivityToEdge;
+    }
+
+    public void setOsWrapperForTesting(EdgeToEdgeOSWrapper testOsWrapper) {
+        mEdgeToEdgeOSWrapper = testOsWrapper;
     }
 
     @VisibleForTesting
-    boolean isToEdge() {
-        return mIsActivityToEdge;
+    @Nullable
+    WebContentsObserver getWebContentsObserver() {
+        return mWebContentsObserver;
     }
 
     void setToEdgeForTesting(boolean toEdge) {

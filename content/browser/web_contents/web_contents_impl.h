@@ -119,18 +119,17 @@ enum class PictureInPictureResult;
 class BeforeUnloadBlockingDelegate;  // content_browser_test_utils_internal.h
 class BrowserPluginEmbedder;
 class BrowserPluginGuest;
-class DisplayCutoutHostImpl;
 class FindRequestManager;
 class JavaScriptDialogManager;
 class MediaWebContentsObserver;
 class NFCHost;
-class Portal;
 class RenderFrameHost;
 class RenderFrameHostImpl;
 class RenderViewHost;
 class RenderViewHostDelegateView;
 class RenderWidgetHostImpl;
 class RenderWidgetHostInputEventRouter;
+class SafeAreaInsetsHost;
 class SavePackage;
 class ScreenChangeMonitor;
 class ScreenOrientationProvider;
@@ -334,7 +333,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   std::string GetTitleForMediaControls();
 
   // WebContents ------------------------------------------------------
-  WebContentsDelegate* GetDelegate() override;
+  WebContentsDelegate* GetDelegate() final;
   void SetDelegate(WebContentsDelegate* delegate) override;
   NavigationControllerImpl& GetController() override;
   BrowserContext* GetBrowserContext() override;
@@ -372,7 +371,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool ShouldOverrideUserAgentForRendererInitiatedNavigation() override;
   void SetAlwaysSendSubresourceNotifications() override;
   bool GetSendSubresourceNotification() override;
-  void EnableWebContentsOnlyAccessibilityMode() override;
+  void EnableAccessibilityMode(ui::AXMode mode) override;
   bool IsWebContentsOnlyAccessibilityModeForTesting() override;
   bool IsFullAccessibilityModeForTesting() override;
   const std::u16string& GetTitle() override;
@@ -435,8 +434,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
           remote_frame_host_receiver,
       bool is_full_page) override;
   bool IsInnerWebContentsForGuest() override;
-  bool IsPortal() override;
-  WebContentsImpl* GetPortalHostWebContents() override;
   RenderFrameHostImpl* GetOuterWebContentsFrame() override;
   WebContentsImpl* GetOuterWebContents() override;
   WebContentsImpl* GetOutermostWebContents() override;
@@ -580,8 +577,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void SetV8CompileHints(base::ReadOnlySharedMemoryRegion data) override;
   void SetTabSwitchStartTime(base::TimeTicks start_time,
                              bool destination_is_loaded) override;
-  void ActivatePreviewPage(base::TimeTicks activation_start,
-                           base::OnceClosure completion_callback) override;
+  void ActivatePreviewPage() override;
 
   // Implementation of PageNavigator.
   WebContents* OpenURL(const OpenURLParams& params) override;
@@ -680,6 +676,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
       RenderFrameHostImpl* rfh,
       bool is_fullscreen,
       blink::mojom::FullscreenOptionsPtr options) override;
+  bool CanUseWindowingControls(RenderFrameHostImpl* requesting_frame) override;
   void Maximize() override;
   void Minimize() override;
   void Restore() override;
@@ -746,9 +743,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void OnFrameVisibilityChanged(
       RenderFrameHostImpl* host,
       blink::mojom::FrameVisibility visibility) override;
-  media::MediaMetricsProvider::RecordAggregateWatchTimeCallback
-  GetRecordAggregateWatchTimeCallback(
-      const GURL& page_main_frame_last_committed_url) override;
+  void OnFrameIsCapturingMediaStreamChanged(
+      RenderFrameHostImpl* host,
+      bool is_capturing_media_stream) override;
   std::vector<FrameTreeNode*> GetUnattachedOwnedNodes(
       RenderFrameHostImpl* owner) override;
   void RegisterProtocolHandler(RenderFrameHostImpl* source,
@@ -870,8 +867,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool CheckMediaAccessPermission(RenderFrameHostImpl* render_frame_host,
                                   const url::Origin& security_origin,
                                   blink::mojom::MediaStreamType type) override;
-  std::string GetDefaultMediaDeviceID(
-      blink::mojom::MediaStreamType type) override;
   bool IsJavaScriptDialogShowing() const override;
   bool ShouldIgnoreUnresponsiveRenderer() override;
   bool IsGuest() override;
@@ -879,7 +874,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   absl::optional<SkColor> GetBaseBackgroundColor() override;
   std::unique_ptr<PrerenderHandle> StartPrerendering(
       const GURL& prerendering_url,
-      PrerenderTriggerType trigger_type,
+      PreloadingTriggerType trigger_type,
       const std::string& embedder_histogram_suffix,
       ui::PageTransition page_transition,
       PreloadingHoldbackStatus holdback_status_override,
@@ -892,6 +887,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
                             WindowOpenDisposition disposition) override;
   void SetOwnerLocationForDebug(
       absl::optional<base::Location> owner_location) override;
+  blink::ColorProviderColorMaps GetColorProviderColorMaps() const override;
 
   network::mojom::AttributionSupport GetAttributionSupport() override;
   void UpdateAttributionSupportRenderer() override;
@@ -1056,6 +1052,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   bool IsInPreviewMode() const override;
   void CancelPreviewByMojoBinderPolicy(
       const std::string& interface_name) override;
+  void OnCanResizeFromWebAPIChanged() override;
 
   // blink::mojom::ColorChooserFactory ---------------------------------------
   void OnColorChooserFactoryReceiver(
@@ -1289,22 +1286,10 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Reattaches this inner WebContents to its outer WebContents.
   virtual void ReattachToOuterWebContentsFrame();
 
-  // Getter/setter for the Portal associated with this WebContents. If non-null
-  // then this WebContents is embedded in a portal and its outer WebContents can
-  // be found by using GetOuterWebContents().
-  void set_portal(Portal* portal) { portal_ = portal; }
-  Portal* portal() const { return portal_; }
-
-  // Sends a page message to notify every process in the frame tree if the
-  // web contents is a portal web contents.
-  void NotifyInsidePortal(bool inside_portal);
-
-  // Notifies observers that this WebContents was activated. This contents'
-  // former portal host, |predecessor_web_contents|, has become a portal pending
-  // adoption.
-  // |activation_time| is the time the activation happened, in wall time.
-  void DidActivatePortal(WebContentsImpl* predecessor_web_contents,
-                         base::TimeTicks activation_time);
+  // Notifies observers that this WebContents completed preview activation
+  // steps.
+  // `activation_time` is the time the activation happened, in wall time.
+  void DidActivatePreviewedPage(base::TimeTicks activation_time);
 
   void OnServiceWorkerAccessed(RenderFrameHost* render_frame_host,
                                const GURL& scope,
@@ -1365,7 +1350,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   void set_show_popup_menu_callback_for_testing(
       base::OnceCallback<void(const gfx::Rect&)> callback) {
-    show_poup_menu_callback_ = std::move(callback);
+    show_popup_menu_callback_ = std::move(callback);
   }
 
   // Sets the value in tests to ensure expected ordering and correctness.
@@ -1789,6 +1774,11 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // Returns the size that the main frame should be sized to.
   gfx::Size GetSizeForMainFrame();
 
+  // `window.setResizable(bool)` API (part of Additional Windowing Controls)
+  // can block the use of APIs resizing the window, such as `resizeTo` and
+  // `resizeBy`.
+  bool BlockResizeIfNeeded();
+
   // Helper method that's called whenever |preferred_size_| or
   // |preferred_size_for_capture_| changes, to propagate the new value to the
   // |delegate_|.
@@ -1887,8 +1877,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   // Returns the primary frame tree, followed by any other outermost frame trees
   // in this WebContents. Outermost frame trees include, for example,
-  // prerendering frame trees, and do not include, for example, fenced frames or
-  // portals. Also note that bfcached pages do not have a distinct frame tree,
+  // prerendering frame trees, and do not include, for example, fenced frames.
+  // Also note that bfcached pages do not have a distinct frame tree,
   // so the primary frame tree in the result would be the only FrameTree
   // representing any bfcached pages.
   std::vector<FrameTree*> GetOutermostFrameTrees();
@@ -2302,7 +2292,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
           NavigationController::UA_OVERRIDE_INHERIT;
 
   // Gets notified about changes in viewport fit events.
-  std::unique_ptr<DisplayCutoutHostImpl> display_cutout_host_impl_;
+  std::unique_ptr<SafeAreaInsetsHost> safe_area_insets_host_;
 
   // Stores a set of frames that are fullscreen.
   // See https://fullscreen.spec.whatwg.org.
@@ -2317,11 +2307,6 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   // DidStartNavigation/DidFinishNavigation and only set for an initial
   // navigation triggered by the browser going to about:blank.
   bool should_focus_location_bar_by_default_ = false;
-
-  // Stores the Portal object associated with this WebContents, if there is one.
-  // If non-null then this WebContents is embedded in a portal and its outer
-  // WebContents can be found by using GetOuterWebContents().
-  raw_ptr<Portal, DanglingUntriaged> portal_ = nullptr;
 
   // Stores the rect of the Windows Control Overlay, which contains system UX
   // affordances (e.g. close), for installed desktop Progress Web Apps (PWAs),
@@ -2378,7 +2363,7 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
 
   viz::FrameSinkId xr_render_target_;
 
-  base::OnceCallback<void(const gfx::Rect&)> show_poup_menu_callback_;
+  base::OnceCallback<void(const gfx::Rect&)> show_popup_menu_callback_;
 
   // Allows the app in the current WebContents to opt-in to exposing
   // information to apps that capture it.

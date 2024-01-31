@@ -5,10 +5,31 @@
 import {NativeEventTarget as EventTarget} from 'chrome://resources/ash/common/event_target.js';
 
 import {entriesToURLs} from '../../../common/js/entry_utils.js';
+import {FilesAppEntry} from '../../../externs/files_app_entry_interfaces.js';
 
 import {MetadataCacheItem} from './metadata_cache_item.js';
 import {MetadataItem} from './metadata_item.js';
 import {MetadataRequest} from './metadata_request.js';
+
+/**
+ * Custom event dispatched by the metadata cache set when results from metadata
+ * provider are set on it.
+ */
+export class MetadataSetEvent extends Event {
+  /**
+   * @param {string} name
+   * @param {!Array<!FileEntry>} entries
+   * @param {!Map<string, !FileEntry>} entriesMap
+   * @param {!Set<string>} names
+   */
+  constructor(name, entries, entriesMap, names) {
+    super(name);
+    this.entries = entries;
+    this.entriesMap = entriesMap;
+    this.names = names;
+  }
+}
+
 
 /**
  * A collection of MetadataCacheItem objects. This class acts as a map from file
@@ -35,7 +56,7 @@ export class MetadataCacheSet extends EventTarget {
 
   /**
    * Creates list of MetadataRequest based on the cache state.
-   * @param {!Array<!Entry>} entries
+   * @param {!Array<!Entry|!FilesAppEntry>} entries
    * @param {!Array<string>} names
    * @return {!Array<!MetadataRequest>}
    */
@@ -78,13 +99,14 @@ export class MetadataCacheSet extends EventTarget {
    * Stores results from MetadataProvider with the request Id.
    * @param {number} requestId Request ID. If a newer operation has already been
    *     done, the results must be ignored.
-   * @param {!Array<!Entry>} entries
+   * @param {!Array<!Entry|!FilesAppEntry>} entries
    * @param {!Array<!MetadataItem>} results
    * @param {!Array<string>} names Property names that have been requested and
    *     updated.
    * @return {boolean} Whether at least one result is stored or not.
    */
   storeProperties(requestId, entries, results, names) {
+    /** @type {!Array<!FileEntry>} */
     const changedEntries = [];
     const urls = entriesToURLs(entries);
     const entriesMap = new Map();
@@ -93,7 +115,7 @@ export class MetadataCacheSet extends EventTarget {
       const url = urls[i];
       const item = this.items_.get(url);
       if (item && item.storeProperties(requestId, results[i])) {
-        changedEntries.push(entries[i]);
+        changedEntries.push(/** @type{!FileEntry} */ (entries[i]));
         entriesMap.set(url, entries[i]);
       }
     }
@@ -102,16 +124,8 @@ export class MetadataCacheSet extends EventTarget {
       return false;
     }
 
-    const event = new Event('update');
-    // @ts-ignore: error TS2339: Property 'entries' does not exist on type
-    // 'Event'.
-    event.entries = changedEntries;
-    // @ts-ignore: error TS2339: Property 'entriesMap' does not exist on type
-    // 'Event'.
-    event.entriesMap = entriesMap;
-    // @ts-ignore: error TS2339: Property 'names' does not exist on type
-    // 'Event'.
-    event.names = new Set(names);
+    const event = new MetadataSetEvent(
+        'update', changedEntries, entriesMap, new Set(names));
     this.dispatchEvent(event);
     return true;
   }
@@ -119,7 +133,7 @@ export class MetadataCacheSet extends EventTarget {
   /**
    * Obtains cached properties for entries and names.
    * Note that it returns invalidated properties also.
-   * @param {!Array<!Entry>} entries Entries.
+   * @param {!Array<!Entry|!FilesAppEntry>} entries Entries.
    * @param {!Array<string>} names Property names.
    * @return {!Array<!MetadataItem>} metadata for the given entries.
    */
@@ -155,7 +169,7 @@ export class MetadataCacheSet extends EventTarget {
    * only invalidates those.
    * @param {number} requestId Request ID of the invalidation request. This must
    *     be larger than other request ID passed to the set before.
-   * @param {!Array<!Entry>} entries
+   * @param {!Array<!Entry|!FilesAppEntry>} entries
    * @param {!Array<string>} [names]
    */
   invalidate(requestId, entries, names) {
@@ -187,7 +201,7 @@ export class MetadataCacheSet extends EventTarget {
 
   /**
    * Creates snapshot of the cache for entries.
-   * @param {!Array<!Entry>} entries
+   * @param {!Array<!Entry|!FilesAppEntry>} entries
    * @return {!MetadataCacheSet} a cache with metadata for the given entries.
    */
   createSnapshot(entries) {
@@ -206,7 +220,7 @@ export class MetadataCacheSet extends EventTarget {
 
   /**
    * Returns whether all the given properties are fulfilled.
-   * @param {!Array<!Entry>} entries Entries.
+   * @param {!Array<!Entry|!FilesAppEntry>} entries Entries.
    * @param {!Array<string>} names Property names.
    * @return {boolean}
    */

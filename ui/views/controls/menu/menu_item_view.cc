@@ -110,7 +110,6 @@ MenuItemView::~MenuItemView() {
   if (GetMenuController()) {
     GetMenuController()->OnMenuItemDestroying(this);
   }
-  delete submenu_;
   for (auto* item : removed_items_) {
     delete item;
   }
@@ -367,7 +366,7 @@ MenuItemView* MenuItemView::AddMenuItemAt(
 void MenuItemView::RemoveMenuItem(View* item) {
   DCHECK(item);
   DCHECK(submenu_);
-  DCHECK_EQ(submenu_, item->parent());
+  DCHECK_EQ(submenu_.get(), item->parent());
   removed_items_.push_back(item);
   submenu_->RemoveChildView(item);
 }
@@ -424,9 +423,9 @@ MenuItemView* MenuItemView::AppendMenuItemImpl(int item_id,
 
 SubmenuView* MenuItemView::CreateSubmenu() {
   if (submenu_)
-    return submenu_;
+    return submenu_.get();
 
-  submenu_ = new SubmenuView(this);
+  submenu_ = std::make_unique<SubmenuView>(/*parent=*/this);
   submenu_->SetProperty(kElementIdentifierKey, submenu_id_);
 
 #if BUILDFLAG(IS_MAC)
@@ -452,7 +451,7 @@ SubmenuView* MenuItemView::CreateSubmenu() {
 
   SchedulePaint();
 
-  return submenu_;
+  return submenu_.get();
 }
 
 bool MenuItemView::HasSubmenu() const {
@@ -460,7 +459,7 @@ bool MenuItemView::HasSubmenu() const {
 }
 
 SubmenuView* MenuItemView::GetSubmenu() const {
-  return submenu_;
+  return submenu_.get();
 }
 
 bool MenuItemView::SubmenuIsShowing() const {
@@ -549,8 +548,7 @@ void MenuItemView::SetIconView(std::unique_ptr<ImageView> icon_view) {
     base::AutoReset setter(
         &update_selection_based_state_in_view_herarchy_changed_, false);
     if (icon_view_) {
-      RemoveChildViewT(icon_view_.get());
-      icon_view_ = nullptr;
+      RemoveChildViewT(icon_view_.ExtractAsDangling());
     }
 
     if (icon_view)
@@ -697,7 +695,7 @@ void MenuItemView::ChildrenChanged() {
       submenu_->Layout();
       submenu_->SchedulePaint();
       // Update the menu selection after layout.
-      controller->UpdateSubmenuSelection(submenu_);
+      controller->UpdateSubmenuSelection(submenu_.get());
     }
   }
 
@@ -766,10 +764,10 @@ void MenuItemView::Layout() {
                     (type_ == Type::kActionableSubMenu
                          ? config.actionable_submenu_arrow_to_edge_padding
                          : config.arrow_to_edge_padding) -
-                    kSubmenuArrowSize;
-      const int y = (height() - kSubmenuArrowSize) / 2;
-      submenu_arrow_image_view_->SetBounds(x, y, kSubmenuArrowSize,
-                                           kSubmenuArrowSize);
+                    config.arrow_size;
+      const int y = (height() - config.arrow_size) / 2;
+      submenu_arrow_image_view_->SetBounds(x, y, config.arrow_size,
+                                           config.arrow_size);
     }
 
     if (vertical_separator_) {
@@ -1294,7 +1292,7 @@ MenuItemView::MenuItemDimensions MenuItemView::CalculateDimensions() const {
       dimensions.minor_text_width += config.item_horizontal_padding;
     }
     dimensions.minor_text_width +=
-        kSubmenuArrowSize +
+        config.arrow_size +
         ((type_ == Type::kActionableSubMenu)
              ? config.actionable_submenu_arrow_to_edge_padding
              : config.arrow_to_edge_padding);
@@ -1420,14 +1418,17 @@ void MenuItemView::UpdateSelectionBasedState(bool paint_as_selected) {
   last_paint_as_selected_ = paint_as_selected;
   const Colors colors = CalculateColors(paint_as_selected);
   if (submenu_arrow_image_view_) {
-    submenu_arrow_image_view_->SetImage(gfx::CreateVectorIcon(
-        vector_icons::kSubmenuArrowIcon, colors.icon_color));
+    submenu_arrow_image_view_->SetImage(ui::ImageModel::FromVectorIcon(
+        features::IsChromeRefresh2023()
+            ? vector_icons::kSubmenuArrowChromeRefreshIcon
+            : vector_icons::kSubmenuArrowIcon,
+        colors.icon_color));
   }
   MenuDelegate* delegate = GetDelegate();
   if (type_ == Type::kCheckbox && delegate &&
       delegate->IsItemChecked(GetCommand())) {
     radio_check_image_view_->SetImage(
-        gfx::CreateVectorIcon(kMenuCheckIcon, colors.icon_color));
+        ui::ImageModel::FromVectorIcon(kMenuCheckIcon, colors.icon_color));
   } else if (type_ == Type::kRadio) {
     const bool toggled = delegate && delegate->IsItemChecked(GetCommand());
     const gfx::VectorIcon& radio_icon =

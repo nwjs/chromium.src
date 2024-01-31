@@ -66,6 +66,12 @@ void AssistiveTechnologyControllerImpl::BindTts(
   accessibility_service_client_remote_->BindTts(std::move(tts_receiver));
 }
 
+void AssistiveTechnologyControllerImpl::BindUserInput(
+    mojo::PendingReceiver<mojom::UserInput> user_input_receiver) {
+  accessibility_service_client_remote_->BindUserInput(
+      std::move(user_input_receiver));
+}
+
 void AssistiveTechnologyControllerImpl::BindUserInterface(
     mojo::PendingReceiver<mojom::UserInterface> user_interface_receiver) {
   accessibility_service_client_remote_->BindUserInterface(
@@ -91,7 +97,7 @@ void AssistiveTechnologyControllerImpl::EnableAssistiveTechnology(
       // TODO(b/293348920): Re-use an existing V8Manager and install additional
       // bindings there rather than always making a new one when sharing
       // V8Managers across different AT types.
-      CreateV8ManagerForType(type);
+      CreateV8ManagerForTypeIfNoneExists(type);
     } else if (!enabled && it != enabled_ATs_.end()) {
       enabled_ATs_.erase(type);
     }
@@ -107,32 +113,36 @@ void AssistiveTechnologyControllerImpl::RunScriptForTest(
     mojom::AssistiveTechnologyType type,
     const std::string& script,
     base::OnceClosure on_complete) {
-  GetV8Manager(type)->RunScriptForTest(  // IN-TEST
+  GetOrCreateV8Manager(type).RunScriptForTest(  // IN-TEST
       script, std::move(on_complete));
 }
 
 void AssistiveTechnologyControllerImpl::AddInterfaceForTest(
     mojom::AssistiveTechnologyType type,
     std::unique_ptr<InterfaceBinder> test_interface) {
-  GetV8Manager(type)->AddInterfaceForTest(  // IN-TEST
+  GetOrCreateV8Manager(type).AddInterfaceForTest(  // IN-TEST
       std::move(test_interface));
 }
 
-V8Manager* AssistiveTechnologyControllerImpl::GetV8Manager(
+V8Manager& AssistiveTechnologyControllerImpl::GetOrCreateV8Manager(
     mojom::AssistiveTechnologyType type) {
-  if (auto it = enabled_ATs_.find(type); it != enabled_ATs_.end()) {
-    return &it->second;
-  }
-  return nullptr;
+  CreateV8ManagerForTypeIfNoneExists(type);
+  return enabled_ATs_[type];
 }
 
-void AssistiveTechnologyControllerImpl::CreateV8ManagerForType(
+void AssistiveTechnologyControllerImpl::CreateV8ManagerForTypeIfNoneExists(
     mojom::AssistiveTechnologyType type) {
+  // Do nothing if the manager already exists.
+  if (auto it = enabled_ATs_.find(type); it != enabled_ATs_.end()) {
+    return;
+  }
+
   // For the first one we can ask it to initialize v8.
   if (!v8_initialized_) {
     BindingsIsolateHolder::InitializeV8();
     v8_initialized_ = true;
   }
+
   V8Manager& manager = enabled_ATs_[type];
 
   // Install bindings on the global context depending on the type.
@@ -148,8 +158,11 @@ void AssistiveTechnologyControllerImpl::CreateV8ManagerForType(
                               std::move(automation_client));
   manager.ConfigureFileLoader(&file_loader_remote_);
   if (type == mojom::AssistiveTechnologyType::kChromeVox ||
+      type == mojom::AssistiveTechnologyType::kDictation) {
+    manager.ConfigureOSState();
+  }
+  if (type == mojom::AssistiveTechnologyType::kChromeVox ||
       type == mojom::AssistiveTechnologyType::kSelectToSpeak) {
-    // TTS needs to know the type that is speaking.
     manager.ConfigureTts(this);
   }
   if (type == mojom::AssistiveTechnologyType::kChromeVox ||
@@ -163,6 +176,14 @@ void AssistiveTechnologyControllerImpl::CreateV8ManagerForType(
   }
   if (type == mojom::AssistiveTechnologyType::kAutoClick) {
     manager.ConfigureAutoclick(this);
+  }
+  if (type == mojom::AssistiveTechnologyType::kAutoClick ||
+      type == mojom::AssistiveTechnologyType::kChromeVox ||
+      type == mojom::AssistiveTechnologyType::kDictation ||
+      type == mojom::AssistiveTechnologyType::kMagnifier ||
+      type == mojom::AssistiveTechnologyType::kSelectToSpeak ||
+      type == mojom::AssistiveTechnologyType::kSwitchAccess) {
+    manager.ConfigureUserInput(this);
   }
   // TODO(b/262637071): Configure other bindings based on the type
   // once they are implemented.

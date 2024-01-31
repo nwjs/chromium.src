@@ -145,6 +145,19 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
     kDontCheck,
   };
 
+  void ContinueMakeCredentialAfterRpIdCheck(
+      url::Origin caller_origin,
+      blink::mojom::PublicKeyCredentialCreationOptionsPtr options,
+      bool is_cross_origin_iframe,
+      blink::mojom::AuthenticatorStatus rp_id_validation_result);
+
+  void ContinueGetAssertionAfterRpIdCheck(
+      url::Origin caller_origin,
+      blink::mojom::PublicKeyCredentialRequestOptionsPtr options,
+      blink::mojom::PaymentOptionsPtr payment_options,
+      bool is_cross_origin_iframe,
+      blink::mojom::AuthenticatorStatus rp_id_validation_result);
+
   // Replaces the current |request_handler_| with a
   // |MakeCredentialRequestHandler|, effectively restarting the request.
   void StartMakeCredentialRequest(bool allow_skipping_pin_touch);
@@ -169,8 +182,6 @@ class CONTENT_EXPORT AuthenticatorCommonImpl : public AuthenticatorCommon {
   // whether or not to return attestation data has been made.
   void OnRegisterResponseAttestationDecided(
       AttestationErasureOption attestation_erasure,
-      const bool has_device_public_key_output,
-      const bool device_public_key_included_attestation,
       device::AuthenticatorMakeCredentialResponse response_data,
       bool attestation_permitted);
 

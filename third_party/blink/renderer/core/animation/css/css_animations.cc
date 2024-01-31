@@ -1866,8 +1866,9 @@ void UpdateAnimationFlagsForAnimation(const Animation& animation,
                                       ComputedStyleBuilder& builder) {
   const AnimationEffect& effect = *animation.effect();
 
-  if (!effect.IsCurrent())
+  if (!effect.IsCurrent() && !effect.IsInEffect()) {
     return;
+  }
 
   UpdateAnimationFlagsForEffect(effect, builder);
 
@@ -2343,10 +2344,10 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
       return;
     }
     start = InterpolationValue(
-        std::make_unique<InterpolableList>(0),
+        MakeGarbageCollected<InterpolableList>(0),
         CSSDefaultNonInterpolableValue::Create(start_css_value));
     end = InterpolationValue(
-        std::make_unique<InterpolableList>(0),
+        MakeGarbageCollected<InterpolableList>(0),
         CSSDefaultNonInterpolableValue::Create(end_css_value));
   }
   // If we have multiple transitions on the same property, we will use the
@@ -2391,7 +2392,7 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
 
   TransitionKeyframe* start_keyframe =
       MakeGarbageCollected<TransitionKeyframe>(property);
-  start_keyframe->SetValue(std::make_unique<TypedInterpolationValue>(
+  start_keyframe->SetValue(MakeGarbageCollected<TypedInterpolationValue>(
       *transition_type, start.interpolable_value->Clone(),
       start.non_interpolable_value));
   start_keyframe->SetOffset(0);
@@ -2399,7 +2400,7 @@ void CSSAnimations::CalculateTransitionUpdateForPropertyHandle(
 
   TransitionKeyframe* end_keyframe =
       MakeGarbageCollected<TransitionKeyframe>(property);
-  end_keyframe->SetValue(std::make_unique<TypedInterpolationValue>(
+  end_keyframe->SetValue(MakeGarbageCollected<TypedInterpolationValue>(
       *transition_type, end.interpolable_value->Clone(),
       end.non_interpolable_value));
   end_keyframe->SetOffset(1);

@@ -215,7 +215,7 @@ bool RenderFrameDevToolsAgentHost::IsDebuggerAttached(
 void RenderFrameDevToolsAgentHost::AddAllAgentHosts(
     DevToolsAgentHost::List* result) {
   for (WebContentsImpl* wc : WebContentsImpl::GetAllWebContents()) {
-    // Inner web contents such as portals or guestviews are already handled by
+    // Inner web contents such as guestviews are already handled by
     // ForEachRenderFrameHost.
     if (wc->GetOutermostWebContents() != wc)
       continue;
@@ -365,7 +365,8 @@ bool RenderFrameDevToolsAgentHost::AttachSession(DevToolsSession* session,
       base::BindRepeating(
           &RenderFrameDevToolsAgentHost::UpdateResourceLoaderFactories,
           base::Unretained(this)),
-      session->GetClient()->MayReadLocalFiles());
+      session->GetClient()->MayReadLocalFiles(),
+      session->GetClient()->IsTrusted());
   session->CreateAndAddHandler<protocol::FetchHandler>(
       GetIOContext(), base::BindRepeating(
                           [](RenderFrameDevToolsAgentHost* self,
@@ -785,10 +786,6 @@ std::string RenderFrameDevToolsAgentHost::GetType() {
   if (frame_tree_node_ && frame_tree_node_->IsFencedFrameRoot())
     return kTypeFrame;
   if (web_contents() &&
-      static_cast<WebContentsImpl*>(web_contents())->IsPortal()) {
-    return kTypePage;
-  }
-  if (web_contents() &&
       static_cast<WebContentsImpl*>(web_contents())->GetOuterWebContents()) {
     return kTypeGuest;
   }
@@ -911,7 +908,6 @@ protocol::TargetAutoAttacher* RenderFrameDevToolsAgentHost::auto_attacher() {
 namespace {
 
 constexpr char kSubtypeDisconnected[] = "disconnected";
-constexpr char kSubtypePortal[] = "portal";
 constexpr char kSubtypePrerender[] = "prerender";
 constexpr char kSubtypeFenced[] = "fenced";
 
@@ -923,10 +919,6 @@ std::string RenderFrameDevToolsAgentHost::GetSubtype() {
 
   switch (frame_tree_node_->GetFrameType()) {
     case FrameType::kPrimaryMainFrame:
-      if (WebContentsImpl::FromFrameTreeNode(frame_tree_node_)->IsPortal()) {
-        return kSubtypePortal;
-      }
-      [[fallthrough]];
     // TODO(caseq): figure out what's best to return for subframes in a tree
     // other than primary.
     case FrameType::kSubframe:

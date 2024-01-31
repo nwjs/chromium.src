@@ -12,6 +12,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/common/buildflags.h"
 #include "chrome/common/pref_font_webkit_names.h"
+#include "components/compose/buildflags.h"
 #include "components/offline_pages/buildflags/buildflags.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "extensions/buildflags/buildflags.h"
@@ -91,6 +92,11 @@ inline constexpr char kHomePage[] = "homepage";
 // A boolean specifying whether HTTPS-Only Mode is enabled by the user.
 inline constexpr char kHttpsOnlyModeEnabled[] = "https_only_mode_enabled";
 
+// A boolean specifying whether HTTPS-First Mode (aka "HTTPS-Only Mode") is
+// enabled in Incognito Mode.
+inline constexpr char kHttpsFirstModeIncognito[] =
+    "https_first_mode_incognito_enabled";
+
 // A boolean specifying whether HTTPS-Only Mode is automatically enabled by
 // heuristics. Can only be set to true if this pref or kHttpsOnlyModeEnabled has
 // never been set before (true or false). If kHttpsOnlyModeEnabled is modified,
@@ -104,6 +110,9 @@ inline constexpr char kHttpsOnlyModeAutoEnabled[] =
 // entries are evicted from the list and new entries are added when a new HTTPS
 // Upgrade fallback happens.
 inline constexpr char kHttpsUpgradeFallbacks[] = "https_upgrade_fallbacks";
+
+// A dictionary containing information about HTTPS Upgrade related navigations.
+inline constexpr char kHttpsUpgradeNavigations[] = "https_upgrade_navigations";
 
 // Stores information about the important sites dialog, including the time and
 // frequency it has been ignored.
@@ -454,6 +463,11 @@ inline constexpr char kDeskAPIThirdPartyAllowlist[] =
 inline constexpr char kPrintingAPIExtensionsAllowlist[] =
     "printing.printing_api_extensions_whitelist";
 
+// The list of extensions allowed to skip discovery and scan confirmation
+// dialogs when using the chrome.documentScan API.
+inline constexpr char kDocumentScanAPITrustedExtensions[] =
+    "document_scan.document_scan_api_trusted_extensions";
+
 // A boolean specifying whether the insights extension is enabled. If set to
 // true, the CCaaS Chrome component extension will be installed.
 inline constexpr char kInsightsExtensionEnabled[] =
@@ -498,6 +512,7 @@ inline constexpr char kLanguageAllowedInputMethods[] =
 
 // A string pref (comma-separated list) set to the preloaded (active) input
 // method IDs (ex. "pinyin,mozc").
+// TODO: b/308389509 - Remove this constant to complete migration.
 inline constexpr char kLanguagePreloadEngines[] =
     "settings.language.preload_engines";
 inline constexpr char kLanguagePreloadEnginesSyncable[] =
@@ -1769,10 +1784,6 @@ inline constexpr char kWebRtcEventLogCollectionAllowed[] =
 // in ICE candidates.
 inline constexpr char kWebRtcLocalIpsAllowedUrls[] =
     "webrtc.local_ips_allowed_urls";
-// Whether WebRTC PeerConnections are allowed to use legacy versions of the TLS
-// and DTLS protocols.
-inline constexpr char kWebRTCAllowLegacyTLSProtocols[] =
-    "webrtc.allow_legacy_tls_protocols";
 // Whether WebRTC text log collection by Google domains is allowed.
 inline constexpr char kWebRtcTextLogCollectionAllowed[] =
     "webrtc.text_log_collection_allowed";
@@ -1867,6 +1878,13 @@ inline constexpr char kGoogleSearchSidePanelEnabled[] =
 
 inline constexpr char kManagedPrivateNetworkAccessRestrictionsEnabled[] =
     "managed_private_network_access_restrictions_enabled";
+
+#if BUILDFLAG(ENABLE_COMPOSE)
+// Boolean indicating whether or not Compose consent has been given or
+// acknowledged.
+inline constexpr char kPrefHasAcceptedComposeConsent[] =
+    "compose_has_accepted_consent";
+#endif
 
 // *************** LOCAL STATE ***************
 // These are attached to the machine/installation
@@ -2219,6 +2237,12 @@ inline constexpr char kNtpModulesOrder[] = "NewTabPage.ModulesOrder";
 inline constexpr char kNtpModulesVisible[] = "NewTabPage.ModulesVisible";
 // Number of times user has seen an NTP module.
 inline constexpr char kNtpModulesShownCount[] = "NewTabPage.ModulesShownCount";
+// Dictionary of number of times a module has loaded.
+inline constexpr char kNtpModulesLoadedCountDict[] =
+    "NewTabPage.ModulesLoadedCountDict";
+// Dictionary of number of times the user has interacted with a module.
+inline constexpr char kNtpModulesInteractedCountDict[] =
+    "NewTabPage.ModulesInteractedCountDict";
 // Time modules were first shown to user.
 inline constexpr char kNtpModulesFirstShownTime[] =
     "NewTabPage.ModulesFirstShownTime";
@@ -2228,6 +2252,9 @@ inline constexpr char kNtpModulesFreVisible[] = "NewTabPage.ModulesFreVisible";
 inline constexpr char kNtpPromoBlocklist[] = "ntp.promo_blocklist";
 // Whether the promo is visible.
 inline constexpr char kNtpPromoVisible[] = "ntp.promo_visible";
+// List of ids for past wallpaper search themes.
+inline constexpr char kNtpWallpaperSearchHistory[] =
+    "ntp.wallpaper_search_history";
 // Number of times the seed color has been changed via the Customize Chrome
 // panel across NTP tabs. Incremented at most once per NTP tab.
 inline constexpr char kSeedColorChangeCount[] =
@@ -2361,6 +2388,11 @@ inline constexpr char kWebAppsAppAgnosticIphState[] =
 inline constexpr char kWebAppsAppAgnosticMlState[] =
     "web_apps.app_agnostic_ml_state";
 
+// Dictionary that stores IPH state for link capturing not scoped to a
+// particular app
+inline constexpr char kWebAppsAppAgnosticIPHLinkCapturingState[] =
+    "web_apps.app_agnostic_iph_link_capturing_state";
+
 // A boolean value that stores information about whether error loaded policy
 // apps have been migrated for this profile.
 inline constexpr char kErrorLoadedPolicyAppMigrationCompleted[] =
@@ -2384,15 +2416,15 @@ inline constexpr char kWebAppsUninstalledDefaultChromeApps[] =
 // outlive the app installation and uninstallation.
 inline constexpr char kWebAppsPreferences[] = "web_apps.web_app_ids";
 
-// Dictionary that maps the origin of a web app to other preferences related to
-// its isolation requirements.
-inline constexpr char kWebAppsIsolationState[] = "web_apps.isolation_state";
-
 // The default audio capture device used by the Media content setting.
+// TODO(crbug.com/311205211): Remove this once users have been migrated to
+// `kAudioInputUserPreferenceRanking`.
 inline constexpr char kDefaultAudioCaptureDevice[] =
     "media.default_audio_capture_device";
 
 // The default video capture device used by the Media content setting.
+// TODO(crbug.com/311205211): Remove this once users have been migrated to
+// `kVideoInputUserPreferenceRanking`.
 inline constexpr char kDefaultVideoCaptureDevice[] =
     "media.default_video_capture_Device";
 
@@ -3218,7 +3250,7 @@ inline constexpr char kCryptAuthInstanceIdToken[] =
 inline constexpr char kRecoveryComponentNeedsElevation[] =
     "recovery_component.needs_elevation";
 
-#if !BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(ENABLE_EXTENSIONS)
 // Boolean that indicates whether Chrome enterprise extension request is enabled
 // or not.
 inline constexpr char kCloudExtensionRequestEnabled[] =
@@ -3229,9 +3261,7 @@ inline constexpr char kCloudExtensionRequestEnabled[] =
 // denied.
 inline constexpr char kCloudExtensionRequestIds[] =
     "enterprise_reporting.extension_request.ids";
-#endif
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
 // Policy that indicates how to handle animated images.
 inline constexpr char kAnimationPolicy[] = "settings.a11y.animation_policy";
 
@@ -3581,13 +3611,6 @@ inline constexpr char kCACertificateManagementAllowed[] =
     "ca_certificate_management_allowed";
 #endif
 
-#if BUILDFLAG(CHROME_ROOT_STORE_POLICY_SUPPORTED)
-// Boolean that specifies whether the Chrome Root Store and built-in
-// certificate verifier should be used. If false, Chrome will not use the
-// Chrome Root Store.
-// If not set, Chrome will choose the root store based on experiments.
-inline constexpr char kChromeRootStoreEnabled[] = "chrome_root_store_enabled";
-#endif
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
 inline constexpr char kEnforceLocalAnchorConstraintsEnabled[] =
@@ -3598,10 +3621,8 @@ inline constexpr char kSharingVapidKey[] = "sharing.vapid_key";
 inline constexpr char kSharingFCMRegistration[] = "sharing.fcm_registration";
 inline constexpr char kSharingLocalSharingInfo[] = "sharing.local_sharing_info";
 
-#if !BUILDFLAG(IS_ANDROID)
-// Dictionary that contains all of the Hats Survey Metadata.
+// Dictionary that contains all of the Hats Survey Metadata for desktop surveys.
 inline constexpr char kHatsSurveyMetadata[] = "hats.survey_metadata";
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 inline constexpr char kExternalProtocolDialogShowAlwaysOpenCheckbox[] =
     "external_protocol_dialog.show_always_open_checkbox";
@@ -3947,6 +3968,21 @@ inline constexpr char kIPv6ReachabilityOverrideEnabled[] =
 inline constexpr char kNativeHostsExecutablesLaunchDirectly[] =
     "native_hosts_executables_launch_directly";
 #endif  // BUILDFLAG(IS_WIN)
+
+#if BUILDFLAG(IS_ANDROID)
+// Dictionary mapping language to Read Aloud voice. Keys are language names like
+// "en" and values are voice ID strings.
+inline constexpr char kReadAloudVoiceSettings[] = "readaloud.voices";
+
+// Double indicating Read Aloud playback speed. Default is 1.0, double speed
+// is 2.0, etc.
+inline constexpr char kReadAloudSpeed[] = "readaloud.speed";
+
+// Boolean that specifies whether Read Aloud highlights words on the page during
+// playback and scrolls the page to match the playback position.
+inline constexpr char kReadAloudHighlightingEnabled[] =
+    "readaloud.highlighting_enabled";
+#endif  // BUILDFLAG(IS_ANDROID)
 }  // namespace prefs
 
 #endif  // CHROME_COMMON_PREF_NAMES_H_

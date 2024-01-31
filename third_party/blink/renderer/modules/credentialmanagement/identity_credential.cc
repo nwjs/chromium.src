@@ -17,9 +17,8 @@
 namespace blink {
 
 namespace {
-using mojom::blink::LogoutRpsStatus;
+using mojom::blink::DisconnectStatus;
 using mojom::blink::RequestTokenStatus;
-using mojom::blink::RevokeStatus;
 
 constexpr char kIdentityCredentialType[] = "identity";
 
@@ -32,25 +31,10 @@ enum class FedCmCspStatus {
   kMaxValue = kFailedOrigin
 };
 
-void OnLogoutRpsResponse(ScriptPromiseResolver* resolver,
-                         LogoutRpsStatus status) {
-  // TODO(kenrb); There should be more thought put into how this API works.
-  // Returning success or failure doesn't have a lot of meaning. If some
-  // logout attempts fail and others succeed, and even different attempts
-  // fail for different reasons, how does that get conveyed to the caller?
-  if (status != LogoutRpsStatus::kSuccess) {
+void OnDisconnect(ScriptPromiseResolver* resolver, DisconnectStatus status) {
+  if (status != DisconnectStatus::kSuccess) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
-        DOMExceptionCode::kNetworkError, "Error logging out endpoints."));
-
-    return;
-  }
-  resolver->Resolve();
-}
-
-void OnRevoke(ScriptPromiseResolver* resolver, RevokeStatus status) {
-  if (status != RevokeStatus::kSuccess) {
-    resolver->Reject(MakeGarbageCollected<DOMException>(
-        DOMExceptionCode::kNetworkError, "Error revoking account."));
+        DOMExceptionCode::kNetworkError, "Error disconnecting account."));
     return;
   }
   resolver->Resolve();
@@ -111,70 +95,22 @@ bool IdentityCredential::IsIdentityCredential() const {
   return true;
 }
 
-ScriptPromise IdentityCredential::logoutRPs(
+// static
+ScriptPromise IdentityCredential::disconnect(
     ScriptState* script_state,
-    const HeapVector<Member<IdentityCredentialLogoutRPsRequest>>&
-        logout_endpoints) {
-  if (!RuntimeEnabledFeatures::FedCmIdpSignoutEnabled(
-          ExecutionContext::From(script_state))) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kNotSupportedError,
-                          "FedCM IdpSignout flag in about:flags not enabled."));
-  }
-
-  // |FedCmEnabled| is not implied by |FedCmIdpSignoutEnabled| when the latter
-  // is set via runtime flags (rather than about:flags).
-  if (!RuntimeEnabledFeatures::FedCmEnabled(
-          ExecutionContext::From(script_state))) {
-    return ScriptPromise::RejectWithDOMException(
-        script_state, MakeGarbageCollected<DOMException>(
-                          DOMExceptionCode::kNotSupportedError,
-                          "FedCM flag in about:flags not enabled."));
-  }
-
-  if (logout_endpoints.empty()) {
-    return ScriptPromise();
-  }
-
-  auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
-  ScriptPromise promise = resolver->Promise();
-
-  ContentSecurityPolicy* policy =
-      resolver->GetExecutionContext()
-          ->GetContentSecurityPolicyForCurrentWorld();
-  Vector<mojom::blink::LogoutRpsRequestPtr> logout_requests;
-  for (auto& request : logout_endpoints) {
-    auto logout_request = mojom::blink::LogoutRpsRequest::From(*request);
-    if (!logout_request->url.IsValid()) {
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kSyntaxError, "Invalid logout endpoint URL."));
-      return promise;
-    }
-    if (IsRejectingPromiseDueToCSP(policy, resolver, logout_request->url))
-      return promise;
-    if (logout_request->account_id.empty()) {
-      resolver->Reject(MakeGarbageCollected<DOMException>(
-          DOMExceptionCode::kSyntaxError, "Account ID cannot be empty."));
-      return promise;
-    }
-    logout_requests.push_back(std::move(logout_request));
-  }
-
-  auto* fedcm_logout_request =
-      CredentialManagerProxy::From(script_state)->FedCmLogoutRpsRequest();
-  fedcm_logout_request->LogoutRps(
-      std::move(logout_requests),
-      WTF::BindOnce(&OnLogoutRpsResponse, WrapPersistent(resolver)));
-  return promise;
-}
-
-ScriptPromise IdentityCredential::revoke(
-    ScriptState* script_state,
-    const blink::IdentityCredentialRevokeOptions* options,
+    const blink::IdentityCredentialDisconnectOptions* options,
     ExceptionState& exception_state) {
   auto* resolver = MakeGarbageCollected<ScriptPromiseResolver>(script_state);
   ScriptPromise promise = resolver->Promise();
+
+  if (!resolver->GetExecutionContext()->IsFeatureEnabled(
+          mojom::blink::PermissionsPolicyFeature::kIdentityCredentialsGet)) {
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kNotAllowedError,
+        "The 'identity-credentials-get` feature is not enabled in this "
+        "document."));
+    return promise;
+  }
 
   if (!options->hasConfigURL()) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
@@ -185,6 +121,12 @@ ScriptPromise IdentityCredential::revoke(
   if (!options->hasAccountHint()) {
     resolver->Reject(MakeGarbageCollected<DOMException>(
         DOMExceptionCode::kInvalidStateError, "accountHint is required"));
+    return promise;
+  }
+
+  if (!options->hasClientId()) {
+    resolver->Reject(MakeGarbageCollected<DOMException>(
+        DOMExceptionCode::kInvalidStateError, "clientId is required"));
     return promise;
   }
 
@@ -205,10 +147,11 @@ ScriptPromise IdentityCredential::revoke(
     return promise;
   }
 
-  mojom::blink::IdentityCredentialRevokeOptionsPtr revoke_options =
-      blink::mojom::blink::IdentityCredentialRevokeOptions::From(*options);
-  auth_request->Revoke(std::move(revoke_options),
-                       WTF::BindOnce(&OnRevoke, WrapPersistent(resolver)));
+  mojom::blink::IdentityCredentialDisconnectOptionsPtr disconnect_options =
+      blink::mojom::blink::IdentityCredentialDisconnectOptions::From(*options);
+  auth_request->Disconnect(
+      std::move(disconnect_options),
+      WTF::BindOnce(&OnDisconnect, WrapPersistent(resolver)));
   return promise;
 }
 

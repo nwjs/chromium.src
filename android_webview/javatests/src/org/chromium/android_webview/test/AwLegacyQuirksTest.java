@@ -11,6 +11,8 @@ import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 
 import org.chromium.android_webview.AwContents;
 import org.chromium.android_webview.AwContentsClient;
@@ -25,9 +27,14 @@ import org.chromium.ui.display.DisplayAndroid;
 import java.util.Locale;
 
 /** Tests for legacy quirks (compatibility with WebView Classic). */
-@RunWith(AwJUnit4ClassRunner.class)
-public class AwLegacyQuirksTest {
-    @Rule public AwActivityTestRule mActivityTestRule = new AwActivityTestRule();
+@RunWith(Parameterized.class)
+@UseParametersRunnerFactory(AwJUnit4ClassRunnerWithParameters.Factory.class)
+public class AwLegacyQuirksTest extends AwParameterizedTest {
+    @Rule public AwActivityTestRule mActivityTestRule;
+
+    public AwLegacyQuirksTest(AwSettingsMutation param) {
+        this.mActivityTestRule = new AwActivityTestRule(param.getMutation());
+    }
 
     // WebView layout width tests are flaky: http://crbug.com/746264
     @Test
@@ -156,6 +163,7 @@ public class AwLegacyQuirksTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView"})
+    @SkipMutations(reason = "This test depends on AwSettings.setUseWideViewPort(false)")
     public void testScreenSizeInPhysicalPixelsQuirk() throws Throwable {
         final TestAwContentsClient contentClient = new TestAwContentsClient();
         final AwTestContainerView testContainerView =
@@ -254,9 +262,9 @@ public class AwLegacyQuirksTest {
                 String.format(
                         (Locale) null,
                         "<html><head><meta name='viewport' content='width=%d' /><meta"
-                            + " name='viewport' content='initial-scale=%.1f' /><meta"
-                            + " name='viewport' content='user-scalable=0' /></head><body"
-                            + " onload='document.title=document.body.clientWidth'></body></html>",
+                                + " name='viewport' content='initial-scale=%.1f' /><meta"
+                                + " name='viewport' content='user-scalable=0' /></head><body"
+                                + " onload='document.title=document.body.clientWidth'></body></html>",
                         pageWidth,
                         pageScale);
 
@@ -293,8 +301,8 @@ public class AwLegacyQuirksTest {
                 String.format(
                         (Locale) null,
                         "<html><head><meta name='viewport' content='width=device-width' /><meta"
-                            + " name='viewport' content='width=%d' /></head><body"
-                            + " onload='document.title=document.body.clientWidth'></body></html>",
+                                + " name='viewport' content='width=%d' /></head><body"
+                                + " onload='document.title=document.body.clientWidth'></body></html>",
                         pageWidth);
 
         settings.setJavaScriptEnabled(true);

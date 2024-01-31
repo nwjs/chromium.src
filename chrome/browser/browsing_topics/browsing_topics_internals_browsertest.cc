@@ -336,7 +336,6 @@ class BrowsingTopicsDisabledInternalsBrowserTest
             blink::features::kBrowsingTopics,
             blink::features::kBrowsingTopicsParameters,
             features::kPrivacySandboxAdsAPIsOverride,
-            privacy_sandbox::kPrivacySandboxSettings3,
             privacy_sandbox::kPrivacySandboxSettings4,
         });
   }
@@ -352,10 +351,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingTopicsDisabledInternalsBrowserTest,
 
   EXPECT_EQ(GetFeaturesAndParametersTabContent(), R"(BrowsingTopics: disabled
 PrivacySandboxAdsAPIsOverride: disabled
-PrivacySandboxSettings3: disabled
 OverridePrivacySandboxSettingsLocalTesting: disabled
 BrowsingTopicsBypassIPIsPubliclyRoutableCheck: disabled
-BrowsingTopicsXHR: disabled
 BrowsingTopicsDocumentAPI: enabled
 Configuration version: 1
 BrowsingTopicsParameters: disabled
@@ -368,7 +365,7 @@ BrowsingTopicsParameters:number_of_epochs_of_observation_data_to_use_for_filteri
 BrowsingTopicsParameters:max_number_of_api_usage_context_domains_to_keep_per_topic: 1000
 BrowsingTopicsParameters:max_number_of_api_usage_context_entries_to_load_per_epoch: 100000
 BrowsingTopicsParameters:max_number_of_api_usage_context_domains_to_store_per_page_load: 30
-BrowsingTopicsParameters:taxonomy_version: 1
+BrowsingTopicsParameters:taxonomy_version: 2
 BrowsingTopicsParameters:disabled_topics_list: 
 )");
 }
@@ -417,7 +414,6 @@ class BrowsingTopicsInternalsBrowserTest
            {"time_period_per_epoch", "15s"}}},
          {blink::features::kBrowsingTopics, {}},
          {features::kPrivacySandboxAdsAPIsOverride, {}},
-         {privacy_sandbox::kPrivacySandboxSettings3, {}},
          {privacy_sandbox::kPrivacySandboxSettings4,
           {{"consent-required", "true"}}}},
         /*disabled_features=*/{});
@@ -468,10 +464,8 @@ IN_PROC_BROWSER_TEST_F(BrowsingTopicsInternalsBrowserTest, FeaturesEnabled) {
 
   EXPECT_EQ(GetFeaturesAndParametersTabContent(), R"(BrowsingTopics: enabled
 PrivacySandboxAdsAPIsOverride: enabled
-PrivacySandboxSettings3: enabled
 OverridePrivacySandboxSettingsLocalTesting: disabled
 BrowsingTopicsBypassIPIsPubliclyRoutableCheck: disabled
-BrowsingTopicsXHR: disabled
 BrowsingTopicsDocumentAPI: enabled
 Configuration version: 1
 BrowsingTopicsParameters: enabled
@@ -484,7 +478,7 @@ BrowsingTopicsParameters:number_of_epochs_of_observation_data_to_use_for_filteri
 BrowsingTopicsParameters:max_number_of_api_usage_context_domains_to_keep_per_topic: 1000
 BrowsingTopicsParameters:max_number_of_api_usage_context_entries_to_load_per_epoch: 100000
 BrowsingTopicsParameters:max_number_of_api_usage_context_domains_to_store_per_page_load: 30
-BrowsingTopicsParameters:taxonomy_version: 1
+BrowsingTopicsParameters:taxonomy_version: 2
 BrowsingTopicsParameters:disabled_topics_list: 
 )");
 }

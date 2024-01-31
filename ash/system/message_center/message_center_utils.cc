@@ -14,8 +14,8 @@
 #include "ash/system/message_center/message_center_controller.h"
 #include "ash/system/message_center/notification_grouping_controller.h"
 #include "ash/system/message_center/session_state_notification_blocker.h"
+#include "ash/system/notification_center/notification_center_tray.h"
 #include "ash/system/status_area_widget.h"
-#include "ash/system/unified/unified_system_tray.h"
 #include "base/hash/sha1.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/ranges/algorithm.h"
@@ -25,7 +25,6 @@
 #include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/message_center/message_center.h"
-#include "ui/message_center/views/message_view.h"
 #include "ui/views/animation/animation_builder.h"
 #include "ui/views/view.h"
 #include "ui/views/widget/widget.h"
@@ -154,14 +153,15 @@ message_center::NotificationViewController*
 GetActiveNotificationViewControllerForDisplay(int64_t display_id) {
   RootWindowController* root_window_controller =
       Shell::GetRootWindowControllerWithDisplayId(display_id);
+  // Can be null in tests.
   if (!root_window_controller ||
       !root_window_controller->GetStatusAreaWidget()) {
     return nullptr;
   }
 
   return root_window_controller->GetStatusAreaWidget()
-      ->unified_system_tray()
-      ->GetNotificationGroupingController()
+      ->notification_center_tray()
+      ->notification_grouping_controller()
       ->GetActiveNotificationViewController();
 }
 
@@ -173,6 +173,25 @@ GetActiveNotificationViewControllerForNotificationView(
       display::Screen::GetScreen()->GetDisplayNearestWindow(window).id();
 
   return GetActiveNotificationViewControllerForDisplay(display_id);
+}
+
+NotificationGroupingController* GetGroupingControllerForNotificationView(
+    views::View* notification_view) {
+  aura::Window* window = notification_view->GetWidget()->GetNativeWindow();
+  auto display_id =
+      display::Screen::GetScreen()->GetDisplayNearestWindow(window).id();
+
+  RootWindowController* root_window_controller =
+      Shell::GetRootWindowControllerWithDisplayId(display_id);
+  // Can be null in tests.
+  if (!root_window_controller ||
+      !root_window_controller->GetStatusAreaWidget()) {
+    return nullptr;
+  }
+
+  return root_window_controller->GetStatusAreaWidget()
+      ->notification_center_tray()
+      ->notification_grouping_controller();
 }
 
 void InitLayerForAnimations(views::View* view) {
@@ -284,12 +303,12 @@ void SlideOutView(views::View* view,
       .SetTransform(view->layer(), transform);
 }
 
-absl::optional<gfx::ImageSkia> ResizeImageIfExceedSizeLimit(
+std::optional<gfx::ImageSkia> ResizeImageIfExceedSizeLimit(
     const gfx::ImageSkia& input_image,
     size_t size_limit_in_byte) {
   const size_t image_size_in_bytes = input_image.bitmap()->computeByteSize();
   if (image_size_in_bytes <= size_limit_in_byte) {
-    return absl::nullopt;
+    return std::nullopt;
   }
 
   // Calculate the image size after resize.

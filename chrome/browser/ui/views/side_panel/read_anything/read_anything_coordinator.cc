@@ -18,6 +18,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_list.h"
 #include "chrome/browser/ui/side_panel/read_anything/read_anything_side_panel_controller_utils.h"
+#include "chrome/browser/ui/side_panel/read_anything/read_anything_tab_helper.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_container_view.h"
 #include "chrome/browser/ui/views/side_panel/read_anything/read_anything_controller.h"
@@ -35,6 +36,7 @@
 #include "components/language/core/common/locale_util.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/models/combobox_model.h"
 
 namespace {
@@ -53,6 +55,11 @@ base::TimeDelta GetDelaySeconds() {
 
 }  // namespace
 
+using SidePanelWebUIViewT_ReadAnythingUntrustedUI =
+    SidePanelWebUIViewT<ReadAnythingUntrustedUI>;
+DECLARE_TEMPLATE_METADATA(SidePanelWebUIViewT_ReadAnythingUntrustedUI,
+                          SidePanelWebUIViewT);
+
 ReadAnythingCoordinator::ReadAnythingCoordinator(Browser* browser)
     : BrowserUserData<ReadAnythingCoordinator>(*browser),
       distillable_urls_(GetDistillableURLs()),
@@ -70,6 +77,9 @@ ReadAnythingCoordinator::ReadAnythingCoordinator(Browser* browser)
 
   browser->tab_strip_model()->AddObserver(this);
   Observe(GetActiveWebContents());
+  if (features::IsReadAnythingLocalSidePanelEnabled()) {
+    CreateAndRegisterEntriesForExistingWebContents(browser->tab_strip_model());
+  }
 
   if (features::IsDataCollectionModeForScreen2xEnabled()) {
     BrowserList::GetInstance()->AddObserver(this);
@@ -78,8 +88,9 @@ ReadAnythingCoordinator::ReadAnythingCoordinator(Browser* browser)
 
 void ReadAnythingCoordinator::InitModelWithUserPrefs() {
   Browser* browser = &GetBrowser();
-  if (!browser->profile() || !browser->profile()->GetPrefs())
+  if (!browser->profile() || !browser->profile()->GetPrefs()) {
     return;
+  }
 
   // Get user's default language to check for compatible fonts.
   language::LanguageModel* language_model =
@@ -134,13 +145,18 @@ ReadAnythingCoordinator::~ReadAnythingCoordinator() {
   // Read Anything as a side panel entry observer.
   Browser* browser = &GetBrowser();
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser);
-  if (!browser_view)
+  if (!browser_view) {
     return;
+  }
 
-  SidePanelRegistry* global_registry =
-      SidePanelCoordinator::GetGlobalSidePanelRegistry(browser);
-  global_registry->Deregister(
-      SidePanelEntry::Key(SidePanelEntry::Id::kReadAnything));
+  // Deregisters the Read Anything side panel if it is not local. When a side
+  // panel entry is global, it has the same lifetime as the browser.
+  if (!features::IsReadAnythingLocalSidePanelEnabled()) {
+    SidePanelRegistry* global_registry =
+        SidePanelCoordinator::GetGlobalSidePanelRegistry(browser);
+    global_registry->Deregister(
+        SidePanelEntry::Key(SidePanelEntry::Id::kReadAnything));
+  }
 
   browser->tab_strip_model()->RemoveObserver(this);
   Observe(nullptr);
@@ -157,6 +173,23 @@ void ReadAnythingCoordinator::CreateAndRegisterEntry(
                           base::Unretained(this)));
   side_panel_entry->AddObserver(this);
   global_registry->Register(std::move(side_panel_entry));
+}
+
+void ReadAnythingCoordinator::CreateAndRegisterEntriesForExistingWebContents(
+    TabStripModel* tab_strip_model) {
+  for (int index = 0; index < tab_strip_model->GetTabCount(); ++index) {
+    CreateAndRegisterEntryForWebContents(
+        tab_strip_model->GetWebContentsAt(index));
+  }
+}
+
+void ReadAnythingCoordinator::CreateAndRegisterEntryForWebContents(
+    content::WebContents* web_contents) {
+  CHECK(web_contents);
+  ReadAnythingTabHelper* tab_helper =
+      ReadAnythingTabHelper::FromWebContents(web_contents);
+  CHECK(tab_helper);
+  tab_helper->CreateAndRegisterEntry();
 }
 
 ReadAnythingController* ReadAnythingCoordinator::GetController() {
@@ -193,13 +226,21 @@ void ReadAnythingCoordinator::RemoveModelObserver(
 
 void ReadAnythingCoordinator::OnEntryShown(SidePanelEntry* entry) {
   DCHECK(entry->key().id() == SidePanelEntry::Id::kReadAnything);
+  OnReadAnythingSidePanelEntryShown();
+}
+
+void ReadAnythingCoordinator::OnEntryHidden(SidePanelEntry* entry) {
+  DCHECK(entry->key().id() == SidePanelEntry::Id::kReadAnything);
+  OnReadAnythingSidePanelEntryHidden();
+}
+
+void ReadAnythingCoordinator::OnReadAnythingSidePanelEntryShown() {
   for (Observer& obs : observers_) {
     obs.Activate(true);
   }
 }
 
-void ReadAnythingCoordinator::OnEntryHidden(SidePanelEntry* entry) {
-  DCHECK(entry->key().id() == SidePanelEntry::Id::kReadAnything);
+void ReadAnythingCoordinator::OnReadAnythingSidePanelEntryHidden() {
   for (Observer& obs : observers_) {
     obs.Activate(false);
   }
@@ -255,7 +296,7 @@ void ReadAnythingCoordinator::OnTabChangeDelayComplete() {
   CHECK(web_contents);
   if (!web_contents->IsLoading()) {
     // Ability to show was already checked before timer was started.
-    MaybeShowReadingModeSidePanelIPH();
+    ActivePageDistillable();
   }
 }
 
@@ -263,14 +304,29 @@ void ReadAnythingCoordinator::OnTabStripModelChanged(
     TabStripModel* tab_strip_model,
     const TabStripModelChange& change,
     const TabStripSelectionChange& selection) {
+  // If the Read Anything side panel is local, creates and registers a side
+  // panel entry for each tab.
+  if (features::IsReadAnythingLocalSidePanelEnabled()) {
+    if (change.type() == TabStripModelChange::Type::kInserted) {
+      for (const auto& inserted_tab : change.GetInsert()->contents) {
+        CreateAndRegisterEntryForWebContents(inserted_tab.contents);
+      }
+    }
+    if (change.type() == TabStripModelChange::Type::kReplaced) {
+      content::WebContents* new_contents = change.GetReplace()->new_contents;
+      if (new_contents) {
+        CreateAndRegisterEntryForWebContents(new_contents);
+      }
+    }
+  }
   if (!selection.active_tab_changed()) {
     return;
   }
   Observe(GetActiveWebContents());
-  if (ShouldShowReadingModeSidePanelIPH()) {
+  if (IsActivePageDistillable()) {
     StartPageChangeDelay();
   } else {
-    CancelShowReadingModeSidePanelIPH();
+    ActivePageNotDistillable();
   }
 }
 
@@ -278,10 +334,10 @@ void ReadAnythingCoordinator::DidStopLoading() {
   if (!post_tab_change_delay_complete_) {
     return;
   }
-  if (ShouldShowReadingModeSidePanelIPH()) {
-    MaybeShowReadingModeSidePanelIPH();
+  if (IsActivePageDistillable()) {
+    ActivePageDistillable();
   } else {
-    CancelShowReadingModeSidePanelIPH();
+    ActivePageNotDistillable();
   }
 }
 
@@ -289,10 +345,10 @@ void ReadAnythingCoordinator::PrimaryPageChanged(content::Page& page) {
   // On navigation, cancel any running delays.
   delay_timer_.Stop();
 
-  if (!ShouldShowReadingModeSidePanelIPH()) {
+  if (!IsActivePageDistillable()) {
     // On navigation, if we shouldn't show the IPH hide it. Otherwise continue
     // to show it.
-    CancelShowReadingModeSidePanelIPH();
+    ActivePageNotDistillable();
   }
 }
 
@@ -300,7 +356,7 @@ content::WebContents* ReadAnythingCoordinator::GetActiveWebContents() const {
   return GetBrowser().tab_strip_model()->GetActiveWebContents();
 }
 
-bool ReadAnythingCoordinator::ShouldShowReadingModeSidePanelIPH() const {
+bool ReadAnythingCoordinator::IsActivePageDistillable() const {
   auto* web_contents = GetActiveWebContents();
   if (!web_contents) {
     return false;
@@ -318,14 +374,28 @@ bool ReadAnythingCoordinator::ShouldShowReadingModeSidePanelIPH() const {
   return false;
 }
 
-void ReadAnythingCoordinator::CancelShowReadingModeSidePanelIPH() {
+void ReadAnythingCoordinator::ActivePageNotDistillable() {
   GetBrowser().window()->CloseFeaturePromo(
       feature_engagement::kIPHReadingModeSidePanelFeature);
+  for (Observer& obs : observers_) {
+    obs.OnActivePageDistillable(false);
+  }
 }
 
-void ReadAnythingCoordinator::MaybeShowReadingModeSidePanelIPH() {
+void ReadAnythingCoordinator::ActivePageDistillable() {
   GetBrowser().window()->MaybeShowFeaturePromo(
       feature_engagement::kIPHReadingModeSidePanelFeature);
+  for (Observer& obs : observers_) {
+    obs.OnActivePageDistillable(true);
+  }
+}
+
+void ReadAnythingCoordinator::ActivePageNotDistillableForTesting() {
+  ActivePageNotDistillable();
+}
+
+void ReadAnythingCoordinator::ActivePageDistillableForTesting() {
+  ActivePageDistillable();
 }
 
 void ReadAnythingCoordinator::OnBrowserSetLastActive(Browser* browser) {

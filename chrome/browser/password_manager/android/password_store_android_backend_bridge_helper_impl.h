@@ -39,8 +39,11 @@ class PasswordStoreAndroidBackendBridgeHelperImpl
 
   // PasswordStoreAndroidBackendBridgeHelper implementation
   bool CanUseGetAffiliatedPasswordsAPI() override;
+  bool CanUseGetAllLoginsWithBrandingInfoAPI() override;
+  bool CanRemoveUnenrollment() override;
   void SetConsumer(base::WeakPtr<Consumer> consumer) override;
   [[nodiscard]] JobId GetAllLogins(Account account) override;
+  [[nodiscard]] JobId GetAllLoginsWithBrandingInfo(Account account) override;
   [[nodiscard]] JobId GetAutofillableLogins(Account account) override;
   [[nodiscard]] JobId GetLoginsForSignonRealm(const std::string& signon_realm,
                                               Account account) override;

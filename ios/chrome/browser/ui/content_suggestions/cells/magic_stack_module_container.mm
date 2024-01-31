@@ -6,7 +6,7 @@
 
 #import "base/notreached.h"
 #import "base/strings/sys_string_conversions.h"
-#import "ios/chrome/browser/ntp/home/features.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
@@ -125,9 +125,13 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
     _title.lineBreakMode = NSLineBreakByWordWrapping;
     _title.accessibilityTraits |= UIAccessibilityTraitHeader;
     _title.accessibilityIdentifier =
-        [MagicStackModuleContainer titleStringForModule:type];
+        [MagicStackModuleContainer accessibilityIdentifierForModule:type];
     [_title setContentHuggingPriority:UILayoutPriorityDefaultLow
                               forAxis:UILayoutConstraintAxisHorizontal];
+    [_title
+        setContentCompressionResistancePriority:UILayoutPriorityDefaultLow
+                                        forAxis:
+                                            UILayoutConstraintAxisHorizontal];
     [_title
         setContentCompressionResistancePriority:UILayoutPriorityRequired
                                         forAxis:UILayoutConstraintAxisVertical];
@@ -184,7 +188,7 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
       [_subtitle setContentHuggingPriority:UILayoutPriorityRequired
                                    forAxis:UILayoutConstraintAxisHorizontal];
       [_subtitle
-          setContentCompressionResistancePriority:UILayoutPriorityDefaultHigh
+          setContentCompressionResistancePriority:UILayoutPriorityDefaultLow
                                           forAxis:
                                               UILayoutConstraintAxisHorizontal];
       _subtitle.textAlignment =
@@ -311,6 +315,20 @@ const CGFloat kTitleStackViewTrailingMargin = 16.0f;
     default:
       NOTREACHED();
       return @"";
+  }
+}
+
+// Returns the accessibility identifier given the Magic Stack module `type`.
++ (NSString*)accessibilityIdentifierForModule:
+    (ContentSuggestionsModuleType)type {
+  switch (type) {
+    case ContentSuggestionsModuleType::kTabResumption:
+      return kMagicStackContentSuggestionsModuleTabResumptionAccessibilityIdentifier;
+
+    default:
+      // TODO(crbug.com/1506038): the code should use constants for
+      // accessibility identifiers, and not localized strings.
+      return [self titleStringForModule:type];
   }
 }
 

@@ -26,7 +26,6 @@
 #import "ios/chrome/browser/shared/model/web_state_list/order_controller_source.h"
 #import "ios/chrome/browser/shared/model/web_state_list/removing_indexes.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/web/features.h"
 #import "ios/chrome/browser/web/session_state/web_session_state_tab_helper.h"
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
@@ -237,9 +236,15 @@ SessionRestorationBrowserAgent::SessionRestorationBrowserAgent(
 }
 
 SessionRestorationBrowserAgent::~SessionRestorationBrowserAgent() {
-  // Disconnect the session factory object as it's not granteed that it will be
-  // released before it's referenced by the session service.
+  // Disconnect the session factory object as it's not garanteed that it will
+  // be released before it's referenced by the session service.
   [session_window_ios_factory_ disconnect];
+
+  // If the object is destroyed before the Browser, unregister it from the
+  // ObserverList explicitly.
+  if (browser_) {
+    BrowserDestroyed(browser_);
+  }
 }
 
 void SessionRestorationBrowserAgent::SetSessionID(
@@ -334,11 +339,11 @@ void SessionRestorationBrowserAgent::SaveSession(bool immediately) {
                       directory:browser_->GetBrowserState()->GetStatePath()
                     immediately:immediately];
 
-  if (web::UseNativeSessionRestorationCache()) {
-    for (int i = 0; i < web_state_list->count(); ++i) {
-      web::WebState* web_state = web_state_list->GetWebStateAt(i);
-      WebSessionStateTabHelper::FromWebState(web_state)
-          ->SaveSessionStateIfStale();
+  for (int i = 0; i < web_state_list->count(); ++i) {
+    web::WebState* web_state = web_state_list->GetWebStateAt(i);
+    if (WebSessionStateTabHelper* tab_helper =
+            WebSessionStateTabHelper::FromWebState(web_state)) {
+      tab_helper->SaveSessionStateIfStale();
     }
   }
 }

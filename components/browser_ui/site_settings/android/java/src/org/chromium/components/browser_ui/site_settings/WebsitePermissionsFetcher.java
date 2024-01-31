@@ -10,9 +10,11 @@ import static org.chromium.components.browser_ui.site_settings.WebsitePreference
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
+import org.chromium.components.content_settings.ContentSettingValues;
 import org.chromium.components.content_settings.ContentSettingsType;
 import org.chromium.components.permissions.PermissionsAndroidFeatureList;
 import org.chromium.components.permissions.PermissionsAndroidFeatureMap;
@@ -98,13 +100,19 @@ public class WebsitePermissionsFetcher {
                 return WebsitePermissionsType.PERMISSION_INFO;
             case ContentSettingsType.STORAGE_ACCESS:
                 if (PermissionsAndroidFeatureMap.isEnabled(
-                            PermissionsAndroidFeatureList.PERMISSION_STORAGE_ACCESS)) {
+                        PermissionsAndroidFeatureList.PERMISSION_STORAGE_ACCESS)) {
                     return WebsitePermissionsType.EMBEDDED_PERMISSION;
                 }
                 return null;
             case ContentSettingsType.BLUETOOTH_GUARD:
             case ContentSettingsType.USB_GUARD:
                 return WebsitePermissionsType.CHOSEN_OBJECT_INFO;
+            case ContentSettingsType.MIDI:
+                if (PermissionsAndroidFeatureMap.isEnabled(
+                        PermissionsAndroidFeatureList.BLOCK_MIDI_BY_DEFAULT)) {
+                    return WebsitePermissionsType.PERMISSION_INFO;
+                }
+                return null;
             default:
                 return null;
         }
@@ -140,9 +148,7 @@ public class WebsitePermissionsFetcher {
         this(browserContextHandle, false);
     }
 
-    /**
-     * @param fetchSiteImportantInfo if the fetcher should query whether each site is 'important'.
-     */
+    /** @param fetchSiteImportantInfo if the fetcher should query whether each site is 'important'. */
     public WebsitePermissionsFetcher(
             BrowserContextHandle browserContextHandle, boolean fetchSiteImportantInfo) {
         mBrowserContextHandle = browserContextHandle;
@@ -157,7 +163,7 @@ public class WebsitePermissionsFetcher {
      *
      * @param callback The callback to run when the fetch is complete.
      */
-    public void fetchAllPreferences(WebsitePermissionsCallback callback) {
+    public void fetchAllPreferences(@NonNull WebsitePermissionsCallback callback) {
         var fetcherInternal = new WebsitePermissionFetcherInternal();
         fetcherInternal.fetchAllPreferences(callback);
     }
@@ -169,7 +175,7 @@ public class WebsitePermissionsFetcher {
      * @param callback The callback to run when the fetch is complete.
      */
     public void fetchPreferencesForCategory(
-            SiteSettingsCategory category, WebsitePermissionsCallback callback) {
+            SiteSettingsCategory category, @NonNull WebsitePermissionsCallback callback) {
         var fetcherInternal = new WebsitePermissionFetcherInternal();
         fetcherInternal.fetchPreferencesForCategory(category, callback);
     }
@@ -183,8 +189,9 @@ public class WebsitePermissionsFetcher {
      * @param callback The callback to run when the fetch is complete.
      */
     public void fetchPreferencesForCategoryAndPopulateFpsInfo(
-            SiteSettingsDelegate siteSettingsDelegate, SiteSettingsCategory category,
-            WebsitePermissionsCallback callback) {
+            SiteSettingsDelegate siteSettingsDelegate,
+            SiteSettingsCategory category,
+            @NonNull WebsitePermissionsCallback callback) {
         var fetcherInternal = new WebsitePermissionFetcherInternal();
         fetcherInternal.fetchPreferencesForCategoryAndPopulateFpsInfo(
                 siteSettingsDelegate, category, callback);
@@ -195,8 +202,9 @@ public class WebsitePermissionsFetcher {
      * the permissions that the user has set for them.
      */
     private class WebsitePermissionFetcherInternal {
-        // This map looks up Websites by their origin and embedder.
-        private final Map<OriginAndEmbedder, Website> mSites = new HashMap<>();
+        // This map looks up Websites by their origin and embedder and content setting (e.g. allow,
+        // block).
+        private final Map<Pair<OriginAndEmbedder, Integer>, Website> mSites = new HashMap<>();
 
         /**
          * Fetches preferences for all sites that have them. TODO(mvanouwerkerk): Add an argument
@@ -205,7 +213,7 @@ public class WebsitePermissionsFetcher {
          *
          * @param callback The callback to run when the fetch is complete.
          */
-        public void fetchAllPreferences(WebsitePermissionsCallback callback) {
+        public void fetchAllPreferences(@NonNull WebsitePermissionsCallback callback) {
             TaskQueue queue = new TaskQueue();
 
             addAllFetchers(queue);
@@ -232,7 +240,7 @@ public class WebsitePermissionsFetcher {
          * @param callback The callback to run when the fetch is complete.
          */
         public void fetchPreferencesForCategory(
-                SiteSettingsCategory category, WebsitePermissionsCallback callback) {
+                SiteSettingsCategory category, @NonNull WebsitePermissionsCallback callback) {
             TaskQueue queue = createFetchersForCategory(category);
 
             queue.add(new PermissionsAvailableCallbackRunner(callback));
@@ -267,8 +275,9 @@ public class WebsitePermissionsFetcher {
          * @param callback The callback to run when the fetch is complete.
          */
         public void fetchPreferencesForCategoryAndPopulateFpsInfo(
-                SiteSettingsDelegate siteSettingsDelegate, SiteSettingsCategory category,
-                WebsitePermissionsCallback callback) {
+                SiteSettingsDelegate siteSettingsDelegate,
+                SiteSettingsCategory category,
+                @NonNull WebsitePermissionsCallback callback) {
             TaskQueue queue = createFetchersForCategory(category);
             queue.add(new FirstPartySetsInfoFetcher(siteSettingsDelegate));
 
@@ -303,7 +312,7 @@ public class WebsitePermissionsFetcher {
             if (contentSettingsType == ContentSettingsType.BLUETOOTH_SCANNING) {
                 CommandLine commandLine = CommandLine.getInstance();
                 if (!commandLine.hasSwitch(
-                            ContentSwitches.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES)) {
+                        ContentSwitches.ENABLE_EXPERIMENTAL_WEB_PLATFORM_FEATURES)) {
                     return;
                 }
             }
@@ -344,6 +353,13 @@ public class WebsitePermissionsFetcher {
         }
 
         private Website findOrCreateSite(String origin, String embedder) {
+            return findOrCreateSite(origin, embedder, null);
+        }
+
+        private Website findOrCreateSite(
+                String origin,
+                String embedder,
+                @ContentSettingValues @Nullable Integer contentSetting) {
             // Ensure that the origin parameter is actually an origin or a wildcard.
             // The purpose of the check is to prevent duplicate entries in the list when getting a
             // mix of origins and hosts. Except, in the case of the Zoom category, where we want to
@@ -367,7 +383,10 @@ public class WebsitePermissionsFetcher {
             WebsiteAddress permissionOrigin = WebsiteAddress.create(origin);
             WebsiteAddress permissionEmbedder = WebsiteAddress.create(embedder);
 
-            OriginAndEmbedder key = OriginAndEmbedder.create(permissionOrigin, permissionEmbedder);
+            Pair<OriginAndEmbedder, Integer> key =
+                    new Pair<>(
+                            OriginAndEmbedder.create(permissionOrigin, permissionEmbedder),
+                            contentSetting);
 
             Website site = mSites.get(key);
             if (site == null) {
@@ -378,20 +397,32 @@ public class WebsitePermissionsFetcher {
         }
 
         private void setException(int contentSettingsType) {
-            boolean isEmbeddedPermission = getPermissionsType(contentSettingsType)
-                    == WebsitePermissionsType.EMBEDDED_PERMISSION;
+            boolean isEmbeddedPermission =
+                    getPermissionsType(contentSettingsType)
+                            == WebsitePermissionsType.EMBEDDED_PERMISSION;
             for (ContentSettingException exception :
                     mWebsitePreferenceBridge.getContentSettingsExceptions(
                             mBrowserContextHandle, contentSettingsType)) {
                 String address = exception.getPrimaryPattern();
                 String embedder = exception.getSecondaryPattern();
+                @ContentSettingValues
+                @Nullable
+                Integer contentSetting = null;
 
                 if (isEmbeddedPermission
+                        && embedder != null
+                        && !embedder.equals(SITE_WILDCARD)
                         && mSiteSettingsCategory != null
                         && mSiteSettingsCategory.getType() == SiteSettingsCategory.Type.ALL_SITES) {
                     // AllSites should group embedded permissions by embedder.
                     address = embedder;
                     embedder = SITE_WILDCARD;
+                } else if (isEmbeddedPermission
+                        && mSiteSettingsCategory != null
+                        && mSiteSettingsCategory.getType()
+                                == SiteSettingsCategory.Type.STORAGE_ACCESS) {
+                    embedder = SITE_WILDCARD;
+                    contentSetting = exception.getContentSetting();
                 }
 
                 // If both patterns are the wildcard, dont display this rule.
@@ -400,10 +431,11 @@ public class WebsitePermissionsFetcher {
                     continue;
                 }
                 // Convert the address to origin, if it's not one already (unless it's a wildcard).
-                String origin = containsPatternWildcards(address)
-                        ? address
-                        : WebsiteAddress.create(address).getOrigin();
-                Website site = findOrCreateSite(origin, embedder);
+                String origin =
+                        containsPatternWildcards(address)
+                                ? address
+                                : WebsiteAddress.create(address).getOrigin();
+                Website site = findOrCreateSite(origin, embedder, contentSetting);
                 if (isEmbeddedPermission) {
                     site.addEmbeddedPermission(exception);
                 } else {
@@ -474,8 +506,9 @@ public class WebsitePermissionsFetcher {
             public void run() {
                 if (mChooserDataType == -1) return;
 
-                for (ChosenObjectInfo info : mWebsitePreferenceBridge.getChosenObjectInfo(
-                             mBrowserContextHandle, mChooserDataType)) {
+                for (ChosenObjectInfo info :
+                        mWebsitePreferenceBridge.getChosenObjectInfo(
+                                mBrowserContextHandle, mChooserDataType)) {
                     String origin = info.getOrigin();
                     if (origin == null) continue;
                     findOrCreateSite(origin, null).addChosenObjectInfo(info);
@@ -500,7 +533,8 @@ public class WebsitePermissionsFetcher {
             @Override
             public void runAsync(final TaskQueue queue) {
                 mWebsitePreferenceBridge.fetchLocalStorageInfo(
-                        mBrowserContextHandle, new Callback<HashMap>() {
+                        mBrowserContextHandle,
+                        new Callback<HashMap>() {
                             @Override
                             public void onResult(HashMap result) {
                                 for (Object o : result.entrySet()) {
@@ -514,7 +548,8 @@ public class WebsitePermissionsFetcher {
                                 }
                                 queue.next();
                             }
-                        }, mFetchSiteImportantInfo);
+                        },
+                        mFetchSiteImportantInfo);
             }
         }
 
@@ -535,7 +570,8 @@ public class WebsitePermissionsFetcher {
             @Override
             public void runAsync(final TaskQueue queue) {
                 mWebsitePreferenceBridge.fetchStorageInfo(
-                        mBrowserContextHandle, new Callback<ArrayList>() {
+                        mBrowserContextHandle,
+                        new Callback<ArrayList>() {
                             @Override
                             public void onResult(ArrayList result) {
                                 @SuppressWarnings("unchecked")
@@ -561,7 +597,8 @@ public class WebsitePermissionsFetcher {
             @Override
             public void runAsync(final TaskQueue queue) {
                 mWebsitePreferenceBridge.fetchSharedDictionaryInfo(
-                        mBrowserContextHandle, new Callback<ArrayList>() {
+                        mBrowserContextHandle,
+                        new Callback<ArrayList>() {
                             @Override
                             public void onResult(ArrayList result) {
                                 @SuppressWarnings("unchecked")
@@ -582,7 +619,8 @@ public class WebsitePermissionsFetcher {
             @Override
             public void runAsync(final TaskQueue queue) {
                 mWebsitePreferenceBridge.fetchCookiesInfo(
-                        mBrowserContextHandle, new Callback<Map<String, CookiesInfo>>() {
+                        mBrowserContextHandle,
+                        new Callback<Map<String, CookiesInfo>>() {
                             @Override
                             public void onResult(Map<String, CookiesInfo> result) {
                                 for (Map.Entry<String, CookiesInfo> entry : result.entrySet()) {
@@ -619,14 +657,16 @@ public class WebsitePermissionsFetcher {
                     // For each {@link Website} sets its FirstPartySet info: the FPS Owner and the
                     // number of members of that FPS.
                     for (Website site : mSites.values()) {
-                        String fpsOwnerHostname = mSiteSettingsDelegate.getFirstPartySetOwner(
-                                site.getAddress().getOrigin());
+                        String fpsOwnerHostname =
+                                mSiteSettingsDelegate.getFirstPartySetOwner(
+                                        site.getAddress().getOrigin());
                         if (fpsOwnerHostname == null) continue;
                         int fpsMembersCount = fpsOwnerToMembers.get(fpsOwnerHostname).size();
                         site.setFPSCookieInfo(new FPSCookieInfo(fpsOwnerHostname, fpsMembersCount));
                     }
                 }
             }
+
             /**
              * Builds a {@link Map<String,  Set <String>>} of FPS Owner - Set of FPS Members from
              * the fetched websites.
@@ -636,8 +676,9 @@ public class WebsitePermissionsFetcher {
                 Map<String, Set<String>> fpsOwnerToMember = new HashMap<>();
                 for (Website site : mSites.values()) {
                     String fpsMemberHostname = site.getAddress().getDomainAndRegistry();
-                    String fpsOwnerHostname = mSiteSettingsDelegate.getFirstPartySetOwner(
-                            site.getAddress().getOrigin());
+                    String fpsOwnerHostname =
+                            mSiteSettingsDelegate.getFirstPartySetOwner(
+                                    site.getAddress().getOrigin());
                     if (fpsOwnerHostname == null) continue;
                     Set<String> members = fpsOwnerToMember.get(fpsOwnerHostname);
                     if (members == null) {
@@ -651,9 +692,10 @@ public class WebsitePermissionsFetcher {
         }
 
         private class PermissionsAvailableCallbackRunner extends Task {
-            private final WebsitePermissionsCallback mCallback;
+            private final @NonNull WebsitePermissionsCallback mCallback;
 
-            private PermissionsAvailableCallbackRunner(WebsitePermissionsCallback callback) {
+            private PermissionsAvailableCallbackRunner(
+                    @NonNull WebsitePermissionsCallback callback) {
                 mCallback = callback;
             }
 

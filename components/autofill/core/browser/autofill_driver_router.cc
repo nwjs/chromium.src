@@ -5,9 +5,9 @@
 #include "components/autofill/core/browser/autofill_driver_router.h"
 
 #include <algorithm>
+#include <functional>
 
 #include "base/containers/contains.h"
-#include "base/functional/invoke.h"
 #include "base/ranges/algorithm.h"
 #include "base/time/time.h"
 #include "components/autofill/core/browser/form_forest.h"
@@ -25,7 +25,7 @@ void ForEachFrame(internal::FormForest& form_forest, UnaryFunction fun) {
   for (const std::unique_ptr<internal::FormForest::FrameData>& some_frame :
        form_forest.frame_datas()) {
     if (some_frame->driver) {
-      base::invoke(fun, some_frame->driver);
+      std::invoke(fun, some_frame->driver);
     }
   }
 }
@@ -600,12 +600,13 @@ void AutofillDriverRouter::RendererShouldTriggerSuggestions(
 void AutofillDriverRouter::RendererShouldSetSuggestionAvailability(
     AutofillDriver* source,
     const FieldGlobalId& field,
-    const mojom::AutofillState state,
-    void (*callback)(AutofillDriver* target,
-                     const FieldRendererId& field,
-                     const mojom::AutofillState state)) {
+    mojom::AutofillSuggestionAvailability suggestion_availability,
+    void (*callback)(
+        AutofillDriver* target,
+        const FieldRendererId& field,
+        mojom::AutofillSuggestionAvailability suggestion_availability)) {
   if (auto* target = DriverOfFrame(field.frame_token)) {
-    callback(target, field.renderer_id, state);
+    callback(target, field.renderer_id, suggestion_availability);
   }
 }
 

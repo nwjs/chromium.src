@@ -190,7 +190,9 @@ public class WebContentsAccessibilityTreeTest {
         TestViewStructure testViewStructure = new TestViewStructure();
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> mActivityTestRule.mWcax.onProvideVirtualStructure(testViewStructure, false));
-        CriteriaHelper.pollUiThread(testViewStructure::isDone, "Failed to get AssistData.");
+        CriteriaHelper.pollUiThread(
+                mActivityTestRule.mWcax::hasFinishedLatestAccessibilitySnapshotForTesting,
+                "Failed to get AssistData.");
         return testViewStructure.toString();
     }
 
@@ -1476,6 +1478,12 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    public void test_details_name() {
+        performHtmlTest("details-name.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_dfn() {
         performHtmlTest("dfn.html");
     }
@@ -2098,18 +2106,6 @@ public class WebContentsAccessibilityTreeTest {
     @SmallTest
     public void test_picture() {
         performHtmlTest("picture.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_portalWithWidgetInside() {
-        performHtmlTest("portal-with-widget-inside.html");
-    }
-
-    @Test
-    @SmallTest
-    public void test_portal() {
-        performHtmlTest("portal.html");
     }
 
     @Test

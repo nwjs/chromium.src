@@ -26,10 +26,13 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_SCROLL_SCROLLABLE_AREA_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_SCROLL_SCROLLABLE_AREA_H_
 
+#include <set>
+
 #include "base/functional/callback_helpers.h"
 #include "base/gtest_prod_util.h"
 #include "base/notreached.h"
 #include "cc/input/scroll_snap_data.h"
+#include "cc/paint/element_id.h"
 #include "third_party/blink/public/common/input/web_gesture_device.h"
 #include "third_party/blink/public/mojom/frame/color_scheme.mojom-blink-forward.h"
 #include "third_party/blink/public/mojom/scroll/scroll_into_view_params.mojom-blink-forward.h"
@@ -127,11 +130,11 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
                                   const ScrollOffset&,
                                   ScrollCallback on_finish);
 
-  virtual void SetScrollOffset(const ScrollOffset&,
+  virtual bool SetScrollOffset(const ScrollOffset&,
                                mojom::blink::ScrollType,
                                mojom::blink::ScrollBehavior,
                                ScrollCallback on_finish);
-  virtual void SetScrollOffset(
+  virtual bool SetScrollOffset(
       const ScrollOffset&,
       mojom::blink::ScrollType,
       mojom::blink::ScrollBehavior = mojom::blink::ScrollBehavior::kInstant);
@@ -152,6 +155,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   // rect in absolute coordinates.
   virtual PhysicalRect ScrollIntoView(
       const PhysicalRect&,
+      const PhysicalBoxStrut& scroll_margin,
       const mojom::blink::ScrollIntoViewParamsPtr&);
 
   static bool ScrollBehaviorFromString(const String&,
@@ -561,6 +565,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   void ClearPendingScrollAnchorAdjustment();
 
   scoped_refptr<base::SingleThreadTaskRunner> GetCompositorTaskRunner();
+  void EnqueueSnapChangedEvent() const;
 
   ScrollOffset ScrollOffsetFromScrollStartData(
       const ScrollStartData& block_value,
@@ -568,6 +573,23 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
   void ApplyScrollStart();
   bool ScrollStartIsDefault() const;
   virtual bool IsApplyingScrollStart() const { return false; }
+
+  virtual const cc::SnappedTargetData* GetSnappedTargetData() const {
+    return nullptr;
+  }
+  virtual void SetSnappedTargetData(absl::optional<cc::SnappedTargetData>) {}
+  virtual void UpdateSnappedTargetsAndEnqueueSnapChanged() {}
+
+  bool ScrollOffsetIsNoop(const ScrollOffset& offset) const;
+
+  void EnqueueSnapChangingEvent() const;
+  virtual const cc::SnappedTargetData* GetSnapChangingTargetData() const {
+    return nullptr;
+  }
+  virtual void SetSnapChangingTargetData(
+      absl::optional<cc::SnappedTargetData>) {}
+  virtual void UpdateSnapChangingTargetsAndEnqueueSnapChanging(
+      const gfx::PointF&) {}
 
  protected:
   // Deduces the mojom::blink::ScrollBehavior based on the
@@ -620,7 +642,7 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   void SetScrollbarsHiddenIfOverlayInternal(bool);
 
-  void ProgrammaticScrollHelper(const ScrollOffset&,
+  bool ProgrammaticScrollHelper(const ScrollOffset&,
                                 mojom::blink::ScrollBehavior,
                                 bool is_sequenced_scroll,
                                 gfx::Vector2d animation_adjustment,
@@ -657,6 +679,9 @@ class CORE_EXPORT ScrollableArea : public GarbageCollectedMixin {
 
   void ScrollToScrollStartTarget(const LayoutBox*, cc::SnapAxis);
   void ScrollToScrollStartTargets(const ScrollStartTargetCandidates*);
+
+  HeapVector<Member<Node>> PrepareSnapEventTargets(
+      const cc::SnappedTargetData* target_data) const;
 
   // This animator is used to handle painting animations for MacOS scrollbars
   // using AppKit-specific code (Cocoa APIs). It requires input from

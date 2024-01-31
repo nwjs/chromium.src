@@ -21,9 +21,9 @@ namespace {
 const base::Feature* const kFeaturesExposedToJava[] = {
     &blink::features::kStylusPointerAdjustment,
     &blink::features::kStylusRichGestures,
+    &features::kAccessibilityIncludeLongClickAction,
     &features::kAccessibilityPageZoom,
     &features::kAccessibilityPerformanceFiltering,
-    &features::kAccessibilityPerformanceTesting,
     &features::kAutoDisableAccessibilityV2,
     &features::kBackgroundMediaRendererHasModerateBinding,
     &features::kFedCm,
@@ -33,6 +33,7 @@ const base::Feature* const kFeaturesExposedToJava[] = {
     &features::kReduceGpuPriorityOnBackground,
     &features::kRequestDesktopSiteAdditions,
     &features::kRequestDesktopSiteWindowSetting,
+    &features::kSelectionMenuItemModification,
     &features::kSmartZoom,
     &features::kTouchDragAndContextMenu,
     &features::kWebBluetoothNewPermissionsBackend,

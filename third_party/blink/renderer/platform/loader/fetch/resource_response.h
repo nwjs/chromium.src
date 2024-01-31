@@ -32,7 +32,9 @@
 
 #include "base/memory/scoped_refptr.h"
 #include "base/time/time.h"
+#include "net/base/auth.h"
 #include "net/base/ip_endpoint.h"
+#include "net/http/alternate_protocol_usage.h"
 #include "net/ssl/ssl_info.h"
 #include "services/network/public/cpp/cors/cors_error_status.h"
 #include "services/network/public/cpp/trigger_verification.h"
@@ -47,12 +49,14 @@
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/weborigin/kurl.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/date_math.h"
 #include "third_party/blink/renderer/platform/wtf/ref_counted.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 
 namespace blink {
 
 class ResourceLoadTiming;
+class ServiceWorkerRouterInfo;
 
 // A ResourceResponse is a "response" object used in blink. Conceptually
 // it is https://fetch.spec.whatwg.org/#concept-response, but it contains
@@ -225,16 +229,15 @@ class PLATFORM_EXPORT ResourceResponse final {
     was_fetched_via_service_worker_ = value;
   }
 
-  base::TimeTicks ArrivalTimeAtRenderer() const {
-    return arrival_time_at_renderer_;
-  }
-  void SetArrivalTimeAtRenderer(base::TimeTicks value) {
-    arrival_time_at_renderer_ = value;
-  }
-
   network::mojom::FetchResponseSource GetServiceWorkerResponseSource() const {
     return service_worker_response_source_;
   }
+
+  // See network.mojom.URLResponseHead.service_worker_router_info.
+  const blink::ServiceWorkerRouterInfo* GetServiceWorkerRouterInfo() const {
+    return service_worker_router_info_.get();
+  }
+  void SetServiceWorkerRouterInfo(scoped_refptr<ServiceWorkerRouterInfo> value);
 
   void SetServiceWorkerResponseSource(
       network::mojom::FetchResponseSource value) {
@@ -355,10 +358,8 @@ class PLATFORM_EXPORT ResourceResponse final {
     alternate_protocol_usage_ = value;
   }
 
-  net::HttpResponseInfo::ConnectionInfo ConnectionInfo() const {
-    return connection_info_;
-  }
-  void SetConnectionInfo(net::HttpResponseInfo::ConnectionInfo value) {
+  net::HttpConnectionInfo ConnectionInfo() const { return connection_info_; }
+  void SetConnectionInfo(net::HttpConnectionInfo value) {
     connection_info_ = value;
   }
 
@@ -600,6 +601,10 @@ class PLATFORM_EXPORT ResourceResponse final {
   network::mojom::FetchResponseSource service_worker_response_source_ =
       network::mojom::FetchResponseSource::kUnspecified;
 
+  // The information about the ServiceWorker Static Router that handled the
+  // request. Null if there was no registered Static Routers.
+  scoped_refptr<blink::ServiceWorkerRouterInfo> service_worker_router_info_;
+
   // https://fetch.spec.whatwg.org/#concept-response-type
   network::mojom::FetchResponseType response_type_ =
       network::mojom::FetchResponseType::kDefault;
@@ -652,8 +657,7 @@ class PLATFORM_EXPORT ResourceResponse final {
       net::AlternateProtocolUsage::ALTERNATE_PROTOCOL_USAGE_UNSPECIFIED_REASON;
 
   // Information about the type of connection used to fetch this resource.
-  net::HttpResponseInfo::ConnectionInfo connection_info_ =
-      net::HttpResponseInfo::ConnectionInfo::CONNECTION_INFO_UNKNOWN;
+  net::HttpConnectionInfo connection_info_ = net::HttpConnectionInfo::kUNKNOWN;
 
   // Size of the response in bytes prior to decompression.
   int64_t encoded_data_length_ = 0;
@@ -664,9 +668,6 @@ class PLATFORM_EXPORT ResourceResponse final {
   // Sizes of the response body in bytes after any content-encoding is
   // removed.
   int64_t decoded_body_length_ = 0;
-
-  // Represents when the response arrives at the renderer.
-  base::TimeTicks arrival_time_at_renderer_;
 
   // This is propagated from the browser process's PrefetchURLLoader on
   // cross-origin prefetch responses. It is used to pass the token along to

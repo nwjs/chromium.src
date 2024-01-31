@@ -10,7 +10,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
-#include "base/strings/string_piece_forward.h"
+#include "base/strings/string_piece.h"
 #include "chrome/browser/ui/browser_list_observer.h"
 #include "chrome/browser/web_applications/externally_managed_app_manager.h"
 #include "chrome/browser/web_applications/web_app_constants.h"
@@ -165,6 +165,10 @@ class UpdateAwaiter : public WebAppInstallManagerObserver {
 
 // Creates a temporary file with the |extension|.
 base::FilePath CreateTestFileWithExtension(base::StringPiece extension);
+
+// Wait for an IPH bubble to show up inside the browser, and return true or
+// false based on whether the bubble showed up.
+bool WaitForIPHToShowIfAny(Browser* browser);
 
 }  // namespace web_app
 

@@ -5,6 +5,7 @@
 #include "chrome/browser/password_manager/android/password_manager_settings_service_android_impl.h"
 
 #include <memory>
+#include <optional>
 
 #include "base/memory/weak_ptr.h"
 #include "base/test/metrics/histogram_tester.h"
@@ -23,7 +24,6 @@
 #include "components/sync/test/test_sync_service.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 
 namespace {
 
@@ -45,11 +45,11 @@ class MockPasswordSettingsUpdaterBridgeHelper
   MOCK_METHOD(void, SetConsumer, (base::WeakPtr<Consumer>), (override));
   MOCK_METHOD(void,
               GetPasswordSettingValue,
-              (absl::optional<SyncingAccount>, PasswordManagerSetting),
+              (std::optional<SyncingAccount>, PasswordManagerSetting),
               (override));
   MOCK_METHOD(void,
               SetPasswordSettingValue,
-              (absl::optional<SyncingAccount>, PasswordManagerSetting, bool),
+              (std::optional<SyncingAccount>, PasswordManagerSetting, bool),
               (override));
 };
 
@@ -72,9 +72,8 @@ class PasswordManagerSettingsServiceAndroidImplBaseTest : public testing::Test {
   void SetPasswordsSync(bool enabled);
   void SetSettingsSync(bool enabled);
 
-  void ExpectSettingsRetrievalFromBackend(
-      absl::optional<SyncingAccount> account,
-      size_t times);
+  void ExpectSettingsRetrievalFromBackend(std::optional<SyncingAccount> account,
+                                          size_t times);
 
   void ExpectSettingsRetrievalFromBackend();
 
@@ -188,7 +187,7 @@ void PasswordManagerSettingsServiceAndroidImplBaseTest::SetSettingsSync(
 }
 
 void PasswordManagerSettingsServiceAndroidImplBaseTest::
-    ExpectSettingsRetrievalFromBackend(absl::optional<SyncingAccount> account,
+    ExpectSettingsRetrievalFromBackend(std::optional<SyncingAccount> account,
                                        size_t times) {
   EXPECT_CALL(
       *bridge_helper(),
@@ -225,19 +224,24 @@ class PasswordManagerSettingsServiceAndroidImplTest
     : public PasswordManagerSettingsServiceAndroidImplBaseTest {};
 
 TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
-       RequestsSettingsOnServiceCreation) {
+       DoesntRequestSettingsOnServiceCreation) {
   std::unique_ptr<MockPasswordSettingsUpdaterBridgeHelper> bridge_helper =
       std::make_unique<MockPasswordSettingsUpdaterBridgeHelper>();
 
   ASSERT_NE(bridge_helper, nullptr);
 
+  // The settings shouldn't be requested upon creating the service, which
+  // happens on startup, because Chrome also gets foregrounded and settings are
+  // requested on Chrome foregrounding.
   EXPECT_CALL(*bridge_helper,
               GetPasswordSettingValue(
                   Eq(SyncingAccount(kTestAccount)),
-                  Eq(PasswordManagerSetting::kOfferToSavePasswords)));
+                  Eq(PasswordManagerSetting::kOfferToSavePasswords)))
+      .Times(0);
   EXPECT_CALL(*bridge_helper,
               GetPasswordSettingValue(Eq(SyncingAccount(kTestAccount)),
-                                      Eq(PasswordManagerSetting::kAutoSignIn)));
+                                      Eq(PasswordManagerSetting::kAutoSignIn)))
+      .Times(0);
 
   SetPasswordsSync(true);
   CreateNewService(std::move(bridge_helper));
@@ -919,6 +923,9 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
 
   EXPECT_FALSE(settings_service()->IsSettingEnabled(
       PasswordManagerSetting::kOfferToSavePasswords));
+
+  histogram_tester()->ExpectUniqueSample(
+      "PasswordManager.PasswordSavingDisabledDueToGMSCoreError", true, 1);
 }
 
 TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
@@ -934,6 +941,8 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
       password_manager::prefs::kSavePasswordsSuspendedByError, true);
   EXPECT_TRUE(settings_service()->IsSettingEnabled(
       PasswordManagerSetting::kOfferToSavePasswords));
+  histogram_tester()->ExpectUniqueSample(
+      "PasswordManager.PasswordSavingDisabledDueToGMSCoreError", false, 1);
 }
 
 TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
@@ -951,6 +960,8 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
       password_manager::prefs::kCredentialsEnableService, base::Value(true));
   EXPECT_TRUE(settings_service()->IsSettingEnabled(
       PasswordManagerSetting::kOfferToSavePasswords));
+  histogram_tester()->ExpectUniqueSample(
+      "PasswordManager.PasswordSavingDisabledDueToGMSCoreError", false, 1);
 }
 
 TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
@@ -969,6 +980,8 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
       password_manager::prefs::kSavePasswordsSuspendedByError, true);
   EXPECT_TRUE(settings_service()->IsSettingEnabled(
       PasswordManagerSetting::kOfferToSavePasswords));
+  histogram_tester()->ExpectUniqueSample(
+      "PasswordManager.PasswordSavingDisabledDueToGMSCoreError", false, 1);
 }
 
 TEST_F(PasswordManagerSettingsServiceAndroidImplTest,
@@ -1082,7 +1095,7 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
   InitializeSettingsService(/*password_sync_enabled=*/false,
                             /*setting_sync_enabled=*/false);
 
-  ExpectSettingsRetrievalFromBackend(absl::nullopt, /*times=*/1);
+  ExpectSettingsRetrievalFromBackend(std::nullopt, /*times=*/1);
   lifecycle_helper()->OnForegroundSessionStart();
 }
 
@@ -1252,7 +1265,7 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
   InitializeSettingsService(/*password_sync_enabled=*/false,
                             /*setting_sync_enabled=*/false);
 
-  ExpectSettingsRetrievalFromBackend(absl::nullopt, /*times=*/1);
+  ExpectSettingsRetrievalFromBackend(std::nullopt, /*times=*/1);
 
   settings_service()->RequestSettingsFromBackend();
 }
@@ -1269,7 +1282,7 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
 
   EXPECT_CALL(
       *bridge_helper(),
-      SetPasswordSettingValue(Eq(absl::nullopt),
+      SetPasswordSettingValue(Eq(std::nullopt),
                               Eq(PasswordManagerSetting::kAutoSignIn), false));
 
   settings_service()->TurnOffAutoSignIn();
@@ -1311,7 +1324,7 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
       password_manager::prefs::kAutoSignInEnabledGMS));
 
   // Settings should be requested from GMS Core on sync state change.
-  ExpectSettingsRetrievalFromBackend(absl::nullopt, /*times=*/1);
+  ExpectSettingsRetrievalFromBackend(std::nullopt, /*times=*/1);
   SetPasswordsSync(/*enabled=*/false);
   sync_service()->FireStateChanged();
 
@@ -1343,7 +1356,7 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
       password_manager::prefs::kOfferToSavePasswordsEnabledGMS));
 
   // Settings should be requested from GMS Core on sync state change.
-  ExpectSettingsRetrievalFromBackend(absl::nullopt, /*times=*/1);
+  ExpectSettingsRetrievalFromBackend(std::nullopt, /*times=*/1);
   SetPasswordsSync(/*enabled=*/false);
   sync_service()->FireStateChanged();
 
@@ -1360,4 +1373,105 @@ TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
       password_manager::prefs::kCredentialsEnableService));
   EXPECT_FALSE(pref_service()->GetBoolean(
       password_manager::prefs::kOfferToSavePasswordsEnabledGMS));
+}
+
+TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
+       PasswordSyncEnablingGMSSettingAbsent) {
+  InitializeSettingsService(/*password_sync_enabled=*/false,
+                            /*setting_sync_enabled=*/false);
+  ASSERT_TRUE(pref_service()->GetBoolean(
+      password_manager::prefs::kCredentialsEnableAutosignin));
+  ASSERT_TRUE(pref_service()->GetBoolean(
+      password_manager::prefs::kAutoSignInEnabledGMS));
+
+  // Settings should be requested from GMS Core on sync state change.
+  ExpectSettingsRetrievalFromBackend(SyncingAccount(kTestAccount),
+                                     /*times=*/1);
+  SetPasswordsSync(/*enabled=*/true);
+  sync_service()->FireStateChanged();
+
+  // Settings shouldn't be written to GMS Core.
+  EXPECT_CALL(
+      *bridge_helper(),
+      SetPasswordSettingValue(_, Eq(PasswordManagerSetting::kAutoSignIn), _))
+      .Times(0);
+  updater_bridge_consumer()->OnSettingValueAbsent(
+      PasswordManagerSetting::kAutoSignIn);
+
+  // The old Chrome pref is also updated, because settings sync is off, so there
+  // is no risk of sync cycles.
+  EXPECT_EQ(pref_service()->GetUserPrefValue(
+                password_manager::prefs::kCredentialsEnableAutosignin),
+            nullptr);
+  EXPECT_EQ(pref_service()->GetUserPrefValue(
+                password_manager::prefs::kAutoSignInEnabledGMS),
+            nullptr);
+}
+
+TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
+       PasswordSyncEnablingGMSHasSetting) {
+  InitializeSettingsService(/*password_sync_enabled=*/false,
+                            /*setting_sync_enabled=*/false);
+  ASSERT_TRUE(pref_service()->GetBoolean(
+      password_manager::prefs::kCredentialsEnableAutosignin));
+  ASSERT_TRUE(pref_service()->GetBoolean(
+      password_manager::prefs::kAutoSignInEnabledGMS));
+
+  // Settings should be requested from GMS Core on sync state change.
+  ExpectSettingsRetrievalFromBackend(SyncingAccount(kTestAccount),
+                                     /*times=*/1);
+  SetPasswordsSync(/*enabled=*/true);
+  sync_service()->FireStateChanged();
+
+  // Settings shouldn't be written to GMS Core.
+  EXPECT_CALL(
+      *bridge_helper(),
+      SetPasswordSettingValue(_, Eq(PasswordManagerSetting::kAutoSignIn), _))
+      .Times(0);
+  updater_bridge_consumer()->OnSettingValueFetched(
+      PasswordManagerSetting::kAutoSignIn, /*value=*/false);
+
+  // The old Chrome pref is also updated, because settings sync is off, so there
+  // is no risk of sync cycles.
+  EXPECT_FALSE(pref_service()->GetBoolean(
+      password_manager::prefs::kCredentialsEnableAutosignin));
+  EXPECT_FALSE(pref_service()->GetBoolean(
+      password_manager::prefs::kAutoSignInEnabledGMS));
+}
+
+TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
+       DoesntRequestSettingsOnServiceCreation) {
+  std::unique_ptr<MockPasswordSettingsUpdaterBridgeHelper> bridge_helper =
+      std::make_unique<MockPasswordSettingsUpdaterBridgeHelper>();
+
+  ASSERT_NE(bridge_helper, nullptr);
+
+  // The settings shouldn't be requested upon creating the service, which
+  // happens on startup, because Chrome also gets foregrounded and settings are
+  // requested on Chrome foregrounding.
+  EXPECT_CALL(*bridge_helper,
+              GetPasswordSettingValue(
+                  Eq(SyncingAccount(kTestAccount)),
+                  Eq(PasswordManagerSetting::kOfferToSavePasswords)))
+      .Times(0);
+  EXPECT_CALL(*bridge_helper,
+              GetPasswordSettingValue(Eq(SyncingAccount(kTestAccount)),
+                                      Eq(PasswordManagerSetting::kAutoSignIn)))
+      .Times(0);
+
+  SetPasswordsSync(false);
+  CreateNewService(std::move(bridge_helper));
+}
+
+TEST_F(PasswordManagerSettingsServiceAndroidImplTestLocalUsers,
+       SavePasswordsSettingManagedByCustodian) {
+  InitializeSettingsService(/*password_sync_enabled=*/false,
+                            /*setting_sync_enabled=*/false);
+  pref_service()->SetSupervisedUserPref(
+      password_manager::prefs::kCredentialsEnableService, base::Value(false));
+  pref_service()->SetUserPref(
+      password_manager::prefs::kOfferToSavePasswordsEnabledGMS,
+      base::Value(true));
+  EXPECT_FALSE(settings_service()->IsSettingEnabled(
+      PasswordManagerSetting::kOfferToSavePasswords));
 }

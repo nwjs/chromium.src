@@ -14,9 +14,9 @@
 #import "components/sync/base/features.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
-#import "ios/chrome/browser/signin/authentication_service.h"
-#import "ios/chrome/browser/signin/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/chrome_account_manager_service_factory.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
 #import "ios/chrome/browser/ui/authentication/history_sync/history_sync_coordinator.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_coordinator+protected.h"
 #import "ios/chrome/browser/ui/authentication/signin/signin_sync_screen_provider.h"
@@ -179,6 +179,7 @@ using base::UserMetricsAction;
                                accessPoint:_accessPoint];
     case kDefaultBrowserPromo:
     case kChoice:
+    case kOmniboxPosition:
     case kStepsCompleted:
       break;
   }

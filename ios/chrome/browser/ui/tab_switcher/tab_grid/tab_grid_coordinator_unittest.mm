@@ -17,7 +17,6 @@
 #import "ios/chrome/browser/bookmarks/model/local_or_syncable_bookmark_model_factory.h"
 #import "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state_browser_agent.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
 #import "ios/chrome/browser/shared/public/commands/application_commands.h"
@@ -25,8 +24,8 @@
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
-#import "ios/chrome/browser/signin/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/fake_authentication_service_delegate.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/ui/incognito_reauth/incognito_reauth_scene_agent.h"
 #import "ios/chrome/browser/ui/main/bvc_container_view_controller.h"
@@ -80,11 +79,12 @@
 
 namespace {
 
-void AddAgentsToBrowser(Browser* browser, SceneState* scene_state) {
+// Name of the directory where snapshots are saved.
+const char kIdentifier[] = "Identifier";
+
+void AddAgentsToBrowser(Browser* browser) {
   SnapshotBrowserAgent::CreateForBrowser(browser);
-  SnapshotBrowserAgent::FromBrowser(browser)->SetSessionID(
-      [[NSUUID UUID] UUIDString]);
-  SceneStateBrowserAgent::CreateForBrowser(browser, scene_state);
+  SnapshotBrowserAgent::FromBrowser(browser)->SetSessionID(kIdentifier);
 }
 
 class TabGridCoordinatorTest : public BlockCleanupTest {
@@ -122,7 +122,8 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
             chrome_browser_state_.get());
     bookmarks::test::WaitForBookmarkModelToLoad(bookmark_model_);
 
-    browser_ = std::make_unique<TestBrowser>(chrome_browser_state_.get());
+    browser_ = std::make_unique<TestBrowser>(chrome_browser_state_.get(),
+                                             scene_state_);
 
     // Set up ApplicationCommands mock. Because ApplicationCommands conforms
     // to ApplicationSettingsCommands, that needs to be mocked and dispatched
@@ -139,11 +140,12 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
         startDispatchingToTarget:mockApplicationSettingsCommandHandler
                      forProtocol:@protocol(ApplicationSettingsCommands)];
 
-    AddAgentsToBrowser(browser_.get(), scene_state_);
+    AddAgentsToBrowser(browser_.get());
 
     incognito_browser_ = std::make_unique<TestBrowser>(
-        chrome_browser_state_->GetOffTheRecordChromeBrowserState());
-    AddAgentsToBrowser(incognito_browser_.get(), scene_state_);
+        chrome_browser_state_->GetOffTheRecordChromeBrowserState(),
+        scene_state_);
+    AddAgentsToBrowser(incognito_browser_.get());
 
     IncognitoReauthSceneAgent* reauthAgent = [[IncognitoReauthSceneAgent alloc]
         initWithReauthModule:[[ReauthenticationModule alloc] init]];
@@ -151,7 +153,6 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
 
     UIWindow* window = GetAnyKeyWindow();
 
-    // TODO(crbug.com/1414048): Add inactive browser.
     coordinator_ = [[TabGridCoordinator alloc]
                      initWithWindow:window
          applicationCommandEndpoint:OCMProtocolMock(
@@ -159,7 +160,7 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
         browsingDataCommandEndpoint:OCMProtocolMock(
                                         @protocol(BrowsingDataCommands))
                      regularBrowser:browser_.get()
-                    inactiveBrowser:nil
+                    inactiveBrowser:browser_->CreateInactiveBrowser()
                    incognitoBrowser:incognito_browser_.get()];
     coordinator_.animationsDisabledForTesting = YES;
 
@@ -202,7 +203,7 @@ class TabGridCoordinatorTest : public BlockCleanupTest {
   // Browser for the coordinator.
   std::unique_ptr<Browser> browser_;
 
-  // Browser for the coordinator.
+  // Incognito browser for the coordinator.
   std::unique_ptr<Browser> incognito_browser_;
 
   // Scene state emulated in this test.

@@ -277,8 +277,7 @@ IN_PROC_BROWSER_TEST_F(WebAppScopeExtensionsBrowserTest,
   GURL extended_scope_url =
       secondary_server_.GetURL("/url/that/does/not/get/navigated/to");
   ClickLink(browser()->tab_strip_model()->GetActiveWebContents(),
-            /*link_url=*/extended_scope_url,
-            /*target_url=*/extended_scope_url);
+            /*link_url=*/extended_scope_url);
 
   // Await the second LaunchParams in the same app document.
   EXPECT_EQ(
@@ -473,7 +472,7 @@ IN_PROC_BROWSER_TEST_F(WebAppScopeExtensionsOriginTrialBrowserTest,
   {
     UpdateAwaiter update_awaiter(provider.install_manager());
     serve_token = false;
-    NavigateToURLAndWait(browser(), GURL(kTestWebAppUrl));
+    EXPECT_TRUE(ui_test_utils::NavigateToURL(browser(), GURL(kTestWebAppUrl)));
     update_awaiter.AwaitUpdate();
   }
 

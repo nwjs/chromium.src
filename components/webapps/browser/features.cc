@@ -22,11 +22,6 @@ extern const base::FeatureParam<base::TimeDelta>
     kAmbientBadgeSuppressFirstVisit_Period{&kAmbientBadgeSuppressFirstVisit,
                                            "period", base::Days(30)};
 
-// Enables or disables the installable ambient badge infobar.
-BASE_FEATURE(kInstallableAmbientBadgeInfoBar,
-             "InstallableAmbientBadgeInfoBar",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables or disables the installable ambient badge message.
 BASE_FEATURE(kInstallableAmbientBadgeMessage,
              "InstallableAmbientBadgeMessage",
@@ -109,10 +104,28 @@ extern const base::FeatureParam<int> kBannerParamsDaysAfterBannerIgnoredKey{
 BASE_FEATURE(kWebAppsEnableMLModelForPromotion,
              "WebAppsEnableMLModelForPromotion",
              base::FEATURE_DISABLED_BY_DEFAULT);
+extern const base::FeatureParam<double> kWebAppsMLGuardrailResultReportProb(
+    &kWebAppsEnableMLModelForPromotion,
+    "guardrail_report_prob",
+    0);
+extern const base::FeatureParam<double> kWebAppsMLModelUserDeclineReportProb(
+    &kWebAppsEnableMLModelForPromotion,
+    "model_and_user_decline_report_prob",
+    0);
+extern const base::FeatureParam<int> kMaxDaysForMLPromotionGuardrailStorage(
+    &kWebAppsEnableMLModelForPromotion,
+    "max_days_to_store_guardrails",
+    kTotalDaysToStoreMLGuardrails);
 
 // Allows installing a web app with fallback manifest values.
 BASE_FEATURE(kUniversalInstallManifest,
              "UniversalInstallManifest",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Allows installing a web app with fallback manifest values on root scope pages
+// without manifest.
+BASE_FEATURE(kUniversalInstallRootScopeNoManifest,
+             "UniversalInstallRootScopeNoManifest",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Allows installing a web app when no icon provided by the manifest.
@@ -122,11 +135,5 @@ BASE_FEATURE(kUniversalInstallIcon,
 
 extern const base::FeatureParam<int> kMinimumFaviconSize{&kUniversalInstallIcon,
                                                          "size", 48};
-
-// Enables per PWA System Media Controls on Windows
-BASE_FEATURE(kWebAppSystemMediaControlsWin,
-             "WebAppSystemMediaControlsWin",
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
 }  // namespace features
 }  // namespace webapps

@@ -254,6 +254,8 @@ class AutocompleteController : public AutocompleteProviderListener,
   friend class AutocompleteProviderTest;
   friend class OmniboxSuggestionButtonRowBrowserTest;
   friend class ZeroSuggestPrefetchTabHelperBrowserTest;
+  FRIEND_TEST_ALL_PREFIXES(AutocompleteControllerTest,
+                           FilterMatchesForInstantKeywordWithBareAt);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderTest,
                            RedundantKeywordsIgnoredInResult);
   FRIEND_TEST_ALL_PREFIXES(AutocompleteProviderTest, UpdateAssistedQueryStats);
@@ -367,8 +369,10 @@ class AutocompleteController : public AutocompleteProviderListener,
   // `notify_changed_debouncer_`.
   void CancelDelayedNotifyChanged();
 
-  // Updates |done_| to be accurate with respect to current providers' statuses.
-  void CheckIfDone();
+  // Returns true if all of the providers which should be run are done. If
+  // `ignore_document_provider` is true, ignores the state of the
+  // `TYPE_DOCUMENT` provider.
+  bool CheckIfDone(bool ignore_document_provider = false);
 
   // Starts |expire_timer_|.
   void StartExpireTimer();
@@ -432,6 +436,16 @@ class AutocompleteController : public AutocompleteProviderListener,
   // May remove company entity images if omnibox::kCompanyEntityIconAdjustment
   // feature is enabled.
   void MaybeRemoveCompanyEntityImages(AutocompleteResult* result);
+
+  // May remove actions from default suggestion to avoid interference with
+  // keyword mode refresh interaction. May clear some match text that is
+  // repeated across multiple consecutive matches.
+  void MaybeCleanSuggestionsForKeywordMode(const AutocompleteInput& input,
+                                           AutocompleteResult* result);
+
+  // Get the experiment stats v2 entry for the omnibox position. Used on iOS.
+  const omnibox::metrics::ChromeSearchboxStats::ExperimentStatsV2
+  GetOmniboxPositionExperimentStatsV2() const;
 
   base::ObserverList<Observer> observers_;
 

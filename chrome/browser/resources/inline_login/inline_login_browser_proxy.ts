@@ -10,10 +10,10 @@ export interface InlineLoginBrowserProxy {
   initialize(): void;
 
   /**
-   * Send 'authExtensionReady' message to handle tasks after auth extension
+   * Send 'authenticatorReady' message to handle tasks after authenticator
    * loads.
    */
-  authExtensionReady(): void;
+  authenticatorReady(): void;
 
   /**
    * Send 'switchToFullTab' message to switch the UI from a constrained dialog
@@ -48,6 +48,12 @@ export interface InlineLoginBrowserProxy {
    */
   getAccounts(): Promise<string[]>;
 
+  /**
+   * Sends 'getDeviceId' message to the handler. The promise will be resolved
+   * with the device identifier for this user.
+   */
+  getDeviceId(): Promise<string>;
+
   /** Send 'dialogClose' message to close the login dialog. */
   dialogClose(): void;
 
@@ -73,8 +79,8 @@ export class InlineLoginBrowserProxyImpl implements InlineLoginBrowserProxy {
     chrome.send('initialize');
   }
 
-  authExtensionReady() {
-    chrome.send('authExtensionReady');
+  authenticatorReady() {
+    chrome.send('authenticatorReady');
   }
 
   switchToFullTab(url: string) {
@@ -99,6 +105,10 @@ export class InlineLoginBrowserProxyImpl implements InlineLoginBrowserProxy {
 
   getAccounts() {
     return sendWithPromise('getAccounts');
+  }
+
+  getDeviceId() {
+    return sendWithPromise('getDeviceId');
   }
 
   dialogClose() {

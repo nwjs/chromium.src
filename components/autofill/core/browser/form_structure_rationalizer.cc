@@ -8,6 +8,7 @@
 #include "base/ranges/algorithm.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_parsing/credit_card_field.h"
+#include "components/autofill/core/browser/form_structure_rationalization_engine.h"
 #include "components/autofill/core/browser/logging/log_manager.h"
 #include "components/autofill/core/browser/rationalization_util.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -101,9 +102,8 @@ void FormStructureRationalizer::RationalizeAutocompleteAttributes(
       field->SetHtmlType(type, field->html_mode());
     };
     // Some of the following rationalization operates only on text fields.
-    bool is_text_field =
-        field->FormControlType() == DeprecatedFormControlType::kText ||
-        field->FormControlType() == DeprecatedFormControlType::kTextarea;
+    bool is_text_field = field->IsTextInputElement() ||
+                         field->form_control_type == FormControlType::kTextArea;
     switch (field->html_type()) {
       case HtmlFieldType::kAdditionalName:
         if (!is_text_field) {
@@ -572,6 +572,45 @@ void FormStructureRationalizer::RationalizeStreetAddressAndAddressLine(
   }
 }
 
+void FormStructureRationalizer::RationalizeBetweenStreetFields(
+    LogManager* log_manager) {
+  if (fields_->size() < 2 ||
+      !base::FeatureList::IsEnabled(
+          features::kAutofillEnableSupportForBetweenStreets)) {
+    return;
+  }
+  for (auto field = fields_->begin(); field != fields_->end() - 1; ++field) {
+    const bool first_is_between_streets =
+        (*field)->ComputedType().GetStorableType() ==
+        ADDRESS_HOME_BETWEEN_STREETS;
+    if (!first_is_between_streets) {
+      continue;
+    }
+
+    // Rationalize a preceding street address belonging to the same section
+    // unless it's a server override.
+    AutofillField& next_field = **(field + 1);
+    const bool second_is_between_streets_1_or_2 =
+        next_field.ComputedType().GetStorableType() ==
+            ADDRESS_HOME_BETWEEN_STREETS_1 ||
+        next_field.ComputedType().GetStorableType() ==
+            ADDRESS_HOME_BETWEEN_STREETS_2;
+    if (!second_is_between_streets_1_or_2) {
+      continue;
+    }
+    LOG_AF(log_manager) << LoggingScope::kRationalization
+                        << LogMessage::kRationalization
+                        << "Address Home Between Streets Rationalization: "
+                           "Converting sequence of (home_between_street,  "
+                           "home_between_street_1) or (home_between_street, "
+                           "home_between_street_2) to (home_between_street_1, "
+                           "home_between_street_2)";
+    (**field).SetTypeTo(AutofillType(ADDRESS_HOME_BETWEEN_STREETS_1));
+    next_field.SetTypeTo(AutofillType(ADDRESS_HOME_BETWEEN_STREETS_2));
+    break;
+  }
+}
+
 void FormStructureRationalizer::RationalizePhoneNumberTrunkTypes(
     LogManager* log_manager) {
   if (!base::FeatureList::IsEnabled(
@@ -940,15 +979,20 @@ void FormStructureRationalizer::RationalizeRepeatedFields(
 
 void FormStructureRationalizer::RationalizeFieldTypePredictions(
     const url::Origin& main_origin,
+    const GeoIpCountryCode& client_country,
+    const LanguageCode& language_code,
     LogManager* log_manager) {
   RationalizeCreditCardFieldPredictions(log_manager);
   RationalizeMultiOriginCreditCardFields(main_origin, log_manager);
   RationalizeCreditCardNumberOffsets(log_manager);
   RationalizeStreetAddressAndAddressLine(log_manager);
+  RationalizeBetweenStreetFields(log_manager);
   RationalizePhoneNumberTrunkTypes(log_manager);
   for (const auto& field : *fields_)
     field->SetTypeTo(field->Type());
   RationalizeTypeRelationships(log_manager);
+  RationalizeByRationalizationEngine(client_country, language_code,
+                                     log_manager);
 }
 
 void FormStructureRationalizer::RationalizeTypeRelationships(
@@ -972,6 +1016,19 @@ void FormStructureRationalizer::RationalizeTypeRelationships(
           << " can only exist if other fields of specific types exist.";
     }
   }
+}
+
+void FormStructureRationalizer::RationalizeByRationalizationEngine(
+    const GeoIpCountryCode& client_country,
+    const LanguageCode& language_code,
+    LogManager* log_manager) {
+  absl::optional<PatternSource> pattern_source = GetActivePatternSource();
+  if (!pattern_source.has_value()) {
+    pattern_source = PatternSource::kLegacy;
+  }
+
+  rationalization::ApplyRationalizationEngineRules(
+      client_country, language_code, *pattern_source, *fields_, log_manager);
 }
 
 }  // namespace autofill

@@ -74,7 +74,7 @@
 #include "third_party/icu/source/i18n/unicode/ulocdata.h"
 
 #if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-#include "chrome/browser/enterprise/connectors/analysis/print_content_analysis_utils.h"
+#include "chrome/browser/enterprise/data_protection/print_utils.h"
 #if BUILDFLAG(IS_MAC)
 #include "chrome/grit/generated_resources.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -91,7 +91,7 @@
 #include "chrome/browser/ash/crosapi/local_printer_ash.h"
 #include "chrome/browser/ash/drive/drive_integration_service.h"
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chromeos/crosapi/mojom/drive_integration_service.mojom.h"
+#include "chrome/common/chrome_paths_lacros.h"
 #include "chromeos/lacros/lacros_service.h"
 #endif
 
@@ -458,13 +458,6 @@ PrintPreviewHandler::PrintPreviewHandler() {
         service->GetInterfaceVersion<crosapi::mojom::LocalPrinter>();
   } else {
     LOG(ERROR) << "Local printer not available";
-  }
-
-  if (service->IsAvailable<crosapi::mojom::DriveIntegrationService>()) {
-    drive_integration_service_ =
-        service->GetRemote<crosapi::mojom::DriveIntegrationService>().get();
-  } else {
-    LOG(ERROR) << "Drive integration service not available";
   }
 #endif
   ReportUserActionHistogram(UserActionBuckets::kPreviewStarted);
@@ -853,7 +846,7 @@ void PrintPreviewHandler::HandleDoPrint(const base::Value::List& args) {
 #if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
   std::string device_name = *settings.FindString(kSettingDeviceName);
 
-  using enterprise_connectors::PrintScanningContext;
+  using enterprise_data_protection::PrintScanningContext;
   auto scan_context =
       settings.FindBool(kSettingShowSystemDialog).value_or(false)
           ? PrintScanningContext::kSystemPrintAfterPreview
@@ -878,7 +871,7 @@ void PrintPreviewHandler::HandleDoPrint(const base::Value::List& args) {
   auto hide_preview = base::BindOnce(&PrintPreviewHandler::OnHidePreviewDialog,
                                      weak_factory_.GetWeakPtr());
 
-  enterprise_connectors::PrintIfAllowedByPolicy(
+  enterprise_data_protection::PrintIfAllowedByPolicy(
       data, GetInitiator(), std::move(device_name), scan_context,
       std::move(on_verdict), std::move(hide_preview));
 
@@ -1108,26 +1101,16 @@ void PrintPreviewHandler::SendInitialSettings(
 #elif BUILDFLAG(IS_CHROMEOS_LACROS)
   // The "Save to Google Drive" option is only allowed for the primary profile
   // in the Lacros browser.
-  if (Profile::FromWebUI(web_ui())->IsMainProfile() &&
-      drive_integration_service_) {
-    drive_integration_service_->GetMountPointPath(base::BindOnce(
-        &PrintPreviewHandler::OnDrivePathReady, weak_factory_.GetWeakPtr(),
-        std::move(initial_settings), callback_id));
-    return;
+  if (Profile::FromWebUI(web_ui())->IsMainProfile()) {
+    base::FilePath drive_path;
+    initial_settings.Set(
+        kIsDriveMounted,
+        chrome::GetDriveFsMountPointPath(&drive_path) && !drive_path.empty());
   }
 #endif
 
   ResolveJavascriptCallback(base::Value(callback_id), initial_settings);
 }
-
-#if BUILDFLAG(IS_CHROMEOS_LACROS)
-void PrintPreviewHandler::OnDrivePathReady(base::Value::Dict initial_settings,
-                                           const std::string& callback_id,
-                                           const base::FilePath& drive_path) {
-  initial_settings.Set(kIsDriveMounted, !drive_path.empty());
-  ResolveJavascriptCallback(base::Value(callback_id), initial_settings);
-}
-#endif
 
 void PrintPreviewHandler::ClosePreviewDialog() {
   print_preview_ui()->OnClosePrintPreviewDialog();

@@ -65,8 +65,6 @@ StandaloneBrowserExtensionApps::~StandaloneBrowserExtensionApps() = default;
 
 void StandaloneBrowserExtensionApps::RegisterCrosapiHost(
     mojo::PendingReceiver<crosapi::mojom::AppPublisher> receiver) {
-  RegisterPublisher(app_type_);
-
   // At the moment the app service publisher will only accept one browser client
   // publishing apps to ash chrome. Any extra clients will be ignored.
   // TODO(crbug.com/1174246): Support SxS lacros.
@@ -288,6 +286,16 @@ void StandaloneBrowserExtensionApps::StopApp(const std::string& app_id) {
   controller_->StopApp(app_id);
 }
 
+void StandaloneBrowserExtensionApps::UpdateAppSize(const std::string& app_id) {
+  // It is possible that Lacros is briefly unavailable, for example if it shuts
+  // down for an update.
+  if (!controller_.is_bound()) {
+    return;
+  }
+
+  controller_->UpdateAppSize(app_id);
+}
+
 void StandaloneBrowserExtensionApps::OpenNativeSettings(
     const std::string& app_id) {
   // It is possible that Lacros is briefly unavailable, for example if it shuts
@@ -327,6 +335,8 @@ void StandaloneBrowserExtensionApps::RegisterAppController(
   controller_.set_disconnect_handler(
       base::BindOnce(&StandaloneBrowserExtensionApps::OnControllerDisconnected,
                      weak_factory_.GetWeakPtr()));
+  RegisterPublisher(app_type_);
+
   if (app_cache_.empty()) {
     // If there is no apps saved in `app_cache_`, still publish an empty app
     // list to initialize `app_type_`.

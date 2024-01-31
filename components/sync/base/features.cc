@@ -36,7 +36,7 @@ BASE_FEATURE(kSharingOfferKeyPairRead,
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kSyncAndroidLimitNTPPromoImpressions,
              "SyncAndroidLimitNTPPromoImpressions",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kSyncAutofillWalletUsageData,
@@ -58,7 +58,7 @@ BASE_FEATURE(kSyncChromeOSExplicitPassphraseSharing,
 
 BASE_FEATURE(kSyncChromeOSAppsToggleSharing,
              "SyncChromeOSAppsToggleSharing",
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kChromeOSSyncedSessionSharing,
              "ChromeOSSyncedSessionSharing",
@@ -99,7 +99,7 @@ BASE_FEATURE(kEnablePreferencesAccountStorage,
 );
 
 BASE_FEATURE(kSyncPollImmediatelyOnEveryStartup,
-             "SyncPollImmediatelyOnEveryStartup",
+             "SyncPollImmediatelyOnEveryStartup2",
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || \
     BUILDFLAG(IS_WIN)
              base::FEATURE_ENABLED_BY_DEFAULT
@@ -107,10 +107,6 @@ BASE_FEATURE(kSyncPollImmediatelyOnEveryStartup,
              base::FEATURE_DISABLED_BY_DEFAULT
 #endif
 );
-
-BASE_FEATURE(kSyncPollWithoutDelayOnStartup,
-             "SyncPollWithoutDelayOnStartup",
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 BASE_FEATURE(kSyncWebauthnCredentials,
@@ -139,9 +135,11 @@ BASE_FEATURE(kEnableBookmarksAccountStorage,
 #endif  // BUILDFLAG(IS_IOS)
 );
 
-BASE_FEATURE(kReadingListEnableDualReadingListModel,
-             "ReadingListEnableDualReadingListModel",
-             base::FEATURE_ENABLED_BY_DEFAULT);
+#if !BUILDFLAG(IS_IOS)
+BASE_FEATURE(kEnableBookmarkFoldersForAccountStorage,
+             "EnableBookmarkFoldersForAccountStorage",
+             base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // !BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kReadingListEnableSyncTransportModeUponSignIn,
              "ReadingListEnableSyncTransportModeUponSignIn",
@@ -185,5 +183,10 @@ BASE_FEATURE(kSyncSessionOnVisibilityChanged,
 BASE_FEATURE(kSyncDecoupleAddressPaymentSettings,
              "SyncDecoupleAddressPaymentSettings",
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO(crbug.com/1374718): Delete feature toggle after a grace period.
+BASE_FEATURE(kSyncAlwaysForceImmediateStartIfTransportDataMissing,
+             "SyncAlwaysForceImmediateStartIfTransportDataMissing",
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace syncer

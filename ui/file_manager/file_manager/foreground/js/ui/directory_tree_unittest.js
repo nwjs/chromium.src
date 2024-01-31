@@ -7,14 +7,13 @@ import {loadTimeData} from 'chrome://resources/ash/common/load_time_data.m.js';
 import {assertArrayEquals, assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chromeos/chai_assert.js';
 
 import {MockVolumeManager} from '../../../background/js/mock_volume_manager.js';
-import {DialogType} from '../../../common/js/dialog_type.js';
 import {EntryList} from '../../../common/js/files_app_entry_types.js';
 import {installMockChrome, MockCommandLinePrivate} from '../../../common/js/mock_chrome.js';
 import {MockDirectoryEntry} from '../../../common/js/mock_entry.js';
 import {reportPromise, waitUntil} from '../../../common/js/test_error_reporting.js';
 import {str} from '../../../common/js/translations.js';
-import {VolumeManagerCommon} from '../../../common/js/volume_manager_types.js';
-import {FileOperationManager} from '../../../externs/background/file_operation_manager.js';
+import {RootType, VolumeType} from '../../../common/js/volume_manager_types.js';
+import {DialogType} from '../../../externs/ts/state.js';
 import {DirectoryModel} from '../directory_model.js';
 import {createFakeAndroidAppListModel} from '../fake_android_app_list_model.js';
 import {MetadataModel} from '../metadata/metadata_model.js';
@@ -33,9 +32,6 @@ let directoryModel;
 
 /** @type {!MetadataModel} */
 let metadataModel;
-
-/** @type {!FileOperationManager} */
-let fileOperationManager;
 
 // @ts-ignore: error TS2314: Generic type 'Array<T>' requires 1 type
 // argument(s).
@@ -82,15 +78,6 @@ export function setUp() {
   volumeManager = new MockVolumeManager();
   directoryModel = createFakeDirectoryModel();
   metadataModel = /** @type {!MetadataModel} */ ({});
-  // @ts-ignore: error TS2352: Conversion of type '{ addEventListener: (name:
-  // any, callback: any) => void; }' to type 'FileOperationManager' may be a
-  // mistake because neither type sufficiently overlaps with the other. If this
-  // was intentional, convert the expression to 'unknown' first.
-  fileOperationManager = /** @type {!FileOperationManager} */ ({
-    // @ts-ignore: error TS7006: Parameter 'callback' implicitly has an 'any'
-    // type.
-    addEventListener: (name, callback) => {},
-  });
 
   // Setup fake file system URL resolver.
   fakeFileSystemURLEntries = {};
@@ -188,8 +175,7 @@ export function testCreateDirectoryTree(callback) {
   // Populate the directory tree with the mock filesystem.
   let directoryTree = createElements();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -259,8 +245,7 @@ export function testCreateDirectoryTreeWithTeamDrive(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -320,8 +305,7 @@ export function testCreateDirectoryTreeWithEmptyTeamDrive(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -382,8 +366,7 @@ export function testCreateDirectoryTreeWithComputers(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -442,8 +425,7 @@ export function testCreateDirectoryTreeWithEmptyComputers(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -511,8 +493,7 @@ export function testCreateDirectoryTreeWithTeamDrivesAndComputers(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -585,8 +566,7 @@ export function testUpdateSubElementsFromListSections() {
   let directoryTree = createElements();
   const mockMetadata = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, mockMetadata,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, mockMetadata, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = treeModel;
@@ -634,8 +614,7 @@ export function testUpdateSubElementsFromList() {
   // Populate the directory tree with the mock filesystem.
   let directoryTree = createElements();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -658,8 +637,7 @@ export function testUpdateSubElementsFromList() {
 
   // Mounts a removable volume.
   const removableVolume = MockVolumeManager.createMockVolumeInfo(
-      VolumeManagerCommon.VolumeType.REMOVABLE, 'removable',
-      str('REMOVABLE_DIRECTORY_LABEL'));
+      VolumeType.REMOVABLE, 'removable', str('REMOVABLE_DIRECTORY_LABEL'));
   volumeManager.volumeInfoList.add(removableVolume);
 
   // Asserts that the directoryTree is not updated before the update.
@@ -688,8 +666,7 @@ export function testUpdateSubElementsFromList() {
 
   // Mounts an archive volume.
   const archiveVolume = MockVolumeManager.createMockVolumeInfo(
-      VolumeManagerCommon.VolumeType.ARCHIVE, 'archive',
-      str('ARCHIVE_DIRECTORY_LABEL'));
+      VolumeType.ARCHIVE, 'archive', str('ARCHIVE_DIRECTORY_LABEL'));
   volumeManager.volumeInfoList.add(archiveVolume);
 
   // Asserts that the directoryTree is not updated before the update.
@@ -763,9 +740,9 @@ export async function testUpdateSubElementsAndroidDisabled(done) {
 
   // Create Android 'Play files' volume and set as disabled.
   volumeManager.volumeInfoList.add(MockVolumeManager.createMockVolumeInfo(
-      VolumeManagerCommon.VolumeType.ANDROID_FILES, 'android_files:droid'));
+      VolumeType.ANDROID_FILES, 'android_files:droid'));
   volumeManager.isDisabled = (volume) => {
-    return (volume === VolumeManagerCommon.VolumeType.ANDROID_FILES);
+    return (volume === VolumeType.ANDROID_FILES);
   };
 
   const treeModel = new NavigationListModel(
@@ -776,8 +753,7 @@ export async function testUpdateSubElementsAndroidDisabled(done) {
   let directoryTree = createElements();
   const mockMetadata = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, mockMetadata,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, mockMetadata, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = treeModel;
@@ -832,7 +808,7 @@ export async function testUpdateSubElementsRemovableDisabled(done) {
 
   // Set removable volumes as disabled.
   volumeManager.isDisabled = (volume) => {
-    return (volume === VolumeManagerCommon.VolumeType.REMOVABLE);
+    return (volume === VolumeType.REMOVABLE);
   };
 
   const treeModel = new NavigationListModel(
@@ -843,8 +819,7 @@ export async function testUpdateSubElementsRemovableDisabled(done) {
   let directoryTree = createElements();
   const mockMetadata = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, mockMetadata,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, mockMetadata, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = treeModel;
@@ -862,8 +837,7 @@ export async function testUpdateSubElementsRemovableDisabled(done) {
 
   // Mount a removable volume.
   const removableVolume = MockVolumeManager.createMockVolumeInfo(
-      VolumeManagerCommon.VolumeType.REMOVABLE, 'removable',
-      str('REMOVABLE_DIRECTORY_LABEL'));
+      VolumeType.REMOVABLE, 'removable', str('REMOVABLE_DIRECTORY_LABEL'));
   volumeManager.volumeInfoList.add(removableVolume);
 
   // Asserts that a removable directory is added after the update.
@@ -922,8 +896,7 @@ export function testAddFirstTeamDrive(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -991,8 +964,7 @@ export function testRemoveLastTeamDrive(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1061,8 +1033,7 @@ export function testAddFirstComputer(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1133,8 +1104,7 @@ export function testRemoveLastComputer(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1214,8 +1184,7 @@ export function testInsideMyDriveAndInsideDrive(callback) {
   directoryTree.metadataModel = createMockMetadataModel();
   const mockMetadata = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, mockMetadata,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, mockMetadata, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1267,7 +1236,7 @@ export function testInsideMyDriveAndInsideDrive(callback) {
 export function testAddProviders(callback) {
   // Add a volume representing a non-Smb provider to the mock filesystem.
   volumeManager.createVolumeInfo(
-      VolumeManagerCommon.VolumeType.PROVIDED, 'not_smb', 'NOT_SMB_LABEL');
+      VolumeType.PROVIDED, 'not_smb', 'NOT_SMB_LABEL');
 
   // Add a sub directory to the non-Smb provider.
   const provider = assert(volumeManager.volumeInfoList.item(2).fileSystem);
@@ -1278,7 +1247,7 @@ export function testAddProviders(callback) {
 
   // Add a volume representing an Smb provider to the mock filesystem.
   volumeManager.createVolumeInfo(
-      VolumeManagerCommon.VolumeType.PROVIDED, 'smb', 'SMB_LABEL', '@smb');
+      VolumeType.PROVIDED, 'smb', 'SMB_LABEL', '@smb');
 
   // Add a sub directory to the Smb provider.
   const smbProvider = assert(volumeManager.volumeInfoList.item(3).fileSystem);
@@ -1288,8 +1257,7 @@ export function testAddProviders(callback) {
       MockDirectoryEntry.create(smbProvider, '/smb_child');
 
   // Add a volume representing an smbfs share to the mock filesystem.
-  volumeManager.createVolumeInfo(
-      VolumeManagerCommon.VolumeType.SMB, 'smbfs', 'SMBFS_LABEL');
+  volumeManager.createVolumeInfo(VolumeType.SMB, 'smbfs', 'SMBFS_LABEL');
 
   // Add a sub directory to the Smb provider.
   const smbfs = assert(volumeManager.volumeInfoList.item(4).fileSystem);
@@ -1305,8 +1273,7 @@ export function testAddProviders(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = metadataModel;
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1368,7 +1335,7 @@ export function testAddProviders(callback) {
 export function testSmbNotFetchedUntilClick(callback) {
   // Add a volume representing an Smb provider to the mock filesystem.
   volumeManager.createVolumeInfo(
-      VolumeManagerCommon.VolumeType.PROVIDED, 'smb', 'SMB_LABEL', '@smb');
+      VolumeType.PROVIDED, 'smb', 'SMB_LABEL', '@smb');
 
   // Add a sub directory to the Smb provider.
   const smbProvider = assert(volumeManager.volumeInfoList.item(2).fileSystem);
@@ -1384,8 +1351,7 @@ export function testSmbNotFetchedUntilClick(callback) {
   // 'HTMLElement'.
   directoryTree.metadataModel = metadataModel;
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1437,7 +1403,7 @@ export function testSmbNotFetchedUntilClick(callback) {
 
 /** Test EntryListItem.sortEntries doesn't fail sorting empty array. */
 export function testEntryListItemSortEntriesEmpty() {
-  const rootType = VolumeManagerCommon.RootType.MY_FILES;
+  const rootType = RootType.MY_FILES;
   const entryList = new EntryList(str('MY_FILES_ROOT_LABEL'), rootType);
   const modelItem = new NavigationModelFakeItem(
       entryList.label, NavigationModelItemType.ENTRY_LIST, entryList);
@@ -1448,8 +1414,7 @@ export function testEntryListItemSortEntriesEmpty() {
   // read-only property.
   directoryTree.metadataModel = metadataModel;
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, metadataModel,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, metadataModel, true);
   // @ts-ignore: error TS2740: Type 'MockNavigationListModel' is missing the
   // following properties from type 'NavigationListModel': shortcutListModel_,
   // recentModelItem_, directoryModel_, androidAppListModel_, and 21 more.
@@ -1482,8 +1447,7 @@ export function testAriaExpanded(callback) {
   directoryTree.metadataModel = createMockMetadataModel();
   const mockMetadata = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, mockMetadata,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, mockMetadata, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);
@@ -1548,8 +1512,7 @@ export async function testDriveDisabled(done) {
   directoryTree.metadataModel = createMockMetadataModel();
   const mockMetadata = createMockMetadataModel();
   DirectoryTree.decorate(
-      directoryTree, directoryModel, volumeManager, mockMetadata,
-      fileOperationManager, true);
+      directoryTree, directoryModel, volumeManager, mockMetadata, true);
   // @ts-ignore: error TS2339: Property 'dataModel' does not exist on type
   // 'HTMLElement'.
   directoryTree.dataModel = new MockNavigationListModel(volumeManager);

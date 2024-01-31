@@ -39,8 +39,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @DoNotBatch(reason = "crbug/1459563")
 @RunWith(AndroidJUnit4.class)
 @IgnoreFor(
-        implementations = {CronetImplementation.FALLBACK},
-        reason = "The fallback implementation doesn't RequestFinished listeners")
+        implementations = {CronetImplementation.FALLBACK, CronetImplementation.AOSP_PLATFORM},
+        reason = "Fallback and AOSP implementations do not support RequestFinishedListeners")
 public class RequestFinishedInfoTest {
     @Rule public final CronetTestRule mTestRule = CronetTestRule.withAutomaticEngineStartup();
 
@@ -440,7 +440,7 @@ public class RequestFinishedInfoTest {
         // Empty headers are invalid and will cause start() to throw an exception.
         UrlRequest request = urlRequestBuilder.addHeader("", "").build();
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class, request::start);
-        assertThat(e).hasMessageThat().isEqualTo("Invalid header =");
+        assertThat(e).hasMessageThat().isEqualTo("Invalid header with headername: ");
     }
 
     @Test

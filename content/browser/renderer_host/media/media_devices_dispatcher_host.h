@@ -24,6 +24,11 @@
 #include "third_party/blink/public/mojom/mediastream/media_devices.mojom.h"
 #include "url/origin.h"
 
+namespace features {
+CONTENT_EXPORT BASE_DECLARE_FEATURE(
+    kEnableBackForwardCacheForPagesWithMediaDevicesDispatcherHost);
+}  // namespace features
+
 namespace content {
 
 class MediaStreamManager;
@@ -31,8 +36,7 @@ class MediaStreamManager;
 class CONTENT_EXPORT MediaDevicesDispatcherHost
     : public blink::mojom::MediaDevicesDispatcherHost {
  public:
-  MediaDevicesDispatcherHost(int render_process_id,
-                             int render_frame_id,
+  MediaDevicesDispatcherHost(GlobalRenderFrameHostId render_frame_host_id,
                              MediaStreamManager* media_stream_manager);
 
   MediaDevicesDispatcherHost(const MediaDevicesDispatcherHost&) = delete;
@@ -42,8 +46,7 @@ class CONTENT_EXPORT MediaDevicesDispatcherHost
   ~MediaDevicesDispatcherHost() override;
 
   static void Create(
-      int render_process_id,
-      int render_frame_id,
+      GlobalRenderFrameHostId render_frame_host_id,
       MediaStreamManager* media_stream_manager,
       mojo::PendingReceiver<blink::mojom::MediaDevicesDispatcherHost> receiver);
 
@@ -85,29 +88,20 @@ class CONTENT_EXPORT MediaDevicesDispatcherHost
   using GetVideoInputDeviceFormatsCallback =
       GetAllVideoInputDeviceFormatsCallback;
 
-  void GetDefaultVideoInputDeviceID(
+  void OnVideoGotSaltAndOrigin(
       GetVideoInputCapabilitiesCallback client_callback,
       const MediaDeviceSaltAndOrigin& salt_and_origin);
-
-  void GotDefaultVideoInputDeviceID(
-      GetVideoInputCapabilitiesCallback client_callback,
-      const MediaDeviceSaltAndOrigin& salt_and_origin,
-      const std::string& default_device_id);
 
   void FinalizeGetVideoInputCapabilities(
       GetVideoInputCapabilitiesCallback client_callback,
       const MediaDeviceSaltAndOrigin& salt_and_origin,
-      const std::string& default_device_id,
       const MediaDeviceEnumeration& enumeration);
 
-  void GetDefaultAudioInputDeviceID(
+  void OnAudioGotSaltAndOrigin(
       GetAudioInputCapabilitiesCallback client_callback,
       const MediaDeviceSaltAndOrigin& salt_and_origin);
 
-  void GotDefaultAudioInputDeviceID(const std::string& default_device_id);
-
-  void GotAudioInputEnumeration(const std::string& default_device_id,
-                                const MediaDeviceEnumeration& enumeration);
+  void GotAudioInputEnumeration(const MediaDeviceEnumeration& enumeration);
 
   void GotAudioInputParameters(
       size_t index,
@@ -144,8 +138,7 @@ class CONTENT_EXPORT MediaDevicesDispatcherHost
           void(int, int, blink::mojom::CaptureHandleConfigPtr)> callback);
 
   // The following const fields can be accessed on any thread.
-  const int render_process_id_;
-  const int render_frame_id_;
+  const GlobalRenderFrameHostId render_frame_host_id_;
 
   // The following fields can only be accessed on the IO thread.
   const raw_ptr<MediaStreamManager> media_stream_manager_;

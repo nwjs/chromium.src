@@ -69,11 +69,11 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
-#include "chrome/browser/printing/print_job_utils_lacros.h"
+#include "chrome/browser/printing/local_printer_utils_chromeos.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
-#include "chrome/browser/enterprise/connectors/analysis/print_content_analysis_utils.h"
+#include "chrome/browser/enterprise/data_protection/print_utils.h"
 #endif
 
 namespace printing {
@@ -172,11 +172,9 @@ bool ContentAnalysisAfterDialog(
       scanning_data.settings.cloud_or_local_settings.is_cloud_analysis() &&
       base::FeatureList::IsEnabled(
           printing::features::kEnableCloudScanAfterPreview);
-  bool local_analysis_after_dialog =
-      scanning_data.settings.cloud_or_local_settings.is_local_analysis() &&
-      base::FeatureList::IsEnabled(
-          printing::features::kEnableLocalScanAfterPreview);
-  return cloud_analysis_after_dialog || local_analysis_after_dialog;
+  // Local content analysis is always after the dialog.
+  return cloud_analysis_after_dialog ||
+         scanning_data.settings.cloud_or_local_settings.is_local_analysis();
 }
 #endif
 
@@ -202,12 +200,13 @@ PrintViewManagerBase::~PrintViewManagerBase() {
 // static
 void PrintViewManagerBase::DisableThirdPartyBlocking() {
 #if BUILDFLAG(ENABLE_OOP_PRINTING) && BUILDFLAG(ENABLE_OOP_BASIC_PRINT_DIALOG)
-  if (!ShouldPrintJobOop()) {
+  const bool loads_print_drivers_in_browser_process = !ShouldPrintJobOop();
+#else
+  constexpr bool loads_print_drivers_in_browser_process = true;
+#endif
+  if (loads_print_drivers_in_browser_process) {
     ModuleDatabase::DisableThirdPartyBlocking();
   }
-#else
-  ModuleDatabase::DisableThirdPartyBlocking();
-#endif
 }
 #endif  // BUILDFLAG(IS_WIN) && BUILDFLAG(GOOGLE_CHROME_BRANDING)
 
@@ -403,7 +402,7 @@ void PrintViewManagerBase::OnPrintSettingsDone(
   if (!printer_query->cookie() || !printer_query->settings().dpi()) {
     PRINTER_LOG(ERROR) << "Unable to update print settings";
 #if BUILDFLAG(ENABLE_OOP_PRINTING)
-    if (printing::features::kEnableOopPrintDriversJobPrint.Get()) {
+    if (ShouldPrintJobOop()) {
       UnregisterSystemPrintClient();
     }
 #endif
@@ -440,14 +439,14 @@ void PrintViewManagerBase::StartLocalPrintJob(
   // done first in this function's workflow, this way other code can check if
   // content analysis is going to happen and delay starting `print_job_` to
   // avoid needlessly prompting the user.
-  using enterprise_connectors::PrintScanningContext;
+  using enterprise_data_protection::PrintScanningContext;
   auto context = show_system_dialog
                      ? PrintScanningContext::kSystemPrintBeforePrintDocument
                      : PrintScanningContext::kNormalPrintBeforePrintDocument;
 
   absl::optional<enterprise_connectors::ContentAnalysisDelegate::Data>
-      scanning_data =
-          enterprise_connectors::GetPrintAnalysisData(web_contents(), context);
+      scanning_data = enterprise_data_protection::GetPrintAnalysisData(
+          web_contents(), context);
 
   if (scanning_data) {
     content_analysis_before_printing_document_ = base::BindOnce(
@@ -826,9 +825,9 @@ void PrintViewManagerBase::ScriptedPrint(mojom::ScriptedPrintParamsPtr params,
 #endif
 #if BUILDFLAG(ENABLE_PRINT_CONTENT_ANALYSIS)
   absl::optional<enterprise_connectors::ContentAnalysisDelegate::Data>
-      scanning_data = enterprise_connectors::GetPrintAnalysisData(
-          web_contents(),
-          enterprise_connectors::PrintScanningContext::kBeforeSystemDialog);
+      scanning_data = enterprise_data_protection::GetPrintAnalysisData(
+          web_contents(), enterprise_data_protection::PrintScanningContext::
+                              kBeforeSystemDialog);
   if (scanning_data) {
     if (!ContentAnalysisAfterDialog(*scanning_data)) {
       auto scanning_done_callback = base::BindOnce(
@@ -1446,7 +1445,7 @@ void PrintViewManagerBase::ContentAnalysisBeforePrintingDocument(
       weak_ptr_factory_.GetWeakPtr(), print_data, page_size, content_area,
       offsets);
 
-  enterprise_connectors::PrintIfAllowedByPolicy(
+  enterprise_data_protection::PrintIfAllowedByPolicy(
       print_data, web_contents()->GetOutermostWebContents(),
       std::move(scanning_data), std::move(on_verdict));
 }

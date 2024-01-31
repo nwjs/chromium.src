@@ -6,8 +6,8 @@
 import {webUIListenerCallback} from 'chrome://resources/js/cr.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
 import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import {waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
-import {ClearBrowsingDataBrowserProxyImpl, ClearBrowsingDataResult, SettingsCheckboxElement, SettingsClearBrowsingDataDialogElement, SettingsHistoryDeletionDialogElement, SettingsPasswordsDeletionDialogElement, TimePeriod} from 'chrome://settings/lazy_load.js';
+import {flushTasks, waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
+import {ClearBrowsingDataBrowserProxyImpl, ClearBrowsingDataResult, SettingsCheckboxElement, SettingsClearBrowsingDataDialogElement, SettingsHistoryDeletionDialogElement, SettingsPasswordsDeletionDialogElement, TimePeriodExperiment, TimePeriod} from 'chrome://settings/lazy_load.js';
 import {CrButtonElement, loadTimeData, StatusAction, SyncBrowserProxyImpl, SettingsDropdownMenuElement} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
@@ -94,12 +94,12 @@ function getClearBrowsingDataPrefs() {
         time_period_v2: {
           key: 'browser.clear_data.time_period_v2',
           type: chrome.settingsPrivate.PrefType.NUMBER,
-          value: 0,
+          value: TimePeriodExperiment.NOT_SELECTED,
         },
         time_period_v2_basic: {
           key: 'browser.clear_data.time_period_v2_basic',
           type: chrome.settingsPrivate.PrefType.NUMBER,
-          value: 0,
+          value: TimePeriodExperiment.NOT_SELECTED,
         },
       },
       last_clear_browsing_data_tab: {
@@ -121,6 +121,32 @@ function getTimePeriodDropdown(
   return timePeriodDropdown;
 }
 
+// TODO(crbug.com/1487530): Remove once CbdTimeframeRequired finished.
+function testChangeDefaultAndAdd15minForTab(
+    tabName: string, element: SettingsClearBrowsingDataDialogElement) {
+  const timeframe = getTimePeriodDropdown(tabName, element);
+  assertTrue(!!timeframe.menuOptions);
+  assertEquals(7, timeframe.menuOptions.length);
+
+  assertEquals(
+      loadTimeData.getString('clearPeriodNotSelected'),
+      timeframe.menuOptions[0]!.name);
+  assertEquals(
+      loadTimeData.getString('clearPeriod15Minutes'),
+      timeframe.menuOptions[1]!.name);
+
+  assertEquals(
+      loadTimeData.getString('clearPeriodNotSelected'),
+      timeframe.$.dropdownMenu.options[timeframe.$.dropdownMenu.selectedIndex]!
+          .text);
+
+  for (const option of timeframe.$.dropdownMenu.options) {
+    assertEquals(
+        option.text === loadTimeData.getString('clearPeriodNotSelected'),
+        option.hidden);
+  }
+}
+
 suite('ClearBrowsingDataDesktop', function() {
   let testBrowserProxy: TestClearBrowsingDataBrowserProxy;
   let testSyncBrowserProxy: TestSyncBrowserProxy;
@@ -132,7 +158,9 @@ suite('ClearBrowsingDataDesktop', function() {
     testSyncBrowserProxy = new TestSyncBrowserProxy();
     SyncBrowserProxyImpl.setInstance(testSyncBrowserProxy);
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
-    loadTimeData.overrideValues({enableCbdTimeframeRequired: false});
+    // TODO(b/314968275): Add tests for when UNO Desktop is enabled.
+    loadTimeData.overrideValues(
+        {enableCbdTimeframeRequired: false, unoDesktopEnabled: false});
     element = document.createElement('settings-clear-browsing-data-dialog');
     element.set('prefs', getClearBrowsingDataPrefs());
     document.body.appendChild(element);
@@ -309,10 +337,7 @@ suite('ClearBrowsingDataDesktop', function() {
   });
 
   test('ClearBrowsingData_MenuOptions', function() {
-    const timeframe =
-        element.shadowRoot!.querySelector<SettingsDropdownMenuElement>(
-            '.time-range-select');
-    assertTrue(!!timeframe);
+    const timeframe = getTimePeriodDropdown('basic-tab', element);
     assertTrue(!!timeframe.menuOptions);
     assertTrue(timeframe.menuOptions.length === 5);
 
@@ -323,7 +348,7 @@ suite('ClearBrowsingDataDesktop', function() {
   });
 
   // TODO(crbug.com/1487530): Remove once CbdTimeframeRequired finished.
-  test('ClearBrowsingDataV2_15MinAddedWhenExperimentIsOn', async function() {
+  test('ClearBrowsingDataV2_ChangeDefaultAndAdd15min', async function() {
     // This test requires recreation of the page (ClearBrowsingDataDialog) after
     // defining loadTimeData to apply experiment changes after enabling the
     // feature/flag.
@@ -336,17 +361,9 @@ suite('ClearBrowsingDataDesktop', function() {
     await testBrowserProxy.whenCalled('initialize');
     assertEquals(1, testBrowserProxy.getCallCount('initialize'));
 
-    const timeframe =
-        element.shadowRoot!.querySelector<SettingsDropdownMenuElement>(
-            '.time-range-select');
-    assertTrue(!!timeframe);
-    assertTrue(!!timeframe.menuOptions);
-
-    assertTrue(timeframe.menuOptions.length === 6);
-
-    assertTrue(timeframe.menuOptions.some(
-        option =>
-            option.name === loadTimeData.getString('clearPeriod15Minutes')));
+    await flushTasks();
+    testChangeDefaultAndAdd15minForTab('basic-tab', element);
+    testChangeDefaultAndAdd15minForTab('advanced-tab', element);
   });
 
   test('ClearBrowsingData_UnsupportedTimePeriod_Advanced', async function() {

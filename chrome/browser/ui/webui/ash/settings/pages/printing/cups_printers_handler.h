@@ -16,6 +16,7 @@
 #include "chrome/browser/ash/printing/cups_printers_manager.h"
 #include "chrome/browser/ash/printing/printer_event_tracker.h"
 #include "chrome/browser/ui/webui/settings/settings_page_ui_handler.h"
+#include "chromeos/ash/components/dbus/printscanmgr/printscanmgr_client.h"
 #include "chromeos/printing/cups_printer_status.h"
 #include "chromeos/printing/ppd_provider.h"
 #include "chromeos/printing/printer_configuration.h"
@@ -50,7 +51,8 @@ namespace settings {
 // Chrome OS CUPS printing settings page UI handler.
 class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
                             public ui::SelectFileDialog::Listener,
-                            public CupsPrintersManager::Observer {
+                            public CupsPrintersManager::Observer,
+                            public CupsPrintersManager::LocalPrintersObserver {
  public:
   static std::unique_ptr<CupsPrintersHandler> CreateForTesting(
       Profile* profile,
@@ -191,10 +193,11 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
   void HandleAddDiscoveredPrinter(const base::Value::List& args);
 
   // Called when we get a response from
-  // DebugDaemonClient::CupsRetrievePrinterPpd.
-  void OnRetrieveCupsPrinterPpd(const std::string& printer_name,
-                                const std::string& eula,
-                                const std::vector<uint8_t>& data);
+  // PrintscanmgrClient::CupsRetrievePrinterPpd.
+  void OnRetrieveCupsPrinterPpd(
+      const std::string& printer_name,
+      const std::string& eula,
+      absl::optional<printscanmgr::CupsRetrievePpdResponse> response);
 
   void OnRetrievePpdError(const std::string& printer_name);
   void WriteAndDisplayPpdFile(const std::string& printer_name,
@@ -214,6 +217,9 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
   void OnPrintersChanged(
       chromeos::PrinterClass printer_class,
       const std::vector<chromeos::Printer>& printers) override;
+
+  // CupsPrintersManager::LocalPrintersObserver:
+  void OnLocalPrintersUpdated() override;
 
   // Handles getting the EULA URL if available.
   void HandleGetEulaUrl(const base::Value::List& args);
@@ -296,6 +302,10 @@ class CupsPrintersHandler : public ::settings::SettingsPageUIHandler,
 
   base::ScopedObservation<CupsPrintersManager, CupsPrintersManager::Observer>
       printers_manager_observation_{this};
+
+  base::ScopedObservation<CupsPrintersManager,
+                          CupsPrintersManager::LocalPrintersObserver>
+      local_printers_observation_{this};
 
   base::WeakPtrFactory<CupsPrintersHandler> weak_factory_{this};
 };

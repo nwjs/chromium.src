@@ -75,6 +75,7 @@ import org.chromium.chrome.browser.partnercustomizations.BasePartnerBrowserCusto
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.search_engines.DefaultSearchEngineDialogHelperUtils;
 import org.chromium.chrome.browser.search_engines.SearchEnginePromoType;
 import org.chromium.chrome.browser.search_engines.TemplateUrlServiceFactory;
@@ -87,8 +88,10 @@ import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.components.policy.AbstractAppRestrictionsProvider;
 import org.chromium.components.search_engines.TemplateUrl;
 import org.chromium.components.signin.AccountManagerFacade;
+import org.chromium.components.signin.AccountManagerFacadeImpl;
 import org.chromium.components.signin.AccountManagerFacadeProvider;
 import org.chromium.components.signin.base.CoreAccountInfo;
+import org.chromium.components.signin.test.util.FakeAccountManagerDelegate;
 import org.chromium.content_public.browser.test.util.TestThreadUtils;
 import org.chromium.content_public.common.ContentUrlConstants;
 import org.chromium.ui.base.DeviceFormFactor;
@@ -143,6 +146,11 @@ public class FirstRunIntegrationTest {
 
     @Before
     public void setUp() {
+        TestThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    AccountManagerFacadeProvider.setInstanceForTests(
+                            new AccountManagerFacadeImpl(new FakeAccountManagerDelegate()));
+                });
         MockitoAnnotations.initMocks(this);
         when(mExternalAuthUtilsMock.canUseGooglePlayServices()).thenReturn(false);
         ExternalAuthUtils.setInstanceForTesting(mExternalAuthUtilsMock);
@@ -530,8 +538,8 @@ public class FirstRunIntegrationTest {
         if (testCase.cctTosDisabled()) skipTosDialogViaPolicy();
 
         FirstRunFlowSequencer.setDelegateFactoryForTesting(
-                (profileSupplier) ->
-                        new TestFirstRunFlowSequencerDelegate(testCase, profileSupplier));
+                (profileProvider) ->
+                        new TestFirstRunFlowSequencerDelegate(testCase, profileProvider));
 
         setUpLocaleManagerDelegate(testCase.searchPromoType());
     }
@@ -1302,8 +1310,8 @@ public class FirstRunIntegrationTest {
         private FirstRunPagesTestCase mTestCase;
 
         public TestFirstRunFlowSequencerDelegate(
-                FirstRunPagesTestCase testCase, OneshotSupplier<Profile> profileSupplier) {
-            super(profileSupplier);
+                FirstRunPagesTestCase testCase, OneshotSupplier<ProfileProvider> profileProvider) {
+            super(profileProvider);
             mTestCase = testCase;
         }
 

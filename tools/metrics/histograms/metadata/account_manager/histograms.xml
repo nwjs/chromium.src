@@ -50,7 +50,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccountManager.EduCoexistence.FetchAccessTokenResult"
-    enum="GoogleServiceAuthError" expires_after="2024-03-03">
+    enum="GoogleServiceAuthError" expires_after="2024-11-01">
   <owner>agawronska@chromium.org</owner>
   <owner>cros-families-eng@google.com</owner>
   <summary>
@@ -61,10 +61,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccountManager.EduCoexistenceV2.InSessionFlowResult"
-    enum="EduCoexistenceFlowV2Result" expires_after="2024-03-03">
+    enum="EduCoexistenceFlowV2Result" expires_after="2024-11-01">
   <owner>agawronska@chromium.org</owner>
-  <owner>danan@chromium.org</owner>
-  <owner>yilkal@chromium.org</owner>
   <owner>cros-families-eng@google.com</owner>
   <summary>
     Records the last completed step in the EDU account addition flow. Allows to
@@ -73,10 +71,8 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccountManager.EduCoexistenceV2.OnboardingFlowResult"
-    enum="EduCoexistenceFlowV2Result" expires_after="2024-03-03">
+    enum="EduCoexistenceFlowV2Result" expires_after="2024-11-01">
   <owner>agawronska@chromium.org</owner>
-  <owner>danan@chromium.org</owner>
-  <owner>yilkal@chromium.org</owner>
   <owner>cros-families-eng@google.com</owner>
   <summary>
     Records the last completed step in the EDU account addition flow. Allows to
@@ -98,7 +94,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccountManager.InitializationTime" units="microseconds"
-    expires_after="2024-02-05">
+    expires_after="2024-04-28">
   <owner>sinhak@chromium.org</owner>
   <owner>anastasiian@chromium.org</owner>
   <summary>
@@ -160,7 +156,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccountManager.NumAccounts" units="count"
-    expires_after="2024-03-03">
+    expires_after="2024-05-05">
   <owner>sinhak@chromium.org</owner>
   <owner>anastasiian@chromium.org</owner>
   <summary>
@@ -170,7 +166,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="AccountManager.ReportAuthError.IsAccountKeyEmpty"
-    enum="BooleanEmpty" expires_after="2024-03-03">
+    enum="BooleanEmpty" expires_after="2024-05-05">
   <owner>sinhak@chromium.org</owner>
   <owner>anastasiian@chromium.org</owner>
   <summary>

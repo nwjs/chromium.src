@@ -56,12 +56,13 @@ class CORE_EXPORT RootFrameViewport final
 
   // ScrollableArea Implementation
   bool IsRootFrameViewport() const override { return true; }
-  void SetScrollOffset(const ScrollOffset&,
+  bool SetScrollOffset(const ScrollOffset&,
                        mojom::blink::ScrollType,
                        mojom::blink::ScrollBehavior,
                        ScrollCallback on_finish) override;
   PhysicalRect ScrollIntoView(
       const PhysicalRect&,
+      const PhysicalBoxStrut& scroll_margin,
       const mojom::blink::ScrollIntoViewParamsPtr&) override;
   gfx::Rect VisibleContentRect(
       IncludeScrollbarsInRect = kExcludeScrollbars) const override;
@@ -132,6 +133,11 @@ class CORE_EXPORT RootFrameViewport final
   void SetSnapContainerDataNeedsUpdate(bool) override;
   absl::optional<gfx::PointF> GetSnapPositionAndSetTarget(
       const cc::SnapSelectionStrategy& strategy) override;
+  void UpdateSnappedTargetsAndEnqueueSnapChanged() override;
+  void SetSnapChangingTargetData(
+      absl::optional<cc::SnappedTargetData>) override;
+  void UpdateSnapChangingTargetsAndEnqueueSnapChanging(
+      const gfx::PointF&) override;
 
   void SetPendingHistoryRestoreScrollOffset(
       const HistoryItem::ViewState& view_state,
@@ -161,7 +167,7 @@ class CORE_EXPORT RootFrameViewport final
 
   ScrollOffset ScrollOffsetFromScrollAnimators() const;
 
-  void DistributeScrollBetweenViewports(
+  bool DistributeScrollBetweenViewports(
       const ScrollOffset&,
       mojom::blink::ScrollType,
       mojom::blink::ScrollBehavior,

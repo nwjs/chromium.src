@@ -22,20 +22,16 @@
 #import "ios/chrome/browser/favicon/ios_chrome_favicon_loader_factory.h"
 #import "ios/chrome/browser/favicon/ios_chrome_large_icon_service_factory.h"
 #import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
-#import "ios/chrome/browser/history/history_service_factory.h"
-#import "ios/chrome/browser/lens/lens_browser_agent.h"
-#import "ios/chrome/browser/metrics/tab_usage_recorder_browser_agent.h"
-#import "ios/chrome/browser/ntp/new_tab_page_tab_helper.h"
+#import "ios/chrome/browser/history/model/history_service_factory.h"
+#import "ios/chrome/browser/lens/model/lens_browser_agent.h"
+#import "ios/chrome/browser/metrics/model/tab_usage_recorder_browser_agent.h"
+#import "ios/chrome/browser/ntp/model/new_tab_page_tab_helper.h"
 #import "ios/chrome/browser/search_engines/model/template_url_service_factory.h"
 #import "ios/chrome/browser/sessions/ios_chrome_tab_restore_service_factory.h"
-#import "ios/chrome/browser/sessions/session_restoration_browser_agent.h"
-#import "ios/chrome/browser/sessions/test_session_service.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
-#import "ios/chrome/browser/shared/coordinator/scene/scene_state_browser_agent.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
-#import "ios/chrome/browser/shared/model/web_state_list/test/fake_web_state_list_delegate.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
@@ -48,8 +44,8 @@
 #import "ios/chrome/browser/shared/public/commands/qr_scanner_commands.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
-#import "ios/chrome/browser/signin/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/fake_authentication_service_delegate.h"
+#import "ios/chrome/browser/signin/model/authentication_service_factory.h"
+#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_browser_agent.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_util.h"
 #import "ios/chrome/browser/ui/bookmarks/bookmarks_coordinator.h"
@@ -71,10 +67,10 @@
 #import "ios/chrome/browser/ui/toolbar/toolbar_coordinator.h"
 #import "ios/chrome/browser/url_loading/model/new_tab_animation_tab_helper.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
-#import "ios/chrome/browser/web/page_placeholder_browser_agent.h"
-#import "ios/chrome/browser/web/web_navigation_browser_agent.h"
-#import "ios/chrome/browser/web/web_state_update_browser_agent.h"
-#import "ios/chrome/browser/web_state_list/web_usage_enabler/web_usage_enabler_browser_agent.h"
+#import "ios/chrome/browser/web/model/page_placeholder_browser_agent.h"
+#import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
+#import "ios/chrome/browser/web/model/web_state_update_browser_agent.h"
+#import "ios/chrome/browser/web_state_list/model/web_usage_enabler/web_usage_enabler_browser_agent.h"
 #import "ios/chrome/test/block_cleanup_test.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
@@ -87,20 +83,12 @@
 #import "third_party/ocmock/gtest_support.h"
 #import "ui/base/device_form_factor.h"
 
-// To get access to web::features::kEnableSessionSerializationOptimizations.
-// TODO(crbug.com/1383087): remove once the feature is fully launched.
-#import "ios/web/common/features.h"
-
-#pragma mark -
-
-namespace {
 class BrowserViewControllerTest : public BlockCleanupTest {
  public:
  protected:
   BrowserViewControllerTest() {
-    scoped_feature_list_.InitWithFeatures(
-        {supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS},
-        {web::features::kEnableSessionSerializationOptimizations});
+    scoped_feature_list_.InitAndEnableFeature(
+        supervised_user::kFilterWebsitesForSupervisedUsersOnDesktopAndIOS);
   }
 
   void SetUp() override {
@@ -144,7 +132,8 @@ class BrowserViewControllerTest : public BlockCleanupTest {
         [OCMockObject niceMockForClass:[PKAddPassesViewController class]];
     passKitViewController_ = passKitController;
 
-    browser_ = std::make_unique<TestBrowser>(chrome_browser_state_.get());
+    browser_ = std::make_unique<TestBrowser>(chrome_browser_state_.get(),
+                                             scene_state_);
     WebUsageEnablerBrowserAgent::CreateForBrowser(browser_.get());
     UrlLoadingNotifierBrowserAgent::CreateForBrowser(browser_.get());
     LensBrowserAgent::CreateForBrowser(browser_.get());
@@ -155,12 +144,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     WebUsageEnablerBrowserAgent::FromBrowser(browser_.get())
         ->SetWebUsageEnabled(true);
 
-    SessionRestorationBrowserAgent::CreateForBrowser(
-        browser_.get(), [[TestSessionService alloc] init], false);
-    SessionRestorationBrowserAgent::FromBrowser(browser_.get())
-        ->SetSessionID([[NSUUID UUID] UUIDString]);
-
-    SceneStateBrowserAgent::CreateForBrowser(browser_.get(), scene_state_);
     WebStateUpdateBrowserAgent::CreateForBrowser(browser_.get());
 
     CommandDispatcher* dispatcher = browser_->GetCommandDispatcher();
@@ -246,14 +229,14 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     HostContentSettingsMap* settings_map =
         ios::HostContentSettingsMapFactory::GetForBrowserState(
             chrome_browser_state_.get());
-    UrlLoadingNotifierBrowserAgent* urlLoadingNotifier_ =
+    UrlLoadingNotifierBrowserAgent* url_loading_notifier =
         UrlLoadingNotifierBrowserAgent::FromBrowser(browser_.get());
 
     bubble_presenter_ = [[BubblePresenter alloc]
         initWithDeviceSwitcherResultDispatcher:nullptr
                         hostContentSettingsMap:(HostContentSettingsMap*)
                                                    settings_map
-                               loadingNotifier:urlLoadingNotifier_
+                               loadingNotifier:url_loading_notifier
                                    prefService:chrome_browser_state_.get()
                                                    ->GetPrefs()
                                     sceneState:scene_state_
@@ -285,9 +268,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     bookmarks_coordinator_ =
         [[BookmarksCoordinator alloc] initWithBrowser:browser_.get()];
 
-    url_loading_notifier_browser_agent_ =
-        UrlLoadingNotifierBrowserAgent::FromBrowser(browser_.get());
-
     tab_usage_recorder_browser_agent_ =
         TabUsageRecorderBrowserAgent::FromBrowser(browser_.get());
     page_placeholder_browser_agent_ =
@@ -307,8 +287,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
     dependencies.sideSwipeMediator = side_swipe_mediator_;
     dependencies.bookmarksCoordinator = bookmarks_coordinator_;
     dependencies.fullscreenController = fullscreen_controller_;
-    dependencies.urlLoadingNotifierBrowserAgent =
-        url_loading_notifier_browser_agent_;
     dependencies.tabUsageRecorderBrowserAgent =
         tab_usage_recorder_browser_agent_;
     dependencies.layoutGuideCenter =
@@ -332,7 +310,7 @@ class BrowserViewControllerTest : public BlockCleanupTest {
         initWithWebStateList:browser_.get()->GetWebStateList()
               ntpCoordinator:NTPCoordinator_
                 browserState:chrome_browser_state_.get()
-             loadingNotifier:urlLoadingNotifier_];
+             loadingNotifier:url_loading_notifier];
     tab_events_mediator_.consumer = bvc_;
 
     // Force the view to load.
@@ -443,7 +421,6 @@ class BrowserViewControllerTest : public BlockCleanupTest {
   FullscreenController* fullscreen_controller_;
   TabEventsMediator* tab_events_mediator_;
   NewTabPageCoordinator* NTPCoordinator_;
-  UrlLoadingNotifierBrowserAgent* url_loading_notifier_browser_agent_;
   TabUsageRecorderBrowserAgent* tab_usage_recorder_browser_agent_;
   SafeAreaProvider* safe_area_provider_;
   PagePlaceholderBrowserAgent* page_placeholder_browser_agent_;
@@ -585,5 +562,3 @@ TEST_F(BrowserViewControllerTest, ViewOnInsert) {
   EXPECT_OCMOCK_VERIFY(container_view_mock);
   [NTPCoordinator_ stop];
 }
-
-}  // namespace

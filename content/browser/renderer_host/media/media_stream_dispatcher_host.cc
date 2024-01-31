@@ -46,6 +46,8 @@ namespace content {
 
 namespace {
 
+using blink::mojom::SendWheelResult;
+
 void BindMediaStreamDeviceObserverReceiver(
     GlobalRenderFrameHostId render_frame_host_id,
     mojo::PendingReceiver<blink::mojom::MediaStreamDeviceObserver> receiver) {
@@ -77,35 +79,23 @@ StartObservingWebContents(GlobalRenderFrameHostId render_frame_host_id,
 }
 
 #if !BUILDFLAG(IS_ANDROID)
-// Helper for getting the top-level WebContents associated with a given ID.
-// Returns nullptr if one does not exist (e.g. has gone away).
-WebContents* GetMainFrameWebContents(const GlobalRoutingID& global_routing_id) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-
-  if (global_routing_id == GlobalRoutingID()) {
-    return nullptr;
-  }
-
-  RenderFrameHost* const rfh = RenderFrameHost::FromID(
-      global_routing_id.child_id, global_routing_id.route_id);
-  return rfh ? WebContents::FromRenderFrameHost(rfh->GetMainFrame()) : nullptr;
-}
-
 // Checks whether a track living in the WebContents indicated by
 // (render_process_id, render_frame_id) may be cropped or restricted
 // to the target indicated by |target|.
-bool MayApplySubCaptureTarget(const GlobalRoutingID& capturing_id,
-                              const GlobalRoutingID& captured_id,
+bool MayApplySubCaptureTarget(GlobalRenderFrameHostId capturing_id,
+                              GlobalRenderFrameHostId captured_id,
                               media::mojom::SubCaptureTargetType type,
                               const base::Token& target) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  WebContents* const capturing_wc = GetMainFrameWebContents(capturing_id);
+  WebContents* const capturing_wc =
+      SubCaptureTargetIdWebContentsHelper::GetRelevantWebContents(capturing_id);
   if (!capturing_wc) {
     return false;
   }
 
-  WebContents* const captured_wc = GetMainFrameWebContents(captured_id);
+  WebContents* const captured_wc =
+      SubCaptureTargetIdWebContentsHelper::GetRelevantWebContents(captured_id);
   if (capturing_wc != captured_wc) {  // Null or not-same-tab.
     return false;
   }
@@ -147,7 +137,7 @@ WrapApplySubCaptureTarget(
       },
       std::move(callback), std::move(bad_message_callback));
 }
-#endif
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 bool AllowedStreamTypeCombination(
     blink::mojom::MediaStreamType audio_stream_type,
@@ -218,10 +208,9 @@ struct MediaStreamDispatcherHost::PendingAccessRequest {
 };
 
 MediaStreamDispatcherHost::MediaStreamDispatcherHost(
-    int render_process_id,
-    int render_frame_id,
+    GlobalRenderFrameHostId render_frame_host_id,
     MediaStreamManager* media_stream_manager)
-    : render_frame_host_id_(render_process_id, render_frame_id),
+    : render_frame_host_id_(render_frame_host_id),
       requester_id_(next_requester_id_++),
       media_stream_manager_(media_stream_manager),
       get_salt_and_origin_cb_(
@@ -248,15 +237,14 @@ MediaStreamDispatcherHost::~MediaStreamDispatcherHost() {
 }
 
 void MediaStreamDispatcherHost::Create(
-    int render_process_id,
-    int render_frame_id,
+    GlobalRenderFrameHostId render_frame_host_id,
     MediaStreamManager* media_stream_manager,
     mojo::PendingReceiver<blink::mojom::MediaStreamDispatcherHost> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
   media_stream_manager->RegisterDispatcherHost(
-      std::make_unique<MediaStreamDispatcherHost>(
-          render_process_id, render_frame_id, media_stream_manager),
+      std::make_unique<MediaStreamDispatcherHost>(render_frame_host_id,
+                                                  media_stream_manager),
       std::move(receiver));
 }
 
@@ -658,9 +646,9 @@ void MediaStreamDispatcherHost::ApplySubCaptureTarget(
     ApplySubCaptureTargetCallback callback) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
 
-  const GlobalRoutingID captured_id =
-      media_stream_manager_->video_capture_manager()->GetGlobalRoutingID(
-          device_id);
+  const GlobalRenderFrameHostId captured_id =
+      media_stream_manager_->video_capture_manager()
+          ->GetGlobalRenderFrameHostId(device_id);
 
   // Hop to the UI thread to verify that cropping or restricting to
   // |sub_capture_target| is permitted from this particular context.
@@ -672,15 +660,49 @@ void MediaStreamDispatcherHost::ApplySubCaptureTarget(
   GetUIThreadTaskRunner({})->PostTaskAndReplyWithResult(
       FROM_HERE,
       base::BindOnce(&MayApplySubCaptureTarget,
-                     GlobalRoutingID(render_frame_host_id_.child_id,
-                                     render_frame_host_id_.frame_routing_id),
-                     captured_id, type, sub_capture_target),
+                     /*capturing_id=*/render_frame_host_id_, captured_id, type,
+                     sub_capture_target),
       base::BindOnce(
           &MediaStreamDispatcherHost::OnSubCaptureTargetValidationComplete,
           weak_factory_.GetWeakPtr(), device_id, type, sub_capture_target,
           sub_capture_target_version,
           WrapApplySubCaptureTarget(std::move(callback),
                                     mojo::GetBadMessageCallback())));
+}
+
+void MediaStreamDispatcherHost::SendWheel(
+    const base::UnguessableToken& device_id,
+    blink::mojom::CapturedWheelActionPtr action,
+    SendWheelCallback callback) {
+  DCHECK_CURRENTLY_ON(BrowserThread::IO);
+
+  if (!base::FeatureList::IsEnabled(blink::features::kCapturedSurfaceControl)) {
+    ReceivedBadMessage(render_frame_host_id_.child_id,
+                       bad_message::MSDH_SEND_WHEEL_BUT_CSC_FEATURE_DISABLED);
+    std::move(callback).Run(SendWheelResult::kUnknownError);
+    return;
+  }
+
+  if (!action || action->x < 0 || action->y < 0) {
+    ReceivedBadMessage(render_frame_host_id_.child_id,
+                       bad_message::MSDH_SEND_WHEEL_INVALID_ACTION);
+    std::move(callback).Run(SendWheelResult::kUnknownError);
+    return;
+  }
+
+  const GlobalRenderFrameHostId captured_id =
+      media_stream_manager_->video_capture_manager()
+          ->GetGlobalRenderFrameHostId(device_id);
+  if (!captured_id) {
+    // Either the capture session has ended, or the capture was not of a tab.
+    // Note that this is not a BadMessage, because the session might have
+    // ended asynchronously.
+    std::move(callback).Run(SendWheelResult::kCapturedSurfaceNotFoundError);
+    return;
+  }
+
+  // TODO(crbug.com/1466247): Implement (with a permission prompt).
+  std::move(callback).Run(SendWheelResult::kUnknownError);
 }
 
 void MediaStreamDispatcherHost::OnSubCaptureTargetValidationComplete(
@@ -691,6 +713,8 @@ void MediaStreamDispatcherHost::OnSubCaptureTargetValidationComplete(
     ApplySubCaptureTargetCallback callback,
     bool target_passed_validation) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
+  CHECK(type == media::mojom::SubCaptureTargetType::kCropTarget ||
+        type == media::mojom::SubCaptureTargetType::kRestrictionTarget);
 
   if (!target_passed_validation) {
     std::move(callback).Run(
@@ -698,16 +722,8 @@ void MediaStreamDispatcherHost::OnSubCaptureTargetValidationComplete(
     return;
   }
 
-  switch (type) {
-    case media::mojom::SubCaptureTargetType::kCropTarget:
-      media_stream_manager_->video_capture_manager()->Crop(
-          device_id, target, sub_capture_target_version, std::move(callback));
-      break;
-    case media::mojom::SubCaptureTargetType::kRestrictionTarget:
-      // TODO(crbug.com/1418194): Implement.
-      NOTIMPLEMENTED();
-      break;
-  }
+  media_stream_manager_->video_capture_manager()->ApplySubCaptureTarget(
+      device_id, type, target, sub_capture_target_version, std::move(callback));
 }
 #endif
 

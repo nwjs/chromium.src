@@ -222,8 +222,8 @@ bool ActionMove::ParseFromJson(const base::Value::Dict& value) {
   }
 }
 
-bool ActionMove::InitByAddingNewAction() {
-  if (!Action::InitByAddingNewAction()) {
+bool ActionMove::InitByAddingNewAction(const gfx::Point& target_pos) {
+  if (!Action::InitByAddingNewAction(target_pos)) {
     return false;
   }
 
@@ -432,6 +432,12 @@ bool ActionMove::RewriteKeyEvent(const ui::KeyEvent* key_event,
   DCHECK(index >= 0 && index < kActionMoveKeysSize);
 
   if (key_event->type() == ui::ET_KEY_PRESSED) {
+    // TODO(b/308486017): "Modifier key + regular key" support is TBD. Currently
+    // it is not supported.
+    if (ContainShortcutEventFlags(key_event)) {
+      return false;
+    }
+
     if (!touch_id_) {
       DCHECK_LT(current_position_idx_, touch_down_positions_.size());
       if (current_position_idx_ >= touch_down_positions_.size()) {

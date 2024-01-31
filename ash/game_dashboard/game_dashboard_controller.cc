@@ -46,13 +46,7 @@ bool GameDashboardController::ReadyForAccelerator(aura::Window* window) {
     return false;
   }
 
-  if (IsArcWindow(window)) {
-    return game_dashboard_utils::IsFlagSet(
-        window->GetProperty(kArcGameControlsFlagsKey),
-        ArcGameControlsFlag::kKnown);
-  }
-
-  return true;
+  return game_dashboard_utils::ShouldEnableGameDashboardButton(window);
 }
 
 GameDashboardController::GameDashboardController(
@@ -227,15 +221,20 @@ void GameDashboardController::RefreshWindowTracking(aura::Window* window,
 
   if (state != WindowGameState::kNotYetKnown) {
     const bool is_game = state == WindowGameState::kGame;
-    DCHECK(!window->GetProperty(chromeos::kIsGameKey) || is_game)
-        << "Window property cannot change from `Game` to `Not Game`";
+    const bool prev_is_game_property =
+        window->GetProperty(chromeos::kIsGameKey);
     window->SetProperty(chromeos::kIsGameKey, is_game);
     if (is_game) {
       auto& context = game_window_contexts_[window];
       if (!context) {
         context = std::make_unique<GameDashboardContext>(window);
         RefreshForGameControlsFlags(window);
+        delegate_->RecordGameWindowOpenedEvent(window);
       }
+    } else if (prev_is_game_property) {
+      // The window was a game, but NOT anymore. This can happen if the user
+      // disables ARC during the existing session.
+      game_window_contexts_.erase(window);
     }
   }
 

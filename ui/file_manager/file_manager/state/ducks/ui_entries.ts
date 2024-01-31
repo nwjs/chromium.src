@@ -3,8 +3,9 @@
 // found in the LICENSE file.
 
 import {isSameEntry, isVolumeEntry, sortEntries} from '../../common/js/entry_utils.js';
-import {FakeEntryImpl} from '../../common/js/files_app_entry_types.js';
-import {VolumeManagerCommon} from '../../common/js/volume_manager_types.js';
+import {EntryList} from '../../common/js/files_app_entry_types.js';
+import {RootType} from '../../common/js/volume_manager_types.js';
+import {FakeEntry} from '../../externs/files_app_entry_interfaces.js';
 import {FileKey, State} from '../../externs/ts/state.js';
 import {Slice} from '../../lib/base_store.js';
 import {cacheEntries, getMyFiles} from '../ducks/all_entries.js';
@@ -12,7 +13,6 @@ import {getEntry, getFileData} from '../store.js';
 
 /**
  * @fileoverview UI entries slice of the store.
- * @suppress {checkTypes}
  *
  * UI entries represents entries shown on UI only (aka FakeEntry, e.g.
  * Recents/Trash/Google Drive wrapper), they don't have a real entry backup in
@@ -24,9 +24,9 @@ const slice = new Slice<State, State['uiEntries']>('uiEntries');
 export {slice as uiEntriesSlice};
 
 const uiEntryRootTypesInMyFiles = new Set([
-  VolumeManagerCommon.RootType.ANDROID_FILES,
-  VolumeManagerCommon.RootType.CROSTINI,
-  VolumeManagerCommon.RootType.GUEST_OS,
+  RootType.ANDROID_FILES,
+  RootType.CROSTINI,
+  RootType.GUEST_OS,
 ]);
 
 
@@ -34,7 +34,7 @@ const uiEntryRootTypesInMyFiles = new Set([
 export const addUiEntry = slice.addReducer('add', addUiEntryReducer);
 
 export function addUiEntryReducer(currentState: State, payload: {
-  entry: FakeEntryImpl,
+  entry: FakeEntry|EntryList,
 }): State {
   // Cache entries, so the reducers can use any entry from `allEntries`.
   cacheEntries(currentState, [payload.entry]);
@@ -96,7 +96,7 @@ export function removeUiEntryReducer(currentState: State, payload: {
   key: FileKey,
 }): State {
   const {key} = payload;
-  const entry = getEntry(currentState, key) as FakeEntryImpl | null;
+  const entry = getEntry(currentState, key) as FakeEntry | null;
   if (currentState.uiEntries.find(k => k === key)) {
     // Shallow copy.
     currentState.uiEntries = currentState.uiEntries.filter(k => k !== key);

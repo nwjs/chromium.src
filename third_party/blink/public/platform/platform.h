@@ -62,6 +62,7 @@
 #include "third_party/blink/public/platform/websocket_handshake_throttle_provider.h"
 #include "third_party/webrtc/api/video/video_codec_type.h"
 #include "ui/base/resource/resource_scale_factor.h"
+#include "ui/gl/angle_implementation.h"
 #include "v8/include/v8-local-handle.h"
 
 class SkCanvas;
@@ -458,6 +459,8 @@ class BLINK_PLATFORM_EXPORT Platform {
     bool optimus = false;
     bool using_gpu_compositing = false;
     bool using_passthrough_command_decoder = false;
+    gl::ANGLEImplementation angle_implementation =
+        gl::ANGLEImplementation::kNone;
     WebString vendor_info;
     WebString renderer_info;
     WebString driver_version;
@@ -482,6 +485,11 @@ class BLINK_PLATFORM_EXPORT Platform {
   // created or initialized.
   virtual std::unique_ptr<WebGraphicsContext3DProvider>
   CreateWebGPUGraphicsContext3DProvider(const WebURL& document_url);
+
+  virtual void CreateWebGPUGraphicsContext3DProviderAsync(
+      const blink::WebURL& document_url,
+      base::OnceCallback<
+          void(std::unique_ptr<blink::WebGraphicsContext3DProvider>)> callback);
 
   virtual gpu::GpuMemoryBufferManager* GetGpuMemoryBufferManager() {
     return nullptr;

@@ -586,8 +586,9 @@ class BrowserWindow : public ui::BaseWindow {
   // Shows a confirmation dialog about enabling caret browsing.
   virtual void ShowCaretBrowsingDialog() = 0;
 
-  // Create and open the tab search bubble.
-  virtual void CreateTabSearchBubble() = 0;
+  // Create and open the tab search bubble. Optionally force it to open to the
+  // given tab index
+  virtual void CreateTabSearchBubble(const int tab_index = -1) = 0;
   // Closes the tab search bubble if open for the given browser instance.
   virtual void CloseTabSearchBubble() = 0;
 
@@ -645,8 +646,8 @@ class BrowserWindow : public ui::BaseWindow {
   // actually closed.
   virtual bool CloseFeaturePromo(
       const base::Feature& iph_feature,
-      user_education::FeaturePromoCloseReason close_reason =
-          user_education::FeaturePromoCloseReason::kFeatureEngaged) = 0;
+      user_education::EndFeaturePromoReason end_promo_reason =
+          user_education::EndFeaturePromoReason::kFeatureEngaged) = 0;
 
   // Closes the bubble for a feature promo but continues the promo; returns a
   // handle that can be used to end the promo when it is destructed. The handle
@@ -679,11 +680,16 @@ class BrowserWindow : public ui::BaseWindow {
   // of a full titlebar. This is only supported for desktop web apps.
   virtual bool IsBorderlessModeEnabled() const = 0;
 
-  // Sends the resizable boolean set via `window.setResizable(bool)` API to
-  // `BrowserView`. Passing std::nullopt will reset the resizable state to the
-  // default.
-  virtual void SetCanResizeFromWebAPI(absl::optional<bool> can_resize) = 0;
+  // Notifies `BrowserView` about the resizable boolean having been set vith
+  // `window.setResizable(bool)` API.
+  virtual void OnCanResizeFromWebAPIChanged() = 0;
+
+  // Returns the overall resizability of the `BrowserView` when considering
+  // both the value set by the `window.setResizable(bool)` API and browser's
+  // "native" resizability.
   virtual bool GetCanResize() = 0;
+
+  virtual ui::WindowShowState GetWindowShowState() const = 0;
 
   // Shows the Chrome Labs bubble if enabled.
   virtual void ShowChromeLabs() = 0;

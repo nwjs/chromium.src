@@ -137,6 +137,7 @@
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/viz/public/cpp/gpu/context_provider_command_buffer.h"
 #include "services/viz/public/cpp/gpu/gpu.h"
+#include "skia/ext/font_utils.h"
 #include "skia/ext/skia_memory_dump_provider.h"
 #include "third_party/abseil-cpp/absl/base/attributes.h"
 #include "third_party/blink/public/common/features.h"
@@ -315,8 +316,7 @@ scoped_refptr<viz::ContextProviderCommandBuffer> CreateOffscreenContext(
       gpu::kNullSurfaceHandle,
       GURL("chrome://gpu/RenderThreadImpl::CreateOffscreenContext/" +
            viz::command_buffer_metrics::ContextTypeToString(type)),
-      automatic_flushes, support_locking, support_grcontext, limits, attributes,
-      type);
+      automatic_flushes, support_locking, limits, attributes, type);
 }
 
 // Hook that allows single-sample metric code from //components/metrics to
@@ -674,7 +674,7 @@ void RenderThreadImpl::Init() {
   AddObserver(variations_observer_.get());
 
   base::ThreadPool::PostTask(FROM_HERE,
-                             base::BindOnce([] { SkFontMgr::RefDefault(); }));
+                             base::BindOnce([] { skia::DefaultFontMgr(); }));
 
   bool should_actively_sample_fonts =
       command_line.HasSwitch(kFirstRendererProcess) &&
@@ -779,7 +779,6 @@ void RenderThreadImpl::AttachTaskRunnerToRoute(
 void RenderThreadImpl::RemoveRoute(int32_t routing_id) {
   ChildThreadImpl::GetRouter()->RemoveRoute(routing_id);
   GetChannel()->RemoveListenerTaskRunner(routing_id);
-  pending_frames_.erase(routing_id);
 }
 
 mojom::RendererHost* RenderThreadImpl::GetRendererHost() {
@@ -788,12 +787,6 @@ mojom::RendererHost* RenderThreadImpl::GetRendererHost() {
     GetChannel()->GetRemoteAssociatedInterface(&renderer_host_);
   }
   return renderer_host_.get();
-}
-
-int RenderThreadImpl::GenerateRoutingID() {
-  int32_t routing_id = MSG_ROUTING_NONE;
-  render_message_filter()->GenerateRoutingID(&routing_id);
-  return routing_id;
 }
 
 bool RenderThreadImpl::GenerateFrameRoutingID(
@@ -1673,9 +1666,12 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
   }
 
   bool support_locking = true;
+
+  // If the compositor worker context supports GPU rasterization then renderer
+  // tiles will be rasterized on the GPU.
   bool support_gpu_rasterization =
       gpu_channel_host->gpu_feature_info()
-          .status_values[gpu::GPU_FEATURE_TYPE_GPU_RASTERIZATION] ==
+          .status_values[gpu::GPU_FEATURE_TYPE_GPU_TILE_RASTERIZATION] ==
       gpu::kGpuFeatureStatusEnabled;
 
   bool support_gles2_interface = false;
@@ -1764,9 +1760,6 @@ void RenderThreadImpl::ReleaseFreeMemory() {
 
 void RenderThreadImpl::OnSyncMemoryPressure(
     base::MemoryPressureListener::MemoryPressureLevel memory_pressure_level) {
-  if (!blink::MainThreadIsolate())
-    return;
-
   v8::MemoryPressureLevel v8_memory_pressure_level =
       static_cast<v8::MemoryPressureLevel>(memory_pressure_level);
 
@@ -1778,10 +1771,7 @@ void RenderThreadImpl::OnSyncMemoryPressure(
     v8_memory_pressure_level = v8::MemoryPressureLevel::kModerate;
 #endif  // !BUILDFLAG(ALLOW_CRITICAL_MEMORY_PRESSURE_HANDLING_IN_FOREGROUND)
 
-  blink::MainThreadIsolate()->MemoryPressureNotification(
-      v8_memory_pressure_level);
-  blink::MemoryPressureNotificationToWorkerThreadIsolates(
-      v8_memory_pressure_level);
+  blink::MemoryPressureNotificationToAllIsolates(v8_memory_pressure_level);
 }
 
 void RenderThreadImpl::OnRendererInterfaceReceiver(

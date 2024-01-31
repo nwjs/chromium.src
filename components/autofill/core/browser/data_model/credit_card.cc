@@ -31,6 +31,7 @@
 #include "components/autofill/core/browser/data_model/data_model_utils.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
+#include "components/autofill/core/browser/payments/constants.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_constants.h"
@@ -127,6 +128,43 @@ std::u16string AddWhiteSpaceSeparatorForNumber(const std::u16string& number,
   return formatted;
 }
 
+Suggestion::Icon ConvertCardNetworkIntoIcon(std::string_view network) {
+  if (network == kAmericanExpressCard) {
+    return Suggestion::Icon::kCardAmericanExpress;
+  }
+  if (network == kDinersCard) {
+    return Suggestion::Icon::kCardDiners;
+  }
+  if (network == kDiscoverCard) {
+    return Suggestion::Icon::kCardDiscover;
+  }
+  if (network == kEloCard) {
+    return Suggestion::Icon::kCardElo;
+  }
+  if (network == kJCBCard) {
+    return Suggestion::Icon::kCardJCB;
+  }
+  if (network == kMasterCard) {
+    return Suggestion::Icon::kCardMasterCard;
+  }
+  if (network == kMirCard) {
+    return Suggestion::Icon::kCardMir;
+  }
+  if (network == kTroyCard) {
+    return Suggestion::Icon::kCardTroy;
+  }
+  if (network == kUnionPay) {
+    return Suggestion::Icon::kCardUnionPay;
+  }
+  if (network == kVisaCard) {
+    return Suggestion::Icon::kCardVisa;
+  }
+  // If you hit this CHECK, the above list of cases needs to be updated to
+  // include a new card.
+  CHECK_EQ(network, kGenericCard);
+  return Suggestion::Icon::kCardGeneric;
+}
+
 }  // namespace
 
 // static
@@ -221,49 +259,74 @@ std::u16string CreditCard::NetworkForDisplay(const std::string& network) {
 }
 
 // static
-int CreditCard::IconResourceId(const std::string& network) {
+int CreditCard::IconResourceId(Suggestion::Icon icon) {
   bool should_show_metadata_icon = base::FeatureList::IsEnabled(
       features::kAutofillEnableNewCardArtAndNetworkImages);
+  auto get_icon = [&](int metadata_icon, int default_icon) {
+    return should_show_metadata_icon ? metadata_icon : default_icon;
+  };
 
-  if (network == kAmericanExpressCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_AMEX
-                                     : IDR_AUTOFILL_CC_AMEX;
-  if (network == kDinersCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_DINERS
-                                     : IDR_AUTOFILL_CC_DINERS;
-  if (network == kDiscoverCard) {
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_DISCOVER
-                                     : IDR_AUTOFILL_CC_DISCOVER;
+  switch (icon) {
+    case Suggestion::Icon::kCardAmericanExpress:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_AMEX, IDR_AUTOFILL_CC_AMEX);
+    case Suggestion::Icon::kCardDiners:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_DINERS, IDR_AUTOFILL_CC_DINERS);
+    case Suggestion::Icon::kCardDiscover:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_DISCOVER,
+                      IDR_AUTOFILL_CC_DISCOVER);
+    case Suggestion::Icon::kCardElo:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_ELO, IDR_AUTOFILL_CC_ELO);
+    case Suggestion::Icon::kCardJCB:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_JCB, IDR_AUTOFILL_CC_JCB);
+    case Suggestion::Icon::kCardMasterCard:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_MASTERCARD,
+                      IDR_AUTOFILL_CC_MASTERCARD);
+    case Suggestion::Icon::kCardMir:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_MIR, IDR_AUTOFILL_CC_MIR);
+    case Suggestion::Icon::kCardTroy:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_TROY, IDR_AUTOFILL_CC_TROY);
+    case Suggestion::Icon::kCardUnionPay:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_UNIONPAY,
+                      IDR_AUTOFILL_CC_UNIONPAY);
+    case Suggestion::Icon::kCardVisa:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_VISA, IDR_AUTOFILL_CC_VISA);
+    case Suggestion::Icon::kCardGeneric:
+      return get_icon(IDR_AUTOFILL_METADATA_CC_GENERIC,
+                      IDR_AUTOFILL_CC_GENERIC);
+    case Suggestion::Icon::kNoIcon:
+    case Suggestion::Icon::kAccount:
+    case Suggestion::Icon::kClear:
+    case Suggestion::Icon::kCreate:
+    case Suggestion::Icon::kCode:
+    case Suggestion::Icon::kDelete:
+    case Suggestion::Icon::kDevice:
+    case Suggestion::Icon::kEdit:
+    case Suggestion::Icon::kEmpty:
+    case Suggestion::Icon::kGlobe:
+    case Suggestion::Icon::kGoogle:
+    case Suggestion::Icon::kGooglePasswordManager:
+    case Suggestion::Icon::kGooglePay:
+    case Suggestion::Icon::kGooglePayDark:
+    case Suggestion::Icon::kHttpWarning:
+    case Suggestion::Icon::kHttpsInvalid:
+    case Suggestion::Icon::kKey:
+    case Suggestion::Icon::kLocation:
+    case Suggestion::Icon::kMagic:
+    case Suggestion::Icon::kOfferTag:
+    case Suggestion::Icon::kPenSpark:
+    case Suggestion::Icon::kScanCreditCard:
+    case Suggestion::Icon::kSettings:
+    case Suggestion::Icon::kSettingsAndroid:
+    case Suggestion::Icon::kUndo:
+    case Suggestion::Icon::kPlusAddress:
+      NOTREACHED_NORETURN();
   }
-  if (network == kEloCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_ELO
-                                     : IDR_AUTOFILL_CC_ELO;
-  if (network == kJCBCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_JCB
-                                     : IDR_AUTOFILL_CC_JCB;
-  if (network == kMasterCard) {
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_MASTERCARD
-                                     : IDR_AUTOFILL_CC_MASTERCARD;
-  }
-  if (network == kMirCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_MIR
-                                     : IDR_AUTOFILL_CC_MIR;
-  if (network == kTroyCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_TROY
-                                     : IDR_AUTOFILL_CC_TROY;
-  if (network == kUnionPay) {
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_UNIONPAY
-                                     : IDR_AUTOFILL_CC_UNIONPAY;
-  }
-  if (network == kVisaCard)
-    return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_VISA
-                                     : IDR_AUTOFILL_CC_VISA;
+  NOTREACHED_NORETURN();
+}
 
-  // If you hit this DCHECK, the above list of cases needs to be updated to
-  // include a new card.
-  DCHECK_EQ(kGenericCard, network);
-  return should_show_metadata_icon ? IDR_AUTOFILL_METADATA_CC_GENERIC
-                                   : IDR_AUTOFILL_CC_GENERIC;
+// static
+int CreditCard::IconResourceId(std::string_view icon_str) {
+  return IconResourceId(ConvertCardNetworkIntoIcon(icon_str));
 }
 
 // static
@@ -469,7 +532,6 @@ bool CreditCard::IsNicknameValid(const std::u16string& nickname) {
 
 // static
 std::u16string CreditCard::GetMidlineEllipsisDots(size_t num_dots) {
-  DCHECK(num_dots > 0);
   std::u16string dots;
   dots.reserve(sizeof(kMidlineEllipsisDot) * num_dots);
 
@@ -645,6 +707,7 @@ void CreditCard::SetRawInfoWithVerificationStatus(ServerFieldType type,
     }
 
     case CREDIT_CARD_VERIFICATION_CODE:
+    case CREDIT_CARD_STANDALONE_VERIFICATION_CODE:
       cvc_ = value;
       break;
 
@@ -1058,8 +1121,8 @@ CreditCard::ObfuscatedNumberWithVisibleLastFourDigitsForSplitFields() const {
   return std::u16string(12, kMidlineEllipsisPlainDot) + LastFourDigits();
 }
 
-std::string CreditCard::CardIconStringForAutofillSuggestion() const {
-  return network_;
+Suggestion::Icon CreditCard::CardIconForAutofillSuggestion() const {
+  return ConvertCardNetworkIntoIcon(network_);
 }
 
 std::u16string CreditCard::NetworkAndLastFourDigits(
@@ -1181,6 +1244,12 @@ bool CreditCard::HasNonEmptyValidNickname() const {
 
 std::u16string CreditCard::NicknameAndLastFourDigitsForTesting() const {
   return NicknameAndLastFourDigits();
+}
+
+bool CreditCard::HasRichCardArtImageFromMetadata() const {
+  return card_art_url().is_valid() &&
+         card_art_url().spec() != kCapitalOneLargeCardArtUrl &&
+         card_art_url().spec() != kCapitalOneCardArtUrl;
 }
 
 void CreditCard::GetSupportedTypes(ServerFieldTypeSet* supported_types) const {

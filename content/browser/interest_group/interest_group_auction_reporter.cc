@@ -108,9 +108,9 @@ BASE_FEATURE(kFledgeRounding,
              base::FEATURE_ENABLED_BY_DEFAULT);
 // For now default bid and score to full resolution.
 const base::FeatureParam<int> kFledgeBidReportingBits{
-    &kFledgeRounding, "fledge_bid_reporting_bits", 16};
+    &kFledgeRounding, "fledge_bid_reporting_bits", 8};
 const base::FeatureParam<int> kFledgeScoreReportingBits{
-    &kFledgeRounding, "fledge_score_reporting_bits", 16};
+    &kFledgeRounding, "fledge_score_reporting_bits", 8};
 const base::FeatureParam<int> kFledgeAdCostReportingBits{
     &kFledgeRounding, "fledge_ad_cost_reporting_bits", 8};
 
@@ -221,7 +221,6 @@ InterestGroupAuctionReporter::InterestGroupAuctionReporter(
   DCHECK(auction_worklet_manager_);
   DCHECK(url_loader_factory_);
   DCHECK(client_security_state_);
-  DCHECK(!interest_groups_that_bid_.empty());
   EnforceAttestationsReportUrls(debug_win_report_urls_);
   EnforceAttestationsReportUrls(debug_loss_report_urls_);
 }
@@ -258,7 +257,8 @@ void InterestGroupAuctionReporter::Start(base::OnceClosure callback) {
 }
 
 void InterestGroupAuctionReporter::InitializeFromServerResponse(
-    const BiddingAndAuctionResponse& response) {
+    const BiddingAndAuctionResponse& response,
+    blink::FencedFrame::ReportingDestination seller_destination) {
   reporter_worklet_state_ = ReporterState::kAllWorkletsCompleted;
 
   if (response.seller_reporting) {
@@ -268,8 +268,7 @@ void InterestGroupAuctionReporter::InitializeFromServerResponse(
     // server did something wrong beyond logging the error.
     AddReportResultResult(
         auction_config_->seller, seller_reporting.reporting_url,
-        seller_reporting.beacon_urls,
-        blink::FencedFrame::ReportingDestination::kSeller, errors_);
+        seller_reporting.beacon_urls, seller_destination, errors_);
   }
   if (response.buyer_reporting) {
     const BiddingAndAuctionResponse::ReportingURLs& buyer_reporting =
@@ -372,6 +371,21 @@ void InterestGroupAuctionReporter::RequestSellerWorklet(
     reporter_worklet_state_ = ReporterState::kComponentSellerReportResult;
   }
   seller_worklet_handle_.reset();
+
+  if (seller_info->saved_response.has_value()) {
+    InitializeFromServerResponse(
+        *seller_info->saved_response,
+        seller_info == &top_level_seller_winning_bid_info_
+            ? blink::FencedFrame::ReportingDestination::kSeller
+            : blink::FencedFrame::ReportingDestination::kComponentSeller);
+
+    // If any event-level reports were queued, send them now, if the winning ad
+    // has been navigated to.
+    SendPendingReportsIfNavigated();
+
+    OnReportingComplete();
+    return;
+  }
   // base::Unretained is safe to use for these callbacks because destroying
   // `seller_worklet_handle_` will prevent the callbacks from being invoked, if
   // `this` is destroyed while still waiting on the callbacks.
@@ -652,6 +666,12 @@ void InterestGroupAuctionReporter::RequestBidderWorklet(
   absl::optional<uint16_t> experiment_group_id =
       InterestGroupAuction::GetBuyerExperimentId(*bidder_auction.auction_config,
                                                  interest_group.owner);
+  // While this has no effect when calling reportWin(), it's best to set it to
+  // the same value to maximize the chance of finding a worklet to reuse.
+  std::string trusted_bidder_signals_slot_size_param =
+      InterestGroupAuction::CreateTrustedBiddingSignalsSlotSizeParam(
+          *bidder_auction.auction_config,
+          interest_group.trusted_bidding_signals_slot_size_mode);
 
   // base::Unretained is safe to use for these callbacks because destroying
   // `bidder_worklet_handle_` will prevent the callbacks from being invoked, if
@@ -662,6 +682,7 @@ void InterestGroupAuctionReporter::RequestBidderWorklet(
       interest_group.trusted_bidding_signals_url,
       /*needs_cors_for_additional_bid=*/
       winning_bid_info_.provided_as_additional_bid, experiment_group_id,
+      trusted_bidder_signals_slot_size_param,
       base::BindOnce(&InterestGroupAuctionReporter::OnBidderWorkletReceived,
                      base::Unretained(this), signals_for_winner),
       base::BindOnce(&InterestGroupAuctionReporter::OnBidderWorkletFatalError,

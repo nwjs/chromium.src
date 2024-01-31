@@ -130,6 +130,21 @@ void HotspotNotifier::OnGetHotspotInfo(
     return;
   }
 
+  if (hotspot_info->state == hotspot_config::mojom::HotspotState::kEnabling) {
+    message_center->RemoveNotification(
+        HotspotNotifier::kAutoDisabledNotificationId,
+        /*by_user=*/false);
+    message_center->RemoveNotification(
+        HotspotNotifier::kInternalErrorNotificationId,
+        /*by_user=*/false);
+    message_center->RemoveNotification(
+        HotspotNotifier::kWiFiTurnedOnNotificationId,
+        /*by_user=*/false);
+    message_center->RemoveNotification(
+        HotspotNotifier::kAdminRestrictedNotificationId,
+        /*by_user=*/false);
+  }
+
   if (hotspot_info->state == hotspot_config::mojom::HotspotState::kEnabled) {
     const std::u16string& title =
         l10n_util::GetStringUTF16(IDS_ASH_HOTSPOT_ON_TITLE);
@@ -161,7 +176,7 @@ void HotspotNotifier::OnGetHotspotInfo(
 }
 
 void HotspotNotifier::DisableHotspotHandler(const char* notification_id,
-                                            absl::optional<int> button_index) {
+                                            std::optional<int> button_index) {
   if (!button_index) {
     return;
   }
@@ -182,7 +197,7 @@ void HotspotNotifier::DisableHotspotHandler(const char* notification_id,
 }
 
 void HotspotNotifier::EnableHotspotHandler(const char* notification_id,
-                                           absl::optional<int> button_index) {
+                                           std::optional<int> button_index) {
   if (!button_index) {
     return;
   }
@@ -205,7 +220,7 @@ void HotspotNotifier::EnableHotspotHandler(const char* notification_id,
 }
 
 void HotspotNotifier::EnableWiFiHandler(const char* notification_id,
-                                        absl::optional<int> button_index) {
+                                        std::optional<int> button_index) {
   if (!button_index) {
     return;
   }

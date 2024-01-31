@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_for_testing.h"
+#include "partition_alloc/partition_alloc_for_testing.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
@@ -17,38 +18,40 @@
 #include <tuple>
 #include <vector>
 
-#include "base/allocator/partition_allocator/src/partition_alloc/address_space_randomization.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/chromecast_buildflags.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/dangling_raw_ptr_checks.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/freeslot_bitmap.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/memory_reclaimer.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/page_allocator_constants.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_address_space.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/bits.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/compiler_specific.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/cpu.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/logging.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/numerics/checked_math.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/rand_util.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/thread_annotations.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/threading/platform_thread_for_testing.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_buildflags.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_config.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_constants.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_forward.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_bucket.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_cookie.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_freelist_entry.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_page.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_ref_count.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_root.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/reservation_offset_table.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/tagging.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/thread_isolation/thread_isolation.h"
 #include "base/system/sys_info.h"
 #include "base/test/gtest_util.h"
 #include "build/build_config.h"
+#include "partition_alloc/address_space_randomization.h"
+#include "partition_alloc/chromecast_buildflags.h"
+#include "partition_alloc/dangling_raw_ptr_checks.h"
+#include "partition_alloc/freeslot_bitmap.h"
+#include "partition_alloc/lightweight_quarantine.h"
+#include "partition_alloc/memory_reclaimer.h"
+#include "partition_alloc/page_allocator_constants.h"
+#include "partition_alloc/partition_address_space.h"
+#include "partition_alloc/partition_alloc_base/bits.h"
+#include "partition_alloc/partition_alloc_base/compiler_specific.h"
+#include "partition_alloc/partition_alloc_base/cpu.h"
+#include "partition_alloc/partition_alloc_base/debug/debugging_buildflags.h"
+#include "partition_alloc/partition_alloc_base/logging.h"
+#include "partition_alloc/partition_alloc_base/numerics/checked_math.h"
+#include "partition_alloc/partition_alloc_base/rand_util.h"
+#include "partition_alloc/partition_alloc_base/thread_annotations.h"
+#include "partition_alloc/partition_alloc_base/threading/platform_thread_for_testing.h"
+#include "partition_alloc/partition_alloc_buildflags.h"
+#include "partition_alloc/partition_alloc_config.h"
+#include "partition_alloc/partition_alloc_constants.h"
+#include "partition_alloc/partition_alloc_forward.h"
+#include "partition_alloc/partition_bucket.h"
+#include "partition_alloc/partition_cookie.h"
+#include "partition_alloc/partition_freelist_entry.h"
+#include "partition_alloc/partition_page.h"
+#include "partition_alloc/partition_ref_count.h"
+#include "partition_alloc/partition_root.h"
+#include "partition_alloc/partition_stats.h"
+#include "partition_alloc/reservation_offset_table.h"
+#include "partition_alloc/tagging.h"
+#include "partition_alloc/thread_isolation/thread_isolation.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 #if defined(__ARM_FEATURE_MEMORY_TAGGING)
@@ -72,7 +75,7 @@
 #endif
 
 #if BUILDFLAG(IS_MAC)
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/mac/mac_util.h"
+#include "partition_alloc/partition_alloc_base/mac/mac_util.h"
 #endif
 
 #if BUILDFLAG(ENABLE_PKEYS)
@@ -159,14 +162,16 @@ const size_t kTestSizes[] = {
 };
 constexpr size_t kTestSizesCount = std::size(kTestSizes);
 
-template <partition_alloc::AllocFlags flags>
+template <
+    partition_alloc::AllocFlags alloc_flags,
+    partition_alloc::FreeFlags free_flags = partition_alloc::FreeFlags::kNone>
 void AllocateRandomly(partition_alloc::PartitionRoot* root, size_t count) {
   std::vector<void*> allocations(count, nullptr);
   for (size_t i = 0; i < count; ++i) {
     const size_t size =
         kTestSizes[partition_alloc::internal::base::RandGenerator(
             kTestSizesCount)];
-    allocations[i] = root->Alloc<flags>(size);
+    allocations[i] = root->Alloc<alloc_flags>(size);
     EXPECT_NE(nullptr, allocations[i]) << " size: " << size << " i: " << i;
   }
 
@@ -350,6 +355,13 @@ class PartitionAllocTest
     return root;
   }
 
+  PartitionOptions GetCommonPartitionOptions() {
+    PartitionOptions opts;
+    opts.ref_count_size = GetParam().ref_count_size;
+    opts.zapping_by_free_flags = PartitionOptions::kEnabled;
+    return opts;
+  }
+
   void InitializeMainTestAllocators() {
 #if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
     PartitionOptions::EnableToggle enable_backup_ref_ptr =
@@ -360,16 +372,15 @@ class PartitionAllocTest
     if (pkey != -1) {
       pkey_ = pkey;
     }
+
+    PartitionOptions pkey_opts = GetCommonPartitionOptions();
+    pkey_opts.aligned_alloc = PartitionOptions::kAllowed;
+    pkey_opts.thread_isolation = ThreadIsolationOption(pkey_);
     // We always want to have a pkey allocator initialized to make sure that the
     // other pools still work. As part of the initializition, we tag some memory
     // with the new pkey, effectively making it read-only. So there's some
     // potential for breakage that this should catch.
-    InitializeTestRoot(pkey_allocator.root(),
-                       PartitionOptions{
-                           .aligned_alloc = PartitionOptions::kAllowed,
-                           .ref_count_size = GetParam().ref_count_size,
-                           .thread_isolation = ThreadIsolationOption(pkey_),
-                       },
+    InitializeTestRoot(pkey_allocator.root(), pkey_opts,
                        PartitionTestOptions{.use_memory_reclaimer = true});
 
     ThreadIsolationOption thread_isolation_opt;
@@ -382,43 +393,40 @@ class PartitionAllocTest
 #endif
     }
 #endif  // BUILDFLAG(ENABLE_PKEYS)
-    InitializeTestRoot(
-        allocator.root(),
-        PartitionOptions {
+
+    PartitionOptions opts = GetCommonPartitionOptions();
 #if !BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT) || \
     BUILDFLAG(PUT_REF_COUNT_IN_PREVIOUS_SLOT)
-          // AlignedAlloc() can't be called when BRP is in the
-          // "before allocation" mode, because this mode adds extras before
-          // the allocation. Extras after the allocation are ok.
-          .aligned_alloc = PartitionOptions::kAllowed,
+    // AlignedAlloc() can't be called when BRP is in the
+    // "before allocation" mode, because this mode adds extras before
+    // the allocation. Extras after the allocation are ok.
+    opts.aligned_alloc = PartitionOptions::kAllowed;
 #endif
 #if BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
-          .backup_ref_ptr = enable_backup_ref_ptr,
+    opts.backup_ref_ptr = enable_backup_ref_ptr;
 #endif
-          .ref_count_size = GetParam().ref_count_size,
 #if BUILDFLAG(ENABLE_PKEYS)
-          .thread_isolation = thread_isolation_opt,
+    opts.thread_isolation = thread_isolation_opt;
 #endif
 #if PA_CONFIG(HAS_MEMORY_TAGGING)
-          .memory_tagging = {
-            .enabled =
-                partition_alloc::internal::base::CPU::GetInstanceNoAllocation()
-                        .has_mte()
-                    ? PartitionOptions::kEnabled
-                    : PartitionOptions::kDisabled,
-          }
+    opts.memory_tagging = {
+        .enabled =
+            partition_alloc::internal::base::CPU::GetInstanceNoAllocation()
+                    .has_mte()
+                ? PartitionOptions::kEnabled
+                : PartitionOptions::kDisabled,
+    };
 #endif  // PA_CONFIG(HAS_MEMORY_TAGGING)
-        },
+    InitializeTestRoot(
+        allocator.root(), opts,
         PartitionTestOptions{.use_memory_reclaimer = true,
                              .uncap_empty_slot_span_memory = true,
                              .set_bucket_distribution = true});
 
+    PartitionOptions aligned_opts = GetCommonPartitionOptions();
+    aligned_opts.aligned_alloc = PartitionOptions::kAllowed;
     InitializeTestRoot(
-        aligned_allocator.root(),
-        PartitionOptions{
-            .aligned_alloc = PartitionOptions::kAllowed,
-            .ref_count_size = GetParam().ref_count_size,
-        },
+        aligned_allocator.root(), aligned_opts,
         PartitionTestOptions{.use_memory_reclaimer = true,
                              .uncap_empty_slot_span_memory = true,
                              .set_bucket_distribution = true});
@@ -3616,6 +3624,51 @@ TEST_P(PartitionAllocTest, ZeroFill) {
   }
 }
 
+TEST_P(PartitionAllocTest, SchedulerLoopQuarantine) {
+  SchedulerLoopQuarantineBranch& branch =
+      allocator.root()->GetSchedulerLoopQuarantineBranchForTesting();
+
+  constexpr size_t kCapacityInBytes = std::numeric_limits<size_t>::max();
+  size_t original_capacity_in_bytes = branch.GetRoot().GetCapacityInBytes();
+  branch.GetRoot().SetCapacityInBytesForTesting(kCapacityInBytes);
+
+  for (size_t size : kTestSizes) {
+    SCOPED_TRACE(size);
+
+    void* object = allocator.root()->Alloc(size);
+    allocator.root()->Free<FreeFlags::kSchedulerLoopQuarantine>(object);
+
+    ASSERT_TRUE(branch.IsQuarantinedForTesting(object));
+  }
+
+  for (int i = 0; i < 10; ++i) {
+    SCOPED_TRACE(i);
+    AllocateRandomly<AllocFlags::kNone, FreeFlags::kSchedulerLoopQuarantine>(
+        allocator.root(), 250);
+  }
+
+  branch.Purge();
+  branch.GetRoot().SetCapacityInBytesForTesting(original_capacity_in_bytes);
+}
+
+TEST_P(PartitionAllocTest, ZapOnFree) {
+  void* ptr = allocator.root()->Alloc(1, type_name);
+  EXPECT_TRUE(ptr);
+  memset(ptr, 'A', 1);
+  allocator.root()->Free<FreeFlags::kZap>(ptr);
+  EXPECT_NE('A', *static_cast<unsigned char*>(ptr));
+
+  constexpr size_t size = 1024;
+  ptr = allocator.root()->Alloc(size, type_name);
+  EXPECT_TRUE(ptr);
+  memset(ptr, 'A', size);
+  allocator.root()->Free<FreeFlags::kZap>(ptr);
+  EXPECT_NE('A', *static_cast<unsigned char*>(ptr));
+  EXPECT_EQ(kFreedByte,
+            *(static_cast<unsigned char*>(ptr) + 2 * sizeof(void*)));
+  EXPECT_EQ(kFreedByte, *(static_cast<unsigned char*>(ptr) + size - 1));
+}
+
 TEST_P(PartitionAllocTest, Bug_897585) {
   // Need sizes big enough to be direct mapped and a delta small enough to
   // allow re-use of the slot span when cookied. These numbers fall out of the
@@ -4849,10 +4902,14 @@ TEST_P(PartitionAllocTest, CheckReservationType) {
   // Freeing releases direct-map super pages.
   address_to_check =
       partition_alloc::internal::base::bits::AlignDown(address, kSuperPageSize);
-#if BUILDFLAG(PA_DCHECK_IS_ON)
+
+  // DCHECKs don't work with EXPECT_DEATH on official builds.
+#if BUILDFLAG(PA_DCHECK_IS_ON) && (!defined(OFFICIAL_BUILD) || !defined(NDEBUG))
   // Expect to DCHECK on unallocated region.
   EXPECT_DEATH_IF_SUPPORTED(IsReservationStart(address_to_check), "");
-#endif
+#endif  //  BUILDFLAG(PA_DCHECK_IS_ON) && (!defined(OFFICIAL_BUILD) ||
+        //  !defined(NDEBUG))
+
   EXPECT_FALSE(IsManagedByNormalBuckets(address_to_check));
   EXPECT_FALSE(IsManagedByDirectMap(address_to_check));
   EXPECT_FALSE(IsManagedByNormalBucketsOrDirectMap(address_to_check));
@@ -4869,9 +4926,7 @@ TEST_P(PartitionAllocTest, CrossPartitionRootRealloc) {
   allocator.root()->PurgeMemory(PurgeFlags::kDecommitEmptySlotSpans |
                                 PurgeFlags::kDiscardUnusedSystemPages);
   std::unique_ptr<PartitionRoot> new_root = CreateCustomTestRoot(
-      PartitionOptions{
-          .ref_count_size = GetParam().ref_count_size,
-      },
+      GetCommonPartitionOptions(),
       PartitionTestOptions{.set_bucket_distribution = true});
 
   // Realloc from |allocator.root()| into |new_root|.
@@ -5058,7 +5113,7 @@ TEST_P(PartitionAllocTest, ConfigurablePool) {
   const size_t min_pool_size = PartitionAddressSpace::ConfigurablePoolMinSize();
   for (size_t pool_size = max_pool_size; pool_size >= min_pool_size;
        pool_size /= 2) {
-    PA_DCHECK(partition_alloc::internal::base::bits::IsPowerOfTwo(pool_size));
+    PA_DCHECK(std::has_single_bit(pool_size));
     EXPECT_FALSE(IsConfigurablePoolAvailable());
     uintptr_t pool_base =
         AllocPages(pool_size, pool_size,
@@ -5070,13 +5125,11 @@ TEST_P(PartitionAllocTest, ConfigurablePool) {
 
     EXPECT_TRUE(IsConfigurablePoolAvailable());
 
+    PartitionOptions opts = GetCommonPartitionOptions();
+    opts.use_configurable_pool = PartitionOptions::kAllowed;
     std::unique_ptr<PartitionRoot> root = CreateCustomTestRoot(
-        PartitionOptions{
-            .use_configurable_pool = PartitionOptions::kAllowed,
-            .ref_count_size = GetParam().ref_count_size,
-        },
-        PartitionTestOptions{.uncap_empty_slot_span_memory = true,
-                             .set_bucket_distribution = true});
+        opts, PartitionTestOptions{.uncap_empty_slot_span_memory = true,
+                                   .set_bucket_distribution = true});
 
     const size_t count = 250;
     std::vector<void*> allocations(count, nullptr);
@@ -5104,9 +5157,7 @@ TEST_P(PartitionAllocTest, EmptySlotSpanSizeIsCapped) {
   // Use another root, since the ones from the test harness disable the empty
   // slot span size cap.
   std::unique_ptr<PartitionRoot> root = CreateCustomTestRoot(
-      PartitionOptions{
-          .ref_count_size = GetParam().ref_count_size,
-      },
+      GetCommonPartitionOptions(),
       PartitionTestOptions{.set_bucket_distribution = true});
 
   // Allocate some memory, don't free it to keep committed memory.
@@ -5159,9 +5210,7 @@ TEST_P(PartitionAllocTest, EmptySlotSpanSizeIsCapped) {
 
 TEST_P(PartitionAllocTest, IncreaseEmptySlotSpanRingSize) {
   std::unique_ptr<PartitionRoot> root = CreateCustomTestRoot(
-      PartitionOptions{
-          .ref_count_size = GetParam().ref_count_size,
-      },
+      GetCommonPartitionOptions(),
       PartitionTestOptions{.uncap_empty_slot_span_memory = true,
                            .set_bucket_distribution = true});
 

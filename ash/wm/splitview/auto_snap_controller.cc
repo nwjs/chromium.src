@@ -122,7 +122,7 @@ bool AutoSnapController::AutoSnapWindowIfNeeded(aura::Window* window) {
   if (auto* split_view_overview_session =
           RootWindowController::ForWindow(window)
               ->split_view_overview_session();
-      window_util::IsFasterSplitScreenOrSnapGroupArm1Enabled() &&
+      window_util::IsFasterSplitScreenOrSnapGroupEnabledInClamshell() &&
       split_view_overview_session &&
       split_view_overview_session->window() != window) {
     if (!window_state->CanSnap()) {
@@ -218,7 +218,7 @@ bool AutoSnapController::AutoSnapWindowIfNeeded(aura::Window* window) {
     return false;
   }
 
-  absl::optional<float> snap_ratio =
+  std::optional<float> snap_ratio =
       split_view_controller->ComputeSnapRatio(window);
 
   // If it's a user positionable window but can't be snapped, end split view

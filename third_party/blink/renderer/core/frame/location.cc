@@ -303,7 +303,9 @@ void Location::SetLocation(const String& url,
     argv.push_back("url");
     argv.push_back(entered_document->Url());
     argv.push_back(completed_url);
-    activity_logger->LogEvent("blinkSetAttribute", argv.size(), argv.data());
+    // We use the CurrentDOMWindow here. `dom_window` might be remote here.
+    activity_logger->LogEvent(CurrentDOMWindow(incumbent_window->GetIsolate()),
+                              "blinkSetAttribute", argv.size(), argv.data());
   }
 
   ResourceRequestHead resource_request(completed_url);
@@ -316,7 +318,6 @@ void Location::SetLocation(const String& url,
   if (set_location_policy == SetLocationPolicy::kReplaceThisFrame)
     frame_load_type = WebFrameLoadType::kReplaceCurrentItem;
 
-  incumbent_window->GetFrame()->MaybeLogAdClickNavigation();
   dom_window_->GetFrame()->Navigate(request, frame_load_type);
 }
 

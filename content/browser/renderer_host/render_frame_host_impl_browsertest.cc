@@ -129,6 +129,16 @@
 #include "content/browser/renderer_host/render_widget_host_view_aura.h"
 #endif  // defined(USE_AURA)
 
+#if BUILDFLAG(IS_MAC)
+#include "content/browser/renderer_host/browser_compositor_view_mac.h"
+#include "content/browser/renderer_host/test_render_widget_host_view_mac_factory.h"
+#endif
+
+#if BUILDFLAG(IS_IOS)
+#include "content/browser/renderer_host/browser_compositor_ios.h"
+#include "content/browser/renderer_host/test_render_widget_host_view_ios_factory.h"
+#endif
+
 namespace content {
 namespace {
 
@@ -206,7 +216,6 @@ class FirstPartySchemeContentBrowserClient
 
   void RegisterNonNetworkNavigationURLLoaderFactories(
       int frame_tree_node_id,
-      ukm::SourceIdObj ukm_source_id,
       NonNetworkURLLoaderFactoryMap* factories) override {
     mojo::PendingRemote<network::mojom::URLLoaderFactory> trustme_remote;
     trustme_factory_->Clone(trustme_remote.InitWithNewPipeAndPassReceiver());
@@ -509,7 +518,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
       network::SimpleURLLoader::Create(std::move(request),
                                        TRAFFIC_ANNOTATION_FOR_TESTS);
   simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
-      url_loader_factory.get(), simple_loader_helper.GetCallback());
+      url_loader_factory.get(), simple_loader_helper.GetCallbackDeprecated());
   simple_loader_helper.WaitForCallback();
   EXPECT_FALSE(simple_loader_helper.response_body());
   EXPECT_EQ(net::ERR_INVALID_ARGUMENT, simple_loader->NetError());
@@ -5240,7 +5249,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   SetupRemoteObjectInvocation(shell(), url);
 
   std::string kScript = "testObject.getInnerId();";
-  EXPECT_FALSE(EvalJs(web_contents(), kScript).error.empty());
+  EXPECT_THAT(EvalJs(web_contents(), kScript), EvalJsResult::IsError());
 }
 
 // TODO(crbug.com/1357783): This test is flaky.
@@ -5264,7 +5273,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTest,
   SetupRemoteObjectInvocation(shell(), url);
 
   std::string kScript = "testObject.readArray([6, 8, 2]);";
-  EXPECT_TRUE(EvalJs(web_contents(), kScript).error.empty());
+  EXPECT_THAT(EvalJs(web_contents(), kScript), EvalJsResult::IsOk());
   EXPECT_EQ(
       3, injector.GetObjectHost().GetMockObject()->get_num_elements_received());
 }
@@ -7668,6 +7677,7 @@ IN_PROC_BROWSER_TEST_F(RenderFrameHostImplBrowserTestWithBFCache,
 }
 
 namespace {
+
 class RenderFrameHostImplBrowserTestWithBFCacheAndViewTransition
     : public RenderFrameHostImplBrowserTestWithBFCache {
  public:
@@ -7677,6 +7687,8 @@ class RenderFrameHostImplBrowserTestWithBFCacheAndViewTransition
             /*ignore_outstanding_network_request=*/false);
     enabled_features.push_back(
         {blink::features::kViewTransitionOnNavigation, {{}}});
+    enabled_features.push_back(
+        {features::kInvalidateLocalSurfaceIdPreCommit, {{}}});
     scoped_feature_list_.InitWithFeaturesAndParameters(
         enabled_features,
         GetDefaultDisabledBackForwardCacheFeaturesForTesting());
@@ -7700,6 +7712,55 @@ void AssertBitmapOfColor(const SkBitmap& bitmap, SkColor color) {
     }
   }
 }
+
+bool IsChildFrame(RenderWidgetHostView* view) {
+  CHECK(view);
+  return static_cast<RenderWidgetHostViewBase*>(view)
+      ->IsRenderWidgetHostViewChildFrame();
+}
+
+#if BUILDFLAG(IS_ANDROID)
+ui::DelegatedFrameHostAndroid* GetDelegatedFrameHost(
+    RenderWidgetHostView* view) {
+  CHECK(!IsChildFrame(view));
+  return static_cast<RenderWidgetHostViewAndroid*>(view)
+      ->delegated_frame_host_for_testing();
+}
+#else
+DelegatedFrameHost* GetDelegatedFrameHost(RenderWidgetHostView* view) {
+  CHECK(!IsChildFrame(view));
+  DelegatedFrameHost* dfh = nullptr;
+#if BUILDFLAG(IS_MAC)
+  auto* compositor = GetBrowserCompositorMacForTesting(view);
+  dfh = compositor->GetDelegatedFrameHost();
+#elif BUILDFLAG(IS_IOS)
+  auto* compositor = GetBrowserCompositorIOSForTesting(view);
+  dfh = compositor->GetDelegatedFrameHost();
+#elif defined(USE_AURA)
+  dfh = static_cast<RenderWidgetHostViewAura*>(view)
+            ->GetDelegatedFrameHostForTesting();
+#endif  // BUILDFLAG(IS_MAC)
+  return dfh;
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
+viz::SurfaceId GetCurrentSurfaceIdOnDelegatedFrameHost(
+    RenderWidgetHostView* view) {
+  auto* dfh = GetDelegatedFrameHost(view);
+  CHECK(dfh);
+#if BUILDFLAG(IS_ANDROID)
+  return dfh->GetCurrentSurfaceIdForTesting();
+#else
+  return dfh->GetCurrentSurfaceId();
+#endif  // BUILDFLAG(IS_ANDROID)
+}
+
+viz::SurfaceId GetFirstSurfaceIdAfterNavigation(RenderWidgetHostView* view) {
+  auto* dfh = GetDelegatedFrameHost(view);
+  CHECK(dfh);
+  return dfh->GetFirstSurfaceIdAfterNavigationForTesting();
+}
+
 }  // namespace
 
 // https://crbug.com/1415340: For a page with ViewTransition being restored from
@@ -7707,12 +7768,16 @@ void AssertBitmapOfColor(const SkBitmap& bitmap, SkColor color) {
 // visual glitches.
 //
 // TODO(https://crbug.com/1472026): Investigate and re-enable.
-//
-// TODO(https://crbug.com/1487799): Disabled globally as the killswitch has been
-// flipped. Re-enable once the proper fix for VT+BFCache has landed.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_NewContentTimeoutIsSetWhenLeavingBFCacheWithViewTransition \
+  DISABLED_NewContentTimeoutIsSetWhenLeavingBFCacheWithViewTransition
+#else
+#define MAYBE_NewContentTimeoutIsSetWhenLeavingBFCacheWithViewTransition \
+  NewContentTimeoutIsSetWhenLeavingBFCacheWithViewTransition
+#endif
 IN_PROC_BROWSER_TEST_F(
     RenderFrameHostImplBrowserTestWithBFCacheAndViewTransition,
-    DISABLED_NewContentTimeoutIsSetWhenLeavingBFCacheWithViewTransition) {
+    MAYBE_NewContentTimeoutIsSetWhenLeavingBFCacheWithViewTransition) {
   // "red_jank_second_pageshow.html" janks the renderer on the second pageshow
   // event.
   const GURL url_red(embedded_test_server()->GetURL(
@@ -7723,25 +7788,59 @@ IN_PROC_BROWSER_TEST_F(
   // Navigate to Red.
   ASSERT_TRUE(NavigateToURL(shell(), url_red));
   RenderFrameHostWrapper rfh_red(web_contents()->GetPrimaryMainFrame());
+  const auto first_surface_id_after_nav_before_bfcache_restore =
+      GetFirstSurfaceIdAfterNavigation(rfh_red->GetView());
 
   // Navigate to Green.
   ASSERT_TRUE(NavigateToURL(shell(), url_green));
   ASSERT_FALSE(rfh_red.IsDestroyed());
   ASSERT_TRUE(
       static_cast<RenderFrameHostImpl*>(rfh_red.get())->IsInBackForwardCache());
+  auto* rwhi_red =
+      RenderWidgetHostImpl::From(rfh_red->GetView()->GetRenderWidgetHost());
+  // The BFCached `RenderWidgetHostImpl` must have a stopped timer.
+  ASSERT_FALSE(rwhi_red->IsContentRenderingTimeoutRunning());
 
   // Navigate back to Red.
   ASSERT_TRUE(HistoryGoBack(web_contents()));
   ASSERT_EQ(rfh_red.get(), web_contents()->GetPrimaryMainFrame());
-
-  RenderWidgetHostImpl* rwhi_red =
-      RenderWidgetHostImpl::From(rfh_red->GetView()->GetRenderWidgetHost());
   ASSERT_TRUE(rwhi_red->IsContentRenderingTimeoutRunning());
 
-  gfx::Image screenshot;
-  ui::GrabViewSnapshot(web_contents()->GetView()->GetNativeView(),
-                       gfx::Rect(web_contents()->GetSize()), &screenshot);
-  AssertBitmapOfColor(screenshot.AsBitmap(), SK_ColorGREEN);
+  const auto first_surface_id_after_nav_after_bfcache_restore =
+      GetFirstSurfaceIdAfterNavigation(rfh_red->GetView());
+  // The `first_surface_id_after_nav_` of the DelegatedFrameHost{Android}, after
+  // the BFCache restore, should have a different value than before.
+  ASSERT_NE(first_surface_id_after_nav_after_bfcache_restore,
+            first_surface_id_after_nav_before_bfcache_restore);
+  // The first call to `DelegatedFrameHost{Android}::EmbedSurface` will set
+  // `first_surface_id_after_nav_` to the new current `viz::SurfaceId`; if there
+  // are subsequent `EmbedSurface` calls (i.e., Android), the current surface id
+  // will be newer than `first_surface_id_after_nav_`.
+  ASSERT_TRUE(
+      GetCurrentSurfaceIdOnDelegatedFrameHost(rfh_red->GetView())
+          .IsSameOrNewerThan(first_surface_id_after_nav_after_bfcache_restore));
+
+  {
+    gfx::Image screenshot;
+    ui::GrabViewSnapshot(web_contents()->GetView()->GetNativeView(),
+                         gfx::Rect(web_contents()->GetSize()), &screenshot);
+    AssertBitmapOfColor(screenshot.AsBitmap(), SK_ColorGREEN);
+  }
+
+  ASSERT_TRUE(rwhi_red->IsContentRenderingTimeoutRunning());
+  rwhi_red->ForceFirstFrameAfterNavigationTimeout();
+
+  WaitForBrowserCompositorFramePresented(web_contents());
+
+  // `ForceFirstFrameAfterNavigationTimeout` resets the fallback surface id to
+  // `first_surface_id_after_nav_` of the `DelegatedFrameHost{Android}`. This
+  // should have no effects on the screen.
+  {
+    gfx::Image screenshot;
+    ui::GrabViewSnapshot(web_contents()->GetView()->GetNativeView(),
+                         gfx::Rect(web_contents()->GetSize()), &screenshot);
+    AssertBitmapOfColor(screenshot.AsBitmap(), SK_ColorGREEN);
+  }
 }
 
 // Tests that when a RenderFrameHost is stored in BFCache, that the visibility

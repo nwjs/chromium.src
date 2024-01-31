@@ -14,7 +14,7 @@
 namespace net {
 
 ProxyChain::ProxyChain() {
-  proxy_server_list_ = absl::nullopt;
+  proxy_server_list_ = std::nullopt;
 }
 
 ProxyChain::ProxyChain(const ProxyChain& other) = default;
@@ -39,7 +39,7 @@ ProxyChain::ProxyChain(ProxyServer::Scheme scheme,
 ProxyChain::ProxyChain(std::vector<ProxyServer> proxy_server_list)
     : proxy_server_list_(std::move(proxy_server_list)) {
   if (!IsValidInternal()) {
-    proxy_server_list_ = absl::nullopt;
+    proxy_server_list_ = std::nullopt;
   }
 }
 
@@ -64,6 +64,9 @@ const ProxyServer& ProxyChain::proxy_server() const {
                                                   HostPortPair());
     return *direct;
   }
+  CHECK_EQ(1u, proxy_server_list_->size())
+      << "Cannot call `proxy_server() on a ProxyChain with multiple proxies: "
+      << ToDebugString();
   return proxy_server_list_.value().at(0);
 }
 

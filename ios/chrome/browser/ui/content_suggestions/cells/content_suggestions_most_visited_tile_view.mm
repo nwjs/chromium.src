@@ -5,7 +5,7 @@
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_tile_view.h"
 
 #import "base/check.h"
-#import "ios/chrome/browser/ntp/home/features.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_gesture_commands.h"
 #import "ios/chrome/browser/ui/content_suggestions/cells/content_suggestions_most_visited_item.h"
 #import "ios/chrome/browser/ui/content_suggestions/content_suggestions_constants.h"
@@ -79,10 +79,11 @@ const CGFloat kMagicStackImageContainerWidth = 50;
           constraintEqualToAnchor:_faviconView.heightAnchor],
     ]];
 
-    [self.imageContainerView addSubview:_faviconView];
     if (IsMagicStackEnabled()) {
+      [self addSubview:_faviconView];
       AddSameCenterConstraints(_faviconView, self.imageContainerView);
     } else {
+      [self.imageContainerView addSubview:_faviconView];
       AddSameConstraints(self.imageContainerView, _faviconView);
     }
   }

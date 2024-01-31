@@ -175,8 +175,10 @@ def _GetWebUiModulePath(module):
   path. Otherwise, returned paths always end in a '/' and begin with either
   `chrome://resources/` or a '/'."""
   path = module.metadata.get('webui_module_path')
-  if path is None or path == '/':
-    return path
+  if path is None:
+    return None
+  if path == '' or path == '/':
+    return '/'
   if _IsAbsoluteChromeResourcesPath(path):
     return path.rstrip('/') + '/'
   return '/{}/'.format(path.strip('/'))
@@ -600,7 +602,9 @@ class Generator(generator.Generator):
     for spec, kind in self.module.imported_kinds.items():
       assert this_module_path is not None
       base_path = _GetWebUiModulePath(kind.module)
-      assert base_path is not None
+      assert base_path is not None, \
+          "No WebUI bindings found for dependency {0!r} imported by " \
+              "{1!r}".format(kind.module, self.module)
       import_path = '{}{}-webui.js'.format(base_path,
                                            os.path.basename(kind.module.path))
 

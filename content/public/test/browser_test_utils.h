@@ -12,7 +12,6 @@
 
 #include "base/containers/flat_set.h"
 #include "base/containers/queue.h"
-#include "base/cxx20_to_address.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/functional/callback.h"
 #include "base/json/json_writer.h"
@@ -551,7 +550,7 @@ class ToRenderFrameHost {
   // NOLINTNEXTLINE(google-explicit-constructor)
   ToRenderFrameHost(Ptr frame_convertible_value)
       : render_frame_host_(ConvertToRenderFrameHost(
-            base::to_address(frame_convertible_value))) {}
+            std::to_address(frame_convertible_value))) {}
 
   // Extract the underlying frame.
   RenderFrameHost* render_frame_host() const { return render_frame_host_; }
@@ -698,6 +697,12 @@ struct EvalJsResult {
 
   // Copy ctor.
   EvalJsResult(const EvalJsResult& value);
+
+  // Matchers for successful & unsuccessful runs.
+  static auto IsOk() {
+    return testing::Field(&EvalJsResult::error, testing::Eq(""));
+  }
+  static auto IsError() { return testing::Not(IsOk()); }
 
   // Extract a result value of the requested type, or die trying.
   //
@@ -903,6 +908,9 @@ RenderFrameHost* ChildFrameAt(const ToRenderFrameHost& adapter, size_t index);
 // OriginAgentCluster header.
 bool HasOriginKeyedProcess(RenderFrameHost* frame);
 
+// Returns true if `frame` has a sandboxed SiteInstance.
+bool HasSandboxedSiteInstance(RenderFrameHost* frame);
+
 // Returns the frames visited by |RenderFrameHost::ForEachRenderFrameHost| in
 // the same order.
 std::vector<RenderFrameHost*> CollectAllRenderFrameHosts(
@@ -946,23 +954,14 @@ std::vector<net::CanonicalCookie> GetCanonicalCookies(
         net::CookiePartitionKeyCollection::ContainsAll());
 
 // Sets a cookie for the given url. Uses inclusive SameSiteCookieContext by
-// default, which gets cookies regardless of their SameSite attribute. Returns
-// true on success.
+// default, which gets cookies regardless of their SameSite attribute. The
+// cookie is unpartitioned by default. Returns true on success.
 bool SetCookie(BrowserContext* browser_context,
                const GURL& url,
                const std::string& value,
                net::CookieOptions::SameSiteCookieContext context =
-                   net::CookieOptions::SameSiteCookieContext::MakeInclusive());
-
-// Same as `SetCookie`, but sets a Partitioned cookie with the given partition
-// key. `value` is expected to use the `Partitioned` attribute.
-bool SetPartitionedCookie(
-    BrowserContext* browser_context,
-    const GURL& url,
-    const std::string& value,
-    const net::CookiePartitionKey& cookie_partition_key,
-    net::CookieOptions::SameSiteCookieContext context =
-        net::CookieOptions::SameSiteCookieContext::MakeInclusive());
+                   net::CookieOptions::SameSiteCookieContext::MakeInclusive(),
+               net::CookiePartitionKey* cookie_partition_key = nullptr);
 
 // Deletes cookies matching the provided filter. Returns the number of cookies
 // that were deleted.
@@ -1276,6 +1275,12 @@ class DOMMessageQueue {
   // message. Returns true on success.
   [[nodiscard]] bool WaitForMessage(std::string* message);
 
+  // Facilitates asynchronous use of the DOMMessageQueue. The given callback
+  // will be called once a message was put into the queue (or when there is a
+  // renderer crash).
+  // NOTE: This is incompatible with the DOMMessageQueue(RenderFrameHost*) ctor.
+  void SetOnMessageAvailableCallback(base::OnceClosure callback);
+
   // If there is a message in the queue, then copies it to |message| and returns
   // true.  Otherwise (if the queue is empty), returns false.
   [[nodiscard]] bool PopMessage(std::string* message);
@@ -1297,7 +1302,7 @@ class DOMMessageQueue {
   std::set<std::unique_ptr<MessageObserver>> observers_;
   base::CallbackListSubscription web_contents_creation_subscription_;
   base::queue<std::string> message_queue_;
-  base::OnceClosure quit_closure_;
+  base::OnceClosure callback_;
   bool renderer_crashed_ = false;
   raw_ptr<RenderFrameHost, DanglingUntriaged> render_frame_host_ = nullptr;
 };

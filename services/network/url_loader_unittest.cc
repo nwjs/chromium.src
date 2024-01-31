@@ -52,7 +52,6 @@
 #include "net/base/mime_sniffer.h"
 #include "net/base/net_errors.h"
 #include "net/base/transport_info.h"
-#include "net/cert/pki/parse_name.h"
 #include "net/cert/test_root_certs.h"
 #include "net/cookies/cookie_access_result.h"
 #include "net/cookies/cookie_change_dispatcher.h"
@@ -1477,7 +1476,8 @@ TEST_F(URLLoaderTest, SecureUnknownToLocalBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(client()->completion_status().cors_error_status,
               Optional(InsecurePrivateNetworkCorsErrorStatus(
                   mojom::IPAddressSpace::kLocal)));
@@ -1519,7 +1519,8 @@ TEST_F(URLLoaderTest, SecureUnknownToLocalPreflightWarn) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1537,7 +1538,8 @@ TEST_F(URLLoaderTest, SecureUnknownToLocalPreflightBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1552,7 +1554,8 @@ TEST_F(URLLoaderTest, NonSecureUnknownToLocalBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(client()->completion_status().cors_error_status,
               Optional(InsecurePrivateNetworkCorsErrorStatus(
                   mojom::IPAddressSpace::kLocal)));
@@ -1591,7 +1594,8 @@ TEST_F(URLLoaderTest, NonSecureUnknownToLocalPreflightWarn) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1608,7 +1612,8 @@ TEST_F(URLLoaderTest, NonSecureUnknownToLocalPreflightBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1624,7 +1629,8 @@ TEST_F(URLLoaderTest, SecurePublicToLocalBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(client()->completion_status().cors_error_status,
               Optional(InsecurePrivateNetworkCorsErrorStatus(
                   mojom::IPAddressSpace::kLocal)));
@@ -1666,7 +1672,8 @@ TEST_F(URLLoaderTest, SecurePublicToLocalPreflightWarn) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1684,7 +1691,8 @@ TEST_F(URLLoaderTest, SecurePublicToLocalPreflightBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1699,7 +1707,8 @@ TEST_F(URLLoaderTest, NonSecurePublicToLocalBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(client()->completion_status().cors_error_status,
               Optional(InsecurePrivateNetworkCorsErrorStatus(
                   mojom::IPAddressSpace::kLocal)));
@@ -1738,7 +1747,8 @@ TEST_F(URLLoaderTest, NonSecurePublicToLocalPreflightWarn) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1755,7 +1765,8 @@ TEST_F(URLLoaderTest, NonSecurePublicToLocalPreflightBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1771,7 +1782,8 @@ TEST_F(URLLoaderTest, SecurePrivateToLocalBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(client()->completion_status().cors_error_status,
               Optional(InsecurePrivateNetworkCorsErrorStatus(
                   mojom::IPAddressSpace::kLocal)));
@@ -1813,7 +1825,8 @@ TEST_F(URLLoaderTest, SecurePrivateToLocalPreflightBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1831,7 +1844,8 @@ TEST_F(URLLoaderTest, SecurePrivateToLocalPreflightWarn) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1846,7 +1860,8 @@ TEST_F(URLLoaderTest, NonSecurePrivateToLocalBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(client()->completion_status().cors_error_status,
               Optional(InsecurePrivateNetworkCorsErrorStatus(
                   mojom::IPAddressSpace::kLocal)));
@@ -1885,7 +1900,8 @@ TEST_F(URLLoaderTest, NonSecurePrivateToLocalPreflightBlock) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -1902,7 +1918,8 @@ TEST_F(URLLoaderTest, NonSecurePrivateToLocalPreflightWarn) {
 
   ResourceRequest request = CreateCrossOriginResourceRequest();
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
   EXPECT_THAT(
       client()->completion_status().cors_error_status,
       Optional(CorsErrorStatus(
@@ -2182,8 +2199,10 @@ class URLLoaderFakeTransportInfoTest
   // Returns a transport info with an endpoint in the given IP address space.
   static net::TransportInfo FakeTransportInfo(
       const URLLoaderFakeTransportInfoTestParams& params) {
-    return net::TransportInfo(params.transport_type,
-                              FakeEndpoint(params.endpoint_address_space), "");
+    return net::TransportInfo(
+        params.transport_type, FakeEndpoint(params.endpoint_address_space),
+        /*accept_ch_frame_arg=*/"",
+        /*cert_is_issued_by_known_root=*/false, net::kProtoUnknown);
   }
 };
 
@@ -2248,13 +2267,13 @@ constexpr URLLoaderFakeTransportInfoTestParams
             mojom::IPAddressSpace::kUnknown,
             mojom::IPAddressSpace::kPrivate,
             net::TransportType::kDirect,
-            net::ERR_FAILED,
+            net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
         },
         {
             mojom::IPAddressSpace::kUnknown,
             mojom::IPAddressSpace::kLocal,
             net::TransportType::kDirect,
-            net::ERR_FAILED,
+            net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
         },
         // Client: kPublic
         {
@@ -2273,13 +2292,13 @@ constexpr URLLoaderFakeTransportInfoTestParams
             mojom::IPAddressSpace::kPublic,
             mojom::IPAddressSpace::kPrivate,
             net::TransportType::kDirect,
-            net::ERR_FAILED,
+            net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
         },
         {
             mojom::IPAddressSpace::kPublic,
             mojom::IPAddressSpace::kLocal,
             net::TransportType::kDirect,
-            net::ERR_FAILED,
+            net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
         },
         // Client: kPrivate
         {
@@ -2304,7 +2323,7 @@ constexpr URLLoaderFakeTransportInfoTestParams
             mojom::IPAddressSpace::kPrivate,
             mojom::IPAddressSpace::kLocal,
             net::TransportType::kDirect,
-            net::ERR_FAILED,
+            net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
         },
         // Client: kLocal
         {
@@ -7100,7 +7119,8 @@ TEST_F(URLLoaderMockSocketTest, PrivateNetworkRequestPolicyDoesNotCloseSocket) {
   ResourceRequest request = CreateResourceRequest("GET", url);
   request.mode = mojom::RequestMode::kNoCors;
   request.request_initiator = initiator;
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
 
   // Socket should not be closed, since it can be reused.
   EXPECT_TRUE(socket_data_no_reads_no_writes.socket());
@@ -7183,7 +7203,8 @@ TEST_F(URLLoaderTest,
   MockDevToolsObserver devtools_observer;
   set_devtools_observer_for_next_request(&devtools_observer);
 
-  EXPECT_EQ(net::ERR_FAILED, LoadRequest(request));
+  EXPECT_EQ(net::ERR_BLOCKED_BY_PRIVATE_NETWORK_ACCESS_CHECKS,
+            LoadRequest(request));
 
   devtools_observer.WaitUntilPrivateNetworkRequest();
   ASSERT_TRUE(devtools_observer.private_network_request_params());

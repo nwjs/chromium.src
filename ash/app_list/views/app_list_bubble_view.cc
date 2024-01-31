@@ -96,6 +96,8 @@ bool IsSpokenFeedbackEnabled() {
 // This is more efficient than using a views::Separator, which would require
 // SetPaintToLayer(ui::LAYER_TEXTURED).
 class SeparatorWithLayer : public views::View {
+  METADATA_HEADER(SeparatorWithLayer, views::View)
+
  public:
   SeparatorWithLayer() {
     SetPaintToLayer(ui::LAYER_SOLID_COLOR);
@@ -118,6 +120,9 @@ class SeparatorWithLayer : public views::View {
         ColorProvider::ContentLayerType::kSeparatorColor));
   }
 };
+
+BEGIN_METADATA(SeparatorWithLayer)
+END_METADATA
 
 // Returns the layer bounds to use for the start of the show animation and the
 // end of the hide animation.
@@ -612,7 +617,7 @@ void AppListBubbleView::UpdateContinueSectionVisibility() {
 }
 
 void AppListBubbleView::UpdateForNewSortingOrder(
-    const absl::optional<AppListSortOrder>& new_order,
+    const std::optional<AppListSortOrder>& new_order,
     bool animate,
     base::OnceClosure update_position_closure) {
   // If app list sort order change is animated, hide any open folders as part of

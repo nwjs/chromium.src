@@ -14,18 +14,17 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/strings/utf_string_conversions.h"
-#include "base/test/metrics/user_action_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/core/browser/ui/suggestion.h"
 #include "components/password_manager/core/browser/fake_form_fetcher.h"
 #include "components/password_manager/core/browser/features/password_features.h"
-#include "components/password_manager/core/browser/mock_password_store_interface.h"
 #include "components/password_manager/core/browser/mock_webauthn_credentials_delegate.h"
 #include "components/password_manager/core/browser/passkey_credential.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_form_manager.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_save_manager_impl.h"
+#include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
 #include "components/password_manager/core/browser/stub_form_saver.h"
 #include "components/password_manager/core/browser/stub_password_manager_client.h"
 #include "components/password_manager/core/browser/stub_password_manager_driver.h"
@@ -42,9 +41,22 @@ namespace password_manager {
 
 namespace {
 
-const char kFilledAndLoginActionName[] =
-    "PasswordManager_SyncCredentialFilledAndLoginSuccessfull";
 const char kEnterpriseURL[] = "https://enterprise.test/";
+
+PasswordForm SimpleGAIAChangePasswordForm() {
+  PasswordForm form;
+  form.url = GURL("https://myaccount.google.com/");
+  form.signon_realm = "https://myaccount.google.com/";
+  return form;
+}
+
+PasswordForm SimpleForm(const char* signon_realm, const char* username) {
+  PasswordForm form;
+  form.signon_realm = signon_realm;
+  form.url = GURL(signon_realm);
+  form.username_value = base::ASCIIToUTF16(username);
+  return form;
+}
 
 class FakePasswordManagerClient : public StubPasswordManagerClient {
  public:
@@ -105,7 +117,7 @@ class FakePasswordManagerClient : public StubPasswordManagerClient {
   scoped_refptr<testing::NiceMock<MockPasswordStoreInterface>> password_store_ =
       new testing::NiceMock<MockPasswordStoreInterface>;
   MockWebAuthnCredentialsDelegate webauthn_credentials_delegate_;
-  absl::optional<std::vector<PasskeyCredential>> passkeys_;
+  std::optional<std::vector<PasskeyCredential>> passkeys_;
   bool is_incognito_ = false;
   raw_ptr<signin::IdentityManager> identity_manager_;
   std::unique_ptr<TestingPrefServiceSimple> prefs_;
@@ -175,92 +187,185 @@ class CredentialsFilterTest : public SyncUsernameTestBase,
   std::unique_ptr<SyncCredentialsFilter> filter_;
 };
 
-TEST_P(CredentialsFilterTest, ReportFormLoginSuccess_ExistingSyncCredentials) {
-  FakeSigninAs("user@gmail.com");
-  SetSyncingPasswords(true);
-
-  base::UserActionTester tester;
-  SavePending(LoginState::EXISTING);
-  filter_->ReportFormLoginSuccess(*form_manager_);
-  EXPECT_EQ(1, tester.GetActionCount(kFilledAndLoginActionName));
-}
-
-TEST_P(CredentialsFilterTest, ReportFormLoginSuccess_NewSyncCredentials) {
-  FakeSigninAs("user@gmail.com");
-  SetSyncingPasswords(true);
-
-  base::UserActionTester tester;
-  SavePending(LoginState::NEW);
-  filter_->ReportFormLoginSuccess(*form_manager_);
-  EXPECT_EQ(0, tester.GetActionCount(kFilledAndLoginActionName));
-}
-
-TEST_P(CredentialsFilterTest, ReportFormLoginSuccess_GAIANotSyncCredentials) {
-  const char kOtherUsername[] = "other_user@gmail.com";
-  const char16_t kOtherUsername16[] = u"other_user@gmail.com";
-  FakeSigninAs(kOtherUsername);
-  ASSERT_NE(pending_.username_value, kOtherUsername16);
-  SetSyncingPasswords(true);
-
-  base::UserActionTester tester;
-  SavePending(LoginState::EXISTING);
-  filter_->ReportFormLoginSuccess(*form_manager_);
-  EXPECT_EQ(0, tester.GetActionCount(kFilledAndLoginActionName));
-}
-
-TEST_P(CredentialsFilterTest, ReportFormLoginSuccess_NotGAIACredentials) {
-  pending_ = SimpleNonGaiaForm("user@gmail.com");
-  FakeSigninAs("user@gmail.com");
-  SetSyncingPasswords(true);
-
-  base::UserActionTester tester;
-  SavePending(LoginState::EXISTING);
-  filter_->ReportFormLoginSuccess(*form_manager_);
-  EXPECT_EQ(0, tester.GetActionCount(kFilledAndLoginActionName));
-}
-
-TEST_P(CredentialsFilterTest, ReportFormLoginSuccess_NotSyncing) {
-  FakeSigninAs("user@gmail.com");
-  SetSyncingPasswords(false);
-
-  base::UserActionTester tester;
-  SavePending(LoginState::EXISTING);
-  filter_->ReportFormLoginSuccess(*form_manager_);
-  EXPECT_EQ(0, tester.GetActionCount(kFilledAndLoginActionName));
-}
-
 TEST_P(CredentialsFilterTest, ShouldSave_NotSignedIn) {
-  PasswordForm form = SimpleGaiaForm("user@example.org");
+  const char kTestEmail[] = "user@example.org";
 
-  ASSERT_TRUE(identity_manager()
-                  ->GetPrimaryAccountInfo(signin::ConsentLevel::kSync)
-                  .IsEmpty());
+  ASSERT_FALSE(
+      identity_manager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+  ASSERT_TRUE(sync_service()->GetAccountInfo().IsEmpty());
+
   SetSyncingPasswords(false);
+
+  // Non-Gaia forms should always offer saving.
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm(kTestEmail)));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm("")));
+
   // See comments inside ShouldSave() for the justification.
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  EXPECT_TRUE(filter_->ShouldSave(form));
-#else
-  if (base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage))
-    EXPECT_FALSE(filter_->ShouldSave(form));
-  else
-    EXPECT_TRUE(filter_->ShouldSave(form));
-#endif
+  // Some scenarios behave differently based on whether or not the feature
+  // toggle is enabled.
+  // TODO(crbug.com/1499837): Revisit if these differences are desirable.
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleGaiaForm("")),
+      base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage));
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleGAIAChangePasswordForm()),
+      base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleGaiaForm(kTestEmail)));
+#else   // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  EXPECT_FALSE(filter_->ShouldSave(SimpleGaiaForm("")));
+  EXPECT_FALSE(filter_->ShouldSave(SimpleGAIAChangePasswordForm()));
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleGaiaForm(kTestEmail)),
+      !base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage));
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 }
 
-TEST_P(CredentialsFilterTest, ShouldSave_NotSyncCredential) {
-  PasswordForm form = SimpleGaiaForm("user@example.org");
+TEST_P(CredentialsFilterTest, ShouldSave_SignedInWithSyncServiceNull) {
+  const char kPrimaryAccountEmail[] = "sync_user@example.org";
 
-  FakeSigninAs("different_user@example.org");
-  SetSyncingPasswords(true);
-  EXPECT_TRUE(filter_->ShouldSave(form));
+  FakeSigninAs(kPrimaryAccountEmail, signin::ConsentLevel::kSync);
+  SetSyncingPasswords(false);
+
+  // Create a new filter that uses a null SyncService.
+  filter_ = std::make_unique<SyncCredentialsFilter>(
+      client_.get(), base::BindRepeating([]() -> const syncer::SyncService* {
+        return nullptr;
+      }));
+
+  // Some scenarios behave differently based on whether or not the feature
+  // toggle is enabled.
+  // TODO(crbug.com/1499837): Revisit if these differences are desirable.
+  const bool passwords_account_storage_enabled =
+      base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage);
+
+  // Non-Gaia forms should always offer saving.
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm(kPrimaryAccountEmail)));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm("")));
+
+  // See comments inside ShouldSave() for the justification.
+  const PasswordForm simple_gaia_form =
+      SimpleGaiaForm("non_sync_user@example.org");
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  EXPECT_TRUE(filter_->ShouldSave(simple_gaia_form));
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm("")),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleGAIAChangePasswordForm()),
+            passwords_account_storage_enabled);
+  EXPECT_TRUE(filter_->ShouldSave(SimpleGaiaForm(kPrimaryAccountEmail)));
+#else   // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+  EXPECT_EQ(filter_->ShouldSave(simple_gaia_form),
+            !passwords_account_storage_enabled);
+  EXPECT_FALSE(filter_->ShouldSave(SimpleGaiaForm("")));
+  EXPECT_FALSE(filter_->ShouldSave(SimpleGAIAChangePasswordForm()));
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm(kPrimaryAccountEmail)),
+            !passwords_account_storage_enabled);
+#endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
+
+  EXPECT_TRUE(filter_->ShouldSave(
+      SimpleForm("https://subdomain.google.com/", kPrimaryAccountEmail)));
+
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleForm("https://subdomain.google.com/", "")),
+      passwords_account_storage_enabled);
 }
 
-TEST_P(CredentialsFilterTest, ShouldSave_SyncCredential) {
-  PasswordForm form = SimpleGaiaForm("user@example.org");
+TEST_P(CredentialsFilterTest, ShouldSave_SyncFeatureOnWithPasswordsEnabled) {
+  const char kPrimaryAccountEmail[] = "sync_user@example.org";
 
-  FakeSigninAs("user@example.org");
+  FakeSigninAs(kPrimaryAccountEmail, signin::ConsentLevel::kSync);
   SetSyncingPasswords(true);
-  EXPECT_FALSE(filter_->ShouldSave(form));
+
+  // Non-Gaia forms should always offer saving.
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm(kPrimaryAccountEmail)));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm("")));
+
+  // Gaia forms can offer saving only if the username doesn't match the primary
+  // account.
+  EXPECT_FALSE(filter_->ShouldSave(SimpleGaiaForm(kPrimaryAccountEmail)));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleGaiaForm("non_sync_user@example.org")));
+
+  // Some scenarios behave differently based on whether or not the feature
+  // toggle is enabled.
+  // TODO(crbug.com/1499837): Revisit if these differences are desirable.
+  const bool passwords_account_storage_enabled =
+      base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage);
+
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm("")),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleGAIAChangePasswordForm()),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleForm("https://subdomain.google.com/",
+                                           kPrimaryAccountEmail)),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleForm("https://subdomain.google.com/", "")),
+      passwords_account_storage_enabled);
+}
+
+TEST_P(CredentialsFilterTest, ShouldSave_SignedInWithSyncFeatureOff) {
+  const char kPrimaryAccountEmail[] = "primary_user@example.org";
+
+  FakeSigninAs(kPrimaryAccountEmail, signin::ConsentLevel::kSignin);
+
+  // Non-Gaia forms should always offer saving.
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm(kPrimaryAccountEmail)));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm("")));
+
+  // Gaia forms can offer saving if the username doesn't match the primary
+  // account.
+  EXPECT_TRUE(
+      filter_->ShouldSave(SimpleGaiaForm("arbitrary_user@example.org")));
+
+  EXPECT_TRUE(filter_->ShouldSave(
+      SimpleForm("https://subdomain.google.com/", kPrimaryAccountEmail)));
+
+  // Some scenarios behave differently based on whether or not the feature
+  // toggle is enabled.
+  const bool passwords_account_storage_enabled =
+      base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage);
+
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm(kPrimaryAccountEmail)),
+            !passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm("")),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleGAIAChangePasswordForm()),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleForm("https://subdomain.google.com/", "")),
+      passwords_account_storage_enabled);
+}
+
+TEST_P(CredentialsFilterTest, ShouldSave_SyncFeatureOnWithPasswordsDisabled) {
+  const char kPrimaryAccountEmail[] = "sync_user@example.org";
+
+  FakeSigninAs(kPrimaryAccountEmail, signin::ConsentLevel::kSync);
+  SetSyncingPasswords(false);
+
+  // Non-Gaia forms should always offer saving.
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm(kPrimaryAccountEmail)));
+  EXPECT_TRUE(filter_->ShouldSave(SimpleNonGaiaForm("")));
+
+  EXPECT_TRUE(filter_->ShouldSave(SimpleGaiaForm("non_sync_user@example.org")));
+
+  EXPECT_TRUE(filter_->ShouldSave(
+      SimpleForm("https://subdomain.google.com/", kPrimaryAccountEmail)));
+
+  // Some scenarios behave differently based on whether or not the feature
+  // toggle is enabled.
+  // TODO(crbug.com/1499837): Revisit if these differences are desirable.
+  const bool passwords_account_storage_enabled =
+      base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage);
+
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm(kPrimaryAccountEmail)),
+            !passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleGaiaForm("")),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(filter_->ShouldSave(SimpleGAIAChangePasswordForm()),
+            passwords_account_storage_enabled);
+  EXPECT_EQ(
+      filter_->ShouldSave(SimpleForm("https://subdomain.google.com/", "")),
+      passwords_account_storage_enabled);
 }
 
 TEST_P(CredentialsFilterTest, ShouldSave_SignIn_Form) {
@@ -269,20 +374,6 @@ TEST_P(CredentialsFilterTest, ShouldSave_SignIn_Form) {
 
   SetSyncingPasswords(false);
   EXPECT_FALSE(filter_->ShouldSave(form));
-}
-
-TEST_P(CredentialsFilterTest, ShouldSave_SyncCredential_NotSyncingPasswords) {
-  PasswordForm form = SimpleGaiaForm("user@example.org");
-
-  FakeSigninAs("user@example.org");
-  SetSyncingPasswords(false);
-  // If kEnablePasswordsAccountStorage is enabled, then Chrome shouldn't offer
-  // to save the password for the primary account - doesn't matter if passwords
-  // are being synced or not.
-  if (base::FeatureList::IsEnabled(features::kEnablePasswordsAccountStorage))
-    EXPECT_FALSE(filter_->ShouldSave(form));
-  else
-    EXPECT_TRUE(filter_->ShouldSave(form));
 }
 
 TEST_P(CredentialsFilterTest, ShouldSaveIfBrowserSigninDisabled) {
@@ -332,8 +423,8 @@ TEST_P(CredentialsFilterTest, ShouldNotSaveEnterprisePasswordHashIncognito) {
   EXPECT_FALSE(filter_->ShouldSaveEnterprisePasswordHash(enterprise_form));
 }
 
-TEST_P(CredentialsFilterTest, IsSyncAccountEmail) {
-  FakeSigninAs("user@gmail.com");
+TEST_P(CredentialsFilterTest, IsSyncAccountEmailWithSyncFeatureEnabled) {
+  FakeSigninAs("user@gmail.com", signin::ConsentLevel::kSync);
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user"));
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user2@gmail.com"));
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user2@example.com"));
@@ -342,9 +433,10 @@ TEST_P(CredentialsFilterTest, IsSyncAccountEmail) {
   EXPECT_TRUE(filter_->IsSyncAccountEmail("user@googlemail.com"));
 }
 
-TEST_P(CredentialsFilterTest, IsSyncAccountEmailIncognito) {
+TEST_P(CredentialsFilterTest,
+       IsSyncAccountEmailWithSyncFeatureEnabledAndIncognito) {
   client_->SetIsOffTheRecord(true);
-  FakeSigninAs("user@gmail.com");
+  FakeSigninAs("user@gmail.com", signin::ConsentLevel::kSync);
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user"));
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user2@gmail.com"));
   EXPECT_FALSE(filter_->IsSyncAccountEmail("user2@example.com"));

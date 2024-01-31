@@ -333,8 +333,6 @@ int SSLConnectJob::DoTunnelConnect() {
   DCHECK(!TimerIsRunning());
 
   next_state_ = STATE_TUNNEL_CONNECT_COMPLETE;
-  scoped_refptr<HttpProxySocketParams> http_proxy_params =
-      params_->GetHttpProxyConnectionParams();
   nested_connect_job_ = std::make_unique<HttpProxyConnectJob>(
       priority(), socket_tag(), common_connect_job_params(),
       params_->GetHttpProxyConnectionParams(), this, &net_log());
@@ -388,6 +386,8 @@ int SSLConnectJob::DoSSLConnect() {
   endpoint_result_ = nested_connect_job_->GetHostResolverEndpointResult();
 
   SSLConfig ssl_config = params_->ssl_config();
+  ssl_config.ignore_certificate_errors =
+      *common_connect_job_params()->ignore_certificate_errors;
   ssl_config.network_anonymization_key = params_->network_anonymization_key();
   ssl_config.privacy_mode = params_->privacy_mode();
   // We do the fallback in both cases here to ensure we separate the effect of

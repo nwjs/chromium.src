@@ -36,6 +36,10 @@ class SmartReaderManagerAsh;
 class TelemetryDiagnosticsRoutineServiceAsh;
 class TelemetryEventServiceAsh;
 class VideoConferenceManagerAsh;
+
+namespace auth {
+class InSessionAuth;
+}  // namespace auth
 }  // namespace ash
 
 namespace crosapi {
@@ -55,6 +59,7 @@ class ClipboardHistoryAsh;
 class ContentProtectionAsh;
 class CrosapiDependencyRegistry;
 class DeskAsh;
+class DeskProfilesAsh;
 class DeskTemplateAsh;
 class DeviceAttributesAsh;
 class DeviceLocalAccountExtensionServiceAsh;
@@ -81,7 +86,6 @@ class GeolocationServiceAsh;
 class IdentityManagerAsh;
 class IdleServiceAsh;
 class ImageWriterAsh;
-class InSessionAuthAsh;
 class KerberosInBrowserAsh;
 class KeystoreServiceAsh;
 class KioskSessionServiceAsh;
@@ -99,6 +103,7 @@ class NetworkChangeAsh;
 class NetworkSettingsServiceAsh;
 class NetworkingAttributesAsh;
 class NetworkingPrivateAsh;
+class PasskeyAuthenticator;
 class ParentAccessAsh;
 class PaymentAppInstanceAsh;
 class PolicyServiceAsh;
@@ -167,6 +172,8 @@ class CrosapiAsh : public mojom::Crosapi {
   void BindBrowserCdmFactory(mojo::GenericPendingReceiver receiver) override;
   void BindBrowserServiceHost(
       mojo::PendingReceiver<mojom::BrowserServiceHost> receiver) override;
+  void BindBrowserShortcutPublisher(
+      mojo::PendingReceiver<mojom::AppShortcutPublisher> receiver) override;
   void BindBrowserVersionService(
       mojo::PendingReceiver<mojom::BrowserVersionService> receiver) override;
   void BindCertDatabase(
@@ -188,6 +195,8 @@ class CrosapiAsh : public mojom::Crosapi {
       mojo::PendingReceiver<mojom::CrosDisplayConfigController> receiver)
       override;
   void BindDesk(mojo::PendingReceiver<mojom::Desk> receiver) override;
+  void BindDeskProfileObserver(
+      mojo::PendingReceiver<mojom::DeskProfileObserver> receiver) override;
   void BindDeskTemplate(
       mojo::PendingReceiver<mojom::DeskTemplate> receiver) override;
   void BindDeviceAttributes(
@@ -256,7 +265,8 @@ class CrosapiAsh : public mojom::Crosapi {
   void BindImageWriter(
       mojo::PendingReceiver<mojom::ImageWriter> receiver) override;
   void BindInSessionAuth(
-      mojo::PendingReceiver<mojom::InSessionAuth> receiver) override;
+      mojo::PendingReceiver<chromeos::auth::mojom::InSessionAuth> receiver)
+      override;
   void BindKerberosInBrowser(
       mojo::PendingReceiver<mojom::KerberosInBrowser> receiver) override;
   void BindKeystoreService(
@@ -304,6 +314,8 @@ class CrosapiAsh : public mojom::Crosapi {
       mojo::PendingReceiver<mojom::NetworkingAttributes> receiver) override;
   void BindNetworkingPrivate(
       mojo::PendingReceiver<mojom::NetworkingPrivate> receiver) override;
+  void BindPasskeyAuthenticator(
+      mojo::PendingReceiver<mojom::PasskeyAuthenticator> receiver) override;
   void BindParentAccess(
       mojo::PendingReceiver<mojom::ParentAccess> receiver) override;
   void BindPaymentAppInstance(
@@ -416,6 +428,8 @@ class CrosapiAsh : public mojom::Crosapi {
   }
 
   DeskAsh* desk_ash() { return desk_ash_.get(); }
+
+  DeskProfilesAsh* desk_profiles_ash() { return desk_profiles_ash_.get(); }
 
   DeskTemplateAsh* desk_template_ash() { return desk_template_ash_.get(); }
 
@@ -590,6 +604,7 @@ class CrosapiAsh : public mojom::Crosapi {
   std::unique_ptr<ClipboardHistoryAsh> clipboard_history_ash_;
   std::unique_ptr<ContentProtectionAsh> content_protection_ash_;
   std::unique_ptr<DeskAsh> desk_ash_;
+  std::unique_ptr<DeskProfilesAsh> desk_profiles_ash_;
   std::unique_ptr<DeskTemplateAsh> desk_template_ash_;
   std::unique_ptr<DeviceAttributesAsh> device_attributes_ash_;
   std::unique_ptr<DeviceLocalAccountExtensionServiceAsh>
@@ -622,7 +637,6 @@ class CrosapiAsh : public mojom::Crosapi {
   std::unique_ptr<IdentityManagerAsh> identity_manager_ash_;
   std::unique_ptr<IdleServiceAsh> idle_service_ash_;
   std::unique_ptr<ImageWriterAsh> image_writer_ash_;
-  std::unique_ptr<InSessionAuthAsh> in_session_auth_ash_;
   std::unique_ptr<KerberosInBrowserAsh> kerberos_in_browser_ash_;
   std::unique_ptr<KeystoreServiceAsh> keystore_service_ash_;
   std::unique_ptr<KioskSessionServiceAsh> kiosk_session_service_ash_;

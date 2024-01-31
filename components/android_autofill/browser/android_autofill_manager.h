@@ -12,7 +12,9 @@
 #include "base/containers/flat_set.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/notreached.h"
 #include "components/autofill/core/browser/autofill_manager.h"
+#include "components/autofill/core/browser/crowdsourcing/autofill_crowdsourcing_manager.h"
 #include "components/autofill/core/common/dense_set.h"
 
 namespace autofill {
@@ -46,7 +48,6 @@ class AndroidAutofillManager : public AutofillManager,
   }
 
   base::WeakPtr<AutofillManager> GetWeakPtr() override;
-  CreditCardAccessManager* GetCreditCardAccessManager() override;
 
   bool ShouldClearPreviewedForm() override;
 
@@ -82,6 +83,13 @@ class AndroidAutofillManager : public AutofillManager,
                          const FormData& form,
                          const FieldTypeGroup field_type_group,
                          const url::Origin& triggered_origin);
+
+  void FillOrPreviewField(mojom::ActionPersistence action_persistence,
+                          mojom::TextReplacement text_replacement,
+                          const FormData& form,
+                          const FormFieldData& field,
+                          const std::u16string& value,
+                          PopupItemId popup_item_id) override;
 
  protected:
   friend void AndroidDriverInitHook(AutofillClient* client,
@@ -131,9 +139,10 @@ class AndroidAutofillManager : public AutofillManager,
   void OnAfterProcessParsedForms(
       const DenseSet<FormType>& form_types) override {}
 
-  void OnServerRequestError(FormSignature form_signature,
-                            AutofillDownloadManager::RequestType request_type,
-                            int http_error) override;
+  void OnServerRequestError(
+      FormSignature form_signature,
+      AutofillCrowdsourcingManager::RequestType request_type,
+      int http_error) override;
 
  private:
   // AutofillManager::Observer:

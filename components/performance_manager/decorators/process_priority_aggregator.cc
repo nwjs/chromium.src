@@ -156,6 +156,9 @@ base::Value::Dict ProcessPriorityAggregator::DescribeProcessNodeData(
   base::Value::Dict ret;
   ret.Set("user_visible_count", static_cast<int>(data->user_visible_count_));
   ret.Set("user_blocking_count", static_cast<int>(data->user_blocking_count_));
+#if DCHECK_IS_ON()
+  ret.Set("lowest_count", static_cast<int>(data->lowest_count_));
+#endif  // DCHECK_IS_ON()
   return ret;
 }
 
@@ -165,7 +168,7 @@ void ProcessPriorityAggregator::OnProcessNodeAdded(
   DCHECK(!DataImpl::Get(process_node_impl));
   DataImpl* data = DataImpl::GetOrCreate(process_node_impl);
   DCHECK(data->IsEmpty());
-  DCHECK_EQ(base::TaskPriority::LOWEST, process_node_impl->priority());
+  DCHECK_EQ(base::TaskPriority::LOWEST, process_node_impl->GetPriority());
   DCHECK_EQ(base::TaskPriority::LOWEST, data->GetPriority());
 }
 

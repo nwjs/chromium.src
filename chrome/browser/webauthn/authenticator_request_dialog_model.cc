@@ -36,6 +36,7 @@
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/features.h"
 #include "components/vector_icons/vector_icons.h"
+#include "components/webauthn/core/browser/passkey_model_change.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -127,7 +128,7 @@ constexpr const gfx::VectorIcon& GetTransportIcon(
     AuthenticatorTransport transport) {
   switch (transport) {
     case AuthenticatorTransport::kUsbHumanInterfaceDevice:
-      return vector_icons::kUsbIcon;
+      return kUsbSecurityKeyIcon;
     case AuthenticatorTransport::kInternal:
       return kLaptopIcon;
     case AuthenticatorTransport::kHybrid:
@@ -2172,7 +2173,8 @@ AuthenticatorRequestDialogModel::RecognizedCredentialsFor(
   return ret;
 }
 
-void AuthenticatorRequestDialogModel::OnPasskeysChanged() {
+void AuthenticatorRequestDialogModel::OnPasskeysChanged(
+    const std::vector<webauthn::PasskeyModelChange>& changes) {
   if (current_step_ != Step::kConditionalMediation) {
     // Updating an in flight request is only supported for conditional UI.
     return;
@@ -2195,10 +2197,16 @@ void AuthenticatorRequestDialogModel::
         absl::optional<device::AuthenticatorType> type) {
   HideDialog();
 
+  // Prefer to use the enclave authenticator over a platform authenticator
+  // if the device has registered to use it.
+  if (!type && is_enclave_authenticator_available_) {
+    type = device::AuthenticatorType::kEnclave;
+  }
+
 #if BUILDFLAG(IS_WIN)
   // The Windows-native UI already handles retrying so we do not offer a second
   // level of retry in that case.
-  if (type != device::AuthenticatorType::kEnclave) {
+  if (type && *type != device::AuthenticatorType::kEnclave) {
     offer_try_again_in_ui_ = false;
   }
 #elif BUILDFLAG(IS_MAC)

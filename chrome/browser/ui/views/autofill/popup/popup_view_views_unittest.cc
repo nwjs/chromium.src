@@ -19,7 +19,7 @@
 #include "chrome/browser/autofill/mock_autofill_popup_controller.h"
 #include "chrome/browser/ui/autofill/autofill_popup_controller_impl.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/views/autofill/popup/popup_cell_view.h"
+#include "chrome/browser/ui/views/autofill/popup/popup_row_content_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_row_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_separator_view.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
@@ -52,6 +52,7 @@
 #include "ui/events/test/event_generator.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/vector2d.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/test/ax_event_counter.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/widget/widget.h"
@@ -134,20 +135,21 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
   }
 
   void TearDown() override {
+    // Set to nullptr to avoid dangling pointers.
+    view_ = nullptr;
     generator_.reset();
-    view_.reset();
     widget_.reset();
     ChromeViewsTestBase::TearDown();
   }
 
-  void ShowView(PopupViewViews& view, views::Widget& widget) {
-    widget.SetContentsView(&view);
-    view.Show(AutoselectFirstSuggestion(false));
+  void ShowView(PopupViewViews* view, views::Widget& widget) {
+    widget.SetContentsView(view);
+    view->Show(AutoselectFirstSuggestion(false));
   }
 
   void CreateAndShowView() {
-    view_ = std::make_unique<PopupViewViews>(controller().GetWeakPtr());
-    ShowView(*view_, *widget_);
+    view_ = new PopupViewViews(controller().GetWeakPtr());
+    ShowView(view_, *widget_);
   }
 
   void CreateAndShowView(const std::vector<PopupItemId>& ids) {
@@ -253,7 +255,7 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
   std::unique_ptr<content::WebContents> web_contents_;
   std::unique_ptr<views::Widget> widget_;
   std::unique_ptr<ui::test::EventGenerator> generator_;
-  std::unique_ptr<PopupViewViews> view_;
+  raw_ptr<PopupViewViews> view_;
   NiceMock<MockAutofillPopupController> autofill_popup_controller_;
   NiceMock<MockAutofillPopupController> autofill_popup_sub_controller_;
 };
@@ -361,7 +363,10 @@ TEST_F(PopupViewViewsTest, AccessibilityTest) {
 
   // Item 0.
   ui::AXNodeData node_data_0;
-  GetPopupRowViewAt(0).GetContentView().GetAccessibleNodeData(&node_data_0);
+  GetPopupRowViewAt(0)
+      .GetContentView()
+      .GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data_0);
   EXPECT_EQ(ax::mojom::Role::kListBoxOption, node_data_0.role);
   EXPECT_EQ(1, node_data_0.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
   EXPECT_EQ(3, node_data_0.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
@@ -370,7 +375,7 @@ TEST_F(PopupViewViewsTest, AccessibilityTest) {
 
   // Item 1 (separator).
   ui::AXNodeData node_data_1;
-  GetRowViewAt(1).GetAccessibleNodeData(&node_data_1);
+  GetRowViewAt(1).GetViewAccessibility().GetAccessibleNodeData(&node_data_1);
   EXPECT_FALSE(node_data_1.HasIntAttribute(ax::mojom::IntAttribute::kPosInSet));
   EXPECT_FALSE(node_data_1.HasIntAttribute(ax::mojom::IntAttribute::kSetSize));
   EXPECT_EQ(ax::mojom::Role::kSplitter, node_data_1.role);
@@ -379,7 +384,10 @@ TEST_F(PopupViewViewsTest, AccessibilityTest) {
 
   // Item 2.
   ui::AXNodeData node_data_2;
-  GetPopupRowViewAt(2).GetContentView().GetAccessibleNodeData(&node_data_2);
+  GetPopupRowViewAt(2)
+      .GetContentView()
+      .GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data_2);
   EXPECT_EQ(2, node_data_2.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
   EXPECT_EQ(3, node_data_2.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
   EXPECT_EQ(ax::mojom::Role::kListBoxOption, node_data_2.role);
@@ -388,7 +396,10 @@ TEST_F(PopupViewViewsTest, AccessibilityTest) {
 
   // Item 3 (footer).
   ui::AXNodeData node_data_3;
-  GetPopupRowViewAt(3).GetContentView().GetAccessibleNodeData(&node_data_3);
+  GetPopupRowViewAt(3)
+      .GetContentView()
+      .GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data_3);
   EXPECT_EQ(3, node_data_3.GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
   EXPECT_EQ(3, node_data_3.GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
   EXPECT_EQ(ax::mojom::Role::kListBoxOption, node_data_3.role);
@@ -428,7 +439,8 @@ TEST_F(PopupViewViewsTest, SelectionOnTouchAndUnselectionOnCancel) {
 #endif  // !BUILDFLAG(IS_MAC)
 
 TEST_F(PopupViewViewsTest, ClickDisabledEntry) {
-  Suggestion opt_int_suggestion("", "", "",
+  Suggestion opt_int_suggestion("dummy_main_text", "",
+                                Suggestion::Icon::kNoIcon,
                                 PopupItemId::kPasswordAccountStorageOptIn);
   opt_int_suggestion.is_loading = Suggestion::IsLoading(true);
   controller().set_suggestions({opt_int_suggestion});
@@ -736,7 +748,7 @@ TEST_F(PopupViewViewsTest, RemoveAutofillRecordsNoAutocompleteDeletionMetrics) {
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/true);
   histogram_tester.ExpectTotalCount(
       "Autofill.Autocomplete.SingleEntryRemovalMethod", 0);
-  histogram_tester.ExpectTotalCount("Autocomplete.Events", 0);
+  histogram_tester.ExpectTotalCount("Autocomplete.Events2", 0);
 }
 
 TEST_F(PopupViewViewsTest, RemoveAutocompleteSuggestionRecordsMetrics) {
@@ -752,7 +764,7 @@ TEST_F(PopupViewViewsTest, RemoveAutocompleteSuggestionRecordsMetrics) {
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/true);
   histogram_tester.ExpectTotalCount(
       "Autofill.Autocomplete.SingleEntryRemovalMethod", 0);
-  histogram_tester.ExpectTotalCount("Autocomplete.Events", 0);
+  histogram_tester.ExpectTotalCount("Autocomplete.Events2", 0);
 
   EXPECT_CALL(controller(), RemoveSuggestion(1)).WillOnce(Return(true));
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/true);
@@ -762,7 +774,7 @@ TEST_F(PopupViewViewsTest, RemoveAutocompleteSuggestionRecordsMetrics) {
           kKeyboardShiftDeletePressed,
       1);
   histogram_tester.ExpectUniqueSample(
-      "Autocomplete.Events",
+      "Autocomplete.Events2",
       AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 1);
 }
 
@@ -784,7 +796,10 @@ TEST_F(PopupViewViewsTest, VoiceOverTest) {
 
   // Verify that the accessibility layer gets the right string to read out.
   ui::AXNodeData node_data;
-  GetPopupRowViewAt(0).GetContentView().GetAccessibleNodeData(&node_data);
+  GetPopupRowViewAt(0)
+      .GetContentView()
+      .GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data);
   EXPECT_EQ(voice_over_value,
             node_data.GetString16Attribute(ax::mojom::StringAttribute::kName));
 }
@@ -800,7 +815,10 @@ TEST_F(PopupViewViewsTest, ExpandableSuggestionA11yMessageTest) {
 
   // Verify that the accessibility layer gets the right string to read out.
   ui::AXNodeData node_data;
-  GetPopupRowViewAt(0).GetContentView().GetAccessibleNodeData(&node_data);
+  GetPopupRowViewAt(0)
+      .GetContentView()
+      .GetViewAccessibility()
+      .GetAccessibleNodeData(&node_data);
   EXPECT_EQ(
       node_data.GetString16Attribute(ax::mojom::StringAttribute::kName),
       base::JoinString(
@@ -857,7 +875,7 @@ TEST_F(PopupViewViewsTest, SubViewIsClosedWithParent) {
   controller().set_suggestions({PopupItemId::kAddressEntry});
   PopupViewViews view(controller().GetWeakPtr());
   views::Widget* widget = CreateTestWidget().release();
-  ShowView(view, *widget);
+  ShowView(&view, *widget);
 
   auto [sub_controller, sub_view] = OpenSubView(view);
   base::WeakPtr<views::Widget> sub_widget = sub_view->GetWidget()->GetWeakPtr();
@@ -1034,7 +1052,7 @@ TEST_F(PopupViewViewsTest, GetPopupScreenLocation) {
 #endif  // !BUILDFLAG(IS_MAC)
 
 TEST_F(PopupViewViewsTest, StandaloneCvcSuggestion_ElementId) {
-  Suggestion suggestion;
+  Suggestion suggestion(u"dummy_main_text");
   suggestion.feature_for_iph =
       feature_engagement::kIPHAutofillVirtualCardCVCSuggestionFeature.name;
   controller().set_suggestions({suggestion});
@@ -1045,7 +1063,7 @@ TEST_F(PopupViewViewsTest, StandaloneCvcSuggestion_ElementId) {
 }
 
 TEST_F(PopupViewViewsTest, VirtualCardSuggestion_ElementId) {
-  Suggestion suggestion;
+  Suggestion suggestion(u"dummy_main_text");
   suggestion.feature_for_iph =
       feature_engagement::kIPHAutofillVirtualCardSuggestionFeature.name;
   controller().set_suggestions({suggestion});

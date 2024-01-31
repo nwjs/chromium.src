@@ -185,7 +185,6 @@ class UserDataAuthClientTest : public testing::Test {
   ::user_data_auth::IsMountedReply expected_is_mounted_reply_;
   ::user_data_auth::UnmountReply expected_unmount_reply_;
   ::user_data_auth::RemoveReply expected_remove_reply_;
-  ::user_data_auth::CheckKeyReply expected_check_key_reply_;
   ::user_data_auth::StartMigrateToDircryptoReply
       expected_start_migrate_to_dircrypto_reply_;
   ::user_data_auth::NeedsDircryptoMigrationReply
@@ -222,8 +221,6 @@ class UserDataAuthClientTest : public testing::Test {
       writer.AppendProtoAsArrayOfBytes(expected_unmount_reply_);
     } else if (method_call->GetMember() == ::user_data_auth::kRemove) {
       writer.AppendProtoAsArrayOfBytes(expected_remove_reply_);
-    } else if (method_call->GetMember() == ::user_data_auth::kCheckKey) {
-      writer.AppendProtoAsArrayOfBytes(expected_check_key_reply_);
     } else if (method_call->GetMember() ==
                ::user_data_auth::kStartMigrateToDircrypto) {
       writer.AppendProtoAsArrayOfBytes(
@@ -322,18 +319,6 @@ TEST_F(UserDataAuthClientTest, Remove) {
   base::RunLoop().RunUntilIdle();
   ASSERT_NE(result_reply, absl::nullopt);
   EXPECT_TRUE(ProtobufEquals(result_reply.value(), expected_remove_reply_));
-}
-
-TEST_F(UserDataAuthClientTest, CheckKey) {
-  expected_check_key_reply_.set_error(
-      user_data_auth::CryptohomeErrorCode::CRYPTOHOME_ERROR_TPM_DEFEND_LOCK);
-  absl::optional<::user_data_auth::CheckKeyReply> result_reply;
-
-  client_->CheckKey(::user_data_auth::CheckKeyRequest(),
-                    CreateCopyCallback(&result_reply));
-  base::RunLoop().RunUntilIdle();
-  ASSERT_NE(result_reply, absl::nullopt);
-  EXPECT_TRUE(ProtobufEquals(result_reply.value(), expected_check_key_reply_));
 }
 
 TEST_F(UserDataAuthClientTest, StartMigrateToDircrypto) {

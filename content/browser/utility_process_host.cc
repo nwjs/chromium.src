@@ -318,6 +318,7 @@ bool UtilityProcessHost::StartProcess() {
       switches::kDisableDevShmUsage,
 #endif
 #if BUILDFLAG(IS_MAC)
+      sandbox::policy::switches::kDisableMetalShaderCache,
       sandbox::policy::switches::kEnableSandboxLogging,
       os_crypt::switches::kUseMockKeychain,
 #endif
@@ -350,7 +351,6 @@ bool UtilityProcessHost::StartProcess() {
       switches::kEnableExperimentalWebPlatformFeatures,
       // These flags are used by the audio service:
       switches::kAudioBufferSize,
-      switches::kAudioServiceQuitTimeoutMs,
       switches::kDisableAudioInput,
       switches::kDisableAudioOutput,
       switches::kFailAudioStreamCreation,

@@ -37,7 +37,6 @@
 #define MEDIA_AUDIO_MAC_AUDIO_LOW_LATENCY_INPUT_MAC_H_
 
 #include <AudioUnit/AudioUnit.h>
-#include <CoreAudio/CoreAudio.h>
 
 #include <memory>
 #include <vector>
@@ -133,11 +132,8 @@ class MEDIA_EXPORT AUAudioInputStream
   // Gets the current capture time.
   base::TimeTicks GetCaptureTime(const AudioTimeStamp* input_time_stamp);
 
-  // Gets the number of channels for a stream of audio data.
-  int GetNumberOfChannelsForDevice();
-
   // Issues the OnError() callback to the |sink_|.
-  void HandleError(OSStatus err);
+  void HandleError(OSStatus err, const base::Location& location = FROM_HERE);
 
   // Helper methods to set and get atomic |input_callback_is_active_|.
   void SetInputCallbackIsActive(bool active);

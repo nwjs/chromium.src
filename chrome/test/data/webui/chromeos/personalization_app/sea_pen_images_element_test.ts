@@ -3,25 +3,25 @@
 // found in the LICENSE file.
 
 import 'chrome://personalization/strings.m.js';
-import 'chrome://webui-test/mojo_webui_test_support.js';
+import 'chrome://webui-test/chromeos/mojo_webui_test_support.js';
 
-import {SeaPenImagesElement} from 'chrome://personalization/js/personalization_app.js';
+import {SeaPenImagesElement, SparklePlaceholderElement} from 'chrome://personalization/js/personalization_app.js';
 import {assertEquals, assertFalse} from 'chrome://webui-test/chai_assert.js';
 import {waitAfterNextRender} from 'chrome://webui-test/polymer_test_util.js';
 
 import {baseSetup, initElement, teardownElement} from './personalization_app_test_utils.js';
 import {TestPersonalizationStore} from './test_personalization_store.js';
-import {TestWallpaperProvider} from './test_wallpaper_interface_provider.js';
+import {TestSeaPenProvider} from './test_sea_pen_interface_provider.js';
 
 suite('SeaPenImagesElementTest', function() {
   let personalizationStore: TestPersonalizationStore;
-  let wallpaperProvider: TestWallpaperProvider;
+  let seaPenProvider: TestSeaPenProvider;
   let seaPenImagesElement: SeaPenImagesElement|null;
 
   setup(() => {
     const mocks = baseSetup();
     personalizationStore = mocks.personalizationStore;
-    wallpaperProvider = mocks.wallpaperProvider;
+    seaPenProvider = mocks.seaPenProvider;
   });
 
   teardown(async () => {
@@ -42,7 +42,7 @@ suite('SeaPenImagesElementTest', function() {
 
     const thumbnailPlaceholders =
         seaPenImagesElement.shadowRoot!.querySelectorAll(
-            '.thumbnail-placeholder');
+            'div:not([hidden]) .thumbnail-placeholder');
     assertEquals(
         4, thumbnailPlaceholders!.length,
         'should be 4 placeholders available.');
@@ -51,14 +51,16 @@ suite('SeaPenImagesElementTest', function() {
   test('displays loading thumbnail placeholders', async () => {
     personalizationStore.data.wallpaper.seaPen.thumbnailsLoading = true;
     personalizationStore.data.wallpaper.seaPen.thumbnails =
-        wallpaperProvider.seaPenImageThumbnails;
+        seaPenProvider.images;
 
     // Initialize |seaPenImagesElement|.
     seaPenImagesElement = initElement(SeaPenImagesElement);
     await waitAfterNextRender(seaPenImagesElement);
 
     const loadingThumbnailPlaceholders =
-        seaPenImagesElement.shadowRoot!.querySelectorAll('.placeholder');
+        seaPenImagesElement.shadowRoot!
+            .querySelectorAll<SparklePlaceholderElement>(
+                'div:not([hidden]) sparkle-placeholder-element');
     assertEquals(
         4, loadingThumbnailPlaceholders!.length,
         'should be 4 loading placeholders available.');
@@ -67,7 +69,7 @@ suite('SeaPenImagesElementTest', function() {
   test('displays image thumbnails', async () => {
     personalizationStore.data.wallpaper.seaPen.thumbnailsLoading = false;
     personalizationStore.data.wallpaper.seaPen.thumbnails =
-        wallpaperProvider.seaPenImageThumbnails;
+        seaPenProvider.images;
 
     // Initialize |seaPenImagesElement|.
     seaPenImagesElement = initElement(SeaPenImagesElement);
@@ -76,5 +78,23 @@ suite('SeaPenImagesElementTest', function() {
     const thumbnails = seaPenImagesElement.shadowRoot!.querySelectorAll(
         'div:not([hidden]).thumbnail-item-container');
     assertEquals(4, thumbnails!.length, 'should be 4 images available.');
+  });
+
+  test('selects thumbnail on click', async () => {
+    personalizationStore.data.wallpaper.seaPen.thumbnailsLoading = false;
+    personalizationStore.data.wallpaper.seaPen.thumbnails =
+        seaPenProvider.images;
+
+    seaPenImagesElement = initElement(SeaPenImagesElement);
+    await waitAfterNextRender(seaPenImagesElement);
+
+    const thumbnail =
+        seaPenImagesElement.shadowRoot!.querySelector<HTMLElement>(
+            'div:not([hidden]).thumbnail-item-container img');
+    thumbnail!.click();
+
+    const id = await seaPenProvider.whenCalled('selectSeaPenThumbnail');
+    assertEquals(
+        seaPenProvider.images[0]!.id, id, 'id sent for first SeaPenThumbnail');
   });
 });

@@ -75,7 +75,7 @@ void AshNotificationDragController::WriteDragDataForView(
 
   AshNotificationView* notification_view =
       static_cast<AshNotificationView*>(sender);
-  const absl::optional<gfx::ImageSkia> drag_image =
+  const std::optional<gfx::ImageSkia> drag_image =
       notification_view->GetDragImage();
   DCHECK(drag_image);
 
@@ -97,7 +97,7 @@ int AshNotificationDragController::GetDragOperationsForView(
     return ui::DragDropTypes::DRAG_NONE;
   }
 
-  const absl::optional<gfx::Rect> drag_area =
+  const std::optional<gfx::Rect> drag_area =
       static_cast<AshNotificationView*>(sender)->GetDragAreaBounds();
 
   // Use `DRAG_COPY` if:
@@ -122,7 +122,7 @@ bool AshNotificationDragController::CanStartDragForView(
 
   const AshNotificationView* const notification_view =
       static_cast<AshNotificationView*>(sender);
-  const absl::optional<gfx::Rect> drag_area =
+  const std::optional<gfx::Rect> drag_area =
       notification_view->GetDragAreaBounds();
 
   // Enable dragging `notification_view_` if:
@@ -184,13 +184,7 @@ void AshNotificationDragController::OnNotificationDragWillStart(
             dragged_view->GetWidget()->GetNativeView())
             ->GetStatusAreaWidget();
     TrayBackgroundView* message_center_bubble = nullptr;
-    if (features::IsQsRevampEnabled()) {
-      message_center_bubble = status_area_widget->notification_center_tray();
-    } else {
-      // If the quick setting revamp feature is not enabled, we should hide the
-      // unified system tray bubble.
-      message_center_bubble = status_area_widget->unified_system_tray();
-    }
+    message_center_bubble = status_area_widget->notification_center_tray();
 
     // We cannot destroy the message center bubble instantly. Otherwise, if
     // `dragged_view` is under gesture drag, the gesture state will be reset

@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/webid/account_selection_bubble_view.h"
 
 #include <algorithm>
+#include <utility>
 
 #include "base/feature_list.h"
 #include "base/i18n/case_conversion.h"
@@ -201,7 +202,7 @@ class ContinueButton : public views::MdTextButton {
                  const std::u16string& text,
                  AccountSelectionBubbleView* bubble_view,
                  const content::IdentityProviderMetadata& idp_metadata)
-      : views::MdTextButton(callback, text),
+      : views::MdTextButton(std::move(callback), text),
         bubble_view_(bubble_view),
         brand_background_color_(idp_metadata.brand_background_color),
         brand_text_color_(idp_metadata.brand_text_color) {
@@ -292,7 +293,7 @@ class AccountImageView : public views::ImageView {
           gfx::CanvasImageSource::MakeImageSkia<CircleCroppedImageSkiaSource>(
               image.AsImageSkia(), absl::nullopt, kDesiredAvatarSize);
     }
-    SetImage(avatar);
+    SetImage(ui::ImageModel::FromImageSkia(avatar));
   }
 
   base::WeakPtrFactory<AccountImageView> weak_ptr_factory_{this};
@@ -339,7 +340,7 @@ class IdpImageView : public views::ImageView {
             image.Width() *
                 FedCmAccountSelectionView::kMaskableWebIconSafeZoneRatio,
             kDesiredIdpIconSize);
-    SetImage(idp_image);
+    SetImage(ui::ImageModel::FromImageSkia(idp_image));
     bubble_view_->AddIdpImage(image_url, idp_image);
   }
 
@@ -359,14 +360,7 @@ void SendAccessibilityEvent(views::Widget* widget,
     return;
 
   views::View* const root_view = widget->GetRootView();
-#if BUILDFLAG(IS_MAC)
-  if (!announcement.empty())
-    root_view->GetViewAccessibility().OverrideName(announcement);
-  root_view->NotifyAccessibilityEvent(ax::mojom::Event::kAlert, true);
-#else
-  if (!announcement.empty())
-    root_view->GetViewAccessibility().AnnounceText(announcement);
-#endif
+  root_view->GetViewAccessibility().AnnounceText(announcement);
 }
 
 // Selects string for disclosure text based on passed-in `privacy_policy_url`
@@ -607,7 +601,8 @@ void AccountSelectionBubbleView::ShowVerifyingSheet(
 
   RemoveNonHeaderChildViews();
   views::ProgressBar* const progress_bar =
-      AddChildView(std::make_unique<views::ProgressBar>(kProgressBarHeight));
+      AddChildView(std::make_unique<views::ProgressBar>());
+  progress_bar->SetPreferredHeight(kProgressBarHeight);
   // Use an infinite animation: SetValue(-1).
   progress_bar->SetValue(-1);
   progress_bar->SetBackgroundColor(SK_ColorLTGRAY);
@@ -690,8 +685,8 @@ void AccountSelectionBubbleView::ShowFailureDialog(
 
   // Add continue button.
   auto button = std::make_unique<ContinueButton>(
-      base::BindRepeating(&Observer::OnSigninToIdP,
-                          base::Unretained(observer_)),
+      base::BindRepeating(&Observer::OnLoginToIdP, base::Unretained(observer_),
+                          idp_metadata.idp_login_url),
       l10n_util::GetStringUTF16(IDS_IDP_SIGNIN_STATUS_MISMATCH_DIALOG_CONTINUE),
       this, idp_metadata);
   row->AddChildView(std::move(button));
@@ -1024,6 +1019,20 @@ AccountSelectionBubbleView::CreateMultipleAccountChooser(
     }
     num_rows += idp_display_data.accounts.size();
   }
+
+  // TODO(crbug.com/1502635): Make "Add Account" work reasonably for multi-IDP
+  const content::IdentityProviderMetadata& idp_metadata =
+      idp_display_data_list[0].idp_metadata;
+  if (idp_metadata.supports_add_account) {
+    auto button = std::make_unique<ContinueButton>(
+        base::BindRepeating(&Observer::OnLoginToIdP,
+                            base::Unretained(observer_),
+                            idp_metadata.idp_login_url),
+        l10n_util::GetStringUTF16(IDS_ACCOUNT_SELECTION_ADD_ACCOUNT), this,
+        idp_metadata);
+    row->AddChildView(std::move(button));
+  }
+
   // The maximum height that the multi-account-picker can have. This value was
   // chosen so that if there are more than two accounts, the picker will show up
   // as a scrollbar showing 2 accounts plus half of the third one. Note that
@@ -1146,7 +1155,7 @@ void AccountSelectionBubbleView::ConfigureIdpBrandImageView(
 
   auto it = idp_images_.find(idp_metadata.brand_icon_url);
   if (it != idp_images_.end()) {
-    image_view->SetImage(it->second);
+    image_view->SetImage(ui::ImageModel::FromImageSkia(it->second));
     return;
   }
 

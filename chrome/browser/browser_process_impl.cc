@@ -234,6 +234,10 @@
 #include "chrome/browser/usb/usb_status_icon.h"
 #endif
 
+#if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
+#include "chrome/browser/search_engine_choice/search_engine_choice_profile_tagger.h"
+#endif  // BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
+
 #if BUILDFLAG(IS_WIN) || (BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS_LACROS))
 // How often to check if the persistent instance of Chrome needs to restart
 // to install an update.
@@ -1162,6 +1166,11 @@ void BrowserProcessImpl::CreateProfileManager() {
   base::FilePath user_data_dir;
   base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   profile_manager_ = std::make_unique<ProfileManager>(user_data_dir);
+
+#if BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
+  search_engine_choice_profile_tagger_ =
+      SearchEngineChoiceProfileTagger::Create(*profile_manager_.get());
+#endif  // BUILDFLAG(ENABLE_SEARCH_ENGINE_CHOICE)
 }
 
 void BrowserProcessImpl::PreCreateThreads() {
@@ -1201,8 +1210,6 @@ void BrowserProcessImpl::PreCreateThreads() {
 
 void BrowserProcessImpl::PreMainMessageLoopRun() {
   TRACE_EVENT0("startup", "BrowserProcessImpl::PreMainMessageLoopRun");
-  SCOPED_UMA_HISTOGRAM_TIMER(
-      "Startup.BrowserProcessImpl_PreMainMessageLoopRunTime");
 
   // browser_policy_connector() is created very early because local_state()
   // needs policy to be initialized with the managed preference values.
@@ -1260,7 +1267,8 @@ void BrowserProcessImpl::PreMainMessageLoopRun() {
   base::FilePath user_data_dir;
   bool result = base::PathService::Get(chrome::DIR_USER_DATA, &user_data_dir);
   DCHECK(result);
-  if (breadcrumbs::IsEnabled()) {
+  if (breadcrumbs::MaybeEnableBasedOnChannel(local_state_.get(),
+                                             chrome::GetChannel())) {
     // Start crash reporter listening for breadcrumb events. Collected
     // breadcrumbs will be attached to crash reports.
     breadcrumbs::CrashReporterBreadcrumbObserver::GetInstance();

@@ -142,8 +142,7 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
     @Nullable private final BackPressHandler mBackPressHandler;
 
     private PageInsightsDataLoader mPageInsightsDataLoader;
-    @Nullable
-    private PageInsightsSurfaceRenderer mSurfaceRenderer;
+    @Nullable private PageInsightsSurfaceRenderer mSurfaceRenderer;
     @Nullable private PageInsightsMetadata mCurrentMetadata;
     @Nullable private PageInsightsConfig mCurrentConfig;
     @Nullable private View mCurrentFeedView;
@@ -273,12 +272,13 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
         if (mInMotionSupplier != null) {
             mInMotionSupplier.addObserver(mInMotionCallback);
         }
-        mBottomUiObserver = new EmptyBottomSheetObserver() {
-            @Override
-            public void onSheetStateChanged(@SheetState int newState, int reason) {
-                onBottomUiStateChanged(newState >= SheetState.PEEK);
-            };
-        };
+        mBottomUiObserver =
+                new EmptyBottomSheetObserver() {
+                    @Override
+                    public void onSheetStateChanged(@SheetState int newState, int reason) {
+                        onBottomUiStateChanged(newState >= SheetState.PEEK);
+                    }
+                };
         bottomUiController.addObserver(mBottomUiObserver);
         mIsPageInsightsEnabledSupplier = isPageInsightsEnabledSupplier;
         mPageInsightsConfigProvider = pageInsightsConfigProvider;
@@ -291,9 +291,11 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
                                 shareDelegateSupplier,
                                 this::changeToChildPage,
                                 PageInsightsMediator::logPageInsightsEvent));
-        mAutoTriggerDelayMs = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
-                ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB, PAGE_INSIGHTS_CAN_AUTOTRIGGER_AFTER_END,
-                DEFAULT_TRIGGER_DELAY_MS);
+        mAutoTriggerDelayMs =
+                ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                        ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
+                        PAGE_INSIGHTS_CAN_AUTOTRIGGER_AFTER_END,
+                        DEFAULT_TRIGGER_DELAY_MS);
         mCanAutoTriggerWhileInMotion =
                 ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
                         ChromeFeatureList.CCT_PAGE_INSIGHTS_HUB,
@@ -331,8 +333,10 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
         mSheetContainer = bottomSheetContainer;
         View view = bottomSheetContainer.findViewById(R.id.background);
         mBackgroundDrawable = (GradientDrawable) view.getBackground();
-        mMaxCornerRadiusPx = bottomSheetContainer.getResources().getDimensionPixelSize(
-                R.dimen.bottom_sheet_corner_radius);
+        mMaxCornerRadiusPx =
+                bottomSheetContainer
+                        .getResources()
+                        .getDimensionPixelSize(R.dimen.bottom_sheet_corner_radius);
         setCornerRadiusPx(0);
 
         // Initialize the hidden ratio, otherwise it won't be set until the first offset
@@ -569,7 +573,7 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
                             metadata,
                             /* isPrivacyNoticeRequired= */ mCurrentConfig.getShouldXsurfaceLog(),
                             /* shouldHavePeekState= */ false);
-                    setBackgroundColors(/* ratioOfCompletionFromPeekToExpanded */ 1.0f);
+                    setBackgroundColors(/* ratioOfCompletionFromPeekToExpanded= */ 1.0f);
                     setCornerRadiusPx(mMaxCornerRadiusPx);
                     logPageInsightsEvent(PageInsightsEvent.USER_INVOKES_PIH);
                     // We need to perform this logging here, even though we also do it when the
@@ -590,8 +594,8 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
     }
 
     private View getXSurfaceView(ByteString elementsOutput) {
-        return getSurfaceRenderer().render(
-                elementsOutput.toByteArray(), mSurfaceRendererContextValues);
+        return getSurfaceRenderer()
+                .render(elementsOutput.toByteArray(), mSurfaceRendererContextValues);
     }
 
     private void changeToChildPage(int id) {
@@ -634,7 +638,7 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
         } else if (newState == SheetState.PEEK) {
             mWillHandleBackPressSupplier.set(false);
             setBottomControlsHeight(mSheetController.getCurrentOffset());
-            setBackgroundColors(/* ratioOfCompletionFromPeekToExpanded */ .0f);
+            setBackgroundColors(/* ratioOfCompletionFromPeekToExpanded= */ .0f);
             // The user should always be able to swipe to dismiss from peek state.
             mSheetContent.setSwipeToDismissEnabled(true);
             logPageInsightsEvent(PageInsightsEvent.STATE_PEEK);
@@ -642,7 +646,7 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
             // intended for when the feature initially auto-peeks.
         } else if (newState == SheetState.FULL) {
             mWillHandleBackPressSupplier.set(true);
-            setBackgroundColors(/* ratioOfCompletionFromPeekToExpanded */ 1.0f);
+            setBackgroundColors(/* ratioOfCompletionFromPeekToExpanded= */ 1.0f);
             if (mOldState == SheetState.PEEK && mCanReturnToPeekAfterExpansion) {
                 // Disable swiping to dismiss, so that swiping/scrim-tapping returns to peek state
                 // instead.
@@ -707,7 +711,7 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
     public void onSheetOffsetChanged(float heightFraction, float offsetPx) {
         float peekHeightRatio = getPeekHeightRatio();
         if (mSheetController.getSheetState() == SheetState.SCROLLING
-                && heightFraction + 0.01f < peekHeightRatio) {
+                && heightFraction < peekHeightRatio) {
             // Set the content height to zero in advance when user drags/scrolls the sheet down
             // below the peeking state. This helps hide the white patch (blank bottom controls).
             setBottomControlsHeight(0);
@@ -723,7 +727,7 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
     }
 
     private float getPeekHeightRatio() {
-        float fullHeight = mSheetContent.getActualFullHeightRatio() * mSheetContainer.getHeight();
+        float fullHeight = mSheetContent.getContentView().getMeasuredHeight();
         return mSheetContent.getPeekHeight() / fullHeight;
     }
 
@@ -792,8 +796,9 @@ public class PageInsightsMediator extends EmptyTabObserver implements BottomShee
             return mSurfaceRenderer;
         }
         PageInsightsSurfaceScope surfaceScope =
-                XSurfaceProcessScopeProvider.getProcessScope().obtainPageInsightsSurfaceScope(
-                        new PageInsightsSurfaceScopeDependencyProviderImpl(mContext));
+                XSurfaceProcessScopeProvider.getProcessScope()
+                        .obtainPageInsightsSurfaceScope(
+                                new PageInsightsSurfaceScopeDependencyProviderImpl(mContext));
         mSurfaceRenderer = surfaceScope.provideSurfaceRenderer();
         return mSurfaceRenderer;
     }

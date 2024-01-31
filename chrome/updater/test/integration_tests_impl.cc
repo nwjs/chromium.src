@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <utility>
@@ -68,7 +69,6 @@
 #include "crypto/secure_hash.h"
 #include "crypto/sha2.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "third_party/re2/src/re2/re2.h"
 
 #if BUILDFLAG(IS_WIN)
@@ -118,7 +118,7 @@ std::string GetUpdateResponseForApp(
     const base::FilePath& update_file,
     const std::string& run_action,
     const std::string& arguments,
-    const absl::optional<std::string>& file_hash = absl::nullopt) {
+    const std::optional<std::string>& file_hash = std::nullopt) {
   return base::StringPrintf(
       R"(    {)"
       R"(      "appid":"%s",)"
@@ -193,8 +193,8 @@ std::string GetUpdateResponse(const std::string& app_id,
 void RunUpdaterWithSwitch(const base::Version& version,
                           UpdaterScope scope,
                           const std::string& command,
-                          absl::optional<int> expected_exit_code) {
-  const absl::optional<base::FilePath> installed_executable_path =
+                          std::optional<int> expected_exit_code) {
+  const std::optional<base::FilePath> installed_executable_path =
       GetVersionedInstallDirectory(scope, version)
           ->Append(GetExecutableRelativePath());
   ASSERT_TRUE(installed_executable_path);
@@ -397,7 +397,7 @@ void ExpectVersionActive(UpdaterScope scope, const std::string& version) {
   ASSERT_NE(prefs, nullptr) << "Failed to acquire GlobalPrefs.";
   EXPECT_EQ(prefs->GetActiveVersion(), version);
 #if BUILDFLAG(IS_WIN)
-  EXPECT_EQ(version, [scope]() {
+  EXPECT_EQ(version, [scope] {
     std::wstring version;
     EXPECT_EQ(base::win::RegKey(UpdaterScopeToHKeyRoot(scope), UPDATER_KEY,
                                 Wow6432(KEY_READ))
@@ -457,7 +457,7 @@ void InstallUpdaterAndApp(UpdaterScope scope,
 
 void PrintLog(UpdaterScope scope) {
   std::string contents;
-  absl::optional<base::FilePath> path = GetInstallDirectory(scope);
+  std::optional<base::FilePath> path = GetInstallDirectory(scope);
   EXPECT_TRUE(path);
   if (path &&
       base::ReadFileToString(path->AppendASCII("updater.log"), &contents)) {
@@ -485,7 +485,7 @@ void CopyLog(const base::FilePath& src_dir) {
       base::PathExists(log_path)) {
     dest_dir = dest_dir.AppendASCII(GetTestName());
     EXPECT_TRUE(base::CreateDirectory(dest_dir));
-    const base::FilePath dest_file_path = [dest_dir]() {
+    const base::FilePath dest_file_path = [dest_dir] {
       base::FilePath path = dest_dir.AppendASCII("updater.log");
       for (int i = 1; i < 10 && base::PathExists(path); ++i) {
         path = dest_dir.AppendASCII(base::StringPrintf("updater.%d.log", i));
@@ -499,7 +499,7 @@ void CopyLog(const base::FilePath& src_dir) {
 }
 
 void ExpectNoCrashes(UpdaterScope scope) {
-  absl::optional<base::FilePath> database_path(GetCrashDatabasePath(scope));
+  std::optional<base::FilePath> database_path(GetCrashDatabasePath(scope));
   if (!database_path || !base::PathExists(*database_path)) {
     return;
   }
@@ -648,11 +648,11 @@ void RunWakeActive(UpdaterScope scope, int expected_exit_code) {
 
 void RunCrashMe(UpdaterScope scope) {
   RunUpdaterWithSwitch(base::Version(kUpdaterVersion), scope, kCrashMeSwitch,
-                       absl::nullopt);
+                       std::nullopt);
 }
 
 void RunServer(UpdaterScope scope, int expected_exit_code, bool internal) {
-  const absl::optional<base::FilePath> installed_executable_path =
+  const std::optional<base::FilePath> installed_executable_path =
       GetVersionedInstallDirectory(scope, base::Version(kUpdaterVersion))
           ->Append(GetExecutableRelativePath());
   ASSERT_TRUE(installed_executable_path);
@@ -734,7 +734,7 @@ void InstallAppViaService(UpdaterScope scope,
     EXPECT_EQ(final_update_state.p, *_state_member); \
   }
 #define CHECK_STATE_MEMBER_INT(p)                                      \
-  if (const absl::optional<int> _state_member =                        \
+  if (const std::optional<int> _state_member =                         \
           expected_update_state->FindInt(#p);                          \
       _state_member) {                                                 \
     EXPECT_EQ(static_cast<int>(final_update_state.p), *_state_member); \
@@ -763,7 +763,7 @@ void InstallAppViaService(UpdaterScope scope,
 #undef CHECK_STATE_MEMBER_STRING
   }
 
-  if (const absl::optional<int> expected_result =
+  if (const std::optional<int> expected_result =
           expected_final_values.FindInt("expected_result");
       expected_result) {
     EXPECT_EQ(static_cast<int>(final_result), *expected_result);
@@ -811,7 +811,7 @@ void GetAppStates(UpdaterScope updater_scope,
 }
 
 void DeleteUpdaterDirectory(UpdaterScope scope) {
-  absl::optional<base::FilePath> install_dir = GetInstallDirectory(scope);
+  std::optional<base::FilePath> install_dir = GetInstallDirectory(scope);
   ASSERT_TRUE(install_dir);
   ASSERT_TRUE(base::DeletePathRecursively(*install_dir));
 }
@@ -825,7 +825,7 @@ void DeleteActiveUpdaterExecutable(UpdaterScope scope) {
     ASSERT_TRUE(active_version.IsValid()) << "No active updater.";
   }
 
-  absl::optional<base::FilePath> exe_path =
+  std::optional<base::FilePath> exe_path =
       GetUpdaterExecutablePath(scope, active_version);
   ASSERT_TRUE(exe_path.has_value())
       << "No path for active updater. Version: " << active_version;
@@ -833,7 +833,7 @@ void DeleteActiveUpdaterExecutable(UpdaterScope scope) {
 #if BUILDFLAG(IS_LINUX)
   // On Linux, a qualified service makes a full copy of itself, so we have to
   // delete the copy that systemd uses too.
-  absl::optional<base::FilePath> launcher_path =
+  std::optional<base::FilePath> launcher_path =
       GetUpdateServiceLauncherPath(GetTestScope());
   ASSERT_TRUE(launcher_path.has_value()) << "No launcher path.";
   DeleteFile(*launcher_path);
@@ -878,7 +878,7 @@ void SetServerStarts(UpdaterScope scope, int value) {
 }
 
 void FillLog(UpdaterScope scope) {
-  absl::optional<base::FilePath> log = GetLogFilePath(scope);
+  std::optional<base::FilePath> log = GetLogFilePath(scope);
   ASSERT_TRUE(log);
   std::string data = "This test string is used to fill up log space.\n";
   for (int i = 0; i < 1024 * 1024 * 3; i += data.length()) {
@@ -887,7 +887,7 @@ void FillLog(UpdaterScope scope) {
 }
 
 void ExpectLogRotated(UpdaterScope scope) {
-  absl::optional<base::FilePath> log = GetLogFilePath(scope);
+  std::optional<base::FilePath> log = GetLogFilePath(scope);
   ASSERT_TRUE(log);
   EXPECT_TRUE(base::PathExists(log->AddExtension(FILE_PATH_LITERAL(".old"))));
   int64_t size = 0;
@@ -1106,7 +1106,7 @@ void StressUpdateService(UpdaterScope scope) {
 #endif
 
   // Runs on the main sequence.
-  auto loop_closure = [&]() {
+  auto loop_closure = [&] {
     LOG(ERROR) << __func__ << ": n: " << n << ", " << base::Time::Now();
     if (--n) {
       return false;
@@ -1117,7 +1117,7 @@ void StressUpdateService(UpdaterScope scope) {
 
   // Creates a task runner, and runs the service instance on it.
   using LoopClosure = decltype(loop_closure);
-  auto stress_runner = [scope, loop_closure]() {
+  auto stress_runner = [scope, loop_closure] {
     // `task_runner` is always bound on the main sequence.
     struct Local {
       static void GetVersion(
@@ -1126,7 +1126,7 @@ void StressUpdateService(UpdaterScope scope) {
           LoopClosure loop_closure) {
         base::ThreadPool::CreateSequencedTaskRunner({})->PostDelayedTask(
             FROM_HERE,
-            base::BindLambdaForTesting([scope, task_runner, loop_closure]() {
+            base::BindLambdaForTesting([scope, task_runner, loop_closure] {
               auto update_service = CreateUpdateServiceProxy(scope);
               update_service->GetVersion(
                   base::BindOnce(GetVersionCallback, scope, update_service,
@@ -1144,7 +1144,7 @@ void StressUpdateService(UpdaterScope scope) {
         EXPECT_EQ(version, base::Version(kUpdaterVersion));
         task_runner->PostTask(
             FROM_HERE,
-            base::BindLambdaForTesting([scope, task_runner, loop_closure]() {
+            base::BindLambdaForTesting([scope, task_runner, loop_closure] {
               if (loop_closure()) {
                 return;
               }
@@ -1311,7 +1311,7 @@ void ExpectDeviceManagementRegistrationRequest(
     const std::string& dm_token) {
   ExpectDeviceManagementRequest(
       test_server, "register_policy_agent", "GoogleEnrollmentToken",
-      enrollment_token, [&dm_token]() {
+      enrollment_token, [&dm_token] {
         enterprise_management::DeviceManagementResponse dm_response;
         dm_response.mutable_register_response()->set_device_management_token(
             dm_token);
@@ -1326,7 +1326,7 @@ void ExpectDeviceManagementPolicyFetchRequest(
         OmahaSettingsClientProto& omaha_settings) {
   ExpectDeviceManagementRequest(
       test_server, "policy", "GoogleDMToken", dm_token,
-      [&dm_token, &omaha_settings]() {
+      [&dm_token, &omaha_settings] {
         std::unique_ptr<::enterprise_management::DeviceManagementResponse>
             dm_response = GetDMResponseForOmahaPolicy(
                 /*first_request=*/true, /*rotate_to_new_key=*/false,

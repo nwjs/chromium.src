@@ -148,7 +148,7 @@ void LayoutSVGInline::AbsoluteQuads(Vector<gfx::QuadF>& quads,
 void LayoutSVGInline::AddOutlineRects(OutlineRectCollector& collector,
                                       OutlineInfo* info,
                                       const PhysicalOffset& additional_offset,
-                                      NGOutlineType outline_type) const {
+                                      OutlineType outline_type) const {
   if (!IsInLayoutNGInlineFormattingContext()) {
     LayoutInline::AddOutlineRects(collector, nullptr, additional_offset,
                                   outline_type);
@@ -181,7 +181,8 @@ void LayoutSVGInline::StyleDidChange(StyleDifference diff,
 
   if (diff.NeedsFullLayout()) {
     // The boundaries affect mask clip and clip path mask/clip.
-    if (StyleRef().MaskerResource() || StyleRef().HasClipPath()) {
+    const ComputedStyle& style = StyleRef();
+    if (style.HasMaskForSVG() || style.HasClipPath()) {
       SetNeedsPaintPropertyUpdate();
     }
     SetNeedsBoundariesUpdate();

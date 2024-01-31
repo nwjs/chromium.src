@@ -9,20 +9,23 @@
 #include <string>
 
 #include "ash/constants/app_types.h"
-#include "ash/public/cpp/tablet_mode_observer.h"
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "base/scoped_multi_source_observation.h"
 #include "base/scoped_observation.h"
 #include "ui/aura/env.h"
 #include "ui/aura/env_observer.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_observer.h"
+#include "ui/display/display_observer.h"
+
+namespace display {
+enum class TabletState;
+}  // namespace display
 
 namespace arc {
 
 class ArcWmMetrics : public aura::EnvObserver,
                      public aura::WindowObserver,
-                     public ash::TabletModeObserver {
+                     public display::DisplayObserver {
  public:
   ArcWmMetrics();
   ArcWmMetrics(const ArcWmMetrics&) = delete;
@@ -38,6 +41,9 @@ class ArcWmMetrics : public aura::EnvObserver,
   static std::string GetWindowEnterTabletModeTimeHistogramName(
       ash::AppType app_type);
 
+  static std::string GetWindowExitTabletModeTimeHistogramName(
+      ash::AppType app_type);
+
   // aura::EnvObserver
   void OnWindowInitialized(aura::Window* new_window) override;
 
@@ -47,9 +53,8 @@ class ArcWmMetrics : public aura::EnvObserver,
                                intptr_t old) override;
   void OnWindowDestroying(aura::Window* window) override;
 
-  // ash::TabletModeObserver:
-  void OnTabletModeStarting() override;
-  void OnTabletControllerDestroyed() override;
+  // display::DisplayObserver:
+  void OnDisplayTabletStateChanged(display::TabletState state) override;
 
  private:
   friend class ArcWmMetricsTest;
@@ -73,13 +78,17 @@ class ArcWmMetrics : public aura::EnvObserver,
   base::flat_map<aura::Window*, std::unique_ptr<WindowCloseObserver>>
       close_observing_windows_;
 
+  // The map of windows that are exiting tablet mode and being observed by
+  // WindowStateChangeObserver, and their corresponding observers.
+  base::flat_map<aura::Window*, std::unique_ptr<WindowStateChangeObserver>>
+      exiting_tablet_mode_observing_windows_;
+
   base::ScopedObservation<aura::Env, aura::EnvObserver> env_observation_{this};
 
   base::ScopedMultiSourceObservation<aura::Window, aura::WindowObserver>
       window_observations_{this};
 
-  base::ScopedObservation<ash::TabletModeController, ash::TabletModeObserver>
-      tablet_mode_observation_{this};
+  display::ScopedDisplayObserver display_observer_{this};
 
   base::WeakPtrFactory<ArcWmMetrics> weak_ptr_factory_{this};
 };

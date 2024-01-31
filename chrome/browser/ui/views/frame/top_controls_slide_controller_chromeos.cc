@@ -18,7 +18,6 @@
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/common/url_constants.h"
-#include "chromeos/ui/base/tablet_state.h"
 #include "components/permissions/permission_request_manager.h"
 #include "content/public/browser/focused_node_details.h"
 #include "content/public/browser/navigation_controller.h"
@@ -34,14 +33,11 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/display/display.h"
+#include "ui/display/screen.h"
+#include "ui/display/tablet_state.h"
 #include "ui/views/controls/native/native_view_host.h"
 
 namespace {
-
-bool IsTabletModeEnabled() {
-  return chromeos::TabletState::Get() &&
-         chromeos::TabletState::Get()->InTabletMode();
-}
 
 bool IsSpokenFeedbackEnabled() {
 #if BUILDFLAG(IS_CHROMEOS_ASH)
@@ -66,9 +62,10 @@ cc::BrowserControlsState GetBrowserControlsStateConstraints(
     content::WebContents* contents) {
   DCHECK(contents);
 
-  if (!IsTabletModeEnabled() || contents->IsFullscreen() ||
-      contents->IsFocusedElementEditable() || contents->IsBeingDestroyed() ||
-      contents->IsCrashed() || IsSpokenFeedbackEnabled()) {
+  if (!display::Screen::GetScreen()->InTabletMode() ||
+      contents->IsFullscreen() || contents->IsFocusedElementEditable() ||
+      contents->IsBeingDestroyed() || contents->IsCrashed() ||
+      IsSpokenFeedbackEnabled()) {
     return cc::BrowserControlsState::kShown;
   }
 
@@ -600,7 +597,7 @@ void TopControlsSlideControllerChromeOS::UpdateBrowserControlsStateShown(
 
 bool TopControlsSlideControllerChromeOS::CanEnable(
     absl::optional<bool> fullscreen_state) const {
-  return IsTabletModeEnabled() &&
+  return display::Screen::GetScreen()->InTabletMode() &&
          !(fullscreen_state.value_or(browser_view_->IsFullscreen()));
 }
 

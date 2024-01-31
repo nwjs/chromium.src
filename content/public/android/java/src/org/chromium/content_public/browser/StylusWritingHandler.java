@@ -29,10 +29,11 @@ public interface StylusWritingHandler {
     /**
      * Requests to start stylus writing for input field in web page.
      *
-     * @return true if writing can be started or if started successfully, false if writing cannot
-     * be started.
+     * @param view the view on which to start stylus handwriting.
+     * @return true if writing can be started or if started successfully, false if writing cannot be
+     *     started.
      */
-    boolean requestStartStylusWriting(StylusWritingImeCallback imeCallback);
+    boolean requestStartStylusWriting(View view);
 
     /**
      * Update current input state parameters to stylus writing system.
@@ -50,8 +51,12 @@ public interface StylusWritingHandler {
      * @param currentView the {@link View} in which the focused node changed.
      */
     @Nullable
-    default EditorBoundsInfo onFocusedNodeChanged(Rect editableBoundsOnScreenDip,
-            boolean isEditable, View currentView, float scaleFactor, int contentOffsetY) {
+    default EditorBoundsInfo onFocusedNodeChanged(
+            Rect editableBoundsOnScreenDip,
+            boolean isEditable,
+            View currentView,
+            float scaleFactor,
+            int contentOffsetY) {
         return null;
     }
 
@@ -105,4 +110,7 @@ public interface StylusWritingHandler {
             Rect focusedEditBounds, Point cursorPosition, float scaleFactor, int contentOffsetY) {
         return null;
     }
+
+    /** Notify that ImeAdapter is destroyed. */
+    default void onImeAdapterDestroyed() {}
 }

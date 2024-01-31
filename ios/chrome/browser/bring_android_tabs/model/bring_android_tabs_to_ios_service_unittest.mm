@@ -30,7 +30,7 @@
 #import "components/sync_sessions/session_sync_test_helper.h"
 #import "components/sync_sessions/synced_session.h"
 #import "ios/chrome/browser/bring_android_tabs/model/metrics.h"
-#import "ios/chrome/browser/segmentation_platform/segmentation_platform_config.h"
+#import "ios/chrome/browser/segmentation_platform/model/segmentation_platform_config.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/browser_state/chrome_browser_state.h"
 #import "ios/chrome/browser/shared/model/browser_state/test_chrome_browser_state.h"
@@ -142,10 +142,9 @@ class MockOpenTabsUIDelegate : public sync_sessions::OpenTabsUIDelegate {
               (const std::string&, SessionID, const sessions::SessionTab**));
 
   MOCK_METHOD(void, DeleteForeignSession, (const std::string&));
-  MOCK_METHOD(bool,
+  MOCK_METHOD(std::vector<const sessions::SessionWindow*>,
               GetForeignSession,
-              (const std::string&,
-               std::vector<const sessions::SessionWindow*>*));
+              (const std::string&));
   MOCK_METHOD(bool, GetLocalSession, (const sync_sessions::SyncedSession**));
 
   // Returns a fake tab with timestamp `modified_time_`.

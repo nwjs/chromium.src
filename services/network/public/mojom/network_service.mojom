@@ -22,6 +22,7 @@ import "services/network/public/mojom/network_change_manager.mojom";
 import "services/network/public/mojom/network_context.mojom";
 import "services/network/public/mojom/ip_address_space.mojom";
 import "services/network/public/mojom/network_interface.mojom";
+import "services/network/public/mojom/proxy_config.mojom";
 import "services/network/public/mojom/network_interface_change_listener.mojom";
 import "services/network/public/mojom/network_param.mojom";
 import "services/network/public/mojom/network_quality_estimator_manager.mojom";
@@ -33,6 +34,7 @@ import "services/network/public/mojom/parsed_headers.mojom";
 import "services/network/public/mojom/url_loader_network_service_observer.mojom";
 import "services/network/public/mojom/url_response_head.mojom";
 import "services/network/public/mojom/client_security_state.mojom";
+import "services/network/public/mojom/cookie_encryption_provider.mojom";
 import "url/mojom/origin.mojom";
 import "url/mojom/url.mojom";
 
@@ -131,6 +133,11 @@ struct NetworkServiceParams {
   // A SystemDnsResolver to provide out-of-process system DNS resolution, in
   // case the system DNS resolver cannot always run sandboxed.
   pending_remote<SystemDnsResolver>? system_dns_resolver;
+
+  // The policy used for bypassing requests that are eligible for IP Protection.
+  // Even if a domain is part of the masked domain list, the bypass policy can
+  // be used to bypass certain network requests from IP Protection.
+  IpProtectionProxyBypassPolicy ip_protection_proxy_bypass_policy;
 };
 
 // Configuration settings for SCT Auditing.
@@ -181,7 +188,6 @@ interface NetworkService {
   // Sets the parameters and initializes the service.
   SetParams(NetworkServiceParams params);
 
-  SetAdditionalTrustAnchors(array<X509Certificate> trust_anchors);
   // Starts observing the NetLog event stream and writing entries to |file| with
   // a maximum size specified by |max_total_size|. |constants| is a legend used
   // for decoding constant values in the log; it will be merged with the
@@ -316,11 +322,6 @@ interface NetworkService {
   [EnableIf=is_android]
   OnApplicationStateChange(mojo_base.mojom.ApplicationState state);
 
-  // Sets the given environment variables in the network service's process.
-  // This method won't modify variables that aren't present in the
-  // |environment| array.
-  SetEnvironment(array<EnvironmentVariable> environment);
-
   // Sets Trust Tokens key commitment state. |raw_commitments| is the
   // JSON-encoded string representation of a collection of issuers' key
   // commitments according to the format specified, for now, in the Trust
@@ -413,4 +414,13 @@ interface NetworkService {
   [EnableIf=is_linux]
   SetGssapiLibraryLoadObserver(
     pending_remote<GssapiLibraryLoadObserver> gssapi_library_load_observer);
+
+  // Sets the cookie encryption provider to be used by future network contexts
+  // that have cookie encryption enabled. The `GetEncryptor` method on the
+  // supplied `provider` is called to obtain a valid set of keys for cookie
+  // encryption.
+  // This only affects any network contexts created after the provider has been
+  // set and existing ones are not affected.
+  SetCookieEncryptionProvider(
+    pending_remote<CookieEncryptionProvider> provider);
 };

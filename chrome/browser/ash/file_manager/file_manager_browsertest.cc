@@ -338,22 +338,21 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("fileDisplayUsb")
             .NewDirectoryTree()
             .FeatureIds({"screenplay-ade01078-3b79-41d2-953e-e22a544a28b3"}),
-        // TODO(b/301341566): enable the tests
         TestCase("fileDisplayUsbPartition").NewDirectoryTree(),
         TestCase("fileDisplayUsbPartition")
             .EnableSinglePartitionFormat()
             .NewDirectoryTree(),
         TestCase("fileDisplayUsbPartitionSort").NewDirectoryTree(),
         TestCase("fileDisplayPartitionFileTable").NewDirectoryTree(),
-        // TestCase("fileDisplayWithoutVolumesThenMountDownloads")
-        //     .DontMountVolumes()
-        //     .NewDirectoryTree(),
-        // TestCase("fileDisplayWithoutVolumesThenMountDrive")
-        //     .DontMountVolumes()
-        //     .NewDirectoryTree(),
-        // TestCase("fileDisplayWithoutDrive")
-        //     .DontMountVolumes()
-        //     .NewDirectoryTree(),
+        TestCase("fileDisplayWithoutVolumesThenMountDownloads")
+            .DontMountVolumes()
+            .NewDirectoryTree(),
+        TestCase("fileDisplayWithoutVolumesThenMountDrive")
+            .DontMountVolumes()
+            .NewDirectoryTree(),
+        TestCase("fileDisplayWithoutDrive")
+            .DontMountVolumes()
+            .NewDirectoryTree(),
         TestCase("fileDisplayWithHiddenVolume").NewDirectoryTree(),
         TestCase("fileDisplayMountWithFakeItemSelected").NewDirectoryTree(),
         TestCase("fileDisplayUnmountDriveWithSharedWithMeSelected")
@@ -541,8 +540,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
     KeyboardOperations, /* keyboard_operations.js */
     FilesAppBrowserTest,
     ::testing::Values(
-        // TODO(b/307657529): enable the test
-        // TestCase("renameRemovableWithKeyboardOnFileList").NewDirectoryTree(),
+        TestCase("renameRemovableWithKeyboardOnFileList").NewDirectoryTree(),
         TestCase("keyboardSelectDriveDirectoryTree").NewDirectoryTree(),
         TestCase("keyboardDeleteFolderDownloads").NewDirectoryTree(),
         TestCase("keyboardDeleteFolderDownloads")
@@ -608,11 +606,8 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .NewDirectoryTree(),
         TestCase("checkDeleteEnabledInRecents").NewDirectoryTree(),
         TestCase("checkGoToFileLocationEnabledInRecents").NewDirectoryTree(),
-// TODO(https://crbug.com/1425820): Fix flakes and re-enable.
-#if !BUILDFLAG(IS_CHROMEOS)
         TestCase("checkGoToFileLocationDisabledInMultipleSelection")
             .NewDirectoryTree(),
-#endif
         TestCase("checkEncryptedCrossVolumeMoveDisabled").NewDirectoryTree(),
         TestCase("checkEncryptedMoveEnabled").NewDirectoryTree(),
         // Section end - browser tests for new directory tree
@@ -859,6 +854,9 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .NewDirectoryTree(),
         TestCase("directoryTreeExpandFolderOnDelayExpansionVolume")
             .NewDirectoryTree(),
+        TestCase("directoryTreeExpandAndSelectedOnDragMove").NewDirectoryTree(),
+        TestCase("directoryTreeClickDriveRootWhenMyDriveIsActive")
+            .NewDirectoryTree(),
         // Section end - browser tests for new directory tree
         TestCase("directoryTreeActiveDirectory"),
         TestCase("directoryTreeSelectedDirectory"),
@@ -871,7 +869,9 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             "directoryTreeExpandFolderWithHiddenFileAndShowHiddenFilesOff"),
         TestCase("directoryTreeExpandFolderWithHiddenFileAndShowHiddenFilesOn"),
         TestCase("directoryTreeExpandFolderOnNonDelayExpansionVolume"),
-        TestCase("directoryTreeExpandFolderOnDelayExpansionVolume")));
+        TestCase("directoryTreeExpandFolderOnDelayExpansionVolume"),
+        TestCase("directoryTreeExpandAndSelectedOnDragMove"),
+        TestCase("directoryTreeClickDriveRootWhenMyDriveIsActive")));
 
 WRAPPED_INSTANTIATE_TEST_SUITE_P(
     DirectoryTreeContextMenu, /* directory_tree_context_menu.js */
@@ -934,8 +934,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("dirContextMenuSharedDrive").NewDirectoryTree(),
         TestCase("dirContextMenuSharedWithMe").NewDirectoryTree(),
         TestCase("dirContextMenuOffline").NewDirectoryTree(),
-        // TODO(b/301340154): should Computers allow rename?
-        // TestCase("dirContextMenuComputers").NewDirectoryTree(),
+        TestCase("dirContextMenuComputers").NewDirectoryTree(),
         TestCase("dirContextMenuTrash").NewDirectoryTree(),
         TestCase("dirContextMenuShortcut").NewDirectoryTree(),
         TestCase("dirContextMenuFocus").NewDirectoryTree(),
@@ -1030,7 +1029,6 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .NewDirectoryTree(),
         TestCase("driveOfflineInfoBanner").NewDirectoryTree(),
         TestCase("driveInlineSyncStatusParentFolderProgressEvents")
-            .EnableInlineSyncStatusProgressEvents()
             .NewDirectoryTree(),
         TestCase("driveFoldersRetainPinnedPropertyWhenBulkPinningEnabled")
             .EnableBulkPinning()
@@ -1072,12 +1070,8 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("driveOfflineInfoBanner"),
         TestCase("driveEncryptionBadge"),
         TestCase("driveDeleteDialogDoesntMentionPermanentDelete"),
-        TestCase("driveInlineSyncStatusSingleFile").EnableInlineSyncStatus(),
-        TestCase("driveInlineSyncStatusParentFolder").EnableInlineSyncStatus(),
-        TestCase("driveInlineSyncStatusSingleFileProgressEvents")
-            .EnableInlineSyncStatusProgressEvents(),
-        TestCase("driveInlineSyncStatusParentFolderProgressEvents")
-            .EnableInlineSyncStatusProgressEvents(),
+        TestCase("driveInlineSyncStatusSingleFileProgressEvents"),
+        TestCase("driveInlineSyncStatusParentFolderProgressEvents"),
         TestCase("driveFoldersRetainPinnedPropertyWhenBulkPinningEnabled")
             .EnableBulkPinning(),
         TestCase("drivePinToggleIsEnabledInSharedWithMeWhenBulkPinningEnabled")
@@ -1088,19 +1082,14 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("driveCantPinItemsShouldHaveClassNameAndGetUpdatedWhenCanPin")
             .EnableBulkPinning(),
         TestCase("driveItemsOutOfViewportShouldUpdateTheirSyncStatus")
-            .EnableBulkPinning()
-            .EnableInlineSyncStatusProgressEvents(),
+            .EnableBulkPinning(),
         TestCase("driveAllItemsShouldBeQueuedIfTrackedByPinningManager")
-            .EnableBulkPinning()
-            .EnableInlineSyncStatusProgressEvents(),
-        TestCase("driveDirtyItemsShouldBeDisplayedAsQueued")
-            .EnableInlineSyncStatusProgressEvents(),
-        TestCase("openDriveDocWhenOffline")
-            .EnableBulkPinning()
-            .EnableInlineSyncStatusProgressEvents(),
-        TestCase("completedSyncStatusDismissesAfter300Ms")
-            .EnableInlineSyncStatusProgressEvents(),
-        TestCase("driveOutOfOrganizationSpaceBanner")
+            .EnableBulkPinning(),
+        TestCase("driveDirtyItemsShouldBeDisplayedAsQueued"),
+        TestCase("openDriveDocWhenOffline").EnableBulkPinning(),
+        TestCase("completedSyncStatusDismissesAfter300Ms"),
+        TestCase("driveOutOfOrganizationSpaceBanner"),
+        TestCase("copyDirectoryWithEncryptedFile")
         // TODO(b/189173190): Enable
         // TestCase("driveEnableDocsOfflineDialog"),
         // TODO(b/189173190): Enable
@@ -1448,10 +1437,9 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("traverseFolderShortcuts")
             .NewDirectoryTree()
             .FeatureIds({"screenplay-42c556fb-303c-45b2-910b-3ecc5ec71b92"}),
-        // TODO(b/307656817): enable the test
-        // TestCase("addRemoveFolderShortcuts")
-        //     .NewDirectoryTree()
-        //     .FeatureIds({"screenplay-1ae94bd0-60a7-4bb9-925d-78312d7c045d"}),
+        TestCase("addRemoveFolderShortcuts")
+            .NewDirectoryTree()
+            .FeatureIds({"screenplay-1ae94bd0-60a7-4bb9-925d-78312d7c045d"}),
         // Section end - browser tests for new directory tree
         TestCase("traverseFolderShortcuts")
             .FeatureIds({"screenplay-42c556fb-303c-45b2-910b-3ecc5ec71b92"}),
@@ -1469,25 +1457,33 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
     FilesAppBrowserTest,
     ::testing::Values(
         TestCase("tabindexSearchBoxFocus").NewDirectoryTree(),
-        // TODO(b/307657533): enable the tests
-        // TestCase("tabindexFocus").NewDirectoryTree(),
-        // TestCase("tabindexFocus").EnableCrosComponents().NewDirectoryTree(),
-        // TestCase("tabindexFocusDownloads").NewDirectoryTree(),
-        // TestCase("tabindexFocusDownloads")
-        //     .EnableCrosComponents()
-        //     .NewDirectoryTree(),
-        // TestCase("tabindexFocusDownloads").InGuestMode().NewDirectoryTree(),
-        // TestCase("tabindexFocusDirectorySelected").NewDirectoryTree(),
-        // TestCase("tabindexFocusDirectorySelected")
-        //     .EnableCrosComponents()
-        //     .NewDirectoryTree(),
-        // TestCase("tabindexOpenDialogDownloads")
-        //     .WithBrowser()
-        //     .NewDirectoryTree(),
-        // TestCase("tabindexOpenDialogDownloads")
-        //     .WithBrowser()
-        //     .EnableCrosComponents()
-        //     .NewDirectoryTree(),
+        TestCase("tabindexFocus").NewDirectoryTree(),
+        TestCase("tabindexFocus").EnableCrosComponents().NewDirectoryTree(),
+        TestCase("tabindexFocusDownloads").NewDirectoryTree(),
+        TestCase("tabindexFocusDownloads")
+            .EnableCrosComponents()
+            .NewDirectoryTree(),
+        TestCase("tabindexFocusDownloads").InGuestMode().NewDirectoryTree(),
+        TestCase("tabindexFocusDirectorySelected").NewDirectoryTree(),
+        TestCase("tabindexFocusDirectorySelected")
+            .EnableCrosComponents()
+            .NewDirectoryTree(),
+        TestCase("tabindexOpenDialogDownloads")
+            .WithBrowser()
+            .NewDirectoryTree(),
+        TestCase("tabindexOpenDialogDownloads")
+            .WithBrowser()
+            .EnableCrosComponents()
+            .NewDirectoryTree(),
+        TestCase("tabindexOpenDialogDownloads")
+            .WithBrowser()
+            .InGuestMode()
+            .NewDirectoryTree(),
+        TestCase("tabindexOpenDialogDownloads")
+            .WithBrowser()
+            .InGuestMode()
+            .EnableCrosComponents()
+            .NewDirectoryTree(),
         // Section end - browser tests for new directory tree
         TestCase("tabindexSearchBoxFocus"),
         TestCase("tabindexFocus"),
@@ -1500,11 +1496,12 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("tabindexOpenDialogDownloads").WithBrowser(),
         TestCase("tabindexOpenDialogDownloads")
             .WithBrowser()
+            .EnableCrosComponents(),
+        TestCase("tabindexOpenDialogDownloads").WithBrowser().InGuestMode(),
+        TestCase("tabindexOpenDialogDownloads")
+            .WithBrowser()
+            .InGuestMode()
             .EnableCrosComponents()
-        // TODO(b/189173190): Enable
-        // TestCase("tabindexOpenDialogDownloads").WithBrowser(),
-        // TODO(b/189173190): Enable
-        // TestCase("tabindexOpenDialogDownloads").WithBrowser().InGuestMode(),
         // TODO(crbug.com/1236842): Remove flakiness and enable this test.
         //      ,
         //      TestCase("tabindexSaveFileDialogDrive").WithBrowser(),
@@ -1524,22 +1521,15 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .WithBrowser()
             .NewDirectoryTree(),
         TestCase("openFileDialogGuestOs").WithBrowser().NewDirectoryTree(),
-// TODO(crbug.com/1425820): Re-enable this test.
-#if !defined(LEAK_SANITIZER) || !BUILDFLAG(IS_CHROMEOS) || \
-    !defined(ADDRESS_SANITIZER)
         TestCase("openFileDialogGuestOs")
             .WithBrowser()
             .InIncognito()
             .NewDirectoryTree(),
-#endif
         TestCase("saveFileDialogGuestOs").WithBrowser().NewDirectoryTree(),
-// TODO(crbug.com/1425820): Re-enable this test.
-#if !BUILDFLAG(IS_CHROMEOS)
         TestCase("saveFileDialogGuestOs")
             .WithBrowser()
             .InIncognito()
             .NewDirectoryTree(),
-#endif
         TestCase("openFileDialogDownloads")
             .WithBrowser()
             .NewDirectoryTree()
@@ -1851,7 +1841,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("sharePathWithCrostini")
             .NewDirectoryTree()
             .FeatureIds({"screenplay-122c00f8-9842-4666-8ca0-b6bf47454551"}),
-// Section end - browser tests for new directory tree
+        // Section end - browser tests for new directory tree
         TestCase("mountCrostini"),
         TestCase("enableDisableCrostini"),
         TestCase("sharePathWithCrostini")
@@ -1864,8 +1854,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
     MyFiles, /* my_files.js */
     FilesAppBrowserTest,
     ::testing::Values(
-        // TODO(b/307656687): enable the test
-        // TestCase("showMyFiles").NewDirectoryTree(),
+        TestCase("showMyFiles").NewDirectoryTree(),
         TestCase("directoryTreeRefresh")
             .NewDirectoryTree()
             .FeatureIds({"screenplay-02521fe6-a9c5-4cd1-ac9b-cc46df33c1a0"}),
@@ -1907,17 +1896,18 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
     Recents, /* recents.js */
     FilesAppBrowserTest,
     ::testing::Values(
-        // TODO(b/307657164): enable the test
-        // TestCase("recentsNested").NewDirectoryTree(),
+#if !defined(ADDRESS_SANITIZER) && !defined(LEAK_SANITIZER)
+        TestCase("recentsNested").NewDirectoryTree(),
+#endif
         TestCase("recentsFilterResetToAll").NewDirectoryTree(),
         TestCase("recentsA11yMessages")
             .NewDirectoryTree()
             .FeatureIds({"screenplay-af443ca0-6d9f-4cb3-af8f-0939c37833db"}),
         TestCase("recentsReadOnlyHidden").NewDirectoryTree(),
-        // TestCase("recentsAllowDeletion").EnableArc().NewDirectoryTree(),
-        // TestCase("recentsAllowMultipleFilesDeletion")
-        //     .EnableArc()
-        //     .NewDirectoryTree(),
+        TestCase("recentsAllowDeletion").EnableArc().NewDirectoryTree(),
+        TestCase("recentsAllowMultipleFilesDeletion")
+            .EnableArc()
+            .NewDirectoryTree(),
         TestCase("recentsAllowRename")
             .EnableArc()
             .NewDirectoryTree()
@@ -1925,7 +1915,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("recentsNoRenameForPlayFiles").EnableArc().NewDirectoryTree(),
         TestCase("recentsAllowCutForDownloads").NewDirectoryTree(),
         TestCase("recentsAllowCutForDrive").NewDirectoryTree(),
-        // TestCase("recentsAllowCutForPlayFiles").EnableArc().NewDirectoryTree(),
+        TestCase("recentsAllowCutForPlayFiles").EnableArc().NewDirectoryTree(),
         TestCase("recentsTimePeriodHeadings").NewDirectoryTree(),
         TestCase("recentsEmptyFolderMessage").NewDirectoryTree(),
         TestCase("recentsEmptyFolderMessageAfterDeletion").NewDirectoryTree(),
@@ -1954,6 +1944,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("recentsEmptyFolderMessageAfterDeletion"),
         TestCase("recentsDownloads"),
         TestCase("recentsDrive"),
+        TestCase("recentsMyFiles"),
         TestCase("recentsCrostiniNotMounted"),
         TestCase("recentsCrostiniMounted"),
         TestCase("recentsDownloadsAndDrive"),
@@ -1988,8 +1979,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
     Metadata, /* metadata.js */
     FilesAppBrowserTest,
     ::testing::Values(
-        // TODO(b/301342772): enable the test
-        // TestCase("metadataDrive").NewDirectoryTree(),
+        TestCase("metadataDrive").NewDirectoryTree(),
         TestCase("metadataDownloads").NewDirectoryTree(),
         TestCase("metadataLargeDrive").NewDirectoryTree(),
         TestCase("metadataTeamDrives").NewDirectoryTree(),
@@ -2007,8 +1997,7 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
     Search, /* search.js */
     FilesAppBrowserTest,
     ::testing::Values(
-        // TODO(b/307656688): enable the tests
-        // TestCase("searchQueryLaunchParam").NewDirectoryTree(),
+        TestCase("searchQueryLaunchParam").NewDirectoryTree(),
         TestCase("searchWithLocationOptions").NewDirectoryTree(),
         TestCase("searchDriveWithRecencyOptions").NewDirectoryTree(),
         TestCase("searchDriveWithTypeOptions").NewDirectoryTree(),
@@ -2030,6 +2019,11 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .NewDirectoryTree(),
         TestCase("searchFileSystemProvider").NewDirectoryTree(),
         TestCase("changingDirectoryClosesSearch").NewDirectoryTree(),
+        TestCase("verifyDriveLocationOption").NewDirectoryTree(),
+        TestCase("unselectCurrentDirectoryInTreeOnSearchInDownloads")
+            .NewDirectoryTree(),
+        TestCase("unselectCurrentDirectoryInTreeOnSearchInDrive")
+            .NewDirectoryTree(),
         // Section end - browser tests for new directory tree
         TestCase("searchDownloadsWithResults"),
         TestCase("searchDownloadsWithNoResults"),
@@ -2067,7 +2061,10 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("searchFileSystemProvider"),
         TestCase("searchImageByContent").EnableLocalImageSearch(),
         TestCase("changingDirectoryClosesSearch"),
-        TestCase("searchQueryLaunchParam")));
+        TestCase("searchQueryLaunchParam"),
+        TestCase("verifyDriveLocationOption"),
+        TestCase("unselectCurrentDirectoryInTreeOnSearchInDownloads"),
+        TestCase("unselectCurrentDirectoryInTreeOnSearchInDrive")));
 
 WRAPPED_INSTANTIATE_TEST_SUITE_P(
     Metrics, /* metrics.js */
@@ -2183,10 +2180,10 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("trashDeleteFromTrash")
             .NewDirectoryTree()
             .FeatureIds({"screenplay-38573550-c60a-4009-ba92-c0af1420fde6"}),
-        // TODO(b/301344220): enable the tests
-        // TestCase("trashDeleteFromTrashOriginallyFromDrive")
-        //     .NewDirectoryTree()
-        //     .FeatureIds({"screenplay-38573550-c60a-4009-ba92-c0af1420fde6"}),
+        TestCase("trashDeleteFromTrashOriginallyFromDrive")
+            .EnableDriveTrash()
+            .NewDirectoryTree()
+            .FeatureIds({"screenplay-38573550-c60a-4009-ba92-c0af1420fde6"}),
         TestCase("trashNoTasksInTrashRoot").NewDirectoryTree(),
         TestCase("trashDoubleClickOnFileInTrashRootShowsDialog")
             .NewDirectoryTree(),
@@ -2200,17 +2197,17 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("trashDragDropRootPerformsTrashAction").NewDirectoryTree(),
         TestCase("trashDragDropNonModifiableEntriesCantBeTrashed")
             .NewDirectoryTree(),
-        // TestCase("trashDontShowTrashRootOnSelectFileDialog").NewDirectoryTree(),
+        TestCase("trashDontShowTrashRootOnSelectFileDialog").NewDirectoryTree(),
         TestCase("trashDontShowTrashRootWhenOpeningAsAndroidFilePicker")
             .NewDirectoryTree(),
         TestCase("trashEnsureOldEntriesArePeriodicallyRemoved")
             .NewDirectoryTree(),
         TestCase("trashDragDropOutOfTrashPerformsRestoration")
             .NewDirectoryTree(),
-        // TestCase("trashTogglingTrashEnabledPrefUpdatesDirectoryTree")
-        //     .NewDirectoryTree(),
-        // TestCase("trashTogglingTrashEnabledNavigatesAwayFromTrashRoot")
-        //     .NewDirectoryTree(),
+        TestCase("trashTogglingTrashEnabledPrefUpdatesDirectoryTree")
+            .NewDirectoryTree(),
+        TestCase("trashTogglingTrashEnabledNavigatesAwayFromTrashRoot")
+            .NewDirectoryTree(),
         TestCase("trashCantRestoreWhenParentDoesntExist").NewDirectoryTree(),
         TestCase("trashInfeasibleActionsForFileDisabledAndHiddenInTrashRoot")
             .NewDirectoryTree(),
@@ -2220,11 +2217,14 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
             .NewDirectoryTree(),
         TestCase("trashAllActionsDisabledForBlankSpaceInTrashRoot")
             .NewDirectoryTree(),
-        // TestCase("trashNudgeShownOnFirstTrashOperation").NewDirectoryTree(),
         TestCase("trashStaleTrashInfoFilesAreRemovedAfterOneHour")
             .NewDirectoryTree(),
         // Section end - browser tests for new directory tree
         TestCase("trashMoveToTrash")
+            .FeatureIds({"screenplay-a06f961a-17f5-4fbd-8285-49abb000dee1"}),
+        TestCase("trashMultipleEntries")
+            .FeatureIds({"screenplay-a06f961a-17f5-4fbd-8285-49abb000dee1"}),
+        TestCase("trashNonEmptyFolder")
             .FeatureIds({"screenplay-a06f961a-17f5-4fbd-8285-49abb000dee1"}),
         TestCase("trashPermanentlyDelete"),
         TestCase("trashRestoreFromToast"),
@@ -2268,7 +2268,6 @@ WRAPPED_INSTANTIATE_TEST_SUITE_P(
         TestCase("trashInfeasibleActionsForFolderDisabledAndHiddenInTrashRoot"),
         TestCase("trashExtractAllForZipHiddenAndDisabledInTrashRoot"),
         TestCase("trashAllActionsDisabledForBlankSpaceInTrashRoot"),
-        TestCase("trashNudgeShownOnFirstTrashOperation"),
         TestCase("trashStaleTrashInfoFilesAreRemovedAfterOneHour")));
 
 WRAPPED_INSTANTIATE_TEST_SUITE_P(

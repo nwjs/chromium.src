@@ -14,7 +14,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/metrics/metrics_hashes.h"
 #include "base/run_loop.h"
-#include "base/strings/string_piece_forward.h"
+#include "base/strings/string_piece.h"
 #include "base/system/sys_info.h"
 #include "base/task/common/task_annotator.h"
 #include "base/task/single_thread_task_runner.h"
@@ -136,10 +136,6 @@ EvalJsResult GetLocalStorage(RenderFrameHostImpl* rfh, std::string key) {
   return EvalJs(rfh, JsReplace("localStorage.getItem($1)", key));
 }
 
-// Because we are dealing with multiple renderer processes and the storage
-// service, we sometimes need to wait for the storage changes to show up the
-// renderer. See https://crbug.com/1494646.
-// Returns whether the expected value was found (so timeouts can be recognized).
 [[nodiscard]] bool WaitForLocalStorage(RenderFrameHostImpl* rfh,
                                        std::string key,
                                        std::string expected_value) {
@@ -2833,8 +2829,10 @@ IN_PROC_BROWSER_TEST_P(BackForwardCacheBrowserUnloadHandlerTest,
   // 3) Go back.
   ASSERT_TRUE(HistoryGoBack(web_contents()));
 
-  // Pages with unload handlers are eligible for bfcache only on Android.
-  if (BackForwardCacheImpl::IsUnloadAllowed()) {
+  // Pages with unload handlers are eligible for bfcache only on Android, or
+  // when unload handlers are deprecated.
+  if (BackForwardCacheImpl::IsUnloadAllowed() ||
+      base::FeatureList::IsEnabled(blink::features::kDeprecateUnload)) {
     ExpectRestored(FROM_HERE);
     EXPECT_EQ("0", GetUnloadRunCount());
   } else {

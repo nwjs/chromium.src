@@ -209,9 +209,6 @@ class GaiaScreenHandler
  private:
   void LoadGaia(const login::GaiaContext& context);
 
-  // Resets the internal state and invokes the UserAllowListCheckScreen
-  void ShowAllowlistCheckFailedError();
-
   // Callback that loads GAIA after version and stat consent information has
   // been retrieved.
   void LoadGaiaWithPartition(const login::GaiaContext& context,
@@ -267,6 +264,11 @@ class GaiaScreenHandler
   // TODO(b/292242156) - Move to OnlineAuthenticationScreen
   void CompleteAuthentication(ash::login::OnlineSigninArtifacts artifacts);
 
+  // Utility method gathering all the metrics that are being recorded when Gaia
+  // sends 'completeAuthentication'.
+  void RecordCompleteAuthenticationMetrics(
+      const ash::login::OnlineSigninArtifacts& artifacts);
+
   void HandleCompleteLogin(const std::string& gaia_id,
                            const std::string& typed_email,
                            const std::string& password,
@@ -285,7 +287,7 @@ class GaiaScreenHandler
 
   void HandleGaiaUIReady();
 
-  void HandleAuthExtensionLoaded();
+  void HandleAuthenticatorLoaded();
 
   // Allows WebUI to control the login shelf's guest and apps buttons visibility
   // during OOBE.
@@ -328,14 +330,17 @@ class GaiaScreenHandler
   void SetSAMLPrincipalsAPIUsed(bool is_third_party_idp, bool is_api_used);
 
   void RecordScrapedPasswordCount(int password_count);
-  bool IsSamlUserPasswordless();
+
+  // True when client certificates were used during authentication. This is only
+  // used for SmartCards and only when using SAML.
+  bool ClientCertificatesWereUsed();
 
   // Shows signin screen after dns cache and cookie cleanup operations finish.
   void ShowGaiaScreenIfReady();
 
   // Tells webui to load authentication extension. `force` is used to force the
   // extension reloading, if it has already been loaded.
-  void LoadAuthExtension(bool force);
+  void LoadAuthenticator(bool force);
 
   void UpdateStateInternal(NetworkError::ErrorReason reason, bool force_update);
   void HideOfflineMessage(NetworkStateInformer::State state,
@@ -376,9 +381,6 @@ class GaiaScreenHandler
   // Assigns new SamlChallengeKeyHandler object or an object for testing to
   // `saml_challenge_key_handler_`.
   void CreateSamlChallengeKeyHandler();
-
-  void SAMLConfirmPassword(::login::StringList scraped_saml_passwords,
-                           std::unique_ptr<UserContext> user_context);
 
   // Current state of Gaia frame.
   FrameState frame_state_ = FRAME_STATE_UNKNOWN;

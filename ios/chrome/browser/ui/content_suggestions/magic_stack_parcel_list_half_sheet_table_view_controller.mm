@@ -189,7 +189,7 @@ enum ItemType : NSInteger {
   [self loadModel];
 }
 
-#pragma mark - ChromeTableViewController
+#pragma mark - LegacyChromeTableViewController
 
 - (void)loadModel {
   [super loadModel];

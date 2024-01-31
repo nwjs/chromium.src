@@ -675,6 +675,7 @@ void PermissionRequestManager::Ignore() {
 }
 
 void PermissionRequestManager::FinalizeCurrentRequests() {
+  CHECK(IsRequestInProgress());
   ResetViewStateForCurrentRequest();
   std::vector<PermissionRequest*>::iterator requests_iter;
   for (requests_iter = requests_.begin(); requests_iter != requests_.end();
@@ -881,7 +882,8 @@ void PermissionRequestManager::DequeueRequestIfNeeded() {
       break;
     }
 
-    if (permission_ui_selectors_[selector_index]->IsPermissionRequestSupported(
+    if (!requests_.front()->IsEmbeddedPermissionElementInitiated() &&
+        permission_ui_selectors_[selector_index]->IsPermissionRequestSupported(
             requests_.front()->request_type())) {
       permission_ui_selectors_[selector_index]->SelectUiToUse(
           requests_.front(),
@@ -951,10 +953,9 @@ void PermissionRequestManager::ShowPrompt() {
           "Notifications.Quiet.PermissionRequestShown"));
     }
 
-#if !BUILDFLAG(IS_ANDROID)
     PermissionsClient::Get()->TriggerPromptHatsSurveyIfEnabled(
-        web_contents()->GetBrowserContext(), requests_[0]->request_type(),
-        absl::nullopt, DetermineCurrentRequestUIDisposition(),
+        web_contents(), requests_[0]->request_type(), absl::nullopt,
+        DetermineCurrentRequestUIDisposition(),
         DetermineCurrentRequestUIDispositionReasonForUMA(),
         requests_[0]->GetGestureType(), absl::nullopt, false,
         web_contents()->GetLastCommittedURL(),
@@ -963,7 +964,6 @@ void PermissionRequestManager::ShowPrompt() {
             : base::DoNothing());
 
     hats_shown_callback_.reset();
-#endif
   }
   current_request_already_displayed_ = true;
   current_request_first_display_time_ = base::Time::Now();
@@ -1029,17 +1029,23 @@ void PermissionRequestManager::CurrentRequestsDecided(
     time_to_decision_for_test_.reset();
   }
 
+  std::optional<permissions::PermissionIgnoredReason> ignore_reason =
+      absl::nullopt;
+#if !BUILDFLAG(IS_ANDROID)
+  // ignore reason metric currently not supported on android
+  if (permission_action == PermissionAction::IGNORED) {
+    ignore_reason = absl::make_optional(
+        PermissionsClient::Get()->DetermineIgnoreReason(web_contents()));
+  }
+#endif
+
   content::BrowserContext* browser_context =
       web_contents()->GetBrowserContext();
   PermissionUmaUtil::PermissionPromptResolved(
       requests_, web_contents(), permission_action, time_to_decision,
       DetermineCurrentRequestUIDisposition(),
       DetermineCurrentRequestUIDispositionReasonForUMA(),
-      prediction_grant_likelihood_, was_decision_held_back_,
-      permission_action == PermissionAction::IGNORED
-          ? absl::make_optional(
-                PermissionsClient::Get()->DetermineIgnoreReason(web_contents()))
-          : absl::nullopt,
+      prediction_grant_likelihood_, was_decision_held_back_, ignore_reason,
       did_show_prompt_, did_click_manage_, did_click_learn_more_);
 
   PermissionDecisionAutoBlocker* autoblocker =
@@ -1261,6 +1267,9 @@ void PermissionRequestManager::RemoveObserver(Observer* observer) {
 }
 
 bool PermissionRequestManager::ShouldCurrentRequestUseQuietUI() const {
+  if (IsCurrentRequestEmbeddedPermissionElementInitiated()) {
+    return false;
+  }
   // ContentSettingImageModel might call into this method if the user switches
   // between tabs while the |notification_permission_ui_selectors_| are
   // pending.

@@ -58,8 +58,8 @@ inline constexpr char kPrivacySandboxApisEnabled[] =
 
 // Un-synced boolean pref. This is a replacement for the synced preference
 // above. It performs the exact same functionality, but is unsynced. This
-// preference is only consulted when the kPrivacySandboxSettings3 feature is
-// enabled.
+// preference is only consulted when the kPrivacySandboxSettings4 feature is
+// disabled.
 inline constexpr char kPrivacySandboxApisEnabledV2[] =
     "privacy_sandbox.apis_enabled_v2";
 
@@ -168,11 +168,6 @@ inline constexpr char kPrivacySandboxTopicsConsentLastUpdateReason[] =
 // resulted in the current Topics consent state.
 inline constexpr char kPrivacySandboxTopicsConsentTextAtLastUpdate[] =
     "privacy_sandbox.topics_consent.text_at_last_update";
-
-// Boolean that indicates whether the user's anti-abuse preference has been
-// initialized.
-inline constexpr char kPrivacySandboxAntiAbuseInitialized[] =
-    "privacy_sandbox.anti_abuse_initialized";
 
 }  // namespace prefs
 

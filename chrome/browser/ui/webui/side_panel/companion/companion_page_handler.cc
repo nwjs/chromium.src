@@ -14,7 +14,7 @@
 #include "chrome/browser/companion/core/utils.h"
 #include "chrome/browser/companion/text_finder/text_finder_manager.h"
 #include "chrome/browser/companion/text_finder/text_highlighter_manager.h"
-#include "chrome/browser/companion/visual_search/visual_search_suggestions_service_factory.h"
+#include "chrome/browser/companion/visual_query/visual_query_suggestions_service_factory.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
@@ -28,7 +28,7 @@
 #include "chrome/browser/ui/webui/side_panel/companion/companion_side_panel_untrusted_ui.h"
 #include "chrome/browser/ui/webui/side_panel/companion/signin_delegate_impl.h"
 #include "chrome/browser/unified_consent/unified_consent_service_factory.h"
-#include "chrome/common/companion/visual_search/features.h"
+#include "chrome/common/companion/visual_query/features.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/feature_engagement/public/event_constants.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -77,10 +77,10 @@ CompanionPageHandler::CompanionPageHandler(
         base::BindRepeating(&CompanionPageHandler::OnPageContentPrefChanged,
                             base::Unretained(this)));
   }
-  if (visual_search::features::IsVisualSearchSuggestionsEnabled()) {
-    visual_search_host_ =
-        std::make_unique<visual_search::VisualSearchClassifierHost>(
-            visual_search::VisualSearchSuggestionsServiceFactory::GetForProfile(
+  if (visual_query::features::IsVisualQuerySuggestionsEnabled()) {
+    visual_query_host_ =
+        std::make_unique<visual_query::VisualQueryClassifierHost>(
+            visual_query::VisualQuerySuggestionsServiceFactory::GetForProfile(
                 GetProfile()));
   }
 }
@@ -165,17 +165,17 @@ void CompanionPageHandler::DidFinishLoad(
   // TODO(b/284640445) - Add browser test to verify side effect of feature
   // on/off, use histogram check to determine whether or not classification was
   // called.
-  if (visual_search_host_) {
-    visual_search::VisualSearchClassifierHost::ResultCallback callback =
-        base::BindOnce(&CompanionPageHandler::HandleVisualSearchResult,
+  if (visual_query_host_) {
+    visual_query::VisualQueryClassifierHost::ResultCallback callback =
+        base::BindOnce(&CompanionPageHandler::HandleVisualQueryResult,
                        weak_ptr_factory_.GetWeakPtr());
-    visual_search_host_->StartClassification(render_frame_host, validated_url,
-                                             std::move(callback));
+    visual_query_host_->StartClassification(render_frame_host, validated_url,
+                                            std::move(callback));
   }
 }
 
-void CompanionPageHandler::SendVisualSearchResult(
-    const visual_search::VisualSuggestionsResults& results) {
+void CompanionPageHandler::SendVisualQueryResult(
+    const visual_query::VisualSuggestionsResults& results) {
   std::vector<side_panel::mojom::VisualSearchResultPtr> final_results;
   for (const auto& result : results) {
     final_results.emplace_back(side_panel::mojom::VisualSearchResult::New(
@@ -190,8 +190,8 @@ void CompanionPageHandler::SendVisualSearchResult(
   ui_loading_start_time_.reset();
 }
 
-void CompanionPageHandler::HandleVisualSearchResult(
-    const visual_search::VisualSuggestionsResults results,
+void CompanionPageHandler::HandleVisualQueryResult(
+    const visual_query::VisualSuggestionsResults results,
     const VisualSuggestionsMetrics metrics) {
   // This is the only place where we log UKM metrics for the visual
   // classification pipeline. We record the metrics even when the UI is not
@@ -203,34 +203,34 @@ void CompanionPageHandler::HandleVisualSearchResult(
   // we received the kStartedLoading signal from side panel. If set, we send the
   // visual query suggestions to the side. If it is not set, then we don't send
   // the request in hopes that when it is set in the future, we can send
-  // the cached result from |visual_search_host_|.
+  // the cached result from |visual_query_host_|.
   if (ui_loading_start_time_) {
-    SendVisualSearchResult(results);
+    SendVisualQueryResult(results);
   }
 }
 
 void CompanionPageHandler::OnLoadingState(
     side_panel::mojom::LoadingState loading_state) {
   // We only care about loading state, if VQS is enabled.
-  if (!visual_search_host_) {
+  if (!visual_query_host_) {
     return;
   }
 
   const auto& visual_result =
-      visual_search_host_->GetVisualResult(web_contents()->GetURL());
+      visual_query_host_->GetVisualResult(web_contents()->GetURL());
 
   // We use the OnLoadingState function to send the visual result to
-  // the WebUI to handle cases where we obtain the |VisualSearchResult| before
+  // the WebUI to handle cases where we obtain the |VisualQueryResult| before
   // the UI is ready to render it.
   if (loading_state == side_panel::mojom::LoadingState::kStartedLoading) {
     ui_loading_start_time_ = base::TimeTicks::Now();
     if (visual_result) {
-      SendVisualSearchResult(visual_result.value());
+      SendVisualQueryResult(visual_result.value());
     } else {
-      visual_search::VisualSearchClassifierHost::ResultCallback callback =
-          base::BindOnce(&CompanionPageHandler::HandleVisualSearchResult,
+      visual_query::VisualQueryClassifierHost::ResultCallback callback =
+          base::BindOnce(&CompanionPageHandler::HandleVisualQueryResult,
                          weak_ptr_factory_.GetWeakPtr());
-      visual_search_host_->StartClassification(
+      visual_query_host_->StartClassification(
           web_contents()->GetPrimaryMainFrame(), web_contents()->GetURL(),
           std::move(callback));
     }
@@ -332,8 +332,8 @@ void CompanionPageHandler::NotifyURLChanged(bool is_full_reload) {
     reload_start_time_ = base::TimeTicks::Now();
     page_->UpdateCompanionPage(companion_update_proto);
   }
-  if (visual_search_host_) {
-    visual_search_host_->CancelClassification(web_contents()->GetVisibleURL());
+  if (visual_query_host_) {
+    visual_query_host_->CancelClassification(web_contents()->GetVisibleURL());
   }
 }
 

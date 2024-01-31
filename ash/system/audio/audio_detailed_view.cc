@@ -148,7 +148,7 @@ class DeviceNameContainerHighlightPathGenerator
 
  private:
   // HighlightPathGenerator:
-  absl::optional<gfx::RRectF> GetRoundRect(const gfx::RectF& rect) override {
+  std::optional<gfx::RRectF> GetRoundRect(const gfx::RectF& rect) override {
     gfx::Rect slider_bounds = slider_->GetInactiveRadioSliderRect();
     gfx::RectF bounds(slider_bounds.x() + kRadioSliderViewPadding.left(),
                       slider_bounds.y(), slider_bounds.width(),
@@ -174,9 +174,8 @@ std::vector<std::string> GetNamesOfAppsAccessingMic(
   for (const std::string& app :
        app_capability_access_cache->GetAppsAccessingMicrophone()) {
     std::string name;
-    app_registry_cache->ForOneApp(app, [&name](const apps::AppUpdate& update) {
-      name = update.ShortName();
-    });
+    app_registry_cache->ForOneApp(
+        app, [&name](const apps::AppUpdate& update) { name = update.Name(); });
     if (!name.empty()) {
       app_names.push_back(name);
     }

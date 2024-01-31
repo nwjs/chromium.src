@@ -30,7 +30,6 @@
 #include "chrome/browser/extensions/extension_system_factory.h"
 #include "chrome/browser/extensions/install_verifier.h"
 #include "chrome/browser/extensions/load_error_reporter.h"
-#include "chrome/browser/extensions/navigation_observer.h"
 #include "chrome/browser/extensions/shared_module_service.h"
 #include "chrome/browser/extensions/unpacked_installer.h"
 #include "chrome/browser/extensions/update_install_gate.h"
@@ -188,8 +187,6 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
   const base::CommandLine* command_line =
       base::CommandLine::ForCurrentProcess();
 
-  navigation_observer_ = std::make_unique<NavigationObserver>(profile_);
-
   bool allow_noisy_errors =
       !command_line->HasSwitch(::switches::kNoErrorDialogs);
   LoadErrorReporter::Init(allow_noisy_errors);
@@ -211,9 +208,8 @@ void ExtensionSystemImpl::Shared::Init(bool extensions_enabled) {
 #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
   extension_service_ = std::make_unique<ExtensionService>(
       profile_, base::CommandLine::ForCurrentProcess(),
-      profile_->GetPath().AppendASCII(extensions::kInstallDirectoryName),
-      profile_->GetPath().AppendASCII(
-          extensions::kUnpackedInstallDirectoryName),
+      profile_->GetPath().AppendASCII(kInstallDirectoryName),
+      profile_->GetPath().AppendASCII(kUnpackedInstallDirectoryName),
       ExtensionPrefs::Get(profile_), nullptr,
       autoupdate_enabled, extensions_enabled, &ready_);
 

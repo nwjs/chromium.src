@@ -75,6 +75,8 @@ class GuestViewManager : public content::BrowserPluginGuestManager,
 
   int GetNextInstanceID();
 
+  base::WeakPtr<GuestViewManager> AsWeakPtr();
+
   using GuestViewCreateFunction =
       base::RepeatingCallback<std::unique_ptr<GuestViewBase>(
           content::RenderFrameHost* owner_rfh)>;
@@ -123,9 +125,9 @@ class GuestViewManager : public content::BrowserPluginGuestManager,
   // BrowserPluginGuestManager implementation.
   void ForEachUnattachedGuest(
       content::WebContents* owner_web_contents,
-      base::RepeatingCallback<void(content::WebContents*)> callback) override;
+      base::FunctionRef<void(content::WebContents*)> fn) override;
   bool ForEachGuest(content::WebContents* owner_web_contents,
-                    const GuestCallback& callback) override;
+                    base::FunctionRef<bool(content::WebContents*)> fn) override;
   content::WebContents* GetFullPageGuest(
       content::WebContents* embedder_web_contents) override;
 
@@ -133,6 +135,7 @@ class GuestViewManager : public content::BrowserPluginGuestManager,
   friend class GuestViewBase;
   friend class GuestViewEvent;
   friend class GuestViewMessageHandler;
+  friend class ViewHandle;
 
   class EmbedderRenderProcessHostObserver;
 
@@ -206,9 +209,6 @@ class GuestViewManager : public content::BrowserPluginGuestManager,
   // from this manager using RemoveGuest.
   bool CanUseGuestInstanceID(int guest_instance_id);
 
-  static bool GetFullPageGuestHelper(content::WebContents** result,
-                                     content::WebContents* guest_web_contents);
-
   // Contains guests, mapping from their instance ids.
 public:
   using GuestInstanceMap = std::map<int, GuestViewBase*>;
@@ -281,8 +281,6 @@ public:
   using CallbacksForEachEmbedderID = std::map<int, CallbacksForEachViewID>;
   CallbacksForEachEmbedderID view_destruction_callback_map_;
 
-  // This is used to ensure that an EmbedderRenderProcessHostObserver will not
-  // call into this GuestViewManager after it has been destroyed.
   base::WeakPtrFactory<GuestViewManager> weak_ptr_factory_{this};
 };
 

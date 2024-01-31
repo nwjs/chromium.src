@@ -26,13 +26,14 @@
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/profiles/profile_colors_util.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/webui/signin/enterprise_profile_welcome_ui.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/signin_email_confirmation_dialog.h"
 #include "chrome/browser/ui/webui/signin/signin_ui_error.h"
+#include "chrome/common/channel_info.h"
 #include "chrome/common/url_constants.h"
 #include "components/policy/core/browser/signin/profile_separation_policies.h"
 #include "components/policy/core/browser/signin/user_cloud_signin_restriction_policy_fetcher.h"
+#include "components/policy/core/common/policy_utils.h"
 #include "components/signin/public/base/signin_pref_names.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -230,9 +231,15 @@ void TurnSyncOnHelperDelegateImpl::OnProfileCheckComplete(
                                OnProfileSigninRestrictionsFetched,
                            weak_ptr_factory_.GetWeakPtr(), account_info,
                            std::move(callback)),
-            std::make_unique<std::string>(
-                browser_->profile()->GetPrefs()->GetString(
-                    prefs::kUserCloudSigninPolicyResponseFromPolicyTestPage)));
+            policy::utils::IsPolicyTestingEnabled(
+                browser_->profile()->GetPrefs(), chrome::GetChannel())
+                ? browser_->profile()
+                      ->GetPrefs()
+                      ->GetDefaultPrefValue(
+                          prefs::
+                              kUserCloudSigninPolicyResponseFromPolicyTestPage)
+                      ->GetString()
+                : std::string());
     return;
   }
 #endif

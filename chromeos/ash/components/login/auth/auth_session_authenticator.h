@@ -189,6 +189,8 @@ class COMPONENT_EXPORT(CHROMEOS_ASH_COMPONENTS_LOGIN_AUTH)
                             const std::string& long_desc);
 
   // Simple callback that notifies about mount success / failure.
+  void NotifyOnlinePasswordUnusable(std::unique_ptr<UserContext> context,
+                                    bool online_password_mismatch);
   void NotifyAuthSuccess(std::unique_ptr<UserContext> context);
   void NotifyGuestSuccess(std::unique_ptr<UserContext> context);
   void NotifyFailure(AuthFailure::FailureReason reason,

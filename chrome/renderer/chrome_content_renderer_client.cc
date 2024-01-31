@@ -71,6 +71,7 @@
 #include "components/autofill/content/renderer/password_autofill_agent.h"
 #include "components/autofill/content/renderer/password_generation_agent.h"
 #include "components/autofill/core/common/autofill_features.h"
+#include "components/commerce/content/renderer/commerce_web_extractor.h"
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/content_capture/common/content_capture_features.h"
 #include "components/content_capture/renderer/content_capture_sender.h"
@@ -87,9 +88,8 @@
 #include "components/grit/components_scaled_resources.h"
 #include "components/heap_profiling/in_process/heap_profiler_controller.h"
 #include "components/history_clusters/core/config.h"
-#include "components/metrics/call_stack_profile_builder.h"
+#include "components/metrics/call_stacks/call_stack_profile_builder.h"
 #include "components/network_hints/renderer/web_prescient_networking_impl.h"
-#include "components/no_state_prefetch/common/prerender_url_loader_throttle.h"
 #include "components/no_state_prefetch/renderer/no_state_prefetch_client.h"
 #include "components/no_state_prefetch/renderer/no_state_prefetch_helper.h"
 #include "components/no_state_prefetch/renderer/no_state_prefetch_utils.h"
@@ -318,8 +318,8 @@ void AppendParams(
         WebString::FromUTF16(additional_params[i].value);
   }
 
-  existing_names->Swap(names);
-  existing_values->Swap(values);
+  existing_names->swap(names);
+  existing_values->swap(values);
 }
 #endif  // BUILDFLAG(ENABLE_PLUGINS)
 
@@ -711,7 +711,7 @@ void ChromeContentRendererClient::RenderFrameCreated(
       ->AddInterface<extensions::mojom::MimeHandlerViewContainerManager>(
           base::BindRepeating(
               &extensions::MimeHandlerViewContainerManager::BindReceiver,
-              render_frame->GetRoutingID()));
+              base::Unretained(render_frame)));
 #endif
 
   // Owned by |render_frame|.
@@ -780,6 +780,10 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_CHROMEOS)
   MultilineDetector::InstallIfNecessary(render_frame);
 #endif
+
+  if (render_frame->IsMainFrame()) {
+    new commerce::CommerceWebExtractor(render_frame, registry);
+  }
 }
 
 void ChromeContentRendererClient::WebViewCreated(
@@ -814,12 +818,16 @@ bool ChromeContentRendererClient::IsPluginHandledExternally(
 #if BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(ENABLE_PLUGINS)
   DCHECK(plugin_element.HasHTMLTagName("object") ||
          plugin_element.HasHTMLTagName("embed"));
+
+  mojo::AssociatedRemote<chrome::mojom::PluginInfoHost> plugin_info_host;
+  render_frame->GetRemoteAssociatedInterfaces()->GetInterface(
+      &plugin_info_host);
   // Blink will next try to load a WebPlugin which would end up in
   // OverrideCreatePlugin, sending another IPC only to find out the plugin is
   // not supported. Here it suffices to return false but there should perhaps be
   // a more unified approach to avoid sending the IPC twice.
   chrome::mojom::PluginInfoPtr plugin_info = chrome::mojom::PluginInfo::New();
-  GetPluginInfoHost()->GetPluginInfo(
+  plugin_info_host->GetPluginInfo(
       original_url, render_frame->GetWebFrame()->Top()->GetSecurityOrigin(),
       mime_type, &plugin_info);
   // TODO(ekaramad): Not continuing here due to a disallowed status should take
@@ -880,8 +888,12 @@ bool ChromeContentRendererClient::OverrideCreatePlugin(
 
   GURL url(params.url);
 #if BUILDFLAG(ENABLE_PLUGINS)
+  mojo::AssociatedRemote<chrome::mojom::PluginInfoHost> plugin_info_host;
+  render_frame->GetRemoteAssociatedInterfaces()->GetInterface(
+      &plugin_info_host);
+
   chrome::mojom::PluginInfoPtr plugin_info = chrome::mojom::PluginInfo::New();
-  GetPluginInfoHost()->GetPluginInfo(
+  plugin_info_host->GetPluginInfo(
       url, render_frame->GetWebFrame()->Top()->GetSecurityOrigin(),
       orig_mime_type, &plugin_info);
   *plugin = CreatePlugin(render_frame, params, *plugin_info);
@@ -923,20 +935,6 @@ bool ChromeContentRendererClient::DeferMediaLoad(
 }
 
 #if BUILDFLAG(ENABLE_PLUGINS)
-
-mojo::AssociatedRemote<chrome::mojom::PluginInfoHost>&
-ChromeContentRendererClient::GetPluginInfoHost() {
-  struct PluginInfoHostHolder {
-    PluginInfoHostHolder() {
-      RenderThread::Get()->GetChannel()->GetRemoteAssociatedInterface(
-          &plugin_info_host);
-    }
-    ~PluginInfoHostHolder() {}
-    mojo::AssociatedRemote<chrome::mojom::PluginInfoHost> plugin_info_host;
-  };
-  static base::NoDestructor<PluginInfoHostHolder> holder;
-  return holder->plugin_info_host;
-}
 
 // static
 WebPlugin* ChromeContentRendererClient::CreatePlugin(

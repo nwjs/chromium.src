@@ -24,6 +24,7 @@
 #include "chrome/test/base/devtools_listener.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/devtools_agent_host_observer.h"
+#include "storage/browser/file_system/file_system_url.h"
 
 class NotificationDisplayServiceTester;
 class SelectFileDialogExtensionTestFactory;
@@ -164,13 +165,6 @@ class FileManagerBrowserTestBase
 
     // Whether test should run with the DriveFsMirroring flag.
     bool enable_mirrorsync = false;
-
-    // Whether test should run with the FilesInlineSyncStatus flag.
-    bool enable_inline_sync_status = false;
-
-    // Whether test should run with the FilesInlineSyncStatusProgressEvents
-    // flag.
-    bool enable_inline_sync_status_progress_events = false;
 
     // Whether test should enable the file transfer connector.
     bool enable_file_transfer_connector = false;
@@ -381,6 +375,8 @@ class FileManagerBrowserTestBase
   base::FilePath devtools_code_coverage_dir_;
   DevToolsAgentMap devtools_agent_;
   uint32_t process_id_ = 0;
+
+  storage::FileSystemURL error_url_;
 };
 
 std::ostream& operator<<(std::ostream& out, GuestMode mode);

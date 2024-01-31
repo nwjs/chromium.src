@@ -24,11 +24,14 @@
 #include "services/accessibility/features/interface_binder.h"
 #include "services/accessibility/features/mojo/mojo.h"
 #include "services/accessibility/features/speech_recognition_interface_binder.h"
+#include "services/accessibility/features/sync_os_state_api_bindings.h"
 #include "services/accessibility/features/tts_interface_binder.h"
+#include "services/accessibility/features/user_input_interface_binder.h"
 #include "services/accessibility/features/user_interface_interface_binder.h"
 #include "services/accessibility/features/v8_bindings_utils.h"
 #include "services/accessibility/public/mojom/accessibility_service.mojom-forward.h"
 #include "v8/include/v8-context.h"
+#include "v8/include/v8-function.h"
 #include "v8/include/v8-object.h"
 #include "v8/include/v8-template.h"
 
@@ -107,6 +110,10 @@ void V8Environment::InstallAutomation(
       this, std::move(automation), std::move(automation_client));
 }
 
+void V8Environment::InstallOSState() {
+  os_state_needed_ = true;
+}
+
 void V8Environment::ExecuteScript(const std::string& script,
                                   base::OnceCallback<void()> on_complete) {
   bool result = BindingsIsolateHolder::ExecuteScriptInContext(script);
@@ -182,6 +189,11 @@ void V8Environment::AddV8Bindings() {
                          automation_internal_template);
   }
 
+  // Add chrome.runtime.
+  v8::Local<v8::ObjectTemplate> runtime_template =
+      v8::ObjectTemplate::New(isolate);
+  chrome_template->Set(isolate, "runtime", runtime_template);
+
   // Adds atpconsole.log/warn/error.
   // TODO(crbug.com/1355633): Deprecate and use console.log/warn/error instead.
   BindingsUtils::AddAtpConsoleTemplate(isolate, global_template);
@@ -196,6 +208,15 @@ void V8Environment::AddV8Bindings() {
       BindingsUtils::CreateTextDecoderCallback);
 
   // TODO(crbug.com/1355633): Add other API bindings to the global template.
+  if (os_state_needed_) {
+    v8::Local<v8::ObjectTemplate> sync_os_state_template =
+        v8::ObjectTemplate::New(isolate);
+    sync_os_state_template->Set(
+        GetIsolate(), "getDisplayNameForLocale",
+        gin::CreateFunctionTemplate(
+            GetIsolate(), base::BindRepeating(&GetDisplayNameForLocale)));
+    chrome_template->Set(GetIsolate(), "syncOSState", sync_os_state_template);
+  }
 
   // Add the global template to the current context.
   v8::Local<v8::Context> context =
@@ -255,6 +276,11 @@ void V8Manager::ConfigureSpeechRecognition(
       std::make_unique<SpeechRecognitionInterfaceBinder>(ax_service_client));
 }
 
+void V8Manager::ConfigureOSState() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  v8_env_.AsyncCall(&V8Environment::InstallOSState);
+}
+
 void V8Manager::ConfigureTts(
     mojom::AccessibilityServiceClient* ax_service_client) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -263,11 +289,20 @@ void V8Manager::ConfigureTts(
       std::make_unique<TtsInterfaceBinder>(ax_service_client));
 }
 
+void V8Manager::ConfigureUserInput(
+    mojom::AccessibilityServiceClient* ax_service_client) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  // TODO(b/262637071): load the AccessibilityPrivate JS shim into V8 using
+  // v8_env_.AsyncCall if it isn't already loaded.
+  interface_binders_.push_back(
+      std::make_unique<UserInputInterfaceBinder>(ax_service_client));
+}
+
 void V8Manager::ConfigureUserInterface(
     mojom::AccessibilityServiceClient* ax_service_client) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   // TODO(b/262637071): load the AccessibilityPrivate JS shim into V8 using
-  // v8_env_.AsyncCall.
+  // v8_env_.AsyncCall if it isn't already loaded.
   interface_binders_.push_back(
       std::make_unique<UserInterfaceInterfaceBinder>(ax_service_client));
 }

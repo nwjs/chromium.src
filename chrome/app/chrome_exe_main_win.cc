@@ -394,7 +394,9 @@ int main() {
     return 0;
 #endif
 
-  RemoveAppCompatFlagsEntry();
+  if (!command_line->HasSwitch(switches::kNoAppCompatClear)) {
+    RemoveAppCompatFlagsEntry();
+  }
 
   // Load and launch the chrome dll. *Everything* happens inside.
   VLOG(1) << "About to load main DLL.";

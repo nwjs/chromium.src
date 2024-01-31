@@ -227,12 +227,12 @@ class RulesRegistry : public base::RefCountedThreadSafe<RulesRegistry> {
   std::string RemoveAllRulesNoStoreUpdate(const std::string& extension_id,
                                           bool remove_manifest_rules);
 
-  void MarkReady(base::Time storage_init_time);
+  void MarkReady();
 
   // Deserialize the rules from the given Value object and add them to the
   // RulesRegistry.
   void DeserializeAndAddRules(const std::string& extension_id,
-                              absl::optional<base::Value> rules);
+                              std::optional<base::Value> rules);
 
   // Reports an internal error with the specified params to the extensions
   // client.

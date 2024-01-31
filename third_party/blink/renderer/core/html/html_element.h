@@ -161,12 +161,13 @@ class CORE_EXPORT HTMLElement : public Element {
   static bool IsValidDirAttribute(const AtomicString& value);
   static bool ElementAffectsDirectionality(const Node* node);
   static bool ElementInheritsDirectionality(const Node* node);
-  static const TextControlElement* ElementIfAutoDirShouldUseValueOrNull(
-      const Element* element);
-  static TextControlElement* ElementIfAutoDirShouldUseValueOrNull(
+  static const TextControlElement*
+  ElementIfAutoDirectionalityFormAssociatedOrNull(const Element* element);
+  static TextControlElement* ElementIfAutoDirectionalityFormAssociatedOrNull(
       Element* element) {
-    return const_cast<TextControlElement*>(ElementIfAutoDirShouldUseValueOrNull(
-        const_cast<const Element*>(element)));
+    return const_cast<TextControlElement*>(
+        ElementIfAutoDirectionalityFormAssociatedOrNull(
+            const_cast<const Element*>(element)));
   }
 
   virtual bool IsHTMLBodyElement() const { return false; }
@@ -174,7 +175,6 @@ class CORE_EXPORT HTMLElement : public Element {
   // origin trial is over.
   virtual bool IsHTMLFencedFrameElement() const { return false; }
   virtual bool IsHTMLFrameSetElement() const { return false; }
-  virtual bool IsHTMLPortalElement() const { return false; }
   virtual bool IsHTMLUnknownElement() const { return false; }
   virtual bool IsPluginElement() const { return false; }
 
@@ -310,7 +310,8 @@ class CORE_EXPORT HTMLElement : public Element {
   virtual bool HandleInvokeInternal(HTMLElement& invoker, AtomicString& action);
 
  protected:
-  bool SupportsFocus() const override;
+  bool SupportsFocus(UpdateBehavior update_behavior =
+                         UpdateBehavior::kStyleAndLayout) const override;
 
   enum AllowPercentage { kDontAllowPercentageValues, kAllowPercentageValues };
   enum AllowZero { kDontAllowZeroValues, kAllowZeroValues };
@@ -379,6 +380,8 @@ class CORE_EXPORT HTMLElement : public Element {
   DocumentFragment* TextToFragment(const String&, ExceptionState&);
 
   void AdjustDirectionalityIfNeededAfterChildAttributeChanged(Element* child);
+
+  void AdjustDirectionalityIfNeededAfterInsert(Node& node);
 
   TranslateAttributeMode GetTranslateAttributeMode() const;
 

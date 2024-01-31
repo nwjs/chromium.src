@@ -27,7 +27,6 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.TabbedModeTabDelegateFactory;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.share.ShareDelegate;
-import org.chromium.chrome.browser.tab.TabUtils.LoadIfNeededCaller;
 import org.chromium.chrome.browser.ui.RootUiCoordinator;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.ChromeTabbedActivityTestRule;
@@ -106,13 +105,15 @@ public class TabUmaTest {
         return TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Tab bgTab =
-                            TabBuilder.createForLazyLoad(new LoadUrlParams(mTestUrl))
+                            TabBuilder.createForLazyLoad(
+                                            sActivityTestRule.getProfile(false),
+                                            new LoadUrlParams(mTestUrl))
                                     .setWindow(sActivityTestRule.getActivity().getWindowAndroid())
                                     .setLaunchType(TabLaunchType.FROM_LONGPRESS_BACKGROUND)
                                     .setDelegateFactory(createTabDelegateFactory())
                                     .setInitiallyHidden(true)
                                     .build();
-                    if (show) bgTab.show(TabSelectionType.FROM_USER, LoadIfNeededCaller.OTHER);
+                    if (show) bgTab.show(TabSelectionType.FROM_USER, TabLoadIfNeededCaller.OTHER);
                     return bgTab;
                 });
     }
@@ -121,7 +122,8 @@ public class TabUmaTest {
         return TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     Tab tab =
-                            TabBuilder.createLiveTab(!foreground)
+                            TabBuilder.createLiveTab(
+                                            sActivityTestRule.getProfile(false), !foreground)
                                     .setWindow(sActivityTestRule.getActivity().getWindowAndroid())
                                     .setLaunchType(TabLaunchType.FROM_LONGPRESS_BACKGROUND)
                                     .setDelegateFactory(createTabDelegateFactory())
@@ -132,7 +134,7 @@ public class TabUmaTest {
                     // Simulate the renderer being killed by the OS.
                     if (kill) ChromeTabUtils.simulateRendererKilledForTesting(tab);
 
-                    tab.show(TabSelectionType.FROM_USER, LoadIfNeededCaller.OTHER);
+                    tab.show(TabSelectionType.FROM_USER, TabLoadIfNeededCaller.OTHER);
                     return tab;
                 });
     }
@@ -152,7 +154,7 @@ public class TabUmaTest {
         // Show the tab and verify that one sample was recorded in the lazy load bucket.
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    tab.show(TabSelectionType.FROM_USER, LoadIfNeededCaller.OTHER);
+                    tab.show(TabSelectionType.FROM_USER, TabLoadIfNeededCaller.OTHER);
                 });
         statusHistogram.assertExpected();
 
@@ -160,7 +162,7 @@ public class TabUmaTest {
         statusHistogram = HistogramWatcher.newBuilder().expectNoRecords(histogram).build();
         TestThreadUtils.runOnUiThreadBlocking(
                 () -> {
-                    tab.show(TabSelectionType.FROM_USER, LoadIfNeededCaller.OTHER);
+                    tab.show(TabSelectionType.FROM_USER, TabLoadIfNeededCaller.OTHER);
                 });
         statusHistogram.assertExpected();
     }
@@ -177,7 +179,7 @@ public class TabUmaTest {
         Tab tab =
                 TestThreadUtils.runOnUiThreadBlocking(
                         () -> {
-                            return new TabBuilder()
+                            return new TabBuilder(sActivityTestRule.getProfile(false))
                                     .setWindow(sActivityTestRule.getActivity().getWindowAndroid())
                                     .setDelegateFactory(createTabDelegateFactory())
                                     .setLaunchType(TabLaunchType.FROM_LONGPRESS_BACKGROUND)
@@ -186,7 +188,7 @@ public class TabUmaTest {
                         });
 
         TestThreadUtils.runOnUiThreadBlocking(
-                () -> tab.show(TabSelectionType.FROM_USER, LoadIfNeededCaller.OTHER));
+                () -> tab.show(TabSelectionType.FROM_USER, TabLoadIfNeededCaller.OTHER));
 
         // There should be no histogram changes.
         Assert.assertEquals(switchFgStatusOffset, getHistogram(switchFgStatus));

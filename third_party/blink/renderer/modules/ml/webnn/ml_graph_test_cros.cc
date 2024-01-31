@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "third_party/blink/renderer/modules/ml/webnn/ml_graph_test_cros.h"
+
 #include "components/ml/mojom/ml_service.mojom-blink.h"
 #include "components/ml/mojom/web_platform_model.mojom-blink.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -66,10 +68,41 @@ blink_mojom::TensorInfoPtr ConvertToMojom(const TfLiteTensor* tensor) {
 class TfLiteOpResolver : public tflite::MutableOpResolver {
  public:
   TfLiteOpResolver() {
+    AddBuiltin(tflite::BuiltinOperator_RELU,
+               tflite::ops::builtin::Register_RELU(), /* min_version = */ 1,
+               /* max_version = */ 2);
     AddBuiltin(tflite::BuiltinOperator_ADD,
                tflite::ops::builtin::Register_ADD(),
                /* min_version = */ 1,
                /* max_version = */ 2);
+    AddBuiltin(tflite::BuiltinOperator_SUB,
+               tflite::ops::builtin::Register_SUB(),
+               /* min_version = */ 1,
+               /* max_version = */ 3);
+    AddBuiltin(tflite::BuiltinOperator_MUL,
+               tflite::ops::builtin::Register_MUL(),
+               /* min_version = */ 1,
+               /* max_version = */ 4);
+    AddBuiltin(tflite::BuiltinOperator_DIV,
+               tflite::ops::builtin::Register_DIV(),
+               /* min_version */ 1,
+               /* max_version */ 2);
+    AddBuiltin(tflite::BuiltinOperator_MAXIMUM,
+               tflite::ops::builtin::Register_MAXIMUM(),
+               /* min_version = */ 1,
+               /* max_version = */ 4);
+    AddBuiltin(tflite::BuiltinOperator_MINIMUM,
+               tflite::ops::builtin::Register_MINIMUM(),
+               /* min_version = */ 1,
+               /* max_version = */ 4);
+    AddBuiltin(tflite::BuiltinOperator_POW,
+               tflite::ops::builtin::Register_POW());
+    AddBuiltin(tflite::BuiltinOperator_SOFTMAX,
+               tflite::ops::builtin::Register_SOFTMAX(),
+               /* min_version = */ 1,
+               /* max_version = */ 3);
+    AddBuiltin(tflite::BuiltinOperator_RESHAPE,
+               tflite::ops::builtin::Register_RESHAPE());
   }
 };
 
@@ -140,7 +173,8 @@ class FakeWebNNModel : public blink_mojom::Model {
   ~FakeWebNNModel() override = default;
 
   FakeMLModelLoader::LoadFn CreateFromThis() {
-    return WTF::BindOnce(&FakeWebNNModel::OnCreateModel, WTF::Unretained(this));
+    return WTF::BindRepeating(&FakeWebNNModel::OnCreateModel,
+                              WTF::Unretained(this));
   }
 
  private:
@@ -148,7 +182,6 @@ class FakeWebNNModel : public blink_mojom::Model {
                      blink_mojom::ModelLoader::LoadCallback callback) {
     blink_mojom::ModelInfoPtr info = blink_mojom::ModelInfo::New();
     EXPECT_EQ(runtime_->Load(buffer, info), kTfLiteOk);
-
     // Hold the flatbuffer for computing with tflite runtime.
     buffer_ = std::move(buffer);
 
@@ -172,20 +205,22 @@ class FakeWebNNModel : public blink_mojom::Model {
   mojo_base::BigBuffer buffer_;
 };
 
-class MLGraphTestCrOS : public MLGraphTestBase {
- public:
-  ScopedSetMLServiceBinder SetUpMLService(V8TestingScope& scope) {
-    service_.SetCreateModelLoader(loader_.CreateFromThis());
-    loader_.SetLoad(model_.CreateFromThis());
+class MLGraphTestCrOS : public MLGraphTestBase {};
 
-    return ScopedSetMLServiceBinder(&service_, scope);
-  }
+ScopedMLService::ScopedMLService()
+    : loader_(std::make_unique<FakeMLModelLoader>()),
+      model_(std::make_unique<FakeWebNNModel>()),
+      ml_service_(std::make_unique<FakeMLService>()) {}
 
- private:
-  FakeMLService service_;
-  FakeMLModelLoader loader_;
-  FakeWebNNModel model_;
-};
+ScopedMLService::~ScopedMLService() = default;
+
+void ScopedMLService::SetUpMLService(V8TestingScope& scope) {
+  ml_service_->SetCreateModelLoader(loader_->CreateFromThis());
+  loader_->SetLoad(model_->CreateFromThis());
+
+  ml_service_binder_ =
+      std::make_unique<ScopedSetMLServiceBinder>(ml_service_.get(), scope);
+}
 
 template <typename T>
 struct ElementWiseAddTester {
@@ -196,8 +231,6 @@ struct ElementWiseAddTester {
   ~ElementWiseAddTester() { MLGraphCrOS::SetFlatbufferForTesting(nullptr); }
 
   void Test(MLGraphTestCrOS& helper, V8TestingScope& scope) {
-    // Setup binder for MLService
-    ScopedSetMLServiceBinder scoped_setup_binder = helper.SetUpMLService(scope);
     // Set the flatbuffer of tflite model converted from the WebNN graph.
     flatbuffers::DetachedBuffer flatbuffer = GetFlatBuffer();
     MLGraphCrOS::SetFlatbufferForTesting(&flatbuffer);
@@ -211,13 +244,13 @@ struct ElementWiseAddTester {
     auto* builder =
         CreateMLGraphBuilder(scope.GetExecutionContext(),
                              scope.GetScriptState(), scope.GetExceptionState());
-    auto* input = BuildInput(builder, "input", lhs.dimensions, lhs.type,
+    auto* input = BuildInput(builder, "input", lhs.dimensions, lhs.data_type,
                              scope.GetExceptionState());
-    auto* constant = BuildConstant(builder, rhs.dimensions, rhs.type,
+    auto* constant = BuildConstant(builder, rhs.dimensions, rhs.data_type,
                                    rhs.values, scope.GetExceptionState());
     auto* output = BuildElementWiseBinary(
         scope, builder, ElementWiseBinaryKind::kAdd, input, constant);
-    EXPECT_EQ(output->Type(), expected.type);
+    EXPECT_EQ(output->DataType(), expected.data_type);
     auto [graph, exception] =
         helper.BuildGraph(scope, builder, {{"output", output}});
     EXPECT_NE(graph, nullptr);
@@ -264,14 +297,14 @@ struct ElementWiseAddTester {
     // A list of all tflite |Tensor| used in this model.
     Vector<flatbuffers::Offset<tflite::Tensor>> tensors;
     // Create tflite |Tensor| for constant tensor.
-    CHECK(lhs.type == V8MLOperandType::Enum::kFloat32);
+    CHECK(lhs.data_type == V8MLOperandDataType::Enum::kFloat32);
     uint32_t lhs_buffer_index = 0;
     tensors.emplace_back(tflite::CreateTensor(
         builder,
         builder.CreateVector<int32_t>(ConvertDimensions(lhs.dimensions)), type,
         lhs_buffer_index, builder.CreateString("input")));
     // Create tflite |Tensor| for input tensor.
-    CHECK(rhs.type == V8MLOperandType::Enum::kFloat32);
+    CHECK(rhs.data_type == V8MLOperandDataType::Enum::kFloat32);
     uint32_t rhs_buffer_index = 1;
     tensors.emplace_back(tflite::CreateTensor(
         builder,
@@ -320,18 +353,18 @@ struct ElementWiseAddTester {
 };
 
 TEST_P(MLGraphTestCrOS, BuildGraphWithTfliteModel) {
-  V8TestingScope scope;
+  MLGraphV8TestingScope scope;
 
   {
     // Test element-wise add operator for two 1-D tensors.
     ElementWiseAddTester<float>{
-        .lhs = {.type = V8MLOperandType::Enum::kFloat32,
+        .lhs = {.data_type = V8MLOperandDataType::Enum::kFloat32,
                 .dimensions = {2},
                 .values = {1.0, 2.0}},
-        .rhs = {.type = V8MLOperandType::Enum::kFloat32,
+        .rhs = {.data_type = V8MLOperandDataType::Enum::kFloat32,
                 .dimensions = {2},
                 .values = {3.0, 4.0}},
-        .expected = {.type = V8MLOperandType::Enum::kFloat32,
+        .expected = {.data_type = V8MLOperandDataType::Enum::kFloat32,
                      .dimensions = {2},
                      .values = {4.0, 6.0}}}
         .Test(*this, scope);
@@ -340,24 +373,26 @@ TEST_P(MLGraphTestCrOS, BuildGraphWithTfliteModel) {
     // Test element-wise add operator for 1-D tensor broadcasting to 2-D
     // tensor.
     ElementWiseAddTester<float>{
-        .lhs = {.type = V8MLOperandType::Enum::kFloat32,
+        .lhs = {.data_type = V8MLOperandDataType::Enum::kFloat32,
                 .dimensions = {2, 2},
                 .values = {1.0, 2.0, 3.0, 4.0}},
-        .rhs = {.type = V8MLOperandType::Enum::kFloat32,
+        .rhs = {.data_type = V8MLOperandDataType::Enum::kFloat32,
                 .dimensions = {2},
                 .values = {5.0, 6.0}},
-        .expected = {.type = V8MLOperandType::Enum::kFloat32,
+        .expected = {.data_type = V8MLOperandDataType::Enum::kFloat32,
                      .dimensions = {2, 2},
                      .values = {6.0, 8.0, 8.0, 10.0}}}
         .Test(*this, scope);
   }
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    MLGraphTestCrOS,
-    testing::Combine(::testing::Values(BackendType::kModelLoader),
-                     ::testing::Values(ExecutionMode::kAsync)),
-    TestVarietyToString);
+const TestVariety kGraphTestModelLoaderVariety[] = {
+    {BackendType::kModelLoader, ExecutionMode::kAsync},
+};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         MLGraphTestCrOS,
+                         testing::ValuesIn(kGraphTestModelLoaderVariety),
+                         TestVarietyToString);
 
 }  // namespace blink

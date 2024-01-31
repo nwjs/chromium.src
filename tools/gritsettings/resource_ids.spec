@@ -98,6 +98,9 @@
     "includes": [2220],
     "structures": [2240],
   },
+  "chrome/browser/nearby_sharing/internal/nearby_share_internal_icons.grd": {
+    "includes": [2250],
+  },
   "chrome/browser/nearby_sharing/internal/nearby_share_internal_strings.grd": {
     "messages": [2260],
   },
@@ -136,6 +139,10 @@
     "META": {"sizes": {"includes": [10],}},
     "includes": [2440],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/app_install/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [2450],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/arc_account_picker/resources.grd": {
     "META": {"sizes": {"includes": [10],}},
     "includes": [2460],
@@ -161,7 +168,7 @@
     "includes": [2560],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/emoji_picker/resources.grd": {
-    "META": {"sizes": {"includes": [50]}},
+    "META": {"sizes": {"includes": [60]}},
     "includes": [2580],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/kerberos/resources.grd": {
@@ -238,10 +245,6 @@
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/vc_tray_tester/resources.grd": {
     "META": {"sizes": {"includes": [5]}},
     "includes": [2980],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/web_app_install/resources.grd": {
-    "META": {"sizes": {"includes": [5]}},
-    "includes": [3000],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/commander/resources.grd": {
     "META": {"sizes": {"includes": [15]}},
@@ -383,7 +386,7 @@
     "includes": [3720],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/customize_chrome/resources.grd": {
-    "META": {"sizes": {"includes": [50],}},
+    "META": {"sizes": {"includes": [55],}},
     "includes": [3740],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/history_clusters/resources.grd": {
@@ -540,6 +543,10 @@
     "META": {"sizes": {"includes": [10]}},
     "includes": [4500],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/components/ukm/debug/resources.grd": {
+    "META": {"sizes": {"includes": [5]}},
+    "includes": [4510],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/app_home/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
     "includes": [4520],
@@ -603,7 +610,7 @@
   "components/resources/dev_ui_components_resources.grd": {
     "includes": [4820],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/content/browser/resources/aggregation_service/resources.grd": {
+  "<(SHARED_INTERMEDIATE_DIR)/content/browser/resources/private_aggregation/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
     "includes": [4840],
   },
@@ -670,14 +677,6 @@
   "<(SHARED_INTERMEDIATE_DIR)/components/metrics/debug/resources.grd": {
     "META": {"sizes": {"includes": [10]}},
     "includes": [5160],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/lens/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
-    "includes": [5180],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/lens/untrusted_resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
-    "includes": [5200],
   },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/chromeos/enterprise_reporting/resources.grd": {
     "META": {"sizes": {"includes": [20]}},
@@ -764,10 +763,6 @@
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/files_internals/ash_files_internals_resources.grd": {
     "META": {"sizes": {"includes": [10],}},
     "includes": [5720],
-  },
-  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/guest_os_installer/resources/resources.grd": {
-    "META": {"sizes": {"includes": [10]}},
-    "includes": [5740],
   },
   "<(SHARED_INTERMEDIATE_DIR)/ash/webui/common/resources/resources.grd": {
     "META": {"sizes": {"includes": [700]}},
@@ -912,6 +907,10 @@
     "META": {"join": 2, "sizes": {"includes": [50],}},
     "includes": [6240],
   },
+  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/vc_background_ui/resources/resources.grd": {
+    "META": {"sizes": {"includes": [50],}},
+    "includes": [6260],
+  },
   # END chromeos/ section.
 
   # START components/ section.
@@ -966,6 +965,10 @@
   },
   "components/autofill/core/browser/autofill_address_rewriter_resources.grd":{
     "includes": [7220]
+  },
+
+  "components/search_engine_descriptions_strings.grd": {
+    "messages": [7260],
   },
   # END components/ section.
 
@@ -1084,11 +1087,11 @@
     "META": {"align": 100},
     "messages": [7400],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/os_feedback_ui/resources/ash_os_feedback_resources.grd": {
+  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/os_feedback_ui/resources/resources.grd": {
     "META": {"sizes": {"includes": [50],}},
     "includes": [7420],
   },
-  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/os_feedback_ui/untrusted_resources/ash_os_feedback_untrusted_resources.grd": {
+  "<(SHARED_INTERMEDIATE_DIR)/ash/webui/os_feedback_ui/untrusted_resources/resources.grd": {
     "META": {"sizes": {"includes": [50],}},
     "includes": [7440],
   },

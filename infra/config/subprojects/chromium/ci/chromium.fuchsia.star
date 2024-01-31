@@ -5,9 +5,11 @@
 
 load("//lib/branches.star", "branches")
 load("//lib/builder_config.star", "builder_config")
+load("//lib/builder_health_indicators.star", "health_spec")
 load("//lib/builders.star", "free_space", "os", "reclient", "sheriff_rotations")
 load("//lib/ci.star", "ci")
 load("//lib/consoles.star", "consoles")
+load("//lib/gn_args.star", "gn_args")
 
 ci.defaults.set(
     executable = ci.DEFAULT_EXECUTABLE,
@@ -20,6 +22,7 @@ ci.defaults.set(
     main_console_view = "main",
     cq_mirrors_console_view = "mirrors",
     execution_timeout = ci.DEFAULT_EXECUTION_TIMEOUT,
+    health_spec = health_spec.DEFAULT,
     notifies = ["cr-fuchsia"],
     reclient_instance = reclient.instance.DEFAULT_TRUSTED,
     reclient_jobs = reclient.jobs.HIGH_JOBS_FOR_CI,
@@ -55,6 +58,13 @@ ci.builder(
     ],
     contact_team_email = "chrome-fuchsia-engprod@google.com",
     execution_timeout = 6 * time.hour,
+    gn_args = gn_args.config(
+        configs = [
+            "debug_builder",
+            "reclient",
+            "fuchsia_smart_display",
+        ],
+    ),
 )
 
 ci.builder(
@@ -93,6 +103,15 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-fuchsia-engprod@google.com",
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "fuchsia",
+            "arm64_host",
+            "cast_receiver_size_optimized",
+        ],
+    ),
 )
 
 ci.builder(
@@ -131,6 +150,14 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-fuchsia-engprod@google.com",
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "fuchsia_smart_display",
+            "arm64_host",
+        ],
+    ),
 )
 
 ci.builder(
@@ -167,6 +194,14 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-fuchsia-engprod@google.com",
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "fuchsia",
+            "cast_receiver_size_optimized",
+        ],
+    ),
 )
 
 ci.builder(
@@ -202,6 +237,14 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-fuchsia-engprod@google.com",
+    gn_args = gn_args.config(
+        configs = [
+            "debug_builder",
+            "reclient",
+            "fuchsia",
+            "compile_only",
+        ],
+    ),
 )
 
 ci.builder(
@@ -238,4 +281,11 @@ ci.builder(
         ),
     ],
     contact_team_email = "chrome-fuchsia-engprod@google.com",
+    gn_args = gn_args.config(
+        configs = [
+            "release_builder",
+            "reclient",
+            "fuchsia_smart_display",
+        ],
+    ),
 )

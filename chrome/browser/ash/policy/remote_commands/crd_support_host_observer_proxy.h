@@ -6,9 +6,12 @@
 #define CHROME_BROWSER_ASH_POLICY_REMOTE_COMMANDS_CRD_SUPPORT_HOST_OBSERVER_PROXY_H_
 
 #include <cstdint>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "base/observer_list.h"
+#include "chrome/browser/ash/policy/remote_commands/crd_remote_command_utils.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "remoting/host/mojom/remote_support.mojom.h"
@@ -21,7 +24,6 @@ class TimeDelta;
 namespace policy {
 
 class CrdSessionObserver;
-enum class ResultCode;
 
 // A proxy that translates and forwards `SupportHostObserver` events to the
 // corresponding `CrdSessionObserver` events.
@@ -33,11 +35,10 @@ class SupportHostObserverProxy : public remoting::mojom::SupportHostObserver {
   ~SupportHostObserverProxy() override;
 
   void AddObserver(CrdSessionObserver* observer);
+  void AddOwnedObserver(std::unique_ptr<CrdSessionObserver> observer);
 
   void Bind(
       mojo::PendingReceiver<remoting::mojom::SupportHostObserver> receiver);
-  void Unbind();
-  bool IsBound() const;
 
   // `remoting::mojom::SupportHostObserver` implementation:
   void OnHostStateStarting() override;
@@ -54,12 +55,13 @@ class SupportHostObserverProxy : public remoting::mojom::SupportHostObserver {
   void OnPolicyError() override;
   void OnInvalidDomainError() override;
 
-  void ReportHostStopped(ResultCode error_code,
+  void ReportHostStopped(ExtendedStartCrdSessionResultCode result,
                          const std::string& error_message);
 
  private:
   mojo::Receiver<remoting::mojom::SupportHostObserver> receiver_{this};
   base::ObserverList<CrdSessionObserver> observers_;
+  std::vector<std::unique_ptr<CrdSessionObserver>> owned_session_observers_;
 };
 
 }  // namespace policy

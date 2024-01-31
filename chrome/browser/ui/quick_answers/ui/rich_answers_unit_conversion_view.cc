@@ -8,8 +8,8 @@
 #include "chrome/browser/ui/quick_answers/quick_answers_ui_controller.h"
 #include "chromeos/components/quick_answers/quick_answers_model.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
-#include "ui/views/layout/fill_layout.h"
 #include "ui/views/layout/flex_layout.h"
+#include "ui/views/layout/flex_layout_view.h"
 
 namespace quick_answers {
 
@@ -18,9 +18,10 @@ namespace quick_answers {
 
 RichAnswersUnitConversionView::RichAnswersUnitConversionView(
     const gfx::Rect& anchor_view_bounds,
-    base::WeakPtr<QuickAnswersUiController> controller,
-    const quick_answers::QuickAnswer& result)
-    : RichAnswersView(anchor_view_bounds, controller, result) {
+    base::WeakPtr<QuickAnswersUiController> controller)
+    : RichAnswersView(anchor_view_bounds,
+                      controller,
+                      ResultType::kUnitConversionResult) {
   InitLayout();
 
   // TODO (b/274184290): Add custom focus behavior according to
@@ -31,6 +32,15 @@ RichAnswersUnitConversionView::~RichAnswersUnitConversionView() = default;
 
 void RichAnswersUnitConversionView::InitLayout() {
   // TODO (b/265257940): Populate unit conversion view contents.
+  content_view_ = GetContentView();
+
+  title_view_ = content_view_->AddChildView(
+      views::Builder<views::FlexLayoutView>()
+          .SetOrientation(views::LayoutOrientation::kHorizontal)
+          .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
+          .SetCrossAxisAlignment(views::LayoutAlignment::kStart)
+          .Build());
+  AddSettingsButtonTo(title_view_);
 }
 
 BEGIN_METADATA(RichAnswersUnitConversionView, RichAnswersView)

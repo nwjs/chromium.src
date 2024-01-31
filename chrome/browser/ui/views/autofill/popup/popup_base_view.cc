@@ -90,10 +90,8 @@ std::unique_ptr<views::Border> CreateBorder() {
 // static
 int PopupBaseView::GetCornerRadius() {
   return ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
-      base::FeatureList::IsEnabled(
-          features::kAutofillShowAutocompleteDeleteButton)
-          ? views::Emphasis::kHigh
-          : views::Emphasis::kMedium);
+      ShouldApplyNewAutofillPopupStyle() ? views::Emphasis::kHigh
+                                         : views::Emphasis::kMedium);
 }
 
 // static
@@ -213,9 +211,8 @@ PopupBaseView::PopupBaseView(
 PopupBaseView::~PopupBaseView() {
   if (delegate_) {
     delegate_->ViewDestroyed();
-
-    RemoveWidgetObservers();
   }
+  RemoveWidgetObservers();
 
   CHECK(!IsInObserverList());
 }
@@ -333,7 +330,7 @@ void PopupBaseView::NotifyAXSelection(views::View& selected_view) {
       {"PopupSuggestionView", "PopupPasswordSuggestionView", "PopupFooterView",
        "PopupSeparatorView", "PopupWarningView", "PopupBaseView",
        "PasswordGenerationPopupViewViews::GeneratedPasswordBox",
-       "PopupCellView", "PopupCellWithButtonView"});
+       "PopupRowContentView", "EditPasswordRow"});
   DCHECK(kDerivedClasses.contains(selected_view.GetClassName()))
       << "If you add a new derived class from AutofillPopupRowView, add it "
          "here and to onSelection(evt) in "
@@ -377,7 +374,9 @@ void PopupBaseView::RemoveWidgetObservers() {
   if (parent_widget_) {
     parent_widget_->RemoveObserver(this);
   }
-  GetWidget()->RemoveObserver(this);
+  if (views::Widget* widget = GetWidget()) {
+    widget->RemoveObserver(this);
+  }
   focus_observation_.Reset();
 }
 

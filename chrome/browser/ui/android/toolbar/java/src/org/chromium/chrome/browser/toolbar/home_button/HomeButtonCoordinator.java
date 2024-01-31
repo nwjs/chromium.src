@@ -4,7 +4,7 @@
 
 package org.chromium.chrome.browser.toolbar.home_button;
 
-import static org.chromium.components.browser_ui.widget.listmenu.BasicListMenu.buildMenuListItem;
+import static org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils.buildMenuListItem;
 
 import android.content.Context;
 import android.view.View;
@@ -25,13 +25,14 @@ import org.chromium.chrome.browser.toolbar.MenuBuilderHelper;
 import org.chromium.chrome.browser.toolbar.R;
 import org.chromium.chrome.browser.user_education.IPHCommandBuilder;
 import org.chromium.chrome.browser.user_education.UserEducationHelper;
+import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightParams;
 import org.chromium.components.browser_ui.widget.highlight.ViewHighlighter.HighlightShape;
-import org.chromium.components.browser_ui.widget.listmenu.BasicListMenu;
-import org.chromium.components.browser_ui.widget.listmenu.ListMenu;
-import org.chromium.components.browser_ui.widget.listmenu.ListMenuButtonDelegate;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 import org.chromium.components.feature_engagement.FeatureConstants;
+import org.chromium.ui.listmenu.BasicListMenu;
+import org.chromium.ui.listmenu.ListMenu;
+import org.chromium.ui.listmenu.ListMenuButtonDelegate;
 import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.widget.RectProvider;
 import org.chromium.url.GURL;
@@ -97,8 +98,7 @@ public class HomeButtonCoordinator {
                             @Override
                             public void onPageLoadFinished(Tab tab, GURL url) {
                                 // Part of scroll jank investigation http://crbug.com/1311003. Will
-                                // remove
-                                // TraceEvent after the investigation is complete.
+                                // remove TraceEvent after the investigation is complete.
                                 try (TraceEvent te =
                                         TraceEvent.scoped(
                                                 "HomeButtonCoordinator::onPageLoadFinished")) {
@@ -125,7 +125,7 @@ public class HomeButtonCoordinator {
     void handlePageLoadFinished(GURL url) {
         if (!mHomeButton.isShown()) return;
         if (mIsIncognitoSupplier.getAsBoolean()) return;
-        if (UrlUtilities.isNTPUrl(url)) return;
+        if (UrlUtilities.isNtpUrl(url)) return;
         if (mIsHomepageNonNtpSupplier.get()) return;
         if (mPromoShownOneshotSupplier.get() == null || mPromoShownOneshotSupplier.get()) return;
 
@@ -160,7 +160,7 @@ public class HomeButtonCoordinator {
                             ID_SETTINGS,
                             R.drawable.ic_edit_24dp));
             BasicListMenu listMenu =
-                    new BasicListMenu(
+                    BrowserUiListMenuUtils.getBasicListMenu(
                             mContext,
                             mMenuList,
                             (model) -> mOnMenuClickCallback.onResult(mContext));

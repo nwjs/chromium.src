@@ -47,6 +47,8 @@ struct CONTENT_EXPORT IdentityProviderMetadata {
   // IdentityProviderMetadata so that the UI code can pass it along when an
   // Account is selected by the user.
   GURL config_url;
+  // Whether this IdP supports signing in to additional accounts.
+  bool supports_add_account{false};
 };
 
 struct CONTENT_EXPORT IdentityProviderData {
@@ -96,7 +98,7 @@ class CONTENT_EXPORT IdentityRequestDialogController {
 
   using DismissCallback =
       base::OnceCallback<void(DismissReason dismiss_reason)>;
-  using SigninToIdPCallback = base::OnceCallback<void()>;
+  using LoginToIdPCallback = base::OnceCallback<void(GURL /*idp_login_url*/)>;
   using MoreDetailsCallback = base::OnceCallback<void()>;
 
   IdentityRequestDialogController() = default;
@@ -129,6 +131,7 @@ class CONTENT_EXPORT IdentityRequestDialogController {
       IdentityRequestAccount::SignInMode sign_in_mode,
       bool show_auto_reauthn_checkbox,
       AccountSelectionCallback on_selected,
+      LoginToIdPCallback on_add_account,
       DismissCallback dismiss_callback);
 
   // Shows a failure UI when the accounts fetch is failed such that it is
@@ -141,7 +144,7 @@ class CONTENT_EXPORT IdentityRequestDialogController {
       const blink::mojom::RpContext& rp_context,
       const IdentityProviderMetadata& idp_metadata,
       DismissCallback dismiss_callback,
-      SigninToIdPCallback signin_callback);
+      LoginToIdPCallback login_callback);
 
   // Shows an error UI when the user's sign-in attempt failed.
   virtual void ShowErrorDialog(

@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_PASSWORD_MANAGER_ANDROID_PASSWORD_STORE_ANDROID_BACKEND_H_
 
 #include <memory>
+#include <optional>
 #include <unordered_map>
 
 #include "base/containers/small_map.h"
@@ -21,12 +22,15 @@
 #include "chrome/browser/password_manager/android/password_store_android_backend_bridge_helper.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_dispatcher_bridge.h"
 #include "chrome/browser/password_manager/android/password_sync_controller_delegate_android.h"
-#include "components/password_manager/core/browser/password_store_backend.h"
-#include "components/password_manager/core/browser/password_store_backend_metrics_recorder.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
+#include "components/password_manager/core/browser/password_store/password_store_backend.h"
+#include "components/password_manager/core/browser/password_store/password_store_backend_metrics_recorder.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 
+class PrefService;
+
 namespace password_manager {
+
+class AffiliationsPrefetcher;
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused. Update enums.xml whenever updating
@@ -73,8 +77,9 @@ enum class PasswordStoreOperation {
   // Operation that is non-modifying, but not safe to retry because it is
   // user-visible.
   kGetGroupedMatchingLoginsAsync = 12,
+  kGetAllLoginsWithBrandingInfoAsync = 13,
 
-  kMaxValue = kGetGroupedMatchingLoginsAsync,
+  kMaxValue = kGetAllLoginsWithBrandingInfoAsync,
 };
 
 // Android-specific password store backend that delegates every request to
@@ -89,14 +94,17 @@ class PasswordStoreAndroidBackend
     : public PasswordStoreBackend,
       public PasswordStoreAndroidBackendReceiverBridge::Consumer {
  public:
-  explicit PasswordStoreAndroidBackend(PrefService* prefs);
+  PasswordStoreAndroidBackend(
+      PrefService* prefs,
+      AffiliationsPrefetcher* affiliations_prefetcher);
   PasswordStoreAndroidBackend(
       base::PassKey<class PasswordStoreAndroidBackendTest>,
       std::unique_ptr<PasswordStoreAndroidBackendBridgeHelper> bridge_helper,
       std::unique_ptr<PasswordManagerLifecycleHelper> lifecycle_helper,
       std::unique_ptr<PasswordSyncControllerDelegateAndroid>
           sync_controller_delegate,
-      PrefService* prefs);
+      PrefService* prefs,
+      AffiliationsPrefetcher* affiliations_prefetcher);
   ~PasswordStoreAndroidBackend() override;
 
  private:
@@ -138,7 +146,7 @@ class PasswordStoreAndroidBackend
       return std::move(absl::get<T>(success_callback_));
     }
 
-    void RecordMetrics(absl::optional<AndroidBackendError> error) const;
+    void RecordMetrics(std::optional<AndroidBackendError> error) const;
     base::TimeDelta GetElapsedTimeSinceStart() const;
 
     base::TimeDelta GetDelay();
@@ -168,7 +176,7 @@ class PasswordStoreAndroidBackend
   void GetAllLoginsWithAffiliationAndBrandingAsync(
       LoginsOrErrorReply callback) override;
   void GetAutofillableLoginsAsync(LoginsOrErrorReply callback) override;
-  void GetAllLoginsForAccountAsync(absl::optional<std::string> account,
+  void GetAllLoginsForAccountAsync(std::optional<std::string> account,
                                    LoginsOrErrorReply callback) override;
   void FillMatchingLoginsAsync(
       LoginsOrErrorReply callback,
@@ -258,7 +266,7 @@ class PasswordStoreAndroidBackend
                    MetricInfix metric_infix,
                    PasswordStoreOperation operation,
                    base::TimeDelta delay);
-  absl::optional<JobReturnHandler> GetAndEraseJob(JobId job_id);
+  std::optional<JobReturnHandler> GetAndEraseJob(JobId job_id);
 
   // Gets logins matching |form|.
   void GetLoginsAsync(const PasswordFormDigest& form,
@@ -364,6 +372,8 @@ class PasswordStoreAndroidBackend
       sync_controller_delegate_;
 
   raw_ptr<PrefService> prefs_ = nullptr;
+
+  raw_ptr<AffiliationsPrefetcher> affiliations_prefetcher_ = nullptr;
 
   base::Time initialized_at_ = base::Time::Now();
 

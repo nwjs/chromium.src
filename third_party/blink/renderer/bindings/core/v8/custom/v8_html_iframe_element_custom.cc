@@ -16,7 +16,7 @@ void V8HTMLIFrameElement::NwUserAgentAttributeSetterCustom(v8::Local<v8::Value> 
 {
   HTMLIFrameElement* frame = V8HTMLIFrameElement::ToWrappableUnsafe(info.Holder());
   // String agentValue = toCoreStringWithNullCheck(value);
-  V8StringResource<> agentValue (value);
+  V8StringResource<> agentValue (info.GetIsolate(), value);
 
   frame->setAttribute(html_names::kNwuseragentAttr, agentValue);
 

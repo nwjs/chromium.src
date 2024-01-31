@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ash/policy/remote_commands/crd_support_host_observer_proxy.h"
 
+#include "base/functional/bind.h"
 #include "chrome/browser/ash/policy/remote_commands/crd_logging.h"
 #include "chrome/browser/ash/policy/remote_commands/crd_remote_command_utils.h"
 #include "chrome/browser/ash/policy/remote_commands/crd_session_observer.h"
@@ -21,17 +22,26 @@ void SupportHostObserverProxy::AddObserver(CrdSessionObserver* observer) {
   observers_.AddObserver(observer);
 }
 
+void SupportHostObserverProxy::AddOwnedObserver(
+    std::unique_ptr<CrdSessionObserver> observer) {
+  AddObserver(observer.get());
+  owned_session_observers_.push_back(std::move(observer));
+}
+
 void SupportHostObserverProxy::Bind(
     mojo::PendingReceiver<remoting::mojom::SupportHostObserver> receiver) {
   receiver_.Bind(std::move(receiver));
-}
 
-void SupportHostObserverProxy::Unbind() {
-  receiver_.reset();
-}
+  // Inform our observers that the session has started
+  for (auto& observer : observers_) {
+    observer.OnHostStarted();
+  }
 
-bool SupportHostObserverProxy::IsBound() const {
-  return receiver_.is_bound();
+  // Ensure we can inform our observers if the mojom connection drops.
+  receiver_.set_disconnect_handler(base::BindOnce(
+      &SupportHostObserverProxy::ReportHostStopped, base::Unretained(this),
+      ExtendedStartCrdSessionResultCode::kFailureCrdHostError,
+      "mojom connection dropped"));
 }
 
 // `remoting::mojom::SupportHostObserver` implementation:
@@ -49,7 +59,7 @@ void SupportHostObserverProxy::OnHostStateReceivedAccessCode(
   CRD_DVLOG(3) << __func__;
 
   for (auto& observer : observers_) {
-    observer.OnHostStarted(access_code);
+    observer.OnAccessCodeReceived(access_code);
   }
 }
 
@@ -77,7 +87,7 @@ void SupportHostObserverProxy::OnHostStateDisconnected(
     observer.OnClientDisconnected();
   }
 
-  ReportHostStopped(ResultCode::HOST_SESSION_DISCONNECTED,
+  ReportHostStopped(ExtendedStartCrdSessionResultCode::kHostSessionDisconnected,
                     "client disconnected");
 }
 
@@ -93,28 +103,30 @@ void SupportHostObserverProxy::OnHostStateError(int64_t error) {
                << " with error code: " << ErrorCodeToString(error_code) << "("
                << error_code << ")";
 
-  const ResultCode result_code = ConvertErrorCodeToResultCode(error_code);
-  ReportHostStopped(result_code, "host state error");
+  ReportHostStopped(ToExtendedStartCrdSessionResultCode(error_code),
+                    "host state error");
 }
 
 void SupportHostObserverProxy::OnPolicyError() {
   CRD_DVLOG(3) << __func__;
 
-  ReportHostStopped(ResultCode::FAILURE_HOST_POLICY_ERROR, "policy error");
+  ReportHostStopped(ExtendedStartCrdSessionResultCode::kFailureHostPolicyError,
+                    "policy error");
 }
 
 void SupportHostObserverProxy::OnInvalidDomainError() {
   CRD_DVLOG(3) << __func__;
 
-  ReportHostStopped(ResultCode::FAILURE_HOST_INVALID_DOMAIN_ERROR,
-                    "invalid domain error");
+  ReportHostStopped(
+      ExtendedStartCrdSessionResultCode::kFailureHostInvalidDomainError,
+      "invalid domain error");
 }
 
 void SupportHostObserverProxy::ReportHostStopped(
-    ResultCode error_code,
+    ExtendedStartCrdSessionResultCode result,
     const std::string& error_message) {
   for (auto& observer : observers_) {
-    observer.OnHostStopped(error_code, error_message);
+    observer.OnHostStopped(result, error_message);
   }
 }
 

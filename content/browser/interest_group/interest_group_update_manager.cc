@@ -28,6 +28,7 @@
 #include "base/values.h"
 #include "components/aggregation_service/aggregation_coordinator_utils.h"
 #include "components/aggregation_service/features.h"
+#include "content/browser/interest_group/interest_group_features.h"
 #include "content/browser/interest_group/interest_group_manager_impl.h"
 #include "content/browser/interest_group/interest_group_storage.h"
 #include "content/browser/interest_group/interest_group_update.h"
@@ -66,6 +67,28 @@ constexpr base::TimeDelta kMaxUpdateRoundDuration = base::Minutes(10);
 
 // The maximum number of groups that can be updated at the same time.
 constexpr int kMaxParallelUpdates = 5;
+
+// For group update duration metrics.
+constexpr base::TimeDelta kGroupUpdateDurationMin = base::Milliseconds(1);
+constexpr base::TimeDelta kGroupUpdateDurationMax = base::Seconds(30);
+constexpr int kGroupUpdateDurationBuckets = 100;
+
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// For group update round result count.
+enum class GroupUpdateRoundResult {
+  kSuccess = 0,  // Round update is successful
+  kTimeout,      // Round update is cancelled due to timeout
+  kMaxValue = kTimeout,
+};
+
+// For group update batch operation count.
+enum class GroupUpdateBatchOperation {
+  kNonSplit = 0,  // Batch remains non-split
+  kSplit,         // Batch is split due to different joining origin
+  kMaxValue = kSplit,
+};
 
 constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
     net::DefineNetworkTrafficAnnotation("interest_group_update_fetcher", R"(
@@ -281,6 +304,42 @@ constexpr net::NetworkTrafficAnnotationTag kTrafficAnnotation =
   }
   interest_group_update.trusted_bidding_signals_keys =
       trusted_bidding_signals_keys;
+  return true;
+}
+
+// Copies the userBiddingSignals JSON "any" field into
+// `interest_group_update` as a string, returns true iff re-serialization
+// succeeded and the copy completed.
+[[nodiscard]] bool TryToCopyUserBiddingSignals(
+    const base::Value::Dict& dict,
+    InterestGroupUpdate& interest_group_update) {
+  const base::Value* maybe_user_bidding_signals =
+      dict.Find("userBiddingSignals");
+  if (!maybe_user_bidding_signals) {
+    return true;
+  }
+  std::string user_bidding_signals;
+  JSONStringValueSerializer serializer(&user_bidding_signals);
+  if (!serializer.Serialize(*maybe_user_bidding_signals)) {
+    return false;
+  }
+  interest_group_update.user_bidding_signals = std::move(user_bidding_signals);
+  return true;
+}
+
+// Copies the trustedBiddingSignalsSlotSizeMode JSON field into
+// `trusted_bidding_signals_slot_size_mode`. Always succeeds.
+[[nodiscard]] bool TryToCopyTrustedBiddingSignalsSlotSizeMode(
+    const base::Value::Dict& dict,
+    InterestGroupUpdate& interest_group_update) {
+  const std::string* trusted_bidding_signals_slot_size_mode =
+      dict.FindString("trustedBiddingSignalsSlotSizeMode");
+  if (!trusted_bidding_signals_slot_size_mode) {
+    return true;
+  }
+  interest_group_update.trusted_bidding_signals_slot_size_mode =
+      blink::InterestGroup::ParseTrustedBiddingSignalsSlotSizeMode(
+          *trusted_bidding_signals_slot_size_mode);
   return true;
 }
 
@@ -612,8 +671,18 @@ absl::optional<InterestGroupUpdate> ParseUpdateJson(
     interest_group_update.trusted_bidding_signals_url =
         GURL(*maybe_trusted_bidding_signals_url);
   }
+  if (!TryToCopyTrustedBiddingSignalsSlotSizeMode(*dict,
+                                                  interest_group_update)) {
+    return absl::nullopt;
+  }
   if (!TryToCopyTrustedBiddingSignalsKeys(*dict, interest_group_update)) {
     return absl::nullopt;
+  }
+  if (base::FeatureList::IsEnabled(
+          features::kEnableUpdatingUserBiddingSignals)) {
+    if (!TryToCopyUserBiddingSignals(*dict, interest_group_update)) {
+      return absl::nullopt;
+    }
   }
   if (!TryToCopyAds(*dict, interest_group_update)) {
     return absl::nullopt;
@@ -732,6 +801,11 @@ InterestGroupUpdateManager::OwnersToUpdate::GetIsolationInfoByJoiningOrigin(
   }
 }
 
+void InterestGroupUpdateManager::OwnersToUpdate::
+    ClearJoiningOriginIsolationInfoMap() {
+  joining_origin_isolation_info_map_.clear();
+}
+
 void InterestGroupUpdateManager::OwnersToUpdate::Clear() {
   owners_to_update_.clear();
   security_state_map_.clear();
@@ -746,6 +820,11 @@ void InterestGroupUpdateManager::MaybeContinueUpdatingCurrentOwner() {
   if (owners_to_update_.Empty()) {
     // This update round is finished, there's no more work to do.
     last_update_started_ = base::TimeTicks::Min();
+
+    base::UmaHistogramEnumeration(
+        "Ads.InterestGroup.Auction.GroupUpdate.RoundResult",
+        GroupUpdateRoundResult::kSuccess);
+
     return;
   }
 
@@ -758,6 +837,11 @@ void InterestGroupUpdateManager::MaybeContinueUpdatingCurrentOwner() {
     // We've been updating for too long; cancel all outstanding updates.
     owners_to_update_.Clear();
     last_update_started_ = base::TimeTicks::Min();
+
+    base::UmaHistogramEnumeration(
+        "Ads.InterestGroup.Auction.GroupUpdate.RoundResult",
+        GroupUpdateRoundResult::kTimeout);
+
     return;
   }
 
@@ -797,6 +881,7 @@ void InterestGroupUpdateManager::UpdateInterestGroupByBatch(
 
   for (auto& [interest_group_key, update_url, joining_origin] :
        update_parameters) {
+    base::TimeTicks start_time = base::TimeTicks::Now();
     manager_->QueueKAnonymityUpdateForInterestGroup(interest_group_key);
     ++num_in_flight_updates_;
     base::UmaHistogramCounts100000(
@@ -829,8 +914,20 @@ void InterestGroupUpdateManager::UpdateInterestGroupByBatch(
             base::BindOnce(&InterestGroupUpdateManager::
                                DidUpdateInterestGroupsOfOwnerNetFetch,
                            weak_factory_.GetWeakPtr(), simple_url_loader_it,
-                           interest_group_key),
+                           interest_group_key, start_time),
             kMaxUpdateSize);
+  }
+
+  // To avoid the possibility of groups that join during the current update
+  // process being updated in the next batch with the same isolation
+  // information, clear the `joining_origin_isolation_info_map_` when mixed
+  // joining origins are detected in a single update batch.
+  if (base::FeatureList::IsEnabled(features::kGroupNIKByJoiningOrigin)) {
+    if (update_parameters.size() > 1 &&
+        !update_parameters.at(0).joining_origin.IsSameOriginWith(
+            update_parameters.back().joining_origin)) {
+      owners_to_update_.ClearJoiningOriginIsolationInfoMap();
+    }
   }
 }
 
@@ -891,6 +988,10 @@ void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerDbLoad(
            .joining_origin.IsSameOriginWith(
                update_parameters.at(max_parallel_updates_).joining_origin)) {
     update_parameters.resize(max_parallel_updates_);
+
+    base::UmaHistogramEnumeration(
+        "Ads.InterestGroup.Auction.GroupUpdate.BatchOperation",
+        GroupUpdateBatchOperation::kNonSplit);
   } else {
     // Interest groups with same joining origin cannot be put into
     // different batches, unless it can fill all the batches except the
@@ -906,6 +1007,10 @@ void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerDbLoad(
                pop_out_origin)) {
       update_parameters.pop_back();
     }
+
+    base::UmaHistogramEnumeration(
+        "Ads.InterestGroup.Auction.GroupUpdate.BatchOperation",
+        GroupUpdateBatchOperation::kSplit);
   }
 
   UpdateInterestGroupByBatch(owner, std::move(update_parameters));
@@ -915,6 +1020,7 @@ void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerDbLoad(
 void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerNetFetch(
     UrlLoadersList::iterator simple_url_loader_it,
     blink::InterestGroupKey group_key,
+    base::TimeTicks start_time,
     std::unique_ptr<std::string> fetch_body) {
   DCHECK_EQ(group_key.owner, owners_to_update_.FrontOwner());
   DCHECK_GT(num_in_flight_updates_, 0);
@@ -933,6 +1039,12 @@ void InterestGroupUpdateManager::DidUpdateInterestGroupsOfOwnerNetFetch(
   }
   base::UmaHistogramCounts100000(
       "Ads.InterestGroup.Net.ResponseSizeBytes.Update", fetch_body->size());
+  base::UmaHistogramCustomCounts(
+      "Ads.InterestGroup.Auction.GroupUpdate.Duration",
+      (base::TimeTicks::Now() - start_time).InMilliseconds(),
+      kGroupUpdateDurationMin.InMilliseconds(),
+      kGroupUpdateDurationMax.InMilliseconds(), kGroupUpdateDurationBuckets);
+
   data_decoder::DataDecoder::ParseJsonIsolated(
       *fetch_body,
       base::BindOnce(

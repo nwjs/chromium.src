@@ -12,7 +12,6 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/time/time.h"
-#include "base/timer/elapsed_timer.h"
 #include "base/timer/timer.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/oobe_quick_start/connectivity/account_transfer_client_data.h"
@@ -20,6 +19,7 @@
 #include "chrome/browser/ash/login/oobe_quick_start/connectivity/session_context.h"
 #include "chrome/browser/ash/login/oobe_quick_start/connectivity/target_device_connection_broker.h"
 #include "chrome/browser/nearby_sharing/public/cpp/nearby_connection.h"
+#include "chromeos/ash/components/quick_start/quick_start_metrics.h"
 #include "chromeos/ash/components/quick_start/quick_start_response_type.h"
 #include "chromeos/ash/components/quick_start/types.h"
 #include "chromeos/ash/services/nearby/public/mojom/quick_start_decoder.mojom.h"
@@ -40,7 +40,7 @@ class QuickStartMessage;
 class Connection
     : public TargetDeviceConnectionBroker::AuthenticatedConnection {
  public:
-  static constexpr base::TimeDelta kDefaultRoundTripTimeout = base::Seconds(3);
+  static constexpr base::TimeDelta kDefaultRoundTripTimeout = base::Seconds(60);
 
   using HandshakeSuccessCallback = base::OnceCallback<void(bool)>;
   using ConnectionAuthenticatedCallback = base::OnceCallback<void(
@@ -53,6 +53,12 @@ class Connection
     kClosing,  // A close has been requested, but the connection is not yet
                // closed
     kClosed    // The connection is closed
+  };
+
+  enum class AuthenticationMethod {
+    kQR,
+    kPin,
+    kResumeAfterUpdate,
   };
 
   class Factory {
@@ -90,7 +96,7 @@ class Connection
   // Changes the connection state to authenticated and invokes the
   // ConnectionAuthenticatedCallback. The caller must ensure that the connection
   // is authenticated before calling this function.
-  void MarkConnectionAuthenticated();
+  void MarkConnectionAuthenticated(AuthenticationMethod auth_method);
 
   // Sends a cryptographic challenge to the source device. If the source device
   // can prove that it posesses the shared secret, then the connection is
@@ -114,7 +120,7 @@ class Connection
   // TargetDeviceConnectionBroker::AuthenticatedConnection:
   void RequestWifiCredentials(RequestWifiCredentialsCallback callback) override;
   void NotifySourceOfUpdate(NotifySourceOfUpdateCallback callback) override;
-  void RequestAccountInfo(base::OnceClosure callback) override;
+  void RequestAccountInfo(RequestAccountInfoCallback callback) override;
   void RequestAccountTransferAssertion(
       const Base64UrlString& challenge,
       RequestAccountTransferAssertionCallback callback) override;
@@ -143,7 +149,7 @@ class Connection
       mojom::QuickStartMessagePtr quick_start_message);
 
   void OnBootstrapConfigurationsResponse(
-      base::OnceClosure callback,
+      RequestAccountInfoCallback callback,
       mojom::QuickStartMessagePtr quick_start_message);
 
   void SendMessageAndDecodeResponse(
@@ -156,6 +162,8 @@ class Connection
       QuickStartResponseType response_type,
       base::OnceClosure callback,
       base::TimeDelta timeout = kDefaultRoundTripTimeout);
+  void SendMessageWithoutResponse(std::unique_ptr<QuickStartMessage> message,
+                                  QuickStartResponseType message_type);
   void SendBytesAndReadResponse(
       std::vector<uint8_t>&& bytes,
       QuickStartResponseType response_type,
@@ -189,9 +197,8 @@ class Connection
   ConnectionAuthenticatedCallback on_connection_authenticated_;
   std::string challenge_b64url_;
   mojo::SharedRemote<mojom::QuickStartDecoder> decoder_;
-  std::unique_ptr<base::ElapsedTimer> message_elapsed_timer_;
-  std::unique_ptr<base::ElapsedTimer> handshake_elapsed_timer_;
   std::unique_ptr<AccountTransferClientData> client_data_;
+  QuickStartMetrics quick_start_metrics_;
 
   // Separate WeakPtrFactory for use with |OnResponseReceived()| to allow for
   // canceling the response.

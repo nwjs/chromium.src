@@ -119,10 +119,10 @@ static_library("renderer") {
 
   if (enable_bound_session_credentials) {
     sources += [
+      "bound_session_credentials/bound_session_request_throttled_handler_renderer_impl.cc",
+      "bound_session_credentials/bound_session_request_throttled_handler_renderer_impl.h",
       "bound_session_credentials/bound_session_request_throttled_in_renderer_manager.cc",
       "bound_session_credentials/bound_session_request_throttled_in_renderer_manager.h",
-      "bound_session_credentials/bound_session_request_throttled_listener_renderer_impl.cc",
-      "bound_session_credentials/bound_session_request_throttled_listener_renderer_impl.h",
     ]
   }
 
@@ -144,12 +144,13 @@ static_library("renderer") {
     "//chrome/common/cart:mojo_bindings",
     "//chrome/common/net",
     "//chrome/common/search:mojo_bindings",
-    "//chrome/renderer/companion/visual_search",
+    "//chrome/renderer/companion/visual_query",
     "//chrome/services/speech/buildflags",
     "//components/autofill/content/renderer",
     "//components/autofill/core/common:features",
     "//components/base32",
     "//components/cdm/renderer",
+    "//components/commerce/content/renderer",
     "//components/commerce/core:commerce_heuristics_data",
     "//components/commerce/core:feature_list",
     "//components/commerce/core:heuristics_provider",
@@ -291,6 +292,7 @@ static_library("renderer") {
     deps += [
       "//components/pdf/common",
       "//components/pdf/renderer",
+      "//pdf:features",
     ]
 
     if (is_linux || is_chromeos) {

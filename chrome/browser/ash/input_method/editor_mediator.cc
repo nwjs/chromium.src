@@ -13,37 +13,17 @@
 #include "base/check_op.h"
 #include "base/containers/contains.h"
 #include "base/containers/fixed_flat_set.h"
+#include "chrome/browser/ash/input_method/editor_helpers.h"
 #include "chrome/browser/ash/input_method/editor_metrics_enums.h"
 #include "chrome/browser/ash/input_method/editor_metrics_recorder.h"
+#include "chrome/browser/ash/input_method/editor_text_query_provider.h"
+#include "chrome/browser/ash/input_method/editor_text_query_provider_for_testing.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
 #include "chrome/browser/ui/webui/ash/mako/mako_bubble_coordinator.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/ime/ash/ime_bridge.h"
 
 namespace ash::input_method {
-namespace {
-
-constexpr auto striped_symbols =
-    base::MakeFixedFlatSet<char>({' ', '\t', '\n', '.', ','});
-
-size_t NonWhitespaceAndSymbolsLength(const std::u16string& text,
-                                     gfx::Range selection_range) {
-  size_t start = selection_range.start();
-  while (start < selection_range.end() &&
-         striped_symbols.contains(text[start])) {
-    start++;
-  }
-
-  size_t end = selection_range.end();
-  while (end > selection_range.start() && end < text.length() &&
-         striped_symbols.contains(text[end])) {
-    end--;
-  }
-
-  return std::max(static_cast<int>(end) - static_cast<int>(start), 0);
-}
-
-}  // namespace
 
 EditorMediator::EditorMediator(Profile* profile, std::string_view country_code)
     : profile_(profile),
@@ -81,7 +61,7 @@ void EditorMediator::SetUpNewEditorService() {
     text_actuator_ = std::make_unique<EditorTextActuator>(
         profile_, text_actuator_remote.InitWithNewEndpointAndPassReceiver(),
         this);
-    text_query_provider_ = std::make_unique<EditorTextQueryProvider>(
+    text_query_provider_ = std::make_unique<TextQueryProviderForOrca>(
         text_query_provider_remote.InitWithNewEndpointAndPassReceiver(),
         profile_, editor_switch_.get());
     editor_client_connector_ = std::make_unique<EditorClientConnector>(
@@ -142,6 +122,9 @@ void EditorMediator::OnActivateIme(std::string_view engine_id) {
 
 void EditorMediator::OnTabletModeStarting() {
   editor_switch_->OnTabletModeUpdated(/*tablet_mode_enabled=*/true);
+  if (mako_bubble_coordinator_.IsShowingUI()) {
+    mako_bubble_coordinator_.CloseUI();
+  }
 }
 
 void EditorMediator::OnTabletModeEnded() {
@@ -203,9 +186,6 @@ void EditorMediator::HandleTrigger(
       break;
     case EditorMode::kConsentNeeded:
       mako_bubble_coordinator_.LoadConsentUI(profile_);
-      // TODO: b:301518440: remove the following line once ShowUI method for the consent
-      // screen is implemented.
-      mako_bubble_coordinator_.ShowUI();
       break;
     case EditorMode::kBlocked:
       mako_bubble_coordinator_.CloseUI();
@@ -255,6 +235,18 @@ void EditorMediator::Shutdown() {
   text_query_provider_ = nullptr;
   consent_store_ = nullptr;
   editor_switch_ = nullptr;
+}
+
+bool EditorMediator::SetTextQueryProviderResponseForTesting(
+    const std::vector<std::string>& mock_results) {
+  auto pending_receiver = text_query_provider_->Unbind();
+
+  if (!pending_receiver.has_value()) {
+    return false;
+  }
+  text_query_provider_ = std::make_unique<TextQueryProviderForTesting>(
+      std::move(pending_receiver.value()), mock_results);  // IN-TEST
+  return true;
 }
 
 }  // namespace ash::input_method

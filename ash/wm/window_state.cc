@@ -27,7 +27,6 @@
 #include "ash/wm/splitview/split_view_constants.h"
 #include "ash/wm/splitview/split_view_controller.h"
 #include "ash/wm/splitview/split_view_utils.h"
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_animations.h"
 #include "ash/wm/window_positioning_utils.h"
 #include "ash/wm/window_properties.h"
@@ -129,7 +128,7 @@ bool CanRestoreState(WindowStateType current_state,
 }
 
 bool IsTabletModeEnabled() {
-  return Shell::Get()->tablet_mode_controller()->InTabletMode();
+  return display::Screen::GetScreen()->InTabletMode();
 }
 
 bool IsToplevelContainer(aura::Window* window) {
@@ -527,7 +526,7 @@ void WindowState::OnWMEvent(const WMEvent* event) {
   if (snap_event) {
     // Save `event` requested snap ratio.
     const float target_snap_ratio = snap_event->snap_ratio();
-    snap_ratio_ = absl::make_optional(target_snap_ratio);
+    snap_ratio_ = std::make_optional(target_snap_ratio);
     if (IsPartial(target_snap_ratio)) {
       partial_start_time_ = base::TimeTicks::Now();
     } else {
@@ -677,7 +676,7 @@ std::unique_ptr<WindowState::State> WindowState::SetStateObject(
 void WindowState::UpdateSnapRatio() {
   if (!IsSnapped())
     return;
-  snap_ratio_ = absl::make_optional(GetCurrentSnapRatio(window_));
+  snap_ratio_ = std::make_optional(GetCurrentSnapRatio(window_));
   // If the snap ratio was adjusted, partial may have ended.
   MaybeRecordPartialDuration();
 }
@@ -885,17 +884,15 @@ void WindowState::SetBoundsInScreen(const gfx::Rect& bounds_in_screen) {
 
 void WindowState::AdjustSnappedBoundsForDisplayWorkspaceChange(
     gfx::Rect* bounds) {
-  auto* tablet_mode_controller = Shell::Get()->tablet_mode_controller();
-  const bool in_tablet =
-      tablet_mode_controller && tablet_mode_controller->InTabletMode();
-
   // Tablet mode should use bounds calculation in SplitViewController.
   // However, transient state from transitioning clamshell to tablet mode
   // might end up calling this function during work area changes, so we avoid
   // unnecessary task in that case when it will be overwritten by tablet mode
   // work.
-  if (is_dragged() || !IsSnapped() || in_tablet)
+  if (is_dragged() || !IsSnapped() ||
+      display::Screen::GetScreen()->InTabletMode()) {
     return;
+  }
   gfx::Rect maximized_bounds =
       screen_util::GetMaximizedWindowBoundsInParent(window_);
 
@@ -942,7 +939,7 @@ void WindowState::UpdateWindowPropertiesFromStateType() {
     const gfx::Size& size = window_->bounds().size();
     // WindowManager manages the window opacity. Make it opaque unless
     // the window has rounded corners.
-    if (chromeos::ShouldHaveRoundedWindow(GetStateType())) {
+    if (chromeos::ShouldWindowStateHaveRoundedCorners(GetStateType())) {
       window_->SetTransparent(true);
       window_->SetOpaqueRegionsForOcclusion({gfx::Rect(size)});
     } else {
@@ -1013,7 +1010,8 @@ void WindowState::SetBoundsDirect(const gfx::Rect& bounds) {
     // Changing the size of the PIP window can detach it from one of the edges
     // of the screen, which makes the snap fraction logic fail. Ensure to snap
     // it again.
-    if (IsPip() && !is_dragged()) {
+    if (IsPip() && !is_dragged() &&
+        !Shell::Get()->pip_controller()->is_tucked()) {
       wm::ConvertRectToScreen(window_->GetRootWindow(), &actual_new_bounds);
       actual_new_bounds = CollisionDetectionUtils::GetRestingPosition(
           display, actual_new_bounds,
@@ -1049,7 +1047,7 @@ void WindowState::SetBoundsDirectAnimated(const gfx::Rect& bounds,
 }
 
 void WindowState::SetBoundsDirectCrossFade(const gfx::Rect& new_bounds,
-                                           absl::optional<bool> float_state) {
+                                           std::optional<bool> float_state) {
   // Some test results in invoking CrossFadeToBounds when window is not visible.
   // No animation is necessary in that case, thus just change the bounds and
   // quit.

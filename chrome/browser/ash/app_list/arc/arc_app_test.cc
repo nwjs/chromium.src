@@ -14,6 +14,7 @@
 #include "ash/components/arc/test/fake_app_instance.h"
 #include "ash/components/arc/test/fake_arc_session.h"
 #include "ash/components/arc/test/fake_compatibility_mode_instance.h"
+#include "ash/constants/ash_features.h"
 #include "base/command_line.h"
 #include "base/containers/contains.h"
 #include "base/containers/cxx20_erase.h"
@@ -22,6 +23,9 @@
 #include "base/ranges/algorithm.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
+#include "chrome/browser/apps/app_service/promise_apps/promise_app_service.h"
 #include "chrome/browser/apps/app_service/publishers/arc_apps_factory.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs.h"
 #include "chrome/browser/ash/app_list/arc/arc_app_list_prefs_factory.h"
@@ -144,6 +148,12 @@ void ArcAppTest::SetUp(Profile* profile) {
     WaitForDefaultApps();
   WaitForRemoveAllApps();
 
+  if (ash::features::ArePromiseIconsEnabled()) {
+    apps::AppServiceProxyFactory::GetForProfile(profile_)
+        ->PromiseAppService()
+        ->SetSkipAlmanacForTesting(true);
+  }
+
   // Check initial conditions.
   if (activate_arc_on_start_) {
     if (!arc::ShouldArcAlwaysStart())
@@ -197,10 +207,10 @@ void ArcAppTest::WaitForRemoveAllApps() {
 void ArcAppTest::CreateFakeAppsAndPackages() {
   arc::mojom::AppInfo app;
   // Make sure we have enough data for test.
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 1; i <= 5; ++i) {
     arc::mojom::AppInfoPtr app_info = arc::mojom::AppInfo::New(
         base::StringPrintf("Fake App %d", i),
-        base::StringPrintf("fake.app.%d", i),
+        base::StringPrintf("fake.package.name%d", i),
         base::StringPrintf("fake.app.%d.activity", i), false /* sticky */);
     app_info->app_category = arc::mojom::AppCategory::kUndefined;
     fake_apps_.emplace_back(std::move(app_info));
@@ -292,7 +302,7 @@ void ArcAppTest::CreateFakeAppsAndPackages() {
       arc::mojom::PackageLocaleInfo::New(kSupportedLocales5,
                                          kSelectedLocale5)));
 
-  for (int i = 0; i < 3; ++i) {
+  for (int i = 1; i <= 5; ++i) {
     arc::mojom::ShortcutInfo shortcut_info;
     shortcut_info.name = base::StringPrintf("Fake Shortcut %d", i);
     shortcut_info.package_name = base::StringPrintf("fake.shortcut.%d", i);

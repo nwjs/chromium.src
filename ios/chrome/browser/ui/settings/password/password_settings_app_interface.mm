@@ -13,8 +13,8 @@
 #import "base/test/ios/wait_util.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/password_manager/core/browser/password_form.h"
-#import "components/password_manager/core/browser/password_store_consumer.h"
-#import "components/password_manager/core/browser/password_store_interface.h"
+#import "components/password_manager/core/browser/password_store/password_store_consumer.h"
+#import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "components/password_manager/core/common/password_manager_features.h"
 #import "components/password_manager/core/common/password_manager_pref_names.h"
 #import "components/password_manager/ios/fake_bulk_leak_check_service.h"
@@ -26,6 +26,7 @@
 #import "ios/chrome/test/app/chrome_test_util.h"
 #import "ios/chrome/test/app/mock_reauthentication_module.h"
 #import "ios/chrome/test/app/password_test_util.h"
+#import "ios/public/provider/chrome/browser/passcode_settings/passcode_settings_api.h"
 #import "url/gurl.h"
 #import "url/origin.h"
 
@@ -302,8 +303,8 @@ static std::unique_ptr<ScopedPasswordSettingsReauthModuleOverride>
   fakeBulkLeakCheckService->SetBufferedState(state);
 }
 
-+ (BOOL)isPasswordCheckupEnabled {
-  return password_manager::features::IsPasswordCheckupEnabled();
++ (BOOL)isPasscodeSettingsAvailable {
+  return ios::provider::SupportsPasscodeSettings();
 }
 
 @end

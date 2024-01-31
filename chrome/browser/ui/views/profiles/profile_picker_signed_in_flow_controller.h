@@ -11,7 +11,7 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/ui/views/profiles/profile_management_types.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_web_contents_host.h"
-#include "chrome/browser/ui/webui/signin/enterprise_profile_welcome_ui.h"
+#include "chrome/browser/ui/webui/signin/managed_user_profile_notice_ui.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -73,7 +73,7 @@ class ProfilePickerSignedInFlowController
   // Finishes the sign-in process by moving to the enterprise profile welcome
   // screen.
   virtual void SwitchToEnterpriseProfileWelcome(
-      EnterpriseProfileWelcomeUI::ScreenType type,
+      ManagedUserProfileNoticeUI::ScreenType type,
       signin::SigninChoiceCallback proceed_callback);
 
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
@@ -95,6 +95,8 @@ class ProfilePickerSignedInFlowController
   // screen. Returns an empty path if no such screen has been displayed.
   base::FilePath switch_profile_path() const { return switch_profile_path_; }
 
+  content::WebContents* contents() const { return contents_.get(); }
+
  protected:
   // Returns the profile color, taking into account current policies.
   absl::optional<SkColor> GetProfileColor() const;
@@ -105,7 +107,6 @@ class ProfilePickerSignedInFlowController
 
   ProfilePickerWebContentsHost* host() const { return host_; }
   Profile* profile() const { return profile_; }
-  content::WebContents* contents() const { return contents_.get(); }
   std::unique_ptr<content::WebContents> ReleaseContents();
   const CoreAccountInfo& account_info() const { return account_info_; }
 
@@ -120,7 +121,7 @@ class ProfilePickerSignedInFlowController
   // Callbacks that finalize initialization of WebUI pages.
   void SwitchToSyncConfirmationFinished();
   void SwitchToEnterpriseProfileWelcomeFinished(
-      EnterpriseProfileWelcomeUI::ScreenType type,
+      ManagedUserProfileNoticeUI::ScreenType type,
       signin::SigninChoiceCallback proceed_callback);
 
   // Returns whether the flow is initialized (i.e. whether `Init()` has been

@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
+#include "chrome/browser/ash/ownership/owner_key_loader.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash.h"
 #include "chrome/browser/ash/ownership/owner_settings_service_ash_factory.h"
 #include "chrome/browser/ash/policy/core/device_policy_builder.h"
@@ -65,6 +66,11 @@ class CrosSettingsTest : public testing::Test {
   ~CrosSettingsTest() override {}
 
   void SetUp() override {
+    // Disable owner key migration.
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{kStoreOwnerKeyInPrivateSlot},
+        /*disabled_features=*/{kMigrateOwnerKeyToPrivateSlot});
+
     device_policy_.Build();
 
     fake_session_manager_client_.set_device_policy(device_policy_.GetBlob());
@@ -147,6 +153,7 @@ class CrosSettingsTest : public testing::Test {
     return CrosSettings::Get()->IsUserAllowlisted(username, nullptr, user_type);
   }
 
+  base::test::ScopedFeatureList feature_list_;
   content::BrowserTaskEnvironment task_environment_{
       content::BrowserTaskEnvironment::IO_MAINLOOP};
 

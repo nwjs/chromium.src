@@ -17,32 +17,37 @@
 #include "ash/shelf/hotseat_widget.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
+#include "ash/strings/grit/ash_strings.h"
 #include "ash/system/message_center/fullscreen_notification_blocker.h"
 #include "ash/system/message_center/message_center_constants.h"
 #include "ash/system/message_center/message_view_factory.h"
 #include "ash/system/message_center/metrics_utils.h"
 #include "ash/system/status_area_widget.h"
+#include "ash/system/status_area_widget_delegate.h"
 #include "ash/system/tray/system_tray_notifier.h"
 #include "ash/system/tray/tray_background_view.h"
 #include "ash/system/tray/tray_bubble_view.h"
 #include "ash/system/tray/tray_utils.h"
 #include "ash/system/unified/unified_system_tray.h"
-#include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_properties.h"
 #include "ash/wm/work_area_insets.h"
 #include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/i18n/rtl.h"
 #include "base/metrics/histogram_functions.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/compositor.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
+#include "ui/display/tablet_state.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/native_widget_types.h"
+#include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/message_center_constants.h"
 #include "ui/message_center/views/message_popup_collection.h"
 #include "ui/message_center/views/message_popup_view.h"
 #include "ui/message_center/views/message_view.h"
+#include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/shadow_types.h"
 
@@ -69,14 +74,12 @@ AshMessagePopupCollection::NotifierCollisionHandler::NotifierCollisionHandler(
     AshMessagePopupCollection* popup_collection)
     : popup_collection_(popup_collection) {
   Shell::Get()->system_tray_notifier()->AddSystemTrayObserver(this);
-  Shell::Get()->tablet_mode_controller()->AddObserver(this);
   popup_collection_->shelf_->AddObserver(this);
 }
 
 AshMessagePopupCollection::NotifierCollisionHandler::
     ~NotifierCollisionHandler() {
   popup_collection_->shelf_->RemoveObserver(this);
-  Shell::Get()->tablet_mode_controller()->RemoveObserver(this);
   Shell::Get()->system_tray_notifier()->RemoveSystemTrayObserver(this);
 }
 
@@ -246,12 +249,12 @@ void AshMessagePopupCollection::NotifierCollisionHandler::RecordSurfaceType() {
 }
 
 void AshMessagePopupCollection::NotifierCollisionHandler::
-    OnTabletModeStarted() {
-  // Reset bounds so pop-up baseline is updated.
-  popup_collection_->ResetBounds();
-}
+    OnDisplayTabletStateChanged(display::TabletState state) {
+  if (display::IsTabletStateChanging(state)) {
+    // Do nothing when the tablet state is still in the process of transition.
+    return;
+  }
 
-void AshMessagePopupCollection::NotifierCollisionHandler::OnTabletModeEnded() {
   // Reset bounds so pop-up baseline is updated.
   popup_collection_->ResetBounds();
 }
@@ -282,10 +285,14 @@ void AshMessagePopupCollection::NotifierCollisionHandler::OnHotseatStateChanged(
 ///////////////////////////////////////////////////////////////////////////////
 // AshMessagePopupCollection:
 
-AshMessagePopupCollection::AshMessagePopupCollection(Shelf* shelf)
-    : screen_(nullptr), shelf_(shelf) {
+AshMessagePopupCollection::AshMessagePopupCollection(display::Screen* screen,
+                                                     Shelf* shelf)
+    : screen_(screen), shelf_(shelf) {
   notifier_collision_handler_ =
       std::make_unique<NotifierCollisionHandler>(this);
+  StartObserving(screen_,
+                 screen_->GetDisplayNearestWindow(
+                     shelf_->GetStatusAreaWidget()->GetNativeWindow()));
 }
 
 AshMessagePopupCollection::~AshMessagePopupCollection() {
@@ -319,12 +326,15 @@ int AshMessagePopupCollection::GetPopupOriginX(
 
 int AshMessagePopupCollection::GetBaseline() const {
   gfx::Insets tray_bubble_insets = GetTrayBubbleInsets(shelf_->GetWindow());
+  int notifier_collision_offset =
+      notifier_collision_handler_
+          ? notifier_collision_handler_->CalculateBaselineOffset()
+          : 0;
 
   // Decrease baseline by `kShelfDisplayOffset` to compensate for the adjustment
   // of edges in `Shelf::GetSystemTrayAnchorRect()`.
   return work_area_.bottom() - tray_bubble_insets.bottom() -
-         notifier_collision_handler_->CalculateBaselineOffset() -
-         kShelfDisplayOffset;
+         notifier_collision_offset - kShelfDisplayOffset;
 }
 
 gfx::Rect AshMessagePopupCollection::GetWorkArea() const {
@@ -396,7 +406,23 @@ void AshMessagePopupCollection::NotifyPopupClosed(
     last_pop_up_added_ = nullptr;
 }
 
+void AshMessagePopupCollection::NotifySilentNotification(
+    const std::string& notification_id) {
+  // Have any active screen reader announce the incoming silent notification.
+  const views::View* status_area_widget_delegate =
+      shelf_->GetStatusAreaWidget()->status_area_widget_delegate();
+  CHECK(status_area_widget_delegate);
+  status_area_widget_delegate->GetViewAccessibility().AnnounceText(
+      l10n_util::GetStringFUTF16Int(
+          IDS_ASH_MESSAGE_CENTER_SILENT_NOTIFICATION_ANNOUNCEMENT,
+          (int)message_center::MessageCenter::Get()->NotificationCount()));
+}
+
 void AshMessagePopupCollection::NotifyPopupCollectionHeightChanged() {
+  if (!notifier_collision_handler_) {
+    return;
+  }
+
   notifier_collision_handler_->OnPopupCollectionHeightChanged();
 }
 

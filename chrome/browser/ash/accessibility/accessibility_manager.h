@@ -96,7 +96,7 @@ using AccessibilityStatusCallbackList =
     base::RepeatingCallbackList<void(const AccessibilityStatusEventDetails&)>;
 using AccessibilityStatusCallback =
     AccessibilityStatusCallbackList::CallbackType;
-using GetDlcContentsCallback =
+using GetTtsDlcContentsCallback =
     base::OnceCallback<void(const std::vector<uint8_t>&,
                             absl::optional<std::string>)>;
 using InstallPumpkinCallback = base::OnceCallback<void(
@@ -185,6 +185,9 @@ class AccessibilityManager
 
   // Returns true if autoclick is enabled.
   bool IsAutoclickEnabled() const;
+
+  // Enables or disables FaceGaze.
+  void EnableFaceGaze(bool enabled);
 
   // Requests the Autoclick extension find the bounds of the nearest scrollable
   // ancestor to the point in the screen, as given in screen coordinates.
@@ -440,12 +443,16 @@ class AccessibilityManager
   void InstallPumpkinForDictation(InstallPumpkinCallback callback);
 
   // Reads the contents of a DLC file and runs `callback` with the results.
-  void GetDlcContents(::extensions::api::accessibility_private::DlcType dlc,
-                      GetDlcContentsCallback callback);
-  // A helper for GetDlcContents, which is called after retrieving the state
+  void GetTtsDlcContents(
+      ::extensions::api::accessibility_private::DlcType dlc,
+      ::extensions::api::accessibility_private::TtsVariant variant,
+      GetTtsDlcContentsCallback callback);
+  // A helper for GetTtsDlcContents, which is called after retrieving the state
   // of the target DLC.
-  void GetDlcContentsOnPackState(GetDlcContentsCallback callback,
-                                 const language_packs::PackResult& pack_result);
+  void GetTtsDlcContentsOnPackState(
+      ::extensions::api::accessibility_private::TtsVariant variant,
+      GetTtsDlcContentsCallback callback,
+      const language_packs::PackResult& pack_result);
   void SetDlcPathForTest(base::FilePath path);
 
  protected:
@@ -575,10 +582,6 @@ class AccessibilityManager
           data);
 
   void OnAppTerminating();
-
-  // Returns a full file path given a DLC.
-  base::FilePath TtsDlcTypeToPath(
-      ::extensions::api::accessibility_private::DlcType dlc);
 
   // Profile which has the current a11y context.
   raw_ptr<Profile, ExperimentalAsh> profile_ = nullptr;

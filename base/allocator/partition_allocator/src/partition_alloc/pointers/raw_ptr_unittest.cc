@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "base/allocator/partition_allocator/src/partition_alloc/pointers/raw_ptr.h"
+#include "partition_alloc/pointers/raw_ptr.h"
 
 #include <climits>
 #include <cstddef>
@@ -15,22 +15,7 @@
 
 #include "base/allocator/partition_alloc_features.h"
 #include "base/allocator/partition_alloc_support.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/chromeos_buildflags.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/dangling_raw_ptr_checks.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc-inl.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_base/numerics/checked_math.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_buildflags.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_config.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_constants.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_alloc_hooks.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/partition_root.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/pointers/raw_ptr_counting_impl_for_test.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/pointers/raw_ptr_test_support.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/pointers/raw_ref.h"
-#include "base/allocator/partition_allocator/src/partition_alloc/tagging.h"
 #include "base/cpu.h"
-#include "base/cxx20_to_address.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr_asan_service.h"
 #include "base/task/thread_pool.h"
@@ -41,6 +26,20 @@
 #include "base/test/task_environment.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
+#include "partition_alloc/chromeos_buildflags.h"
+#include "partition_alloc/dangling_raw_ptr_checks.h"
+#include "partition_alloc/partition_alloc-inl.h"
+#include "partition_alloc/partition_alloc.h"
+#include "partition_alloc/partition_alloc_base/numerics/checked_math.h"
+#include "partition_alloc/partition_alloc_buildflags.h"
+#include "partition_alloc/partition_alloc_config.h"
+#include "partition_alloc/partition_alloc_constants.h"
+#include "partition_alloc/partition_alloc_hooks.h"
+#include "partition_alloc/partition_root.h"
+#include "partition_alloc/pointers/raw_ptr_counting_impl_for_test.h"
+#include "partition_alloc/pointers/raw_ptr_test_support.h"
+#include "partition_alloc/pointers/raw_ref.h"
+#include "partition_alloc/tagging.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
@@ -168,6 +167,28 @@ static_assert([]() constexpr {
   return true;
 }());
 #endif
+
+struct StructWithoutTypeBasedTraits {};
+struct BaseWithTypeBasedTraits {};
+struct DerivedWithTypeBasedTraits : BaseWithTypeBasedTraits {};
+
+namespace base::raw_ptr_traits {
+// `BaseWithTypeBasedTraits` and any derived classes have
+// `RawPtrTraits::kDummyForTest`.
+template <typename T>
+constexpr auto kTypeTraits<
+    T,
+    std::enable_if_t<std::is_base_of_v<BaseWithTypeBasedTraits, T>>> =
+    RawPtrTraits::kDummyForTest;
+}  // namespace base::raw_ptr_traits
+
+// `raw_ptr<T>` should have traits based on specialization of `kTypeTraits<T>`.
+static_assert(!ContainsFlags(raw_ptr<StructWithoutTypeBasedTraits>::Traits,
+                             base::RawPtrTraits::kDummyForTest));
+static_assert(ContainsFlags(raw_ptr<BaseWithTypeBasedTraits>::Traits,
+                            base::RawPtrTraits::kDummyForTest));
+static_assert(ContainsFlags(raw_ptr<DerivedWithTypeBasedTraits>::Traits,
+                            base::RawPtrTraits::kDummyForTest));
 
 // Don't use base::internal for testing raw_ptr API, to test if code outside
 // this namespace calls the correct functions from this namespace.
@@ -1486,12 +1507,12 @@ TEST_F(RawPtrTest, CrossKindAssignment) {
 }
 
 // Without the explicitly customized `raw_ptr::to_address()`,
-// `base::to_address()` will use the dereference operator. This is not
+// `std::to_address()` will use the dereference operator. This is not
 // what we want; this test enforces extraction semantics for
 // `to_address()`.
 TEST_F(RawPtrTest, ToAddressDoesNotDereference) {
   CountingRawPtr<int> ptr = nullptr;
-  int* raw = base::to_address(ptr);
+  int* raw = std::to_address(ptr);
   std::ignore = raw;
   EXPECT_THAT((CountingRawPtrExpectations{.get_for_dereference_cnt = 0,
                                           .get_for_extraction_cnt = 1,
@@ -1503,7 +1524,7 @@ TEST_F(RawPtrTest, ToAddressDoesNotDereference) {
 TEST_F(RawPtrTest, ToAddressGivesBackRawAddress) {
   int* raw = nullptr;
   raw_ptr<int> miracle = raw;
-  EXPECT_EQ(base::to_address(raw), base::to_address(miracle));
+  EXPECT_EQ(std::to_address(raw), std::to_address(miracle));
 }
 
 void InOutParamFuncWithPointer(int* in, int** out) {
@@ -1548,6 +1569,13 @@ TEST_F(RawPtrTest, EphemeralRawAddrPointerReference) {
   EXPECT_EQ(ptr.get(), &v1);
 }
 
+#if defined(COMPILER_GCC) && !defined(__clang__)
+// In GCC this test will optimize the return value of the constructor, so
+// assert fails. Disable optimizations to verify uninitialized attribute works
+// as expected.
+#pragma GCC push_options
+#pragma GCC optimize("O0")
+#endif
 TEST_F(RawPtrTest, AllowUninitialized) {
   constexpr uintptr_t kPattern = 0x12345678;
   uintptr_t storage = kPattern;
@@ -1555,6 +1583,9 @@ TEST_F(RawPtrTest, AllowUninitialized) {
   new (&storage) CountingRawPtrUninitialized<int>;
   EXPECT_EQ(storage, kPattern);
 }
+#if defined(COMPILER_GCC) && !defined(__clang__)
+#pragma GCC pop_options
+#endif
 
 }  // namespace
 
@@ -1576,12 +1607,15 @@ class BackupRefPtrTest : public testing::Test {
   }
 
   partition_alloc::PartitionAllocator allocator_ =
-      partition_alloc::PartitionAllocator(partition_alloc::PartitionOptions{
-          .backup_ref_ptr = partition_alloc::PartitionOptions::kEnabled,
-          .memory_tagging = {
-              .enabled = base::CPU::GetInstanceNoAllocation().has_mte()
-                             ? partition_alloc::PartitionOptions::kEnabled
-                             : partition_alloc::PartitionOptions::kDisabled}});
+      partition_alloc::PartitionAllocator([]() {
+        partition_alloc::PartitionOptions opts;
+        opts.backup_ref_ptr = partition_alloc::PartitionOptions::kEnabled;
+        opts.memory_tagging = {
+            .enabled = base::CPU::GetInstanceNoAllocation().has_mte()
+                           ? partition_alloc::PartitionOptions::kEnabled
+                           : partition_alloc::PartitionOptions::kDisabled};
+        return opts;
+      }());
 };
 
 TEST_F(BackupRefPtrTest, Basic) {
@@ -1711,7 +1745,7 @@ void RunBackupRefPtrImplAdvanceTest(
   protected_ptr += requested_size / 2;
   // end-of-allocation address should not cause an error immediately, but it may
   // result in the pointer being poisoned.
-  protected_ptr = protected_ptr + requested_size / 2;
+  protected_ptr = protected_ptr + (requested_size + 1) / 2;
 #if BUILDFLAG(BACKUP_REF_PTR_POISON_OOB_PTR)
   EXPECT_DEATH_IF_SUPPORTED(*protected_ptr = ' ', "");
   protected_ptr -= 1;  // This brings the pointer back within
@@ -1727,7 +1761,7 @@ void RunBackupRefPtrImplAdvanceTest(
   // allocation, assign it explicitly to make sure the underlying implementation
   // doesn't "switch" to the next slot.
   protected_ptr = ptr + requested_size;
-  protected_ptr -= requested_size / 2;
+  protected_ptr -= (requested_size + 1) / 2;
   protected_ptr = protected_ptr - requested_size / 2;
   EXPECT_CHECK_DEATH(protected_ptr = protected_ptr - 1);
   EXPECT_CHECK_DEATH(protected_ptr -= 1);
@@ -1773,13 +1807,13 @@ TEST_F(BackupRefPtrTest, Advance) {
   size_t raw_size = 300003;
   ASSERT_GT(raw_size, partition_alloc::internal::MaxRegularSlotSpanSize());
   ASSERT_LE(raw_size, partition_alloc::internal::kMaxBucketed);
-  requested_size = allocator_.root()->AdjustSizeForExtrasSubtract(slot_size);
+  requested_size = allocator_.root()->AdjustSizeForExtrasSubtract(raw_size);
   RunBackupRefPtrImplAdvanceTest(allocator_, requested_size);
 
   // Same for direct map.
   raw_size = 1001001;
   ASSERT_GT(raw_size, partition_alloc::internal::kMaxBucketed);
-  requested_size = allocator_.root()->AdjustSizeForExtrasSubtract(slot_size);
+  requested_size = allocator_.root()->AdjustSizeForExtrasSubtract(raw_size);
   RunBackupRefPtrImplAdvanceTest(allocator_, requested_size);
 }
 

@@ -650,10 +650,7 @@ TEST_P(VideoTrackRecorderTestParam, EncodeFrameRGB) {
   InitializeRecorder(testing::get<0>(GetParam()));
 
   const gfx::Size& frame_size = testing::get<1>(GetParam());
-  // TODO(crbug/1177593): Refactor test harness to use a cleaner parameter
-  // space.
-  if (testing::get<2>(GetParam()))
-    return;
+
   // TODO(crbug/1177593): Refactor test harness to use a cleaner parameter
   // space.
   // Let kI420 indicate owned memory, and kNv12GpuMemoryBuffer to indicate GMB
@@ -662,15 +659,19 @@ TEST_P(VideoTrackRecorderTestParam, EncodeFrameRGB) {
   if (test_frame_type == TestFrameType::kNv12Software)
     return;
 
+  const bool encode_alpha_channel = testing::get<2>(GetParam());
+  media::VideoPixelFormat pixel_format = encode_alpha_channel
+                                             ? media::PIXEL_FORMAT_ARGB
+                                             : media::PIXEL_FORMAT_XRGB;
   scoped_refptr<media::VideoFrame> video_frame =
       test_frame_type == TestFrameType::kI420
           ? media::VideoFrame::CreateZeroInitializedFrame(
-                media::PIXEL_FORMAT_XRGB, frame_size, gfx::Rect(frame_size),
-                frame_size, base::TimeDelta())
+                pixel_format, frame_size, gfx::Rect(frame_size), frame_size,
+                base::TimeDelta())
           : blink::CreateTestFrame(frame_size, gfx::Rect(frame_size),
                                    frame_size,
                                    media::VideoFrame::STORAGE_GPU_MEMORY_BUFFER,
-                                   media::PIXEL_FORMAT_XRGB, base::TimeDelta());
+                                   pixel_format, base::TimeDelta());
 
   base::RunLoop run_loop;
   EXPECT_CALL(*mock_callback_interface_, OnEncodedVideo(_, _, _, _, _, true))
@@ -728,7 +729,7 @@ TEST_P(VideoTrackRecorderTestParam,
 
 TEST_P(VideoTrackRecorderTestParam, KeyFramesGeneratedWithIntervalCount) {
   // Configure 3 delta frames for every key frame.
-  InitializeRecorder(testing::get<0>(GetParam()), /*keyframe_config=*/3);
+  InitializeRecorder(testing::get<0>(GetParam()), /*keyframe_config=*/3u);
   auto frame = media::VideoFrame::CreateBlackFrame(kTrackRecorderTestSize[0]);
 
   auto origin = base::TimeTicks::Now();

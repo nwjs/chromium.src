@@ -5,6 +5,7 @@
 #include "ash/system/privacy_hub/microphone_privacy_switch_controller.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -31,7 +32,6 @@
 #include "components/account_id/account_id.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
-#include "third_party/abseil-cpp/absl/types/optional.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/message_center/message_center.h"
 #include "ui/message_center/public/cpp/notification.h"
@@ -53,7 +53,7 @@ class FakeSensorDisabledNotificationDelegate
   }
 
   void LaunchAppAccessingMicrophone(
-      const absl::optional<std::u16string> app_name) {
+      const std::optional<std::u16string> app_name) {
     if (app_name.has_value()) {
       apps_accessing_microphone_.insert(apps_accessing_microphone_.begin(),
                                         app_name.value());
@@ -101,20 +101,14 @@ class MockFrontendAPI : public PrivacyHubDelegate {
 }  // namespace
 
 // Test fixture used to test privacy hub specific behavior.
-// The two bool params are as follows, and every combination of the two are ran:
-// 0. `IsPrivacyIndicatorsEnabled()`
-// 1. `IsVideoConferenceEnabled()`
 class PrivacyHubMicrophoneControllerTest
     : public AshTestBase,
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
+      public testing::WithParamInterface<bool> {
  public:
   PrivacyHubMicrophoneControllerTest()
       : AshTestBase(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {
     std::vector<base::test::FeatureRef> enabled_features{
         ash::features::kCrosPrivacyHub};
-    if (IsPrivacyIndicatorsEnabled()) {
-      enabled_features.push_back(features::kPrivacyIndicators);
-    }
     if (IsVideoConferenceEnabled()) {
       fake_video_conference_tray_controller_ =
           std::make_unique<FakeVideoConferenceTrayController>();
@@ -157,9 +151,7 @@ class PrivacyHubMicrophoneControllerTest
     AshTestBase::TearDown();
   }
 
-  bool IsPrivacyIndicatorsEnabled() { return std::get<0>(GetParam()); }
-
-  bool IsVideoConferenceEnabled() { return std::get<1>(GetParam()); }
+  bool IsVideoConferenceEnabled() { return GetParam(); }
 
   void SetUserPref(bool allowed) {
     Shell::Get()->session_controller()->GetActivePrefService()->SetBoolean(
@@ -227,7 +219,7 @@ class PrivacyHubMicrophoneControllerTest
         false, CrasAudioHandler::InputMuteChangeMethod::kOther);
   }
 
-  void LaunchApp(absl::optional<std::u16string> app_name) {
+  void LaunchApp(std::optional<std::u16string> app_name) {
     sensor_delegate()->LaunchAppAccessingMicrophone(app_name);
   }
 
@@ -263,7 +255,7 @@ class PrivacyHubMicrophoneControllerTest
 
 INSTANTIATE_TEST_SUITE_P(All,
                          PrivacyHubMicrophoneControllerTest,
-                         testing::Combine(testing::Bool(), testing::Bool()));
+                         testing::Bool());
 
 TEST_P(PrivacyHubMicrophoneControllerTest, SetSystemMuteOnLogin) {
   for (bool microphone_allowed : {false, true, false}) {
@@ -703,7 +695,7 @@ TEST_P(PrivacyHubMicrophoneControllerTest, NotificationText) {
 
   // Launch an app that's using the mic, but the name of the app can not be
   // determined.
-  LaunchApp(absl::nullopt);
+  LaunchApp(std::nullopt);
 
   if (IsVideoConferenceEnabled()) {
     EXPECT_FALSE(GetSWSwitchNotification());

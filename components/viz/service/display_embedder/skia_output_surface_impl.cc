@@ -26,6 +26,7 @@
 #include "components/viz/common/frame_sinks/copy_output_request.h"
 #include "components/viz/common/frame_sinks/copy_output_util.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
+#include "components/viz/service/debugger/viz_debugger.h"
 #include "components/viz/service/display/external_use_client.h"
 #include "components/viz/service/display/output_surface_client.h"
 #include "components/viz/service/display/output_surface_frame.h"
@@ -488,7 +489,7 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintCurrentFrame() {
     // CopyDst usage. So don't treat it like a root surface which generally
     // won't have or support those usages.
     skgpu::graphite::TextureInfo texture_info =
-        gpu::GetGraphiteTextureInfo(gr_context_type_, format_);
+        gpu::GraphiteBackendTextureInfo(gr_context_type_, format_);
     CHECK(texture_info.isValid());
     current_paint_.emplace(graphite_recorder_, image_info, texture_info);
   } else {
@@ -500,7 +501,7 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintCurrentFrame() {
 
 void SkiaOutputSurfaceImpl::MakePromiseSkImage(
     ImageContext* image_context,
-    const gfx::ColorSpace& yuv_color_space) {
+    const gfx::ColorSpace& color_space) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(current_paint_);
   DCHECK(!image_context->mailbox_holder().mailbox.IsZero());
@@ -533,9 +534,9 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImage(
   auto format = image_context->format();
   if (format.is_single_plane() || format.PrefersExternalSampler()) {
     MakePromiseSkImageSinglePlane(image_context_impl, /*mipmapped=*/false,
-                                  yuv_color_space);
+                                  color_space);
   } else {
-    MakePromiseSkImageMultiPlane(image_context_impl, yuv_color_space);
+    MakePromiseSkImageMultiPlane(image_context_impl, color_space);
   }
 
   if (mailbox_holder.sync_token.HasData()) {
@@ -569,11 +570,11 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
       // texture info for fallback. Fallback textures are not considered YUV
       // planes since they are allocated separately and need write usage.
       context->SetImage(
-          nullptr, {gpu::GetGraphiteTextureInfo(gr_context_type_, format)});
+          nullptr, {gpu::GraphitePromiseTextureInfo(gr_context_type_, format)});
 
       texture_infos[i] =
-          gpu::GetGraphiteTextureInfo(gr_context_type_, format,
-                                      /*plane_index=*/0, /*is_yuv_plane=*/true);
+          gpu::GraphitePromiseTextureInfo(gr_context_type_, format,
+                                          /*plane_index=*/0);
       fulfills[i] = new FulfillForPlane(context);
     }
     skgpu::graphite::YUVABackendTextureInfo yuva_backend_info(
@@ -621,7 +622,7 @@ sk_sp<SkImage> SkiaOutputSurfaceImpl::MakePromiseSkImageFromYUV(
 void SkiaOutputSurfaceImpl::MakePromiseSkImageSinglePlane(
     ImageContextImpl* image_context,
     bool mipmap,
-    const gfx::ColorSpace& yuv_color_space) {
+    const gfx::ColorSpace& color_space) {
   CHECK(!image_context->has_image());
   auto format = image_context->format();
   CHECK(format.is_single_plane() || format.PrefersExternalSampler());
@@ -631,9 +632,8 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageSinglePlane(
           ? gpu::ToClosestSkColorTypeExternalSampler(format)
           : ToClosestSkColorType(/*gpu_compositing=*/true, format);
   if (graphite_recorder_) {
-    skgpu::graphite::TextureInfo texture_info =
-        gpu::GetGraphiteTextureInfo(gr_context_type_, format, /*plane_index=*/0,
-                                    /*is_yuv_plane=*/false, mipmap);
+    skgpu::graphite::TextureInfo texture_info = gpu::GraphitePromiseTextureInfo(
+        gr_context_type_, format, /*plane_index=*/0, mipmap);
     SkColorInfo color_info(color_type, image_context->alpha_type(),
                            image_context->color_space());
     skgpu::Origin origin = image_context->origin() == kTopLeft_GrSurfaceOrigin
@@ -647,12 +647,10 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageSinglePlane(
     image_context->SetImage(std::move(image), {texture_info});
   } else {
     CHECK(gr_context_thread_safe_);
-    // NOTE: To compute the format, it is necessary to pass the ColorSpace that
-    // came originally from the TransferableResource.
     GrBackendFormat backend_format = GetGrBackendFormatForTexture(
         format, /*plane_index=*/0,
         image_context->mailbox_holder().texture_target,
-        image_context->ycbcr_info(), yuv_color_space);
+        image_context->ycbcr_info(), color_space);
     auto image = SkImages::PromiseTextureFrom(
         gr_context_thread_safe_, backend_format,
         gfx::SizeToSkISize(image_context->size()),
@@ -666,7 +664,7 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageSinglePlane(
 
 void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
     ImageContextImpl* image_context,
-    const gfx::ColorSpace& yuv_color_space) {
+    const gfx::ColorSpace& color_space) {
   CHECK(!image_context->has_image());
   auto format = image_context->format();
   CHECK(format.is_multi_plane());
@@ -674,8 +672,8 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
   SkYUVAInfo::Subsampling subsampling = gpu::ToSkYUVASubsampling(format);
   // TODO(crbug.com/828599): This should really default to rec709.
   SkYUVColorSpace sk_yuv_color_space = kRec601_SkYUVColorSpace;
-  yuv_color_space.ToSkYUVColorSpace(format.MultiplanarBitDepth(),
-                                    &sk_yuv_color_space);
+  color_space.ToSkYUVColorSpace(format.MultiplanarBitDepth(),
+                                &sk_yuv_color_space);
   SkYUVAInfo yuva_info(gfx::SizeToSkISize(image_context->size()), plane_config,
                        subsampling, sk_yuv_color_space);
   if (graphite_recorder_) {
@@ -685,8 +683,8 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
          plane_index++) {
       CHECK_EQ(image_context->origin(), kTopLeft_GrSurfaceOrigin);
       fulfills[plane_index] = new FulfillForPlane(image_context, plane_index);
-      texture_infos.emplace_back(gpu::GetGraphiteTextureInfo(
-          gr_context_type_, format, plane_index, /*is_yuv_plane=*/true));
+      texture_infos.emplace_back(gpu::GraphitePromiseTextureInfo(
+          gr_context_type_, format, plane_index));
     }
 
     skgpu::graphite::YUVABackendTextureInfo yuva_backend_info(
@@ -708,7 +706,7 @@ void SkiaOutputSurfaceImpl::MakePromiseSkImageMultiPlane(
       // that came originally from the TransferableResource.
       formats.push_back(GetGrBackendFormatForTexture(
           format, plane_index, image_context->mailbox_holder().texture_target,
-          image_context->ycbcr_info(), yuv_color_space));
+          image_context->ycbcr_info(), color_space));
       fulfills[plane_index] = new FulfillForPlane(image_context, plane_index);
     }
 
@@ -753,6 +751,11 @@ SkiaOutputSurfaceImpl::CreateImageContext(
       /*is_for_render_pass=*/false, raw_draw_if_possible);
 }
 
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+DBG_FLAG_FBOOL("skia_gpu.swap_buffers.force_calling_makecurrent",
+               force_makecurrent)
+#endif
+
 void SkiaOutputSurfaceImpl::SwapBuffers(OutputSurfaceFrame frame) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   DCHECK(!current_paint_);
@@ -779,8 +782,21 @@ void SkiaOutputSurfaceImpl::SwapBuffers(OutputSurfaceFrame frame) {
   auto callback =
       base::BindOnce(&SkiaOutputSurfaceImplOnGpu::SwapBuffers,
                      base::Unretained(impl_on_gpu_.get()), std::move(frame));
+  bool make_current =
+#if BUILDFLAG(IS_CHROMEOS_LACROS)
+      // Normally we don't need MakeCurrent for SwapBuffers, but it is done
+      // historically and there are edge cases too.
+      // For lacros, we do not call MakeCurrent here, and delay it where
+      // appropriated.
+      //
+      // TODO(crbug.com/1494032): Extend that approach for other platforms.
+      force_makecurrent();  // Defaults to false.
+#else
+      true;
+#endif
+
   EnqueueGpuTask(std::move(callback), std::move(resource_sync_tokens_),
-                 /*make_current=*/true,
+                 make_current,
                  /*need_framebuffer=*/!dependency_->IsOffscreen());
 
   // Recreate |root_ddl_recorder_| after SwapBuffers has been scheduled on GPU
@@ -854,7 +870,7 @@ SkCanvas* SkiaOutputSurfaceImpl::BeginPaintRenderPass(
     SkImageInfo image_info =
         SkImageInfo::Make(gfx::SizeToSkISize(surface_size), color_type,
                           static_cast<SkAlphaType>(alpha_type), color_space);
-    skgpu::graphite::TextureInfo texture_info = gpu::GetGraphiteTextureInfo(
+    skgpu::graphite::TextureInfo texture_info = gpu::GraphiteBackendTextureInfo(
         gr_context_type_, format, /*plane_index=*/0,
         /*is_yuv_plane=*/false, mipmap, scanout_dcomp_surface);
     if (!texture_info.isValid()) {
@@ -1526,13 +1542,10 @@ GrBackendFormat SkiaOutputSurfaceImpl::GetGrBackendFormatForTexture(
 #endif  // BUILDFLAG(ENABLE_VULKAN)
     CHECK_EQ(gr_context_type_, gpu::GrContextType::kGL);
     // Convert internal format from GLES2 to platform GL.
-    bool use_angle_rgbx_format = impl_on_gpu_->GetFeatureInfo()
-                                     ->feature_flags()
-                                     .angle_rgbx_internal_format;
+    gpu::GLFormatCaps caps(impl_on_gpu_->GetFeatureInfo());
     auto gl_format_desc = si_format.PrefersExternalSampler()
-                              ? gpu::ToGLFormatDescExternalSampler(si_format)
-                              : gpu::ToGLFormatDesc(si_format, plane_index,
-                                                    use_angle_rgbx_format);
+                              ? caps.ToGLFormatDescExternalSampler(si_format)
+                              : caps.ToGLFormatDesc(si_format, plane_index);
     auto gl_storage_internal_format = gl_format_desc.storage_internal_format;
     unsigned int texture_storage_format = gpu::GetGrGLBackendTextureFormat(
         impl_on_gpu_->GetFeatureInfo(), gl_storage_internal_format,
@@ -1706,7 +1719,7 @@ void SkiaOutputSurfaceImpl::DestroySharedImage(const gpu::Mailbox& mailbox) {
 bool SkiaOutputSurfaceImpl::SupportsBGRA() const {
   if (graphite_recorder_) {
     // TODO(crbug.com/1451789): Implement properly for Graphite.
-#if BUILDFLAG(IS_IOS) && BUILDFLAG(SKIA_USE_METAL)
+#if BUILDFLAG(IS_IOS)
     return false;
 #else
     return true;

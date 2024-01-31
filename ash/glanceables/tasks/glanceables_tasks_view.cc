@@ -8,6 +8,7 @@
 #include <string>
 
 #include "ash/api/tasks/tasks_client.h"
+#include "ash/api/tasks/tasks_types.h"
 #include "ash/glanceables/common/glanceables_list_footer_view.h"
 #include "ash/glanceables/common/glanceables_progress_bar_view.h"
 #include "ash/glanceables/common/glanceables_view_id.h"
@@ -22,6 +23,7 @@
 #include "ash/style/icon_button.h"
 #include "ash/system/unified/glanceable_tray_child_bubble.h"
 #include "ash/system/unified/tasks_combobox_model.h"
+#include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
@@ -33,16 +35,16 @@
 #include "ui/chromeos/styles/cros_tokens_color_mappings.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
-#include "ui/gfx/text_constants.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
+#include "ui/views/border.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/label_button.h"
-#include "ui/views/controls/focus_ring.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/layout/flex_layout_view.h"
+#include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
 #include "url/gurl.h"
 
@@ -51,8 +53,6 @@ namespace {
 
 constexpr int kMaximumTasks = 5;
 constexpr int kInteriorGlanceableBubbleMargin = 16;
-constexpr int kAddNewButtonCornerRadius = 16;
-constexpr auto kAddNewTaskButtonMargins = gfx::Insets::TLBR(0, 0, 16, 0);
 constexpr auto kHeaderIconButtonMargins = gfx::Insets::TLBR(0, 0, 0, 4);
 
 constexpr char kTasksManagementPage[] =
@@ -69,37 +69,28 @@ std::unique_ptr<views::LabelButton> CreateAddNewTaskButton(
   add_new_task_button->SetImageModel(
       views::Button::ButtonState::STATE_NORMAL,
       ui::ImageModel::FromVectorIcon(kGlanceablesTasksAddNewTaskIcon,
-                                     cros_tokens::kCrosSysOnSurface));
-  add_new_task_button->SetHorizontalAlignment(
-      gfx::HorizontalAlignment::ALIGN_CENTER);
-  add_new_task_button->SetImageLabelSpacing(8);
-  add_new_task_button->SetBackground(views::CreateThemedRoundedRectBackground(
-      cros_tokens::kCrosSysSystemOnBase, kAddNewButtonCornerRadius));
-  add_new_task_button->SetTextColorId(views::Button::ButtonState::STATE_NORMAL,
-                                      cros_tokens::kCrosSysOnSurface);
+                                     cros_tokens::kFocusRingColor));
+  add_new_task_button->SetImageLabelSpacing(18);
+  add_new_task_button->SetBackground(
+      views::CreateThemedSolidBackground(cros_tokens::kCrosSysSystemOnBase));
+  add_new_task_button->SetBorder(
+      views::CreateEmptyBorder(gfx::Insets::VH(13, 18)));
+  add_new_task_button->SetEnabledTextColorIds(cros_tokens::kFocusRingColor);
   add_new_task_button->SetProperty(views::kMarginsKey,
-                                   kAddNewTaskButtonMargins);
-
-  views::FocusRing::Get(add_new_task_button.get())
-      ->SetColorId(cros_tokens::kCrosSysFocusRing);
-  views::HighlightPathGenerator::Install(
-      add_new_task_button.get(),
-      std::make_unique<views::RoundRectHighlightPathGenerator>(
-          gfx::Insets(), kAddNewButtonCornerRadius));
-
+                                   gfx::Insets::TLBR(0, 0, 2, 0));
   return add_new_task_button;
 }
 
 }  // namespace
 
-GlanceablesTasksViewBase::GlanceablesTasksViewBase(
-    DetailedViewDelegate* delegate)
-    : GlanceableTrayChildBubble(delegate, /*for_glanceables_container=*/true) {}
+GlanceablesTasksViewBase::GlanceablesTasksViewBase()
+    : GlanceableTrayChildBubble(/*for_glanceables_container=*/true) {}
+
+BEGIN_METADATA(GlanceablesTasksViewBase)
+END_METADATA
 
 GlanceablesTasksView::GlanceablesTasksView(
-    DetailedViewDelegate* delegate,
-    ui::ListModel<api::TaskList>* task_list)
-    : GlanceablesTasksViewBase(delegate) {
+    const ui::ListModel<api::TaskList>* task_lists) {
   auto* layout_manager =
       SetLayoutManager(std::make_unique<views::FlexLayout>());
   layout_manager
@@ -122,23 +113,28 @@ GlanceablesTasksView::GlanceablesTasksView(
   progress_bar_ = AddChildView(std::make_unique<GlanceablesProgressBarView>());
   progress_bar_->UpdateProgressBarVisibility(/*visible=*/false);
 
-  add_new_task_button_ = AddChildView(CreateAddNewTaskButton(
+  auto* const list_view = AddChildView(std::make_unique<views::View>());
+  list_view->SetPaintToLayer();
+  list_view->layer()->SetFillsBoundsOpaquely(false);
+  list_view->layer()->SetRoundedCornerRadius(gfx::RoundedCornersF(16));
+  list_view->SetLayoutManager(std::make_unique<views::BoxLayout>(
+      views::BoxLayout::Orientation::kVertical));
+
+  add_new_task_button_ = list_view->AddChildView(CreateAddNewTaskButton(
       base::BindRepeating(&GlanceablesTasksView::AddNewTaskButtonPressed,
                           base::Unretained(this))));
 
-  task_items_container_view_ = AddChildView(std::make_unique<views::View>());
+  task_items_container_view_ =
+      list_view->AddChildView(std::make_unique<views::View>());
   task_items_container_view_->SetAccessibleRole(ax::mojom::Role::kList);
 
   task_items_container_view_->SetID(
       base::to_underlying(GlanceablesViewId::kTasksBubbleListContainer));
-  task_items_container_view_->SetPaintToLayer();
-  task_items_container_view_->layer()->SetFillsBoundsOpaquely(false);
-  task_items_container_view_->layer()->SetRoundedCornerRadius(
-      gfx::RoundedCornersF(16));
-  auto* layout = task_items_container_view_->SetLayoutManager(
-      std::make_unique<views::BoxLayout>(
-          views::BoxLayout::Orientation::kVertical));
-  layout->set_between_child_spacing(2);
+  auto* task_items_container_view_layout =
+      task_items_container_view_->SetLayoutManager(
+          std::make_unique<views::BoxLayout>(
+              views::BoxLayout::Orientation::kVertical));
+  task_items_container_view_layout->set_between_child_spacing(2);
 
   auto* const header_icon =
       tasks_header_view_->AddChildView(std::make_unique<IconButton>(
@@ -147,12 +143,12 @@ GlanceablesTasksView::GlanceablesTasksView(
                               TasksLaunchSource::kHeaderButton),
           IconButton::Type::kMedium, &kGlanceablesTasksIcon,
           IDS_GLANCEABLES_TASKS_HEADER_ICON_ACCESSIBLE_NAME));
-  header_icon->SetBackgroundColorId(cros_tokens::kCrosSysBaseElevated);
+  header_icon->SetBackgroundColor(cros_tokens::kCrosSysBaseElevated);
   header_icon->SetProperty(views::kMarginsKey, kHeaderIconButtonMargins);
   header_icon->SetID(
       base::to_underlying(GlanceablesViewId::kTasksBubbleHeaderIcon));
 
-  tasks_combobox_model_ = std::make_unique<TasksComboboxModel>(task_list);
+  tasks_combobox_model_ = std::make_unique<TasksComboboxModel>(task_lists);
   task_list_combo_box_view_ = tasks_header_view_->AddChildView(
       std::make_unique<Combobox>(tasks_combobox_model_.get()));
   task_list_combo_box_view_->SetID(
@@ -206,13 +202,14 @@ void GlanceablesTasksView::ActionButtonPressed(TasksLaunchSource source) {
 }
 
 void GlanceablesTasksView::AddNewTaskButtonPressed() {
+  add_new_task_button_->SetState(views::Button::ButtonState::STATE_DISABLED);
   const auto* const active_task_list = tasks_combobox_model_->GetTaskListAt(
       task_list_combo_box_view_->GetSelectedIndex().value());
   // TODO(b/301253574): make sure there is only one view is in `kEdit` state.
-  auto* const pending_task = task_items_container_view_->AddChildViewAt(
+  pending_new_task_ = task_items_container_view_->AddChildViewAt(
       CreateTaskView(active_task_list->id, /*task=*/nullptr),
       /*index=*/0);
-  pending_task->UpdateTaskTitleViewForState(
+  pending_new_task_->UpdateTaskTitleViewForState(
       GlanceablesTaskView::TaskTitleViewState::kEdit);
   PreferredSizeChanged();
 }
@@ -243,7 +240,7 @@ void GlanceablesTasksView::ScheduleUpdateTasksList(bool initial_update) {
   progress_bar_->UpdateProgressBarVisibility(/*visible=*/true);
   task_list_combo_box_view_->SetAccessibleDescription(u"");
 
-  api::TaskList* active_task_list = tasks_combobox_model_->GetTaskListAt(
+  const auto* const active_task_list = tasks_combobox_model_->GetTaskListAt(
       task_list_combo_box_view_->GetSelectedIndex().value());
   tasks_combobox_model_->SaveLastSelectedTaskList(active_task_list->id);
   Shell::Get()->glanceables_controller()->GetTasksClient()->GetTasks(
@@ -253,10 +250,11 @@ void GlanceablesTasksView::ScheduleUpdateTasksList(bool initial_update) {
                      active_task_list->title, initial_update));
 }
 
-void GlanceablesTasksView::UpdateTasksList(const std::string& task_list_id,
-                                           const std::string& task_list_title,
-                                           bool initial_update,
-                                           ui::ListModel<api::Task>* tasks) {
+void GlanceablesTasksView::UpdateTasksList(
+    const std::string& task_list_id,
+    const std::string& task_list_title,
+    bool initial_update,
+    const ui::ListModel<api::Task>* tasks) {
   if (initial_update) {
     base::UmaHistogramCounts100(
         "Ash.Glanceables.TimeManagement.TasksCountInDefaultTaskList",
@@ -334,16 +332,46 @@ void GlanceablesTasksView::MarkTaskAsCompleted(const std::string& task_list_id,
       task_list_id, task_id, completed);
 }
 
-void GlanceablesTasksView::SaveTask(const std::string& task_list_id,
-                                    const std::string& task_id,
-                                    const std::string& title) {
-  // TODO(b/301253574): show/hide `progress_bar_` and/or an error message.
-  auto* const client = Shell::Get()->glanceables_controller()->GetTasksClient();
+void GlanceablesTasksView::SaveTask(
+    const std::string& task_list_id,
+    const std::string& task_id,
+    const std::string& title,
+    api::TasksClient::OnTaskSavedCallback callback) {
   if (task_id.empty()) {
-    client->AddTask(task_list_id, title);
-  } else {
-    client->UpdateTask(task_list_id, task_id, title, base::DoNothing());
+    // Empty `task_id` applies only for `pending_new_task_`, meaning that the
+    // task has not yet been created. Verify that this task has a non-empty
+    // title, otherwise just delete the view from the scrollable container.
+    CHECK(pending_new_task_);
+    views::View* view_to_delete = pending_new_task_;
+    pending_new_task_ = nullptr;
+    add_new_task_button_->SetState(views::Button::ButtonState::STATE_NORMAL);
+    if (title.empty() && view_to_delete) {
+      task_items_container_view_->RemoveChildViewT(view_to_delete);
+      return;
+    }
   }
+
+  progress_bar_->UpdateProgressBarVisibility(/*visible=*/true);
+
+  auto* const client = Shell::Get()->glanceables_controller()->GetTasksClient();
+  auto on_task_saved =
+      base::BindOnce(&GlanceablesTasksView::OnTaskSaved,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback));
+  if (task_id.empty()) {
+    client->AddTask(task_list_id, title, std::move(on_task_saved));
+  } else {
+    client->UpdateTask(task_list_id, task_id, title, std::move(on_task_saved));
+  }
+}
+
+void GlanceablesTasksView::OnTaskSaved(
+    api::TasksClient::OnTaskSavedCallback callback,
+    const api::Task* task) {
+  if (!task) {
+    // TODO(b/301253574): show error message.
+  }
+  progress_bar_->UpdateProgressBarVisibility(/*visible=*/false);
+  std::move(callback).Run(task);
 }
 
 BEGIN_METADATA(GlanceablesTasksView, views::View)
