@@ -7194,6 +7194,8 @@ ChromeContentBrowserClient::GetAsyncCheckTracker(
     bool is_consumer_lookup_enabled,
     safe_browsing::hash_realtime_utils::HashRealTimeSelection
         hash_realtime_selection) {
+  return nullptr;
+#if 0
   content::WebContents* contents = wc_getter.Run();
   if (!contents || !safe_browsing_service_ ||
       !safe_browsing_service_->ui_manager()) {
@@ -7210,6 +7212,7 @@ ChromeContentBrowserClient::GetAsyncCheckTracker(
   }
   return safe_browsing::AsyncCheckTracker::GetOrCreateForWebContents(
       contents, safe_browsing_service_->ui_manager().get());
+#endif
 }
 
 void ChromeContentBrowserClient::ReportLegacyTechEvent(
