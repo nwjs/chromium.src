@@ -623,7 +623,7 @@ extensions::AppWindowRegistry::AppWindowList GetAppWindowsForNSWindow(
       AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(
           [NSApp keyWindow]);
   if (appWindow)
-    DevToolsWindow::OpenDevToolsWindow(appWindow->web_contents());
+    DevToolsWindow::OpenDevToolsWindow(appWindow->web_contents(), DevToolsOpenedByAction::kConsoleShortcut);
 }
 
 @end

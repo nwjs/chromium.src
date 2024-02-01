@@ -203,7 +203,7 @@ bool MessagePumpUVNSRunLoop::RunWork() {
   PushWorkItemScope();
   
   if (next_work_info.is_immediate()) {
-    CFRunLoopSourceSignal(work_source_);
+    CFRunLoopSourceSignal(work_source_.get());
     return true;
   } else {
     ScheduleDelayedWork(next_work_info);
@@ -233,7 +233,7 @@ void MessagePumpUVNSRunLoop::RunIdleWork() {
   bool did_work = delegate_->DoIdleWork();
   PushWorkItemScope();
   if (did_work) {
-    CFRunLoopSourceSignal(work_source_);
+    CFRunLoopSourceSignal(work_source_.get());
   }
 
   return;
