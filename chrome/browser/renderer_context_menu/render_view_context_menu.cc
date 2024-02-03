@@ -4471,11 +4471,14 @@ bool RenderViewContextMenu::CanTranslate(bool menu_logging) {
 }
 
 bool RenderViewContextMenu::CanPartiallyTranslateTargetLanguage() {
+  return false;
+#if 0
   ChromeTranslateClient* chrome_translate_client =
       ChromeTranslateClient::FromWebContents(embedder_web_contents_);
   return chrome_translate_client &&
          chrome_translate_client->GetTranslateManager()
              ->CanPartiallyTranslateTargetLanguage();
+#endif
 }
 
 void RenderViewContextMenu::MaybePrepareForLensQuery() {

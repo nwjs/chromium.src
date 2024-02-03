@@ -477,9 +477,10 @@ void DownloadsDOMHandler::DeepScan(const std::string& id) {
     PromptForScanningInBubble(GetWebUIWebContents(), download);
     return;
   }
-
+#if 0
   LogDeepScanEvent(download,
                    safe_browsing::DeepScanEvent::kPromptAcceptedFromWebUI);
+#endif
   DownloadItemModel model(download);
   DownloadCommands commands(model.GetWeakPtr());
   commands.ExecuteCommand(DownloadCommands::DEEP_SCAN);
