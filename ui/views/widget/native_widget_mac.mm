@@ -907,10 +907,6 @@ void NativeWidgetMac::SetVisibilityAnimationTransition(
     GetNSWindowMojo()->SetTransitionsToAnimate(transitions);
 }
 
-bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
-  return content::g_support_transparency;
-}
-
 ui::GestureRecognizer* NativeWidgetMac::GetGestureRecognizer() {
   static base::NoDestructor<ui::GestureRecognizerImplMac> recognizer;
   return recognizer.get();

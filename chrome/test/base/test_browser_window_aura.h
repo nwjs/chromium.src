@@ -28,7 +28,7 @@ class TestBrowserWindowAura : public TestBrowserWindow {
 
   // TestBrowserWindow overrides:
   void UpdateDraggableRegions(
-      const std::vector<chrome::mojom::DraggableRegionPtr>& regions) override;
+      const std::vector<extensions::mojom::DraggableRegionPtr>& regions) override;
   SkRegion* GetDraggableRegion() override;
   gfx::NativeWindow GetNativeWindow() const override;
   void Show() override;
